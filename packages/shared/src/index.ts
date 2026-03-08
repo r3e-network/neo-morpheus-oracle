@@ -1,6 +1,7 @@
 export type SupportedChain = "neo_n3" | "neo_x";
 
 export type OraclePayload = {
+  project_slug?: string;
   url?: string;
   method?: string;
   headers?: Record<string, string>;

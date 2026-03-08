@@ -66,6 +66,20 @@ Recommended production protection:
 
 The dashboard includes a Provider Configs panel that can manage these records directly.
 
+## Request-Time Resolution
+
+The web API layer resolves provider defaults **before** proxying to Phala:
+
+- `GET /api/feeds/:symbol?provider=twelvedata&project_slug=demo`
+- `POST /api/oracle/query` with `{ "provider": "twelvedata", "project_slug": "demo" }`
+- `POST /api/oracle/smart-fetch` with the same fields
+
+Resolution rules:
+
+- request-level `provider_params` override stored project config keys
+- stored project config fills in missing provider defaults
+- disabled project providers are rejected before the request reaches Phala
+
 ## Custom Source Requests
 
 Users can bypass built-ins and send direct Oracle requests with:

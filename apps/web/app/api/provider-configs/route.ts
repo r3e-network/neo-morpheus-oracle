@@ -1,4 +1,8 @@
-import { getServerSupabaseClient, isAuthorizedAdminRequest } from "@/lib/server-supabase";
+import {
+  getServerSupabaseClient,
+  isAuthorizedAdminRequest,
+  resolveProjectIdBySlug,
+} from "@/lib/server-supabase";
 
 function badRequest(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -13,19 +17,6 @@ function requireAdmin(request: Request) {
   return badRequest("unauthorized", 401);
 }
 
-async function resolveProjectId(
-  supabase: NonNullable<ReturnType<typeof getServerSupabaseClient>>,
-  projectSlug: string,
-) {
-  const { data, error } = await supabase
-    .from("morpheus_projects")
-    .select("id, slug")
-    .eq("slug", projectSlug)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.id || null;
-}
-
 export async function GET(request: Request) {
   const unauthorized = requireAdmin(request);
   if (unauthorized) return unauthorized;
@@ -35,7 +26,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const projectSlug = (url.searchParams.get("project_slug") || "demo").trim();
-  const projectId = await resolveProjectId(supabase, projectSlug);
+  const projectId = await resolveProjectIdBySlug(supabase, projectSlug);
   if (!projectId) return badRequest(`project not found: ${projectSlug}`, 404);
 
   const { data, error } = await supabase
@@ -66,7 +57,7 @@ export async function POST(request: Request) {
   if (!providerId) return badRequest("provider_id required");
   if (!isPlainObject(config)) return badRequest("config must be a JSON object");
 
-  const projectId = await resolveProjectId(supabase, projectSlug);
+  const projectId = await resolveProjectIdBySlug(supabase, projectSlug);
   if (!projectId) return badRequest(`project not found: ${projectSlug}`, 404);
 
   const payload = {
@@ -99,7 +90,7 @@ export async function DELETE(request: Request) {
   const providerId = (url.searchParams.get("provider_id") || "").trim();
   if (!providerId) return badRequest("provider_id required");
 
-  const projectId = await resolveProjectId(supabase, projectSlug);
+  const projectId = await resolveProjectIdBySlug(supabase, projectSlug);
   if (!projectId) return badRequest(`project not found: ${projectSlug}`, 404);
 
   const { error } = await supabase

@@ -29,6 +29,7 @@ export function Dashboard() {
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
   const [provider, setProvider] = useState("twelvedata");
   const [providers, setProviders] = useState<Array<{ id: string; description?: string }>>([]);
+  const [requestProjectSlug, setRequestProjectSlug] = useState("demo");
   const [networkInfo, setNetworkInfo] = useState<any>(null);
 
   useEffect(() => {
@@ -92,19 +93,23 @@ export function Dashboard() {
 
         <div className="card">
           <h3>Feed Quote</h3>
-          <input value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+          <div className="grid grid-2">
+            <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="symbol" />
+            <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project slug" />
+          </div>
           <select value={provider} onChange={(e) => setProvider(e.target.value)}>
             {(providers.length ? providers : [{ id: provider }]).map((item) => (<option key={item.id} value={item.id}>{item.id}</option>))}
           </select>
-          <button onClick={async () => setOutput(await callJSON(`/api/feeds/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}`, undefined, "GET"))}>Get Price</button>
+          <button onClick={async () => setOutput(await callJSON(`/api/feeds/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}&project_slug=${encodeURIComponent(requestProjectSlug)}`, undefined, "GET"))}>Get Price</button>
         </div>
       </section>
 
       <section className="card">
         <h3>Oracle Playground</h3>
         <small>Try fetch-only or fetch+compute flows. Paste an already encrypted payload if you want a private call.</small>
-        <div className="grid grid-2">
+        <div className="grid grid-3">
           <input value={oracleUrl} onChange={(e) => setOracleUrl(e.target.value)} placeholder="https://api.example.com/private" />
+          <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project slug" />
           <select value={oracleTargetChain} onChange={(e) => setOracleTargetChain(e.target.value)}>
             <option value="neo_n3">neo_n3</option>
             <option value="neo_x">neo_x</option>
@@ -117,6 +122,7 @@ export function Dashboard() {
             url: oracleUrl,
             encrypted_payload: oracleEncryptedPayload || undefined,
             provider,
+            project_slug: requestProjectSlug || undefined,
             target_chain: oracleTargetChain,
           }))}>Query Oracle</button>
           <button onClick={async () => setOutput(await callJSON("/api/oracle/smart-fetch", {
@@ -124,6 +130,7 @@ export function Dashboard() {
             encrypted_payload: oracleEncryptedPayload || undefined,
             script: oracleScript,
             provider,
+            project_slug: requestProjectSlug || undefined,
             target_chain: oracleTargetChain,
           }))}>Smart Fetch</button>
         </div>
