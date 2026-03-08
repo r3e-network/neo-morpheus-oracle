@@ -1,0 +1,133 @@
+import {
+  env,
+  getJsonPathValue,
+  normalizeHeaders,
+  normalizeTargetChain,
+  parseBodyMaybe,
+  trimString,
+} from "./core.js";
+import { buildSignedResultEnvelope } from "./chain.js";
+import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./oracle-crypto.js";
+
+export function normalizeOracleUrl(rawUrl) {
+  const parsedUrl = new URL(trimString(rawUrl));
+  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+    throw new Error("url must use http or https");
+  }
+  const host = parsedUrl.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host === "[::1]" ||
+    host === "0.0.0.0" ||
+    host.endsWith(".local") ||
+    host === "169.254.169.254" ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  ) {
+    throw new Error("private/internal URLs not allowed");
+  }
+
+  const rawAllowlist = env("ORACLE_HTTP_ALLOWLIST");
+  if (rawAllowlist) {
+    const allowlist = rawAllowlist.split(",").map((entry) => trimString(entry)).filter(Boolean);
+    if (allowlist.length > 0) {
+      const allowed = allowlist.some((entry) => parsedUrl.href.startsWith(entry) || parsedUrl.origin === entry.replace(/\/$/, ""));
+      if (!allowed) throw new Error("url is not in ORACLE_HTTP_ALLOWLIST");
+    }
+  }
+
+  return parsedUrl.toString();
+}
+
+export async function performOracleFetch(payload) {
+  const url = normalizeOracleUrl(payload.url);
+  const decryptedToken = await decryptEncryptedToken(resolveEncryptedPayload(payload));
+  const headers = normalizeHeaders(payload.headers);
+  const tokenHeader = trimString(payload.token_header || "Authorization") || "Authorization";
+  if (decryptedToken) {
+    const tokenPrefix = payload.token_prefix !== undefined
+      ? String(payload.token_prefix)
+      : tokenHeader.toLowerCase() === "authorization"
+        ? "Bearer "
+        : "";
+    headers.set(tokenHeader, `${tokenPrefix}${decryptedToken}`);
+  }
+
+  const response = await fetch(url, {
+    method: payload.method || "GET",
+    headers,
+    body: payload.body,
+  });
+
+  const rawResponse = await response.text();
+  const responseHeaders = Object.fromEntries(response.headers.entries());
+  const data = parseBodyMaybe(rawResponse, response.headers.get("content-type")) ?? rawResponse;
+  const selectedValue = getJsonPathValue(data, payload.json_path);
+
+  return {
+    upstream_status: response.status,
+    upstream_headers: responseHeaders,
+    raw_response: rawResponse,
+    data,
+    selected_value: selectedValue,
+  };
+}
+
+export async function buildOracleResponse(payload, mode) {
+  const targetChain = normalizeTargetChain(payload.target_chain);
+  const fetchResult = await performOracleFetch(payload);
+  const context = {
+    ...fetchResult,
+    target_chain: targetChain,
+    target_chain_id: payload.target_chain_id ? String(payload.target_chain_id) : null,
+    request_source: trimString(payload.request_source || "chain-dispatcher") || "chain-dispatcher",
+    encrypted_token_present: Boolean(resolveEncryptedPayload(payload)),
+  };
+  const executed = await executeProgrammableOracle(payload, context);
+
+  const derived = {
+    target_chain: context.target_chain,
+    target_chain_id: context.target_chain_id,
+    request_source: context.request_source,
+    result: executed.result,
+    extracted_value: fetchResult.selected_value ?? null,
+    upstream_status: fetchResult.upstream_status,
+  };
+  const signed = buildSignedResultEnvelope(derived);
+
+  if (mode === "query") {
+    return {
+      mode: executed.executed ? "fetch+compute" : "fetch",
+      request_source: context.request_source,
+      target_chain: context.target_chain,
+      target_chain_id: context.target_chain_id,
+      status_code: fetchResult.upstream_status,
+      headers: fetchResult.upstream_headers,
+      body: fetchResult.raw_response,
+      body_json: typeof fetchResult.data === "string" ? null : fetchResult.data,
+      extracted_value: fetchResult.selected_value ?? null,
+      result: executed.result,
+      output_hash: signed.output_hash,
+      signature: signed.signature,
+      public_key: signed.public_key,
+      attestation_hash: signed.attestation_hash,
+    };
+  }
+
+  return {
+    mode: executed.executed ? "fetch+compute" : "fetch",
+    request_source: context.request_source,
+    target_chain: context.target_chain,
+    target_chain_id: context.target_chain_id,
+    upstream_status: fetchResult.upstream_status,
+    result: executed.result,
+    extracted_value: fetchResult.selected_value ?? null,
+    output_hash: signed.output_hash,
+    signature: signed.signature,
+    public_key: signed.public_key,
+    attestation_hash: signed.attestation_hash,
+  };
+}
