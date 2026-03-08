@@ -1,23 +1,23 @@
-import { json } from "./core.js";
-import { requireAuth } from "./auth.js";
+import { json } from "./platform/core.js";
+import { requireAuth } from "./platform/auth.js";
 import {
   buildOracleResponse,
   ensureOracleKeyMaterial,
   handleFeedsPrice,
   handleOracleFeed,
   handleVrf,
-} from "./oracle.js";
-import { handleProvidersList } from "./providers.js";
+} from "./oracle/index.js";
+import { handleProvidersList } from "./oracle/providers.js";
 import {
   handleComputeExecute,
   handleComputeFunctions,
   handleComputeJobs,
-} from "./compute.js";
+} from "./compute/index.js";
 import {
   handleRelayTransaction,
   handleSignPayload,
   handleTxProxyInvoke,
-} from "./chain.js";
+} from "./chain/index.js";
 
 function handleHealth() {
   return json(200, {

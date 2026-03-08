@@ -3,13 +3,13 @@ export {
   ensureOracleKeyMaterial,
   decryptEncryptedToken,
   executeProgrammableOracle,
-} from "./oracle-crypto.js";
+} from "./crypto.js";
 
 export {
   normalizeOracleUrl,
   performOracleFetch,
   buildOracleResponse,
-} from "./oracle-fetch.js";
+} from "./fetch.js";
 
 export {
   normalizePairSymbol,

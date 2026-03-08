@@ -1,5 +1,5 @@
 import { JsonRpcProvider, Wallet as EvmWallet } from "ethers";
-import { DEFAULT_WAIT_TIMEOUT_MS, env, normalizeTargetChain, sha256Hex, stableStringify, trimString } from "./core.js";
+import { DEFAULT_WAIT_TIMEOUT_MS, env, normalizeTargetChain, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { resolveSigningBytes } from "./signing.js";
 
 export function loadNeoXContext(payload = {}, { required = false, requireRpc = false } = {}) {

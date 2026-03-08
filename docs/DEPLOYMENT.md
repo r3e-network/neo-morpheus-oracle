@@ -19,6 +19,7 @@ Required env vars:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- optional but recommended in production: `MORPHEUS_PROVIDER_CONFIG_API_KEY` or `ADMIN_CONSOLE_API_KEY`
 
 ## Phala Worker
 
@@ -32,7 +33,15 @@ Deploy `workers/phala-worker` to Phala with:
 
 ## Supabase
 
-Apply `supabase/migrations/0001_morpheus_schema.sql`.
+Apply, in order:
+
+- `supabase/migrations/0001_morpheus_schema.sql`
+- `supabase/migrations/0002_morpheus_policies_and_seeds.sql`
+- `supabase/migrations/0003_provider_configs.sql`
+
+Optional:
+
+- `supabase/seed.sql`
 
 ## Contracts
 
@@ -49,6 +58,12 @@ The intended logic is consistent across both chains:
 - privacy oracle requests
 - off-chain privacy compute through oracle/compute worker modules
 - datafeed storage and updater-controlled publication
+
+Provider control-plane notes:
+
+- built-in provider metadata lives in the worker provider registry
+- project-level provider defaults live in Supabase `morpheus_provider_configs`
+- the web dashboard can manage provider configs through `/api/provider-configs`
 
 ## Optional On-Chain Key Publication
 

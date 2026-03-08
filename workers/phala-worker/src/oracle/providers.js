@@ -1,4 +1,4 @@
-import { env, json, trimString } from "./core.js";
+import { env, json, trimString } from "../platform/core.js";
 
 export const BUILTIN_PROVIDER_CATALOG = [
   {

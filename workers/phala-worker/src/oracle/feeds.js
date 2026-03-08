@@ -1,6 +1,6 @@
 import { Interface } from "ethers";
-import { env, json, strip0x, trimString } from "./core.js";
-import { buildSignedResultEnvelope, isConfiguredHash160, loadNeoN3Context, normalizeNeoHash160, relayNeoN3Invocation, relayNeoXTransaction } from "./chain.js";
+import { env, json, strip0x, trimString } from "../platform/core.js";
+import { buildSignedResultEnvelope, isConfiguredHash160, loadNeoN3Context, normalizeNeoHash160, relayNeoN3Invocation, relayNeoXTransaction } from "../chain/index.js";
 import { buildProviderRequest, fetchProviderJSON } from "./providers.js";
 
 export function normalizePairSymbol(rawSymbol) {

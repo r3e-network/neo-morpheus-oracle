@@ -1,16 +1,16 @@
 import { randomUUID } from "crypto";
 import { experimental, rpc as neoRpc, tx, u, wallet as neoWallet } from "@cityofzion/neon-js";
-import { DEFAULT_NEO_NETWORK_MAGIC, DEFAULT_POLL_INTERVAL_MS, DEFAULT_WAIT_TIMEOUT_MS, trimString } from "./core.js";
+import { DEFAULT_NEO_NETWORK_MAGIC, DEFAULT_POLL_INTERVAL_MS, DEFAULT_WAIT_TIMEOUT_MS, trimString } from "../platform/core.js";
 import {
   allowlistAllows,
   canonicalizeMethodName,
   checkNeoIntentPolicy,
   normalizeContractHash,
   toNeoContractParam,
-} from "./allowlist.js";
+} from "../platform/allowlist.js";
 import { forgetRequestId, rememberRequestId } from "./signing.js";
-import { sleep } from "./core.js";
-import { env } from "./core.js";
+import { sleep } from "../platform/core.js";
+import { env } from "../platform/core.js";
 
 export function getNeoSigners(account, scope = "CalledByEntry") {
   return [{ account: account.scriptHash, scopes: trimString(scope) || "CalledByEntry" }];

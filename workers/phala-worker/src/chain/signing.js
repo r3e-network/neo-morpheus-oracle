@@ -1,4 +1,4 @@
-import { REPLAY_WINDOW_MS, sha256Hex, stableStringify, strip0x, trimString } from "./core.js";
+import { REPLAY_WINDOW_MS, sha256Hex, stableStringify, strip0x, trimString } from "../platform/core.js";
 import { loadNeoN3Context } from "./neo-n3.js";
 import { wallet as neoWallet } from "@cityofzion/neon-js";
 

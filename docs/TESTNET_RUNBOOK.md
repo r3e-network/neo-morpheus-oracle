@@ -19,6 +19,7 @@ Fill in at least:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- optional `MORPHEUS_PROVIDER_CONFIG_API_KEY` or `ADMIN_CONSOLE_API_KEY`
 - `NEO_TESTNET_WIF`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
 - `PHALA_NEOX_PRIVATE_KEY`
@@ -30,6 +31,7 @@ Run:
 
 - `supabase/migrations/0001_morpheus_schema.sql`
 - `supabase/migrations/0002_morpheus_policies_and_seeds.sql`
+- `supabase/migrations/0003_provider_configs.sql`
 - optional `supabase/seed.sql`
 
 ## 4. Build contracts
@@ -90,5 +92,6 @@ npm --prefix apps/web run dev
 - `GET /api/oracle/public-key`
 - `GET /api/compute/functions`
 - `GET /api/feeds/NEO-USD`
+- `GET /api/provider-configs?project_slug=demo` with `x-admin-api-key` if configured
 - run one `compute` builtin call
 - run one `oracle smart-fetch` call with encrypted payload

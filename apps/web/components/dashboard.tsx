@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ProviderConfigPanel } from "./provider-config-panel";
 
 async function callJSON(path: string, body?: unknown, method = "POST") {
   const res = await fetch(path, {
@@ -144,6 +145,8 @@ export function Dashboard() {
           target_chain: oracleTargetChain
         }))}>Execute Built-in</button>
       </section>
+
+      <ProviderConfigPanel />
 
       <section className="card">
         <h3>Output</h3>

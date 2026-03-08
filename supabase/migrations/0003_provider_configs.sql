@@ -43,3 +43,12 @@ with check (
     where p.id = project_id and p.owner_user_id = auth.uid()
   )
 );
+
+create policy if not exists morpheus_provider_configs_delete_own on morpheus_provider_configs
+for delete to authenticated
+using (
+  exists (
+    select 1 from morpheus_projects p
+    where p.id = project_id and p.owner_user_id = auth.uid()
+  )
+);

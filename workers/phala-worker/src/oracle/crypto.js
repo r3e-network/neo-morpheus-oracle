@@ -1,4 +1,4 @@
-import { decodeBase64, resolveScript, toPem, trimString } from "./core.js";
+import { decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
 
 let oracleKeyMaterialPromise;
 

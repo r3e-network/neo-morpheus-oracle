@@ -5,10 +5,10 @@ import {
   normalizeTargetChain,
   parseBodyMaybe,
   trimString,
-} from "./core.js";
+} from "../platform/core.js";
 import { buildProviderRequest, fetchProviderJSON } from "./providers.js";
-import { buildSignedResultEnvelope } from "./chain.js";
-import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./oracle-crypto.js";
+import { buildSignedResultEnvelope } from "../chain/index.js";
+import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./crypto.js";
 
 export function normalizeOracleUrl(rawUrl) {
   const parsedUrl = new URL(trimString(rawUrl));

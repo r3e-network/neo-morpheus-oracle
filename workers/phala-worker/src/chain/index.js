@@ -1,4 +1,4 @@
-import { json, normalizeTargetChain, sha256Hex, stableStringify } from "./core.js";
+import { json, normalizeTargetChain, sha256Hex, stableStringify } from "../platform/core.js";
 import { resolveSigningBytes, buildSignedResultEnvelope } from "./signing.js";
 import { loadNeoN3Context, relayNeoN3Invocation, sponsorNeoN3Transaction, broadcastNeoN3RawTransaction } from "./neo-n3.js";
 import { handleSignPayloadNeoX, relayNeoXTransaction } from "./neo-x.js";
@@ -7,7 +7,7 @@ import { wallet as neoWallet } from "@cityofzion/neon-js";
 export { buildSignedResultEnvelope } from "./signing.js";
 export { loadNeoN3Context, relayNeoN3Invocation, sponsorNeoN3Transaction, broadcastNeoN3RawTransaction } from "./neo-n3.js";
 export { relayNeoXTransaction } from "./neo-x.js";
-export { normalizeNeoHash160, isConfiguredHash160 } from "./allowlist.js";
+export { normalizeNeoHash160, isConfiguredHash160 } from "../platform/allowlist.js";
 
 export async function handleSignPayload(payload) {
   const targetChain = normalizeTargetChain(payload.target_chain);

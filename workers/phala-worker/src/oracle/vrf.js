@@ -1,5 +1,5 @@
-import { json } from "./core.js";
-import { buildSignedResultEnvelope } from "./chain.js";
+import { json } from "../platform/core.js";
+import { buildSignedResultEnvelope } from "../chain/index.js";
 
 export async function handleVrf(payload) {
   const bytes = crypto.getRandomValues(new Uint8Array(32));

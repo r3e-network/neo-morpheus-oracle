@@ -1,6 +1,6 @@
 import { keccak256, toUtf8Bytes } from "ethers";
-import { json, normalizeTargetChain, resolveScript, sha256Hex, stableStringify, trimString } from "./core.js";
-import { buildSignedResultEnvelope } from "./chain.js";
+import { json, normalizeTargetChain, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
+import { buildSignedResultEnvelope } from "../chain/index.js";
 
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
