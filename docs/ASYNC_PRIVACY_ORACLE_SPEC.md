@@ -61,3 +61,14 @@ or
   "target_chain": "neo_x"
 }
 ```
+
+
+## Built-in Providers
+
+Requests may optionally specify a built-in provider via `provider` and `provider_params`.
+
+First built-in provider:
+
+- `twelvedata` — direct market-data source with API key auth
+
+If `provider` is omitted, callers may still use their own `url` plus encrypted secret payloads.

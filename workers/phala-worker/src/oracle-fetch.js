@@ -6,6 +6,7 @@ import {
   parseBodyMaybe,
   trimString,
 } from "./core.js";
+import { buildProviderRequest, fetchProviderJSON } from "./providers.js";
 import { buildSignedResultEnvelope } from "./chain.js";
 import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./oracle-crypto.js";
 
@@ -43,6 +44,22 @@ export function normalizeOracleUrl(rawUrl) {
 }
 
 export async function performOracleFetch(payload) {
+  const providerRequest = buildProviderRequest(payload);
+  if (providerRequest) {
+    const response = await fetchProviderJSON(providerRequest);
+    const data = response.data ?? response.text;
+    const selectedValue = getJsonPathValue(data, payload.json_path);
+    return {
+      upstream_status: response.status,
+      upstream_headers: response.headers,
+      raw_response: response.text,
+      data,
+      selected_value: selectedValue,
+      provider: providerRequest.provider,
+      provider_pair: providerRequest.pair,
+    };
+  }
+
   const url = normalizeOracleUrl(payload.url);
   const decryptedToken = await decryptEncryptedToken(resolveEncryptedPayload(payload));
   const headers = normalizeHeaders(payload.headers);
@@ -73,6 +90,8 @@ export async function performOracleFetch(payload) {
     raw_response: rawResponse,
     data,
     selected_value: selectedValue,
+    provider: null,
+    provider_pair: null,
   };
 }
 

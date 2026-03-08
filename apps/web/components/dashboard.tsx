@@ -26,19 +26,24 @@ export function Dashboard() {
   const [oracleEncryptedPayload, setOracleEncryptedPayload] = useState("");
   const [oracleScript, setOracleScript] = useState("function process(data) { return data.ok === true; }");
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
+  const [provider, setProvider] = useState("twelvedata");
+  const [providers, setProviders] = useState<Array<{ id: string; description?: string }>>([]);
   const [networkInfo, setNetworkInfo] = useState<any>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const [functionsRes, networksRes] = await Promise.all([
+        const [functionsRes, networksRes, providersRes] = await Promise.all([
           fetch("/api/compute/functions"),
           fetch("/api/networks"),
+          fetch("/api/providers"),
         ]);
         const functionsBody = await functionsRes.json();
         if (Array.isArray(functionsBody.functions)) setComputeFunctions(functionsBody.functions);
         const networksBody = await networksRes.json();
         setNetworkInfo(networksBody.selected || null);
+        const providersBody = await providersRes.json();
+        if (Array.isArray(providersBody.providers)) setProviders(providersBody.providers);
       } catch {
         // ignore
       }
@@ -87,7 +92,10 @@ export function Dashboard() {
         <div className="card">
           <h3>Feed Quote</h3>
           <input value={symbol} onChange={(e) => setSymbol(e.target.value)} />
-          <button onClick={async () => setOutput(await callJSON(`/api/feeds/${encodeURIComponent(symbol)}`, undefined, "GET"))}>Get Price</button>
+          <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+            {(providers.length ? providers : [{ id: provider }]).map((item) => (<option key={item.id} value={item.id}>{item.id}</option>))}
+          </select>
+          <button onClick={async () => setOutput(await callJSON(`/api/feeds/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}`, undefined, "GET"))}>Get Price</button>
         </div>
       </section>
 
@@ -107,12 +115,14 @@ export function Dashboard() {
           <button onClick={async () => setOutput(await callJSON("/api/oracle/query", {
             url: oracleUrl,
             encrypted_payload: oracleEncryptedPayload || undefined,
+            provider,
             target_chain: oracleTargetChain,
           }))}>Query Oracle</button>
           <button onClick={async () => setOutput(await callJSON("/api/oracle/smart-fetch", {
             url: oracleUrl,
             encrypted_payload: oracleEncryptedPayload || undefined,
             script: oracleScript,
+            provider,
             target_chain: oracleTargetChain,
           }))}>Smart Fetch</button>
         </div>

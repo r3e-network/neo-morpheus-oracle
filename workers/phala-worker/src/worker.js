@@ -7,6 +7,7 @@ import {
   handleOracleFeed,
   handleVrf,
 } from "./oracle.js";
+import { handleProvidersList } from "./providers.js";
 import {
   handleComputeExecute,
   handleComputeFunctions,
@@ -29,6 +30,7 @@ function handleHealth() {
       compute_merged_into_oracle: true,
     },
     features: [
+      "providers",
       "oracle/public-key",
       "oracle/query",
       "oracle/smart-fetch",
@@ -55,6 +57,8 @@ export default async function handler(request) {
     const auth = await requireAuth(request);
     if (!auth.ok) return auth.response;
 
+    if (path.endsWith("/providers")) return handleProvidersList();
+
     if (path.endsWith("/oracle/public-key")) {
       const keyMaterial = await ensureOracleKeyMaterial();
       return json(200, {
@@ -73,10 +77,10 @@ export default async function handler(request) {
     }
 
     if (/\/feeds\/price\/.+/.test(path)) {
-      return handleFeedsPrice(decodeURIComponent(path.split("/").pop() || "NEO-USD"));
+      return handleFeedsPrice(decodeURIComponent(path.split("/").pop() || "NEO-USD"), Object.fromEntries(url.searchParams.entries()));
     }
     if (path.endsWith("/feeds/price")) {
-      return handleFeedsPrice(url.searchParams.get("symbol") || payload.symbol || "NEO-USD");
+      return handleFeedsPrice(url.searchParams.get("symbol") || payload.symbol || "NEO-USD", { ...Object.fromEntries(url.searchParams.entries()), ...payload });
     }
 
     if (path.endsWith("/vrf/random")) return handleVrf(payload);

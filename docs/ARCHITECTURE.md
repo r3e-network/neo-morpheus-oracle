@@ -72,3 +72,9 @@
 - Phala returns derived results only
 - privacy oracle and privacy compute share one trusted runtime
 - Neo N3 + Neo X are both first-class targets
+
+
+## Provider Registry
+
+Morpheus exposes a shared built-in provider registry used by both Privacy Oracle and DataFeed.
+The first built-in source is `twelvedata`, and the model remains extensible for more providers or user-supplied URLs.

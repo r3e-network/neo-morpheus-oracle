@@ -1,20 +1,7 @@
 import { Interface } from "ethers";
 import { env, json, strip0x, trimString } from "./core.js";
 import { buildSignedResultEnvelope, isConfiguredHash160, loadNeoN3Context, normalizeNeoHash160, relayNeoN3Invocation, relayNeoXTransaction } from "./chain.js";
-
-export async function fetchJson(url, init = {}) {
-  const response = await fetch(url, init);
-  const text = await response.text();
-  let data = null;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { raw: text };
-    }
-  }
-  return { ok: response.ok, status: response.status, data };
-}
+import { buildProviderRequest, fetchProviderJSON } from "./providers.js";
 
 export function normalizePairSymbol(rawSymbol) {
   const raw = trimString(rawSymbol).toUpperCase();
@@ -52,28 +39,31 @@ export function decimalToIntegerString(value, decimals = 8) {
   return ((whole * scale) + fractionValue) * sign + "";
 }
 
-export async function fetchPriceQuote(symbol) {
-  const pair = normalizePairSymbol(symbol);
-  const binanceSymbol = toBinanceSymbol(pair);
-  const response = await fetchJson(`https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(binanceSymbol)}`);
-  if (!response.ok || !response.data?.price) {
-    throw new Error("binance fetch failed");
-  }
+export async function fetchPriceQuote(symbol, options = {}) {
+  const provider = trimString(options.provider || options.source || "twelvedata") || "twelvedata";
+  const providerRequest = buildProviderRequest({ ...options, provider, symbol });
+  if (!providerRequest) throw new Error("provider request could not be built");
+  const response = await fetchProviderJSON(providerRequest);
+  if (!response.ok) throw new Error(`${provider} fetch failed`);
+  const pair = providerRequest.pair || normalizePairSymbol(symbol);
+  const price = response.data?.price ?? response.data?.value ?? response.data?.close ?? null;
+  if (price === null || price === undefined || price === "") throw new Error(`${provider} response missing price`);
   const quote = {
-    feed_id: `binance:${pair}`,
+    feed_id: `${provider}:${pair}`,
     pair,
-    price: String(response.data.price),
-    decimals: 8,
+    price: String(price),
+    decimals: Number(options.decimals || 8),
     timestamp: new Date().toISOString(),
-    sources: ["binance"],
+    sources: [provider],
+    provider,
   };
   const signed = buildSignedResultEnvelope(quote);
   return { ...quote, signature: signed.signature, public_key: signed.public_key, attestation_hash: signed.attestation_hash };
 }
 
-export async function handleFeedsPrice(symbol) {
+export async function handleFeedsPrice(symbol, options = {}) {
   try {
-    return json(200, await fetchPriceQuote(symbol));
+    return json(200, await fetchPriceQuote(symbol, options));
   } catch (error) {
     return json(502, { error: error instanceof Error ? error.message : String(error) });
   }
@@ -81,7 +71,7 @@ export async function handleFeedsPrice(symbol) {
 
 export async function handleOracleFeed(payload) {
   const targetChain = payload.target_chain ? payload.target_chain.toLowerCase() : "neo_n3";
-  const quote = await fetchPriceQuote(payload.symbol || "NEO-USD");
+  const quote = await fetchPriceQuote(payload.symbol || "NEO-USD", payload);
   const roundId = String(payload.round_id || Math.floor(Date.now() / 1000));
   const sourceSetId = String(payload.source_set_id || 0);
   const timestamp = Math.floor(Date.now() / 1000);

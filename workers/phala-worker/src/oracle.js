@@ -12,7 +12,6 @@ export {
 } from "./oracle-fetch.js";
 
 export {
-  fetchJson,
   normalizePairSymbol,
   toBinanceSymbol,
   decimalToIntegerString,
