@@ -1,0 +1,15 @@
+{
+  "network": "testnet",
+  "neo_n3": {
+    "rpc_url": "https://testnet1.neo.coz.io:443",
+    "network_magic": 894710606,
+    "contracts": {
+      "morpheus_oracle": "",
+      "oracle_callback_consumer": ""
+    }
+  },
+  "neo_x": {
+    "rpc_url": "https://neoxt4seed1.ngd.network",
+    "chain_id": 12227332
+  }
+}

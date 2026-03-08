@@ -1,0 +1,15 @@
+{
+  "network": "mainnet",
+  "neo_n3": {
+    "rpc_url": "https://mainnet1.neo.coz.io:443",
+    "network_magic": 860833102,
+    "contracts": {
+      "morpheus_oracle": "",
+      "oracle_callback_consumer": ""
+    }
+  },
+  "neo_x": {
+    "rpc_url": "https://mainnet.rpc.banelabs.org",
+    "chain_id": 47763
+  }
+}

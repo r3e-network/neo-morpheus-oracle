@@ -1,0 +1,15 @@
+node_modules
+.next
+.vercel
+.env
+.env.local
+.env.*.local
+coverage
+npm-debug.log*
+.DS_Store
+.serena
+apps/web/.next
+workers/phala-worker/node_modules
+contracts/build
+contracts/**/bin
+contracts/**/obj

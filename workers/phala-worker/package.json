@@ -1,0 +1,15 @@
+{
+  "name": "@neo-morpheus-oracle/phala-worker",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "bundle": "node src/worker.js",
+    "check": "node --check src/worker.js",
+    "test": "node --test worker.test.mjs"
+  },
+  "dependencies": {
+    "@cityofzion/neon-js": "^5.8.1",
+    "ethers": "^6.16.0"
+  }
+}
