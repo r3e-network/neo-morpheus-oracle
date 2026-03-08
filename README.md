@@ -59,3 +59,4 @@ npm --prefix apps/web run dev
 - `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/DEPLOYMENT.md`
+- `docs/TESTNET_RUNBOOK.md`

@@ -1,0 +1,10 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#0B1020"/>
+  <rect x="48" y="48" width="1104" height="534" rx="32" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="96" y="190" fill="#F4F7FB" font-size="72" font-family="Arial, Helvetica, sans-serif" font-weight="700">Morpheus Oracle</text>
+  <text x="96" y="258" fill="#97A3B6" font-size="32" font-family="Arial, Helvetica, sans-serif">Privacy Oracle · Privacy Compute · Datafeed</text>
+  <text x="96" y="312" fill="#97A3B6" font-size="28" font-family="Arial, Helvetica, sans-serif">Neo N3 + Neo X · Vercel + Supabase + Phala</text>
+  <circle cx="1008" cy="168" r="96" fill="#111831"/>
+  <path d="M944 216V120L1008 184L1072 120V216H1040V176L1008 208L976 176V216H944Z" fill="#6C5CE7"/>
+  <circle cx="1008" cy="104" r="10" fill="#00B894"/>
+</svg>

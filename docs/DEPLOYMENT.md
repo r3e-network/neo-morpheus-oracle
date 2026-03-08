@@ -2,6 +2,7 @@
 
 ## Environment Templates
 
+- `.env.example`
 - `.env.development.example`
 - `.env.production.example`
 
@@ -34,6 +35,7 @@ Apply `supabase/migrations/0001_morpheus_schema.sql`.
 ## Contracts
 
 Build and deploy the Morpheus gateway contracts from `contracts/`.
+Use `config/networks/testnet.json` and `config/networks/mainnet.json` as the canonical address registry files.
 
 Core contracts:
 
