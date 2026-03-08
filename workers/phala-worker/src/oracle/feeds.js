@@ -1,7 +1,7 @@
 import { Interface } from "ethers";
 import { env, json, strip0x, trimString } from "../platform/core.js";
 import { buildSignedResultEnvelope, isConfiguredHash160, loadNeoN3Context, normalizeNeoHash160, relayNeoN3Invocation, relayNeoXTransaction } from "../chain/index.js";
-import { buildProviderRequest, fetchProviderJSON } from "./providers.js";
+import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
 
 export function normalizePairSymbol(rawSymbol) {
   const raw = trimString(rawSymbol).toUpperCase();
@@ -40,8 +40,12 @@ export function decimalToIntegerString(value, decimals = 8) {
 }
 
 export async function fetchPriceQuote(symbol, options = {}) {
-  const provider = trimString(options.provider || options.source || "twelvedata") || "twelvedata";
-  const providerRequest = buildProviderRequest({ ...options, provider, symbol });
+  const provider = trimString(options.provider || options.source || env("MORPHEUS_FEED_PROVIDER") || "twelvedata") || "twelvedata";
+  const { payload: resolvedPayload } = await resolveProviderPayload({ ...options, provider, symbol }, {
+    projectSlug: trimString(options.project_slug || env("MORPHEUS_FEED_PROJECT_SLUG") || ""),
+    fallbackProviderId: provider,
+  });
+  const providerRequest = buildProviderRequest(resolvedPayload);
   if (!providerRequest) throw new Error("provider request could not be built");
   const response = await fetchProviderJSON(providerRequest);
   if (!response.ok) throw new Error(`${provider} fetch failed`);
@@ -52,7 +56,7 @@ export async function fetchPriceQuote(symbol, options = {}) {
     feed_id: `${provider}:${pair}`,
     pair,
     price: String(price),
-    decimals: Number(options.decimals || 8),
+    decimals: Number(resolvedPayload.decimals || options.decimals || 8),
     timestamp: new Date().toISOString(),
     sources: [provider],
     provider,

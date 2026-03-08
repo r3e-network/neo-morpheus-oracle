@@ -1,5 +1,8 @@
 import { env, json, trimString } from "../platform/core.js";
 
+const PROVIDER_CONFIG_CACHE_TTL_MS = 30_000;
+const providerConfigCache = new Map();
+
 export const BUILTIN_PROVIDER_CATALOG = [
   {
     id: "twelvedata",
@@ -25,6 +28,144 @@ export function normalizeProviderId(value) {
   return trimString(value || "").toLowerCase();
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function coerceProviderParams(value) {
+  if (isPlainObject(value)) return value;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (isPlainObject(parsed)) return parsed;
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function getSupabaseRestConfig() {
+  const baseUrl = trimString(env("SUPABASE_URL") || env("NEXT_PUBLIC_SUPABASE_URL") || "");
+  const apiKey = trimString(
+    env("SUPABASE_SERVICE_ROLE_KEY")
+      || env("SUPABASE_SERVICE_KEY")
+      || env("SUPABASE_SECRET_KEY")
+      || "",
+  );
+  if (!baseUrl || !apiKey) return null;
+  return {
+    restUrl: `${baseUrl.replace(/\/$/, "")}/rest/v1`,
+    apiKey,
+  };
+}
+
+async function fetchSupabaseRows(table, query) {
+  const restConfig = getSupabaseRestConfig();
+  if (!restConfig) return null;
+
+  const url = new URL(`${restConfig.restUrl}/${table}`);
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      apikey: restConfig.apiKey,
+      authorization: `Bearer ${restConfig.apiKey}`,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`supabase ${table} lookup failed: ${response.status} ${text}`.trim());
+  }
+
+  const text = await response.text();
+  if (!text) return [];
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
+}
+
+async function loadProjectProviderConfig(projectSlug, providerId) {
+  const normalizedProjectSlug = trimString(projectSlug);
+  const normalizedProviderId = normalizeProviderId(providerId);
+  if (!normalizedProjectSlug || !normalizedProviderId) return null;
+
+  const cacheKey = `${normalizedProjectSlug}:${normalizedProviderId}`;
+  const cached = providerConfigCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const projects = await fetchSupabaseRows("morpheus_projects", {
+    select: "id,slug",
+    slug: `eq.${normalizedProjectSlug}`,
+    limit: 1,
+  });
+  const projectId = Array.isArray(projects) ? projects[0]?.id : null;
+  if (!projectId) {
+    providerConfigCache.set(cacheKey, { expiresAt: Date.now() + PROVIDER_CONFIG_CACHE_TTL_MS, value: null });
+    return null;
+  }
+
+  const configs = await fetchSupabaseRows("morpheus_provider_configs", {
+    select: "provider_id,enabled,config,created_at,updated_at",
+    project_id: `eq.${projectId}`,
+    provider_id: `eq.${normalizedProviderId}`,
+    limit: 1,
+  });
+  const value = Array.isArray(configs) ? (configs[0] ?? null) : null;
+  providerConfigCache.set(cacheKey, { expiresAt: Date.now() + PROVIDER_CONFIG_CACHE_TTL_MS, value });
+  return value;
+}
+
+export async function resolveProviderPayload(payload, options = {}) {
+  const fallbackProviderId = normalizeProviderId(options.fallbackProviderId || "");
+  const providerId = normalizeProviderId(payload.provider || payload.source || payload.provider_id || fallbackProviderId);
+  const projectSlug = trimString(payload.project_slug || options.projectSlug || "");
+
+  const resolvedPayload = {
+    ...payload,
+    ...(providerId ? { provider: providerId } : {}),
+    ...(projectSlug ? { project_slug: projectSlug } : {}),
+    ...(payload.provider_params !== undefined ? { provider_params: coerceProviderParams(payload.provider_params) } : {}),
+  };
+
+  if (!providerId || !projectSlug) {
+    return { payload: resolvedPayload, providerConfig: null };
+  }
+
+  const providerConfig = await loadProjectProviderConfig(projectSlug, providerId);
+  if (!providerConfig) {
+    return { payload: resolvedPayload, providerConfig: null };
+  }
+
+  if (providerConfig.enabled === false) {
+    throw new Error(`provider ${providerId} is disabled for project ${projectSlug}`);
+  }
+
+  return {
+    payload: {
+      ...resolvedPayload,
+      provider: providerId,
+      project_slug: projectSlug,
+      provider_params: {
+        ...coerceProviderParams(providerConfig.config),
+        ...coerceProviderParams(resolvedPayload.provider_params),
+      },
+    },
+    providerConfig,
+  };
+}
+
 export function pairToTwelveDataSymbol(pair) {
   const normalized = trimString(pair).toUpperCase().replace(/_/g, "-");
   const [base, quote = "USD"] = normalized.split("-");
@@ -43,7 +184,7 @@ export function buildProviderRequest(payload) {
 
   switch (provider) {
     case "twelvedata": {
-      const params = payload.provider_params && typeof payload.provider_params === "object" ? payload.provider_params : {};
+      const params = coerceProviderParams(payload.provider_params);
       const pair = trimString(payload.symbol || params.symbol || "NEO-USD") || "NEO-USD";
       const symbol = pairToTwelveDataSymbol(pair);
       const endpoint = trimString(params.endpoint || payload.provider_endpoint || "price") || "price";
@@ -57,7 +198,7 @@ export function buildProviderRequest(payload) {
       return { provider, pair, method: "GET", url: url.toString(), headers: {}, body: undefined, auth_mode: "query" };
     }
     case "coinbase-spot": {
-      const params = payload.provider_params && typeof payload.provider_params === "object" ? payload.provider_params : {};
+      const params = coerceProviderParams(payload.provider_params);
       const pair = trimString(payload.symbol || params.symbol || "NEO-USD") || "NEO-USD";
       const normalized = pair.replace(/_/g, "-").toUpperCase();
       const url = `https://api.coinbase.com/v2/prices/${normalized}/spot`;

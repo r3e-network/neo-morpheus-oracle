@@ -68,6 +68,8 @@ The dashboard includes a Provider Configs panel that can manage these records di
 
 ## Request-Time Resolution
 
+Both the web API layer and the Phala worker can resolve provider defaults from Supabase when `project_slug` and `provider` are present.
+
 The web API layer resolves provider defaults **before** proxying to Phala:
 
 - `GET /api/feeds/:symbol?provider=twelvedata&project_slug=demo`

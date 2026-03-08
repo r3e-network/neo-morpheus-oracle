@@ -6,7 +6,7 @@ import {
   parseBodyMaybe,
   trimString,
 } from "../platform/core.js";
-import { buildProviderRequest, fetchProviderJSON } from "./providers.js";
+import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
 import { buildSignedResultEnvelope } from "../chain/index.js";
 import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./crypto.js";
 
@@ -44,11 +44,15 @@ export function normalizeOracleUrl(rawUrl) {
 }
 
 export async function performOracleFetch(payload) {
-  const providerRequest = buildProviderRequest(payload);
+  const { payload: resolvedPayload } = await resolveProviderPayload(payload, {
+    fallbackProviderId: !payload.url && payload.symbol ? "twelvedata" : undefined,
+  });
+
+  const providerRequest = buildProviderRequest(resolvedPayload);
   if (providerRequest) {
     const response = await fetchProviderJSON(providerRequest);
     const data = response.data ?? response.text;
-    const selectedValue = getJsonPathValue(data, payload.json_path);
+    const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
     return {
       upstream_status: response.status,
       upstream_headers: response.headers,
@@ -60,13 +64,13 @@ export async function performOracleFetch(payload) {
     };
   }
 
-  const url = normalizeOracleUrl(payload.url);
-  const decryptedToken = await decryptEncryptedToken(resolveEncryptedPayload(payload));
-  const headers = normalizeHeaders(payload.headers);
-  const tokenHeader = trimString(payload.token_header || "Authorization") || "Authorization";
+  const url = normalizeOracleUrl(resolvedPayload.url);
+  const decryptedToken = await decryptEncryptedToken(resolveEncryptedPayload(resolvedPayload));
+  const headers = normalizeHeaders(resolvedPayload.headers);
+  const tokenHeader = trimString(resolvedPayload.token_header || "Authorization") || "Authorization";
   if (decryptedToken) {
-    const tokenPrefix = payload.token_prefix !== undefined
-      ? String(payload.token_prefix)
+    const tokenPrefix = resolvedPayload.token_prefix !== undefined
+      ? String(resolvedPayload.token_prefix)
       : tokenHeader.toLowerCase() === "authorization"
         ? "Bearer "
         : "";
@@ -74,15 +78,15 @@ export async function performOracleFetch(payload) {
   }
 
   const response = await fetch(url, {
-    method: payload.method || "GET",
+    method: resolvedPayload.method || "GET",
     headers,
-    body: payload.body,
+    body: resolvedPayload.body,
   });
 
   const rawResponse = await response.text();
   const responseHeaders = Object.fromEntries(response.headers.entries());
   const data = parseBodyMaybe(rawResponse, response.headers.get("content-type")) ?? rawResponse;
-  const selectedValue = getJsonPathValue(data, payload.json_path);
+  const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
 
   return {
     upstream_status: response.status,

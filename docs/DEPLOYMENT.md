@@ -31,6 +31,8 @@ Deploy `workers/phala-worker` to Phala with:
 - `NEOX_RPC_URL`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
 - `PHALA_NEOX_PRIVATE_KEY`
+- `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
+- `SUPABASE_SERVICE_ROLE_KEY` (or compatible service key) for worker-side provider-config lookup
 
 ## Supabase
 

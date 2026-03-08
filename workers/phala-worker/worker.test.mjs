@@ -10,6 +10,8 @@ const originalNeoXRpc = process.env.NEOX_RPC_URL;
 const originalNeoXRpcAlt = process.env.NEO_X_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
 const originalTwelveData = process.env.TWELVEDATA_API_KEY;
+const originalSupabaseUrl = process.env.SUPABASE_URL;
+const originalSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY = '1111111111111111111111111111111111111111111111111111111111111111';
@@ -19,6 +21,8 @@ process.env.NEOX_RPC_URL = '';
 process.env.NEO_X_RPC_URL = '';
 process.env.EVM_RPC_URL = '';
 process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+process.env.SUPABASE_URL = '';
+process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 
 const { default: handler } = await import('./src/worker.js');
 
@@ -46,6 +50,83 @@ async function encryptForOracle(publicKeyBase64, plaintext) {
   return Buffer.from(encrypted).toString('base64');
 }
 
+test('oracle query loads project provider defaults inside worker', async () => {
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_projects')) {
+      return new Response(JSON.stringify([{ id: 'project-demo-id', slug: 'demo' }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_provider_configs')) {
+      return new Response(JSON.stringify([{
+        provider_id: 'twelvedata',
+        enabled: true,
+        config: { symbol: 'GAS-USD', endpoint: 'price', interval: '5min' },
+      }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    assert.match(value, /api\.twelvedata\.com\/price/);
+    assert.match(value, /symbol=GAS%2FUSD/);
+    assert.match(value, /interval=5min/);
+    return new Response(JSON.stringify({ price: '3.21' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/oracle/query', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ provider: 'twelvedata', project_slug: 'demo', target_chain: 'neo_n3' }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'fetch');
+  assert.match(body.body, /3\.21/);
+});
+
+test('oracle query rejects disabled project provider inside worker', async () => {
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_projects')) {
+      return new Response(JSON.stringify([{ id: 'project-demo-disabled-id', slug: 'demo-disabled' }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_provider_configs')) {
+      return new Response(JSON.stringify([{
+        provider_id: 'twelvedata',
+        enabled: false,
+        config: { symbol: 'NEO-USD' },
+      }]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const res = await handler(new Request('http://local/oracle/query', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ provider: 'twelvedata', project_slug: 'demo-disabled', target_chain: 'neo_n3' }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /disabled/);
+});
+
 test.after(() => {
   global.fetch = originalFetch;
   process.env.PHALA_SHARED_SECRET = originalPhalaToken;
@@ -56,6 +137,8 @@ test.after(() => {
   process.env.NEO_X_RPC_URL = originalNeoXRpcAlt;
   process.env.EVM_RPC_URL = originalEvmRpc;
   process.env.TWELVEDATA_API_KEY = originalTwelveData;
+  process.env.SUPABASE_URL = originalSupabaseUrl;
+  process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
 });
 
 
