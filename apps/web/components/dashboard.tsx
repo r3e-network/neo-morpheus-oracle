@@ -20,7 +20,7 @@ export function Dashboard() {
   const [symbol, setSymbol] = useState("NEO-USD");
   const [output, setOutput] = useState<string>("");
   const [computeFunction, setComputeFunction] = useState("zkp.public_signal_hash");
-  const [computeFunctions, setComputeFunctions] = useState<string[]>([]);
+  const [computeFunctions, setComputeFunctions] = useState<Array<{ name: string; category?: string; description?: string }>>([]);
   const [computeInput, setComputeInput] = useState('{"signals":["1","2","3"]}');
   const [oracleUrl, setOracleUrl] = useState("https://api.example.com/private");
   const [oracleEncryptedPayload, setOracleEncryptedPayload] = useState("");
@@ -120,10 +120,10 @@ export function Dashboard() {
 
       <section className="card">
         <h3>Built-in Compute</h3>
-        <small>Direct-call heavy functions for ZKP, FHE planning, hashing, matrices, and vectors.</small>
+        <small>Direct-call heavy functions for ZKP planning, proof digests, FHE planning, hashes, Merkle roots, matrices, and vectors.</small>
         <select value={computeFunction} onChange={(e) => setComputeFunction(e.target.value)}>
-          {(computeFunctions.length ? computeFunctions : [computeFunction]).map((fn) => (
-            <option key={fn}>{fn}</option>
+          {(computeFunctions.length ? computeFunctions : [{ name: computeFunction }]).map((fn) => (
+            <option key={fn.name} value={fn.name}>{fn.name}</option>
           ))}
         </select>
         <textarea value={computeInput} onChange={(e) => setComputeInput(e.target.value)} />

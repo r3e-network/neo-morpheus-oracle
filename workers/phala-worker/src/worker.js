@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { experimental, rpc as neoRpc, sc, tx, u, wallet as neoWallet } from "@cityofzion/neon-js";
-import { Interface, JsonRpcProvider, Wallet as EvmWallet } from "ethers";
+import { Interface, JsonRpcProvider, Wallet as EvmWallet, keccak256, toUtf8Bytes } from "ethers";
 
 const json = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), {
@@ -185,17 +185,46 @@ function cosineSimilarity(left, right) {
   return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
 }
 
+const BUILTIN_COMPUTE_CATALOG = [
+  { name: "hash.sha256", category: "hash", description: "Hashes any JSON-serializable payload with SHA-256." },
+  { name: "hash.keccak256", category: "hash", description: "Hashes any JSON-serializable payload with Keccak-256." },
+  { name: "math.modexp", category: "math", description: "Performs big integer modular exponentiation." },
+  { name: "matrix.multiply", category: "linear_algebra", description: "Multiplies two dense matrices." },
+  { name: "vector.cosine_similarity", category: "linear_algebra", description: "Computes cosine similarity between two vectors." },
+  { name: "merkle.root", category: "merkle", description: "Builds a SHA-256 Merkle root from leaves." },
+  { name: "zkp.public_signal_hash", category: "zkp", description: "Computes a deterministic digest over public signals." },
+  { name: "zkp.proof_digest", category: "zkp", description: "Computes a deterministic digest over a proof object." },
+  { name: "zkp.witness_digest", category: "zkp", description: "Computes a digest over witness material before proving." },
+  { name: "zkp.groth16.prove.plan", category: "zkp", description: "Returns a planning estimate for Groth16 proving workloads." },
+  { name: "zkp.plonk.prove.plan", category: "zkp", description: "Returns a planning estimate for PLONK proving workloads." },
+  { name: "fhe.batch_plan", category: "fhe", description: "Builds a ciphertext batching plan." },
+  { name: "fhe.noise_budget_estimate", category: "fhe", description: "Estimates a rough FHE noise budget." },
+  { name: "fhe.rotation_plan", category: "fhe", description: "Returns a rotation/key-switch planning summary." },
+];
+
 function listBuiltinComputeFunctions() {
-  return [
-    "hash.sha256",
-    "math.modexp",
-    "matrix.multiply",
-    "vector.cosine_similarity",
-    "zkp.public_signal_hash",
-    "zkp.proof_digest",
-    "fhe.batch_plan",
-    "fhe.noise_budget_estimate",
-  ];
+  return BUILTIN_COMPUTE_CATALOG;
+}
+
+function asLeafHash(value) {
+  const raw = trimString(value);
+  if (isHexString(raw)) return Buffer.from(strip0x(raw), "hex");
+  return Buffer.from(raw, "utf8");
+}
+
+function merkleRoot(leaves) {
+  if (!Array.isArray(leaves) || leaves.length === 0) throw new Error("merkle.root requires at least one leaf");
+  let level = leaves.map((leaf) => Buffer.from(sha256Hex(asLeafHash(leaf)), "hex"));
+  while (level.length > 1) {
+    const next = [];
+    for (let i = 0; i < level.length; i += 2) {
+      const left = level[i];
+      const right = level[i + 1] || left;
+      next.push(Buffer.from(sha256Hex(Buffer.concat([left, right])), "hex"));
+    }
+    level = next;
+  }
+  return level[0].toString("hex");
 }
 
 async function executeBuiltinCompute(payload) {
@@ -204,16 +233,31 @@ async function executeBuiltinCompute(payload) {
   switch (fn) {
     case "hash.sha256":
       return { function: fn, result: { digest: sha256Hex(stableStringify(input)) } };
+    case "hash.keccak256":
+      return { function: fn, result: { digest: keccak256(toUtf8Bytes(stableStringify(input))) } };
     case "math.modexp":
       return { function: fn, result: { value: bigintPowMod(input.base, input.exponent, input.modulus).toString() } };
     case "matrix.multiply":
       return { function: fn, result: { matrix: multiplyMatrices(input.left, input.right) } };
     case "vector.cosine_similarity":
       return { function: fn, result: { similarity: cosineSimilarity(input.left, input.right) } };
+    case "merkle.root":
+      return { function: fn, result: { root: merkleRoot(input.leaves || []) } };
     case "zkp.public_signal_hash":
       return { function: fn, result: { digest: sha256Hex(stableStringify({ circuit_id: input.circuit_id || null, signals: input.signals || [] })) } };
     case "zkp.proof_digest":
       return { function: fn, result: { digest: sha256Hex(stableStringify({ proof: input.proof || input, verifying_key: input.verifying_key || null })) } };
+    case "zkp.witness_digest":
+      return { function: fn, result: { digest: sha256Hex(stableStringify({ witness: input.witness || input, circuit_id: input.circuit_id || null })) } };
+    case "zkp.groth16.prove.plan": {
+      const constraints = Number(input.constraints || 0);
+      const witnessCount = Number(input.witness_count || input.witnessCount || 0);
+      return { function: fn, result: { constraints, witness_count: witnessCount, estimated_segments: Math.max(Math.ceil(constraints / 50000), 1), estimated_memory_mb: Math.max(Math.ceil((constraints + witnessCount) / 25000), 1) } };
+    }
+    case "zkp.plonk.prove.plan": {
+      const gates = Number(input.gates || 0);
+      return { function: fn, result: { gates, estimated_polynomials: Math.max(Math.ceil(gates / 65536), 1), estimated_memory_mb: Math.max(Math.ceil(gates / 30000), 1) } };
+    }
     case "fhe.batch_plan": {
       const slotCount = Number(input.slot_count || input.slotCount || 0);
       const ciphertextCount = Number(input.ciphertext_count || input.ciphertextCount || 0);
@@ -226,6 +270,10 @@ async function executeBuiltinCompute(payload) {
       const modulusBits = Number(input.modulus_bits || input.modulusBits || 218);
       const estimatedNoiseBudget = Math.max(modulusBits - (multiplicativeDepth * scaleBits), 0);
       return { function: fn, result: { multiplicative_depth: multiplicativeDepth, scale_bits: scaleBits, modulus_bits: modulusBits, estimated_noise_budget: estimatedNoiseBudget } };
+    }
+    case "fhe.rotation_plan": {
+      const indices = Array.isArray(input.indices) ? input.indices.map((value) => Number(value)) : [];
+      return { function: fn, result: { indices, unique_rotations: [...new Set(indices)].sort((a, b) => a - b), key_switch_steps: indices.length } };
     }
     default:
       throw new Error(`unknown builtin compute function: ${fn}`);
@@ -1239,7 +1287,7 @@ async function handleComputeExecute(payload) {
 }
 
 function handleComputeFunctions() {
-  return json(200, { functions: listBuiltinComputeFunctions() });
+  return json(200, { functions: listBuiltinComputeFunctions(), names: listBuiltinComputeFunctions().map((item) => item.name) });
 }
 
 function handleComputeJobs(jobId = null) {
