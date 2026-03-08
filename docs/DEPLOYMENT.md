@@ -14,7 +14,8 @@ Required env vars:
 
 - `PHALA_API_URL`
 - `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
-- `TWELVEDATA_API_KEY` for the first built-in market-data provider
+- `TWELVEDATA_API_KEY` for the TwelveData built-in provider
+- optional Coinbase spot provider requires no secret
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`

@@ -44,6 +44,8 @@ The Morpheus compute module ships with built-in functions that users can call di
 
 These are intended as the first layer of built-ins; you can later plug in external ZKP/FHE runtimes behind the same function registry.
 
+Built-in providers now include `twelvedata` and `coinbase-spot`.
+
 ## Quick Start
 
 ```bash

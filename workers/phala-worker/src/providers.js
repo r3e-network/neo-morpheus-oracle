@@ -8,6 +8,13 @@ export const BUILTIN_PROVIDER_CATALOG = [
     supports: ["oracle", "datafeed"],
     auth: "apikey",
   },
+  {
+    id: "coinbase-spot",
+    category: "market-data",
+    description: "Direct Coinbase spot price endpoint. No aggregation, no smoothing.",
+    supports: ["oracle", "datafeed"],
+    auth: "none",
+  },
 ];
 
 export function listBuiltinProviders() {
@@ -47,15 +54,14 @@ export function buildProviderRequest(payload) {
         if (["symbol", "endpoint"].includes(key)) continue;
         if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
       }
-      return {
-        provider,
-        pair,
-        method: "GET",
-        url: url.toString(),
-        headers: {},
-        body: undefined,
-        auth_mode: "query",
-      };
+      return { provider, pair, method: "GET", url: url.toString(), headers: {}, body: undefined, auth_mode: "query" };
+    }
+    case "coinbase-spot": {
+      const params = payload.provider_params && typeof payload.provider_params === "object" ? payload.provider_params : {};
+      const pair = trimString(payload.symbol || params.symbol || "NEO-USD") || "NEO-USD";
+      const normalized = pair.replace(/_/g, "-").toUpperCase();
+      const url = `https://api.coinbase.com/v2/prices/${normalized}/spot`;
+      return { provider, pair: normalized, method: "GET", url, headers: {}, body: undefined, auth_mode: "none" };
     }
     default:
       throw new Error(`unknown builtin provider: ${provider}`);

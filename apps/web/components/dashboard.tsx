@@ -85,7 +85,7 @@ export function Dashboard() {
       <section className="grid grid-2">
         <div className="card">
           <h3>Oracle Public Key</h3>
-          <small>Use this to encrypt secrets before they leave the client boundary.</small>
+          <small>Use this to encrypt secrets before they leave the client boundary. Provider selection supports built-in and custom-source flows.</small>
           <button onClick={async () => setOutput(await callJSON("/api/oracle/public-key", undefined, "GET"))}>Fetch Public Key</button>
         </div>
 

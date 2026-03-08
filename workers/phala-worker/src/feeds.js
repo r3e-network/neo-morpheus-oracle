@@ -46,7 +46,7 @@ export async function fetchPriceQuote(symbol, options = {}) {
   const response = await fetchProviderJSON(providerRequest);
   if (!response.ok) throw new Error(`${provider} fetch failed`);
   const pair = providerRequest.pair || normalizePairSymbol(symbol);
-  const price = response.data?.price ?? response.data?.value ?? response.data?.close ?? null;
+  const price = response.data?.price ?? response.data?.value ?? response.data?.close ?? response.data?.data?.amount ?? null;
   if (price === null || price === undefined || price === "") throw new Error(`${provider} response missing price`);
   const quote = {
     feed_id: `${provider}:${pair}`,

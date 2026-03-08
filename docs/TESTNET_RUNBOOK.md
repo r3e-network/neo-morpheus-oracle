@@ -22,6 +22,7 @@ Fill in at least:
 - `NEO_TESTNET_WIF`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
 - `PHALA_NEOX_PRIVATE_KEY`
+- optional `TWELVEDATA_API_KEY`
 
 ## 3. Apply Supabase schema
 

@@ -24,3 +24,11 @@ export type ComputeBuiltinFunction =
   | "zkp.proof_digest"
   | "fhe.batch_plan"
   | "fhe.noise_budget_estimate";
+
+export type BuiltinProviderId = "twelvedata" | "coinbase-spot";
+
+export type ProviderConfig = {
+  provider_id: BuiltinProviderId | string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+};

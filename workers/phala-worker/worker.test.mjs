@@ -9,6 +9,7 @@ const originalNeoRpc = process.env.NEO_RPC_URL;
 const originalNeoXRpc = process.env.NEOX_RPC_URL;
 const originalNeoXRpcAlt = process.env.NEO_X_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
+const originalTwelveData = process.env.TWELVEDATA_API_KEY;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY = '1111111111111111111111111111111111111111111111111111111111111111';
@@ -17,6 +18,7 @@ process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.NEOX_RPC_URL = '';
 process.env.NEO_X_RPC_URL = '';
 process.env.EVM_RPC_URL = '';
+process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
 
 const { default: handler } = await import('./src/worker.js');
 
@@ -53,6 +55,72 @@ test.after(() => {
   process.env.NEOX_RPC_URL = originalNeoXRpc;
   process.env.NEO_X_RPC_URL = originalNeoXRpcAlt;
   process.env.EVM_RPC_URL = originalEvmRpc;
+  process.env.TWELVEDATA_API_KEY = originalTwelveData;
+});
+
+
+
+test('providers endpoint lists builtin sources', async () => {
+  const res = await handler(new Request('http://local/providers', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.providers));
+  assert.equal(body.providers[0].id, 'twelvedata');
+});
+
+test('feed quote supports twelvedata provider', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    assert.match(String(url), /apikey=test-twelvedata-key/);
+    return new Response(JSON.stringify({ price: '45.67' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/NEO-USD?provider=twelvedata', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.provider, 'twelvedata');
+  assert.equal(body.price, '45.67');
+});
+
+
+
+test('feed quote supports coinbase-spot provider', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.coinbase\.com\/v2\/prices\/NEO-USD\/spot/);
+    return new Response(JSON.stringify({ data: { amount: '99.01' } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/NEO-USD?provider=coinbase-spot', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.provider, 'coinbase-spot');
+  assert.equal(body.price, '99.01');
+});
+
+test('oracle query supports builtin provider mode', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    return new Response(JSON.stringify({ price: '11.11' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/oracle/query', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', target_chain: 'neo_n3' }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'fetch');
+  assert.match(body.body, /11\.11/);
 });
 
 test('health endpoint works without auth', async () => {
@@ -174,7 +242,7 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
 
 test('oracle feed supports neo_x contract relay mode', async () => {
   global.fetch = async (url, init) => {
-    if (String(url).startsWith('https://api.binance.com/')) {
+    if (/^https:\/\/api\.twelvedata\.com\//.test(String(url))) {
       return new Response(JSON.stringify({ price: '12.34' }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     throw new Error(`unexpected fetch ${url}`);
