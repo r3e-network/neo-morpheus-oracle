@@ -5,11 +5,17 @@
     "network_magic": 894710606,
     "contracts": {
       "morpheus_oracle": "",
-      "oracle_callback_consumer": ""
+      "oracle_callback_consumer": "",
+      "morpheus_datafeed": ""
     }
   },
   "neo_x": {
     "rpc_url": "https://neoxt4seed1.ngd.network",
-    "chain_id": 12227332
+    "chain_id": 12227332,
+    "contracts": {
+      "morpheus_oracle_x": "",
+      "oracle_callback_consumer_x": "",
+      "morpheus_datafeed_x": ""
+    }
   }
 }

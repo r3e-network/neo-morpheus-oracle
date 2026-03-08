@@ -40,6 +40,8 @@ cd contracts
 
 ## 5. Deploy contracts
 
+### Neo N3
+
 ```bash
 node scripts/deploy-service-gateway.mjs
 node scripts/deploy-callback-consumer.mjs
@@ -49,6 +51,16 @@ Write deployed addresses into:
 
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
+- `CONTRACT_MORPHEUS_DATAFEED_HASH`
+
+### Neo X
+
+```bash
+npm --prefix contracts/neox install
+npm --prefix contracts/neox run compile
+npm --prefix contracts/neox test
+node scripts/setup-neox-addresses.mjs
+```
 
 ## 6. Configure contracts
 

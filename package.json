@@ -13,6 +13,8 @@
     "check:worker": "npm --prefix workers/phala-worker run check",
     "test:worker": "npm --prefix workers/phala-worker test",
     "publish:oracle-key": "node scripts/publish-oracle-public-key.mjs",
-    "write:addresses": "node scripts/write-address-registry.mjs"
+    "write:addresses": "node scripts/write-address-registry.mjs",
+    "compile:neox": "npm --prefix contracts/neox run compile",
+    "test:neox": "npm --prefix contracts/neox test"
   }
 }

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { experimental, rpc as neoRpc, sc, tx, u, wallet as neoWallet } from "@cityofzion/neon-js";
-import { JsonRpcProvider, Wallet as EvmWallet } from "ethers";
+import { Interface, JsonRpcProvider, Wallet as EvmWallet } from "ethers";
 
 const json = (status, body, headers = {}) =>
   new Response(JSON.stringify(body), {
@@ -474,7 +474,7 @@ function addAllow(allowlist, contractHash, ...methods) {
 
 function buildTxProxyAllowlist() {
   const allowlist = parseTxProxyAllowlist(env("TXPROXY_ALLOWLIST"));
-  addAllow(allowlist, env("CONTRACT_PRICEFEED_HASH"), "update");
+  addAllow(allowlist, env("CONTRACT_MORPHEUS_DATAFEED_HASH", "CONTRACT_PRICEFEED_HASH"), "updateFeed", "update");
   addAllow(allowlist, env("CONTRACT_RANDOMNESSLOG_HASH"), "record");
   addAllow(allowlist, env("CONTRACT_AUTOMATIONANCHOR_HASH"), "markExecuted");
   addAllow(allowlist, env("CONTRACT_MORPHEUS_ORACLE_HASH"), "fulfillRequest");
@@ -1133,6 +1133,7 @@ async function relayNeoXTransaction(payload) {
 }
 
 async function handleOracleFeed(payload) {
+  const targetChain = payload.target_chain ? normalizeTargetChain(payload.target_chain) : "neo_n3";
   const quote = await fetchPriceQuote(payload.symbol || "NEO-USD");
   const roundId = String(payload.round_id || Math.floor(Date.now() / 1000));
   const sourceSetId = String(payload.source_set_id || 0);
@@ -1140,37 +1141,63 @@ async function handleOracleFeed(payload) {
   let anchoredTx = null;
   let relayStatus = "skipped";
 
-  const priceFeedHash = normalizeNeoHash160(env("CONTRACT_PRICEFEED_HASH"));
-  const neoContext = loadNeoN3Context(payload, { required: false, requireRpc: false });
-  if (priceFeedHash && isConfiguredHash160(priceFeedHash) && neoContext) {
-    const invokeResult = await relayNeoN3Invocation({
-      request_id: trimString(payload.request_id) || `pricefeed:${randomUUID()}`,
-      contract_hash: priceFeedHash,
-      method: "update",
-      params: [
-        { type: "String", value: quote.pair },
-        { type: "Integer", value: roundId },
-        { type: "Integer", value: decimalToIntegerString(quote.price, quote.decimals) },
-        { type: "Integer", value: String(timestamp) },
-        { type: "ByteArray", value: quote.attestation_hash },
-        { type: "Integer", value: sourceSetId },
-      ],
-      wait: Boolean(payload.wait ?? true),
-      rpc_url: neoContext.rpcUrl,
-      network_magic: neoContext.networkMagic,
-    });
+  if (targetChain === "neo_n3") {
+    const dataFeedHash = normalizeNeoHash160(env("CONTRACT_MORPHEUS_DATAFEED_HASH", "CONTRACT_PRICEFEED_HASH"));
+    const neoContext = loadNeoN3Context(payload, { required: false, requireRpc: false });
+    if (dataFeedHash && isConfiguredHash160(dataFeedHash) && neoContext) {
+      const invokeResult = await relayNeoN3Invocation({
+        request_id: trimString(payload.request_id) || `pricefeed:${randomUUID()}`,
+        contract_hash: dataFeedHash,
+        method: "updateFeed",
+        params: [
+          { type: "String", value: quote.pair },
+          { type: "Integer", value: roundId },
+          { type: "Integer", value: decimalToIntegerString(quote.price, quote.decimals) },
+          { type: "Integer", value: String(timestamp) },
+          { type: "ByteArray", value: quote.attestation_hash },
+          { type: "Integer", value: sourceSetId },
+        ],
+        wait: Boolean(payload.wait ?? true),
+        rpc_url: neoContext.rpcUrl,
+        network_magic: neoContext.networkMagic,
+      });
 
-    if (invokeResult.status >= 400) {
-      return json(invokeResult.status, invokeResult.body);
+      if (invokeResult.status >= 400) {
+        return json(invokeResult.status, invokeResult.body);
+      }
+
+      anchoredTx = invokeResult.body;
+      relayStatus = "submitted";
     }
-
-    anchoredTx = invokeResult.body;
-    relayStatus = "submitted";
+  } else {
+    const dataFeedAddress = trimString(payload.contract_address || env("CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS"));
+    if (dataFeedAddress) {
+      const feedInterface = new Interface([
+        'function updateFeed(string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)'
+      ]);
+      const data = feedInterface.encodeFunctionData('updateFeed', [
+        quote.pair,
+        BigInt(roundId),
+        BigInt(decimalToIntegerString(quote.price, quote.decimals)),
+        BigInt(timestamp),
+        `0x${strip0x(quote.attestation_hash || '0')}`.padEnd(66, '0'),
+        BigInt(sourceSetId),
+      ]);
+      anchoredTx = await relayNeoXTransaction({
+        ...payload,
+        target_chain: 'neo_x',
+        to: dataFeedAddress,
+        data,
+        value: '0',
+        wait: Boolean(payload.wait ?? true),
+      });
+      relayStatus = 'submitted';
+    }
   }
 
   return json(200, {
-    mode: "pricefeed",
-    target_chain: "neo_n3",
+    mode: 'pricefeed',
+    target_chain: targetChain,
     ...quote,
     relay_status: relayStatus,
     anchored_tx: anchoredTx,

@@ -50,7 +50,7 @@
 
 ### 3. Datafeed
 - signed price quote APIs
-- public market feed anchoring path
+- Neo N3 and Neo X feed contract storage
 - feed snapshots and telemetry stored in Supabase
 
 ### 4. Relay / Signing

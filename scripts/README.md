@@ -1,11 +1,17 @@
 # Scripts
 
-## Contract deployment
+## Neo N3 contracts
 
 - `node scripts/deploy-service-gateway.mjs`
 - `node scripts/deploy-callback-consumer.mjs`
 - `node scripts/setup-morpheus.mjs`
 - `npm run publish:oracle-key`
+- `npm run write:addresses`
+
+## Neo X contracts
+
+- `node scripts/deploy-neox-contracts.mjs`
+- `node scripts/setup-neox-addresses.mjs`
 
 ## Expected env vars
 
@@ -14,4 +20,8 @@
 - `NEO_NETWORK_MAGIC`
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
+- `CONTRACT_MORPHEUS_DATAFEED_HASH`
+- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
+- `CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS`
+- `CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS`
 - optional `MORPHEUS_UPDATER_HASH`

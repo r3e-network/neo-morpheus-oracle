@@ -5,11 +5,17 @@
     "network_magic": 860833102,
     "contracts": {
       "morpheus_oracle": "",
-      "oracle_callback_consumer": ""
+      "oracle_callback_consumer": "",
+      "morpheus_datafeed": ""
     }
   },
   "neo_x": {
     "rpc_url": "https://mainnet.rpc.banelabs.org",
-    "chain_id": 47763
+    "chain_id": 47763,
+    "contracts": {
+      "morpheus_oracle_x": "",
+      "oracle_callback_consumer_x": "",
+      "morpheus_datafeed_x": ""
+    }
   }
 }

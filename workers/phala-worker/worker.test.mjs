@@ -170,6 +170,38 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
   assert.equal(neoX.mode, 'message');
 });
 
+
+
+test('oracle feed supports neo_x contract relay mode', async () => {
+  global.fetch = async (url, init) => {
+    if (String(url).startsWith('https://api.binance.com/')) {
+      return new Response(JSON.stringify({ price: '12.34' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const res = await handler(new Request('http://local/oracle/feed', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      symbol: 'NEO-USD',
+      target_chain: 'neo_x',
+      broadcast: false,
+      contract_address: '0x1111111111111111111111111111111111111111',
+      chain_id: 47763,
+      nonce: 1,
+      gas_limit: '250000',
+      max_fee_per_gas: '1000000000',
+      max_priority_fee_per_gas: '100000000'
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.target_chain, 'neo_x');
+  assert.equal(body.relay_status, 'submitted');
+  assert.ok(body.anchored_tx);
+});
+
 test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {
   global.fetch = originalFetch;
 

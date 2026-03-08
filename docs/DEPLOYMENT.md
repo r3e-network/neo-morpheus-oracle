@@ -39,8 +39,14 @@ Use `config/networks/testnet.json` and `config/networks/mainnet.json` as the can
 
 Core contracts:
 
-- `MorpheusOracle`
-- `OracleCallbackConsumer`
+- Neo N3: `MorpheusOracle`, `OracleCallbackConsumer`, `MorpheusDataFeed`
+- Neo X: `MorpheusOracleX`, `OracleCallbackConsumerX`, `MorpheusDataFeedX`
+
+The intended logic is consistent across both chains:
+
+- privacy oracle requests
+- off-chain privacy compute through oracle/compute worker modules
+- datafeed storage and updater-controlled publication
 
 ## Optional On-Chain Key Publication
 

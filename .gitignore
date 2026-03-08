@@ -13,3 +13,6 @@ workers/phala-worker/node_modules
 contracts/build
 contracts/**/bin
 contracts/**/obj
+contracts/neox/artifacts
+contracts/neox/cache
+contracts/neox/node_modules

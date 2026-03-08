@@ -23,7 +23,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 
 - `apps/web` — Vercel-ready Next.js frontend and API proxy layer
 - `workers/phala-worker` — Phala TEE worker runtime
-- `contracts` — Morpheus Oracle-only gateway and callback consumer contracts
+- `contracts` — Neo N3 and Neo X Morpheus oracle + callback + datafeed contracts
 - `packages/shared` — shared types and chain metadata
 - `supabase/migrations` — schema, RLS policies, and built-in compute catalog seeds
 - `docs` — architecture, async privacy Oracle spec, and deployment notes
