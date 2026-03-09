@@ -55,6 +55,8 @@ Deployment files:
 - `deploy/phala/Caddyfile`
 - `deploy/phala/morpheus.env.example`
 - `deploy/phala/README.md`
+- `scripts/render-phala-env.mjs`
+- `scripts/check-phala-env.mjs`
 
 ## Morpheus Relayer
 

@@ -21,6 +21,8 @@
     "write:addresses": "node scripts/write-address-registry.mjs",
     "verify:n3": "node scripts/verify-morpheus-n3.mjs",
     "verify:neox": "node scripts/verify-morpheus-neox.mjs",
+    "render:phala-env": "node scripts/render-phala-env.mjs",
+    "check:phala-env": "node scripts/check-phala-env.mjs",
     "compile:neox": "npm --prefix contracts/neox run compile",
     "test:neox": "npm --prefix contracts/neox test"
   }

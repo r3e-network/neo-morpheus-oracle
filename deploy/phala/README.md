@@ -46,9 +46,16 @@ For your current codebase, I recommend:
 ## Deploy steps
 
 1. Build and push both images
-2. Copy `docker-compose.yml`, `morpheus.env`, and optionally `Caddyfile` into the CVM
-3. Fill `morpheus.env` from `morpheus.env.example`
-4. Start services:
+2. Generate local env once from root `.env` if you want a practical starting file:
+
+```bash
+npm run render:phala-env
+npm run check:phala-env
+```
+
+3. Copy `docker-compose.yml`, `morpheus.env`, and optionally `Caddyfile` into the CVM
+4. Fill or review `morpheus.env` against `morpheus.env.example`
+5. Start services:
 
 ```bash
 docker compose -f docker-compose.yml up -d
