@@ -74,13 +74,13 @@ npm run check:phala-env
 5. Start services:
 
 ```bash
-docker compose -f docker-compose.yml up -d
+docker compose --env-file ./morpheus.env -f docker-compose.yml up -d
 ```
 
 If you want Caddy as the public edge proxy:
 
 ```bash
-docker compose --profile edge -f docker-compose.yml up -d
+docker compose --env-file ./morpheus.env --profile edge -f docker-compose.yml up -d
 ```
 
 5. Verify worker:
@@ -132,5 +132,6 @@ Then copy only the direct keys above into Phala Dashboard Encrypted Secrets.
 - `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` controls the derived wrapping key path for the stable Oracle encryption key
 - `PHALA_ORACLE_KEYSTORE_PATH` controls where the sealed Oracle RSA key is stored inside the CVM volume
 - mount `/var/run/dstack.sock` so the dstack SDK can fetch info, quotes, and derived keys
+- file-based compose should be launched with `--env-file ./morpheus.env` because Docker Compose does not interpolate image tags from `env_file`
 - worker now supports a stable dstack-sealed Oracle public key instead of restart-random key material
 - relayer now also supports derived-key signing fallback for N3 / NeoX fulfill transactions when explicit keys are omitted

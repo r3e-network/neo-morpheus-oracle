@@ -3,7 +3,7 @@ import { deriveRelayerNeoXPrivateKeyHex, shouldUseDerivedKeys } from "./dstack.j
 
 const MORPHEUS_ORACLE_X_ABI = [
   "event OracleRequested(uint256 indexed requestId, string requestType, address indexed requester, address indexed callbackContract, string callbackMethod, bytes payload)",
-  "function fulfillRequest(uint256, bool, bytes, string)",
+  "function fulfillRequest(uint256, bool, bytes, string, bytes)",
 ];
 
 const morpheusOracleXInterface = new Interface(MORPHEUS_ORACLE_X_ABI);
@@ -56,7 +56,7 @@ async function resolveNeoXUpdaterPrivateKey(config) {
   throw new Error("Neo X updater signing material is not configured");
 }
 
-export async function fulfillNeoXRequest(config, requestId, success, result, error) {
+export async function fulfillNeoXRequest(config, requestId, success, result, error, verificationSignature) {
   const provider = new JsonRpcProvider(config.neo_x.rpcUrl);
   const privateKey = await resolveNeoXUpdaterPrivateKey(config);
   const wallet = new Wallet(privateKey, provider);
@@ -65,6 +65,7 @@ export async function fulfillNeoXRequest(config, requestId, success, result, err
     Boolean(success),
     `0x${Buffer.from(result || "", "utf8").toString("hex")}`,
     error || "",
+    verificationSignature.startsWith("0x") ? verificationSignature : `0x${verificationSignature}`,
   ]);
   const tx = await wallet.sendTransaction({
     to: config.neo_x.oracleContract,

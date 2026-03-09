@@ -33,6 +33,7 @@ contract MorpheusOracleX {
 
     address public admin;
     address public updater;
+    address public oracleVerifier;
     string public oracleEncryptionAlgorithm;
     string public oracleEncryptionPublicKey;
     uint256 public oracleEncryptionKeyVersion;
@@ -51,6 +52,7 @@ contract MorpheusOracleX {
     event CallbackRemoved(address indexed callbackContract);
     event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
     event UpdaterChanged(address indexed oldUpdater, address indexed newUpdater);
+    event OracleVerifierChanged(address indexed oldVerifier, address indexed newVerifier);
     event OracleEncryptionKeyUpdated(uint256 indexed version, string algorithm, string publicKey);
 
     modifier onlyAdmin() {
@@ -79,6 +81,13 @@ contract MorpheusOracleX {
         address oldUpdater = updater;
         updater = newUpdater;
         emit UpdaterChanged(oldUpdater, newUpdater);
+    }
+
+    function setOracleVerifier(address newVerifier) external onlyAdmin {
+        require(newVerifier != address(0), "invalid verifier");
+        address oldVerifier = oracleVerifier;
+        oracleVerifier = newVerifier;
+        emit OracleVerifierChanged(oldVerifier, newVerifier);
     }
 
     function setOracleEncryptionKey(string calldata algorithm, string calldata publicKey) external onlyAdmin {
@@ -134,13 +143,14 @@ contract MorpheusOracleX {
         emit OracleRequested(requestId, requestType, msg.sender, callbackContract, callbackMethod, payload);
     }
 
-    function fulfillRequest(uint256 requestId, bool success, bytes calldata result, string calldata error) external onlyUpdater {
+    function fulfillRequest(uint256 requestId, bool success, bytes calldata result, string calldata error, bytes calldata verificationSignature) external onlyUpdater {
         OracleRequest storage req = requests[requestId];
         require(req.id != 0, "request not found");
         require(req.status == OracleRequestStatus.Pending, "already fulfilled");
-        require(allowedCallbacks[req.callbackContract], "callback not allowed");
         require(result.length <= MAX_RESULT_LENGTH, "result too large");
         require(bytes(error).length <= MAX_ERROR_LENGTH, "error too large");
+        require(oracleVerifier != address(0), "oracle verifier not set");
+        require(_recoverResultSigner(result, verificationSignature) == oracleVerifier, "invalid verification signature");
 
         req.status = success ? OracleRequestStatus.Fulfilled : OracleRequestStatus.Failed;
         req.fulfilledAt = uint64(block.timestamp);
@@ -169,5 +179,44 @@ contract MorpheusOracleX {
 
     function getTypeFulfilled(string calldata requestType) external view returns (uint256) {
         return typeFulfilled[keccak256(bytes(requestType))];
+    }
+
+    function _recoverResultSigner(bytes memory result, bytes memory signature) internal pure returns (address) {
+        require(signature.length == 65, "invalid verification signature");
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(signature, 0x20))
+            s := mload(add(signature, 0x40))
+            v := byte(0, mload(add(signature, 0x60)))
+        }
+        if (v < 27) v += 27;
+        require(v == 27 || v == 28, "invalid verification signature");
+
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n", _uintToString(result.length), result)
+        );
+        address recovered = ecrecover(digest, v, r, s);
+        require(recovered != address(0), "invalid verification signature");
+        return recovered;
+    }
+
+    function _uintToString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) return "0";
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits += 1;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
     }
 }

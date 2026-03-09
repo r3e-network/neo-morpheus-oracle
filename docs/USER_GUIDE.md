@@ -117,6 +117,20 @@ Important notes:
 - invalid entry points are rejected
 - use built-ins whenever possible for stable semantics
 
+### Confidential compute payloads
+
+If you want the function name, script, or inputs to stay encrypted until they reach the TEE, fetch the Oracle public key first and encrypt a JSON payload patch.
+
+Example confidential builtin call:
+
+```json
+{
+  "encrypted_payload": "<encrypt({\"mode\":\"builtin\",\"function\":\"math.modexp\",\"input\":{\"base\":\"2\",\"exponent\":\"10\",\"modulus\":\"17\"},\"target_chain\":\"neo_n3\"})>"
+}
+```
+
+The worker decrypts that JSON object inside the TEE, merges it into the request, executes it, and returns the callback-ready result envelope.
+
 ## 3. Privacy Oracle Usage
 
 There are two main paths.
@@ -161,6 +175,7 @@ Example:
   "method": "GET",
   "headers": {},
   "encrypted_token": "<base64 ciphertext>",
+  "encrypted_params": "<base64 ciphertext with secret headers/body/provider params/script>",
   "token_header": "Authorization",
   "script": "function process(data) { return data.score > 80; }",
   "target_chain": "neo_x"
@@ -175,11 +190,18 @@ curl http://localhost:3000/api/oracle/smart-fetch \
   -d '{
     "url":"https://api.example.com/private",
     "encrypted_token":"<base64 ciphertext>",
+    "encrypted_params":"<base64 ciphertext with secret headers/body/provider params/script>",
     "token_header":"Authorization",
     "script":"function process(data) { return data.score > 80; }",
     "target_chain":"neo_x"
   }'
 ```
+
+Important notes:
+
+- `encrypted_token` is the cleanest choice when only an auth secret must stay private
+- `encrypted_params`, `encrypted_input`, or a JSON-object `encrypted_payload` can carry confidential headers, provider params, compute input, function names, or scripts
+- `encrypted_payload` remains supported as a backward-compatible alias for encrypted auth tokens too
 
 ### Oracle public key
 

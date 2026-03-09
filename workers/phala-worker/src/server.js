@@ -2,10 +2,18 @@ import http from "http";
 import handler from "./worker.js";
 
 const port = Number(process.env.PORT || process.env.PHALA_WORKER_PORT || process.env.NITROCORE_PORT || 8080);
+const maxBodyBytes = Math.max(Number(process.env.WORKER_MAX_BODY_BYTES || 262144), 1024);
 
 async function toRequest(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxBodyBytes) {
+      throw new Error(`request body too large (max ${maxBodyBytes} bytes)`);
+    }
+    chunks.push(chunk);
+  }
   const bodyBuffer = Buffer.concat(chunks);
   const protocol = req.headers["x-forwarded-proto"] || "http";
   const host = req.headers.host || `0.0.0.0:${port}`;

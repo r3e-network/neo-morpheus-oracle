@@ -22,6 +22,7 @@
   "json_path": "data.value",
   "encrypted_token": "<base64 ciphertext>",
   "encrypted_payload": "<base64 ciphertext>",
+  "encrypted_params": "<base64 ciphertext>",
   "token_header": "Authorization",
   "script": "function process(data) { return data.age > 80; }",
   "script_base64": "ZnVuY3Rpb24gcHJvY2VzcyhkYXRhKSB7IHJldHVybiBkYXRhLmFnZSA+IDgwOyB9",
@@ -32,7 +33,9 @@
 
 ## Rules
 
-- `encrypted_token` and `encrypted_payload` are interchangeable aliases
+- `encrypted_token` is the canonical encrypted auth-secret field for private fetches
+- `encrypted_payload` remains backward-compatible as a token alias, but if its decrypted plaintext is a JSON object the worker now treats it as a confidential payload patch and merges it before execution
+- `encrypted_params` / `encrypted_input` are dedicated aliases for encrypted JSON patches that can carry secret headers, provider params, compute input, function names, or scripts
 - `script` and `script_base64` are interchangeable aliases
 - `callback_contract` and `callback_method` are on-chain request arguments, not JSON payload fields
 - `target_chain` may be `neo_n3` or `neo_x`
@@ -62,6 +65,14 @@ or
 }
 ```
 
+Confidential compute can be submitted by encrypting the full compute payload patch with the Oracle public key:
+
+```json
+{
+  "encrypted_payload": "<encrypt({\"mode\":\"builtin\",\"function\":\"math.modexp\",\"input\":{\"base\":\"2\",\"exponent\":\"10\",\"modulus\":\"17\"},\"target_chain\":\"neo_n3\"})>"
+}
+```
+
 ## Built-in Providers
 
 Requests may optionally specify a built-in provider via `provider` and `provider_params`.
@@ -69,6 +80,7 @@ Requests may optionally specify a built-in provider via `provider` and `provider
 Built-ins:
 
 - `twelvedata` — direct market-data source with API key auth
+- `binance-spot` — direct Binance spot ticker endpoint without aggregation
 - `coinbase-spot` — direct Coinbase spot price endpoint without aggregation
 
 If `provider` is omitted, callers may still use their own `url` plus encrypted secret payloads.

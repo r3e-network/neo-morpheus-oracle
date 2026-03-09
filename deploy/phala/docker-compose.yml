@@ -1,6 +1,6 @@
 services:
   phala-worker:
-    image: ${MORPHEUS_PHALA_WORKER_IMAGE}
+    image: ${MORPHEUS_PHALA_WORKER_IMAGE:-ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:latest}
     container_name: morpheus-phala-worker
     restart: unless-stopped
     env_file:
@@ -11,6 +11,7 @@ services:
       - "${PHALA_WORKER_PORT:-8080}"
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
+      - morpheus-data:/data
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -35,7 +36,7 @@ services:
       - caddy-config:/config
 
   morpheus-relayer:
-    image: ${MORPHEUS_RELAYER_IMAGE}
+    image: ${MORPHEUS_RELAYER_IMAGE:-ghcr.io/r3e-network/neo-morpheus-oracle-relayer:latest}
     container_name: morpheus-relayer
     restart: unless-stopped
     depends_on:
@@ -45,10 +46,10 @@ services:
       - ./morpheus.env
     environment:
       PHALA_API_URL: http://phala-worker:${PHALA_WORKER_PORT:-8080}
-      MORPHEUS_RELAYER_STATE_FILE: /data/morpheus/.morpheus-relayer-state.json
+      MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.json
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
-      - morpheus-data:/data/morpheus
+      - morpheus-data:/data
 
 volumes:
   morpheus-data:

@@ -1,4 +1,5 @@
 import { Contract, JsonRpcProvider, Wallet } from 'ethers';
+import { loadDotEnv } from './lib-env.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -25,6 +26,8 @@ function decodeBytes(bytesLike) {
     return raw;
   }
 }
+
+await loadDotEnv();
 
 const ORACLE_ABI = [
   'event OracleRequested(uint256 indexed requestId, string requestType, address indexed requester, address indexed callbackContract, string callbackMethod, bytes payload)',
@@ -64,11 +67,12 @@ const privateKey = trimString(
 );
 const oracleAddress = trimString(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS || '');
 const callbackAddress = trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS || '');
-const providerName = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'coinbase-spot') || 'coinbase-spot';
+const providerName = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'twelvedata') || 'twelvedata';
 const symbol = trimString(process.env.MORPHEUS_SMOKE_SYMBOL || 'NEO-USD') || 'NEO-USD';
 const requestType = trimString(process.env.MORPHEUS_SMOKE_REQUEST_TYPE || 'privacy_oracle') || 'privacy_oracle';
 const jsonPath = trimString(process.env.MORPHEUS_SMOKE_JSON_PATH || 'price') || 'price';
 const script = trimString(process.env.MORPHEUS_SMOKE_SCRIPT || '');
+const callbackTimeoutMs = Number(process.env.MORPHEUS_SMOKE_CALLBACK_TIMEOUT_MS || 180000);
 
 if (!rpcUrl) throw new Error('NEOX_RPC_URL is required');
 if (!privateKey) throw new Error('NEOX_PRIVATE_KEY or PHALA_NEOX_PRIVATE_KEY is required');
@@ -104,12 +108,17 @@ const event = receipt.logs
 const requestId = event?.args?.requestId?.toString();
 if (!requestId) throw new Error(`failed to resolve Neo X requestId from tx ${tx.hash}`);
 
-const callback = await waitForCallback(consumer, requestId);
-
-console.log(JSON.stringify({
+const callback = await waitForCallback(consumer, requestId, callbackTimeoutMs);
+const summary = {
   txid: tx.hash,
   request_id: requestId,
   provider: providerName,
   symbol,
   callback,
-}, null, 2));
+};
+
+console.log(JSON.stringify(summary, null, 2));
+if (!callback.success) {
+  console.error(`Neo X smoke callback failed for request ${requestId}: ${callback.error_text || 'unknown error'}`);
+  process.exitCode = 1;
+}

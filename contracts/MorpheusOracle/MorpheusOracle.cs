@@ -24,6 +24,7 @@ namespace MorpheusOracle.Contracts
     public delegate void AdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
     public delegate void UpdaterChangedHandler(UInt160 oldUpdater, UInt160 newUpdater);
     public delegate void OracleEncryptionKeyUpdatedHandler(BigInteger version, string algorithm, string publicKey);
+    public delegate void OracleVerifierUpdatedHandler(ECPoint oldVerifier, ECPoint newVerifier);
 
     [DisplayName("MorpheusOracle")]
     [ManifestExtra("Author", "Morpheus Oracle")]
@@ -40,6 +41,7 @@ namespace MorpheusOracle.Contracts
         private static readonly byte[] PREFIX_ORACLE_KEY = new byte[] { 0x06 };
         private static readonly byte[] PREFIX_ORACLE_KEY_ALGO = new byte[] { 0x07 };
         private static readonly byte[] PREFIX_ORACLE_KEY_VERSION = new byte[] { 0x08 };
+        private static readonly byte[] PREFIX_ORACLE_VERIFIER = new byte[] { 0x09 };
         private static readonly byte[] PREFIX_TOTAL_REQUESTS = new byte[] { 0x10 };
         private static readonly byte[] PREFIX_TOTAL_FULFILLED = new byte[] { 0x11 };
         private static readonly byte[] PREFIX_TYPE_REQUESTS = new byte[] { 0x12 };
@@ -91,6 +93,9 @@ namespace MorpheusOracle.Contracts
         [DisplayName("OracleEncryptionKeyUpdated")]
         public static event OracleEncryptionKeyUpdatedHandler OnOracleEncryptionKeyUpdated;
 
+        [DisplayName("OracleVerifierUpdated")]
+        public static event OracleVerifierUpdatedHandler OnOracleVerifierUpdated;
+
         public static void _deploy(object data, bool update)
         {
             if (update) return;
@@ -128,6 +133,13 @@ namespace MorpheusOracle.Contracts
         {
             ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_ORACLE_KEY_VERSION);
             return raw == null ? 0 : (BigInteger)raw;
+        }
+
+        [Safe]
+        public static ECPoint OracleVerificationPublicKey()
+        {
+            ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_ORACLE_VERIFIER);
+            return raw == null ? null : (ECPoint)(byte[])raw;
         }
 
         private static void ValidateAdmin()
@@ -175,6 +187,15 @@ namespace MorpheusOracle.Contracts
             Storage.Put(Storage.CurrentContext, PREFIX_ORACLE_KEY, publicKey);
             Storage.Put(Storage.CurrentContext, PREFIX_ORACLE_KEY_VERSION, version);
             OnOracleEncryptionKeyUpdated(version, algorithm, publicKey);
+        }
+
+        public static void SetOracleVerificationPublicKey(ECPoint publicKey)
+        {
+            ValidateAdmin();
+            ExecutionEngine.Assert(publicKey != null && publicKey.IsValid, "invalid verifier");
+            ECPoint oldVerifier = OracleVerificationPublicKey();
+            Storage.Put(Storage.CurrentContext, PREFIX_ORACLE_VERIFIER, (byte[])publicKey);
+            OnOracleVerifierUpdated(oldVerifier, publicKey);
         }
 
         private static StorageMap AllowedCallbackMap() => new StorageMap(Storage.CurrentContext, PREFIX_ALLOWED_CALLBACK);
@@ -342,16 +363,22 @@ namespace MorpheusOracle.Contracts
             return result == null ? 0 : result.Length;
         }
 
-        public static void FulfillRequest(BigInteger requestId, bool success, ByteString result, string error)
+        public static void FulfillRequest(BigInteger requestId, bool success, ByteString result, string error, ByteString verificationSignature)
         {
             ValidateUpdater();
 
             OracleRequest req = GetRequest(requestId);
             ExecutionEngine.Assert(req.Id > 0, "request not found");
             ExecutionEngine.Assert(req.Status == OracleRequestStatus.Pending, "request already fulfilled");
-            ExecutionEngine.Assert(IsAllowedCallback(req.CallbackContract), "callback contract not allowed");
             ExecutionEngine.Assert(result == null || result.Length <= MAX_RESULT_LENGTH, "result too large");
             ExecutionEngine.Assert(error == null || error.Length <= MAX_ERROR_LENGTH, "error too large");
+            ECPoint verifier = OracleVerificationPublicKey();
+            ExecutionEngine.Assert(verifier != null && verifier.IsValid, "oracle verifier not set");
+            ExecutionEngine.Assert(verificationSignature != null && verificationSignature.Length == 64, "invalid verification signature");
+            ExecutionEngine.Assert(
+                CryptoLib.VerifyWithECDsa(result ?? (ByteString)"", verifier, verificationSignature, NamedCurveHash.secp256r1SHA256),
+                "invalid verification signature"
+            );
 
             req.Status = success ? OracleRequestStatus.Fulfilled : OracleRequestStatus.Failed;
             req.FulfilledAt = Runtime.Time;

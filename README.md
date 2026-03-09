@@ -33,16 +33,8 @@ This project gives the Neo blockchain the same thing: **truth**.
 
 ## Built-in Compute Functions
 
-The Morpheus compute module ships with built-in functions that users can call directly:
-
-- `hash.sha256`
-- `math.modexp`
-- `matrix.multiply`
-- `vector.cosine_similarity`
-- `zkp.public_signal_hash`
-- `zkp.proof_digest`
-- `fhe.batch_plan`
-- `fhe.noise_budget_estimate`
+The Morpheus compute module ships with a built-in catalog that users can call directly through `/compute/functions` and `/compute/execute`.
+It covers hashes, RSA verification, modular arithmetic, matrix/vector operations, Merkle roots, ZKP planning/digests, FHE planning, and privacy helpers.
 
 These are intended as the first layer of built-ins; you can later plug in external ZKP/FHE runtimes behind the same function registry.
 

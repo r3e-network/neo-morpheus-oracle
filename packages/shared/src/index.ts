@@ -9,6 +9,9 @@ export type OraclePayload = {
   json_path?: string;
   encrypted_token?: string;
   encrypted_payload?: string;
+  encrypted_params?: string;
+  encrypted_input?: string;
+  encrypted_inputs?: Record<string, string>;
   token_header?: string;
   script?: string;
   script_base64?: string;
@@ -22,7 +25,9 @@ export type OraclePayload = {
 export type ComputeBuiltinFunction =
   | "hash.sha256"
   | "hash.keccak256"
+  | "crypto.rsa_verify"
   | "math.modexp"
+  | "math.polynomial"
   | "matrix.multiply"
   | "vector.cosine_similarity"
   | "merkle.root"
@@ -33,9 +38,11 @@ export type ComputeBuiltinFunction =
   | "zkp.plonk.prove.plan"
   | "fhe.batch_plan"
   | "fhe.noise_budget_estimate"
-  | "fhe.rotation_plan";
+  | "fhe.rotation_plan"
+  | "privacy.mask"
+  | "privacy.add_noise";
 
-export type BuiltinProviderId = "twelvedata" | "coinbase-spot";
+export type BuiltinProviderId = "twelvedata" | "binance-spot" | "coinbase-spot";
 
 export type ProviderConfig = {
   provider_id: BuiltinProviderId | string;
@@ -48,6 +55,9 @@ export const providerConfigSchemaHints: Record<string, unknown> = {
     endpoint: "price",
     symbol: "NEO-USD",
     interval: "1min",
+  },
+  "binance-spot": {
+    symbol: "NEOUSDT",
   },
   "coinbase-spot": {
     symbol: "NEO-USD",

@@ -115,6 +115,12 @@ export function encodeUtf8ByteArrayParamValue(value) {
   return Buffer.from(raw, "utf8").toString("base64");
 }
 
+function encodeHexByteArrayParamValue(value) {
+  const raw = trimString(value).replace(/^0x/i, "");
+  if (!raw) return "";
+  return Buffer.from(raw, "hex").toString("base64");
+}
+
 async function resolveNeoN3UpdaterPayload(config) {
   if (config.neo_n3.updaterWif) {
     return { wif: config.neo_n3.updaterWif };
@@ -128,7 +134,7 @@ async function resolveNeoN3UpdaterPayload(config) {
   throw new Error("Neo N3 updater signing material is not configured");
 }
 
-export async function fulfillNeoN3Request(config, requestId, success, result, error) {
+export async function fulfillNeoN3Request(config, requestId, success, result, error, verificationSignature) {
   const signerPayload = await resolveNeoN3UpdaterPayload(config);
   const invoke = await relayNeoN3Invocation({
     request_id: `relayer:n3:${requestId}`,
@@ -139,6 +145,7 @@ export async function fulfillNeoN3Request(config, requestId, success, result, er
       { type: "Boolean", value: Boolean(success) },
       { type: "ByteArray", value: encodeUtf8ByteArrayParamValue(result || "") },
       { type: "String", value: error || "" },
+      { type: "ByteArray", value: encodeHexByteArrayParamValue(verificationSignature || "") },
     ],
     wait: false,
     rpc_url: config.neo_n3.rpcUrl,

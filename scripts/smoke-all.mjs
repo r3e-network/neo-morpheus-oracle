@@ -1,8 +1,15 @@
 import { spawn } from 'node:child_process';
+import { loadDotEnv } from './lib-env.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
+
+function hasAny(...keys) {
+  return keys.some((key) => trimString(process.env[key]));
+}
+
+await loadDotEnv();
 
 function runNodeScript(scriptPath) {
   return new Promise((resolve) => {
@@ -25,8 +32,22 @@ function runNodeScript(scriptPath) {
   });
 }
 
-const shouldRunN3 = Boolean(trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH) && trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH) && trimString(process.env.NEO_TESTNET_WIF));
-const shouldRunNeoX = Boolean(trimString(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS) && trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS) && trimString(process.env.NEOX_PRIVATE_KEY || process.env.PHALA_NEOX_PRIVATE_KEY));
+const shouldRunN3 = Boolean(
+  trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH)
+  && trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH)
+  && hasAny(
+    'NEO_TESTNET_WIF',
+    'PHALA_NEO_N3_WIF',
+    'PHALA_NEO_N3_PRIVATE_KEY',
+    'MORPHEUS_RELAYER_NEO_N3_WIF',
+    'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+  ),
+);
+const shouldRunNeoX = Boolean(
+  trimString(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS)
+  && trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS)
+  && hasAny('NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY'),
+);
 
 const summary = {
   neo_n3: null,

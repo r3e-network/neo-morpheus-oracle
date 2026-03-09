@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import {
   buildOnchainResultEnvelope,
@@ -15,6 +18,7 @@ import {
   getDueRetryItems,
   hasProcessedEvent,
   isEventQueuedForRetry,
+  saveRelayerState,
   recordProcessedEvent,
   scheduleRetry,
   snapshotMetrics,
@@ -163,6 +167,14 @@ test("state exhausts retries after max attempts", () => {
   assert.equal(scheduleRetry(state, "neo_n3", event, "fail-3", retryConfig).status, "scheduled");
   const exhausted = scheduleRetry(state, "neo_n3", event, "fail-4", retryConfig);
   assert.equal(exhausted.status, "exhausted");
+});
+
+test("saveRelayerState creates parent directories", () => {
+  const state = createEmptyRelayerState();
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "morpheus-relayer-state-"));
+  const target = path.join(root, "nested", ".morpheus-relayer-state.json");
+  saveRelayerState(target, state);
+  assert.equal(fs.existsSync(target), true);
 });
 
 test("relayer config accepts derived-key mode for Neo N3 and Neo X", () => {

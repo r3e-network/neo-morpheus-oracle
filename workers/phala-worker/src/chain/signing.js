@@ -65,10 +65,31 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   };
 }
 
+async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
+  let privateKey = trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
+  if (shouldUseDerivedKeys(payload)) {
+    try {
+      privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");
+    } catch {
+      // fall back to configured worker key material if available
+    }
+  }
+  if (!privateKey) return null;
+
+  const account = new neoWallet.Account(privateKey);
+  const payloadBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  return {
+    signature: neoWallet.sign(payloadBuffer.toString("hex"), account.privateKey),
+    public_key: account.publicKey,
+    address: account.address,
+    script_hash: `0x${account.scriptHash}`,
+  };
+}
+
 export async function buildSignedResultEnvelope(result, payload = {}) {
   const payloadBytes = Buffer.from(stableStringify(result), "utf8");
   const outputHash = sha256Hex(payloadBytes);
-  const signature = await maybeSignNeoN3Bytes(payloadBytes, payload);
+  const signature = await maybeSignWorkerNeoN3Bytes(payloadBytes, payload);
   return {
     output_hash: outputHash,
     attestation_hash: outputHash,

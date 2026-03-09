@@ -25,8 +25,16 @@ Hashes any JSON-serializable input.
 ### `hash.keccak256`
 Keccak-256 digest for EVM-oriented preprocessing and cross-checks.
 
+### `crypto.rsa_verify`
+Verifies an RSA-SHA256 signature off-chain. RSA signature verification is computationally extremely expensive to execute natively within EVM or Neo N3 smart contracts.
+Takes `public_key` (PEM text), `signature` (hex string), and `payload` (string). Returns `{"is_valid": true/false}`.
+
 ### `math.modexp`
 Big integer modular exponentiation for cryptographic preprocessing.
+
+### `math.polynomial`
+Evaluates a polynomial of arbitrary degree ($c_n x^n + \dots + c_1 x + c_0$) off-chain. Especially useful when degrees are very large and gas costs would exceed block limits.
+Takes `coefficients` (array of numbers from highest degree to constant $c_0$), `x` (number to evaluate at), and an optional `modulus`.
 
 ### `matrix.multiply`
 Dense matrix multiplication.
@@ -60,6 +68,14 @@ Returns a coarse planning estimate for FHE noise budget based on depth and modul
 
 ### `fhe.rotation_plan`
 Returns a rotation/key-switch planning summary for vector index usage.
+
+### `privacy.mask`
+Masks a sensitive string, leaving edge characters visible (e.g. for partial logging in TEE).
+Takes `value`, `unmasked_left` (default 2), and `unmasked_right` (default 2).
+
+### `privacy.add_noise`
+Adds simulated Laplace noise to a numeric value for differential privacy use cases.
+Takes `value` and `scale` (default 1.0).
 
 ## Notes
 

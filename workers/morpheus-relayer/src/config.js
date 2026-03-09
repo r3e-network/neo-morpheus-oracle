@@ -89,6 +89,7 @@ export function createRelayerConfig() {
     phala: {
       apiUrl: env("PHALA_API_URL"),
       token: env("PHALA_API_TOKEN", "PHALA_SHARED_SECRET"),
+      timeoutMs: Number(env("MORPHEUS_PHALA_TIMEOUT_MS") || 30000),
     },
     neo_n3: {
       rpcUrl: env("NEO_RPC_URL") || trimString(registry.neo_n3?.rpc_url || ""),

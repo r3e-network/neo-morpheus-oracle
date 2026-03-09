@@ -88,13 +88,17 @@ using (enabled = true);
 insert into morpheus_compute_functions (function_name, category, description, input_schema)
 values
   ('hash.sha256', 'hash', 'Hashes any JSON-serializable payload.', '{"type":"object"}'),
+  ('crypto.rsa_verify', 'crypto', 'Verifies an RSA-SHA256 signature (expensive on-chain).', '{"type":"object","required":["public_key","signature","payload"]}'),
   ('math.modexp', 'math', 'Performs big integer modular exponentiation.', '{"type":"object","required":["base","exponent","modulus"]}'),
+  ('math.polynomial', 'math', 'Evaluates a polynomial of arbitrary degree.', '{"type":"object","required":["coefficients","x"]}'),
   ('matrix.multiply', 'linear_algebra', 'Multiplies two dense matrices.', '{"type":"object","required":["left","right"]}'),
   ('vector.cosine_similarity', 'linear_algebra', 'Computes cosine similarity between two vectors.', '{"type":"object","required":["left","right"]}'),
   ('zkp.public_signal_hash', 'zkp', 'Computes a deterministic digest over circuit public signals.', '{"type":"object","required":["signals"]}'),
   ('zkp.proof_digest', 'zkp', 'Computes a deterministic digest over a proof object.', '{"type":"object"}'),
   ('fhe.batch_plan', 'fhe', 'Builds a packing plan for ciphertext batching.', '{"type":"object"}'),
-  ('fhe.noise_budget_estimate', 'fhe', 'Estimates a rough FHE noise budget from planning parameters.', '{"type":"object"}')
+  ('fhe.noise_budget_estimate', 'fhe', 'Estimates a rough FHE noise budget from planning parameters.', '{"type":"object"}'),
+  ('privacy.mask', 'privacy', 'Masks a sensitive string, leaving edges visible.', '{"type":"object","required":["value"]}'),
+  ('privacy.add_noise', 'privacy', 'Adds simulated Laplace noise for differential privacy.', '{"type":"object","required":["value"]}')
 on conflict (function_name) do update set
   category = excluded.category,
   description = excluded.description,

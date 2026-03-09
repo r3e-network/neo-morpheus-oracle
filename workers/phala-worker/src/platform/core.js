@@ -42,6 +42,12 @@ export function trimString(value) {
   return String(value || "").trim();
 }
 
+export function normalizeBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
+}
+
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -140,6 +146,12 @@ export function parseDurationMs(value, fallbackMs = 0) {
   const unit = match[2];
   const scale = unit === "ms" ? 1 : unit === "s" ? 1000 : 60_000;
   return Math.max(Math.round(amount * scale), 0);
+}
+
+export function assertUntrustedScriptsEnabled() {
+  if (!normalizeBoolean(env("MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS"), false)) {
+    throw new Error("user-supplied scripts are disabled; set MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS=true to opt in");
+  }
 }
 
 export function resolveScript(payload) {

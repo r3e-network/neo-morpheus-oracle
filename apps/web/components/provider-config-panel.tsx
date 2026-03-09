@@ -17,6 +17,7 @@ type ProviderConfigRecord = {
 
 const DEFAULT_PROVIDER_CONFIGS: Record<string, string> = {
   twelvedata: JSON.stringify({ symbol: "NEO-USD", endpoint: "price", interval: "1min" }, null, 2),
+  "binance-spot": JSON.stringify({ symbol: "NEOUSDT" }, null, 2),
   "coinbase-spot": JSON.stringify({ symbol: "NEO-USD" }, null, 2),
 };
 
@@ -125,7 +126,7 @@ export function ProviderConfigPanel() {
         <button onClick={() => setConfigJson(exampleConfig)}>Reset Example Config</button>
       </div>
       <datalist id="builtin-provider-ids">
-        {(providers.length ? providers : [{ id: "twelvedata" }, { id: "coinbase-spot" }]).map((provider) => (
+        {(providers.length ? providers : [{ id: "twelvedata" }, { id: "binance-spot" }, { id: "coinbase-spot" }]).map((provider) => (
           <option key={provider.id} value={provider.id}>
             {provider.description || provider.id}
           </option>

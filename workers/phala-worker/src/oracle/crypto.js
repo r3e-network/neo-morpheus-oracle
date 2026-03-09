@@ -11,7 +11,7 @@ import {
   randomBytes,
 } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { env, parseDurationMs, decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
+import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
 import { deriveKeyBytes, shouldUseDerivedKeys } from "../platform/dstack.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 
@@ -251,6 +251,8 @@ export async function executeProgrammableOracle(payload, context) {
       result: context.selected_value ?? context.data ?? context.raw_response,
     };
   }
+
+  assertUntrustedScriptsEnabled();
 
   const timeoutMs = parseDurationMs(
     payload.script_timeout_ms || payload.oracle_script_timeout_ms || env("ORACLE_SCRIPT_TIMEOUT_MS"),
