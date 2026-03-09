@@ -23,6 +23,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 
 - `apps/web` — Vercel-ready Next.js frontend and API proxy layer
 - `workers/phala-worker` — Phala TEE worker runtime
+- `workers/morpheus-relayer` — async chain listener and callback relayer for Neo N3 + Neo X
 - `contracts` — Neo N3 and Neo X Morpheus oracle + callback + datafeed contracts
 - `packages/shared` — shared types and chain metadata
 - `supabase/migrations` — schema, RLS policies, and built-in compute catalog seeds
@@ -52,6 +53,7 @@ Built-in providers now include `twelvedata` and `coinbase-spot`.
 npm install
 cp .env.development.example .env.local
 npm --prefix workers/phala-worker test
+npm --prefix workers/morpheus-relayer test
 npm --prefix apps/web run dev
 ```
 
@@ -61,5 +63,6 @@ npm --prefix apps/web run dev
 - `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/PROVIDERS.md`
+- `docs/RELAYER.md`
 - `docs/DEPLOYMENT.md`
 - `docs/TESTNET_RUNBOOK.md`

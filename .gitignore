@@ -16,3 +16,4 @@ contracts/**/obj
 contracts/neox/artifacts
 contracts/neox/cache
 contracts/neox/node_modules
+.morpheus-relayer-state.json

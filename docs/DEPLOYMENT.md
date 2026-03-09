@@ -34,6 +34,27 @@ Deploy `workers/phala-worker` to Phala with:
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
 - `SUPABASE_SERVICE_ROLE_KEY` (or compatible service key) for worker-side provider-config lookup
 
+## Morpheus Relayer
+
+Run `workers/morpheus-relayer` as the async bridge that watches `OracleRequested` events and calls `fulfillRequest` back on-chain.
+
+Required env vars:
+
+- `PHALA_API_URL`
+- `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
+- `MORPHEUS_NETWORK`
+- `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
+- `MORPHEUS_RELAYER_NEOX_PRIVATE_KEY`
+- `CONTRACT_MORPHEUS_ORACLE_HASH`
+- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
+
+Optional:
+
+- `MORPHEUS_RELAYER_POLL_INTERVAL_MS`
+- `MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS`
+- `MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS`
+- `MORPHEUS_RELAYER_STATE_FILE`
+
 ## Supabase
 
 Apply, in order:

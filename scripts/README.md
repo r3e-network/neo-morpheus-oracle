@@ -13,6 +13,11 @@
 - `node scripts/deploy-neox-contracts.mjs`
 - `node scripts/setup-neox-addresses.mjs`
 
+## Relayer
+
+- `npm --prefix workers/morpheus-relayer run once`
+- `npm --prefix workers/morpheus-relayer run start`
+
 ## Expected env vars
 
 - `NEO_TESTNET_WIF`

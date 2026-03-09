@@ -1,0 +1,16 @@
+{
+  "name": "@neo-morpheus-oracle/morpheus-relayer",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/cli.js loop",
+    "once": "node src/cli.js once",
+    "check": "node --check src/cli.js",
+    "test": "node --test relayer.test.mjs"
+  },
+  "dependencies": {
+    "@cityofzion/neon-js": "^5.8.1",
+    "ethers": "^6.16.0"
+  }
+}

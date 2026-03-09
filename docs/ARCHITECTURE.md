@@ -13,7 +13,7 @@
         v
 [ MorpheusOracle Event ]
         |
-        | 3. dispatcher listens for ServiceRequested
+        | 3. dispatcher listens for OracleRequested
         v
 [ Morpheus Dispatcher ]
         |
