@@ -1,8 +1,8 @@
 import { Interface, JsonRpcProvider, Wallet } from "ethers";
 
 const MORPHEUS_ORACLE_X_ABI = [
-  "event OracleRequested(uint256 indexed requestId,string requestType,address indexed requester,address indexed callbackContract,string callbackMethod,bytes payload)",
-  "function fulfillRequest(uint256 requestId,bool success,bytes result,string error)",
+  "event OracleRequested(uint256 indexed requestId, string requestType, address indexed requester, address indexed callbackContract, string callbackMethod, bytes payload)",
+  "function fulfillRequest(uint256, bool, bytes, string)",
 ];
 
 const morpheusOracleXInterface = new Interface(MORPHEUS_ORACLE_X_ABI);

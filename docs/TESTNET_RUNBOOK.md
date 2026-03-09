@@ -86,6 +86,7 @@ npm --prefix apps/web run build
 
 ```bash
 npm --prefix workers/morpheus-relayer run once
+npm --prefix workers/morpheus-relayer run metrics
 npm --prefix apps/web run dev
 ```
 

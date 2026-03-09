@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node src/cli.js loop",
     "once": "node src/cli.js once",
+    "metrics": "node src/cli.js metrics",
     "check": "node --check src/cli.js",
     "test": "node --test relayer.test.mjs"
   },

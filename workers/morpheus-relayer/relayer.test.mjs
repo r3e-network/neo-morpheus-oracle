@@ -8,6 +8,24 @@ import {
   normalizeRequestType,
   resolveWorkerRoute,
 } from "./src/router.js";
+import {
+  buildEventKey,
+  createEmptyRelayerState,
+  getDueRetryItems,
+  hasProcessedEvent,
+  isEventQueuedForRetry,
+  recordProcessedEvent,
+  scheduleRetry,
+  snapshotMetrics,
+} from "./src/state.js";
+
+const retryConfig = {
+  maxRetries: 3,
+  retryBaseDelayMs: 1000,
+  retryMaxDelayMs: 10000,
+  processedCacheSize: 100,
+  deadLetterLimit: 10,
+};
 
 test("normalizeRequestType normalizes separators and casing", () => {
   assert.equal(normalizeRequestType("Privacy-Oracle"), "privacy_oracle");
@@ -46,4 +64,38 @@ test("encodeFulfillmentResult returns success envelope for worker output", () =>
   assert.equal(failed.success, false);
   assert.equal(failed.result, "");
   assert.equal(failed.error, "bad request");
+});
+
+test("state tracks processed events and metrics snapshot", () => {
+  const state = createEmptyRelayerState();
+  const event = { chain: "neo_n3", requestId: "7", txHash: "0xabc", logIndex: 0, blockNumber: 12, requestType: "privacy_oracle" };
+  recordProcessedEvent(state, "neo_n3", event, "fulfilled", { attempts: 1 }, retryConfig);
+  assert.equal(hasProcessedEvent(state, "neo_n3", event), true);
+  const metrics = snapshotMetrics(state);
+  assert.equal(metrics.retry_queue_sizes.neo_n3, 0);
+  assert.equal(metrics.checkpoints.neo_n3, null);
+  assert.ok(buildEventKey(event).includes("neo_n3:7:0xabc"));
+});
+
+test("state schedules retries and marks queued items due", () => {
+  const state = createEmptyRelayerState();
+  const event = { chain: "neo_x", requestId: "9", txHash: "0xdef", logIndex: 3, blockNumber: 22, requestType: "compute" };
+  const scheduled = scheduleRetry(state, "neo_x", event, "temporary failure", retryConfig);
+  assert.equal(scheduled.status, "scheduled");
+  assert.equal(isEventQueuedForRetry(state, "neo_x", event), true);
+
+  state.neo_x.retry_queue[0].next_retry_at = Date.now() - 1;
+  const due = getDueRetryItems(state, "neo_x");
+  assert.equal(due.length, 1);
+  assert.equal(due[0].key, buildEventKey(event));
+});
+
+test("state exhausts retries after max attempts", () => {
+  const state = createEmptyRelayerState();
+  const event = { chain: "neo_n3", requestId: "11", txHash: "0x123", logIndex: 0, blockNumber: 30, requestType: "datafeed" };
+  assert.equal(scheduleRetry(state, "neo_n3", event, "fail-1", retryConfig).status, "scheduled");
+  assert.equal(scheduleRetry(state, "neo_n3", event, "fail-2", retryConfig).status, "scheduled");
+  assert.equal(scheduleRetry(state, "neo_n3", event, "fail-3", retryConfig).status, "scheduled");
+  const exhausted = scheduleRetry(state, "neo_n3", event, "fail-4", retryConfig);
+  assert.equal(exhausted.status, "exhausted");
 });

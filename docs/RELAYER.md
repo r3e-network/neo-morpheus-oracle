@@ -31,6 +31,7 @@ The relayer maps `requestType` plus payload shape to worker routes:
 npm --prefix workers/morpheus-relayer test
 npm --prefix workers/morpheus-relayer run once
 npm --prefix workers/morpheus-relayer run start
+npm --prefix workers/morpheus-relayer run metrics
 ```
 
 ## Required env
@@ -50,12 +51,67 @@ If direct worker-side provider default resolution is needed during relayer proce
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
+## Reliability Model
+
+The relayer persists:
+
+- per-chain last scanned block checkpoints
+- processed-event records for dedupe
+- retry queue entries with exponential backoff
+- dead-letter history for exhausted requests
+- aggregate metrics for the latest runs
+
+Config knobs:
+
+- `MORPHEUS_RELAYER_CONCURRENCY`
+- `MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK`
+- `MORPHEUS_RELAYER_MAX_RETRIES`
+- `MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS`
+- `MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS`
+- `MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE`
+- `MORPHEUS_RELAYER_DEAD_LETTER_LIMIT`
+- `MORPHEUS_RELAYER_LOG_FORMAT`
+- `MORPHEUS_RELAYER_LOG_LEVEL`
+
 ## State file
 
-The relayer stores its last processed blocks in:
+The relayer stores its durable runtime state in:
 
 - `.morpheus-relayer-state.json`
 
 Override with:
 
 - `MORPHEUS_RELAYER_STATE_FILE`
+
+## Docker
+
+Build and run:
+
+```bash
+docker build -f workers/morpheus-relayer/Dockerfile -t morpheus-relayer .
+docker run --env-file .env morpheus-relayer
+```
+
+## systemd
+
+Example unit file:
+
+- `deploy/systemd/morpheus-relayer.service`
+
+Typical install:
+
+```bash
+sudo cp deploy/systemd/morpheus-relayer.service /etc/systemd/system/morpheus-relayer.service
+sudo systemctl daemon-reload
+sudo systemctl enable morpheus-relayer
+sudo systemctl start morpheus-relayer
+```
+
+## Phala Sidecar Pattern
+
+A simple production pattern is:
+
+- deploy `workers/phala-worker` to Phala
+- run `workers/morpheus-relayer` as a sidecar process on a small VM or container
+- point `PHALA_API_URL` at the public Phala worker endpoint
+- keep chain updater keys and Supabase service credentials only in the sidecar env

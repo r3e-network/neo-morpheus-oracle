@@ -16,6 +16,7 @@
     "test:relayer": "npm --prefix workers/morpheus-relayer test",
     "start:relayer": "npm --prefix workers/morpheus-relayer run start",
     "once:relayer": "npm --prefix workers/morpheus-relayer run once",
+    "metrics:relayer": "npm --prefix workers/morpheus-relayer run metrics",
     "publish:oracle-key": "node scripts/publish-oracle-public-key.mjs",
     "write:addresses": "node scripts/write-address-registry.mjs",
     "compile:neox": "npm --prefix contracts/neox run compile",

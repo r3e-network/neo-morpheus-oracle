@@ -17,6 +17,9 @@
 
 - `npm --prefix workers/morpheus-relayer run once`
 - `npm --prefix workers/morpheus-relayer run start`
+- `npm --prefix workers/morpheus-relayer run metrics`
+- `workers/morpheus-relayer/Dockerfile`
+- `deploy/systemd/morpheus-relayer.service`
 
 ## Expected env vars
 
