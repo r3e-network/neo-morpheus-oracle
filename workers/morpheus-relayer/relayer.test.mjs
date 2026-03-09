@@ -77,6 +77,7 @@ test("encodeFulfillmentResult returns success envelope for worker output", () =>
   assert.equal(parsed.request_type, "privacy_oracle");
   assert.equal(parsed.result.result, true);
   assert.equal(parsed.verification.output_hash, "abc");
+  assert.equal(parsed.verification.tee_attestation.quote_hash, null);
 
   const failed = encodeFulfillmentResult("compute", { ok: false, status: 400, body: { error: "bad request" } });
   assert.equal(failed.success, false);
@@ -93,7 +94,7 @@ test("buildOnchainResultEnvelope normalizes verification metadata", () => {
       verification: {
         output_hash: "deadbeef",
         attestation_hash: "deadbeef",
-        tee_attestation: { report_data: "0xdeadbeef" },
+        tee_attestation: { report_data: "0xdeadbeef", quote: '0x1234', event_log: 'demo-log' },
       },
     },
   });
@@ -102,6 +103,8 @@ test("buildOnchainResultEnvelope normalizes verification metadata", () => {
   assert.equal(envelope.request_type, "vrf");
   assert.equal(envelope.result.randomness, "1234");
   assert.equal(envelope.verification.output_hash, "deadbeef");
+  assert.equal(typeof envelope.verification.tee_attestation.quote_hash, 'string');
+  assert.equal(typeof envelope.verification.tee_attestation.event_log_hash, 'string');
 });
 
 test("state tracks processed events and metrics snapshot", () => {

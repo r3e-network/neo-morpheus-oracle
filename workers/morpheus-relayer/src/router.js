@@ -1,5 +1,11 @@
+import { createHash } from "node:crypto";
+
 function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function sha256Hex(value) {
+  return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
 }
 
 export function normalizeRequestType(value) {
@@ -33,28 +39,40 @@ export function buildWorkerPayload(chain, requestType, payload, requestId) {
   };
 }
 
+function compactTeeAttestation(attestation) {
+  if (!attestation || typeof attestation !== "object") return null;
+  return {
+    app_id: attestation.app_id || null,
+    instance_id: attestation.instance_id || null,
+    compose_hash: attestation.compose_hash || null,
+    report_data: attestation.report_data || null,
+    quote_hash: attestation.quote ? sha256Hex(attestation.quote) : null,
+    event_log_hash: attestation.event_log ? sha256Hex(attestation.event_log) : null,
+  };
+}
+
 function buildVerificationEnvelope(workerBody) {
   if (!workerBody || typeof workerBody !== "object") return null;
   const existing = workerBody.verification && typeof workerBody.verification === "object"
     ? workerBody.verification
     : null;
-  if (existing) return existing;
+  const source = existing || workerBody;
 
-  const hasAny = workerBody.output_hash
-    || workerBody.attestation_hash
-    || workerBody.signature
-    || workerBody.public_key
-    || workerBody.tee_attestation;
+  const hasAny = source.output_hash
+    || source.attestation_hash
+    || source.signature
+    || source.public_key
+    || source.tee_attestation;
   if (!hasAny) return null;
 
   return {
-    output_hash: workerBody.output_hash || null,
-    attestation_hash: workerBody.attestation_hash || null,
-    signature: workerBody.signature || null,
-    public_key: workerBody.public_key || null,
-    signer_address: workerBody.signer_address || null,
-    signer_script_hash: workerBody.signer_script_hash || null,
-    tee_attestation: workerBody.tee_attestation || null,
+    output_hash: source.output_hash || null,
+    attestation_hash: source.attestation_hash || null,
+    signature: source.signature || null,
+    public_key: source.public_key || null,
+    signer_address: source.signer_address || null,
+    signer_script_hash: source.signer_script_hash || null,
+    tee_attestation: compactTeeAttestation(source.tee_attestation || null),
   };
 }
 
