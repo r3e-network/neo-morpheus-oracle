@@ -3,6 +3,11 @@ import { createLogger } from "./logger.js";
 import { callPhala } from "./phala.js";
 import { buildWorkerPayload, decodePayloadText, encodeFulfillmentResult, resolveWorkerRoute } from "./router.js";
 import {
+  buildRelayerJobRecord,
+  persistRelayerRun,
+  upsertRelayerJob,
+} from "./persistence.js";
+import {
   buildEventKey,
   clearRetryItem,
   getDueRetryItems,
@@ -44,6 +49,22 @@ async function mapWithConcurrency(items, limit, worker) {
   return results;
 }
 
+async function maybeUpsertJob(logger, event, details) {
+  try {
+    await upsertRelayerJob(buildRelayerJobRecord(event, details));
+  } catch (error) {
+    logger.warn({ event_key: details.event_key, error }, "Failed to persist relayer job state to Supabase");
+  }
+}
+
+async function maybePersistRun(logger, config, result) {
+  try {
+    await persistRelayerRun(config, result);
+  } catch (error) {
+    logger.warn({ error }, "Failed to persist relayer run snapshot to Supabase");
+  }
+}
+
 async function processOracleRequest(config, event) {
   const payload = decodePayloadText(event.payloadText);
   const route = resolveWorkerRoute(event.requestType, payload);
@@ -67,6 +88,7 @@ function createPersistor(config, state) {
 async function processEvent(config, state, persistState, logger, event, retryItem = null) {
   const eventKey = buildEventKey(event);
   const attempts = retryItem?.attempts || 0;
+
   logger.info({
     chain: event.chain,
     request_id: event.requestId,
@@ -76,12 +98,20 @@ async function processEvent(config, state, persistState, logger, event, retryIte
     tx_hash: event.txHash,
   }, "Processing Morpheus oracle request");
 
+  await maybeUpsertJob(logger, event, {
+    event_key: eventKey,
+    status: retryItem ? "retrying" : "processing",
+    attempts,
+    next_retry_at: null,
+  });
+
   try {
     incrementMetric(state, "worker_calls_total");
     const result = await processOracleRequest(config, event);
     if (!result.success) incrementMetric(state, "worker_failures_total");
     incrementMetric(state, "events_processed_total");
     incrementMetric(state, result.success ? "fulfill_success_total" : "fulfill_failure_total");
+
     recordProcessedEvent(state, event.chain, event, result.success ? "fulfilled" : "failed", {
       attempts,
       route: result.route,
@@ -90,6 +120,19 @@ async function processEvent(config, state, persistState, logger, event, retryIte
     }, config);
     clearRetryItem(state, event.chain, eventKey);
     persistState();
+
+    await maybeUpsertJob(logger, event, {
+      event_key: eventKey,
+      status: result.success ? "fulfilled" : "failed",
+      attempts,
+      route: result.route,
+      worker_status: result.worker_status,
+      worker_response: result.worker_response,
+      fulfill_tx: result.fulfill_tx,
+      completed_at: new Date().toISOString(),
+      next_retry_at: null,
+    });
+
     logger.info({
       chain: event.chain,
       request_id: event.requestId,
@@ -103,6 +146,7 @@ async function processEvent(config, state, persistState, logger, event, retryIte
   } catch (error) {
     const message = normalizeErrorMessage(error);
     const retry = scheduleRetry(state, event.chain, event, message, config);
+
     if (retry.status === "exhausted") {
       incrementMetric(state, "events_failed_total");
       incrementMetric(state, "retries_exhausted_total");
@@ -111,6 +155,16 @@ async function processEvent(config, state, persistState, logger, event, retryIte
         last_error: message,
       }, config);
       persistState();
+
+      await maybeUpsertJob(logger, event, {
+        event_key: eventKey,
+        status: "exhausted",
+        attempts: retry.attempts,
+        last_error: message,
+        completed_at: new Date().toISOString(),
+        next_retry_at: null,
+      });
+
       logger.error({
         chain: event.chain,
         request_id: event.requestId,
@@ -124,6 +178,15 @@ async function processEvent(config, state, persistState, logger, event, retryIte
 
     incrementMetric(state, "retries_scheduled_total");
     persistState();
+
+    await maybeUpsertJob(logger, event, {
+      event_key: eventKey,
+      status: "retry_scheduled",
+      attempts: retry.item.attempts,
+      last_error: message,
+      next_retry_at: new Date(retry.item.next_retry_at).toISOString(),
+    });
+
     logger.warn({
       chain: event.chain,
       request_id: event.requestId,
@@ -226,12 +289,15 @@ export async function runRelayerOnce(options = {}) {
   state.metrics.last_tick_completed_at = new Date().toISOString();
   state.metrics.last_tick_duration_ms = Date.now() - startedAt;
   saveRelayerState(config.stateFile, state);
-  return {
+
+  const result = {
     neo_n3: neoN3,
     neo_x: neoX,
     state,
     metrics: snapshotMetrics(state),
   };
+  await maybePersistRun(logger, config, result);
+  return result;
 }
 
 export async function runRelayerLoop(options = {}) {

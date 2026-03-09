@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ProviderConfigPanel } from "./provider-config-panel";
+import { RelayerOpsPanel } from "./relayer-ops-panel";
 
 async function callJSON(path: string, body?: unknown, method = "POST") {
   const res = await fetch(path, {
@@ -154,6 +155,8 @@ export function Dashboard() {
       </section>
 
       <ProviderConfigPanel />
+
+      <RelayerOpsPanel />
 
       <section className="card">
         <h3>Output</h3>

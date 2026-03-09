@@ -73,6 +73,19 @@ Config knobs:
 - `MORPHEUS_RELAYER_LOG_FORMAT`
 - `MORPHEUS_RELAYER_LOG_LEVEL`
 
+## Supabase Persistence
+
+If `SUPABASE_URL` plus a service key are configured, the relayer also persists:
+
+- run snapshots to `morpheus_relayer_runs`
+- job lifecycle records to `morpheus_relayer_jobs`
+
+The dashboard can read these through:
+
+- `/api/relayer/metrics`
+- `/api/relayer/jobs`
+- `/api/relayer/dead-letters`
+
 ## State file
 
 The relayer stores its durable runtime state in:

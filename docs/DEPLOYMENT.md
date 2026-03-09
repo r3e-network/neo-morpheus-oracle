@@ -71,6 +71,7 @@ Apply, in order:
 - `supabase/migrations/0001_morpheus_schema.sql`
 - `supabase/migrations/0002_morpheus_policies_and_seeds.sql`
 - `supabase/migrations/0003_provider_configs.sql`
+- `supabase/migrations/0004_relayer_ops.sql`
 
 Optional:
 
