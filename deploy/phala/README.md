@@ -57,6 +57,7 @@ Recommended first deployment in the UI:
 - Guest image: `dstack-dev-*`
 - Compose mode: `Advanced`
 - Public service: `caddy` on port `80`
+- Paste `deploy/phala/docker-compose.ui.yml`
 
 ### Option B — file-based compose in a dev/debug CVM
 
@@ -96,7 +97,13 @@ docker exec -it morpheus-relayer npm --prefix workers/morpheus-relayer run metri
 
 ## Encrypted Secrets checklist for UI mode
 
-Add these in the Dashboard Encrypted Secrets panel before deploy:
+Add these in the Dashboard Encrypted Secrets panel before deploy.
+
+You can copy the values from your local ignored file:
+
+- `deploy/phala/morpheus.env`
+
+Add these keys in the Dashboard Encrypted Secrets panel before deploy:
 
 - `MORPHEUS_PHALA_WORKER_IMAGE`
 - `MORPHEUS_RELAYER_IMAGE`
