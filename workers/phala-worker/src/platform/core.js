@@ -12,9 +12,27 @@ export const json = (status, body, headers = {}) =>
     headers: { "content-type": "application/json", ...headers },
   });
 
+let runtimeConfigCache;
+
+function getRuntimeConfig() {
+  if (runtimeConfigCache !== undefined) return runtimeConfigCache;
+  const raw = String(process.env.MORPHEUS_RUNTIME_CONFIG_JSON || "").trim();
+  if (!raw) {
+    runtimeConfigCache = {};
+    return runtimeConfigCache;
+  }
+  try {
+    runtimeConfigCache = JSON.parse(raw);
+  } catch {
+    runtimeConfigCache = {};
+  }
+  return runtimeConfigCache;
+}
+
 export function env(...names) {
+  const runtimeConfig = getRuntimeConfig();
   for (const name of names) {
-    const value = String(process.env[name] || "").trim();
+    const value = String(process.env[name] || runtimeConfig[name] || "").trim();
     if (value) return value;
   }
   return "";
