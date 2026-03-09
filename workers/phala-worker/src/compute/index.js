@@ -5,6 +5,7 @@ import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/i
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 import { resolveConfidentialPayload } from "../oracle/crypto.js";
+import { validateUserScriptSource } from "../platform/script-policy.js";
 
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
@@ -218,6 +219,7 @@ export async function executeStandaloneCompute(payload) {
     throw new Error("script or script_base64 required");
   }
   assertUntrustedScriptsEnabled();
+  validateUserScriptSource(script);
 
   const entryPoint = trimString(payload.entry_point || "process") || "process";
   if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entryPoint)) {

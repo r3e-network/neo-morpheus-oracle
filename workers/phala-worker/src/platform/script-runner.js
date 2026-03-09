@@ -1,6 +1,6 @@
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { env } from "./core.js";
+import { env, trimString } from "./core.js";
 
 function normalizeError(error) {
   if (error instanceof Error) {
@@ -10,6 +10,32 @@ function normalizeError(error) {
 }
 
 const childPath = fileURLToPath(new URL("./script-child.cjs", import.meta.url));
+
+function buildPermissionExecArgv() {
+  const enabled = trimString(env("SCRIPT_CHILD_ENABLE_PERMISSION_MODEL")).toLowerCase();
+  if (!["1", "true", "yes"].includes(enabled)) return [];
+
+  const allowFsRead = trimString(env("SCRIPT_CHILD_ALLOW_FS_READ") || "/app,/usr,/lib,/lib64,/tmp,/dev/null");
+  const args = ["--permission"];
+  for (const entry of allowFsRead.split(",").map((item) => item.trim()).filter(Boolean)) {
+    args.push(`--allow-fs-read=${entry}`);
+  }
+  if (trimString(env("SCRIPT_CHILD_ALLOW_FS_WRITE"))) {
+    for (const entry of trimString(env("SCRIPT_CHILD_ALLOW_FS_WRITE")).split(",").map((item) => item.trim()).filter(Boolean)) {
+      args.push(`--allow-fs-write=${entry}`);
+    }
+  }
+  if (trimString(env("SCRIPT_CHILD_ALLOW_NET"))) {
+    args.push(`--allow-net=${trimString(env("SCRIPT_CHILD_ALLOW_NET"))}`);
+  }
+  if (["1", "true", "yes"].includes(trimString(env("SCRIPT_CHILD_ALLOW_WORKER")).toLowerCase())) {
+    args.push("--allow-worker");
+  }
+  if (["1", "true", "yes"].includes(trimString(env("SCRIPT_CHILD_ALLOW_CHILD_PROCESS")).toLowerCase())) {
+    args.push("--allow-child-process");
+  }
+  return args;
+}
 
 export async function runScriptWithTimeout({ mode, script, entryPoint = "process", input, data, context, timeoutMs }) {
   const maxOldGenerationSizeMb = Math.max(Number(env("SCRIPT_WORKER_MAX_OLD_SPACE_MB") || 64), 16);
@@ -25,9 +51,12 @@ export async function runScriptWithTimeout({ mode, script, entryPoint = "process
         TZ: process.env.TZ || "UTC",
       },
       execArgv: [
+        "--disable-proto=throw",
+        "--frozen-intrinsics",
         `--max-old-space-size=${maxOldGenerationSizeMb}`,
         `--max-semi-space-size=${maxYoungGenerationSizeMb}`,
         `--stack-size=${stackSizeKb}`,
+        ...buildPermissionExecArgv(),
       ],
     });
 

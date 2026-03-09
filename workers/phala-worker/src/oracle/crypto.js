@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
 import { deriveKeyBytes, shouldUseDerivedKeys } from "../platform/dstack.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
+import { validateUserScriptSource } from "../platform/script-policy.js";
 
 let oracleKeyMaterialPromise;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -253,6 +254,7 @@ export async function executeProgrammableOracle(payload, context) {
   }
 
   assertUntrustedScriptsEnabled();
+  validateUserScriptSource(script);
 
   const timeoutMs = parseDurationMs(
     payload.script_timeout_ms || payload.oracle_script_timeout_ms || env("ORACLE_SCRIPT_TIMEOUT_MS"),
