@@ -1,6 +1,6 @@
 import { keccak256, toUtf8Bytes } from "ethers";
 import { env, json, normalizeTargetChain, parseDurationMs, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
-import { buildSignedResultEnvelope } from "../chain/index.js";
+import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 
@@ -238,6 +238,7 @@ export async function handleComputeExecute(payload) {
     const mode = trimString(payload.mode || (payload.function || payload.compute_fn ? "builtin" : "script")) || "script";
     const result = mode === "builtin" ? await executeBuiltinCompute(payload) : await executeStandaloneCompute(payload);
     const signed = await buildSignedResultEnvelope(result, payload);
+    const teeAttestation = await maybeBuildDstackAttestation(payload, result);
     return json(200, {
       mode,
       target_chain: payload.target_chain ? normalizeTargetChain(payload.target_chain) : "neo_n3",
@@ -247,7 +248,8 @@ export async function handleComputeExecute(payload) {
       signature: signed.signature,
       public_key: signed.public_key,
       attestation_hash: signed.attestation_hash,
-      tee_attestation: await maybeBuildDstackAttestation(payload, result),
+      tee_attestation: teeAttestation,
+      verification: buildVerificationEnvelope(signed, teeAttestation),
     });
   } catch (error) {
     return json(400, { error: error instanceof Error ? error.message : String(error) });

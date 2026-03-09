@@ -78,3 +78,15 @@ export async function buildSignedResultEnvelope(result, payload = {}) {
     signer_script_hash: signature?.script_hash || null,
   };
 }
+
+export function buildVerificationEnvelope(signed, teeAttestation = null) {
+  return {
+    output_hash: signed.output_hash,
+    attestation_hash: signed.attestation_hash,
+    signature: signed.signature,
+    public_key: signed.public_key,
+    signer_address: signed.signer_address || null,
+    signer_script_hash: signed.signer_script_hash || null,
+    tee_attestation: teeAttestation,
+  };
+}

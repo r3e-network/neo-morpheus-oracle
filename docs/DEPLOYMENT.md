@@ -43,6 +43,8 @@ Deploy `workers/phala-worker` to Phala with:
 - optional `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH` / `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH` to override relayer derived key paths
 - optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle encryption key storage
 - optional `PHALA_ORACLE_KEYSTORE_PATH` to control where the sealed Oracle RSA key is persisted
+- web verifier API: `/api/attestation/verify`
+- demo verifier flow: `/api/attestation/demo` and `/verifier`
 
 ## Phala CVM Topology
 

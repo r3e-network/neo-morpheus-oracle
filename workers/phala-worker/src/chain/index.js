@@ -1,9 +1,9 @@
 import { json, normalizeTargetChain, sha256Hex } from "../platform/core.js";
-import { resolveSigningBytes, buildSignedResultEnvelope, maybeSignNeoN3Bytes } from "./signing.js";
+import { resolveSigningBytes, buildSignedResultEnvelope, buildVerificationEnvelope, maybeSignNeoN3Bytes } from "./signing.js";
 import { loadNeoN3Context, relayNeoN3Invocation, sponsorNeoN3Transaction, broadcastNeoN3RawTransaction } from "./neo-n3.js";
 import { handleSignPayloadNeoX, relayNeoXTransaction } from "./neo-x.js";
 
-export { buildSignedResultEnvelope } from "./signing.js";
+export { buildSignedResultEnvelope, buildVerificationEnvelope } from "./signing.js";
 export { loadNeoN3Context, relayNeoN3Invocation, sponsorNeoN3Transaction, broadcastNeoN3RawTransaction } from "./neo-n3.js";
 export { relayNeoXTransaction } from "./neo-x.js";
 export { normalizeNeoHash160, isConfiguredHash160 } from "../platform/allowlist.js";

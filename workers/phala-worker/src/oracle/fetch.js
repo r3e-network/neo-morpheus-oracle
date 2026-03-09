@@ -8,7 +8,7 @@ import {
   trimString,
 } from "../platform/core.js";
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
-import { buildSignedResultEnvelope } from "../chain/index.js";
+import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
 import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./crypto.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 
@@ -146,6 +146,7 @@ export async function buildOracleResponse(payload, mode) {
   const signed = await buildSignedResultEnvelope(derived, payload);
 
   if (mode === "query") {
+    const teeAttestation = await maybeBuildDstackAttestation(payload, derived);
     return {
       mode: executed.executed ? "fetch+compute" : "fetch",
       request_source: context.request_source,
@@ -161,10 +162,12 @@ export async function buildOracleResponse(payload, mode) {
       signature: signed.signature,
       public_key: signed.public_key,
       attestation_hash: signed.attestation_hash,
-      tee_attestation: await maybeBuildDstackAttestation(payload, derived),
+      tee_attestation: teeAttestation,
+      verification: buildVerificationEnvelope(signed, teeAttestation),
     };
   }
 
+  const teeAttestation = await maybeBuildDstackAttestation(payload, derived);
   return {
     mode: executed.executed ? "fetch+compute" : "fetch",
     request_source: context.request_source,
@@ -177,6 +180,7 @@ export async function buildOracleResponse(payload, mode) {
     signature: signed.signature,
     public_key: signed.public_key,
     attestation_hash: signed.attestation_hash,
-    tee_attestation: await maybeBuildDstackAttestation(payload, derived),
+    tee_attestation: teeAttestation,
+    verification: buildVerificationEnvelope(signed, teeAttestation),
   };
 }

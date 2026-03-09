@@ -1,5 +1,5 @@
 import { json } from "../platform/core.js";
-import { buildSignedResultEnvelope } from "../chain/index.js";
+import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 
 export async function handleVrf(payload) {
@@ -14,6 +14,7 @@ export async function handleVrf(payload) {
     public_key: signed.public_key,
     attestation_hash: signed.attestation_hash,
     tee_attestation: teeAttestation,
+    verification: buildVerificationEnvelope(signed, teeAttestation),
     timestamp: Math.floor(Date.now() / 1000),
   });
 }

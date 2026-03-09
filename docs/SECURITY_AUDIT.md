@@ -67,13 +67,15 @@ Fixed in `workers/phala-worker/src/compute/index.js`:
 
 ## Phala tappd / attestation progress
 
-The worker now includes first-stage Phala dstack/tappd integration:
+The worker now includes first-stage and second-stage Phala dstack/tappd integration:
 
 - public `GET /info`
 - public `GET /attestation`
 - authenticated `GET /keys/derived`
 - optional response-side quote attachment when `PHALA_EMIT_ATTESTATION=true`
 - derived Neo N3 signing fallback when `PHALA_USE_DERIVED_KEYS=true`
+- stable Oracle RSA encryption key using dstack-derived wrapping key + sealed keystore
+- verifier API and `/verifier` demo flow for application-level attestation checks
 
 ## Remaining architectural notes
 

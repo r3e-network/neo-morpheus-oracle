@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-async function verify(body: Record<string, unknown>) {
-  const response = await fetch("/api/attestation/verify", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+async function requestJSON(path: string, body?: Record<string, unknown>) {
+  const response = await fetch(path, {
+    method: body ? "POST" : "GET",
+    headers: body ? { "content-type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
   });
   const text = await response.text();
   try {
@@ -32,6 +32,26 @@ export default function VerifierPage() {
         Verify Morpheus worker attestation objects by checking report-data binding, compose hash, app identity, and basic structural consistency.
       </p>
 
+      <section className="card" style={{ marginBottom: 24 }}>
+        <h3>Demo Flow</h3>
+        <small>Fetch a sample attested worker response, auto-fill the verifier, then run application-level verification.</small>
+        <button
+          onClick={async () => {
+            const body = await requestJSON("/api/attestation/demo");
+            if (body.error) {
+              setResult(JSON.stringify(body, null, 2));
+              return;
+            }
+            setAttestationJson(JSON.stringify(body.verifier_input.attestation || {}, null, 2));
+            setExpectedPayloadJson(JSON.stringify(body.verifier_input.expected_payload || {}, null, 2));
+            setExpectedOutputHash(body.verifier_input.expected_output_hash || "");
+            setResult(JSON.stringify(body, null, 2));
+          }}
+        >
+          Load Demo Attestation
+        </button>
+      </section>
+
       <section className="grid grid-2" style={{ alignItems: "start" }}>
         <div className="card">
           <h3>Attestation JSON</h3>
@@ -49,7 +69,7 @@ export default function VerifierPage() {
               try {
                 const parsedAttestation = JSON.parse(attestationJson);
                 const parsedPayload = expectedPayloadJson.trim() ? JSON.parse(expectedPayloadJson) : undefined;
-                const body = await verify({
+                const body = await requestJSON("/api/attestation/verify", {
                   attestation: parsedAttestation,
                   expected_payload: parsedPayload,
                   expected_output_hash: expectedOutputHash || undefined,

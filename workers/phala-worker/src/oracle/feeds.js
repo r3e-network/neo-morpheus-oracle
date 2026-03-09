@@ -1,7 +1,7 @@
 import { Interface } from "ethers";
 import { env, json, strip0x, trimString } from "../platform/core.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
-import { buildSignedResultEnvelope, isConfiguredHash160, loadNeoN3Context, normalizeNeoHash160, relayNeoN3Invocation, relayNeoXTransaction } from "../chain/index.js";
+import { buildSignedResultEnvelope, buildVerificationEnvelope, isConfiguredHash160, loadNeoN3Context, normalizeNeoHash160, relayNeoN3Invocation, relayNeoXTransaction } from "../chain/index.js";
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
 
 export function normalizePairSymbol(rawSymbol) {
@@ -63,7 +63,8 @@ export async function fetchPriceQuote(symbol, options = {}) {
     provider,
   };
   const signed = await buildSignedResultEnvelope(quote, options);
-  return { ...quote, signature: signed.signature, public_key: signed.public_key, attestation_hash: signed.attestation_hash, tee_attestation: await maybeBuildDstackAttestation(options, quote) };
+  const teeAttestation = await maybeBuildDstackAttestation(options, quote);
+  return { ...quote, signature: signed.signature, public_key: signed.public_key, attestation_hash: signed.attestation_hash, tee_attestation: teeAttestation, verification: buildVerificationEnvelope(signed, teeAttestation) };
 }
 
 export async function handleFeedsPrice(symbol, options = {}) {
