@@ -158,7 +158,7 @@ async function resolveQuoteForProvider(symbol, options, provider) {
   });
 
   const { payload: resolvedPayload } = await resolveProviderPayload(providerPayload, {
-    projectSlug: trimString(providerPayload.project_slug || env('MORPHEUS_FEED_PROJECT_SLUG') || ''),
+    projectSlug: trimString(providerPayload.project_slug || ''),
     fallbackProviderId: provider,
   });
   const providerRequest = buildProviderRequest(resolvedPayload);
