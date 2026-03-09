@@ -19,6 +19,8 @@ async function callJSON(path: string, body?: unknown, method = "POST") {
 }
 
 export function Dashboard() {
+  const [activeTab, setActiveTab] = useState("overview");
+
   const [symbol, setSymbol] = useState("NEO-USD");
   const [output, setOutput] = useState<string>("");
   const [computeFunction, setComputeFunction] = useState("zkp.public_signal_hash");
@@ -53,115 +55,170 @@ export function Dashboard() {
     })();
   }, []);
 
+  const tabs = [
+    { id: "overview", label: "Network & Data", icon: "🌐" },
+    { id: "oracle", label: "Privacy Oracle", icon: "🔮" },
+    { id: "compute", label: "Privacy Compute", icon: "💻" },
+    { id: "operations", label: "System Config", icon: "⚙️" }
+  ];
+
   return (
-    <div className="grid" style={{ gap: 24 }}>
-      <section className="card" style={{ background: "radial-gradient(circle at top left, rgba(108,92,231,0.3), rgba(0,184,148,0.08) 45%, rgba(255,255,255,0.04))" }}>
-        <small style={{ letterSpacing: 1.5, textTransform: "uppercase" }}>Truth Infrastructure for Neo</small>
-        <h1 style={{ fontSize: 42, marginBottom: 12 }}>Morpheus Oracle / 墨菲斯网络</h1>
-        <p style={{ fontSize: 18, lineHeight: 1.6 }}>
-          A standalone privacy Oracle, privacy compute, and datafeed network for <code>Neo N3</code> and <code>Neo X</code>, powered by <code>Vercel</code>, <code>Supabase</code>, and <code>Phala TEE</code>.
-        </p>
-        <small>
-          Morpheus gives Neo the truth pill. Morpheus Oracle gives Neo chains truth from encrypted data, heavy compute, and signed feed outputs.
-        </small>
-      </section>
-
-      <section className="grid grid-3">
-        <div className="card"><h3>Privacy Oracle</h3><small>Encrypted payloads, private fetches, scriptable result reduction, and callback-ready outputs.</small></div>
-        <div className="card"><h3>Privacy Compute</h3><small>Built-in ZKP and FHE-oriented functions plus custom off-chain script execution in TEE.</small></div>
-        <div className="card"><h3>Datafeed</h3><small>Signed market data, reference snapshots, and relay-ready feed publishing.</small></div>
-      </section>
-
-      <section className="grid grid-2">
-        <div className="card">
-          <h3>Network Registry</h3>
-          <pre>{networkInfo ? JSON.stringify(networkInfo, null, 2) : "Loading network config..."}</pre>
-        </div>
-        <div className="card">
-          <h3>Deployment Model</h3>
-          <small>
-            Frontend on Vercel, control-plane state in Supabase, trusted execution in Phala, settlement and callbacks on Neo N3 / Neo X.
-          </small>
-        </div>
-      </section>
-
-      <section className="grid grid-2">
-        <div className="card">
-          <h3>Oracle Public Key</h3>
-          <small>Use this to encrypt secrets before they leave the client boundary. Provider selection supports built-in and custom-source flows.</small>
-          <button onClick={async () => setOutput(await callJSON("/api/oracle/public-key", undefined, "GET"))}>Fetch Public Key</button>
-        </div>
-
-        <div className="card">
-          <h3>Feed Quote</h3>
-          <div className="grid grid-2">
-            <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="symbol" />
-            <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project slug" />
-          </div>
-          <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-            {(providers.length ? providers : [{ id: provider }]).map((item) => (<option key={item.id} value={item.id}>{item.id}</option>))}
-          </select>
-          <button onClick={async () => setOutput(await callJSON(`/api/feeds/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}&project_slug=${encodeURIComponent(requestProjectSlug)}`, undefined, "GET"))}>Get Price</button>
-        </div>
-      </section>
-
-      <section className="card">
-        <h3>Oracle Playground</h3>
-        <small>Try fetch-only or fetch+compute flows. Paste an already encrypted payload if you want a private call.</small>
-        <div className="grid grid-3">
-          <input value={oracleUrl} onChange={(e) => setOracleUrl(e.target.value)} placeholder="https://api.example.com/private" />
-          <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project slug" />
-          <select value={oracleTargetChain} onChange={(e) => setOracleTargetChain(e.target.value)}>
-            <option value="neo_n3">neo_n3</option>
-            <option value="neo_x">neo_x</option>
-          </select>
-        </div>
-        <textarea value={oracleEncryptedPayload} onChange={(e) => setOracleEncryptedPayload(e.target.value)} placeholder="encrypted_payload (optional)" />
-        <textarea value={oracleScript} onChange={(e) => setOracleScript(e.target.value)} placeholder="function process(data) { return data.ok; }" />
-        <div className="grid grid-2">
-          <button onClick={async () => setOutput(await callJSON("/api/oracle/query", {
-            url: oracleUrl,
-            encrypted_payload: oracleEncryptedPayload || undefined,
-            provider,
-            project_slug: requestProjectSlug || undefined,
-            target_chain: oracleTargetChain,
-          }))}>Query Oracle</button>
-          <button onClick={async () => setOutput(await callJSON("/api/oracle/smart-fetch", {
-            url: oracleUrl,
-            encrypted_payload: oracleEncryptedPayload || undefined,
-            script: oracleScript,
-            provider,
-            project_slug: requestProjectSlug || undefined,
-            target_chain: oracleTargetChain,
-          }))}>Smart Fetch</button>
-        </div>
-      </section>
-
-      <section className="card">
-        <h3>Built-in Compute</h3>
-        <small>Direct-call heavy functions for ZKP planning, proof digests, FHE planning, hashes, Merkle roots, matrices, and vectors.</small>
-        <select value={computeFunction} onChange={(e) => setComputeFunction(e.target.value)}>
-          {(computeFunctions.length ? computeFunctions : [{ name: computeFunction }]).map((fn) => (
-            <option key={fn.name} value={fn.name}>{fn.name}</option>
+    <div style={{ display: "flex", gap: "40px", alignItems: "flex-start" }}>
+      {/* Dynamic Sidebar */}
+      <div style={{
+        position: "sticky", top: "120px", display: "flex", flexDirection: "column", gap: "16px",
+        minWidth: "260px"
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              className="sidebar-tab"
+              onClick={() => { setActiveTab(tab.id); setOutput(""); }}
+              style={{
+                background: activeTab === tab.id ? "rgba(0, 229, 153, 0.15)" : "rgba(18, 24, 43, 0.4)",
+                color: activeTab === tab.id ? "var(--neo-green)" : "var(--text-secondary)",
+                border: `1px solid ${activeTab === tab.id ? "rgba(0, 229, 153, 0.3)" : "rgba(255, 255, 255, 0.05)"}`,
+                padding: "18px 24px", textAlign: "left", borderRadius: "16px",
+                display: "flex", alignItems: "center", gap: "16px",
+                fontSize: "1.1rem", fontWeight: activeTab === tab.id ? "700" : "500",
+                backdropFilter: "blur(12px)", transition: "all 0.3s ease",
+                boxShadow: activeTab === tab.id ? "0 0 25px rgba(0, 229, 153, 0.1)" : "none",
+                cursor: "pointer"
+              }}
+            >
+              <span style={{ fontSize: "1.3rem" }}>{tab.icon}</span>
+              {tab.label}
+            </button>
           ))}
-        </select>
-        <textarea value={computeInput} onChange={(e) => setComputeInput(e.target.value)} />
-        <button onClick={async () => setOutput(await callJSON("/api/compute/execute", {
-          mode: "builtin",
-          function: computeFunction,
-          input: JSON.parse(computeInput),
-          target_chain: oracleTargetChain
-        }))}>Execute Built-in</button>
-      </section>
+        </div>
+        
+        {/* Output Panel logically tied to sidebar so it never moves off-screen */}
+        <div style={{ marginTop: "32px", padding: "20px" }} className="card">
+          <h3 style={{ fontSize: "1.05rem", marginBottom: "12px", color: "var(--neo-green)", display: "flex", justifyContent: "space-between" }}>
+            <span>Terminal Output</span>
+            {output && <button onClick={() => setOutput("")} style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "0.8rem", padding: 0 }}>Clear</button>}
+          </h3>
+          <pre style={{ margin: 0, maxHeight: "380px", overflowY: "auto", fontSize: "0.85rem", padding: "16px", background: "rgba(0,0,0,0.4)" }}>
+            {output || "Awaiting task execution..."}
+          </pre>
+        </div>
+      </div>
 
-      <ProviderConfigPanel />
+      {/* Dynamic Content Panel */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "24px" }}>
+        
+        {activeTab === "overview" && (
+          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
+            <section className="card" style={{ background: "radial-gradient(circle at top left, rgba(108,92,231,0.2), rgba(0,184,148,0.05) 60%, transparent)" }}>
+              <small style={{ letterSpacing: 1.5, textTransform: "uppercase", color: "var(--neo-purple)", fontWeight: 700 }}>Infrastructure State</small>
+              <h2 style={{ fontSize: '2.4rem', marginBottom: 12, marginTop: 12 }}>Morpheus Network Overview</h2>
+              <p style={{ fontSize: '1.05rem', lineHeight: 1.6, color: "var(--text-secondary)" }}>
+                A standalone privacy Oracle, privacy compute, and datafeed network. Control-plane on Vercel/Supabase, execution strictly confined in Phala TEE.
+              </p>
+            </section>
 
-      <RelayerOpsPanel />
+            <section className="grid grid-2">
+              <div className="card">
+                <h3>Network Registry</h3>
+                <small style={{ marginBottom: 16 }}>Current deployed oracle smart contract configs.</small>
+                <pre>{networkInfo ? JSON.stringify(networkInfo, null, 2) : "Loading config..."}</pre>
+              </div>
+              <div className="card">
+                <h3>Live Feed Quote</h3>
+                <small style={{ marginBottom: 20 }}>Query market prices directly from the TEE feeds.</small>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div className="grid grid-2">
+                    <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="symbol" />
+                    <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project" />
+                  </div>
+                  <select value={provider} onChange={(e) => setProvider(e.target.value)}>
+                    {(providers.length ? providers : [{ id: provider }]).map((item) => (<option key={item.id} value={item.id}>{item.id}</option>))}
+                  </select>
+                  <button className="btn btn-primary" onClick={async () => setOutput(await callJSON(`/api/feeds/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}&project_slug=${encodeURIComponent(requestProjectSlug)}`, undefined, "GET"))}>Get Signed Price</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        )}
 
-      <section className="card">
-        <h3>Output</h3>
-        <pre>{output || "No output yet."}</pre>
-      </section>
+        {activeTab === "oracle" && (
+          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
+             <section className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <h3>Oracle Public Key</h3>
+                  <small>Fetch the TEE's public key to encrypt secrets locally (RSA-OAEP) before transmitting them to the Oracle.</small>
+                </div>
+                <button className="btn btn-primary" onClick={async () => setOutput(await callJSON("/api/oracle/public-key", undefined, "GET"))}>Fetch Key</button>
+              </div>
+            </section>
+
+            <section className="card">
+              <h3>Oracle Request Builder</h3>
+              <small style={{ marginBottom: 20 }}>Compose fetch-only or smart-fetch private flows. Provide an encrypted payload patch for full confidentiality at runtime.</small>
+              
+              <div className="grid grid-2">
+                <input value={oracleUrl} onChange={(e) => setOracleUrl(e.target.value)} placeholder="https://api.example.com/private" />
+                <select value={oracleTargetChain} onChange={(e) => setOracleTargetChain(e.target.value)}>
+                  <option value="neo_n3">neo_n3</option>
+                  <option value="neo_x">neo_x</option>
+                </select>
+              </div>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
+                <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project slug" />
+                <textarea value={oracleEncryptedPayload} onChange={(e) => setOracleEncryptedPayload(e.target.value)} placeholder="encrypted_payload (Paste ciphertext from your local encryption)" />
+                <textarea value={oracleScript} onChange={(e) => setOracleScript(e.target.value)} placeholder="function process(data) { return data.ok; }" />
+              </div>
+              
+              <div className="grid grid-2" style={{ marginTop: 24 }}>
+                <button className="btn btn-primary" onClick={async () => setOutput(await callJSON("/api/oracle/query", {
+                  url: oracleUrl,  encrypted_payload: oracleEncryptedPayload || undefined, provider, project_slug: requestProjectSlug || undefined, target_chain: oracleTargetChain
+                }))}>Submit Base Request</button>
+                
+                <button className="btn btn-outline" onClick={async () => setOutput(await callJSON("/api/oracle/smart-fetch", {
+                  url: oracleUrl, encrypted_payload: oracleEncryptedPayload || undefined, script: oracleScript, provider, project_slug: requestProjectSlug || undefined, target_chain: oracleTargetChain
+                }))}>Submit Smart Fetch (TEEs)</button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === "compute" && (
+          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
+            <section className="card">
+              <h3>Built-in Compute Runtime</h3>
+              <small style={{ marginBottom: 24 }}>Execute deterministic, zero-knowledge, or heavy cryptographic functions off-chain directly in the TEE.</small>
+              <div className="grid grid-2">
+                <select value={computeFunction} onChange={(e) => setComputeFunction(e.target.value)}>
+                  {(computeFunctions.length ? computeFunctions : [{ name: computeFunction }]).map((fn) => (
+                    <option key={fn.name} value={fn.name}>{fn.name}</option>
+                  ))}
+                </select>
+                <select value={oracleTargetChain} onChange={(e) => setOracleTargetChain(e.target.value)}>
+                  <option value="neo_n3">neo_n3</option>
+                  <option value="neo_x">neo_x</option>
+                </select>
+              </div>
+              <textarea value={computeInput} onChange={(e) => setComputeInput(e.target.value)} style={{ marginTop: 20 }} />
+              <div style={{ marginTop: 24 }}>
+                <button className="btn btn-primary" onClick={async () => setOutput(await callJSON("/api/compute/execute", {
+                  mode: "builtin", function: computeFunction, input: JSON.parse(computeInput), target_chain: oracleTargetChain
+                }))}>Trigger Execution</button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeTab === "operations" && (
+          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
+            <ProviderConfigPanel />
+            <RelayerOpsPanel />
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }

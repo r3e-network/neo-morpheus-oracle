@@ -230,3 +230,8 @@ pre {
 .footer-links { display: flex; gap: 32px; justify-content: center; }
 .footer-links a { color: var(--text-secondary); font-weight: 500; transition: color 0.2s; }
 .footer-links a:hover { color: var(--neo-green); }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
