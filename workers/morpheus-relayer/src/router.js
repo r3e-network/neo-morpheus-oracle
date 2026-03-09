@@ -76,21 +76,91 @@ function buildVerificationEnvelope(workerBody) {
   };
 }
 
-function buildBusinessResult(workerBody) {
-  if (!workerBody || typeof workerBody !== "object") return workerBody;
-  const result = { ...workerBody };
-  delete result.output_hash;
-  delete result.attestation_hash;
-  delete result.signature;
-  delete result.public_key;
-  delete result.signer_address;
-  delete result.signer_script_hash;
-  delete result.tee_attestation;
-  delete result.verification;
-  return result;
+const MAX_ONCHAIN_RESULT_VALUE_BYTES = 384;
+const MAX_ONCHAIN_ERROR_LENGTH = 240;
+
+function measureJsonBytes(value) {
+  try {
+    return Buffer.byteLength(JSON.stringify(value), "utf8");
+  } catch {
+    return Number.POSITIVE_INFINITY;
+  }
 }
 
-export function buildOnchainResultEnvelope(requestType, workerResponse) {
+function trimErrorMessage(value) {
+  const text = trimString(value);
+  if (!text) return "worker request failed";
+  return text.length > MAX_ONCHAIN_ERROR_LENGTH
+    ? `${text.slice(0, MAX_ONCHAIN_ERROR_LENGTH - 3)}...`
+    : text;
+}
+
+function compactValue(value, maxBytes = MAX_ONCHAIN_RESULT_VALUE_BYTES) {
+  if (value === undefined) return undefined;
+  if (measureJsonBytes(value) <= maxBytes) return value;
+  return undefined;
+}
+
+function buildBusinessResult(requestType, workerBody) {
+  if (!workerBody || typeof workerBody !== "object") return workerBody;
+
+  const normalized = normalizeRequestType(requestType);
+  const compact = {};
+  const preferredFields = [
+    "mode",
+    "function",
+    "entry_point",
+    "target_chain",
+    "target_chain_id",
+    "request_source",
+    "provider",
+    "provider_pair",
+    "feed_id",
+    "pair",
+    "symbol",
+    "price",
+    "decimals",
+    "timestamp",
+    "upstream_status",
+    "randomness",
+    "job_id",
+    "extracted_value",
+  ];
+
+  for (const field of preferredFields) {
+    if (workerBody[field] !== undefined && workerBody[field] !== null) {
+      compact[field] = workerBody[field];
+    }
+  }
+
+  if (Array.isArray(workerBody.sources) && workerBody.sources.length > 0) {
+    compact.sources = workerBody.sources.slice(0, 4);
+  }
+
+  const preferredResult = compactValue(workerBody.result);
+  if (preferredResult !== undefined) {
+    compact.result = preferredResult;
+  } else {
+    const extractedValue = compactValue(workerBody.extracted_value, 192);
+    if (extractedValue !== undefined) {
+      compact.result = extractedValue;
+      compact.result_source = "extracted_value";
+    } else if (workerBody.result !== undefined) {
+      compact.result_omitted = true;
+      compact.result_hash = workerBody.output_hash || null;
+      compact.result_type = Array.isArray(workerBody.result) ? "array" : typeof workerBody.result;
+    }
+  }
+
+  if (normalized.includes("feed") && compact.result === undefined && compact.price !== undefined) {
+    compact.result = compact.price;
+    compact.result_source = "price";
+  }
+
+  return Object.keys(compact).length > 0 ? compact : null;
+}
+
+function compactEnvelope(requestType, workerResponse) {
   const normalized = normalizeRequestType(requestType);
   const workerBody = workerResponse?.body && typeof workerResponse.body === "object"
     ? workerResponse.body
@@ -99,13 +169,54 @@ export function buildOnchainResultEnvelope(requestType, workerResponse) {
   return {
     version: "morpheus-result/v1",
     request_type: normalized,
-    fulfilled_at: new Date().toISOString(),
-    worker_status: workerResponse?.status ?? null,
     success: Boolean(workerResponse?.ok),
-    route: workerBody.route || null,
-    result: buildBusinessResult(workerBody),
+    result: buildBusinessResult(normalized, workerBody),
     verification: buildVerificationEnvelope(workerBody),
   };
+}
+
+export function buildOnchainResultEnvelope(requestType, workerResponse) {
+  const envelope = compactEnvelope(requestType, workerResponse);
+  const attempts = [
+    envelope,
+    envelope.result && typeof envelope.result === "object"
+      ? {
+          ...envelope,
+          result: Object.fromEntries(
+            Object.entries(envelope.result).filter(([key]) => !["request_source", "target_chain_id", "sources"].includes(key)),
+          ),
+        }
+      : envelope,
+    envelope.verification
+      ? {
+          ...envelope,
+          verification: {
+            output_hash: envelope.verification.output_hash || null,
+            attestation_hash: envelope.verification.attestation_hash || null,
+            signature: envelope.verification.signature || null,
+            public_key: envelope.verification.public_key || null,
+            tee_attestation: envelope.verification.tee_attestation
+              ? {
+                  app_id: envelope.verification.tee_attestation.app_id || null,
+                  compose_hash: envelope.verification.tee_attestation.compose_hash || null,
+                  report_data: envelope.verification.tee_attestation.report_data || null,
+                  quote_hash: envelope.verification.tee_attestation.quote_hash || null,
+                }
+              : null,
+          },
+        }
+      : envelope,
+  ];
+
+  let selected = attempts[attempts.length - 1];
+  for (const candidate of attempts) {
+    if (measureJsonBytes(candidate) <= 900) {
+      selected = candidate;
+      break;
+    }
+  }
+
+  return selected;
 }
 
 export function encodeFulfillmentResult(requestType, workerResponse) {
@@ -114,7 +225,7 @@ export function encodeFulfillmentResult(requestType, workerResponse) {
     const errorMessage = typeof workerResponse.body?.error === "string"
       ? workerResponse.body.error
       : `worker request failed with status ${workerResponse.status}`;
-    return { success: false, result: "", error: errorMessage };
+    return { success: false, result: "", error: trimErrorMessage(errorMessage) };
   }
 
   const payload = buildOnchainResultEnvelope(normalized, workerResponse);

@@ -107,6 +107,30 @@ test("buildOnchainResultEnvelope normalizes verification metadata", () => {
   assert.equal(typeof envelope.verification.tee_attestation.event_log_hash, 'string');
 });
 
+test("buildOnchainResultEnvelope compacts oversized privacy oracle payloads", () => {
+  const envelope = buildOnchainResultEnvelope("privacy_oracle", {
+    ok: true,
+    status: 200,
+    body: {
+      mode: "fetch",
+      target_chain: "neo_n3",
+      result: { huge: "x".repeat(5000) },
+      extracted_value: "42",
+      verification: {
+        output_hash: "deadbeef",
+        attestation_hash: "beadfeed",
+        tee_attestation: { app_id: "app", compose_hash: "hash", report_data: "rd", quote: "q".repeat(5000), event_log: "e".repeat(5000) },
+      },
+    },
+  });
+
+  const encoded = JSON.stringify(envelope);
+  assert.ok(encoded.length < 900);
+  assert.equal(envelope.result.result, "42");
+  assert.equal(envelope.result.result_source, "extracted_value");
+  assert.equal(typeof envelope.verification.tee_attestation.quote_hash, "string");
+});
+
 test("state tracks processed events and metrics snapshot", () => {
   const state = createEmptyRelayerState();
   const event = { chain: "neo_n3", requestId: "7", txHash: "0xabc", logIndex: 0, blockNumber: 12, requestType: "privacy_oracle" };

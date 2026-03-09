@@ -11,6 +11,8 @@ contract MorpheusOracleX {
     uint256 private constant MAX_REQUEST_TYPE_LENGTH = 64;
     uint256 private constant MAX_CALLBACK_METHOD_LENGTH = 64;
     uint256 private constant MAX_PAYLOAD_LENGTH = 4096;
+    uint256 private constant MAX_RESULT_LENGTH = 4096;
+    uint256 private constant MAX_ERROR_LENGTH = 256;
     uint256 private constant MAX_ORACLE_KEY_ALGO_LENGTH = 64;
     uint256 private constant MAX_ORACLE_KEY_LENGTH = 2048;
 
@@ -44,7 +46,7 @@ contract MorpheusOracleX {
     mapping(bytes32 => uint256) public typeFulfilled;
 
     event OracleRequested(uint256 indexed requestId, string requestType, address indexed requester, address indexed callbackContract, string callbackMethod, bytes payload);
-    event OracleFulfilled(uint256 indexed requestId, string requestType, bool success, bytes result, string error);
+    event OracleFulfilled(uint256 indexed requestId, string requestType, bool success, bytes32 resultHash, uint256 resultSize, string error);
     event CallbackAdded(address indexed callbackContract);
     event CallbackRemoved(address indexed callbackContract);
     event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
@@ -137,6 +139,8 @@ contract MorpheusOracleX {
         require(req.id != 0, "request not found");
         require(req.status == OracleRequestStatus.Pending, "already fulfilled");
         require(allowedCallbacks[req.callbackContract], "callback not allowed");
+        require(result.length <= MAX_RESULT_LENGTH, "result too large");
+        require(bytes(error).length <= MAX_ERROR_LENGTH, "error too large");
 
         req.status = success ? OracleRequestStatus.Fulfilled : OracleRequestStatus.Failed;
         req.fulfilledAt = uint64(block.timestamp);
@@ -156,7 +160,7 @@ contract MorpheusOracleX {
             }
         }
 
-        emit OracleFulfilled(requestId, req.requestType, req.success, req.result, req.error);
+        emit OracleFulfilled(requestId, req.requestType, req.success, sha256(req.result), req.result.length, req.error);
     }
 
     function getTypeRequests(string calldata requestType) external view returns (uint256) {

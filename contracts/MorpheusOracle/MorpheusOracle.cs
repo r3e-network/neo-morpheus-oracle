@@ -18,7 +18,7 @@ namespace MorpheusOracle.Contracts
     }
 
     public delegate void OracleRequestedHandler(BigInteger requestId, string requestType, UInt160 requester, UInt160 callbackContract, string callbackMethod, ByteString payload);
-    public delegate void OracleFulfilledHandler(BigInteger requestId, string requestType, bool success, ByteString result, string error);
+    public delegate void OracleFulfilledHandler(BigInteger requestId, string requestType, bool success, ByteString resultHash, BigInteger resultSize, string error);
     public delegate void CallbackAddedHandler(UInt160 contractHash);
     public delegate void CallbackRemovedHandler(UInt160 contractHash);
     public delegate void AdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
@@ -48,6 +48,8 @@ namespace MorpheusOracle.Contracts
         private const int MAX_REQUEST_TYPE_LENGTH = 64;
         private const int MAX_CALLBACK_METHOD_LENGTH = 64;
         private const int MAX_PAYLOAD_LENGTH = 4096;
+        private const int MAX_RESULT_LENGTH = 4096;
+        private const int MAX_ERROR_LENGTH = 256;
         private const int MAX_ORACLE_KEY_ALGO_LENGTH = 64;
         private const int MAX_ORACLE_KEY_LENGTH = 2048;
         private const string CALLBACK_METHOD = "onOracleResult";
@@ -330,6 +332,16 @@ namespace MorpheusOracle.Contracts
             return requestId;
         }
 
+        private static ByteString ComputeResultHash(ByteString result)
+        {
+            return CryptoLib.Sha256(result ?? (ByteString)"");
+        }
+
+        private static BigInteger ComputeResultSize(ByteString result)
+        {
+            return result == null ? 0 : result.Length;
+        }
+
         public static void FulfillRequest(BigInteger requestId, bool success, ByteString result, string error)
         {
             ValidateUpdater();
@@ -338,6 +350,8 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(req.Id > 0, "request not found");
             ExecutionEngine.Assert(req.Status == OracleRequestStatus.Pending, "request already fulfilled");
             ExecutionEngine.Assert(IsAllowedCallback(req.CallbackContract), "callback contract not allowed");
+            ExecutionEngine.Assert(result == null || result.Length <= MAX_RESULT_LENGTH, "result too large");
+            ExecutionEngine.Assert(error == null || error.Length <= MAX_ERROR_LENGTH, "error too large");
 
             req.Status = success ? OracleRequestStatus.Fulfilled : OracleRequestStatus.Failed;
             req.FulfilledAt = Runtime.Time;
@@ -364,7 +378,7 @@ namespace MorpheusOracle.Contracts
                 RequestMap().Put(requestId.ToByteArray(), StdLib.Serialize(req));
             }
 
-            OnOracleFulfilled(requestId, req.RequestType, req.Success, req.Result, req.Error);
+            OnOracleFulfilled(requestId, req.RequestType, req.Success, ComputeResultHash(req.Result), ComputeResultSize(req.Result), req.Error);
         }
 
         public static void Update(ByteString nefFile, string manifest)
