@@ -598,6 +598,42 @@ test('compute script rejects invalid entry point identifiers', async () => {
   assert.match(body.error, /valid identifier/);
 });
 
+test('compute script blocks constructor escape patterns', async () => {
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'script',
+      script: 'function process(input) { return this.constructor.constructor(\"return 1\")(); }',
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /constructor introspection is not allowed/);
+});
+
+test('oracle smart fetch blocks global object access in user script', async () => {
+  global.fetch = async () => new Response(JSON.stringify({ ok: true, price: '1.23' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  const res = await handler(new Request('http://local/oracle/smart-fetch', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      provider: 'twelvedata',
+      symbol: 'NEO-USD',
+      script: 'function process(data) { return globalThis.process; }',
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /global object access is not allowed/);
+});
+
 test('sign-payload supports neo_n3 and neo_x', async () => {
   global.fetch = originalFetch;
 
