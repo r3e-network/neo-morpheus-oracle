@@ -1,4 +1,5 @@
 import { relayNeoN3Invocation } from "../../phala-worker/src/chain/index.js";
+import { deriveRelayerNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "./dstack.js";
 
 function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -50,7 +51,11 @@ function decodeNeoItem(item) {
 }
 
 export function hasNeoN3RelayerConfig(config) {
-  return Boolean(config.neo_n3.rpcUrl && config.neo_n3.oracleContract && (config.neo_n3.updaterWif || config.neo_n3.updaterPrivateKey));
+  return Boolean(
+    config.neo_n3.rpcUrl
+      && config.neo_n3.oracleContract
+      && (config.neo_n3.updaterWif || config.neo_n3.updaterPrivateKey || shouldUseDerivedKeys(config)),
+  );
 }
 
 export async function getNeoN3LatestBlock(config) {
@@ -97,7 +102,21 @@ export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
   return out;
 }
 
+async function resolveNeoN3UpdaterPayload(config) {
+  if (config.neo_n3.updaterWif) {
+    return { wif: config.neo_n3.updaterWif };
+  }
+  if (config.neo_n3.updaterPrivateKey) {
+    return { private_key: config.neo_n3.updaterPrivateKey };
+  }
+  if (shouldUseDerivedKeys(config)) {
+    return { private_key: await deriveRelayerNeoN3PrivateKeyHex() };
+  }
+  throw new Error("Neo N3 updater signing material is not configured");
+}
+
 export async function fulfillNeoN3Request(config, requestId, success, result, error) {
+  const signerPayload = await resolveNeoN3UpdaterPayload(config);
   const invoke = await relayNeoN3Invocation({
     request_id: `relayer:n3:${requestId}`,
     contract_hash: config.neo_n3.oracleContract,
@@ -111,8 +130,7 @@ export async function fulfillNeoN3Request(config, requestId, success, result, er
     wait: false,
     rpc_url: config.neo_n3.rpcUrl,
     network_magic: config.neo_n3.networkMagic,
-    wif: config.neo_n3.updaterWif || undefined,
-    private_key: config.neo_n3.updaterPrivateKey || undefined,
+    ...signerPayload,
   });
 
   if (invoke.status >= 400) {

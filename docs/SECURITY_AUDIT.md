@@ -78,7 +78,7 @@ The worker now includes first-stage Phala dstack/tappd integration:
 ## Remaining architectural notes
 
 - N3 contracts still expose an explicit admin-only `Update(...)`, while the Neo X contracts are currently non-upgradeable plain contracts. This is a lifecycle difference, not an immediate exploitable vulnerability.
-- Relayer-side transaction signing still primarily relies on explicit env keys; a future hardening step is to extend dstack-derived signing into the relayer path as well.
+- Relayer-side transaction signing now supports dstack-derived key fallback for N3 and Neo X fulfill transactions, but explicit env keys are still supported as operational overrides.
 
 ## Validation
 

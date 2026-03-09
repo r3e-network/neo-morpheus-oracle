@@ -18,6 +18,8 @@ import {
   scheduleRetry,
   snapshotMetrics,
 } from "./src/state.js";
+import { hasNeoN3RelayerConfig } from "./src/neo-n3.js";
+import { hasNeoXRelayerConfig } from "./src/neo-x.js";
 
 const retryConfig = {
   maxRetries: 3,
@@ -98,4 +100,19 @@ test("state exhausts retries after max attempts", () => {
   assert.equal(scheduleRetry(state, "neo_n3", event, "fail-3", retryConfig).status, "scheduled");
   const exhausted = scheduleRetry(state, "neo_n3", event, "fail-4", retryConfig);
   assert.equal(exhausted.status, "exhausted");
+});
+
+test("relayer config accepts derived-key mode for Neo N3 and Neo X", () => {
+  const previous = process.env.PHALA_USE_DERIVED_KEYS;
+  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+
+  const config = {
+    neo_n3: { rpcUrl: 'https://neo.test', oracleContract: '0xabc', updaterWif: '', updaterPrivateKey: '' },
+    neo_x: { rpcUrl: 'https://neox.test', oracleContract: '0xdef', updaterPrivateKey: '' },
+  };
+
+  assert.equal(hasNeoN3RelayerConfig(config), true);
+  assert.equal(hasNeoXRelayerConfig(config), true);
+
+  process.env.PHALA_USE_DERIVED_KEYS = previous;
 });

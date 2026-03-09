@@ -1,4 +1,5 @@
 import { Interface, JsonRpcProvider, Wallet } from "ethers";
+import { deriveRelayerNeoXPrivateKeyHex, shouldUseDerivedKeys } from "./dstack.js";
 
 const MORPHEUS_ORACLE_X_ABI = [
   "event OracleRequested(uint256 indexed requestId, string requestType, address indexed requester, address indexed callbackContract, string callbackMethod, bytes payload)",
@@ -12,7 +13,7 @@ function trimString(value) {
 }
 
 export function hasNeoXRelayerConfig(config) {
-  return Boolean(config.neo_x.rpcUrl && config.neo_x.oracleContract && config.neo_x.updaterPrivateKey);
+  return Boolean(config.neo_x.rpcUrl && config.neo_x.oracleContract && (config.neo_x.updaterPrivateKey || shouldUseDerivedKeys(config)));
 }
 
 export async function getNeoXLatestBlock(config) {
@@ -49,10 +50,16 @@ export async function scanNeoXOracleRequests(config, fromBlock, toBlock) {
   });
 }
 
+async function resolveNeoXUpdaterPrivateKey(config) {
+  if (config.neo_x.updaterPrivateKey) return config.neo_x.updaterPrivateKey;
+  if (shouldUseDerivedKeys(config)) return `0x${await deriveRelayerNeoXPrivateKeyHex()}`;
+  throw new Error("Neo X updater signing material is not configured");
+}
+
 export async function fulfillNeoXRequest(config, requestId, success, result, error) {
   const provider = new JsonRpcProvider(config.neo_x.rpcUrl);
-  const wallet = new Wallet(config.neo_x.updaterPrivateKey, provider);
-  const contract = new Wallet(config.neo_x.updaterPrivateKey, provider);
+  const privateKey = await resolveNeoXUpdaterPrivateKey(config);
+  const wallet = new Wallet(privateKey, provider);
   const data = morpheusOracleXInterface.encodeFunctionData("fulfillRequest", [
     BigInt(requestId),
     Boolean(success),
