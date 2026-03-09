@@ -50,4 +50,9 @@ contract OracleCallbackConsumerX {
         callbacks[requestId] = CallbackResult({ requestType: requestType, success: success, result: result, error: error });
         emit OracleCallbackReceived(requestId, requestType, success, error);
     }
+
+    function getCallback(uint256 requestId) external view returns (string memory requestType, bool success, bytes memory result, string memory error) {
+        CallbackResult memory callbackResult = callbacks[requestId];
+        return (callbackResult.requestType, callbackResult.success, callbackResult.result, callbackResult.error);
+    }
 }

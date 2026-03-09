@@ -96,6 +96,8 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(roundId >= 0, "invalid round");
             ExecutionEngine.Assert(price >= 0, "invalid price");
             ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
+            ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
+            ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
 
             FeedRecord record = new FeedRecord
             {

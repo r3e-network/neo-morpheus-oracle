@@ -4,6 +4,7 @@ import {
   normalizeHeaders,
   normalizeTargetChain,
   parseBodyMaybe,
+  parseDurationMs,
   trimString,
 } from "../platform/core.js";
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
@@ -43,14 +44,36 @@ export function normalizeOracleUrl(rawUrl) {
   return parsedUrl.toString();
 }
 
+async function fetchWithTimeout(url, init, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error(`oracle fetch timed out after ${timeoutMs}ms`)), timeoutMs);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`oracle fetch timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function performOracleFetch(payload) {
   const { payload: resolvedPayload } = await resolveProviderPayload(payload, {
     fallbackProviderId: !payload.url && payload.symbol ? "twelvedata" : undefined,
   });
+  const timeoutMs = parseDurationMs(
+    resolvedPayload.oracle_timeout_ms || resolvedPayload.fetch_timeout_ms || env("ORACLE_TIMEOUT"),
+    20000,
+  );
 
   const providerRequest = buildProviderRequest(resolvedPayload);
   if (providerRequest) {
-    const response = await fetchProviderJSON(providerRequest);
+    const response = await fetchProviderJSON(providerRequest, timeoutMs);
     const data = response.data ?? response.text;
     const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
     return {
@@ -77,11 +100,11 @@ export async function performOracleFetch(payload) {
     headers.set(tokenHeader, `${tokenPrefix}${decryptedToken}`);
   }
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     method: resolvedPayload.method || "GET",
     headers,
     body: resolvedPayload.body,
-  });
+  }, timeoutMs);
 
   const rawResponse = await response.text();
   const responseHeaders = Object.fromEntries(response.headers.entries());

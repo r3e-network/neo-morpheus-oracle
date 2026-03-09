@@ -1,6 +1,7 @@
 import { keccak256, toUtf8Bytes } from "ethers";
-import { json, normalizeTargetChain, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
+import { env, json, normalizeTargetChain, parseDurationMs, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { buildSignedResultEnvelope } from "../chain/index.js";
+import { runScriptWithTimeout } from "../platform/script-runner.js";
 
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
@@ -158,19 +159,23 @@ export async function executeStandaloneCompute(payload) {
   }
 
   const entryPoint = trimString(payload.entry_point || "process") || "process";
-  const helpers = {
-    getCurrentTimestamp: () => Math.floor(Date.now() / 1000),
-  };
-
-  const evaluator = new Function(
-    "input",
-    "helpers",
-    `${script}\nconst target = typeof ${entryPoint} === 'function' ? ${entryPoint} : (typeof process === 'function' ? process : null);\nif (!target) throw new Error('entry point not found');\nreturn target(input, helpers);`,
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entryPoint)) {
+    throw new Error("entry point must be a valid identifier");
+  }
+  const timeoutMs = parseDurationMs(
+    payload.script_timeout_ms || payload.compute_timeout_ms || env("COMPUTE_SCRIPT_TIMEOUT_MS"),
+    2000,
   );
 
   return {
     entry_point: entryPoint,
-    result: await evaluator(payload.input ?? {}, helpers),
+    result: await runScriptWithTimeout({
+      mode: "compute",
+      script,
+      entryPoint,
+      input: payload.input ?? {},
+      timeoutMs,
+    }),
   };
 }
 

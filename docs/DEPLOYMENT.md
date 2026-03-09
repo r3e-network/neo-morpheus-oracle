@@ -33,6 +33,9 @@ Deploy `workers/phala-worker` to Phala with:
 - `PHALA_NEOX_PRIVATE_KEY`
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
 - `SUPABASE_SERVICE_ROLE_KEY` (or compatible service key) for worker-side provider-config lookup
+- optional `ORACLE_TIMEOUT` for upstream fetch timeout (for example `20s`)
+- optional `ORACLE_SCRIPT_TIMEOUT_MS` for privacy Oracle script execution timeout
+- optional `COMPUTE_SCRIPT_TIMEOUT_MS` for compute script execution timeout
 
 ## Phala CVM Topology
 

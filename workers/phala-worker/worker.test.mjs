@@ -295,6 +295,78 @@ test('compute execute supports builtin heavy functions', async () => {
   assert.ok(body.signature);
 });
 
+test('oracle smart fetch enforces script timeout', async () => {
+  global.fetch = async () => new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  const res = await handler(new Request('http://local/oracle/smart-fetch', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      url: 'https://api.example.com/slow-script',
+      script: 'function process(data) { while (true) {} }',
+      script_timeout_ms: 50,
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /timed out/);
+});
+
+test('oracle fetch enforces upstream timeout', async () => {
+  global.fetch = async (_url, init) => await new Promise((resolve, reject) => {
+    init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+  });
+
+  const res = await handler(new Request('http://local/oracle/query', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      url: 'https://api.example.com/hanging',
+      oracle_timeout_ms: 50,
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /timed out/);
+});
+
+test('compute script enforces timeout', async () => {
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'script',
+      script: 'function process(input) { while (true) {} }',
+      script_timeout_ms: 50,
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /timed out/);
+});
+
+test('compute script rejects invalid entry point identifiers', async () => {
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'script',
+      script: 'function safe(input) { return input; }',
+      entry_point: 'safe();evil',
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /valid identifier/);
+});
+
 test('sign-payload supports neo_n3 and neo_x', async () => {
   global.fetch = originalFetch;
 

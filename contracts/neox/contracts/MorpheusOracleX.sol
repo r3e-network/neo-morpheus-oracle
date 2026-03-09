@@ -8,6 +8,12 @@ interface IOracleResultCallback {
 contract MorpheusOracleX {
     enum OracleRequestStatus { Pending, Fulfilled, Failed }
 
+    uint256 private constant MAX_REQUEST_TYPE_LENGTH = 64;
+    uint256 private constant MAX_CALLBACK_METHOD_LENGTH = 64;
+    uint256 private constant MAX_PAYLOAD_LENGTH = 4096;
+    uint256 private constant MAX_ORACLE_KEY_ALGO_LENGTH = 64;
+    uint256 private constant MAX_ORACLE_KEY_LENGTH = 2048;
+
     struct OracleRequest {
         uint256 id;
         string requestType;
@@ -76,6 +82,8 @@ contract MorpheusOracleX {
     function setOracleEncryptionKey(string calldata algorithm, string calldata publicKey) external onlyAdmin {
         require(bytes(algorithm).length > 0, "algorithm required");
         require(bytes(publicKey).length > 0, "public key required");
+        require(bytes(algorithm).length <= MAX_ORACLE_KEY_ALGO_LENGTH, "algorithm too long");
+        require(bytes(publicKey).length <= MAX_ORACLE_KEY_LENGTH, "public key too long");
         oracleEncryptionAlgorithm = algorithm;
         oracleEncryptionPublicKey = publicKey;
         oracleEncryptionKeyVersion += 1;
@@ -95,7 +103,11 @@ contract MorpheusOracleX {
 
     function request(string calldata requestType, bytes calldata payload, address callbackContract, string calldata callbackMethod) external returns (uint256 requestId) {
         require(bytes(requestType).length > 0, "request type required");
+        require(bytes(requestType).length <= MAX_REQUEST_TYPE_LENGTH, "request type too long");
         require(callbackContract != address(0), "callback required");
+        require(bytes(callbackMethod).length > 0, "callback method required");
+        require(bytes(callbackMethod).length <= MAX_CALLBACK_METHOD_LENGTH, "callback method too long");
+        require(payload.length <= MAX_PAYLOAD_LENGTH, "payload too large");
         require(allowedCallbacks[callbackContract], "callback not allowed");
         require(keccak256(bytes(callbackMethod)) == keccak256(bytes("onOracleResult")), "unsupported callback method");
 

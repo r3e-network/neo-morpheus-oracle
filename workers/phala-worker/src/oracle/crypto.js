@@ -1,4 +1,5 @@
-import { decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
+import { env, parseDurationMs, decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
+import { runScriptWithTimeout } from "../platform/script-runner.js";
 
 let oracleKeyMaterialPromise;
 
@@ -63,20 +64,19 @@ export async function executeProgrammableOracle(payload, context) {
     };
   }
 
-  const helpers = {
-    getCurrentTimestamp: () => Math.floor(Date.now() / 1000),
-    base64Decode: (value) => decodeBase64(value).toString("utf8"),
-  };
-
-  const evaluator = new Function(
-    "data",
-    "context",
-    "helpers",
-    `${script}\nif (typeof process !== 'function') throw new Error('script must define process(data, context, helpers)');\nreturn process(data, context, helpers);`,
+  const timeoutMs = parseDurationMs(
+    payload.script_timeout_ms || payload.oracle_script_timeout_ms || env("ORACLE_SCRIPT_TIMEOUT_MS"),
+    2000,
   );
 
   return {
     executed: true,
-    result: await evaluator(context.data, context, helpers),
+    result: await runScriptWithTimeout({
+      mode: "oracle",
+      script,
+      data: context.data,
+      context,
+      timeoutMs,
+    }),
   };
 }

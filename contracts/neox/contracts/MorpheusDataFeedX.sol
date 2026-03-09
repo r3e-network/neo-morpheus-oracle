@@ -62,6 +62,17 @@ contract MorpheusDataFeedX {
     }
 
     function getLatest(string calldata pair) external view returns (FeedRecord memory) {
-        return latestFeed[keccak256(bytes(pair))];
+        FeedRecord memory record = latestFeed[keccak256(bytes(pair))];
+        if (bytes(record.pair).length == 0) {
+            return FeedRecord({
+                pair: pair,
+                roundId: 0,
+                price: 0,
+                timestamp: 0,
+                attestationHash: bytes32(0),
+                sourceSetId: 0
+            });
+        }
+        return record;
     }
 }

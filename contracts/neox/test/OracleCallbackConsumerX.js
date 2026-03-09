@@ -11,5 +11,8 @@ describe("OracleCallbackConsumerX", function () {
     const result = await consumer.callbacks(1);
     expect(result.success).to.equal(true);
     expect(result.requestType).to.equal("oracle");
+    const callbackTuple = await consumer.getCallback(1);
+    expect(callbackTuple[0]).to.equal("oracle");
+    expect(callbackTuple[1]).to.equal(true);
   });
 });

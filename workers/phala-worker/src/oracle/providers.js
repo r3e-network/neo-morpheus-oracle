@@ -211,12 +211,25 @@ export function buildProviderRequest(payload) {
   }
 }
 
-export async function fetchProviderJSON(requestSpec) {
-  const response = await fetch(requestSpec.url, {
-    method: requestSpec.method || "GET",
-    headers: requestSpec.headers,
-    body: requestSpec.body,
-  });
+export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error(`provider fetch timed out after ${timeoutMs}ms`)), timeoutMs);
+  let response;
+  try {
+    response = await fetch(requestSpec.url, {
+      method: requestSpec.method || "GET",
+      headers: requestSpec.headers,
+      body: requestSpec.body,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`provider fetch timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await response.text();
   let data = null;
   if (text) {

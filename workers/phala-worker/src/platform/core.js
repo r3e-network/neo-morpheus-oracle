@@ -108,6 +108,22 @@ export function getJsonPathValue(value, path) {
     .reduce((current, segment) => (current && typeof current === "object" ? current[segment] : undefined), value);
 }
 
+export function parseDurationMs(value, fallbackMs = 0) {
+  if (value === undefined || value === null || value === "") return fallbackMs;
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(Math.trunc(value), 0);
+
+  const raw = trimString(value).toLowerCase();
+  if (!raw) return fallbackMs;
+  if (/^\d+$/.test(raw)) return Math.max(Number(raw), 0);
+
+  const match = raw.match(/^(\d+(?:\.\d+)?)(ms|s|m)$/);
+  if (!match) return fallbackMs;
+  const amount = Number(match[1]);
+  const unit = match[2];
+  const scale = unit === "ms" ? 1 : unit === "s" ? 1000 : 60_000;
+  return Math.max(Math.round(amount * scale), 0);
+}
+
 export function resolveScript(payload) {
   if (typeof payload.script === "string" && payload.script.trim()) return payload.script;
   if (typeof payload.script_base64 === "string" && payload.script_base64.trim()) {

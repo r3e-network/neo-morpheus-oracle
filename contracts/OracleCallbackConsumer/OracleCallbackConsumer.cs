@@ -9,6 +9,8 @@ using Neo.SmartContract.Framework.Services;
 namespace MorpheusOracle.Contracts
 {
     public delegate void OracleCallbackReceivedHandler(BigInteger requestId, string requestType, bool success, string error);
+    public delegate void AdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
+    public delegate void OracleChangedHandler(UInt160 oldOracle, UInt160 newOracle);
 
     [DisplayName("OracleCallbackConsumer")]
     [ManifestExtra("Author", "Morpheus Oracle")]
@@ -23,6 +25,12 @@ namespace MorpheusOracle.Contracts
 
         [DisplayName("OracleCallbackReceived")]
         public static event OracleCallbackReceivedHandler OnOracleCallbackReceived;
+
+        [DisplayName("AdminChanged")]
+        public static event AdminChangedHandler OnAdminChanged;
+
+        [DisplayName("OracleChanged")]
+        public static event OracleChangedHandler OnOracleChanged;
 
         public static void _deploy(object data, bool update)
         {
@@ -46,14 +54,18 @@ namespace MorpheusOracle.Contracts
         {
             ValidateAdmin();
             ExecutionEngine.Assert(newAdmin != null && newAdmin.IsValid, "invalid");
+            UInt160 oldAdmin = Admin();
             Storage.Put(Storage.CurrentContext, PREFIX_ADMIN, newAdmin);
+            OnAdminChanged(oldAdmin, newAdmin);
         }
 
         public static void SetOracle(UInt160 oracle)
         {
             ValidateAdmin();
             ExecutionEngine.Assert(oracle != null && oracle.IsValid, "invalid");
+            UInt160 oldOracle = Oracle();
             Storage.Put(Storage.CurrentContext, PREFIX_ORACLE, oracle);
+            OnOracleChanged(oldOracle, oracle);
         }
 
         public static void OnOracleResult(BigInteger requestId, string requestType, bool success, ByteString result, string error)
