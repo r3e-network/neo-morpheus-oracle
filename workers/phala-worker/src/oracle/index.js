@@ -2,6 +2,7 @@ export {
   resolveEncryptedPayload,
   ensureOracleKeyMaterial,
   decryptEncryptedToken,
+  resolveConfidentialPayload,
   executeProgrammableOracle,
 } from "./crypto.js";
 

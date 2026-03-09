@@ -1,8 +1,10 @@
+import { createVerify, randomBytes } from "node:crypto";
 import { keccak256, toUtf8Bytes } from "ethers";
 import { env, json, normalizeTargetChain, parseDurationMs, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
+import { resolveConfidentialPayload } from "../oracle/crypto.js";
 
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
@@ -70,8 +72,12 @@ function maskString(value, unmaskedLeft = 2, unmaskedRight = 2) {
   return str.slice(0, unmaskedLeft) + "*".repeat(str.length - unmaskedLeft - unmaskedRight) + str.slice(-unmaskedRight);
 }
 
+function cryptoRandomUnit() {
+  return randomBytes(6).readUIntBE(0, 6) / 0x1000000000000;
+}
+
 function addLaplaceNoise(value, scale = 1.0) {
-  const u = Math.random() - 0.5;
+  const u = cryptoRandomUnit() - 0.5;
   const noise = -scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
   return Number(value) + noise;
 }
@@ -99,8 +105,8 @@ function evaluatePolynomial(coefficients, x_value, modulus = null) {
   const x = BigInt(Math.floor(Number(x_value)));
   const m = modulus ? BigInt(modulus) : null;
   
-  for (let i = coefficients.length - 1; i >= 0; i--) {
-    const c = BigInt(Math.floor(Number(coefficients[i])));
+  for (const coefficient of coefficients) {
+    const c = BigInt(Math.floor(Number(coefficient)));
     result = result * x + c;
     if (m !== null) {
       result = ((result % m) + m) % m;
@@ -111,7 +117,7 @@ function evaluatePolynomial(coefficients, x_value, modulus = null) {
 
 function verifyRSASignature(publicKeyPem, signatureHex, payloadString) {
   try {
-    const verify = crypto.createVerify("RSA-SHA256");
+    const verify = createVerify("RSA-SHA256");
     verify.update(payloadString);
     verify.end();
     return verify.verify(publicKeyPem, Buffer.from(signatureHex, "hex"));
@@ -235,14 +241,19 @@ export async function executeStandaloneCompute(payload) {
 
 export async function handleComputeExecute(payload) {
   try {
-    const mode = trimString(payload.mode || (payload.function || payload.compute_fn ? "builtin" : "script")) || "script";
-    const result = mode === "builtin" ? await executeBuiltinCompute(payload) : await executeStandaloneCompute(payload);
-    const signed = await buildSignedResultEnvelope(result, payload);
-    const teeAttestation = await maybeBuildDstackAttestation(payload, result);
+    const resolvedPayload = await resolveConfidentialPayload(payload);
+    const mode = trimString(
+      resolvedPayload.mode || (resolvedPayload.function || resolvedPayload.compute_fn ? "builtin" : "script"),
+    ) || "script";
+    const result = mode === "builtin"
+      ? await executeBuiltinCompute(resolvedPayload)
+      : await executeStandaloneCompute(resolvedPayload);
+    const signed = await buildSignedResultEnvelope(result, resolvedPayload);
+    const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, result);
     return json(200, {
       mode,
-      target_chain: payload.target_chain ? normalizeTargetChain(payload.target_chain) : "neo_n3",
-      target_chain_id: payload.target_chain_id ? String(payload.target_chain_id) : null,
+      target_chain: resolvedPayload.target_chain ? normalizeTargetChain(resolvedPayload.target_chain) : "neo_n3",
+      target_chain_id: resolvedPayload.target_chain_id ? String(resolvedPayload.target_chain_id) : null,
       ...result,
       output_hash: signed.output_hash,
       signature: signed.signature,
