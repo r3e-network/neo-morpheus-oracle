@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildOnchainResultEnvelope,
   buildWorkerPayload,
   decodePayloadText,
   encodeFulfillmentResult,
@@ -57,15 +58,50 @@ test("buildWorkerPayload injects relayer metadata", () => {
 });
 
 test("encodeFulfillmentResult returns success envelope for worker output", () => {
-  const fulfilled = encodeFulfillmentResult("privacy_oracle", { ok: true, status: 200, body: { result: true } });
+  const fulfilled = encodeFulfillmentResult("privacy_oracle", {
+    ok: true,
+    status: 200,
+    body: {
+      result: true,
+      output_hash: "abc",
+      attestation_hash: "abc",
+      tee_attestation: { report_data: "0xabc" },
+    },
+  });
   assert.equal(fulfilled.success, true);
   assert.equal(typeof fulfilled.result, "string");
   assert.equal(fulfilled.error, "");
+
+  const parsed = JSON.parse(fulfilled.result);
+  assert.equal(parsed.version, "morpheus-result/v1");
+  assert.equal(parsed.request_type, "privacy_oracle");
+  assert.equal(parsed.result.result, true);
+  assert.equal(parsed.verification.output_hash, "abc");
 
   const failed = encodeFulfillmentResult("compute", { ok: false, status: 400, body: { error: "bad request" } });
   assert.equal(failed.success, false);
   assert.equal(failed.result, "");
   assert.equal(failed.error, "bad request");
+});
+
+test("buildOnchainResultEnvelope normalizes verification metadata", () => {
+  const envelope = buildOnchainResultEnvelope("vrf", {
+    ok: true,
+    status: 200,
+    body: {
+      randomness: "1234",
+      verification: {
+        output_hash: "deadbeef",
+        attestation_hash: "deadbeef",
+        tee_attestation: { report_data: "0xdeadbeef" },
+      },
+    },
+  });
+
+  assert.equal(envelope.version, "morpheus-result/v1");
+  assert.equal(envelope.request_type, "vrf");
+  assert.equal(envelope.result.randomness, "1234");
+  assert.equal(envelope.verification.output_hash, "deadbeef");
 });
 
 test("state tracks processed events and metrics snapshot", () => {
@@ -115,4 +151,14 @@ test("relayer config accepts derived-key mode for Neo N3 and Neo X", () => {
   assert.equal(hasNeoXRelayerConfig(config), true);
 
   process.env.PHALA_USE_DERIVED_KEYS = previous;
+});
+
+test("buildOnchainResultEnvelope keeps working when verification is missing", () => {
+  const envelope = buildOnchainResultEnvelope("privacy_oracle", {
+    ok: true,
+    status: 200,
+    body: { result: { ok: true } },
+  });
+  assert.equal(envelope.version, 'morpheus-result/v1');
+  assert.equal(envelope.verification, null);
 });

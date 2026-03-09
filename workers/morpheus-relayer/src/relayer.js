@@ -71,7 +71,13 @@ async function maybePersistRun(logger, config, result) {
 }
 
 async function syncManualActions(config, state, logger, chain) {
-  const jobs = await fetchRelayerJobsByStatuses(["manual_retry_requested", "manual_replay_requested"], chain, 50);
+  let jobs;
+  try {
+    jobs = await fetchRelayerJobsByStatuses(["manual_retry_requested", "manual_replay_requested"], chain, 50);
+  } catch (error) {
+    logger.warn({ chain, error }, "Supabase manual-action sync unavailable; continuing without control-plane sync");
+    return [];
+  }
   if (!jobs.length) return [];
 
   const applied = [];
