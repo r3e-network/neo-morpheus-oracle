@@ -23,9 +23,10 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
   if (providerParams) payload.provider_params = providerParams;
 
   try {
+    const provider = url.searchParams.get("provider");
     const resolved = await resolveProviderAwarePayload(payload, {
       projectSlug: url.searchParams.get("project_slug") || undefined,
-      fallbackProviderId: String(url.searchParams.get("provider") || "twelvedata"),
+      fallbackProviderId: provider ? String(provider) : undefined,
     });
 
     return proxyToPhala("/feeds/price", {

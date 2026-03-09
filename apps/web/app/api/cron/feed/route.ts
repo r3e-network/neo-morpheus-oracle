@@ -1,4 +1,5 @@
 import { appConfig } from "@/lib/config";
+import { parseFeedProviders, parseFeedSymbols } from "@/lib/feed-defaults";
 import { resolveProviderAwarePayload } from "@/lib/provider-configs";
 
 function isAuthorized(request: Request) {
@@ -18,12 +19,10 @@ export async function GET(request: Request) {
   }
 
   const routeUrl = new URL(request.url);
-  const symbols = String(process.env.MORPHEUS_FEED_SYMBOLS || "NEO-USD")
-    .split(",")
-    .map((symbol) => symbol.trim())
-    .filter(Boolean);
+  const symbols = parseFeedSymbols(process.env.MORPHEUS_FEED_SYMBOLS);
   const configuredProjectSlug = (routeUrl.searchParams.get("project_slug") || process.env.MORPHEUS_FEED_PROJECT_SLUG || "").trim();
-  const configuredProvider = (routeUrl.searchParams.get("provider") || process.env.MORPHEUS_FEED_PROVIDER || "twelvedata").trim();
+  const configuredProvider = (routeUrl.searchParams.get("provider") || process.env.MORPHEUS_FEED_PROVIDER || "").trim();
+  const configuredProviders = parseFeedProviders(routeUrl.searchParams.get("providers") || process.env.MORPHEUS_FEED_PROVIDERS || "");
 
   const headers = new Headers({ "content-type": "application/json" });
   if (appConfig.phalaToken) {
@@ -34,16 +33,23 @@ export async function GET(request: Request) {
   const results = await Promise.all(
     symbols.map(async (symbol) => {
       try {
+        const payload: Record<string, unknown> = {
+          symbol,
+          wait: false,
+          project_slug: configuredProjectSlug || undefined,
+          sync_all_sources: true,
+        };
+        if (configuredProvider) {
+          payload.provider = configuredProvider;
+        } else {
+          payload.providers = configuredProviders;
+        }
+
         const resolved = await resolveProviderAwarePayload(
-          {
-            symbol,
-            wait: false,
-            provider: configuredProvider,
-            project_slug: configuredProjectSlug || undefined,
-          },
+          payload,
           {
             projectSlug: configuredProjectSlug || undefined,
-            fallbackProviderId: configuredProvider || "twelvedata",
+            fallbackProviderId: configuredProvider || undefined,
           },
         );
 
@@ -73,6 +79,7 @@ export async function GET(request: Request) {
     ok: true,
     project_slug: configuredProjectSlug || null,
     provider: configuredProvider || null,
+    providers: configuredProviders,
     results,
   });
 }

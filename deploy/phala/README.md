@@ -97,52 +97,29 @@ docker exec -it morpheus-relayer npm --prefix workers/morpheus-relayer run metri
 
 ## Encrypted Secrets checklist for UI mode
 
-Add these in the Dashboard Encrypted Secrets panel before deploy.
-
-You can copy the values from your local ignored file:
-
-- `deploy/phala/morpheus.env`
-
-Add these keys in the Dashboard Encrypted Secrets panel before deploy:
+For the current `deploy/phala/docker-compose.ui.yml`, the Phala UI only needs these direct secrets:
 
 - `MORPHEUS_PHALA_WORKER_IMAGE`
 - `MORPHEUS_RELAYER_IMAGE`
 - `PHALA_WORKER_PORT`
 - `PHALA_SHARED_SECRET`
 - `PHALA_API_TOKEN`
-- `TWELVEDATA_API_KEY`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `MORPHEUS_PROVIDER_CONFIG_API_KEY`
-- `MORPHEUS_NETWORK`
-- `NEO_RPC_URL`
-- `NEO_NETWORK_MAGIC`
-- `CONTRACT_MORPHEUS_ORACLE_HASH`
-- `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
-- `CONTRACT_MORPHEUS_DATAFEED_HASH`
-- `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
-- `NEOX_RPC_URL`
-- `NEOX_CHAIN_ID`
-- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
-- `CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS`
-- `CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS`
-- `PHALA_NEOX_PRIVATE_KEY`
-- `MORPHEUS_FEED_PROJECT_SLUG`
-- `MORPHEUS_FEED_PROVIDER`
-- `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
-- `MORPHEUS_RELAYER_NEOX_PRIVATE_KEY`
-- `MORPHEUS_RELAYER_POLL_INTERVAL_MS`
-- `MORPHEUS_RELAYER_CONCURRENCY`
-- `MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK`
-- `MORPHEUS_RELAYER_MAX_RETRIES`
-- `MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS`
-- `MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS`
-- `MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE`
-- `MORPHEUS_RELAYER_DEAD_LETTER_LIMIT`
-- `MORPHEUS_RELAYER_LOG_FORMAT`
-- `MORPHEUS_RELAYER_LOG_LEVEL`
+- `MORPHEUS_RUNTIME_CONFIG_JSON`
+
+Everything else now lives inside `MORPHEUS_RUNTIME_CONFIG_JSON`.
+
+Recommended flow:
+
+```bash
+npm run render:phala-env
+npm run check:phala-env
+```
+
+Then copy only the direct keys above into Phala Dashboard Encrypted Secrets.
 
 ## Security notes
 

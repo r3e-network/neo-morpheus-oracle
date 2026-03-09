@@ -26,6 +26,7 @@
     "smoke:neox": "node scripts/smoke-oracle-neox.mjs",
     "smoke:all": "node scripts/smoke-all.mjs",
     "render:phala-env": "node scripts/render-phala-env.mjs",
+    "check:env": "node scripts/check-root-env.mjs",
     "check:phala-env": "node scripts/check-phala-env.mjs",
     "compile:neox": "npm --prefix contracts/neox run compile",
     "test:neox": "npm --prefix contracts/neox test"

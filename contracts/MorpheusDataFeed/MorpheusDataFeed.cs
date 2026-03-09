@@ -22,6 +22,8 @@ namespace MorpheusOracle.Contracts
         private static readonly byte[] PREFIX_ADMIN = new byte[] { 0x01 };
         private static readonly byte[] PREFIX_UPDATER = new byte[] { 0x02 };
         private static readonly byte[] PREFIX_FEED = new byte[] { 0x03 };
+        private static readonly byte[] PREFIX_PAIR_INDEX = new byte[] { 0x04 };
+        private static readonly byte[] PREFIX_PAIR_COUNT = new byte[] { 0x05 };
 
         [DisplayName("FeedUpdated")]
         public static event FeedUpdatedHandler OnFeedUpdated;
@@ -88,6 +90,44 @@ namespace MorpheusOracle.Contracts
         }
 
         private static StorageMap FeedMap() => new StorageMap(Storage.CurrentContext, PREFIX_FEED);
+        private static StorageMap PairIndexMap() => new StorageMap(Storage.CurrentContext, PREFIX_PAIR_INDEX);
+
+        [Safe]
+        public static BigInteger GetPairCount()
+        {
+            ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_PAIR_COUNT);
+            return raw == null ? 0 : (BigInteger)raw;
+        }
+
+        private static void IndexPairIfNeeded(string pair)
+        {
+            ByteString existing = FeedMap().Get(pair);
+            if (existing != null) return;
+
+            BigInteger count = GetPairCount();
+            PairIndexMap().Put(count.ToByteArray(), pair);
+            Storage.Put(Storage.CurrentContext, PREFIX_PAIR_COUNT, count + 1);
+        }
+
+        [Safe]
+        public static string GetPairByIndex(BigInteger index)
+        {
+            ExecutionEngine.Assert(index >= 0, "invalid index");
+            ByteString raw = PairIndexMap().Get(index.ToByteArray());
+            return raw == null ? "" : (string)raw;
+        }
+
+        [Safe]
+        public static string[] GetAllPairs()
+        {
+            int count = (int)GetPairCount();
+            string[] pairs = new string[count];
+            for (int index = 0; index < count; index++)
+            {
+                pairs[index] = GetPairByIndex(index);
+            }
+            return pairs;
+        }
 
         public static void UpdateFeed(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
         {
@@ -98,6 +138,8 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
             ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
             ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
+
+            IndexPairIfNeeded(pair);
 
             FeedRecord record = new FeedRecord
             {
@@ -122,6 +164,18 @@ namespace MorpheusOracle.Contracts
                 return new FeedRecord { Pair = pair, RoundId = 0, Price = 0, Timestamp = 0, AttestationHash = (ByteString)"", SourceSetId = 0 };
             }
             return (FeedRecord)StdLib.Deserialize(raw);
+        }
+
+        [Safe]
+        public static FeedRecord[] GetAllFeedRecords()
+        {
+            string[] pairs = GetAllPairs();
+            FeedRecord[] records = new FeedRecord[pairs.Length];
+            for (int index = 0; index < pairs.Length; index++)
+            {
+                records[index] = GetLatest(pairs[index]);
+            }
+            return records;
         }
 
         public static void Update(ByteString nefFile, string manifest)

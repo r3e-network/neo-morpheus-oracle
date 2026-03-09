@@ -12,6 +12,13 @@ export const BUILTIN_PROVIDER_CATALOG = [
     auth: "apikey",
   },
   {
+    id: "binance-spot",
+    category: "market-data",
+    description: "Direct Binance spot ticker endpoint. No aggregation, no smoothing.",
+    supports: ["oracle", "datafeed"],
+    auth: "none",
+  },
+  {
     id: "coinbase-spot",
     category: "market-data",
     description: "Direct Coinbase spot price endpoint. No aggregation, no smoothing.",
@@ -174,6 +181,13 @@ export function pairToTwelveDataSymbol(pair) {
   return `${base}/${quote}`;
 }
 
+export function pairToBinanceSymbol(pair) {
+  const normalized = trimString(pair).toUpperCase().replace(/_/g, "-");
+  const [base, quote = 'USD'] = normalized.split('-');
+  const quoteSymbol = quote === 'USD' ? 'USDT' : quote;
+  return `${base}${quoteSymbol}`;
+}
+
 function requireTwelveDataApiKey() {
   const apiKey = env("TWELVEDATA_API_KEY");
   if (!apiKey) throw new Error("TWELVEDATA_API_KEY is not configured");
@@ -198,6 +212,14 @@ export function buildProviderRequest(payload) {
         if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
       }
       return { provider, pair, method: "GET", url: url.toString(), headers: {}, body: undefined, auth_mode: "query" };
+    }
+    case "binance-spot": {
+      const params = coerceProviderParams(payload.provider_params);
+      const pair = trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD";
+      const symbol = trimString(params.symbol || payload.provider_symbol || pairToBinanceSymbol(pair)) || pairToBinanceSymbol(pair);
+      const url = new URL('https://api.binance.com/api/v3/ticker/price');
+      url.searchParams.set('symbol', symbol);
+      return { provider, pair: pair.replace(/_/g, '-').toUpperCase(), method: 'GET', url: url.toString(), headers: {}, body: undefined, auth_mode: 'none' };
     }
     case "coinbase-spot": {
       const params = coerceProviderParams(payload.provider_params);

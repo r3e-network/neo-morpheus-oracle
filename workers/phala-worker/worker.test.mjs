@@ -160,6 +160,16 @@ test('providers endpoint lists builtin sources', async () => {
   const body = await res.json();
   assert.ok(Array.isArray(body.providers));
   assert.equal(body.providers[0].id, 'twelvedata');
+  assert.ok(body.providers.some((provider) => provider.id === 'binance-spot'));
+});
+
+test('feeds catalog lists default symbols', async () => {
+  const res = await handler(new Request('http://local/feeds/catalog', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.pairs));
+  assert.ok(body.pairs.includes('NEO-USD'));
+  assert.ok(body.pairs.includes('XAU-USD'));
 });
 
 test('feed quote supports twelvedata provider', async () => {
@@ -195,6 +205,48 @@ test('feed quote supports coinbase-spot provider', async () => {
   const body = await res.json();
   assert.equal(body.provider, 'coinbase-spot');
   assert.equal(body.price, '99.01');
+});
+
+test('feed quote supports binance-spot provider', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.binance\.com\/api\/v3\/ticker\/price\?symbol=NEOUSDT/);
+    return new Response(JSON.stringify({ price: '88.12' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/NEO-USD?provider=binance-spot', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.provider, 'binance-spot');
+  assert.equal(body.price, '88.12');
+});
+
+test('feed quote returns all available providers when provider is omitted', async () => {
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.includes('api.twelvedata.com')) {
+      return new Response(JSON.stringify({ price: '45.67' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (value.includes('api.binance.com')) {
+      return new Response(JSON.stringify({ price: '45.70' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/NEO-USD', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pair, 'NEO-USD');
+  assert.equal(body.quotes.length, 2);
+  assert.deepEqual(body.providers_requested, ['twelvedata', 'binance-spot']);
 });
 
 test('oracle query supports builtin provider mode', async () => {
@@ -493,8 +545,9 @@ test('oracle feed supports neo_x contract relay mode', async () => {
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.target_chain, 'neo_x');
-  assert.equal(body.relay_status, 'submitted');
-  assert.ok(body.anchored_tx);
+  assert.ok(Array.isArray(body.sync_results));
+  assert.equal(body.sync_results[0].relay_status, 'submitted');
+  assert.ok(body.sync_results[0].anchored_tx);
 });
 
 test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {

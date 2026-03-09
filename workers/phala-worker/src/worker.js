@@ -11,6 +11,7 @@ import {
   handleFeedsPrice,
   handleOracleFeed,
   handleVrf,
+  listFeedSymbols,
 } from "./oracle/index.js";
 import { handleProvidersList } from "./oracle/providers.js";
 import {
@@ -44,6 +45,7 @@ function handleHealth() {
       "oracle/smart-fetch",
       "oracle/feed",
       "feeds/price/:symbol",
+      "feeds/catalog",
       "vrf/random",
       "txproxy/invoke",
       "sign/payload",
@@ -97,11 +99,14 @@ export default async function handler(request) {
       return json(200, await buildOracleResponse(payload, "smart-fetch"));
     }
 
-    if (/\/feeds\/price\/.+/.test(path)) {
-      return handleFeedsPrice(decodeURIComponent(path.split("/").pop() || "NEO-USD"), Object.fromEntries(url.searchParams.entries()));
+    if (path.endsWith('/feeds/catalog')) {
+      return json(200, { pairs: listFeedSymbols() });
     }
-    if (path.endsWith("/feeds/price")) {
-      return handleFeedsPrice(url.searchParams.get("symbol") || payload.symbol || "NEO-USD", { ...Object.fromEntries(url.searchParams.entries()), ...payload });
+    if (/\/feeds\/price\/.+/.test(path)) {
+      return handleFeedsPrice(decodeURIComponent(path.split('/').pop() || 'NEO-USD'), Object.fromEntries(url.searchParams.entries()));
+    }
+    if (path.endsWith('/feeds/price')) {
+      return handleFeedsPrice(url.searchParams.get('symbol') || payload.symbol || 'NEO-USD', { ...Object.fromEntries(url.searchParams.entries()), ...payload });
     }
 
     if (path.endsWith("/vrf/random")) return handleVrf(payload);

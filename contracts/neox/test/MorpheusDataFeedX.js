@@ -17,9 +17,21 @@ describe("MorpheusDataFeedX", function () {
     const feed = await Feed.deploy();
     await feed.waitForDeployment();
     await feed.setUpdater(await updater.getAddress());
-    await feed.connect(updater).updateFeed("NEO-USD", 1, 123456789n, 1000, ethers.ZeroHash, 0);
+    await feed.connect(updater).updateFeed("NEO-USD", 1, 123456789n, 1000, ethers.ZeroHash, 1);
+    await feed.connect(updater).updateFeed("BINANCE:NEO-USD", 2, 123556789n, 1015, ethers.ZeroHash, 2);
+
     const latest = await feed.getLatest("NEO-USD");
     expect(latest.roundId).to.equal(1n);
     expect(latest.price).to.equal(123456789n);
+
+    expect(await feed.getPairCount()).to.equal(2n);
+    expect(await feed.getPairByIndex(0)).to.equal("NEO-USD");
+    expect(await feed.getPairByIndex(1)).to.equal("BINANCE:NEO-USD");
+    expect(await feed.getAllPairs()).to.deep.equal(["NEO-USD", "BINANCE:NEO-USD"]);
+
+    const records = await feed.getAllFeedRecords();
+    expect(records).to.have.length(2);
+    expect(records[1].pair).to.equal("BINANCE:NEO-USD");
+    expect(records[1].sourceSetId).to.equal(2n);
   });
 });

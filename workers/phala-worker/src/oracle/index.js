@@ -13,11 +13,12 @@ export {
 
 export {
   normalizePairSymbol,
-  toBinanceSymbol,
   decimalToIntegerString,
   fetchPriceQuote,
+  fetchPriceQuotes,
   handleFeedsPrice,
   handleOracleFeed,
+  listFeedSymbols,
 } from "./feeds.js";
 
 export { handleVrf } from "./vrf.js";

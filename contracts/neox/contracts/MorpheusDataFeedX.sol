@@ -15,6 +15,8 @@ contract MorpheusDataFeedX {
     }
 
     mapping(bytes32 => FeedRecord) private latestFeed;
+    mapping(bytes32 => bool) private knownPairs;
+    string[] private pairOrder;
 
     event FeedUpdated(string pair, uint256 roundId, uint256 price, uint256 timestamp, bytes32 attestationHash, uint256 sourceSetId);
     event AdminChanged(address indexed oldAdmin, address indexed newAdmin);
@@ -50,7 +52,12 @@ contract MorpheusDataFeedX {
 
     function updateFeed(string calldata pair, uint256 roundId, uint256 price, uint256 timestamp, bytes32 attestationHash, uint256 sourceSetId) external onlyUpdater {
         require(bytes(pair).length > 0, "pair required");
-        latestFeed[keccak256(bytes(pair))] = FeedRecord({
+        bytes32 key = keccak256(bytes(pair));
+        if (!knownPairs[key]) {
+            knownPairs[key] = true;
+            pairOrder.push(pair);
+        }
+        latestFeed[key] = FeedRecord({
             pair: pair,
             roundId: roundId,
             price: price,
@@ -74,5 +81,26 @@ contract MorpheusDataFeedX {
             });
         }
         return record;
+    }
+
+    function getPairCount() external view returns (uint256) {
+        return pairOrder.length;
+    }
+
+    function getPairByIndex(uint256 index) external view returns (string memory) {
+        require(index < pairOrder.length, "index out of bounds");
+        return pairOrder[index];
+    }
+
+    function getAllPairs() external view returns (string[] memory) {
+        return pairOrder;
+    }
+
+    function getAllFeedRecords() external view returns (FeedRecord[] memory) {
+        FeedRecord[] memory records = new FeedRecord[](pairOrder.length);
+        for (uint256 index = 0; index < pairOrder.length; index += 1) {
+            records[index] = latestFeed[keccak256(bytes(pairOrder[index]))];
+        }
+        return records;
     }
 }
