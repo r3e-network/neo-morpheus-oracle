@@ -9,7 +9,12 @@ import {
 } from "../platform/core.js";
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
 import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
-import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./crypto.js";
+import {
+  decryptEncryptedToken,
+  executeProgrammableOracle,
+  resolveConfidentialPayload,
+  resolveEncryptedPayload,
+} from "./crypto.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 
 export function normalizeOracleUrl(rawUrl) {
@@ -141,16 +146,17 @@ export async function performOracleFetch(payload) {
 }
 
 export async function buildOracleResponse(payload, mode) {
-  const targetChain = normalizeTargetChain(payload.target_chain);
-  const fetchResult = await performOracleFetch(payload);
+  const resolvedPayload = await resolveConfidentialPayload(payload);
+  const targetChain = normalizeTargetChain(resolvedPayload.target_chain);
+  const fetchResult = await performOracleFetch(resolvedPayload);
   const context = {
     ...fetchResult,
     target_chain: targetChain,
-    target_chain_id: payload.target_chain_id ? String(payload.target_chain_id) : null,
-    request_source: trimString(payload.request_source || "chain-dispatcher") || "chain-dispatcher",
-    encrypted_token_present: Boolean(resolveEncryptedPayload(payload)),
+    target_chain_id: resolvedPayload.target_chain_id ? String(resolvedPayload.target_chain_id) : null,
+    request_source: trimString(resolvedPayload.request_source || "chain-dispatcher") || "chain-dispatcher",
+    encrypted_token_present: Boolean(resolveEncryptedPayload(resolvedPayload)),
   };
-  const executed = await executeProgrammableOracle(payload, context);
+  const executed = await executeProgrammableOracle(resolvedPayload, context);
 
   const derived = {
     target_chain: context.target_chain,
@@ -160,10 +166,10 @@ export async function buildOracleResponse(payload, mode) {
     extracted_value: fetchResult.selected_value ?? null,
     upstream_status: fetchResult.upstream_status,
   };
-  const signed = await buildSignedResultEnvelope(derived, payload);
+  const signed = await buildSignedResultEnvelope(derived, resolvedPayload);
 
   if (mode === "query") {
-    const teeAttestation = await maybeBuildDstackAttestation(payload, derived);
+    const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, derived);
     return {
       mode: executed.executed ? "fetch+compute" : "fetch",
       request_source: context.request_source,
@@ -184,7 +190,7 @@ export async function buildOracleResponse(payload, mode) {
     };
   }
 
-  const teeAttestation = await maybeBuildDstackAttestation(payload, derived);
+  const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, derived);
   return {
     mode: executed.executed ? "fetch+compute" : "fetch",
     request_source: context.request_source,

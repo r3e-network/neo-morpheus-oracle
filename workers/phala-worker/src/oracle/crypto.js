@@ -18,8 +18,24 @@ import { runScriptWithTimeout } from "../platform/script-runner.js";
 let oracleKeyMaterialPromise;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function mergeConfidentialValue(baseValue, patchValue) {
+  if (!isPlainObject(baseValue) || !isPlainObject(patchValue)) {
+    return patchValue;
+  }
+
+  const merged = { ...baseValue };
+  for (const [key, value] of Object.entries(patchValue)) {
+    merged[key] = mergeConfidentialValue(baseValue[key], value);
+  }
+  return merged;
+}
+
 function getOracleKeyStorePath() {
-  return trimString(env("PHALA_ORACLE_KEYSTORE_PATH")) || "/data/morpheus-oracle-key.json";
+  return trimString(env("PHALA_ORACLE_KEYSTORE_PATH")) || "/data/morpheus/oracle-key.json";
 }
 
 export function __resetOracleKeyMaterialForTests() {
@@ -139,6 +155,19 @@ export function resolveEncryptedPayload(payload) {
   );
 }
 
+function resolveEncryptedConfidentialPayload(payload) {
+  const encryptedInputs = isPlainObject(payload?.encrypted_inputs) ? payload.encrypted_inputs : {};
+  return trimString(
+    payload?.encrypted_params ||
+      payload?.encrypted_input ||
+      encryptedInputs.params ||
+      encryptedInputs.input ||
+      payload?.encrypted_payload ||
+      encryptedInputs.payload ||
+      "",
+  );
+}
+
 export async function ensureOracleKeyMaterial(payload = {}) {
   if (!oracleKeyMaterialPromise) {
     oracleKeyMaterialPromise = (async () => {
@@ -174,6 +203,44 @@ export async function decryptEncryptedToken(ciphertext, payload = {}) {
     decodeBase64(ciphertext),
   );
   return Buffer.from(plaintext).toString("utf8");
+}
+
+export async function resolveConfidentialPayload(payload = {}) {
+  const ciphertext = resolveEncryptedConfidentialPayload(payload);
+  if (!ciphertext) return payload;
+
+  const plaintext = await decryptEncryptedToken(ciphertext, payload);
+  if (!plaintext) return payload;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(plaintext);
+  } catch {
+    return payload;
+  }
+
+  if (!isPlainObject(parsed)) return payload;
+
+  const mergedPayload = { ...payload };
+  delete mergedPayload.encrypted_params;
+  delete mergedPayload.encrypted_input;
+  if (mergedPayload.encrypted_payload === ciphertext) {
+    delete mergedPayload.encrypted_payload;
+  }
+
+  if (isPlainObject(mergedPayload.encrypted_inputs)) {
+    const encryptedInputs = { ...mergedPayload.encrypted_inputs };
+    if (encryptedInputs.params === ciphertext) delete encryptedInputs.params;
+    if (encryptedInputs.input === ciphertext) delete encryptedInputs.input;
+    if (encryptedInputs.payload === ciphertext) delete encryptedInputs.payload;
+    if (Object.keys(encryptedInputs).length > 0) {
+      mergedPayload.encrypted_inputs = encryptedInputs;
+    } else {
+      delete mergedPayload.encrypted_inputs;
+    }
+  }
+
+  return mergeConfidentialValue(mergedPayload, parsed);
 }
 
 export async function executeProgrammableOracle(payload, context) {

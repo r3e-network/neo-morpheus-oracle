@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 
 function defaultChainState() {
   return {
@@ -71,6 +72,7 @@ export function loadRelayerState(filePath) {
 
 export function saveRelayerState(filePath, state) {
   state.updated_at = new Date().toISOString();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
