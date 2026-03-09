@@ -41,3 +41,5 @@ This worker is the trusted execution core of **neo-morpheus-oracle**.
 - accepts `encrypted_token` and `encrypted_payload` as secret aliases
 - accepts `script` and `script_base64` as programmable compute aliases
 - intended to run inside Phala TEE
+- `src/server.js` provides the HTTP entrypoint for container/CVM deployment
+- `Dockerfile` packages the worker for Phala CVM deployment

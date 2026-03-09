@@ -66,3 +66,4 @@ npm --prefix apps/web run dev
 - `docs/RELAYER.md`
 - `docs/DEPLOYMENT.md`
 - `docs/TESTNET_RUNBOOK.md`
+- `deploy/phala/README.md`

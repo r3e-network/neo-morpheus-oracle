@@ -1,0 +1,38 @@
+services:
+  phala-worker:
+    image: ${MORPHEUS_PHALA_WORKER_IMAGE}
+    container_name: morpheus-phala-worker
+    restart: unless-stopped
+    env_file:
+      - ./morpheus.env
+    environment:
+      PORT: ${PHALA_WORKER_PORT:-8080}
+    expose:
+      - "${PHALA_WORKER_PORT:-8080}"
+    volumes:
+      - /var/run/tappd.sock:/var/run/tappd.sock
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  morpheus-relayer:
+    image: ${MORPHEUS_RELAYER_IMAGE}
+    container_name: morpheus-relayer
+    restart: unless-stopped
+    depends_on:
+      phala-worker:
+        condition: service_healthy
+    env_file:
+      - ./morpheus.env
+    environment:
+      PHALA_API_URL: http://phala-worker:${PHALA_WORKER_PORT:-8080}
+      MORPHEUS_RELAYER_STATE_FILE: /data/morpheus/.morpheus-relayer-state.json
+    volumes:
+      - /var/run/tappd.sock:/var/run/tappd.sock
+      - morpheus-data:/data/morpheus
+
+volumes:
+  morpheus-data:

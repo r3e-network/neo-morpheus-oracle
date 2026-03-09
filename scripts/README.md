@@ -19,7 +19,11 @@
 - `npm --prefix workers/morpheus-relayer run start`
 - `npm --prefix workers/morpheus-relayer run metrics`
 - `workers/morpheus-relayer/Dockerfile`
+- `workers/phala-worker/Dockerfile`
 - `deploy/systemd/morpheus-relayer.service`
+- `deploy/phala/docker-compose.yml`
+- `deploy/phala/morpheus.env.example`
+- `deploy/phala/README.md`
 
 ## Expected env vars
 

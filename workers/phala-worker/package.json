@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "bundle": "node src/worker.js",
-    "check": "node --check src/worker.js",
+    "start": "node src/server.js",
+    "check": "node --check src/worker.js && node --check src/server.js",
     "test": "node --test worker.test.mjs"
   },
   "dependencies": {

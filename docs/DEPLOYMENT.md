@@ -34,6 +34,27 @@ Deploy `workers/phala-worker` to Phala with:
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
 - `SUPABASE_SERVICE_ROLE_KEY` (or compatible service key) for worker-side provider-config lookup
 
+## Phala CVM Topology
+
+Recommended first deployment:
+
+- 1 `Confidential VM`
+- 2 containers inside it: `phala-worker` + `morpheus-relayer`
+
+Sizing guidance:
+
+- `Small TDX` → not recommended
+- `Medium TDX` → recommended for testnet / MVP
+- `Large TDX` → recommended default for production
+
+Deployment files:
+
+- `workers/phala-worker/Dockerfile`
+- `workers/morpheus-relayer/Dockerfile`
+- `deploy/phala/docker-compose.yml`
+- `deploy/phala/morpheus.env.example`
+- `deploy/phala/README.md`
+
 ## Morpheus Relayer
 
 Run `workers/morpheus-relayer` as the async bridge that watches `OracleRequested` events and calls `fulfillRequest` back on-chain.
