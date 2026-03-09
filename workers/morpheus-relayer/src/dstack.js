@@ -43,6 +43,9 @@ export async function getDstackClient({ required = false } = {}) {
     })();
   }
   const wrapped = await dstackClientPromise;
+  if (!wrapped) {
+    dstackClientPromise = undefined;
+  }
   if (!wrapped && required) throw new Error("Phala dstack/tappd endpoint is not reachable");
   return wrapped;
 }
