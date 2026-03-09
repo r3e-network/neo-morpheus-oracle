@@ -211,13 +211,39 @@ export function buildProviderRequest(payload) {
   }
 }
 
+function detectProviderPayloadError(requestSpec, response, data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+
+  const code = Number(data.code);
+  const statusText = trimString(data.status || '');
+  const message = trimString(data.message || data.error || '');
+
+  if (requestSpec.provider === 'twelvedata') {
+    if ((Number.isFinite(code) && code >= 400) || statusText.toLowerCase() === 'error') {
+      return {
+        status: Number.isFinite(code) && code > 0 ? code : response.status,
+        message: message || 'twelvedata provider error',
+      };
+    }
+  }
+
+  if (Array.isArray(data.errors) && data.errors.length > 0) {
+    return {
+      status: response.status,
+      message: trimString(JSON.stringify(data.errors).slice(0, 180)) || 'provider returned errors',
+    };
+  }
+
+  return null;
+}
+
 export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new Error(`provider fetch timed out after ${timeoutMs}ms`)), timeoutMs);
   let response;
   try {
     response = await fetch(requestSpec.url, {
-      method: requestSpec.method || "GET",
+      method: requestSpec.method || 'GET',
       headers: requestSpec.headers,
       body: requestSpec.body,
       signal: controller.signal,
@@ -239,12 +265,14 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
       data = { raw: text };
     }
   }
+  const payloadError = detectProviderPayloadError(requestSpec, response, data);
   return {
-    ok: response.ok,
-    status: response.status,
+    ok: response.ok && !payloadError,
+    status: payloadError?.status || response.status,
     headers: Object.fromEntries(response.headers.entries()),
     text,
     data,
+    provider_error: payloadError,
   };
 }
 

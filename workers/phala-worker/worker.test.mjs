@@ -220,8 +220,8 @@ test('oracle query supports builtin provider mode', async () => {
 test('oracle query fails on builtin provider upstream 429', async () => {
   global.fetch = async (url) => {
     assert.match(String(url), /api\.twelvedata\.com\/price/);
-    return new Response(JSON.stringify({ code: 429, message: 'rate limited' }), {
-      status: 429,
+    return new Response(JSON.stringify({ code: 429, message: 'rate limited', status: 'error' }), {
+      status: 200,
       headers: { 'content-type': 'application/json' },
     });
   };
@@ -233,7 +233,7 @@ test('oracle query fails on builtin provider upstream 429', async () => {
   }));
   assert.equal(res.status, 400);
   const body = await res.json();
-  assert.match(body.error, /HTTP 429/);
+  assert.match(body.error, /429/);
 });
 
 test('health endpoint works without auth', async () => {
