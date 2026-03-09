@@ -28,10 +28,15 @@ type RelayerJob = {
   next_retry_at?: string | null;
 };
 
-async function callJSON(path: string, adminApiKey: string) {
+async function callJSON(path: string, adminApiKey: string, method = "GET", body?: unknown) {
   const headers = new Headers();
   if (adminApiKey) headers.set("x-admin-api-key", adminApiKey);
-  const response = await fetch(path, { method: "GET", headers });
+  if (body !== undefined) headers.set("content-type", "application/json");
+  const response = await fetch(path, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
   const text = await response.text();
   try {
     return JSON.parse(text);
@@ -45,6 +50,7 @@ export function RelayerOpsPanel() {
   const [latestRun, setLatestRun] = useState<RelayerRun | null>(null);
   const [recentJobs, setRecentJobs] = useState<RelayerJob[]>([]);
   const [deadLetters, setDeadLetters] = useState<RelayerJob[]>([]);
+  const [selectedEventKey, setSelectedEventKey] = useState("");
   const [message, setMessage] = useState("");
 
   async function refresh(currentKey = adminApiKey) {
@@ -62,6 +68,15 @@ export function RelayerOpsPanel() {
     setMessage(error ? JSON.stringify({ error }, null, 2) : "");
   }
 
+  async function runAction(path: string, eventKey: string) {
+    const body = await callJSON(path, adminApiKey, "POST", { event_key: eventKey });
+    setMessage(JSON.stringify(body, null, 2));
+    if (!body.error) {
+      setSelectedEventKey(eventKey);
+      await refresh();
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const savedKey = window.localStorage.getItem("morpheus.relayerAdminApiKey") || "";
@@ -77,7 +92,7 @@ export function RelayerOpsPanel() {
   return (
     <section className="card">
       <h3>Relayer Ops</h3>
-      <small>Relayer metrics, recent jobs, and dead letters persisted in Supabase.</small>
+      <small>Relayer metrics, recent jobs, dead letters, and manual retry/replay controls.</small>
       <div className="grid grid-2">
         <input
           type="password"
@@ -95,12 +110,46 @@ export function RelayerOpsPanel() {
         </div>
         <div>
           <h4>Recent Jobs</h4>
-          <pre>{JSON.stringify(recentJobs, null, 2)}</pre>
+          <div className="grid" style={{ gap: 8 }}>
+            {recentJobs.map((job) => (
+              <div key={job.id} className="card" style={{ padding: 12 }}>
+                <small>{job.chain} · {job.request_type} · {job.status}</small>
+                <div><code>{job.event_key}</code></div>
+                <small>attempts={job.attempts}</small>
+                <div className="grid grid-2">
+                  <button onClick={() => runAction("/api/relayer/jobs/retry", job.event_key)}>Retry Job</button>
+                  <button onClick={() => { setSelectedEventKey(job.event_key); setMessage(JSON.stringify(job, null, 2)); }}>Inspect</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
         <div>
           <h4>Dead Letters</h4>
-          <pre>{JSON.stringify(deadLetters, null, 2)}</pre>
+          <div className="grid" style={{ gap: 8 }}>
+            {deadLetters.map((job) => (
+              <div key={job.id} className="card" style={{ padding: 12 }}>
+                <small>{job.chain} · {job.request_type} · {job.status}</small>
+                <div><code>{job.event_key}</code></div>
+                <small>{job.last_error || "no error"}</small>
+                <div className="grid grid-2">
+                  <button onClick={() => runAction("/api/relayer/jobs/replay", job.event_key)}>Replay Dead Letter</button>
+                  <button onClick={() => { setSelectedEventKey(job.event_key); setMessage(JSON.stringify(job, null, 2)); }}>Inspect</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      </div>
+
+      <div className="grid grid-3">
+        <input
+          value={selectedEventKey}
+          onChange={(event) => setSelectedEventKey(event.target.value)}
+          placeholder="event_key"
+        />
+        <button onClick={() => runAction("/api/relayer/jobs/retry", selectedEventKey)}>Retry Selected</button>
+        <button onClick={() => runAction("/api/relayer/jobs/replay", selectedEventKey)}>Replay Selected</button>
       </div>
 
       {message ? <pre>{message}</pre> : null}

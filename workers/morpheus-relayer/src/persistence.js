@@ -61,6 +61,18 @@ async function supabaseRequest(table, method, payload, options = {}) {
   return response;
 }
 
+async function supabaseSelect(table, query = {}) {
+  const response = await supabaseRequest(table, "GET", undefined, { query });
+  if (!response) return [];
+  const text = await response.text();
+  if (!text) return [];
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
+}
+
 export async function persistRelayerRun(config, result) {
   const payload = {
     network: config.network,
@@ -82,6 +94,29 @@ export async function persistRelayerRun(config, result) {
 
 export async function upsertRelayerJob(record) {
   return supabaseRequest("morpheus_relayer_jobs", "POST", record, { onConflict: "event_key" });
+}
+
+export async function patchRelayerJob(eventKey, fields) {
+  return supabaseRequest("morpheus_relayer_jobs", "PATCH", {
+    ...fields,
+    updated_at: new Date().toISOString(),
+  }, {
+    query: {
+      event_key: `eq.${eventKey}`,
+    },
+  });
+}
+
+export async function fetchRelayerJobsByStatuses(statuses, chain = null, limit = 100) {
+  if (!Array.isArray(statuses) || statuses.length === 0) return [];
+  const query = {
+    select: "id,event_key,chain,request_id,request_type,tx_hash,block_number,route,status,attempts,last_error,next_retry_at,worker_status,worker_response,fulfill_tx,event,updated_at,completed_at,created_at",
+    status: `in.(${statuses.join(",")})`,
+    order: "updated_at.asc",
+    limit,
+  };
+  if (chain) query.chain = `eq.${chain}`;
+  return supabaseSelect("morpheus_relayer_jobs", query);
 }
 
 export function buildRelayerJobRecord(event, details = {}) {

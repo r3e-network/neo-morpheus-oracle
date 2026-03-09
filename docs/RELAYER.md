@@ -86,6 +86,13 @@ The dashboard can read these through:
 - `/api/relayer/jobs`
 - `/api/relayer/dead-letters`
 
+Manual operator actions:
+
+- `POST /api/relayer/jobs/retry`
+- `POST /api/relayer/jobs/replay`
+
+These enqueue the stored event back into the relayer for manual retry / dead-letter replay.
+
 ## State file
 
 The relayer stores its durable runtime state in:

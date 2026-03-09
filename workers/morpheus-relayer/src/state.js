@@ -23,6 +23,7 @@ function defaultMetrics() {
     worker_failures_total: 0,
     fulfill_success_total: 0,
     fulfill_failure_total: 0,
+    manual_actions_loaded_total: 0,
     last_tick_started_at: null,
     last_tick_completed_at: null,
     last_tick_duration_ms: null,
@@ -135,6 +136,39 @@ export function getProcessedEventRecord(state, chain, eventOrKey) {
 export function isEventQueuedForRetry(state, chain, eventOrKey) {
   const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
   return state?.[chain]?.retry_queue?.some((item) => item.key === key) || false;
+}
+
+export function removeProcessedEvent(state, chain, eventOrKey) {
+  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  delete state[chain].processed_records[key];
+  state[chain].processed_order = state[chain].processed_order.filter((entry) => entry !== key);
+}
+
+export function removeDeadLetter(state, chain, eventOrKey) {
+  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  state[chain].dead_letters = state[chain].dead_letters.filter((entry) => entry.key !== key);
+}
+
+export function enqueueRetryItem(state, chain, event, options = {}) {
+  const chainState = state[chain];
+  const key = buildEventKey(event);
+  const item = {
+    key,
+    event,
+    attempts: Number(options.attempts || 0),
+    next_retry_at: Number(options.next_retry_at || Date.now()),
+    first_failed_at: options.first_failed_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    last_error: options.last_error || null,
+    manual_action: options.manual_action || null,
+  };
+  const index = chainState.retry_queue.findIndex((entry) => entry.key === key);
+  if (index >= 0) {
+    chainState.retry_queue[index] = item;
+  } else {
+    chainState.retry_queue.push(item);
+  }
+  return item;
 }
 
 export function recordProcessedEvent(state, chain, event, status, meta = {}, limits = {}) {

@@ -4,18 +4,23 @@ import { callPhala } from "./phala.js";
 import { buildWorkerPayload, decodePayloadText, encodeFulfillmentResult, resolveWorkerRoute } from "./router.js";
 import {
   buildRelayerJobRecord,
+  fetchRelayerJobsByStatuses,
+  patchRelayerJob,
   persistRelayerRun,
   upsertRelayerJob,
 } from "./persistence.js";
 import {
   buildEventKey,
   clearRetryItem,
+  enqueueRetryItem,
   getDueRetryItems,
   hasProcessedEvent,
   incrementMetric,
   isEventQueuedForRetry,
   loadRelayerState,
   recordProcessedEvent,
+  removeDeadLetter,
+  removeProcessedEvent,
   saveRelayerState,
   scheduleRetry,
   snapshotMetrics,
@@ -63,6 +68,53 @@ async function maybePersistRun(logger, config, result) {
   } catch (error) {
     logger.warn({ error }, "Failed to persist relayer run snapshot to Supabase");
   }
+}
+
+async function syncManualActions(config, state, logger, chain) {
+  const jobs = await fetchRelayerJobsByStatuses(["manual_retry_requested", "manual_replay_requested"], chain, 50);
+  if (!jobs.length) return [];
+
+  const applied = [];
+  for (const job of jobs) {
+    const event = job?.event && typeof job.event === "object" ? job.event : null;
+    if (!event || !event.chain || !event.requestId) {
+      await patchRelayerJob(job.event_key, {
+        status: "manual_action_failed",
+        last_error: "missing or invalid event payload for manual action",
+        next_retry_at: null,
+      });
+      continue;
+    }
+
+    const eventKey = job.event_key || buildEventKey(event);
+    if (job.status === "manual_replay_requested") {
+      removeProcessedEvent(state, chain, eventKey);
+    }
+    removeDeadLetter(state, chain, eventKey);
+    clearRetryItem(state, chain, eventKey);
+    enqueueRetryItem(state, chain, event, {
+      attempts: 0,
+      next_retry_at: Date.now(),
+      last_error: null,
+      manual_action: job.status,
+    });
+    incrementMetric(state, "manual_actions_loaded_total");
+
+    await patchRelayerJob(eventKey, {
+      status: "queued",
+      attempts: 0,
+      last_error: null,
+      next_retry_at: new Date().toISOString(),
+      completed_at: null,
+    });
+    applied.push({ event_key: eventKey, status: job.status });
+  }
+
+  if (applied.length) {
+    saveRelayerState(config.stateFile, state);
+    logger.info({ chain, actions: applied }, "Loaded manual relayer actions from Supabase");
+  }
+  return applied;
 }
 
 async function processOracleRequest(config, event) {
@@ -221,13 +273,15 @@ function filterNewEvents(state, chain, events) {
 async function processChain(config, state, logger, chain, options) {
   if (!options.hasConfig(config)) {
     logger.debug({ chain }, "Skipping chain with incomplete relayer config");
-    return { scanned_blocks: null, retries: [], events: [] };
+    return { scanned_blocks: null, retries: [], events: [], manual_actions: [] };
   }
+
+  await syncManualActions(config, state, logger, chain);
 
   const latestBlock = await options.getLatestBlock(config);
   const confirmedTip = latestBlock - Math.max(config.confirmations[chain], 0);
   if (confirmedTip < 0) {
-    return { scanned_blocks: null, retries: [], events: [] };
+    return { scanned_blocks: null, retries: [], events: [], manual_actions: [] };
   }
 
   const fromBlock = state[chain].last_block === null
@@ -239,7 +293,7 @@ async function processChain(config, state, logger, chain, options) {
     const retryResults = dueRetries.length
       ? await mapWithConcurrency(dueRetries, config.concurrency, (item) => processEvent(config, state, persistState, logger, item.event, item))
       : [];
-    return { scanned_blocks: null, retries: retryResults, events: [] };
+    return { scanned_blocks: null, retries: retryResults, events: [], manual_actions: [] };
   }
 
   const toBlock = Math.min(confirmedTip, fromBlock + config.maxBlocksPerTick - 1);
@@ -263,6 +317,7 @@ async function processChain(config, state, logger, chain, options) {
     scanned_blocks: { from: fromBlock, to: toBlock, latest: latestBlock, confirmed_tip: confirmedTip },
     retries: retryResults,
     events: eventResults,
+    manual_actions: [],
   };
 }
 
