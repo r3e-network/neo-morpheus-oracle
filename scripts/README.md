@@ -18,6 +18,7 @@
 - `node scripts/deploy-neox-contracts.mjs`
 - `node scripts/setup-neox-addresses.mjs`
 - `npm run verify:neox`
+- `npm run smoke:neox`
 
 ## Relayer
 

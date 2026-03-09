@@ -22,6 +22,7 @@
     "verify:n3": "node scripts/verify-morpheus-n3.mjs",
     "smoke:n3": "node scripts/smoke-oracle-n3.mjs",
     "verify:neox": "node scripts/verify-morpheus-neox.mjs",
+    "smoke:neox": "node scripts/smoke-oracle-neox.mjs",
     "render:phala-env": "node scripts/render-phala-env.mjs",
     "check:phala-env": "node scripts/check-phala-env.mjs",
     "compile:neox": "npm --prefix contracts/neox run compile",
