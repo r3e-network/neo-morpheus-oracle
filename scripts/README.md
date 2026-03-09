@@ -17,8 +17,13 @@
 
 - `node scripts/deploy-neox-contracts.mjs`
 - `node scripts/setup-neox-addresses.mjs`
+- `node scripts/publish-oracle-public-key-neox.mjs`
 - `npm run verify:neox`
 - `npm run smoke:neox`
+
+## Unified smoke
+
+- `npm run smoke:all`
 
 ## Relayer
 
