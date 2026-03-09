@@ -22,15 +22,11 @@ async function tryCreateClient(kind) {
   try {
     if (kind === "dstack") {
       const endpoint = trimString(process.env.PHALA_DSTACK_ENDPOINT || process.env.DSTACK_ENDPOINT || "") || undefined;
-      const client = new DstackClient(endpoint);
-      const reachable = await client.isReachable().catch(() => false);
-      return reachable ? { client, kind: "dstack" } : null;
+      return { client: new DstackClient(endpoint), kind: "dstack" };
     }
 
     const endpoint = trimString(process.env.PHALA_TAPPD_ENDPOINT || process.env.TAPPD_ENDPOINT || "") || undefined;
-    const client = new TappdClient(endpoint);
-    const reachable = await client.isReachable().catch(() => false);
-    return reachable ? { client, kind: "tappd" } : null;
+    return { client: new TappdClient(endpoint), kind: "tappd" };
   } catch {
     return null;
   }

@@ -42,15 +42,11 @@ async function tryCreateClient(kind) {
   try {
     if (kind === "dstack") {
       const endpoint = trimString(env("PHALA_DSTACK_ENDPOINT", "DSTACK_ENDPOINT")) || undefined;
-      const client = new DstackClient(endpoint);
-      const reachable = await client.isReachable().catch(() => false);
-      return reachable ? { client, kind: "dstack" } : null;
+      return { client: new DstackClient(endpoint), kind: "dstack" };
     }
 
     const endpoint = trimString(env("PHALA_TAPPD_ENDPOINT", "TAPPD_ENDPOINT")) || undefined;
-    const client = new TappdClient(endpoint);
-    const reachable = await client.isReachable().catch(() => false);
-    return reachable ? { client, kind: "tappd" } : null;
+    return { client: new TappdClient(endpoint), kind: "tappd" };
   } catch {
     return null;
   }
@@ -60,7 +56,8 @@ export async function getDstackClient({ required = false } = {}) {
   if (!dstackClientPromise) {
     dstackClientPromise = (async () => {
       if (dstackClientFactoryForTests) {
-        return await dstackClientFactoryForTests();
+        const injected = await dstackClientFactoryForTests();
+        return injected && injected.client ? injected : { client: injected, kind: "test" };
       }
 
       const dstack = await tryCreateClient("dstack");
