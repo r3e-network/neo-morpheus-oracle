@@ -15,6 +15,7 @@ const next = {
       ...current.neo_n3?.contracts,
       morpheus_oracle: process.env.CONTRACT_MORPHEUS_ORACLE_HASH || current.neo_n3?.contracts?.morpheus_oracle || '',
       oracle_callback_consumer: process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || current.neo_n3?.contracts?.oracle_callback_consumer || '',
+      morpheus_datafeed: process.env.CONTRACT_MORPHEUS_DATAFEED_HASH || current.neo_n3?.contracts?.morpheus_datafeed || '',
     },
   },
   neo_x: {

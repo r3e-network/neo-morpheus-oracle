@@ -37,7 +37,11 @@ function parseStackItem(item) {
       const raw = trimString(item.value);
       if (!raw) return '';
       try {
-        return Buffer.from(raw, 'base64').toString('utf8');
+        const bytes = Buffer.from(raw, 'base64');
+        if (bytes.length === 20) {
+          return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
+        }
+        return bytes.toString('utf8');
       } catch {
         return raw;
       }

@@ -38,7 +38,7 @@ Deploy `workers/phala-worker` to Phala with:
 - optional `COMPUTE_SCRIPT_TIMEOUT_MS` for compute script execution timeout
 - optional `PHALA_USE_DERIVED_KEYS=true` to derive worker and relayer signing keys from tappd/dstack when explicit keys are omitted
 - optional `PHALA_EMIT_ATTESTATION=true` to attach dstack quotes in worker responses
-- optional `PHALA_DSTACK_ENDPOINT` to override the tappd endpoint
+- optional `PHALA_DSTACK_ENDPOINT` to override the dstack endpoint (defaults to `/var/run/dstack.sock` when mounted)
 - optional `PHALA_DSTACK_NEO_N3_KEY_PATH` / `PHALA_DSTACK_NEOX_KEY_PATH` to override worker derived key paths
 - optional `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH` / `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH` to override relayer derived key paths
 - optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle encryption key storage

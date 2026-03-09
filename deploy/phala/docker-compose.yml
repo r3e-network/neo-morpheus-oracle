@@ -10,7 +10,7 @@ services:
     expose:
       - "${PHALA_WORKER_PORT:-8080}"
     volumes:
-      - /var/run/tappd.sock:/var/run/tappd.sock
+      - /var/run/dstack.sock:/var/run/dstack.sock
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -47,7 +47,7 @@ services:
       PHALA_API_URL: http://phala-worker:${PHALA_WORKER_PORT:-8080}
       MORPHEUS_RELAYER_STATE_FILE: /data/morpheus/.morpheus-relayer-state.json
     volumes:
-      - /var/run/tappd.sock:/var/run/tappd.sock
+      - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-data:/data/morpheus
 
 volumes:

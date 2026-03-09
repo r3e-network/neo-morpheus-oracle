@@ -154,6 +154,6 @@ Add these keys in the Dashboard Encrypted Secrets panel before deploy:
 - `PHALA_EMIT_ATTESTATION=true` enables optional quote attachment in worker responses when requested
 - `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` controls the derived wrapping key path for the stable Oracle encryption key
 - `PHALA_ORACLE_KEYSTORE_PATH` controls where the sealed Oracle RSA key is stored inside the CVM volume
-- mount `/var/run/tappd.sock` so the dstack SDK can fetch info, quotes, and derived keys
+- mount `/var/run/dstack.sock` so the dstack SDK can fetch info, quotes, and derived keys
 - worker now supports a stable dstack-sealed Oracle public key instead of restart-random key material
 - relayer now also supports derived-key signing fallback for N3 / NeoX fulfill transactions when explicit keys are omitted
