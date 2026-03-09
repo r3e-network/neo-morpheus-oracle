@@ -5,6 +5,7 @@ import { env, sha256Hex, stableStringify, trimString } from "./core.js";
 
 let dstackClientPromise;
 let dstackInfoPromise;
+let dstackClientFactoryForTests = null;
 const derivedKeyCache = new Map();
 
 function normalizeBoolean(value, fallback = false) {
@@ -21,9 +22,28 @@ export function shouldEmitAttestation(payload = {}) {
   return normalizeBoolean(payload.include_attestation ?? payload.emit_attestation ?? env("PHALA_EMIT_ATTESTATION"), false);
 }
 
+function resetDstackCaches() {
+  dstackClientPromise = undefined;
+  dstackInfoPromise = undefined;
+  derivedKeyCache.clear();
+}
+
+export function __setDstackClientFactoryForTests(factory) {
+  dstackClientFactoryForTests = factory;
+  resetDstackCaches();
+}
+
+export function __resetDstackClientStateForTests() {
+  dstackClientFactoryForTests = null;
+  resetDstackCaches();
+}
+
 export async function getDstackClient({ required = false } = {}) {
   if (!dstackClientPromise) {
     dstackClientPromise = (async () => {
+      if (dstackClientFactoryForTests) {
+        return await dstackClientFactoryForTests();
+      }
       try {
         const endpoint = trimString(env("PHALA_DSTACK_ENDPOINT", "TAPPD_ENDPOINT")) || undefined;
         const client = new DstackClient(endpoint);

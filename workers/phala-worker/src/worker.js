@@ -80,11 +80,12 @@ export default async function handler(request) {
     if (path.endsWith("/providers")) return handleProvidersList();
 
     if (path.endsWith("/oracle/public-key")) {
-      const keyMaterial = await ensureOracleKeyMaterial();
+      const keyMaterial = await ensureOracleKeyMaterial(payload);
       return json(200, {
         algorithm: keyMaterial.algorithm,
         public_key: keyMaterial.publicKeyDer,
         public_key_pem: keyMaterial.publicKeyPem,
+        key_source: keyMaterial.source,
       });
     }
 

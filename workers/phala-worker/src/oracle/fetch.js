@@ -89,7 +89,7 @@ export async function performOracleFetch(payload) {
   }
 
   const url = normalizeOracleUrl(resolvedPayload.url);
-  const decryptedToken = await decryptEncryptedToken(resolveEncryptedPayload(resolvedPayload));
+  const decryptedToken = await decryptEncryptedToken(resolveEncryptedPayload(resolvedPayload), resolvedPayload);
   const headers = normalizeHeaders(resolvedPayload.headers);
   const tokenHeader = trimString(resolvedPayload.token_header || "Authorization") || "Authorization";
   if (decryptedToken) {

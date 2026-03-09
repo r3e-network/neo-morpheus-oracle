@@ -64,6 +64,18 @@ function asLeafHash(value) {
   return Buffer.from(raw, "utf8");
 }
 
+function maskString(value, unmaskedLeft = 2, unmaskedRight = 2) {
+  const str = String(value || "");
+  if (str.length <= unmaskedLeft + unmaskedRight) return "*".repeat(Math.max(str.length, 4));
+  return str.slice(0, unmaskedLeft) + "*".repeat(str.length - unmaskedLeft - unmaskedRight) + str.slice(-unmaskedRight);
+}
+
+function addLaplaceNoise(value, scale = 1.0) {
+  const u = Math.random() - 0.5;
+  const noise = -scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+  return Number(value) + noise;
+}
+
 function merkleRoot(leaves) {
   if (!Array.isArray(leaves) || leaves.length === 0) throw new Error("merkle.root requires at least one leaf");
   let level = leaves.map((leaf) => Buffer.from(sha256Hex(asLeafHash(leaf)), "hex"));
@@ -79,10 +91,41 @@ function merkleRoot(leaves) {
   return level[0].toString("hex");
 }
 
+function evaluatePolynomial(coefficients, x_value, modulus = null) {
+  if (!Array.isArray(coefficients) || coefficients.length === 0) {
+    throw new Error("math.polynomial requires at least one coefficient");
+  }
+  let result = 0n;
+  const x = BigInt(Math.floor(Number(x_value)));
+  const m = modulus ? BigInt(modulus) : null;
+  
+  for (let i = coefficients.length - 1; i >= 0; i--) {
+    const c = BigInt(Math.floor(Number(coefficients[i])));
+    result = result * x + c;
+    if (m !== null) {
+      result = ((result % m) + m) % m;
+    }
+  }
+  return result.toString();
+}
+
+function verifyRSASignature(publicKeyPem, signatureHex, payloadString) {
+  try {
+    const verify = crypto.createVerify("RSA-SHA256");
+    verify.update(payloadString);
+    verify.end();
+    return verify.verify(publicKeyPem, Buffer.from(signatureHex, "hex"));
+  } catch (error) {
+    return false;
+  }
+}
+
 export const BUILTIN_COMPUTE_CATALOG = [
   { name: "hash.sha256", category: "hash", description: "Hashes any JSON-serializable payload with SHA-256." },
   { name: "hash.keccak256", category: "hash", description: "Hashes any JSON-serializable payload with Keccak-256." },
+  { name: "crypto.rsa_verify", category: "crypto", description: "Verifies an RSA-SHA256 signature (expensive on-chain)." },
   { name: "math.modexp", category: "math", description: "Performs big integer modular exponentiation." },
+  { name: "math.polynomial", category: "math", description: "Evaluates a polynomial of arbitrary degree." },
   { name: "matrix.multiply", category: "linear_algebra", description: "Multiplies two dense matrices." },
   { name: "vector.cosine_similarity", category: "linear_algebra", description: "Computes cosine similarity between two vectors." },
   { name: "merkle.root", category: "merkle", description: "Builds a SHA-256 Merkle root from a list of leaves." },
@@ -94,6 +137,8 @@ export const BUILTIN_COMPUTE_CATALOG = [
   { name: "fhe.batch_plan", category: "fhe", description: "Builds a ciphertext batching plan." },
   { name: "fhe.noise_budget_estimate", category: "fhe", description: "Estimates a rough FHE noise budget." },
   { name: "fhe.rotation_plan", category: "fhe", description: "Returns a rotation/key-switch planning summary." },
+  { name: "privacy.mask", category: "privacy", description: "Masks a sensitive string, leaving edges visible." },
+  { name: "privacy.add_noise", category: "privacy", description: "Adds simulated Laplace noise for differential privacy." },
 ];
 
 export function listBuiltinComputeFunctions() {
@@ -108,8 +153,12 @@ export async function executeBuiltinCompute(payload) {
       return { function: fn, result: { digest: sha256Hex(stableStringify(input)) } };
     case "hash.keccak256":
       return { function: fn, result: { digest: keccak256(toUtf8Bytes(stableStringify(input))) } };
+    case "crypto.rsa_verify":
+      return { function: fn, result: { is_valid: verifyRSASignature(input.public_key, input.signature, input.payload) } };
     case "math.modexp":
       return { function: fn, result: { value: bigintPowMod(input.base, input.exponent, input.modulus).toString() } };
+    case "math.polynomial":
+      return { function: fn, result: { value: evaluatePolynomial(input.coefficients, input.x, input.modulus) } };
     case "matrix.multiply":
       return { function: fn, result: { matrix: multiplyMatrices(input.left, input.right) } };
     case "vector.cosine_similarity":
@@ -148,6 +197,10 @@ export async function executeBuiltinCompute(payload) {
       const indices = Array.isArray(input.indices) ? input.indices.map((value) => Number(value)) : [];
       return { function: fn, result: { indices, unique_rotations: [...new Set(indices)].sort((a, b) => a - b), key_switch_steps: indices.length } };
     }
+    case "privacy.mask":
+      return { function: fn, result: { masked: maskString(input.value, input.unmasked_left, input.unmasked_right) } };
+    case "privacy.add_noise":
+      return { function: fn, result: { noisy_value: addLaplaceNoise(input.value, input.scale) } };
     default:
       throw new Error(`unknown builtin compute function: ${fn}`);
   }

@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 const originalFetch = global.fetch;
 const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
@@ -12,6 +15,8 @@ const originalEvmRpc = process.env.EVM_RPC_URL;
 const originalTwelveData = process.env.TWELVEDATA_API_KEY;
 const originalSupabaseUrl = process.env.SUPABASE_URL;
 const originalSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const originalUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
+const originalOracleKeystorePath = process.env.PHALA_ORACLE_KEYSTORE_PATH;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY = '1111111111111111111111111111111111111111111111111111111111111111';
@@ -25,6 +30,8 @@ process.env.SUPABASE_URL = '';
 process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 
 const { default: handler } = await import('./src/worker.js');
+const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = await import('./src/platform/dstack.js');
+const { __resetOracleKeyMaterialForTests } = await import('./src/oracle/crypto.js');
 
 function authHeaders() {
   return {
@@ -139,6 +146,10 @@ test.after(() => {
   process.env.TWELVEDATA_API_KEY = originalTwelveData;
   process.env.SUPABASE_URL = originalSupabaseUrl;
   process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
+  process.env.PHALA_USE_DERIVED_KEYS = originalUseDerivedKeys;
+  process.env.PHALA_ORACLE_KEYSTORE_PATH = originalOracleKeystorePath;
+  __resetDstackClientStateForTests();
+  __resetOracleKeyMaterialForTests();
 });
 
 
@@ -234,6 +245,34 @@ test('oracle public key endpoint returns RSA metadata', async () => {
   assert.equal(body.algorithm, 'RSA-OAEP-SHA256');
   assert.ok(body.public_key);
   assert.ok(body.public_key_pem);
+});
+
+test('oracle public key can be stabilized with a dstack-sealed keystore', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-oracle-key-'));
+  const keystorePath = path.join(tempDir, 'oracle-key.json');
+  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+  process.env.PHALA_ORACLE_KEYSTORE_PATH = keystorePath;
+
+  __setDstackClientFactoryForTests(async () => ({
+    isReachable: async () => true,
+    getKey: async () => ({ key: Uint8Array.from(Buffer.from('11'.repeat(32), 'hex')) }),
+    info: async () => ({ app_id: 'app', instance_id: 'inst', compose_hash: 'compose', app_name: 'Morpheus', device_id: 'device', key_provider_info: 'mock', tcb_info: null }),
+    getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
+  }));
+
+  __resetOracleKeyMaterialForTests();
+  const first = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  assert.equal(first.status, 200);
+  const firstBody = await first.json();
+  assert.match(firstBody.key_source, /dstack-sealed/);
+  assert.ok(firstBody.public_key);
+
+  __resetOracleKeyMaterialForTests();
+  const second = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  assert.equal(second.status, 200);
+  const secondBody = await second.json();
+  assert.equal(secondBody.public_key, firstBody.public_key);
+  assert.match(secondBody.key_source, /dstack-sealed/);
 });
 
 test('oracle query supports plain fetch mode', async () => {

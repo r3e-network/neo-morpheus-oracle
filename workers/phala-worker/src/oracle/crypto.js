@@ -1,7 +1,131 @@
+import fs from "node:fs/promises";
+import path from "node:path";
+import {
+  constants,
+  createCipheriv,
+  createDecipheriv,
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+  privateDecrypt,
+  randomBytes,
+} from "node:crypto";
+import { fileURLToPath } from "node:url";
 import { env, parseDurationMs, decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
+import { deriveKeyBytes, shouldUseDerivedKeys } from "../platform/dstack.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 
 let oracleKeyMaterialPromise;
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+
+function getOracleKeyStorePath() {
+  return trimString(env("PHALA_ORACLE_KEYSTORE_PATH")) || "/data/morpheus-oracle-key.json";
+}
+
+export function __resetOracleKeyMaterialForTests() {
+  oracleKeyMaterialPromise = undefined;
+}
+
+function formatKeyMaterial({ publicKeyDerBytes, privateKeyDerBytes, source }) {
+  const publicKey = createPublicKey({ key: publicKeyDerBytes, type: "spki", format: "der" });
+  const privateKey = createPrivateKey({ key: privateKeyDerBytes, type: "pkcs8", format: "der" });
+  return {
+    algorithm: "RSA-OAEP-SHA256",
+    source,
+    publicKey,
+    privateKey,
+    publicKeyDerBytes,
+    privateKeyDerBytes,
+    publicKeyDer: Buffer.from(publicKeyDerBytes).toString("base64"),
+    publicKeyPem: toPem("PUBLIC KEY", publicKeyDerBytes),
+  };
+}
+
+function generateRsaKeyMaterial() {
+  const { publicKey, privateKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    publicExponent: 0x10001,
+    publicKeyEncoding: { type: "spki", format: "der" },
+    privateKeyEncoding: { type: "pkcs8", format: "der" },
+  });
+  return {
+    publicKeyDerBytes: Buffer.from(publicKey),
+    privateKeyDerBytes: Buffer.from(privateKey),
+  };
+}
+
+async function ensureDirectory(filePath) {
+  const directory = path.dirname(filePath);
+  await fs.mkdir(directory, { recursive: true });
+}
+
+function resolveAbsoluteKeystorePath(filePath) {
+  if (path.isAbsolute(filePath)) return filePath;
+  return path.resolve(repoRoot, filePath);
+}
+
+async function deriveOracleWrapKey() {
+  const keyPath = trimString(env("PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH")) || "morpheus/oracle/encryption/wrap/v1";
+  const bytes = await deriveKeyBytes(keyPath, "oracle-encryption-wrap");
+  return Buffer.from(bytes).subarray(0, 32);
+}
+
+function encryptPrivateKey(privateKeyDerBytes, wrapKey) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", wrapKey, iv);
+  const ciphertext = Buffer.concat([cipher.update(privateKeyDerBytes), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    iv: iv.toString("base64"),
+    ciphertext: ciphertext.toString("base64"),
+    tag: tag.toString("base64"),
+  };
+}
+
+function decryptPrivateKey(sealed, wrapKey) {
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    wrapKey,
+    Buffer.from(sealed.iv, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(sealed.tag, "base64"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(sealed.ciphertext, "base64")),
+    decipher.final(),
+  ]);
+}
+
+async function loadStableOracleKeyMaterial() {
+  const keystorePath = resolveAbsoluteKeystorePath(getOracleKeyStorePath());
+  const wrapKey = await deriveOracleWrapKey();
+
+  try {
+    const raw = await fs.readFile(keystorePath, "utf8");
+    const parsed = JSON.parse(raw);
+    const publicKeyDerBytes = Buffer.from(parsed.public_key_der, "base64");
+    const privateKeyDerBytes = decryptPrivateKey(parsed.sealed_private_key, wrapKey);
+    return formatKeyMaterial({ publicKeyDerBytes, privateKeyDerBytes, source: "dstack-sealed" });
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const generated = generateRsaKeyMaterial();
+  const sealedPrivateKey = encryptPrivateKey(generated.privateKeyDerBytes, wrapKey);
+  await ensureDirectory(keystorePath);
+  await fs.writeFile(keystorePath, JSON.stringify({
+    algorithm: "RSA-OAEP-SHA256",
+    version: 1,
+    public_key_der: generated.publicKeyDerBytes.toString("base64"),
+    sealed_private_key: sealedPrivateKey,
+  }, null, 2));
+  return formatKeyMaterial({
+    publicKeyDerBytes: generated.publicKeyDerBytes,
+    privateKeyDerBytes: generated.privateKeyDerBytes,
+    source: "dstack-sealed:new",
+  });
+}
 
 export function resolveEncryptedPayload(payload) {
   const encryptedInputs = payload && typeof payload.encrypted_inputs === "object" ? payload.encrypted_inputs : {};
@@ -15,43 +139,40 @@ export function resolveEncryptedPayload(payload) {
   );
 }
 
-export async function ensureOracleKeyMaterial() {
+export async function ensureOracleKeyMaterial(payload = {}) {
   if (!oracleKeyMaterialPromise) {
     oracleKeyMaterialPromise = (async () => {
-      if (!globalThis.crypto?.subtle) {
-        throw new Error("WebCrypto is unavailable in this Phala runtime");
+      try {
+        if (shouldUseDerivedKeys(payload)) {
+          return await loadStableOracleKeyMaterial();
+        }
+      } catch {
+        // fall back to ephemeral in-memory key material
       }
 
-      const keyPair = await globalThis.crypto.subtle.generateKey(
-        {
-          name: "RSA-OAEP",
-          modulusLength: 2048,
-          publicExponent: new Uint8Array([1, 0, 1]),
-          hash: "SHA-256",
-        },
-        true,
-        ["encrypt", "decrypt"],
-      );
-
-      const spki = await globalThis.crypto.subtle.exportKey("spki", keyPair.publicKey);
-      const spkiBytes = Buffer.from(spki);
-      return {
-        algorithm: "RSA-OAEP-SHA256",
-        publicKey: keyPair.publicKey,
-        privateKey: keyPair.privateKey,
-        publicKeyDer: spkiBytes.toString("base64"),
-        publicKeyPem: toPem("PUBLIC KEY", spkiBytes),
-      };
+      const generated = generateRsaKeyMaterial();
+      return formatKeyMaterial({
+        publicKeyDerBytes: generated.publicKeyDerBytes,
+        privateKeyDerBytes: generated.privateKeyDerBytes,
+        source: "ephemeral-memory",
+      });
     })();
   }
 
   return oracleKeyMaterialPromise;
 }
 
-export async function decryptEncryptedToken(ciphertext) {
+export async function decryptEncryptedToken(ciphertext, payload = {}) {
   if (!ciphertext) return null;
-  const { privateKey } = await ensureOracleKeyMaterial();
-  const plaintext = await globalThis.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, decodeBase64(ciphertext));
+  const { privateKey } = await ensureOracleKeyMaterial(payload);
+  const plaintext = privateDecrypt(
+    {
+      key: privateKey,
+      oaepHash: "sha256",
+      padding: constants.RSA_PKCS1_OAEP_PADDING,
+    },
+    decodeBase64(ciphertext),
+  );
   return Buffer.from(plaintext).toString("utf8");
 }
 
