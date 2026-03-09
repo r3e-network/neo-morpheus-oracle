@@ -209,7 +209,7 @@ test('feed quote supports coinbase-spot provider', async () => {
 
 test('feed quote supports binance-spot provider', async () => {
   global.fetch = async (url) => {
-    assert.match(String(url), /api\.binance\.com\/api\/v3\/ticker\/price\?symbol=NEOUSDT/);
+    assert.match(String(url), /api1\.binance\.com\/api\/v3\/ticker\/price\?symbol=NEOUSDT/);
     return new Response(JSON.stringify({ price: '88.12' }), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -232,7 +232,7 @@ test('feed quote returns all available providers when provider is omitted', asyn
         headers: { 'content-type': 'application/json' },
       });
     }
-    if (value.includes('api.binance.com')) {
+    if (value.includes('api1.binance.com')) {
       return new Response(JSON.stringify({ price: '45.70' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
