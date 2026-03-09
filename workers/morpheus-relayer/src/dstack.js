@@ -1,4 +1,4 @@
-import { DstackClient } from "@phala/dstack-sdk";
+import { DstackClient, TappdClient } from "@phala/dstack-sdk";
 import { sha256Hex } from "../../phala-worker/src/platform/core.js";
 
 let dstackClientPromise;
@@ -18,22 +18,37 @@ export function shouldUseDerivedKeys(config = {}) {
   return normalizeBoolean(config?.useDerivedKeys ?? process.env.PHALA_USE_DERIVED_KEYS, false);
 }
 
+async function tryCreateClient(kind) {
+  try {
+    if (kind === "dstack") {
+      const endpoint = trimString(process.env.PHALA_DSTACK_ENDPOINT || process.env.DSTACK_ENDPOINT || "") || undefined;
+      const client = new DstackClient(endpoint);
+      const reachable = await client.isReachable().catch(() => false);
+      return reachable ? { client, kind: "dstack" } : null;
+    }
+
+    const endpoint = trimString(process.env.PHALA_TAPPD_ENDPOINT || process.env.TAPPD_ENDPOINT || "") || undefined;
+    const client = new TappdClient(endpoint);
+    const reachable = await client.isReachable().catch(() => false);
+    return reachable ? { client, kind: "tappd" } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getDstackClient({ required = false } = {}) {
   if (!dstackClientPromise) {
     dstackClientPromise = (async () => {
-      try {
-        const endpoint = trimString(process.env.PHALA_DSTACK_ENDPOINT || process.env.TAPPD_ENDPOINT || "") || undefined;
-        const client = new DstackClient(endpoint);
-        const reachable = await client.isReachable().catch(() => false);
-        return reachable ? client : null;
-      } catch {
-        return null;
-      }
+      const dstack = await tryCreateClient("dstack");
+      if (dstack) return dstack;
+      const tappd = await tryCreateClient("tappd");
+      if (tappd) return tappd;
+      return null;
     })();
   }
-  const client = await dstackClientPromise;
-  if (!client && required) throw new Error("Phala dstack/tappd endpoint is not reachable");
-  return client;
+  const wrapped = await dstackClientPromise;
+  if (!wrapped && required) throw new Error("Phala dstack/tappd endpoint is not reachable");
+  return wrapped;
 }
 
 async function deriveKeyBytes(path, purpose = "") {
@@ -42,8 +57,8 @@ async function deriveKeyBytes(path, purpose = "") {
   const cacheKey = `${keyPath}:${purpose}`;
   if (!derivedKeyCache.has(cacheKey)) {
     derivedKeyCache.set(cacheKey, (async () => {
-      const client = await getDstackClient({ required: true });
-      const response = await client.getKey(keyPath, purpose || undefined);
+      const wrapped = await getDstackClient({ required: true });
+      const response = await wrapped.client.getKey(keyPath, purpose || undefined);
       return Buffer.from(response.key);
     })());
   }

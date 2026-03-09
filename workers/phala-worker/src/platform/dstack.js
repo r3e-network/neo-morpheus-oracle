@@ -1,6 +1,6 @@
 import { wallet as neoWallet } from "@cityofzion/neon-js";
 import { Wallet as EvmWallet } from "ethers";
-import { DstackClient } from "@phala/dstack-sdk";
+import { DstackClient, TappdClient } from "@phala/dstack-sdk";
 import { env, sha256Hex, stableStringify, trimString } from "./core.js";
 
 let dstackClientPromise;
@@ -38,34 +38,52 @@ export function __resetDstackClientStateForTests() {
   resetDstackCaches();
 }
 
+async function tryCreateClient(kind) {
+  try {
+    if (kind === "dstack") {
+      const endpoint = trimString(env("PHALA_DSTACK_ENDPOINT", "DSTACK_ENDPOINT")) || undefined;
+      const client = new DstackClient(endpoint);
+      const reachable = await client.isReachable().catch(() => false);
+      return reachable ? { client, kind: "dstack" } : null;
+    }
+
+    const endpoint = trimString(env("PHALA_TAPPD_ENDPOINT", "TAPPD_ENDPOINT")) || undefined;
+    const client = new TappdClient(endpoint);
+    const reachable = await client.isReachable().catch(() => false);
+    return reachable ? { client, kind: "tappd" } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getDstackClient({ required = false } = {}) {
   if (!dstackClientPromise) {
     dstackClientPromise = (async () => {
       if (dstackClientFactoryForTests) {
         return await dstackClientFactoryForTests();
       }
-      try {
-        const endpoint = trimString(env("PHALA_DSTACK_ENDPOINT", "TAPPD_ENDPOINT")) || undefined;
-        const client = new DstackClient(endpoint);
-        const reachable = await client.isReachable().catch(() => false);
-        return reachable ? client : null;
-      } catch {
-        return null;
-      }
+
+      const dstack = await tryCreateClient("dstack");
+      if (dstack) return dstack;
+
+      const tappd = await tryCreateClient("tappd");
+      if (tappd) return tappd;
+
+      return null;
     })();
   }
-  const client = await dstackClientPromise;
-  if (!client && required) throw new Error("Phala dstack/tappd endpoint is not reachable");
-  return client;
+  const wrapped = await dstackClientPromise;
+  if (!wrapped && required) throw new Error("Phala dstack/tappd endpoint is not reachable");
+  return wrapped;
 }
 
 export async function getDstackInfo({ required = false, refresh = false } = {}) {
   if (refresh) dstackInfoPromise = undefined;
   if (!dstackInfoPromise) {
     dstackInfoPromise = (async () => {
-      const client = await getDstackClient({ required });
-      if (!client) return null;
-      return await client.info();
+      const wrapped = await getDstackClient({ required });
+      if (!wrapped) return null;
+      return { ...(await wrapped.client.info()), client_kind: wrapped.kind };
     })();
   }
   const info = await dstackInfoPromise;
@@ -79,8 +97,8 @@ export async function deriveKeyBytes(path, purpose = "") {
   const cacheKey = `${keyPath}:${purpose}`;
   if (!derivedKeyCache.has(cacheKey)) {
     derivedKeyCache.set(cacheKey, (async () => {
-      const client = await getDstackClient({ required: true });
-      const response = await client.getKey(keyPath, purpose || undefined);
+      const wrapped = await getDstackClient({ required: true });
+      const response = await wrapped.client.getKey(keyPath, purpose || undefined);
       return Buffer.from(response.key);
     })());
   }
@@ -119,6 +137,7 @@ export async function getDerivedKeySummary(role = "worker") {
   const neoXWallet = new EvmWallet(`0x${neoXPrivateKey}`);
   return {
     role,
+    client_kind: info?.client_kind || null,
     app_id: info?.app_id || null,
     instance_id: info?.instance_id || null,
     compose_hash: info?.compose_hash || null,
@@ -147,12 +166,13 @@ function normalizeReportData(input) {
 }
 
 export async function buildDstackAttestation(reportInput, { required = false } = {}) {
-  const client = await getDstackClient({ required });
-  if (!client) return null;
+  const wrapped = await getDstackClient({ required });
+  if (!wrapped) return null;
   const info = await getDstackInfo({ required });
   const reportData = normalizeReportData(reportInput);
-  const quote = await client.getQuote(reportData);
+  const quote = await wrapped.client.getQuote(reportData);
   return {
+    client_kind: wrapped.kind,
     app_id: info?.app_id || null,
     instance_id: info?.instance_id || null,
     app_name: info?.app_name || null,
