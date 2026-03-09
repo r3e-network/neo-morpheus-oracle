@@ -37,6 +37,13 @@ function decodeNeoItem(item) {
     case "bytearray": {
       const raw = trimString(item.value);
       if (!raw) return "";
+      if (/^[0-9a-fA-F]+$/.test(raw) && raw.length % 2 === 0) {
+        try {
+          return Buffer.from(raw, "hex").toString("utf8");
+        } catch {
+          return raw;
+        }
+      }
       try {
         return Buffer.from(raw, "base64").toString("utf8");
       } catch {
