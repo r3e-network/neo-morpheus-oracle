@@ -217,6 +217,25 @@ test('oracle query supports builtin provider mode', async () => {
   assert.match(body.body, /11\.11/);
 });
 
+test('oracle query fails on builtin provider upstream 429', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    return new Response(JSON.stringify({ code: 429, message: 'rate limited' }), {
+      status: 429,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/oracle/query', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', target_chain: 'neo_n3' }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /HTTP 429/);
+});
+
 test('health endpoint works without auth', async () => {
   const res = await handler(new Request('http://local/health'));
   assert.equal(res.status, 200);

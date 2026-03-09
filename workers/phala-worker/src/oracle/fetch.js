@@ -63,6 +63,17 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   }
 }
 
+function buildUpstreamErrorMessage(source, status, data, rawResponse) {
+  const body = typeof data === "string"
+    ? data
+    : data && typeof data === "object"
+      ? JSON.stringify(data)
+      : rawResponse || "";
+  const compact = trimString(body).replace(/\s+/g, " ");
+  const detail = compact ? `: ${compact.slice(0, 180)}` : "";
+  return `${source} upstream returned HTTP ${status}${detail}`;
+}
+
 export async function performOracleFetch(payload) {
   const { payload: resolvedPayload } = await resolveProviderPayload(payload, {
     fallbackProviderId: !payload.url && payload.symbol ? "twelvedata" : undefined,
@@ -76,6 +87,9 @@ export async function performOracleFetch(payload) {
   if (providerRequest) {
     const response = await fetchProviderJSON(providerRequest, timeoutMs);
     const data = response.data ?? response.text;
+    if (!response.ok) {
+      throw new Error(buildUpstreamErrorMessage(providerRequest.provider, response.status, data, response.text));
+    }
     const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
     return {
       upstream_status: response.status,
@@ -110,6 +124,9 @@ export async function performOracleFetch(payload) {
   const rawResponse = await response.text();
   const responseHeaders = Object.fromEntries(response.headers.entries());
   const data = parseBodyMaybe(rawResponse, response.headers.get("content-type")) ?? rawResponse;
+  if (!response.ok) {
+    throw new Error(buildUpstreamErrorMessage(url, response.status, data, rawResponse));
+  }
   const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
 
   return {
