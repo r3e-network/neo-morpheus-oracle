@@ -10,6 +10,7 @@ Morpheus Oracle supports two provider modes:
 Current built-ins:
 
 - `twelvedata`
+- `binance-spot`
 - `coinbase-spot`
 
 Built-ins are intentionally **raw**:
@@ -32,6 +33,22 @@ Typical config:
   "symbol": "NEO-USD",
   "endpoint": "price",
   "interval": "1min"
+}
+```
+
+### Binance Spot
+
+Required env:
+
+- none
+
+Typical config:
+
+```json
+{
+  "pair": "NEO-USD",
+  "symbol": "NEOUSDT",
+  "base_url": "https://api1.binance.com"
 }
 ```
 
@@ -95,6 +112,32 @@ This supports three useful modes:
 - **plain fetch** — URL only
 - **fetch + compute** — URL plus script
 - **private fetch + compute** — URL plus encrypted payload plus script
+
+## PriceFeed Pair Catalog
+
+Default built-in USD pairs:
+
+- `NEO-USD`
+- `GAS-USD`
+- `FLM-USD`
+- `BTC-USD`
+- `ETH-USD`
+- `TRX-USD`
+- `SOL-USD`
+- `BNB-USD`
+- `XAU-USD`
+- `XAG-USD`
+- `OIL-USD`
+
+Inspect at runtime with:
+
+- `GET /api/feeds/catalog`
+- or worker `GET /feeds/catalog`
+
+On-chain storage is provider-scoped, for example:
+
+- `TWELVEDATA:NEO-USD`
+- `BINANCE-SPOT:NEO-USD`
 
 ## Selection Model
 

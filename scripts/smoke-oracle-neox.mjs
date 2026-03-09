@@ -32,7 +32,7 @@ const ORACLE_ABI = [
 ];
 
 const CALLBACK_ABI = [
-  'function getCallback(uint256 requestId) view returns (string requestType, bool success, bytes result, string error)',
+  'function getCallback(uint256) view returns (string,bool,bytes,string)',
 ];
 
 async function waitForCallback(consumer, requestId, timeoutMs = 120000) {

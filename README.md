@@ -17,6 +17,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 - **Frontend / control plane**: Next.js, deployable to Vercel
 - **State / auth / encrypted secret storage**: Supabase
 - **Trusted execution**: Phala TEE worker
+  - **Live Testnet TEE Node**: [https://8e8adc6c7814c5480240abb3de927ed106a5c4de-8090.dstack-pha-prod9.phala.network/](https://8e8adc6c7814c5480240abb3de927ed106a5c4de-8090.dstack-pha-prod9.phala.network/)
 - **Chains**: Neo N3 + Neo X
 
 ## Project Layout
@@ -45,7 +46,7 @@ The Morpheus compute module ships with built-in functions that users can call di
 
 These are intended as the first layer of built-ins; you can later plug in external ZKP/FHE runtimes behind the same function registry.
 
-Built-in providers now include `twelvedata` and `coinbase-spot`.
+Built-in providers now include `twelvedata`, `binance-spot`, and `coinbase-spot`.
 
 ## Quick Start
 
@@ -60,6 +61,7 @@ npm --prefix apps/web run dev
 ## Docs
 
 - `docs/ARCHITECTURE.md`
+- `docs/USER_GUIDE.md`
 - `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/PROVIDERS.md`
