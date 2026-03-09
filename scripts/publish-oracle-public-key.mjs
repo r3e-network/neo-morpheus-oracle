@@ -23,14 +23,12 @@ async function main() {
     networkMagic,
     account,
   });
-  const signers = [{ account: account.scriptHash, scopes: 'CalledByEntry' }];
-  const params = [
-    sc.ContractParam.string(key.algorithm),
-    sc.ContractParam.string(key.public_key),
-  ];
 
   console.log('Publishing Morpheus Oracle public key...');
-  const txHash = await contract.invoke('setOracleEncryptionKey', params, signers);
+  const txHash = await contract.invoke('setOracleEncryptionKey', [
+    sc.ContractParam.string(key.algorithm),
+    sc.ContractParam.string(key.public_key),
+  ]);
   console.log(`setOracleEncryptionKey tx: ${txHash}`);
 }
 
