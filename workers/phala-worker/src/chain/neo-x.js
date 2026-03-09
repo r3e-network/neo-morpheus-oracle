@@ -1,18 +1,34 @@
 import { JsonRpcProvider, Wallet as EvmWallet } from "ethers";
-import { DEFAULT_WAIT_TIMEOUT_MS, env, normalizeTargetChain, sha256Hex, stableStringify, trimString } from "../platform/core.js";
+import { DEFAULT_WAIT_TIMEOUT_MS, env, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { resolveSigningBytes } from "./signing.js";
+import { deriveNeoXPrivateKeyHex, shouldUseDerivedKeys } from "../platform/dstack.js";
 
-export function loadNeoXContext(payload = {}, { required = false, requireRpc = false } = {}) {
-  let privateKey = trimString(payload.private_key) || trimString(payload.signing_key) || env("PHALA_NEOX_PRIVATE_KEY", "NEO_X_PRIVATE_KEY", "NEOX_PRIVATE_KEY", "EVM_PRIVATE_KEY");
+async function resolveNeoXPrivateKey(payload = {}, { required = false } = {}) {
+  let privateKey = trimString(payload.private_key) || trimString(payload.signing_key);
+  if (shouldUseDerivedKeys(payload)) {
+    try {
+      privateKey = `0x${await deriveNeoXPrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker")}`;
+    } catch {
+      // fall back to configured key material if derivation is unavailable
+    }
+  }
+  if (!privateKey) {
+    privateKey = env("PHALA_NEOX_PRIVATE_KEY", "NEO_X_PRIVATE_KEY", "NEOX_PRIVATE_KEY", "EVM_PRIVATE_KEY");
+  }
   if (!privateKey) {
     if (required) throw new Error("Neo X signing key is not configured");
     return null;
   }
+  return /^[0-9a-fA-F]{64}$/.test(privateKey) ? `0x${privateKey}` : privateKey;
+}
+
+export async function loadNeoXContext(payload = {}, { required = false, requireRpc = false } = {}) {
+  const privateKey = await resolveNeoXPrivateKey(payload, { required });
+  if (!privateKey) return null;
 
   const rpcUrl = trimString(payload.rpc_url) || env("NEO_X_RPC_URL", "NEOX_RPC_URL", "EVM_RPC_URL");
   if (requireRpc && !rpcUrl) throw new Error("NEO_X_RPC_URL is required for Neo X relay");
 
-  if (/^[0-9a-fA-F]{64}$/.test(privateKey)) privateKey = `0x${privateKey}`;
   const provider = rpcUrl ? new JsonRpcProvider(rpcUrl) : null;
   const wallet = provider ? new EvmWallet(privateKey, provider) : new EvmWallet(privateKey);
   const chainIdRaw = payload.chain_id ?? payload.chainId ?? env("NEO_X_CHAIN_ID", "NEOX_CHAIN_ID", "EVM_CHAIN_ID");
@@ -46,7 +62,7 @@ export function normalizeEvmTransaction(payload) {
 }
 
 export async function relayNeoXTransaction(payload) {
-  const context = loadNeoXContext(payload, { required: true, requireRpc: payload.broadcast !== false || !!payload.raw_transaction });
+  const context = await loadNeoXContext(payload, { required: true, requireRpc: payload.broadcast !== false || !!payload.raw_transaction });
   let rawTransaction = trimString(payload.raw_transaction || payload.raw_tx || payload.signed_tx || payload.tx_hex);
   if (rawTransaction && !rawTransaction.startsWith("0x")) rawTransaction = `0x${rawTransaction.replace(/^0x/i, "")}`;
 
@@ -71,7 +87,7 @@ export async function relayNeoXTransaction(payload) {
 }
 
 export async function handleSignPayloadNeoX(payload) {
-  const context = loadNeoXContext(payload, { required: true, requireRpc: false });
+  const context = await loadNeoXContext(payload, { required: true, requireRpc: false });
   if (payload.typed_data && typeof payload.typed_data === "object") {
     const typedData = payload.typed_data;
     const signature = await context.wallet.signTypedData(typedData.domain || {}, typedData.types || {}, typedData.value || {});
