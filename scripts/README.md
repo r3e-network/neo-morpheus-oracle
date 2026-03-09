@@ -8,6 +8,8 @@
 - `npm run publish:oracle-key`
 - `npm run write:addresses`
 - `npm run verify:n3`
+- `npm run smoke:n3`
+- `node scripts/upgrade-morpheus-oracle.mjs`
 - `npm run render:phala-env`
 - `npm run check:phala-env`
 

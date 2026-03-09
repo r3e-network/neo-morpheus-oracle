@@ -109,6 +109,12 @@ export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
   return out;
 }
 
+export function encodeUtf8ByteArrayParamValue(value) {
+  const raw = trimString(value);
+  if (!raw) return "";
+  return Buffer.from(raw, "utf8").toString("base64");
+}
+
 async function resolveNeoN3UpdaterPayload(config) {
   if (config.neo_n3.updaterWif) {
     return { wif: config.neo_n3.updaterWif };
@@ -131,7 +137,7 @@ export async function fulfillNeoN3Request(config, requestId, success, result, er
     params: [
       { type: "Integer", value: String(requestId) },
       { type: "Boolean", value: Boolean(success) },
-      { type: "ByteArray", value: result || "" },
+      { type: "ByteArray", value: encodeUtf8ByteArrayParamValue(result || "") },
       { type: "String", value: error || "" },
     ],
     wait: false,

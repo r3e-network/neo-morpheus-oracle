@@ -19,7 +19,7 @@ import {
   scheduleRetry,
   snapshotMetrics,
 } from "./src/state.js";
-import { hasNeoN3RelayerConfig } from "./src/neo-n3.js";
+import { encodeUtf8ByteArrayParamValue, hasNeoN3RelayerConfig } from "./src/neo-n3.js";
 import { hasNeoXRelayerConfig } from "./src/neo-x.js";
 
 const retryConfig = {
@@ -178,6 +178,11 @@ test("relayer config accepts derived-key mode for Neo N3 and Neo X", () => {
   assert.equal(hasNeoXRelayerConfig(config), true);
 
   process.env.PHALA_USE_DERIVED_KEYS = previous;
+});
+
+test("encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8", () => {
+  const encoded = encodeUtf8ByteArrayParamValue('{"ok":true}');
+  assert.equal(Buffer.from(encoded, 'base64').toString('utf8'), '{"ok":true}');
 });
 
 test("buildOnchainResultEnvelope keeps working when verification is missing", () => {
