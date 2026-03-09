@@ -12,3 +12,10 @@ button { cursor: pointer; background: linear-gradient(135deg, #6c5ce7, #00b894);
 small { color: #97a3b6; }
 code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; }
 pre { white-space: pre-wrap; word-break: break-word; background: #0e1428; border-radius: 12px; padding: 14px; border: 1px solid rgba(255,255,255,0.08); }
+/* Dashboard Layout Adjustments */
+.sidebar-tab:hover {
+  transform: translateX(4px);
+}
+.sidebar-tab-active {
+  box-shadow: inset 4px 0 0 var(--neo-green);
+}
