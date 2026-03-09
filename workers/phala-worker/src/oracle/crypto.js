@@ -11,9 +11,10 @@ import {
   randomBytes,
 } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, toPem, trimString } from "../platform/core.js";
+import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, resolveWasmModuleBase64, toPem, trimString } from "../platform/core.js";
 import { deriveKeyBytes, shouldUseDerivedKeys } from "../platform/dstack.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
+import { runWasmWithTimeout } from "../platform/wasm-runner.js";
 import { validateUserScriptSource } from "../platform/script-policy.js";
 
 let oracleKeyMaterialPromise;
@@ -245,6 +246,25 @@ export async function resolveConfidentialPayload(payload = {}) {
 }
 
 export async function executeProgrammableOracle(payload, context) {
+  const wasmModuleBase64 = resolveWasmModuleBase64(payload);
+  if (wasmModuleBase64) {
+    const timeoutMs = parseDurationMs(
+      payload.wasm_timeout_ms || payload.script_timeout_ms || payload.oracle_script_timeout_ms || env("ORACLE_WASM_TIMEOUT_MS") || 15000,
+      15000,
+    );
+    return {
+      executed: true,
+      runtime: "wasm",
+      result: await runWasmWithTimeout({
+        mode: "oracle",
+        moduleBase64: wasmModuleBase64,
+        entryPoint: trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || "run") || "run",
+        input: { data: context.data, context },
+        timeoutMs,
+      }),
+    };
+  }
+
   const script = resolveScript(payload);
   if (!script) {
     return {
@@ -263,6 +283,7 @@ export async function executeProgrammableOracle(payload, context) {
 
   return {
     executed: true,
+    runtime: "script",
     result: await runScriptWithTimeout({
       mode: "oracle",
       script,

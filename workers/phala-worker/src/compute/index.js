@@ -1,11 +1,12 @@
 import { createVerify, randomBytes } from "node:crypto";
 import { keccak256, toUtf8Bytes } from "ethers";
-import { assertUntrustedScriptsEnabled, env, json, normalizeTargetChain, parseDurationMs, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
+import { assertUntrustedScriptsEnabled, env, json, normalizeTargetChain, parseDurationMs, resolveScript, resolveWasmModuleBase64, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 import { resolveConfidentialPayload } from "../oracle/crypto.js";
 import { validateUserScriptSource } from "../platform/script-policy.js";
+import { runWasmWithTimeout } from "../platform/wasm-runner.js";
 
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
@@ -214,6 +215,26 @@ export async function executeBuiltinCompute(payload) {
 }
 
 export async function executeStandaloneCompute(payload) {
+  const wasmModuleBase64 = resolveWasmModuleBase64(payload);
+  if (wasmModuleBase64) {
+    const entryPoint = trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || "run") || "run";
+    const timeoutMs = parseDurationMs(
+      payload.wasm_timeout_ms || payload.script_timeout_ms || payload.compute_timeout_ms || env("COMPUTE_WASM_TIMEOUT_MS") || 15000,
+      15000,
+    );
+    return {
+      runtime: "wasm",
+      entry_point: entryPoint,
+      result: await runWasmWithTimeout({
+        mode: "compute",
+        moduleBase64: wasmModuleBase64,
+        entryPoint,
+        input: { input: payload.input ?? {} },
+        timeoutMs,
+      }),
+    };
+  }
+
   const script = resolveScript(payload);
   if (!script) {
     throw new Error("script or script_base64 required");
@@ -231,6 +252,7 @@ export async function executeStandaloneCompute(payload) {
   );
 
   return {
+    runtime: "script",
     entry_point: entryPoint,
     result: await runScriptWithTimeout({
       mode: "compute",

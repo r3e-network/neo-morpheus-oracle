@@ -161,3 +161,10 @@ export function resolveScript(payload) {
   }
   return "";
 }
+
+export function resolveWasmModuleBase64(payload) {
+  if (typeof payload.wasm_base64 === "string" && payload.wasm_base64.trim()) return trimString(payload.wasm_base64);
+  if (typeof payload.wasm_module_base64 === "string" && payload.wasm_module_base64.trim()) return trimString(payload.wasm_module_base64);
+  if (typeof payload.module_base64 === "string" && payload.module_base64.trim()) return trimString(payload.module_base64);
+  return "";
+}
