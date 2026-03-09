@@ -272,9 +272,12 @@ async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, r
     `0x${strip0x(quote.attestation_hash || '0')}`.padEnd(66, '0'),
     BigInt(sourceSetId),
   ]);
+  const updaterPrivateKey = trimString(payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY'));
   return relayNeoXTransaction({
     ...payload,
     target_chain: 'neo_x',
+    private_key: updaterPrivateKey || undefined,
+    use_derived_keys: payload.use_derived_keys ?? false,
     to: dataFeedAddress,
     data,
     value: '0',
