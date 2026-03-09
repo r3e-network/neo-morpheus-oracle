@@ -217,7 +217,8 @@ export function buildProviderRequest(payload) {
       const params = coerceProviderParams(payload.provider_params);
       const pair = trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD";
       const symbol = trimString(params.symbol || payload.provider_symbol || pairToBinanceSymbol(pair)) || pairToBinanceSymbol(pair);
-      const url = new URL('https://api.binance.com/api/v3/ticker/price');
+      const baseUrl = trimString(params.base_url || payload.provider_base_url || 'https://api1.binance.com') || 'https://api1.binance.com';
+      const url = new URL('/api/v3/ticker/price', baseUrl);
       url.searchParams.set('symbol', symbol);
       return { provider, pair: pair.replace(/_/g, '-').toUpperCase(), method: 'GET', url: url.toString(), headers: {}, body: undefined, auth_mode: 'none' };
     }
