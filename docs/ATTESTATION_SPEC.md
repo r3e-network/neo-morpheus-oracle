@@ -49,6 +49,12 @@ The following worker endpoints can include `tee_attestation` when `include_attes
 - `/compute/execute`
 - `/vrf/random`
 
+## Relayer Fulfillment Envelope
+
+Successful on-chain fulfillment payloads are normalized into `morpheus-result/v1` envelopes before being UTF-8 encoded into the callback `result` bytes.
+
+The verifier demo route `/api/attestation/demo` returns both a sample worker response and the exact verifier input required to validate the application-level binding.
+
 ## Stable Oracle Encryption Key
 
 `/oracle/public-key` now exposes:

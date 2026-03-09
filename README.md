@@ -66,4 +66,8 @@ npm --prefix apps/web run dev
 - `docs/RELAYER.md`
 - `docs/DEPLOYMENT.md`
 - `docs/TESTNET_RUNBOOK.md`
+- `docs/SECURITY_AUDIT.md`
+- `docs/ATTESTATION_SPEC.md`
 - `deploy/phala/README.md`
+- verifier page: `/verifier`
+- verifier demo API: `/api/attestation/demo`

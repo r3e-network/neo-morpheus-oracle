@@ -4,7 +4,7 @@
 
 1. Client reads the Oracle public key.
 2. Client encrypts a secret locally.
-3. Contract calls `Request(requestType, payload, callbackContract, callbackMethod)` on `MorpheusOracle`.
+3. Contract calls `Request(requestType, payload, callbackContract, callbackMethod)` on `MorpheusOracle` or `MorpheusOracleX`.
 4. `OracleRequested` is emitted on-chain.
 5. Morpheus dispatcher validates the event and forwards it to the Phala worker.
 6. Phala executes fetch-only, private fetch, public compute, or private compute.
@@ -62,14 +62,94 @@ or
 }
 ```
 
-
 ## Built-in Providers
 
 Requests may optionally specify a built-in provider via `provider` and `provider_params`.
 
-First built-in provider:
+Built-ins:
 
 - `twelvedata` — direct market-data source with API key auth
 - `coinbase-spot` — direct Coinbase spot price endpoint without aggregation
 
 If `provider` is omitted, callers may still use their own `url` plus encrypted secret payloads.
+
+## Worker Verification Envelope
+
+The worker response may include a stable `verification` object:
+
+```json
+{
+  "verification": {
+    "output_hash": "<sha256 of canonical result payload>",
+    "attestation_hash": "<currently mirrors output_hash>",
+    "signature": "<neo n3 signature or null>",
+    "public_key": "<neo n3 public key or null>",
+    "signer_address": "<optional neo n3 address>",
+    "signer_script_hash": "<optional neo n3 script hash>",
+    "tee_attestation": {
+      "app_id": "...",
+      "instance_id": "...",
+      "compose_hash": "...",
+      "quote": "0x...",
+      "event_log": "...",
+      "report_data": "0x..."
+    }
+  }
+}
+```
+
+## On-Chain Fulfillment Payload
+
+The relayer normalizes successful worker output into a chain-ready result envelope before calling `fulfillRequest`:
+
+```json
+{
+  "version": "morpheus-result/v1",
+  "request_type": "privacy_oracle",
+  "fulfilled_at": "2026-03-09T00:00:00.000Z",
+  "worker_status": 200,
+  "success": true,
+  "route": "/oracle/smart-fetch",
+  "result": {
+    "mode": "fetch+compute",
+    "target_chain": "neo_n3",
+    "result": true,
+    "extracted_value": null
+  },
+  "verification": {
+    "output_hash": "...",
+    "attestation_hash": "...",
+    "signature": "...",
+    "public_key": "...",
+    "signer_address": "...",
+    "signer_script_hash": "...",
+    "tee_attestation": {
+      "app_id": "...",
+      "instance_id": "...",
+      "compose_hash": "...",
+      "quote": "0x...",
+      "event_log": "...",
+      "report_data": "0x..."
+    }
+  }
+}
+```
+
+This normalized JSON is UTF-8 encoded and passed as the `result` bytes of `FulfillRequest(...)`.
+
+## Callback Consumer Interpretation
+
+Consumers should interpret the callback payload as:
+
+- a UTF-8 JSON object
+- versioned by `version`
+- with business payload under `result`
+- with attestation/signature material under `verification`
+
+## Verification
+
+Use:
+
+- `/api/attestation/demo` for a prefilled example
+- `/api/attestation/verify` for server-side verification
+- `/verifier` for the browser verifier UI
