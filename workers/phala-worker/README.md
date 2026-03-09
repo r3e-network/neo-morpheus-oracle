@@ -25,6 +25,9 @@ This worker is the trusted execution core of **neo-morpheus-oracle**.
 ## Key Endpoints
 
 - `GET /health`
+- `GET /info`
+- `GET /attestation`
+- `GET /keys/derived`
 - `GET /oracle/public-key`
 - `POST /oracle/query`
 - `POST /oracle/smart-fetch`
@@ -41,5 +44,7 @@ This worker is the trusted execution core of **neo-morpheus-oracle**.
 - accepts `encrypted_token` and `encrypted_payload` as secret aliases
 - accepts `script` and `script_base64` as programmable compute aliases
 - intended to run inside Phala TEE
+- can emit dstack attestation quotes when `PHALA_EMIT_ATTESTATION=true`
+- can derive worker signing keys from tappd when `PHALA_USE_DERIVED_KEYS=true`
 - `src/server.js` provides the HTTP entrypoint for container/CVM deployment
 - `Dockerfile` packages the worker for Phala CVM deployment

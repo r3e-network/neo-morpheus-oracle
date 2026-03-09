@@ -1,5 +1,6 @@
 import { Interface } from "ethers";
 import { env, json, strip0x, trimString } from "../platform/core.js";
+import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 import { buildSignedResultEnvelope, isConfiguredHash160, loadNeoN3Context, normalizeNeoHash160, relayNeoN3Invocation, relayNeoXTransaction } from "../chain/index.js";
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
 
@@ -61,8 +62,8 @@ export async function fetchPriceQuote(symbol, options = {}) {
     sources: [provider],
     provider,
   };
-  const signed = buildSignedResultEnvelope(quote);
-  return { ...quote, signature: signed.signature, public_key: signed.public_key, attestation_hash: signed.attestation_hash };
+  const signed = await buildSignedResultEnvelope(quote, options);
+  return { ...quote, signature: signed.signature, public_key: signed.public_key, attestation_hash: signed.attestation_hash, tee_attestation: await maybeBuildDstackAttestation(options, quote) };
 }
 
 export async function handleFeedsPrice(symbol, options = {}) {

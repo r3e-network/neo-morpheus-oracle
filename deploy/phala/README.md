@@ -143,5 +143,7 @@ Add these in the Dashboard Encrypted Secrets panel before deploy:
 - do not commit `morpheus.env`
 - in UI mode, prefer Dashboard Encrypted Secrets over file-based envs
 - use `Caddyfile` only for the public worker edge; keep relayer internal
-- mount `/var/run/tappd.sock` so you can later integrate Phala attestation / derived keys
-- current code is CVM-ready, but full `tappd` integration is still a next step
+- `PHALA_USE_DERIVED_KEYS=true` enables dstack-derived signing key fallback in the worker
+- `PHALA_EMIT_ATTESTATION=true` enables optional quote attachment in worker responses when requested
+- mount `/var/run/tappd.sock` so the dstack SDK can fetch info, quotes, and derived keys
+- current code now supports first-stage tappd integration, but relayer-side tx signing still primarily uses explicit env keys

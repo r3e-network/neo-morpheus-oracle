@@ -1,6 +1,6 @@
 import { REPLAY_WINDOW_MS, sha256Hex, stableStringify, strip0x, trimString } from "../platform/core.js";
-import { loadNeoN3Context } from "./neo-n3.js";
 import { wallet as neoWallet } from "@cityofzion/neon-js";
+import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "../platform/dstack.js";
 
 const seenRequestIds = new Map();
 
@@ -41,22 +41,34 @@ export function resolveSigningBytes(payload) {
   throw new Error("one of data, message, data_hex, or data_base64 is required");
 }
 
-export function maybeSignNeoN3Bytes(bytes) {
-  const context = loadNeoN3Context({}, { required: false, requireRpc: false });
-  if (!context) return null;
+export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
+  let privateKey = trimString(payload.private_key)
+    || trimString(payload.signing_key)
+    || trimString(payload.wif)
+    || trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
+  if (shouldUseDerivedKeys(payload)) {
+    try {
+      privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");
+    } catch {
+      // fall back to explicit/env key material if available
+    }
+  }
+  if (!privateKey) return null;
+
+  const account = new neoWallet.Account(privateKey);
   const payloadBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   return {
-    signature: neoWallet.sign(payloadBuffer.toString("hex"), context.account.privateKey),
-    public_key: context.account.publicKey,
-    address: context.account.address,
-    script_hash: `0x${context.account.scriptHash}`,
+    signature: neoWallet.sign(payloadBuffer.toString("hex"), account.privateKey),
+    public_key: account.publicKey,
+    address: account.address,
+    script_hash: `0x${account.scriptHash}`,
   };
 }
 
-export function buildSignedResultEnvelope(result) {
+export async function buildSignedResultEnvelope(result, payload = {}) {
   const payloadBytes = Buffer.from(stableStringify(result), "utf8");
   const outputHash = sha256Hex(payloadBytes);
-  const signature = maybeSignNeoN3Bytes(payloadBytes);
+  const signature = await maybeSignNeoN3Bytes(payloadBytes, payload);
   return {
     output_hash: outputHash,
     attestation_hash: outputHash,

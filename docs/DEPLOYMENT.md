@@ -36,6 +36,10 @@ Deploy `workers/phala-worker` to Phala with:
 - optional `ORACLE_TIMEOUT` for upstream fetch timeout (for example `20s`)
 - optional `ORACLE_SCRIPT_TIMEOUT_MS` for privacy Oracle script execution timeout
 - optional `COMPUTE_SCRIPT_TIMEOUT_MS` for compute script execution timeout
+- optional `PHALA_USE_DERIVED_KEYS=true` to derive worker signing keys from tappd/dstack when explicit keys are omitted
+- optional `PHALA_EMIT_ATTESTATION=true` to attach dstack quotes in worker responses
+- optional `PHALA_DSTACK_ENDPOINT` to override the tappd endpoint
+- optional `PHALA_DSTACK_NEO_N3_KEY_PATH` / `PHALA_DSTACK_NEOX_KEY_PATH` to override derived key paths
 
 ## Phala CVM Topology
 

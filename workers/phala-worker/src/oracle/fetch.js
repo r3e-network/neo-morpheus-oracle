@@ -10,6 +10,7 @@ import {
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
 import { buildSignedResultEnvelope } from "../chain/index.js";
 import { decryptEncryptedToken, executeProgrammableOracle, resolveEncryptedPayload } from "./crypto.js";
+import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 
 export function normalizeOracleUrl(rawUrl) {
   const parsedUrl = new URL(trimString(rawUrl));
@@ -142,7 +143,7 @@ export async function buildOracleResponse(payload, mode) {
     extracted_value: fetchResult.selected_value ?? null,
     upstream_status: fetchResult.upstream_status,
   };
-  const signed = buildSignedResultEnvelope(derived);
+  const signed = await buildSignedResultEnvelope(derived, payload);
 
   if (mode === "query") {
     return {
@@ -160,6 +161,7 @@ export async function buildOracleResponse(payload, mode) {
       signature: signed.signature,
       public_key: signed.public_key,
       attestation_hash: signed.attestation_hash,
+      tee_attestation: await maybeBuildDstackAttestation(payload, derived),
     };
   }
 
@@ -175,5 +177,6 @@ export async function buildOracleResponse(payload, mode) {
     signature: signed.signature,
     public_key: signed.public_key,
     attestation_hash: signed.attestation_hash,
+    tee_attestation: await maybeBuildDstackAttestation(payload, derived),
   };
 }

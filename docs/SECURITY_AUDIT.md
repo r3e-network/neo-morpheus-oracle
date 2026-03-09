@@ -65,10 +65,20 @@ Fixed in `workers/phala-worker/src/compute/index.js`:
 
 - `entry_point` must match a valid JS identifier
 
+## Phala tappd / attestation progress
+
+The worker now includes first-stage Phala dstack/tappd integration:
+
+- public `GET /info`
+- public `GET /attestation`
+- authenticated `GET /keys/derived`
+- optional response-side quote attachment when `PHALA_EMIT_ATTESTATION=true`
+- derived Neo N3 signing fallback when `PHALA_USE_DERIVED_KEYS=true`
+
 ## Remaining architectural notes
 
 - N3 contracts still expose an explicit admin-only `Update(...)`, while the Neo X contracts are currently non-upgradeable plain contracts. This is a lifecycle difference, not an immediate exploitable vulnerability.
-- Full Phala `tappd` attestation / derived-key integration is still a next-step hardening task.
+- Relayer-side transaction signing still primarily relies on explicit env keys; a future hardening step is to extend dstack-derived signing into the relayer path as well.
 
 ## Validation
 

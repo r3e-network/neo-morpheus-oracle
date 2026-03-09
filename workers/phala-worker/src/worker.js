@@ -1,6 +1,11 @@
 import { json } from "./platform/core.js";
 import { requireAuth } from "./platform/auth.js";
 import {
+  buildDstackAttestation,
+  getDerivedKeySummary,
+  getDstackInfo,
+} from "./platform/dstack.js";
+import {
   buildOracleResponse,
   ensureOracleKeyMaterial,
   handleFeedsPrice,
@@ -31,6 +36,9 @@ function handleHealth() {
     },
     features: [
       "providers",
+      "info",
+      "attestation",
+      "keys/derived",
       "oracle/public-key",
       "oracle/query",
       "oracle/smart-fetch",
@@ -49,13 +57,25 @@ function handleHealth() {
 export default async function handler(request) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "");
-  const payload = request.method === "GET" ? {} : await request.json().catch(() => ({}));
+  const payload = request.method === "GET" ? Object.fromEntries(url.searchParams.entries()) : await request.json().catch(() => ({}));
 
   try {
     if (path.endsWith("/health")) return handleHealth();
+    if (path.endsWith("/info")) {
+      return json(200, { dstack: await getDstackInfo({ required: false }) });
+    }
+    if (path.endsWith("/attestation")) {
+      const reportData = payload.report_data || payload.reportData || payload.output_hash || payload.message || "morpheus-attestation";
+      return json(200, { attestation: await buildDstackAttestation(reportData, { required: false }) });
+    }
 
     const auth = await requireAuth(request);
     if (!auth.ok) return auth.response;
+
+    if (path.endsWith("/keys/derived")) {
+      const role = typeof payload.role === "string" && payload.role.trim() ? payload.role.trim() : "worker";
+      return json(200, { derived: await getDerivedKeySummary(role) });
+    }
 
     if (path.endsWith("/providers")) return handleProvidersList();
 

@@ -213,6 +213,20 @@ test('health endpoint works without auth', async () => {
   assert.equal(body.status, 'ok');
 });
 
+test('info endpoint works without auth', async () => {
+  const res = await handler(new Request('http://local/info'));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Object.prototype.hasOwnProperty.call(body, 'dstack'));
+});
+
+test('attestation endpoint works without auth', async () => {
+  const res = await handler(new Request('http://local/attestation?report_data=test-report'));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Object.prototype.hasOwnProperty.call(body, 'attestation'));
+});
+
 test('oracle public key endpoint returns RSA metadata', async () => {
   const res = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
   assert.equal(res.status, 200);
