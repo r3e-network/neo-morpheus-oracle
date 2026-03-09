@@ -45,6 +45,21 @@ For your current codebase, I recommend:
 
 ## Deploy steps
 
+### Option A — Phala Cloud UI native mode
+
+Use the Dashboard `Deploy -> docker-compose.yml` flow and paste `deploy/phala/docker-compose.ui.yml`.
+
+In the UI, add the same keys from `deploy/phala/morpheus.env.example` into **Encrypted Secrets**.
+
+Recommended first deployment in the UI:
+
+- CVM size: `Medium TDX`
+- Guest image: `dstack-dev-*`
+- Compose mode: `Advanced`
+- Public service: `caddy` on port `80`
+
+### Option B — file-based compose in a dev/debug CVM
+
 1. Build and push both images
 2. Generate local env once from root `.env` if you want a practical starting file:
 
@@ -79,10 +94,54 @@ curl http://127.0.0.1:8080/health
 docker exec -it morpheus-relayer npm --prefix workers/morpheus-relayer run metrics
 ```
 
+## Encrypted Secrets checklist for UI mode
+
+Add these in the Dashboard Encrypted Secrets panel before deploy:
+
+- `MORPHEUS_PHALA_WORKER_IMAGE`
+- `MORPHEUS_RELAYER_IMAGE`
+- `PHALA_WORKER_PORT`
+- `PHALA_SHARED_SECRET`
+- `PHALA_API_TOKEN`
+- `TWELVEDATA_API_KEY`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `MORPHEUS_PROVIDER_CONFIG_API_KEY`
+- `MORPHEUS_NETWORK`
+- `NEO_RPC_URL`
+- `NEO_NETWORK_MAGIC`
+- `CONTRACT_MORPHEUS_ORACLE_HASH`
+- `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
+- `CONTRACT_MORPHEUS_DATAFEED_HASH`
+- `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
+- `NEOX_RPC_URL`
+- `NEOX_CHAIN_ID`
+- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
+- `CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS`
+- `CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS`
+- `PHALA_NEOX_PRIVATE_KEY`
+- `MORPHEUS_FEED_PROJECT_SLUG`
+- `MORPHEUS_FEED_PROVIDER`
+- `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
+- `MORPHEUS_RELAYER_NEOX_PRIVATE_KEY`
+- `MORPHEUS_RELAYER_POLL_INTERVAL_MS`
+- `MORPHEUS_RELAYER_CONCURRENCY`
+- `MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK`
+- `MORPHEUS_RELAYER_MAX_RETRIES`
+- `MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS`
+- `MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS`
+- `MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE`
+- `MORPHEUS_RELAYER_DEAD_LETTER_LIMIT`
+- `MORPHEUS_RELAYER_LOG_FORMAT`
+- `MORPHEUS_RELAYER_LOG_LEVEL`
+
 ## Security notes
 
 - keep the real env file only inside the CVM
 - do not commit `morpheus.env`
+- in UI mode, prefer Dashboard Encrypted Secrets over file-based envs
 - use `Caddyfile` only for the public worker edge; keep relayer internal
 - mount `/var/run/tappd.sock` so you can later integrate Phala attestation / derived keys
 - current code is CVM-ready, but full `tappd` integration is still a next step
