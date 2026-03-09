@@ -13,14 +13,8 @@ This worker is the trusted execution core of **neo-morpheus-oracle**.
 
 ## Built-in Compute Functions
 
-- `hash.sha256`
-- `math.modexp`
-- `matrix.multiply`
-- `vector.cosine_similarity`
-- `zkp.public_signal_hash`
-- `zkp.proof_digest`
-- `fhe.batch_plan`
-- `fhe.noise_budget_estimate`
+Inspect the live catalog via `GET /compute/functions`.
+Current built-ins cover hashing, RSA verification, modular arithmetic, polynomial evaluation, matrices, vector similarity, Merkle roots, ZKP planning/digests, FHE planning, and privacy helpers.
 
 ## Key Endpoints
 
@@ -41,7 +35,7 @@ This worker is the trusted execution core of **neo-morpheus-oracle**.
 ## Notes
 
 - supports Neo N3 + Neo X
-- accepts `encrypted_token` and `encrypted_payload` as secret aliases
+- accepts `encrypted_token` for auth secrets and encrypted JSON payload patches via `encrypted_params`, `encrypted_input`, or JSON-object `encrypted_payload`
 - accepts `script` and `script_base64` as programmable compute aliases
 - intended to run inside Phala TEE
 - can emit dstack attestation quotes when `PHALA_EMIT_ATTESTATION=true`

@@ -56,10 +56,10 @@ async function readNetworkRegistry(network) {
 function createResolver(localEnv, existingEnv) {
   return (...keys) => {
     for (const key of keys) {
-      const processValue = trimString(process.env[key]);
-      if (processValue) return processValue;
       const localValue = trimString(localEnv[key]);
       if (localValue) return localValue;
+      const processValue = trimString(process.env[key]);
+      if (processValue) return processValue;
       const existingValue = trimString(existingEnv[key]);
       if (existingValue) return existingValue;
     }
@@ -69,6 +69,14 @@ function createResolver(localEnv, existingEnv) {
 
 function line(key, value) {
   return `${key}=${value ?? ''}`;
+}
+
+function resolveOracleKeystorePath(get) {
+  const configured = get('PHALA_ORACLE_KEYSTORE_PATH');
+  if (!configured || configured === '/data/morpheus-oracle-key.json') {
+    return '/data/morpheus/oracle-key.json';
+  }
+  return configured;
 }
 
 const network = trimString(process.env.MORPHEUS_NETWORK) || 'testnet';
@@ -125,7 +133,7 @@ const runtimeConfig = {
   PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH: get('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH'),
   PHALA_DSTACK_RELAYER_NEOX_KEY_PATH: get('PHALA_DSTACK_RELAYER_NEOX_KEY_PATH'),
   PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH: get('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'),
-  PHALA_ORACLE_KEYSTORE_PATH: get('PHALA_ORACLE_KEYSTORE_PATH') || '/data/morpheus-oracle-key.json',
+  PHALA_ORACLE_KEYSTORE_PATH: resolveOracleKeystorePath(get),
 };
 
 const lines = [

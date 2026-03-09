@@ -1,4 +1,5 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
+import { loadDotEnv } from './lib-env.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -21,6 +22,8 @@ function tryParseJson(value) {
     return null;
   }
 }
+
+await loadDotEnv();
 
 function decodeCallbackArray(item) {
   if (!item || item.type !== 'Array' || !Array.isArray(item.value)) return null;
@@ -69,11 +72,13 @@ const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || 894710606);
 const wif = trimString(process.env.NEO_TESTNET_WIF || '');
 const oracleHash = trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
 const callbackHash = trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || '');
-const provider = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'coinbase-spot') || 'coinbase-spot';
+const provider = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'twelvedata') || 'twelvedata';
 const symbol = trimString(process.env.MORPHEUS_SMOKE_SYMBOL || 'NEO-USD') || 'NEO-USD';
 const requestType = trimString(process.env.MORPHEUS_SMOKE_REQUEST_TYPE || 'privacy_oracle') || 'privacy_oracle';
 const jsonPath = trimString(process.env.MORPHEUS_SMOKE_JSON_PATH || 'price') || 'price';
 const script = trimString(process.env.MORPHEUS_SMOKE_SCRIPT || '');
+const requestTimeoutMs = Number(process.env.MORPHEUS_SMOKE_REQUEST_TIMEOUT_MS || 90000);
+const callbackTimeoutMs = Number(process.env.MORPHEUS_SMOKE_CALLBACK_TIMEOUT_MS || 180000);
 
 if (!wif) throw new Error('NEO_TESTNET_WIF is required');
 if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
@@ -101,13 +106,18 @@ const txid = await oracle.invoke('request', [
   'onOracleResult',
 ]);
 
-const requestId = await waitForRequestId(rpcClient, txid);
-const callback = await waitForCallback(rpcClient, callbackHash, requestId);
-
-console.log(JSON.stringify({
+const requestId = await waitForRequestId(rpcClient, txid, requestTimeoutMs);
+const callback = await waitForCallback(rpcClient, callbackHash, requestId, callbackTimeoutMs);
+const summary = {
   txid,
   request_id: requestId,
   provider,
   symbol,
   callback,
-}, null, 2));
+};
+
+console.log(JSON.stringify(summary, null, 2));
+if (!callback.success) {
+  console.error(`Neo N3 smoke callback failed for request ${requestId}: ${callback.error_text || 'unknown error'}`);
+  process.exitCode = 1;
+}

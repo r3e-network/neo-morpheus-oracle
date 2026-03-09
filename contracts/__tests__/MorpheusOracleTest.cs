@@ -15,7 +15,9 @@ namespace MorpheusOracle.Contracts.Tests
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "string", "OracleEncryptionAlgorithm");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "string", "OracleEncryptionPublicKey");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "BigInteger", "OracleEncryptionKeyVersion");
+            ContractSourceAssertions.AssertHasPublicStaticMethod(code, "ECPoint", "OracleVerificationPublicKey");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "void", "SetOracleEncryptionKey");
+            ContractSourceAssertions.AssertHasPublicStaticMethod(code, "void", "SetOracleVerificationPublicKey");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "BigInteger", "Request");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "void", "FulfillRequest");
         }
@@ -32,6 +34,7 @@ namespace MorpheusOracle.Contracts.Tests
             Assert.Contains("OracleFulfilledHandler", code);
             Assert.Contains("[DisplayName(\"MorpheusOracle\")]", code);
             Assert.Contains("[DisplayName(\"OracleEncryptionKeyUpdated\")]", code);
+            Assert.Contains("[DisplayName(\"OracleVerifierUpdated\")]", code);
         }
     }
 }

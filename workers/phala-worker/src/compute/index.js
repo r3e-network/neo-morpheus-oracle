@@ -1,6 +1,6 @@
 import { createVerify, randomBytes } from "node:crypto";
 import { keccak256, toUtf8Bytes } from "ethers";
-import { env, json, normalizeTargetChain, parseDurationMs, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
+import { assertUntrustedScriptsEnabled, env, json, normalizeTargetChain, parseDurationMs, resolveScript, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
@@ -217,6 +217,7 @@ export async function executeStandaloneCompute(payload) {
   if (!script) {
     throw new Error("script or script_base64 required");
   }
+  assertUntrustedScriptsEnabled();
 
   const entryPoint = trimString(payload.entry_point || "process") || "process";
   if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entryPoint)) {

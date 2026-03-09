@@ -79,12 +79,17 @@ function resolveExpectedUpdater() {
   return normalizeHash160(new wallet.Account(key).scriptHash);
 }
 
+function resolveExpectedVerifierPublicKey() {
+  return trimString(process.env.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY || process.env.PHALA_ORACLE_VERIFIER_PUBLIC_KEY || '');
+}
+
 const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 const registry = await loadRegistry(network);
 const rpcUrl = trimString(process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || '');
 const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || registry.neo_n3?.contracts?.morpheus_oracle || '');
 const callbackHash = normalizeHash160(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || registry.neo_n3?.contracts?.oracle_callback_consumer || '');
 const expectedUpdater = resolveExpectedUpdater();
+const expectedVerifierPublicKey = resolveExpectedVerifierPublicKey();
 
 if (!rpcUrl) throw new Error('NEO_RPC_URL is required');
 if (!oracleHash) throw new Error('MorpheusOracle hash is required');
@@ -99,6 +104,7 @@ const [admin, updater, callbackAllowed, keyVersion, publicKey, consumerOracle] =
   invokeRead(rpcClient, oracleHash, 'oracleEncryptionPublicKey'),
   invokeRead(rpcClient, callbackHash, 'oracle'),
 ]);
+const verifierPublicKey = await invokeRead(rpcClient, oracleHash, 'oracleVerificationPublicKey');
 
 const checks = {
   registry_matches_oracle: normalizeHash160(registry.neo_n3?.contracts?.morpheus_oracle || '') === oracleHash,
@@ -108,6 +114,8 @@ const checks = {
   updater_matches_expected: expectedUpdater ? normalizeHash160(updater || '') === expectedUpdater : null,
   oracle_key_present: trimString(publicKey || '').length > 0,
   oracle_key_version_positive: Number(keyVersion || 0) > 0,
+  verifier_key_present: trimString(verifierPublicKey || '').length > 0,
+  verifier_key_matches_expected: expectedVerifierPublicKey ? trimString(verifierPublicKey || '') === expectedVerifierPublicKey : null,
 };
 
 const report = {
@@ -118,8 +126,10 @@ const report = {
   admin,
   updater,
   expected_updater: expectedUpdater || null,
+  expected_verifier_public_key: expectedVerifierPublicKey || null,
   oracle_encryption_key_version: Number(keyVersion || 0),
   oracle_encryption_public_key_present: checks.oracle_key_present,
+  oracle_verifier_public_key: verifierPublicKey || null,
   callback_consumer_oracle: consumerOracle,
   checks,
 };

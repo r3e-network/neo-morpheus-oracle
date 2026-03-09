@@ -1,5 +1,6 @@
 import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
+import { env } from "./core.js";
 
 function normalizeError(error) {
   if (error instanceof Error) {
@@ -11,9 +12,17 @@ function normalizeError(error) {
 const workerPath = fileURLToPath(new URL("./script-worker.cjs", import.meta.url));
 
 export async function runScriptWithTimeout({ mode, script, entryPoint = "process", input, data, context, timeoutMs }) {
+  const maxOldGenerationSizeMb = Math.max(Number(env("SCRIPT_WORKER_MAX_OLD_SPACE_MB") || 64), 16);
+  const maxYoungGenerationSizeMb = Math.max(Number(env("SCRIPT_WORKER_MAX_YOUNG_SPACE_MB") || 16), 4);
+  const stackSizeMb = Math.max(Number(env("SCRIPT_WORKER_STACK_SIZE_MB") || 4), 1);
   return await new Promise((resolve, reject) => {
     const worker = new Worker(workerPath, {
       workerData: { mode, script, entryPoint, input, data, context, timeoutMs },
+      resourceLimits: {
+        maxOldGenerationSizeMb,
+        maxYoungGenerationSizeMb,
+        stackSizeMb,
+      },
     });
 
     let finished = false;

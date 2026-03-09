@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { createSign, generateKeyPairSync } from 'node:crypto';
 
 const originalFetch = global.fetch;
 const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
@@ -13,10 +14,12 @@ const originalNeoXRpc = process.env.NEOX_RPC_URL;
 const originalNeoXRpcAlt = process.env.NEO_X_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
 const originalTwelveData = process.env.TWELVEDATA_API_KEY;
+const originalNeoXDataFeedAddress = process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS;
 const originalSupabaseUrl = process.env.SUPABASE_URL;
 const originalSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const originalUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
 const originalOracleKeystorePath = process.env.PHALA_ORACLE_KEYSTORE_PATH;
+const originalEnableUserScripts = process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY = '1111111111111111111111111111111111111111111111111111111111111111';
@@ -26,8 +29,10 @@ process.env.NEOX_RPC_URL = '';
 process.env.NEO_X_RPC_URL = '';
 process.env.EVM_RPC_URL = '';
 process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '';
 process.env.SUPABASE_URL = '';
 process.env.SUPABASE_SERVICE_ROLE_KEY = '';
+process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
 
 const { default: handler } = await import('./src/worker.js');
 const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = await import('./src/platform/dstack.js');
@@ -144,10 +149,12 @@ test.after(() => {
   process.env.NEO_X_RPC_URL = originalNeoXRpcAlt;
   process.env.EVM_RPC_URL = originalEvmRpc;
   process.env.TWELVEDATA_API_KEY = originalTwelveData;
+  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = originalNeoXDataFeedAddress;
   process.env.SUPABASE_URL = originalSupabaseUrl;
   process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
   process.env.PHALA_USE_DERIVED_KEYS = originalUseDerivedKeys;
   process.env.PHALA_ORACLE_KEYSTORE_PATH = originalOracleKeystorePath;
+  process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = originalEnableUserScripts;
   __resetDstackClientStateForTests();
   __resetOracleKeyMaterialForTests();
 });
@@ -400,6 +407,40 @@ test('oracle smart fetch supports encrypted_payload alias and script_base64', as
   assert.equal(body.target_chain_id, '12227332');
 });
 
+test('oracle smart fetch supports encrypted JSON payload patches', async () => {
+  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyBody = await keyRes.json();
+  const ciphertext = await encryptForOracle(keyBody.public_key, JSON.stringify({
+    headers: { 'x-api-key': 'sealed-secret' },
+    script: 'function process(data) { return data.age > 80; }',
+  }));
+
+  global.fetch = async (url, init) => {
+    assert.equal(url, 'https://api.example.com/private-patch');
+    assert.equal(init.headers.get('x-api-key'), 'sealed-secret');
+    assert.equal(init.headers.has('Authorization'), false);
+    return new Response(JSON.stringify({ ok: true, age: 83 }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/oracle/smart-fetch', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      url: 'https://api.example.com/private-patch',
+      encrypted_payload: ciphertext,
+      target_chain: 'neo_n3',
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'fetch+compute');
+  assert.equal(body.result, true);
+  assert.equal(body.target_chain, 'neo_n3');
+});
+
 test('compute execute supports builtin heavy functions', async () => {
   const res = await handler(new Request('http://local/compute/execute', {
     method: 'POST',
@@ -417,6 +458,72 @@ test('compute execute supports builtin heavy functions', async () => {
   assert.equal(body.function, 'math.modexp');
   assert.equal(body.result.value, '4');
   assert.ok(body.signature);
+});
+
+test('compute execute supports encrypted confidential payload patches', async () => {
+  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyBody = await keyRes.json();
+  const ciphertext = await encryptForOracle(keyBody.public_key, JSON.stringify({
+    mode: 'builtin',
+    function: 'math.modexp',
+    input: { base: '2', exponent: '10', modulus: '17' },
+    target_chain: 'neo_x',
+    target_chain_id: '12227332',
+  }));
+
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ encrypted_payload: ciphertext }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'builtin');
+  assert.equal(body.function, 'math.modexp');
+  assert.equal(body.result.value, '4');
+  assert.equal(body.target_chain, 'neo_x');
+  assert.equal(body.target_chain_id, '12227332');
+});
+
+test('compute builtins support rsa verification and canonical polynomial order', async () => {
+  const payloadString = JSON.stringify({ hello: 'neo-morpheus' });
+  const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+  const signer = createSign('RSA-SHA256');
+  signer.update(payloadString);
+  signer.end();
+  const signatureHex = signer.sign(privateKey).toString('hex');
+
+  const rsaRes = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'builtin',
+      function: 'crypto.rsa_verify',
+      input: {
+        public_key: publicKey.export({ type: 'spki', format: 'pem' }),
+        signature: signatureHex,
+        payload: payloadString,
+      },
+      target_chain: 'neo_n3',
+    }),
+  }));
+  assert.equal(rsaRes.status, 200);
+  const rsaBody = await rsaRes.json();
+  assert.equal(rsaBody.result.is_valid, true);
+
+  const polynomialRes = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'builtin',
+      function: 'math.polynomial',
+      input: { coefficients: [2, 3], x: 5 },
+      target_chain: 'neo_n3',
+    }),
+  }));
+  assert.equal(polynomialRes.status, 200);
+  const polynomialBody = await polynomialRes.json();
+  assert.equal(polynomialBody.result.value, '13');
 });
 
 test('oracle smart fetch enforces script timeout', async () => {
@@ -520,6 +627,7 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
 
 
 test('oracle feed supports neo_x contract relay mode', async () => {
+  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
   global.fetch = async (url, init) => {
     if (/^https:\/\/api\.twelvedata\.com\//.test(String(url))) {
       return new Response(JSON.stringify({ price: '12.34' }), { status: 200, headers: { 'content-type': 'application/json' } });

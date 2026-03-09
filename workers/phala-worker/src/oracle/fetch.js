@@ -42,7 +42,18 @@ export function normalizeOracleUrl(rawUrl) {
   if (rawAllowlist) {
     const allowlist = rawAllowlist.split(",").map((entry) => trimString(entry)).filter(Boolean);
     if (allowlist.length > 0) {
-      const allowed = allowlist.some((entry) => parsedUrl.href.startsWith(entry) || parsedUrl.origin === entry.replace(/\/$/, ""));
+      const allowed = allowlist.some((entry) => {
+        let allowedUrl;
+        try {
+          allowedUrl = new URL(entry);
+        } catch {
+          return false;
+        }
+        if (allowedUrl.origin !== parsedUrl.origin) return false;
+        const allowedPath = allowedUrl.pathname.replace(/\/+$/, "");
+        if (!allowedPath || allowedPath === "/") return true;
+        return parsedUrl.pathname === allowedPath || parsedUrl.pathname.startsWith(`${allowedPath}/`);
+      });
       if (!allowed) throw new Error("url is not in ORACLE_HTTP_ALLOWLIST");
     }
   }

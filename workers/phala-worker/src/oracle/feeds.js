@@ -301,7 +301,7 @@ export async function handleOracleFeed(payload) {
     ? loadNeoN3Context(payload, { required: false, requireRpc: false })
     : null;
   const dataFeedAddress = targetChain === 'neo_x'
-    ? trimString(payload.contract_address || env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
+    ? trimString(env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
     : null;
 
   for (const quote of quoteSet.quotes) {

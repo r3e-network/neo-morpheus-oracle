@@ -16,7 +16,7 @@ function resolveProviderConfigAdminKey() {
 
 export function isAuthorizedAdminRequest(request: Request) {
   const configured = resolveProviderConfigAdminKey();
-  if (!configured) return true;
+  if (!configured) return false;
 
   const headerKey = (request.headers.get("x-admin-api-key") || "").trim();
   const bearer = (request.headers.get("authorization") || "").trim();

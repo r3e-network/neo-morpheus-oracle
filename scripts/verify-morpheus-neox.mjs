@@ -29,9 +29,14 @@ function resolveExpectedUpdater() {
   return normalizeAddress(new Wallet(privateKey).address);
 }
 
+function resolveExpectedVerifier() {
+  return normalizeAddress(process.env.MORPHEUS_ORACLE_VERIFIER_ADDRESS || process.env.PHALA_ORACLE_VERIFIER_ADDRESS || '');
+}
+
 const ORACLE_ABI = [
   'function admin() view returns (address)',
   'function updater() view returns (address)',
+  'function oracleVerifier() view returns (address)',
   'function allowedCallbacks(address) view returns (bool)',
   'function oracleEncryptionKeyVersion() view returns (uint256)',
   'function oracleEncryptionPublicKey() view returns (string)',
@@ -47,6 +52,7 @@ const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL 
 const oracleAddress = normalizeAddress(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS || registry.neo_x?.contracts?.morpheus_oracle_x || '');
 const callbackAddress = normalizeAddress(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS || registry.neo_x?.contracts?.oracle_callback_consumer_x || '');
 const expectedUpdater = resolveExpectedUpdater();
+const expectedVerifier = resolveExpectedVerifier();
 
 if (!rpcUrl) throw new Error('NEOX_RPC_URL is required');
 if (!oracleAddress) throw new Error('MorpheusOracleX address is required');
@@ -56,9 +62,10 @@ const provider = new JsonRpcProvider(rpcUrl);
 const oracle = new Contract(oracleAddress, ORACLE_ABI, provider);
 const callback = new Contract(callbackAddress, CALLBACK_ABI, provider);
 
-const [admin, updater, callbackAllowed, keyVersion, publicKey, callbackOracle] = await Promise.all([
+const [admin, updater, oracleVerifier, callbackAllowed, keyVersion, publicKey, callbackOracle] = await Promise.all([
   oracle.admin(),
   oracle.updater(),
+  oracle.oracleVerifier(),
   oracle.allowedCallbacks(callbackAddress),
   oracle.oracleEncryptionKeyVersion(),
   oracle.oracleEncryptionPublicKey(),
@@ -71,6 +78,8 @@ const checks = {
   callback_allowed: Boolean(callbackAllowed),
   callback_oracle_matches: normalizeAddress(callbackOracle) === oracleAddress,
   updater_matches_expected: expectedUpdater ? normalizeAddress(updater) === expectedUpdater : null,
+  verifier_present: normalizeAddress(oracleVerifier) !== '',
+  verifier_matches_expected: expectedVerifier ? normalizeAddress(oracleVerifier) === expectedVerifier : null,
   oracle_key_present: trimString(publicKey || '').length > 0,
   oracle_key_version_positive: Number(keyVersion || 0n) > 0,
 };
@@ -83,6 +92,8 @@ const report = {
   admin,
   updater,
   expected_updater: expectedUpdater || null,
+  oracle_verifier: oracleVerifier,
+  expected_verifier: expectedVerifier || null,
   oracle_encryption_key_version: Number(keyVersion || 0n),
   oracle_encryption_public_key_present: checks.oracle_key_present,
   callback_consumer_oracle: callbackOracle,

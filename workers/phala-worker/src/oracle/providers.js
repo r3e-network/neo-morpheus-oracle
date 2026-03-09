@@ -194,6 +194,11 @@ function requireTwelveDataApiKey() {
   return apiKey;
 }
 
+function allowUnsafeProviderBaseUrlOverride() {
+  const raw = trimString(env("MORPHEUS_ALLOW_UNSAFE_PROVIDER_BASE_URL_OVERRIDE"));
+  return raw === "1" || raw.toLowerCase() === "true" || raw.toLowerCase() === "yes";
+}
+
 export function buildProviderRequest(payload) {
   const provider = normalizeProviderId(payload.provider || payload.source || payload.provider_id);
   if (!provider) return null;
@@ -217,7 +222,10 @@ export function buildProviderRequest(payload) {
       const params = coerceProviderParams(payload.provider_params);
       const pair = trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD";
       const symbol = trimString(params.symbol || payload.provider_symbol || pairToBinanceSymbol(pair)) || pairToBinanceSymbol(pair);
-      const baseUrl = trimString(params.base_url || payload.provider_base_url || 'https://api1.binance.com') || 'https://api1.binance.com';
+      const requestedBaseUrl = trimString(params.base_url || payload.provider_base_url || "");
+      const baseUrl = requestedBaseUrl && allowUnsafeProviderBaseUrlOverride()
+        ? requestedBaseUrl
+        : "https://api1.binance.com";
       const url = new URL('/api/v3/ticker/price', baseUrl);
       url.searchParams.set('symbol', symbol);
       return { provider, pair: pair.replace(/_/g, '-').toUpperCase(), method: 'GET', url: url.toString(), headers: {}, body: undefined, auth_mode: 'none' };

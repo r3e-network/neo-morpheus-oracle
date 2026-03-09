@@ -129,14 +129,60 @@ async function processOracleRequest(config, event) {
   const workerPayload = buildWorkerPayload(event.chain, event.requestType, payload, event.requestId);
   const workerResponse = await callPhala(config, route, workerPayload);
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
+  const verification = fulfillment.success
+    ? await signFulfillmentPayload(config, event.chain, fulfillment.result)
+    : null;
 
   if (event.chain === "neo_n3") {
-    const tx = await fulfillNeoN3Request(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error);
-    return { ...fulfillment, route, worker_response: workerResponse.body, worker_status: workerResponse.status, fulfill_tx: tx };
+    const tx = await fulfillNeoN3Request(
+      config,
+      event.requestId,
+      fulfillment.success,
+      fulfillment.result,
+      fulfillment.error,
+      verification?.signature || "",
+    );
+    return {
+      ...fulfillment,
+      route,
+      worker_response: workerResponse.body,
+      worker_status: workerResponse.status,
+      fulfill_tx: tx,
+      verification_signature: verification?.signature || null,
+    };
   }
 
-  const tx = await fulfillNeoXRequest(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error);
-  return { ...fulfillment, route, worker_response: workerResponse.body, worker_status: workerResponse.status, fulfill_tx: tx };
+  const tx = await fulfillNeoXRequest(
+    config,
+    event.requestId,
+    fulfillment.success,
+    fulfillment.result,
+    fulfillment.error,
+    verification?.signature || "",
+  );
+  return {
+    ...fulfillment,
+    route,
+    worker_response: workerResponse.body,
+    worker_status: workerResponse.status,
+    fulfill_tx: tx,
+    verification_signature: verification?.signature || null,
+  };
+}
+
+async function signFulfillmentPayload(config, chain, result) {
+  const response = await callPhala(config, "/sign/payload", {
+    target_chain: chain,
+    data_base64: Buffer.from(result || "", "utf8").toString("base64"),
+  });
+  if (!response.ok || typeof response.body?.signature !== "string" || !response.body.signature) {
+    throw new Error(
+      typeof response.body?.error === "string"
+        ? response.body.error
+        : `worker signing failed with status ${response.status}`,
+    );
+  }
+  return response.body;
 }
 
 function createPersistor(config, state) {
