@@ -102,7 +102,7 @@ export async function relayNeoN3Invocation(payload) {
       return { status: 400, body: { request_id: requestId, error: simulation?.exception || "Neo invocation simulation failed", vm_state: simulation?.state || "FAULT" } };
     }
 
-    const txHashRaw = await contract.invoke(method, params, signers);
+    const txHashRaw = await contract.invoke(method, params);
     const txHash = trimString(txHashRaw).startsWith("0x") ? trimString(txHashRaw) : `0x${trimString(txHashRaw)}`;
     let vmState = simulation?.state || "HALT";
     let exception = simulation?.exception || undefined;
