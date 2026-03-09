@@ -45,6 +45,9 @@ function authHeaders() {
   };
 }
 
+const TEST_WASM_OK_BASE64 = 'AGFzbQEAAAABEANgAAF/YAF/AX9gAn9/AX8CGAEIbW9ycGhldXMLbm93X3NlY29uZHMAAAMEAwEAAgUDAQABBgwCfwFBgAgLfwFBAAsHJQQGbWVtb3J5AgAFYWxsb2MAAQpyZXN1bHRfbGVuAAIDcnVuAAMKSQMRAQF/IwAhASMAIABqJAAgAQsEACMBCzAAQQQkAUGAEEH0ADoAAEGBEEHyADoAAEGCEEH1ADoAAEGDEEHlADoAABAAGkGAEAsAQwRuYW1lAQYBAANub3cCHwQAAAECAARzaXplAQRhZGRyAgADAgADcHRyAQNsZW4HEwIABGhlYXABCnJlc3VsdF9sZW4=';
+const TEST_WASM_LOOP_BASE64 = 'AGFzbQEAAAABEANgAX8Bf2AAAX9gAn9/AX8DBAMAAQIFAwEAAQYHAX8BQYAICwclBAZtZW1vcnkCAAVhbGxvYwAACnJlc3VsdF9sZW4AAQNydW4AAgoVAwQAIwALBABBAAsJAANADAALQQALACcEbmFtZQIXAwABAARzaXplAQACAgADcHRyAQNsZW4HBwEABGhlYXA=';
+
 async function encryptForOracle(publicKeyBase64, plaintext) {
   const spki = Buffer.from(publicKeyBase64, 'base64');
   const cryptoKey = await globalThis.crypto.subtle.importKey(
@@ -485,6 +488,21 @@ test('compute execute supports encrypted confidential payload patches', async ()
   assert.equal(body.target_chain_id, '12227332');
 });
 
+test('compute execute supports wasm runtime', async () => {
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      wasm_base64: TEST_WASM_OK_BASE64,
+      target_chain: 'neo_x',
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.runtime, 'wasm');
+  assert.equal(body.result, true);
+});
+
 test('compute builtins support rsa verification and canonical polynomial order', async () => {
   const payloadString = JSON.stringify({ hello: 'neo-morpheus' });
   const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -547,6 +565,27 @@ test('oracle smart fetch enforces script timeout', async () => {
   assert.match(body.error, /timed out/);
 });
 
+test('oracle smart fetch supports wasm runtime', async () => {
+  global.fetch = async () => new Response(JSON.stringify({ ok: true, price: '1.23' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+
+  const res = await handler(new Request('http://local/oracle/smart-fetch', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      url: 'https://api.example.com/wasm',
+      wasm_base64: TEST_WASM_OK_BASE64,
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'fetch+compute');
+  assert.equal(body.result, true);
+});
+
 test('oracle fetch enforces upstream timeout', async () => {
   global.fetch = async (_url, init) => await new Promise((resolve, reject) => {
     init.signal.addEventListener('abort', () => reject(new Error('aborted')));
@@ -574,6 +613,21 @@ test('compute script enforces timeout', async () => {
       mode: 'script',
       script: 'function process(input) { while (true) {} }',
       script_timeout_ms: 50,
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /timed out/);
+});
+
+test('compute wasm enforces timeout', async () => {
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      wasm_base64: TEST_WASM_LOOP_BASE64,
+      wasm_timeout_ms: 50,
       target_chain: 'neo_n3'
     }),
   }));

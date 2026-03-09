@@ -16,7 +16,7 @@ async function run(workerData) {
 
   if (mode === "oracle") {
     const sandbox = { data, context, helpers, __result: undefined };
-    vm.createContext(sandbox);
+    vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } });
     const compiled = new vm.Script(
       `${script}\nif (typeof process !== 'function') throw new Error('script must define process(data, context, helpers)');\n__result = process(data, context, helpers);`,
     );
@@ -25,7 +25,7 @@ async function run(workerData) {
   }
 
   const sandbox = { input, helpers, __result: undefined };
-  vm.createContext(sandbox);
+  vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } });
   const compiled = new vm.Script(
     `${script}\nconst __target = typeof ${entryPoint} === 'function' ? ${entryPoint} : (typeof process === 'function' ? process : null);\nif (!__target) throw new Error('entry point not found');\n__result = __target(input, helpers);`,
   );
