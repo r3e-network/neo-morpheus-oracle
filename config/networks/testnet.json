@@ -13,9 +13,9 @@
     "rpc_url": "https://neoxt4seed1.ngd.network",
     "chain_id": 12227332,
     "contracts": {
-      "morpheus_oracle_x": "0x1859A05dFD42c92cF2741451B698E9790511DB2c",
-      "oracle_callback_consumer_x": "0x995770dAcdE9365aC3f45521CaD035A561af791b",
-      "morpheus_datafeed_x": "0xE4ad8631C8C35c656f52879F357168F76088C3AB"
+      "morpheus_oracle_x": "0x453327a4edb8dD9A4A1013908f25159375ebcf24",
+      "oracle_callback_consumer_x": "0xFa5F8d236b7E1c7B6c0bCCcF7154DF8beB881B3e",
+      "morpheus_datafeed_x": "0x8BAc255F52Ec830CCd7fE3Ac1B1C2bC92a718d81"
     }
   }
 }
