@@ -46,12 +46,18 @@ For your current codebase, I recommend:
 ## Deploy steps
 
 1. Build and push both images
-2. Copy `docker-compose.yml` and `morpheus.env` into the CVM
+2. Copy `docker-compose.yml`, `morpheus.env`, and optionally `Caddyfile` into the CVM
 3. Fill `morpheus.env` from `morpheus.env.example`
 4. Start services:
 
 ```bash
 docker compose -f docker-compose.yml up -d
+```
+
+If you want Caddy as the public edge proxy:
+
+```bash
+docker compose --profile edge -f docker-compose.yml up -d
 ```
 
 5. Verify worker:
@@ -70,5 +76,6 @@ docker exec -it morpheus-relayer npm --prefix workers/morpheus-relayer run metri
 
 - keep the real env file only inside the CVM
 - do not commit `morpheus.env`
+- use `Caddyfile` only for the public worker edge; keep relayer internal
 - mount `/var/run/tappd.sock` so you can later integrate Phala attestation / derived keys
 - current code is CVM-ready, but full `tappd` integration is still a next step

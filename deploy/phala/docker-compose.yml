@@ -18,6 +18,22 @@ services:
       retries: 3
       start_period: 15s
 
+  caddy:
+    image: caddy:2-alpine
+    container_name: morpheus-caddy
+    restart: unless-stopped
+    depends_on:
+      phala-worker:
+        condition: service_healthy
+    profiles: ["edge"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
   morpheus-relayer:
     image: ${MORPHEUS_RELAYER_IMAGE}
     container_name: morpheus-relayer
@@ -36,3 +52,5 @@ services:
 
 volumes:
   morpheus-data:
+  caddy-data:
+  caddy-config:

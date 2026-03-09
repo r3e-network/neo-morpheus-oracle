@@ -52,6 +52,7 @@ Deployment files:
 - `workers/phala-worker/Dockerfile`
 - `workers/morpheus-relayer/Dockerfile`
 - `deploy/phala/docker-compose.yml`
+- `deploy/phala/Caddyfile`
 - `deploy/phala/morpheus.env.example`
 - `deploy/phala/README.md`
 

@@ -7,11 +7,13 @@
 - `node scripts/setup-morpheus.mjs`
 - `npm run publish:oracle-key`
 - `npm run write:addresses`
+- `npm run verify:n3`
 
 ## Neo X contracts
 
 - `node scripts/deploy-neox-contracts.mjs`
 - `node scripts/setup-neox-addresses.mjs`
+- `npm run verify:neox`
 
 ## Relayer
 
