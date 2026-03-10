@@ -24,6 +24,7 @@ import {
 const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 15_000;
+const FEED_PRICE_DECIMALS = 2;
 
 let feedStateCache;
 
@@ -43,7 +44,7 @@ export function normalizePairSymbol(rawSymbol) {
   return `${raw}-USD`;
 }
 
-export function decimalToIntegerString(value, decimals = 8) {
+export function decimalToIntegerString(value, decimals = FEED_PRICE_DECIMALS) {
   const raw = trimString(value);
   if (!raw) throw new Error('decimal value required');
   const sign = raw.startsWith('-') ? -1n : 1n;
@@ -176,7 +177,7 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     pair,
     provider,
     price: String(price),
-    decimals: Number(resolvedPayload.decimals || options.decimals || 8),
+    decimals: FEED_PRICE_DECIMALS,
     timestamp: new Date().toISOString(),
     sources: [provider],
   };
@@ -272,9 +273,12 @@ async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, r
     `0x${strip0x(quote.attestation_hash || '0')}`.padEnd(66, '0'),
     BigInt(sourceSetId),
   ]);
+  const updaterPrivateKey = trimString(payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY'));
   return relayNeoXTransaction({
     ...payload,
     target_chain: 'neo_x',
+    private_key: updaterPrivateKey || undefined,
+    use_derived_keys: payload.use_derived_keys ?? false,
     to: dataFeedAddress,
     data,
     value: '0',

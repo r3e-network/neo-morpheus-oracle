@@ -12,6 +12,10 @@ export function normalizeRequestType(value) {
   return trimString(value).toLowerCase().replace(/[\s-]+/g, "_");
 }
 
+export function isOperatorOnlyRequestType(value) {
+  return normalizeRequestType(value).includes("feed");
+}
+
 export function decodePayloadText(rawPayload) {
   const text = trimString(rawPayload);
   if (!text) return {};
