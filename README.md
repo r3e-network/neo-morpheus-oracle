@@ -9,7 +9,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 
 - **Privacy Oracle** — fetches private or public external data inside Phala TEE
 - **Privacy Compute** — runs built-in high-cost compute functions and programmable scripts
-- **Datafeed** — publishes signed market data and feed snapshots
+- **Datafeed** — operator-synchronized on-chain market data stored as integer cents
 - **Relay + Signing** — signs and relays responses for both **Neo N3** and **Neo X**
 
 ## Runtime Model
@@ -17,8 +17,16 @@ This project gives the Neo blockchain the same thing: **truth**.
 - **Frontend / control plane**: Next.js, deployable to Vercel
 - **State / auth / encrypted secret storage**: Supabase
 - **Trusted execution**: Phala TEE worker
-  - **Live Testnet TEE Node**: [https://8e8adc6c7814c5480240abb3de927ed106a5c4de-8090.dstack-pha-prod9.phala.network/](https://8e8adc6c7814c5480240abb3de927ed106a5c4de-8090.dstack-pha-prod9.phala.network/)
+  - **Live TEE Endpoint**: [https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network](https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network)
 - **Chains**: Neo N3 + Neo X
+
+## Production Usage Model
+
+- End users use Oracle and Compute through on-chain requests plus callback fulfillment.
+- Datafeed sync is operator-only. User contracts read the synchronized on-chain feed state directly.
+- Request fee is `0.01 GAS`-equivalent per request.
+- Neo N3 supports prepaid request credits, including contract-sponsored fee payment.
+- Neo X requires the exact request fee in `msg.value`.
 
 ## Project Layout
 
@@ -56,9 +64,12 @@ npm --prefix apps/web run dev
 - `docs/USER_GUIDE.md`
 - `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/BUILTIN_COMPUTE.md`
+- `docs/EXAMPLES.md` — bilingual end-to-end calling patterns for Oracle, Compute, encrypted params, WASM, and pricefeeds
 - `docs/PROVIDERS.md`
 - `docs/RELAYER.md`
 - `docs/DEPLOYMENT.md`
+- `docs/ENVIRONMENT.md`
+- `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 - `docs/TESTNET_RUNBOOK.md`
 - `docs/SECURITY_AUDIT.md`
 - `docs/ATTESTATION_SPEC.md`

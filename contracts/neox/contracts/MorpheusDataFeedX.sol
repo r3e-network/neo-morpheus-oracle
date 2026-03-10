@@ -51,6 +51,30 @@ contract MorpheusDataFeedX {
     }
 
     function updateFeed(string calldata pair, uint256 roundId, uint256 price, uint256 timestamp, bytes32 attestationHash, uint256 sourceSetId) external onlyUpdater {
+        _updateFeed(pair, roundId, price, timestamp, attestationHash, sourceSetId);
+    }
+
+    function updateFeeds(
+        string[] calldata pairs,
+        uint256[] calldata roundIds,
+        uint256[] calldata prices,
+        uint256[] calldata timestamps,
+        bytes32[] calldata attestationHashes,
+        uint256[] calldata sourceSetIds
+    ) external onlyUpdater {
+        require(pairs.length > 0, "pairs required");
+        require(roundIds.length == pairs.length, "roundIds length mismatch");
+        require(prices.length == pairs.length, "prices length mismatch");
+        require(timestamps.length == pairs.length, "timestamps length mismatch");
+        require(attestationHashes.length == pairs.length, "attestationHashes length mismatch");
+        require(sourceSetIds.length == pairs.length, "sourceSetIds length mismatch");
+
+        for (uint256 index = 0; index < pairs.length; index += 1) {
+            _updateFeed(pairs[index], roundIds[index], prices[index], timestamps[index], attestationHashes[index], sourceSetIds[index]);
+        }
+    }
+
+    function _updateFeed(string calldata pair, uint256 roundId, uint256 price, uint256 timestamp, bytes32 attestationHash, uint256 sourceSetId) internal {
         require(bytes(pair).length > 0, "pair required");
         bytes32 key = keccak256(bytes(pair));
         if (!knownPairs[key]) {

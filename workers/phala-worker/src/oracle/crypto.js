@@ -19,6 +19,11 @@ import { validateUserScriptSource } from "../platform/script-policy.js";
 
 let oracleKeyMaterialPromise;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
+const HYBRID_ENVELOPE_VERSION = 1;
+const HYBRID_ENVELOPE_ALGORITHM = "RSA-OAEP-AES-256-GCM";
+const AES_GCM_KEY_LENGTH_BYTES = 32;
+const AES_GCM_IV_LENGTH_BYTES = 12;
+const AES_GCM_TAG_LENGTH_BYTES = 16;
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -170,6 +175,55 @@ function resolveEncryptedConfidentialPayload(payload) {
   );
 }
 
+function parseHybridEnvelope(ciphertext) {
+  try {
+    const decoded = Buffer.from(decodeBase64(ciphertext)).toString("utf8");
+    const parsed = JSON.parse(decoded);
+    if (!isPlainObject(parsed)) return null;
+    if (Number(parsed.version) !== HYBRID_ENVELOPE_VERSION) return null;
+    if (trimString(parsed.algorithm) !== HYBRID_ENVELOPE_ALGORITHM) return null;
+    if (!trimString(parsed.encrypted_key) || !trimString(parsed.iv) || !trimString(parsed.ciphertext) || !trimString(parsed.tag)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function decryptHybridEnvelope(envelope, privateKey) {
+  const wrappedKey = privateDecrypt(
+    {
+      key: privateKey,
+      oaepHash: "sha256",
+      padding: constants.RSA_PKCS1_OAEP_PADDING,
+    },
+    decodeBase64(envelope.encrypted_key),
+  );
+
+  if (wrappedKey.length !== AES_GCM_KEY_LENGTH_BYTES) {
+    throw new Error("invalid hybrid envelope key length");
+  }
+
+  const iv = decodeBase64(envelope.iv);
+  if (iv.length !== AES_GCM_IV_LENGTH_BYTES) {
+    throw new Error("invalid hybrid envelope iv length");
+  }
+
+  const tag = decodeBase64(envelope.tag);
+  if (tag.length !== AES_GCM_TAG_LENGTH_BYTES) {
+    throw new Error("invalid hybrid envelope tag length");
+  }
+
+  const decipher = createDecipheriv("aes-256-gcm", wrappedKey, iv);
+  decipher.setAuthTag(tag);
+  const plaintext = Buffer.concat([
+    decipher.update(decodeBase64(envelope.ciphertext)),
+    decipher.final(),
+  ]);
+  return plaintext.toString("utf8");
+}
+
 export async function ensureOracleKeyMaterial(payload = {}) {
   if (!oracleKeyMaterialPromise) {
     oracleKeyMaterialPromise = (async () => {
@@ -196,6 +250,10 @@ export async function ensureOracleKeyMaterial(payload = {}) {
 export async function decryptEncryptedToken(ciphertext, payload = {}) {
   if (!ciphertext) return null;
   const { privateKey } = await ensureOracleKeyMaterial(payload);
+  const hybridEnvelope = parseHybridEnvelope(ciphertext);
+  if (hybridEnvelope) {
+    return decryptHybridEnvelope(hybridEnvelope, privateKey);
+  }
   const plaintext = privateDecrypt(
     {
       key: privateKey,
@@ -249,8 +307,12 @@ export async function executeProgrammableOracle(payload, context) {
   const wasmModuleBase64 = resolveWasmModuleBase64(payload);
   if (wasmModuleBase64) {
     const timeoutMs = parseDurationMs(
-      payload.wasm_timeout_ms || payload.script_timeout_ms || payload.oracle_script_timeout_ms || env("ORACLE_WASM_TIMEOUT_MS") || 15000,
-      15000,
+      payload.wasm_timeout_ms
+        || payload.script_timeout_ms
+        || payload.oracle_script_timeout_ms
+        || env("ORACLE_WASM_TIMEOUT_MS", "MORPHEUS_WASM_TIMEOUT_MS")
+        || 30000,
+      30000,
     );
     return {
       executed: true,

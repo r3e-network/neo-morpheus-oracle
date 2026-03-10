@@ -34,4 +34,27 @@ describe("MorpheusDataFeedX", function () {
     expect(records[1].pair).to.equal("BINANCE:NEO-USD");
     expect(records[1].sourceSetId).to.equal(2n);
   });
+
+  it("updates multiple feed pairs in one batch", async function () {
+    const [, updater] = await ethers.getSigners();
+    const Feed = await ethers.getContractFactory("MorpheusDataFeedX");
+    const feed = await Feed.deploy();
+    await feed.waitForDeployment();
+    await feed.setUpdater(await updater.getAddress());
+
+    await feed.connect(updater).updateFeeds(
+      ["TWELVEDATA:NEO-USD", "TWELVEDATA:GAS-USD"],
+      [1, 2],
+      [248, 555],
+      [1000, 1001],
+      [ethers.ZeroHash, ethers.ZeroHash],
+      [1, 1],
+    );
+
+    const neo = await feed.getLatest("TWELVEDATA:NEO-USD");
+    const gas = await feed.getLatest("TWELVEDATA:GAS-USD");
+    expect(neo.price).to.equal(248n);
+    expect(gas.price).to.equal(555n);
+    expect(await feed.getPairCount()).to.equal(2n);
+  });
 });

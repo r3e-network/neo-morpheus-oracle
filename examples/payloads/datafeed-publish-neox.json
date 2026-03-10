@@ -1,0 +1,5 @@
+{
+  "symbol": "NEO-USD",
+  "target_chain": "neo_x",
+  "broadcast": true
+}

@@ -31,7 +31,8 @@ await loadDotEnv();
 
 const ORACLE_ABI = [
   'event OracleRequested(uint256 indexed requestId, string requestType, address indexed requester, address indexed callbackContract, string callbackMethod, bytes payload)',
-  'function request(string requestType, bytes payload, address callbackContract, string callbackMethod) external returns (uint256 requestId)',
+  'function requestFee() view returns (uint256)',
+  'function request(string requestType, bytes payload, address callbackContract, string callbackMethod) external payable returns (uint256 requestId)',
 ];
 
 const CALLBACK_ABI = [
@@ -90,9 +91,11 @@ const provider = new JsonRpcProvider(rpcUrl);
 const wallet = new Wallet(privateKey, provider);
 const oracle = new Contract(oracleAddress, ORACLE_ABI, wallet);
 const consumer = new Contract(callbackAddress, CALLBACK_ABI, provider);
+const requestFee = await oracle.requestFee();
 
 const tx = await oracle.request(requestType, `0x${Buffer.from(JSON.stringify(payload), 'utf8').toString('hex')}`, callbackAddress, 'onOracleResult', {
   chainId,
+  value: requestFee,
 });
 const receipt = await tx.wait();
 const event = receipt.logs

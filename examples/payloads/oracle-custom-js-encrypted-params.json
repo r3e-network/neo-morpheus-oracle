@@ -1,0 +1,7 @@
+{
+  "url": "https://api.example.com/private",
+  "method": "GET",
+  "encrypted_token": "<rsa-oaep-ciphertext>",
+  "encrypted_params": "<rsa-oaep-ciphertext>",
+  "target_chain": "neo_x"
+}

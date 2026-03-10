@@ -1,0 +1,38 @@
+{
+  "updated_at": "2026-03-10T05:21:20.222Z",
+  "neo_x": {
+    "deployed_at": "2026-03-10T04:18:24.219Z",
+    "rpc_url": "https://neoxt4seed1.ngd.network",
+    "chain_id": 12227332,
+    "deployer": "0xE864216cdE1390FF3D52d2784BF965AC6e74ae99",
+    "oracle_address": "0x740DADC4D2b8249c8b22B4F2793bd942605F1db5",
+    "datafeed_address": "0x2E35a79BEA7808EBb8B72279cB34c1A73F80339C",
+    "example_consumer_address": "0x678407CD071f5b392af0e2E1BA8E32ab490A5DD6",
+    "example_feed_reader_address": "0xeFf38227acf402E3B089d735dD6A40835E34f72c",
+    "allowlisted": true,
+    "transactions": {
+      "consumer_deploy": "0x760dc8cc2348ad79444ee111ffcf74596809e78abe8ccacb0a24c314d8042e26",
+      "feed_reader_deploy": "0x198347c551efa9aab17c69171997d68f699a931421e5a860a5466f88c687a0a8",
+      "allow_callback": "0x9211442fc0e43e25ad93cb320df6d70fc20c44ecebbe5c34f499988f08db08ae"
+    }
+  },
+  "neo_n3": {
+    "deployed_at": "2026-03-10T05:21:20.225Z",
+    "rpc_url": "https://testnet1.neo.coz.io:443",
+    "network_magic": 894710606,
+    "deployer_address": "NTmHjwiadq4g3VHpJ5FQigQcD4fF5m8TyX",
+    "deployer_script_hash": "0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+    "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+    "datafeed_hash": "0x9bea75cf702f6afc09125aa6d22f082bfd2ee064",
+    "example_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+    "example_feed_reader_hash": "0xae9c17da3d8d1cc45b2a95f77ddce391b9bdcad4",
+    "allowlisted": true,
+    "consumer_oracle": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+    "transactions": {
+      "consumer_deploy": null,
+      "feed_reader_deploy": null,
+      "allow_callback": null,
+      "set_oracle": null
+    }
+  }
+}

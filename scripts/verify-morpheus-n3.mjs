@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
+import { loadDotEnv } from './lib-env.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -41,7 +42,11 @@ function parseStackItem(item) {
         if (bytes.length === 20) {
           return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
         }
-        return bytes.toString('utf8');
+        if (bytes.length === 33 || bytes.length === 65) {
+          return bytes.toString('hex');
+        }
+        const text = bytes.toString('utf8');
+        return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : bytes.toString('hex');
       } catch {
         return raw;
       }
@@ -70,6 +75,7 @@ function resolveExpectedUpdater() {
   const key = trimString(
     process.env.MORPHEUS_RELAYER_NEO_N3_WIF
       || process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY
+      || process.env.NEO_N3_WIF
       || process.env.PHALA_NEO_N3_WIF
       || process.env.PHALA_NEO_N3_PRIVATE_KEY
       || process.env.NEO_TESTNET_WIF
@@ -82,6 +88,8 @@ function resolveExpectedUpdater() {
 function resolveExpectedVerifierPublicKey() {
   return trimString(process.env.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY || process.env.PHALA_ORACLE_VERIFIER_PUBLIC_KEY || '');
 }
+
+await loadDotEnv();
 
 const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 const registry = await loadRegistry(network);

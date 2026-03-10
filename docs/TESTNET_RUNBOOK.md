@@ -20,8 +20,13 @@ Fill in at least:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - optional `MORPHEUS_PROVIDER_CONFIG_API_KEY` or `ADMIN_CONSOLE_API_KEY`
+- optional scoped admin keys:
+  - `MORPHEUS_RELAYER_ADMIN_API_KEY`
+  - `MORPHEUS_SIGNING_ADMIN_API_KEY`
+  - `MORPHEUS_RELAY_ADMIN_API_KEY`
+  - `MORPHEUS_OPERATOR_API_KEY`
 - optional `MORPHEUS_FEED_PROJECT_SLUG` and `MORPHEUS_FEED_PROVIDER`
-- `NEO_TESTNET_WIF`
+- `NEO_N3_WIF` (preferred) or legacy `NEO_TESTNET_WIF`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
 - `PHALA_NEOX_PRIVATE_KEY`
 - optional `TWELVEDATA_API_KEY`
@@ -34,6 +39,8 @@ Run:
 - `supabase/migrations/0002_morpheus_policies_and_seeds.sql`
 - `supabase/migrations/0003_provider_configs.sql`
 - `supabase/migrations/0004_relayer_ops.sql`
+- `supabase/migrations/0005_operation_logs.sql`
+- `supabase/migrations/0006_automation.sql`
 - optional `supabase/seed.sql`
 
 ## 4. Build contracts

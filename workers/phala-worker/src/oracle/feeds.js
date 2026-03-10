@@ -24,8 +24,13 @@ import {
 const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 15_000;
+const FEED_PRICE_DECIMALS = 2;
 
 let feedStateCache;
+
+export function __resetFeedStateForTests() {
+  feedStateCache = undefined;
+}
 
 export function normalizePairSymbol(rawSymbol) {
   const raw = trimString(rawSymbol).toUpperCase();
@@ -43,7 +48,7 @@ export function normalizePairSymbol(rawSymbol) {
   return `${raw}-USD`;
 }
 
-export function decimalToIntegerString(value, decimals = 8) {
+export function decimalToIntegerString(value, decimals = FEED_PRICE_DECIMALS) {
   const raw = trimString(value);
   if (!raw) throw new Error('decimal value required');
   const sign = raw.startsWith('-') ? -1n : 1n;
@@ -114,11 +119,16 @@ function extractQuotePrice(response) {
 }
 
 function buildSyncPolicy(targetChain, payload = {}) {
-  const isMainnetN3 = targetChain === 'neo_n3' && trimString(payload.network || env('MORPHEUS_NETWORK')).toLowerCase() === 'mainnet';
-  const thresholdSource = payload.feed_change_threshold_bps || (isMainnetN3 ? (env('MORPHEUS_FEED_CHANGE_THRESHOLD_BPS') || `${MAINNET_FEED_CHANGE_THRESHOLD_BPS}`) : '0');
-  const intervalSource = payload.feed_min_update_interval_ms || (isMainnetN3 ? (env('MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS') || `${MAINNET_FEED_MIN_UPDATE_INTERVAL_MS}ms`) : '0');
+  const thresholdCandidate = payload.feed_change_threshold_bps ?? env('MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
+  const intervalCandidate = payload.feed_min_update_interval_ms ?? env('MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
+  const thresholdSource = thresholdCandidate === "" || thresholdCandidate === undefined || thresholdCandidate === null
+    ? `${MAINNET_FEED_CHANGE_THRESHOLD_BPS}`
+    : thresholdCandidate;
+  const intervalSource = intervalCandidate === "" || intervalCandidate === undefined || intervalCandidate === null
+    ? `${MAINNET_FEED_MIN_UPDATE_INTERVAL_MS}ms`
+    : intervalCandidate;
   const thresholdBps = Number(thresholdSource || 0);
-  const minUpdateIntervalMs = parseDurationMs(intervalSource, isMainnetN3 ? MAINNET_FEED_MIN_UPDATE_INTERVAL_MS : 0);
+  const minUpdateIntervalMs = parseDurationMs(intervalSource, MAINNET_FEED_MIN_UPDATE_INTERVAL_MS);
   return {
     thresholdBps: Math.max(Number.isFinite(thresholdBps) ? thresholdBps : 0, 0),
     minUpdateIntervalMs: Math.max(minUpdateIntervalMs, 0),
@@ -137,12 +147,13 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
   if (!previousRecord) return { allow: true, reason: 'first-observation' };
 
   const now = Date.now();
-  const lastSubmittedAt = Number(previousRecord.last_submitted_at_ms || 0);
-  if (policy.minUpdateIntervalMs > 0 && lastSubmittedAt > 0 && (now - lastSubmittedAt) < policy.minUpdateIntervalMs) {
+  const lastObservedAt = Number(previousRecord.last_observed_at_ms || previousRecord.last_submitted_at_ms || 0);
+  if (policy.minUpdateIntervalMs > 0 && lastObservedAt > 0 && (now - lastObservedAt) < policy.minUpdateIntervalMs) {
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
-  const changeBps = computeChangeBps(previousRecord.price, quote.price);
+  const previousObservedPrice = previousRecord.last_observed_price || previousRecord.price;
+  const changeBps = computeChangeBps(previousObservedPrice, quote.price);
   if (policy.thresholdBps > 0 && changeBps < policy.thresholdBps) {
     return { allow: false, reason: 'price-change-below-threshold', change_bps: changeBps, storage_key: storageKey };
   }
@@ -176,7 +187,7 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     pair,
     provider,
     price: String(price),
-    decimals: Number(resolvedPayload.decimals || options.decimals || 8),
+    decimals: FEED_PRICE_DECIMALS,
     timestamp: new Date().toISOString(),
     sources: [provider],
   };
@@ -260,6 +271,29 @@ async function submitQuoteToN3(dataFeedHash, neoContext, payload, quote, storage
   return invokeResult.body;
 }
 
+async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
+  const invokeResult = await relayNeoN3Invocation({
+    request_id: trimString(payload.request_id) || `pricefeed:batch:${Date.now()}`,
+    contract_hash: dataFeedHash,
+    method: 'updateFeeds',
+    params: [
+      { type: 'Array', value: updates.map((entry) => ({ type: 'String', value: entry.storagePair })) },
+      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: entry.roundId })) },
+      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: decimalToIntegerString(entry.quote.price, entry.quote.decimals) })) },
+      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: String(entry.timestampSec) })) },
+      { type: 'Array', value: updates.map((entry) => ({ type: 'ByteArray', value: entry.quote.attestation_hash })) },
+      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: String(entry.sourceSetId) })) },
+    ],
+    wait: Boolean(payload.wait ?? true),
+    rpc_url: neoContext.rpcUrl,
+    network_magic: neoContext.networkMagic,
+  });
+  if (invokeResult.status >= 400) {
+    throw new Error(invokeResult.body?.error || 'Neo N3 batch feed submit failed');
+  }
+  return invokeResult.body;
+}
+
 async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, roundId, sourceSetId) {
   const feedInterface = new Interface([
     'function updateFeed(string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)',
@@ -272,9 +306,12 @@ async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, r
     `0x${strip0x(quote.attestation_hash || '0')}`.padEnd(66, '0'),
     BigInt(sourceSetId),
   ]);
+  const updaterPrivateKey = trimString(payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY'));
   return relayNeoXTransaction({
     ...payload,
     target_chain: 'neo_x',
+    private_key: updaterPrivateKey || undefined,
+    use_derived_keys: payload.use_derived_keys ?? false,
     to: dataFeedAddress,
     data,
     value: '0',
@@ -282,17 +319,51 @@ async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, r
   });
 }
 
+async function submitQuotesToNeoX(dataFeedAddress, payload, updates) {
+  const feedInterface = new Interface([
+    'function updateFeeds(string[] pairs,uint256[] roundIds,uint256[] prices,uint256[] timestamps,bytes32[] attestationHashes,uint256[] sourceSetIds)',
+  ]);
+  const data = feedInterface.encodeFunctionData('updateFeeds', [
+    updates.map((entry) => entry.storagePair),
+    updates.map((entry) => BigInt(entry.roundId)),
+    updates.map((entry) => BigInt(decimalToIntegerString(entry.quote.price, entry.quote.decimals))),
+    updates.map((entry) => BigInt(entry.timestampSec)),
+    updates.map((entry) => `0x${strip0x(entry.quote.attestation_hash || '0')}`.padEnd(66, '0')),
+    updates.map((entry) => BigInt(entry.sourceSetId)),
+  ]);
+  const updaterPrivateKey = trimString(payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY'));
+  return relayNeoXTransaction({
+    ...payload,
+    target_chain: 'neo_x',
+    private_key: updaterPrivateKey || undefined,
+    use_derived_keys: payload.use_derived_keys ?? false,
+    to: dataFeedAddress,
+    data,
+    value: '0',
+    wait: Boolean(payload.wait ?? true),
+  });
+}
+
+function resolveRequestedSymbols(payload = {}) {
+  const explicitSymbols = Array.isArray(payload.symbols)
+    ? payload.symbols
+    : parseProviderList(payload.symbols || payload.symbol_list || '', []);
+  if (Array.isArray(explicitSymbols) && explicitSymbols.length > 0) {
+    return explicitSymbols.map((symbol) => normalizePairSymbol(symbol));
+  }
+  if (trimString(payload.symbol)) return [normalizePairSymbol(payload.symbol)];
+  return getDefaultFeedSymbols().map((symbol) => normalizePairSymbol(symbol));
+}
+
 export async function handleOracleFeed(payload) {
   const targetChain = trimString(payload.target_chain || 'neo_n3').toLowerCase() || 'neo_n3';
-  const symbol = normalizePairSymbol(payload.symbol || 'NEO-USD');
-  const quoteSet = await fetchPriceQuotes(symbol, payload);
-  if (quoteSet.quotes.length === 0) {
-    return json(502, { mode: 'pricefeed', target_chain: targetChain, pair: symbol, providers_requested: quoteSet.providers_requested, errors: quoteSet.errors });
-  }
+  const symbols = resolveRequestedSymbols(payload);
 
   const policy = buildSyncPolicy(targetChain, payload);
   const state = await loadFeedState();
   const syncResults = [];
+  const batchUpdates = [];
+  const errors = [];
 
   const dataFeedHash = targetChain === 'neo_n3'
     ? normalizeNeoHash160(env('CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'))
@@ -304,56 +375,90 @@ export async function handleOracleFeed(payload) {
     ? trimString(env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
     : null;
 
-  for (const quote of quoteSet.quotes) {
-    const storagePair = getFeedStoragePair(quote.provider, quote.pair);
-    const previousRecord = state.records[storagePair] || null;
-    const decision = shouldSubmitFeed(storagePair, quote, previousRecord, policy, Boolean(payload.force));
-    const roundId = trimString(payload.round_id) || buildRoundId(previousRecord);
-    const sourceSetId = Number(payload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0));
+  for (const symbol of symbols) {
+    const quoteSet = await fetchPriceQuotes(symbol, payload);
+    if (quoteSet.quotes.length === 0) {
+      errors.push({ symbol, providers_requested: quoteSet.providers_requested, errors: quoteSet.errors });
+      continue;
+    }
+    for (const quote of quoteSet.quotes) {
+      const storagePair = getFeedStoragePair(quote.provider, quote.pair);
+      const previousRecord = state.records[storagePair] || null;
+      const decision = shouldSubmitFeed(storagePair, quote, previousRecord, policy, Boolean(payload.force));
+      const roundId = trimString(payload.round_id) || buildRoundId(previousRecord);
+      const sourceSetId = Number(payload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0));
+      const timestampSec = Math.floor(Date.now() / 1000);
+      const observedAtMs = Date.now();
 
-    if (!decision.allow) {
+      if (!decision.allow) {
+        state.records[storagePair] = {
+          ...(previousRecord || {}),
+          provider: quote.provider,
+          pair: quote.pair,
+          storage_pair: storagePair,
+          last_observed_price: quote.price,
+          last_observed_at_ms: observedAtMs,
+        };
+        syncResults.push({
+          provider: quote.provider,
+          pair: quote.pair,
+          storage_pair: storagePair,
+          relay_status: 'skipped',
+          skip_reason: decision.reason,
+          change_bps: decision.change_bps ?? null,
+          quote,
+        });
+        continue;
+      }
+
+      batchUpdates.push({
+        quote,
+        storagePair,
+        roundId,
+        sourceSetId,
+        timestampSec,
+        observedAtMs,
+      });
       syncResults.push({
         provider: quote.provider,
         pair: quote.pair,
         storage_pair: storagePair,
-        relay_status: 'skipped',
-        skip_reason: decision.reason,
+        relay_status: 'queued',
         change_bps: decision.change_bps ?? null,
         quote,
       });
-      continue;
     }
+  }
 
-    let anchoredTx = null;
-    let relayStatus = 'skipped';
+  let batchTx = null;
+  if (batchUpdates.length > 0) {
     if (targetChain === 'neo_n3' && dataFeedHash && isConfiguredHash160(dataFeedHash) && neoContext) {
-      anchoredTx = await submitQuoteToN3(dataFeedHash, neoContext, payload, quote, storagePair, roundId, sourceSetId);
-      relayStatus = 'submitted';
+      batchTx = await submitQuotesToN3(dataFeedHash, neoContext, payload, batchUpdates);
     } else if (targetChain === 'neo_x' && dataFeedAddress) {
-      anchoredTx = await submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, roundId, sourceSetId);
-      relayStatus = 'submitted';
+      batchTx = await submitQuotesToNeoX(dataFeedAddress, payload, batchUpdates);
     }
+  }
 
-    state.records[storagePair] = {
-      provider: quote.provider,
-      pair: quote.pair,
-      storage_pair: storagePair,
-      price: quote.price,
-      round_id: roundId,
-      source_set_id: sourceSetId,
+  for (const entry of batchUpdates) {
+    state.records[entry.storagePair] = {
+      provider: entry.quote.provider,
+      pair: entry.quote.pair,
+      storage_pair: entry.storagePair,
+      price: entry.quote.price,
+      round_id: entry.roundId,
+      source_set_id: entry.sourceSetId,
       last_submitted_at_ms: Date.now(),
-      attestation_hash: quote.attestation_hash,
+      last_observed_price: entry.quote.price,
+      last_observed_at_ms: entry.observedAtMs,
+      attestation_hash: entry.quote.attestation_hash,
     };
+  }
 
-    syncResults.push({
-      provider: quote.provider,
-      pair: quote.pair,
-      storage_pair: storagePair,
-      relay_status: relayStatus,
-      anchored_tx: anchoredTx,
-      change_bps: decision.change_bps ?? null,
-      quote,
-    });
+  for (const result of syncResults) {
+    if (result.relay_status === 'queued') {
+      result.relay_status = batchTx ? 'submitted' : 'skipped';
+      result.anchored_tx = batchTx;
+    }
   }
 
   await saveFeedState(state);
@@ -361,10 +466,12 @@ export async function handleOracleFeed(payload) {
   return json(200, {
     mode: 'pricefeed',
     target_chain: targetChain,
-    pair: symbol,
-    providers_requested: quoteSet.providers_requested,
+    symbols,
+    batch_submitted: batchUpdates.length > 0,
+    batch_count: batchUpdates.length,
+    batch_tx: batchTx,
     sync_results: syncResults,
-    errors: quoteSet.errors,
+    errors,
   });
 }
 

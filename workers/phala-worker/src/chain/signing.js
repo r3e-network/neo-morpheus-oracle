@@ -45,7 +45,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   let privateKey = trimString(payload.private_key)
     || trimString(payload.signing_key)
     || trimString(payload.wif)
-    || trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
+    || trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
   if (shouldUseDerivedKeys(payload)) {
     try {
       privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");
@@ -66,7 +66,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
 }
 
 async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
-  let privateKey = trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
+  let privateKey = trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
   if (shouldUseDerivedKeys(payload)) {
     try {
       privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");

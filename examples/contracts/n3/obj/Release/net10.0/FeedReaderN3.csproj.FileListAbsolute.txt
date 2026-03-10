@@ -1,0 +1,13 @@
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/bin/Release/net10.0/FeedReaderN3.deps.json
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/bin/Release/net10.0/FeedReaderN3.dll
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/bin/Release/net10.0/FeedReaderN3.pdb
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.csproj.AssemblyReference.cache
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.GeneratedMSBuildEditorConfig.editorconfig
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.AssemblyInfoInputs.cache
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.AssemblyInfo.cs
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.csproj.CoreCompileInputs.cache
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.sourcelink.json
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.dll
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/refint/FeedReaderN3.dll
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/FeedReaderN3.pdb
+/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/Release/net10.0/ref/FeedReaderN3.dll

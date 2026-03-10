@@ -70,7 +70,10 @@ export async function relayNeoXTransaction(payload) {
   if (!rawTransaction) {
     transactionRequest = normalizeEvmTransaction(payload);
     if (!transactionRequest.chainId && context.chainId) transactionRequest.chainId = context.chainId;
-    rawTransaction = await context.wallet.signTransaction(transactionRequest);
+    const prepared = context.provider
+      ? await context.wallet.populateTransaction(transactionRequest)
+      : transactionRequest;
+    rawTransaction = await context.wallet.signTransaction(prepared);
   }
 
   if (payload.broadcast === false) {

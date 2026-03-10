@@ -23,6 +23,7 @@ The relayer maps `requestType` plus payload shape to worker routes:
 - `datafeed` / `pricefeed` / `feed` → `/oracle/feed`
 - `vrf` / `random` → `/vrf/random`
 - `privacy_oracle` and other Oracle requests → `/oracle/smart-fetch`
+- `datafeed` / `pricefeed` / `feed` → `/oracle/feed` internally for operator sync only
 - The relayer prefers the compact smart-fetch response over raw query output
 
 ## Commands
@@ -72,6 +73,20 @@ Config knobs:
 - `MORPHEUS_RELAYER_DEAD_LETTER_LIMIT`
 - `MORPHEUS_RELAYER_LOG_FORMAT`
 - `MORPHEUS_RELAYER_LOG_LEVEL`
+- `MORPHEUS_RELAYER_NEO_N3_START_BLOCK`
+- `MORPHEUS_RELAYER_NEO_X_START_BLOCK`
+
+Checkpoint note:
+
+- if a saved checkpoint is ahead of the current confirmed chain tip, the relayer now resets that chain checkpoint to the configured start block instead of stalling forever
+
+检查点说明：
+
+- 如果已保存的 checkpoint 高于当前已确认链高度，relayer 现在会自动回退到配置的起始区块，而不是永久卡住
+
+Neo N3 txproxy note:
+
+- the Neo N3 txproxy allowlist now permits both `fulfillRequest` and `queueAutomationRequest` on the Morpheus Oracle contract so automation executions can be queued on-chain
 
 ## Supabase Persistence
 

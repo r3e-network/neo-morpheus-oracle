@@ -8,6 +8,15 @@ This guide explains how to use the three main Morpheus capabilities:
 
 It also explains how to inspect supported built-in providers and feed pairs.
 
+Important production rule:
+
+- End users should use Oracle and Compute through the on-chain Morpheus Oracle contracts plus callback fulfillment.
+- The direct HTTP routes in this guide are for local development, operator workflows, and payload debugging.
+- `datafeed` sync is operator-only. User contracts read synchronized on-chain feed records directly.
+- Each request currently costs `0.01 GAS`-equivalent.
+- Neo N3 supports prepaid fee credits, including contract-sponsored payment.
+- Neo X requires the exact fee in `msg.value`.
+
 ## 1. Concepts
 
 ### Privacy Compute
@@ -30,18 +39,22 @@ Typical cases:
 - return only a boolean / score / filtered result on-chain
 
 ### PriceFeed / DataFeed
-Use Morpheus to continuously or on-demand publish price pairs to the on-chain datafeed contracts.
+Use Morpheus datafeeds as operator-synchronized on-chain price storage that user contracts read directly.
 
 Important properties:
 
 - all feed pairs are normalized to `*-USD`
 - Morpheus does **not** aggregate or medianize providers
 - each provider is stored independently on-chain as `PROVIDER:PAIR`
+- prices are stored as integer cents with exactly two decimals of precision
 - example storage pairs:
   - `TWELVEDATA:NEO-USD`
   - `BINANCE-SPOT:NEO-USD`
 
 ## 2. Privacy Compute Usage
+
+These direct `/compute/*` HTTP examples are for development and operator testing. In production, the same payloads
+should be carried through the on-chain request + callback path.
 
 ### Built-in functions
 
@@ -133,6 +146,9 @@ The worker decrypts that JSON object inside the TEE, merges it into the request,
 
 ## 3. Privacy Oracle Usage
 
+These direct `/oracle/*` HTTP examples are also development/operator paths. End-user dApps should submit the payload
+through the Oracle contract and wait for the callback result.
+
 There are two main paths.
 
 ### A. Built-in provider mode
@@ -202,6 +218,8 @@ Important notes:
 - `encrypted_token` is the cleanest choice when only an auth secret must stay private
 - `encrypted_params`, `encrypted_input`, or a JSON-object `encrypted_payload` can carry confidential headers, provider params, compute input, function names, or scripts
 - `encrypted_payload` remains supported as a backward-compatible alias for encrypted auth tokens too
+- for small payloads, raw `RSA-OAEP-SHA256` ciphertext still works
+- for larger confidential payloads, prefer the hybrid envelope `RSA-OAEP-AES-256-GCM`
 
 ### Oracle public key
 
@@ -224,6 +242,8 @@ Returned fields:
 - `public_key`
 - `public_key_pem`
 - `key_source`
+- `recommended_payload_encryption`
+- `supported_payload_encryption`
 
 ## 4. PriceFeed / DataFeed Usage
 
@@ -284,6 +304,9 @@ If one source fails, the other is still returned.
 
 ### Trigger an on-chain feed sync
 
+This flow is operator-only. End users should not request `datafeed` through the Oracle contract. If they do, the
+request is rejected and finalized with a failure callback.
+
 Web cron route:
 
 ```bash
@@ -335,6 +358,7 @@ This means contracts can choose:
 - one specific provider pair
 - all stored pairs
 - all feed records
+- a price format that is always integer cents, for example `249` = `2.49`
 
 ### New on-chain DataFeed read methods
 

@@ -1,5 +1,6 @@
 import { appConfig } from "@/lib/config";
 import { parseFeedProviders, parseFeedSymbols } from "@/lib/feed-defaults";
+import { recordOperationLog } from "@/lib/operation-logs";
 import { resolveProviderAwarePayload } from "@/lib/provider-configs";
 
 function isAuthorized(request: Request) {
@@ -11,15 +12,37 @@ function isAuthorized(request: Request) {
 
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
-    return Response.json({ error: "unauthorized" }, { status: 401 });
+    const body = { error: "unauthorized" };
+    await recordOperationLog({
+      route: "/api/cron/feed",
+      method: "GET",
+      category: "feed",
+      requestPayload: Object.fromEntries(new URL(request.url).searchParams.entries()),
+      responsePayload: body,
+      httpStatus: 401,
+      error: "unauthorized",
+    });
+    return Response.json(body, { status: 401 });
   }
 
   if (!appConfig.phalaApiUrl) {
-    return Response.json({ error: "PHALA_API_URL is not configured" }, { status: 500 });
+    const body = { error: "PHALA_API_URL is not configured" };
+    await recordOperationLog({
+      route: "/api/cron/feed",
+      method: "GET",
+      category: "feed",
+      requestPayload: Object.fromEntries(new URL(request.url).searchParams.entries()),
+      responsePayload: body,
+      httpStatus: 500,
+      error: body.error,
+    });
+    return Response.json(body, { status: 500 });
   }
 
   const routeUrl = new URL(request.url);
   const symbols = parseFeedSymbols(process.env.MORPHEUS_FEED_SYMBOLS);
+  const explicitTargetChain = (routeUrl.searchParams.get("target_chain") || "").trim();
+  const targetChains = explicitTargetChain ? [explicitTargetChain] : ["neo_n3", "neo_x"];
   const configuredProjectSlug = (routeUrl.searchParams.get("project_slug") || process.env.MORPHEUS_FEED_PROJECT_SLUG || "").trim();
   const configuredProvider = (routeUrl.searchParams.get("provider") || process.env.MORPHEUS_FEED_PROVIDER || "").trim();
   const configuredProviders = parseFeedProviders(routeUrl.searchParams.get("providers") || process.env.MORPHEUS_FEED_PROVIDERS || "");
@@ -31,13 +54,13 @@ export async function GET(request: Request) {
   }
 
   const results = await Promise.all(
-    symbols.map(async (symbol) => {
+    targetChains.map(async (targetChain) => {
       try {
         const payload: Record<string, unknown> = {
-          symbol,
+          symbols,
+          target_chain: targetChain,
           wait: false,
           project_slug: configuredProjectSlug || undefined,
-          sync_all_sources: true,
         };
         if (configuredProvider) {
           payload.provider = configuredProvider;
@@ -61,13 +84,13 @@ export async function GET(request: Request) {
         });
         const text = await response.text();
         try {
-          return { symbol, status: response.status, body: JSON.parse(text) };
+          return { target_chain: targetChain, status: response.status, body: JSON.parse(text) };
         } catch {
-          return { symbol, status: response.status, body: text };
+          return { target_chain: targetChain, status: response.status, body: text };
         }
       } catch (error) {
         return {
-          symbol,
+          target_chain: targetChain,
           status: 400,
           body: { error: error instanceof Error ? error.message : String(error) },
         };
@@ -75,11 +98,27 @@ export async function GET(request: Request) {
     }),
   );
 
-  return Response.json({
+  const finalBody = {
     ok: true,
     project_slug: configuredProjectSlug || null,
     provider: configuredProvider || null,
     providers: configuredProviders,
     results,
+  };
+  await recordOperationLog({
+    route: "/api/cron/feed",
+    method: "GET",
+    category: "feed",
+    requestPayload: {
+      ...Object.fromEntries(routeUrl.searchParams.entries()),
+      project_slug: configuredProjectSlug || undefined,
+      provider: configuredProvider || undefined,
+      providers: configuredProviders,
+      symbols,
+      target_chains: targetChains,
+    },
+    responsePayload: finalBody,
+    httpStatus: 200,
   });
+  return Response.json(finalBody);
 }
