@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+const FULFILLMENT_SIGNATURE_DOMAIN = Buffer.from("morpheus-fulfillment-v2", "utf8");
 
 function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -8,8 +9,27 @@ function sha256Hex(value) {
   return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
 }
 
+function sha256Buffer(value) {
+  const buffer = Buffer.isBuffer(value)
+    ? value
+    : value instanceof Uint8Array
+      ? Buffer.from(value)
+      : Buffer.from(String(value ?? ""), "utf8");
+  return createHash("sha256").update(buffer).digest();
+}
+
+function encodeUint256Bytes(value) {
+  const numeric = BigInt(String(value ?? "0"));
+  if (numeric < 0n) throw new Error("uint256 value must be non-negative");
+  return Buffer.from(numeric.toString(16).padStart(64, "0"), "hex");
+}
+
 export function normalizeRequestType(value) {
   return trimString(value).toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+export function isOperatorOnlyRequestType(value) {
+  return normalizeRequestType(value).includes("feed");
 }
 
 export function decodePayloadText(rawPayload) {
@@ -37,6 +57,18 @@ export function buildWorkerPayload(chain, requestType, payload, requestId) {
     request_source: `morpheus-relayer:${chain}`,
     target_chain: payload.target_chain || chain,
   };
+}
+
+export function buildFulfillmentDigestBytes(requestId, requestType, success, result, error) {
+  const successByte = Buffer.from([success ? 1 : 0]);
+  return createHash("sha256").update(Buffer.concat([
+    FULFILLMENT_SIGNATURE_DOMAIN,
+    encodeUint256Bytes(requestId),
+    sha256Buffer(trimString(requestType || "")),
+    successByte,
+    sha256Buffer(Buffer.from(String(result || ""), "utf8")),
+    sha256Buffer(trimString(error || "")),
+  ])).digest();
 }
 
 function compactTeeAttestation(attestation) {
@@ -108,6 +140,7 @@ function buildBusinessResult(requestType, workerBody) {
   const compact = {};
   const preferredFields = [
     "mode",
+    "action",
     "function",
     "entry_point",
     "target_chain",
@@ -121,6 +154,14 @@ function buildBusinessResult(requestType, workerBody) {
     "price",
     "decimals",
     "timestamp",
+    "automation_id",
+    "trigger_type",
+    "next_run_at",
+    "status",
+    "chain",
+    "requester",
+    "callback_contract",
+    "execution_request_type",
     "upstream_status",
     "randomness",
     "job_id",
