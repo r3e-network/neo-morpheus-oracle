@@ -6,12 +6,15 @@ import path from "node:path";
 
 import {
   buildOnchainResultEnvelope,
+  buildFulfillmentDigestBytes,
   buildWorkerPayload,
   decodePayloadText,
   encodeFulfillmentResult,
+  isOperatorOnlyRequestType,
   normalizeRequestType,
   resolveWorkerRoute,
 } from "./src/router.js";
+import { isAutomationControlRequestType } from "./src/automation.js";
 import {
   buildEventKey,
   createEmptyRelayerState,
@@ -47,6 +50,18 @@ test("resolveWorkerRoute routes compute, feed, vrf, and oracle payloads", () => 
   assert.equal(resolveWorkerRoute("privacy_oracle", {}), "/oracle/smart-fetch");
 });
 
+test("isOperatorOnlyRequestType flags feed sync requests", () => {
+  assert.equal(isOperatorOnlyRequestType("datafeed"), true);
+  assert.equal(isOperatorOnlyRequestType("price-feed"), true);
+  assert.equal(isOperatorOnlyRequestType("privacy_oracle"), false);
+});
+
+test("isAutomationControlRequestType detects automation registration flows", () => {
+  assert.equal(isAutomationControlRequestType("automation_register"), true);
+  assert.equal(isAutomationControlRequestType("automation-cancel"), true);
+  assert.equal(isAutomationControlRequestType("privacy_oracle"), false);
+});
+
 test("decodePayloadText parses JSON and preserves raw strings", () => {
   assert.deepEqual(decodePayloadText('{"provider":"twelvedata"}'), { provider: "twelvedata" });
   assert.deepEqual(decodePayloadText("not-json"), { raw_payload: "not-json" });
@@ -59,6 +74,19 @@ test("buildWorkerPayload injects relayer metadata", () => {
     request_source: "morpheus-relayer:neo_n3",
     target_chain: "neo_n3",
   });
+});
+
+test("buildFulfillmentDigestBytes binds the full callback context", () => {
+  const baseline = buildFulfillmentDigestBytes("42", "compute", true, "{\"ok\":true}", "");
+  const changedResult = buildFulfillmentDigestBytes("42", "compute", true, "{\"ok\":false}", "");
+  const changedError = buildFulfillmentDigestBytes("42", "compute", false, "", "failed");
+  const changedRequest = buildFulfillmentDigestBytes("43", "compute", true, "{\"ok\":true}", "");
+
+  assert.equal(Buffer.isBuffer(baseline), true);
+  assert.equal(baseline.length, 32);
+  assert.notDeepEqual(baseline, changedResult);
+  assert.notDeepEqual(baseline, changedError);
+  assert.notDeepEqual(baseline, changedRequest);
 });
 
 test("encodeFulfillmentResult returns success envelope for worker output", () => {
@@ -205,4 +233,22 @@ test("buildOnchainResultEnvelope keeps working when verification is missing", ()
   });
   assert.equal(envelope.version, 'morpheus-result/v1');
   assert.equal(envelope.verification, null);
+});
+
+test("buildOnchainResultEnvelope keeps automation registration metadata", () => {
+  const envelope = buildOnchainResultEnvelope("automation_register", {
+    ok: true,
+    status: 200,
+    body: {
+      mode: "automation",
+      action: "register",
+      automation_id: "automation:neo_x:test",
+      trigger_type: "interval",
+      execution_request_type: "privacy_oracle",
+      status: "active",
+    },
+  });
+  assert.equal(envelope.result.mode, "automation");
+  assert.equal(envelope.result.action, "register");
+  assert.equal(envelope.result.automation_id, "automation:neo_x:test");
 });

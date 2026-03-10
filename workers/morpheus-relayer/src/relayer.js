@@ -1,7 +1,8 @@
 import { createRelayerConfig } from "./config.js";
 import { createLogger } from "./logger.js";
+import { handleAutomationControlRequest, isAutomationControlRequestType, processAutomationJobs } from "./automation.js";
 import { callPhala } from "./phala.js";
-import { buildWorkerPayload, decodePayloadText, encodeFulfillmentResult, isOperatorOnlyRequestType, resolveWorkerRoute } from "./router.js";
+import { buildFulfillmentDigestBytes, buildWorkerPayload, decodePayloadText, encodeFulfillmentResult, isOperatorOnlyRequestType, resolveWorkerRoute } from "./router.js";
 import {
   buildRelayerJobRecord,
   fetchRelayerJobsByStatuses,
@@ -147,8 +148,38 @@ async function syncManualActions(config, state, logger, chain) {
 
 async function processOracleRequest(config, event) {
   const payload = decodePayloadText(event.payloadText);
+  if (isAutomationControlRequestType(event.requestType)) {
+    const automationResponse = await handleAutomationControlRequest(event, payload);
+    const fulfillment = encodeFulfillmentResult(event.requestType, automationResponse);
+    const verification = await signFulfillmentPayload(config, event.chain, {
+      requestId: event.requestId,
+      requestType: event.requestType,
+      success: fulfillment.success,
+      result: fulfillment.result || "",
+      error: fulfillment.error || "",
+    });
+
+    const fulfillTx = event.chain === "neo_n3"
+      ? await fulfillNeoN3Request(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature)
+      : await fulfillNeoXRequest(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature);
+
+    return {
+      ...fulfillment,
+      route: automationResponse.route,
+      worker_response: automationResponse.body,
+      worker_status: automationResponse.status,
+      fulfill_tx: fulfillTx,
+      verification_signature: verification.signature,
+    };
+  }
   if (isOperatorOnlyRequestType(event.requestType)) {
-    const verification = await signFulfillmentPayload(config, event.chain, "");
+    const verification = await signFulfillmentPayload(config, event.chain, {
+      requestId: event.requestId,
+      requestType: event.requestType,
+      success: false,
+      result: "",
+      error: "datafeed requests are operator-only; users should read synchronized on-chain feed data",
+    });
     return {
       success: false,
       result: "",
@@ -166,7 +197,13 @@ async function processOracleRequest(config, event) {
   const workerPayload = buildWorkerPayload(event.chain, event.requestType, payload, event.requestId);
   const workerResponse = await callPhala(config, route, workerPayload);
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
-  const verification = await signFulfillmentPayload(config, event.chain, fulfillment.result || "");
+  const verification = await signFulfillmentPayload(config, event.chain, {
+    requestId: event.requestId,
+    requestType: event.requestType,
+    success: fulfillment.success,
+    result: fulfillment.result || "",
+    error: fulfillment.error || "",
+  });
 
   if (event.chain === "neo_n3") {
     const tx = await fulfillNeoN3Request(
@@ -207,7 +244,13 @@ async function processOracleRequest(config, event) {
 
 async function finalizeFailedRequest(config, event, errorMessage) {
   const safeError = trimOnchainErrorMessage(errorMessage);
-  const verification = await signFulfillmentPayload(config, event.chain, "");
+  const verification = await signFulfillmentPayload(config, event.chain, {
+    requestId: event.requestId,
+    requestType: event.requestType,
+    success: false,
+    result: "",
+    error: safeError,
+  });
   const fulfillTx = event.chain === "neo_n3"
     ? await fulfillNeoN3Request(config, event.requestId, false, "", safeError, verification.signature)
     : await fulfillNeoXRequest(config, event.requestId, false, "", safeError, verification.signature);
@@ -223,10 +266,17 @@ async function finalizeFailedRequest(config, event, errorMessage) {
   };
 }
 
-async function signFulfillmentPayload(config, chain, result) {
+async function signFulfillmentPayload(config, chain, fulfillment) {
+  const digestBytes = buildFulfillmentDigestBytes(
+    fulfillment.requestId,
+    fulfillment.requestType,
+    fulfillment.success,
+    fulfillment.result,
+    fulfillment.error,
+  );
   const response = await callPhala(config, "/sign/payload", {
     target_chain: chain,
-    message: result || "",
+    data_hex: digestBytes.toString("hex"),
   });
   if (!response.ok || typeof response.body?.signature !== "string" || !response.body.signature) {
     throw new Error(
@@ -559,6 +609,7 @@ export async function runRelayerOnce(options = {}) {
     getLatestBlock: getNeoXLatestBlock,
     scan: scanNeoXOracleRequests,
   });
+  const automation = await processAutomationJobs(config, logger);
 
   state.metrics.last_tick_completed_at = new Date().toISOString();
   state.metrics.last_tick_duration_ms = Date.now() - startedAt;
@@ -567,6 +618,7 @@ export async function runRelayerOnce(options = {}) {
   const result = {
     neo_n3: neoN3,
     neo_x: neoX,
+    automation,
     state,
     metrics: snapshotMetrics(state),
   };
