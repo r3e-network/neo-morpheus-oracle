@@ -15,7 +15,7 @@ import {
   resolveWorkerRoute,
 } from "./src/router.js";
 import { isAutomationControlRequestType } from "./src/automation.js";
-import { resolveChainFromBlock } from "./src/relayer.js";
+import { getFeedSyncDelayMs, resolveChainFromBlock } from "./src/relayer.js";
 import {
   buildEventKey,
   createEmptyRelayerState,
@@ -306,4 +306,25 @@ test("resolveChainFromBlock advances from a valid checkpoint", () => {
   const fromBlock = resolveChainFromBlock(config, state, "neo_n3", 8997000, null);
   assert.equal(fromBlock, 8996667);
   assert.equal(state.neo_n3.last_block, 8996666);
+});
+
+test("getFeedSyncDelayMs uses the last feed-sync start time", () => {
+  const config = {
+    feedSync: {
+      enabled: true,
+      intervalMs: 15000,
+    },
+  };
+  const state = createEmptyRelayerState();
+  state.metrics.last_feed_sync_started_at = "2026-03-10T13:00:00.000Z";
+  state.metrics.last_feed_sync_completed_at = "2026-03-10T13:00:05.000Z";
+
+  assert.equal(
+    getFeedSyncDelayMs(config, state, Date.parse("2026-03-10T13:00:10.000Z")),
+    5000,
+  );
+  assert.equal(
+    getFeedSyncDelayMs(config, state, Date.parse("2026-03-10T13:00:16.000Z")),
+    0,
+  );
 });
