@@ -9,6 +9,12 @@ function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function parseList(value) {
+  const raw = trimString(value);
+  if (!raw) return [];
+  return raw.split(",").map((entry) => trimString(entry)).filter(Boolean);
+}
+
 let runtimeConfigCache;
 
 function getRuntimeConfig() {
@@ -75,6 +81,23 @@ export function createRelayerConfig() {
     retryMaxDelayMs: Math.max(Number(env("MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS") || 300000), 1000),
     processedCacheSize: Math.max(Number(env("MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE") || 5000), 100),
     deadLetterLimit: Math.max(Number(env("MORPHEUS_RELAYER_DEAD_LETTER_LIMIT") || 500), 10),
+    feedSync: {
+      enabled: (env("MORPHEUS_FEED_SYNC_ENABLED") || "true").toLowerCase() !== "false",
+      intervalMs: Math.max(Number(env("MORPHEUS_FEED_SYNC_INTERVAL_MS") || 15000), 1000),
+      projectSlug: env("MORPHEUS_FEED_PROJECT_SLUG") || "demo",
+      provider: env("MORPHEUS_FEED_PROVIDER"),
+      providers: parseList(env("MORPHEUS_FEED_PROVIDERS")),
+      symbols: parseList(env("MORPHEUS_FEED_SYMBOLS")),
+      changeThresholdBps: env("MORPHEUS_FEED_CHANGE_THRESHOLD_BPS") || "10",
+      minUpdateIntervalMs: env("MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS") || "15000",
+    },
+    automation: {
+      enabled: (env("MORPHEUS_AUTOMATION_ENABLED") || "true").toLowerCase() !== "false",
+      batchSize: Math.max(Number(env("MORPHEUS_AUTOMATION_BATCH_SIZE") || 50), 1),
+      maxQueuedPerTick: Math.max(Number(env("MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK") || 10), 1),
+      pricePollPairsPerTick: Math.max(Number(env("MORPHEUS_AUTOMATION_PRICE_PAIRS_PER_TICK") || 25), 1),
+      defaultPriceCooldownMs: Math.max(Number(env("MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS") || 60000), 0),
+    },
     logFormat: env("MORPHEUS_RELAYER_LOG_FORMAT", "LOG_FORMAT") || "json",
     logLevel: env("MORPHEUS_RELAYER_LOG_LEVEL", "LOG_LEVEL") || "info",
     confirmations: {
@@ -95,13 +118,15 @@ export function createRelayerConfig() {
       rpcUrl: env("NEO_RPC_URL") || trimString(registry.neo_n3?.rpc_url || ""),
       networkMagic: Number(env("NEO_NETWORK_MAGIC") || registry.neo_n3?.network_magic || 894710606),
       oracleContract: env("CONTRACT_MORPHEUS_ORACLE_HASH") || trimString(registry.neo_n3?.contracts?.morpheus_oracle || ""),
-      updaterWif: env("MORPHEUS_RELAYER_NEO_N3_WIF", "MORPHEUS_UPDATER_NEO_N3_WIF", "PHALA_NEO_N3_WIF", "NEO_TESTNET_WIF"),
+      datafeedContract: env("CONTRACT_MORPHEUS_DATAFEED_HASH") || trimString(registry.neo_n3?.contracts?.morpheus_datafeed || ""),
+      updaterWif: env("MORPHEUS_RELAYER_NEO_N3_WIF", "MORPHEUS_UPDATER_NEO_N3_WIF", "NEO_N3_WIF", "PHALA_NEO_N3_WIF", "NEO_TESTNET_WIF"),
       updaterPrivateKey: env("MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY", "MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY", "PHALA_NEO_N3_PRIVATE_KEY"),
     },
     neo_x: {
       rpcUrl: env("NEOX_RPC_URL", "NEO_X_RPC_URL") || trimString(registry.neo_x?.rpc_url || ""),
       chainId: Number(env("NEOX_CHAIN_ID", "NEO_X_CHAIN_ID") || registry.neo_x?.chain_id || 12227332),
       oracleContract: env("CONTRACT_MORPHEUS_ORACLE_X_ADDRESS") || trimString(registry.neo_x?.contracts?.morpheus_oracle_x || ""),
+      datafeedContract: env("CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS") || trimString(registry.neo_x?.contracts?.morpheus_datafeed_x || ""),
       updaterPrivateKey: env("MORPHEUS_RELAYER_NEOX_PRIVATE_KEY", "MORPHEUS_UPDATER_NEOX_PRIVATE_KEY", "PHALA_NEOX_PRIVATE_KEY"),
     },
   };
