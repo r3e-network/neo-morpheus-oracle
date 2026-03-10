@@ -15,6 +15,7 @@ type OnchainFeedRecord = {
 
 type OnchainOracleStatus = {
   contract: string;
+  domain: string | null;
   request_fee_raw: string;
   request_fee_display: string;
   updater: string | null;
@@ -26,6 +27,7 @@ type OnchainOracleStatus = {
 
 type OnchainDatafeedStatus = {
   contract: string;
+  domain: string | null;
   pair_count: number;
   records: OnchainFeedRecord[];
 };
@@ -179,7 +181,13 @@ async function invokeNeoXCall(rpcUrl: string, contractAddress: string, callData:
   });
 }
 
-async function fetchNeoN3State(rpcUrl: string, oracleHash: string, datafeedHash: string, limit: number): Promise<ChainState> {
+async function fetchNeoN3State(
+  rpcUrl: string,
+  oracleHash: string,
+  datafeedHash: string,
+  limit: number,
+  domains: { morpheus_oracle?: string; morpheus_datafeed?: string } = {},
+): Promise<ChainState> {
   try {
     const [requestFee, updater, verifier, encryptionAlgorithm, encryptionKeyVersion, accruedFees, rawRecords] = await Promise.all([
       invokeNeoN3Read(rpcUrl, oracleHash, "requestFee"),
@@ -216,6 +224,7 @@ async function fetchNeoN3State(rpcUrl: string, oracleHash: string, datafeedHash:
     return {
       oracle: {
         contract: oracleHash,
+        domain: trimString(domains.morpheus_oracle) || null,
         request_fee_raw: String(requestFee ?? "0"),
         request_fee_display: `${formatFixedPoint(String(requestFee ?? "0"), NEON3_GAS_DECIMALS)} GAS`,
         updater: trimString(updater) || null,
@@ -226,6 +235,7 @@ async function fetchNeoN3State(rpcUrl: string, oracleHash: string, datafeedHash:
       },
       datafeed: {
         contract: datafeedHash,
+        domain: trimString(domains.morpheus_datafeed) || null,
         pair_count: records.length,
         records: records.slice(0, limit),
       },
@@ -287,6 +297,7 @@ async function fetchNeoXState(rpcUrl: string, oracleAddress: string, datafeedAdd
     return {
       oracle: {
         contract: oracleAddress,
+        domain: null,
         request_fee_raw: String(requestFeeDecoded?.[0] ?? "0"),
         request_fee_display: `${formatEther(requestFeeDecoded?.[0] ?? 0n)} GAS`,
         updater: trimString(String(updaterDecoded?.[0] ?? "")) || null,
@@ -297,6 +308,7 @@ async function fetchNeoXState(rpcUrl: string, oracleAddress: string, datafeedAdd
       },
       datafeed: {
         contract: datafeedAddress,
+        domain: null,
         pair_count: records.length,
         records: records.slice(0, limit),
       },
@@ -321,6 +333,7 @@ export async function fetchOnchainState(limit = 12) {
       trimString(selected.neo_n3.contracts.morpheus_oracle),
       trimString(selected.neo_n3.contracts.morpheus_datafeed),
       boundedLimit,
+      selected.neo_n3.domains || {},
     ),
     fetchNeoXState(
       trimString(selected.neo_x.rpc_url),

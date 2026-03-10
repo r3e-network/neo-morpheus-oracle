@@ -78,7 +78,7 @@ const encryptedParams = await encrypt(JSON.stringify(secrets), public_key_pem);`
 
       <h3>Neo N3 (C#)</h3>
       <p>
-        Use the <code>MorpheusOracle</code> contract hash and trigger a request via the <code>request</code> method.
+        Use the <code>MorpheusOracle</code> contract hash or the NeoNS alias <code>oracle.morpheus.neo</code>, which currently resolves to the same Neo N3 script hash.
       </p>
       <CodeBlock
         language="csharp"

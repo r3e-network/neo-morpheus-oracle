@@ -81,7 +81,7 @@ export function OverviewTab({ setOutput }: any) {
           </div>
           <div>
             <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>14 Active Feeds</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Decentralized Aggregation</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>NNS: {NETWORKS.neo_n3.domains.datafeed}</div>
           </div>
         </div>
       </div>
@@ -105,7 +105,10 @@ export function OverviewTab({ setOutput }: any) {
             return (
               <div key={pair} style={{ padding: '1.5rem', background: 'var(--bg-panel)', position: 'relative', transition: 'background 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-dark)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-panel)'}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.02em' }}>{pair}</span>
+                  <div>
+                    <span style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.02em', display: 'block' }}>{pair}</span>
+                    <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{NETWORKS.neo_n3.domains.datafeed}</span>
+                  </div>
                   <a href={NETWORKS.neo_n3.explorer + NETWORKS.neo_n3.datafeed} target="_blank" style={{ color: 'var(--text-muted)', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
                     <ExternalLink size={14} />
                   </a>

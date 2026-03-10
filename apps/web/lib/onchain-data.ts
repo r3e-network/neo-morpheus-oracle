@@ -11,14 +11,24 @@ export const NETWORKS = {
   neo_x: {
     name: "Neo X (Soon)",
     rpc: "https://mainnet-2.rpc.banelabs.org",
+    oracle: "",
     datafeed: "",
     explorer: "https://xexplorer.neo.org/address/",
+    domains: {
+      oracle: "",
+      datafeed: "",
+    },
   },
   neo_n3: {
     name: "Neo N3 Mainnet",
     rpc: "https://mainnet1.neo.coz.io:443",
+    oracle: "0x017520f068fd602082fe5572596185e62a4ad991",
     datafeed: "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
     explorer: "https://neotube.io/contract/",
+    domains: {
+      oracle: "oracle.morpheus.neo",
+      datafeed: "pricefeed.morpheus.neo",
+    },
   }
 };
 
