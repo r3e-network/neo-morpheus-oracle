@@ -9,6 +9,7 @@ import {
   buildWorkerPayload,
   decodePayloadText,
   encodeFulfillmentResult,
+  isOperatorOnlyRequestType,
   normalizeRequestType,
   resolveWorkerRoute,
 } from "./src/router.js";
@@ -45,6 +46,12 @@ test("resolveWorkerRoute routes compute, feed, vrf, and oracle payloads", () => 
   assert.equal(resolveWorkerRoute("vrf", {}), "/vrf/random");
   assert.equal(resolveWorkerRoute("privacy_oracle", { script: "function process(){}" }), "/oracle/smart-fetch");
   assert.equal(resolveWorkerRoute("privacy_oracle", {}), "/oracle/smart-fetch");
+});
+
+test("isOperatorOnlyRequestType flags feed sync requests", () => {
+  assert.equal(isOperatorOnlyRequestType("datafeed"), true);
+  assert.equal(isOperatorOnlyRequestType("price-feed"), true);
+  assert.equal(isOperatorOnlyRequestType("privacy_oracle"), false);
 });
 
 test("decodePayloadText parses JSON and preserves raw strings", () => {
