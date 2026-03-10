@@ -4,9 +4,15 @@ import { deriveRelayerNeoXPrivateKeyHex, shouldUseDerivedKeys } from "./dstack.j
 const MORPHEUS_ORACLE_X_ABI = [
   "event OracleRequested(uint256 indexed requestId, string requestType, address indexed requester, address indexed callbackContract, string callbackMethod, bytes payload)",
   "function fulfillRequest(uint256, bool, bytes, string, bytes)",
+  "function queueAutomationRequest(address,string,bytes,address,string) returns (uint256)",
+];
+
+const DATAFEED_X_ABI = [
+  "function getLatest(string pair) view returns (tuple(string pair, uint256 roundId, uint256 price, uint256 timestamp, bytes32 attestationHash, uint256 sourceSetId))",
 ];
 
 const morpheusOracleXInterface = new Interface(MORPHEUS_ORACLE_X_ABI);
+const morpheusDatafeedXInterface = new Interface(DATAFEED_X_ABI);
 
 function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -40,6 +46,7 @@ export async function scanNeoXOracleRequests(config, fromBlock, toBlock) {
       chain: "neo_x",
       requestId: parsed.args.requestId.toString(),
       requestType: parsed.args.requestType,
+      requester: parsed.args.requester,
       callbackContract: parsed.args.callbackContract,
       callbackMethod: parsed.args.callbackMethod,
       payloadText,
@@ -73,4 +80,41 @@ export async function fulfillNeoXRequest(config, requestId, success, result, err
     chainId: config.neo_x.chainId,
   });
   return { tx_hash: tx.hash, target_chain: "neo_x" };
+}
+
+export async function queueNeoXAutomationRequest(config, requester, requestType, payloadText, callbackContract, callbackMethod) {
+  const provider = new JsonRpcProvider(config.neo_x.rpcUrl);
+  const privateKey = await resolveNeoXUpdaterPrivateKey(config);
+  const wallet = new Wallet(privateKey, provider);
+  const data = morpheusOracleXInterface.encodeFunctionData("queueAutomationRequest", [
+    requester,
+    requestType,
+    `0x${Buffer.from(payloadText || "", "utf8").toString("hex")}`,
+    callbackContract,
+    callbackMethod,
+  ]);
+  const tx = await wallet.sendTransaction({
+    to: config.neo_x.oracleContract,
+    data,
+    chainId: config.neo_x.chainId,
+  });
+  return { tx_hash: tx.hash, target_chain: "neo_x" };
+}
+
+export async function fetchNeoXFeedRecord(config, pair) {
+  const provider = new JsonRpcProvider(config.neo_x.rpcUrl);
+  const data = morpheusDatafeedXInterface.encodeFunctionData("getLatest", [pair]);
+  const raw = await provider.call({
+    to: config.neo_x.datafeedContract,
+    data,
+  });
+  const decoded = morpheusDatafeedXInterface.decodeFunctionResult("getLatest", raw)[0];
+  return {
+    pair: decoded.pair,
+    roundId: decoded.roundId.toString(),
+    price: decoded.price.toString(),
+    timestamp: decoded.timestamp.toString(),
+    attestationHash: decoded.attestationHash,
+    sourceSetId: decoded.sourceSetId.toString(),
+  };
 }

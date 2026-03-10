@@ -1,5 +1,30 @@
+import { randomUUID, createHash } from "node:crypto";
+
 function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function sha256Hex(value) {
+  return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function sanitizeForPostgres(value) {
+  if (typeof value === "string") {
+    return value.replace(/\u0000/g, "");
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeForPostgres(entry));
+  }
+  if (isPlainObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, current]) => [key, sanitizeForPostgres(current)]),
+    );
+  }
+  return value;
 }
 
 function getSupabaseRestConfig() {
@@ -46,7 +71,7 @@ async function supabaseRequest(table, method, payload, options = {}) {
   let body;
   if (payload !== undefined) {
     headers["content-type"] = "application/json";
-    body = JSON.stringify(payload);
+    body = JSON.stringify(sanitizeForPostgres(payload));
   }
   if (options.onConflict) {
     headers.Prefer = `resolution=merge-duplicates,return=minimal`;
@@ -139,4 +164,88 @@ export function buildRelayerJobRecord(event, details = {}) {
     updated_at: new Date().toISOString(),
     completed_at: details.completed_at || null,
   };
+}
+
+function collectEncryptedFields(value, path = [], results = []) {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => collectEncryptedFields(entry, [...path, String(index)], results));
+    return results;
+  }
+  if (!isPlainObject(value)) return results;
+
+  for (const [key, current] of Object.entries(value)) {
+    const nextPath = [...path, key];
+    if (key.startsWith("encrypted_") && typeof current === "string" && trimString(current)) {
+      results.push({ field_path: nextPath.join("."), ciphertext: trimString(current) });
+      continue;
+    }
+    if (key === "encrypted_inputs" && isPlainObject(current)) {
+      for (const [nestedKey, nestedValue] of Object.entries(current)) {
+        if (typeof nestedValue === "string" && trimString(nestedValue)) {
+          results.push({ field_path: [...nextPath, nestedKey].join("."), ciphertext: trimString(nestedValue) });
+        }
+      }
+      continue;
+    }
+    collectEncryptedFields(current, nextPath, results);
+  }
+  return results;
+}
+
+export async function upsertAutomationJob(record) {
+  return supabaseRequest("morpheus_automation_jobs", "POST", record, { onConflict: "automation_id" });
+}
+
+export async function patchAutomationJob(automationId, fields) {
+  return supabaseRequest("morpheus_automation_jobs", "PATCH", {
+    ...fields,
+    updated_at: new Date().toISOString(),
+  }, {
+    query: {
+      automation_id: `eq.${automationId}`,
+    },
+  });
+}
+
+export async function fetchAutomationJobById(automationId) {
+  const rows = await supabaseSelect("morpheus_automation_jobs", {
+    select: "*",
+    automation_id: `eq.${automationId}`,
+    limit: 1,
+  });
+  return Array.isArray(rows) ? (rows[0] || null) : null;
+}
+
+export async function fetchActiveAutomationJobs(limit = 50) {
+  return supabaseSelect("morpheus_automation_jobs", {
+    select: "*",
+    status: "eq.active",
+    order: "updated_at.asc",
+    limit,
+  });
+}
+
+export async function insertAutomationRun(record) {
+  return supabaseRequest("morpheus_automation_runs", "POST", record);
+}
+
+export async function persistAutomationEncryptedFields(job) {
+  const payload = isPlainObject(job?.execution_payload) ? job.execution_payload : {};
+  const encryptedFields = collectEncryptedFields(payload);
+  if (encryptedFields.length === 0) return;
+  const rows = encryptedFields.map((entry) => ({
+    project_id: job.project_id || null,
+    name: `automation:${job.automation_id}:${entry.field_path}:${randomUUID()}`,
+    target_chain: job.chain,
+    encryption_algorithm: "client-supplied-ciphertext",
+    key_version: 1,
+    ciphertext: entry.ciphertext,
+    metadata: {
+      automation_id: job.automation_id,
+      registration_request_id: job.registration_request_id,
+      field_path: entry.field_path,
+      ciphertext_sha256: sha256Hex(entry.ciphertext),
+    },
+  }));
+  await supabaseRequest("morpheus_encrypted_secrets", "POST", rows);
 }

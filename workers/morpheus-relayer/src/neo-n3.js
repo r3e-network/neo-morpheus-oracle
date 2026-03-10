@@ -158,3 +158,51 @@ export async function fulfillNeoN3Request(config, requestId, success, result, er
   }
   return { ...invoke.body, target_chain: "neo_n3" };
 }
+
+export async function queueNeoN3AutomationRequest(config, requester, requestType, payloadText, callbackContract, callbackMethod) {
+  const signerPayload = await resolveNeoN3UpdaterPayload(config);
+  const invoke = await relayNeoN3Invocation({
+    request_id: `automation:n3:${Date.now()}`,
+    contract_hash: config.neo_n3.oracleContract,
+    method: "queueAutomationRequest",
+    params: [
+      { type: "Hash160", value: requester },
+      { type: "String", value: requestType },
+      { type: "ByteArray", value: encodeUtf8ByteArrayParamValue(payloadText || "") },
+      { type: "Hash160", value: callbackContract },
+      { type: "String", value: callbackMethod },
+    ],
+    wait: false,
+    rpc_url: config.neo_n3.rpcUrl,
+    network_magic: config.neo_n3.networkMagic,
+    ...signerPayload,
+  });
+
+  if (invoke.status >= 400) {
+    throw new Error(invoke.body?.error || `Neo N3 automation queue failed for ${requester}`);
+  }
+  return { ...invoke.body, target_chain: "neo_n3" };
+}
+
+export async function fetchNeoN3FeedRecord(config, pair) {
+  const result = await neoRpcCall(config.neo_n3.rpcUrl, "invokefunction", [
+    config.neo_n3.datafeedContract,
+    "getLatest",
+    [{ type: "String", value: pair }],
+  ]);
+  if (String(result?.state || "").toUpperCase() === "FAULT") {
+    throw new Error(result?.exception || `Neo N3 getLatest faulted for ${pair}`);
+  }
+  const decoded = decodeNeoItem(result?.stack?.[0]);
+  if (!Array.isArray(decoded) || decoded.length < 6) {
+    throw new Error(`Neo N3 feed response malformed for ${pair}`);
+  }
+  return {
+    pair: String(decoded[0] || pair),
+    roundId: String(decoded[1] || "0"),
+    price: String(decoded[2] || "0"),
+    timestamp: String(decoded[3] || "0"),
+    attestationHash: String(decoded[4] || ""),
+    sourceSetId: String(decoded[5] || "0"),
+  };
+}
