@@ -14,10 +14,12 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
 
   const navItems = [
     { href: "/docs", label: "Introduction", icon: Book },
+    { href: "/docs/quickstart", label: "Quickstart", icon: Zap },
     { href: "/docs/architecture", label: "Architecture", icon: Layers },
     { href: "/docs/oracle", label: "Privacy Oracle", icon: Shield },
     { href: "/docs/compute", label: "Enclave Compute", icon: Cpu },
     { href: "/docs/datafeeds", label: "Data Matrix", icon: LineChart },
+    { href: "/docs/api-reference", label: "API Reference", icon: Code2 },
     { href: "/docs/verifier", label: "Attestation", icon: CheckCircle },
   ];
 
