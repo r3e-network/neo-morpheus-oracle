@@ -13,7 +13,6 @@ export const DEFAULT_FEED_SYMBOLS = [
   'BNB-USD',
   'XRP-USD',
   'DOGE-USD',
-  'HYPE-USD',
 ] as const;
 
 export function parseFeedSymbols(rawValue?: string | null) {
