@@ -49,7 +49,10 @@ export default function DocsDatafeeds() {
 
       <h2>Contract Integration</h2>
       <h3>Neo N3 (C#)</h3>
-      <p>Use the contract hash <code>0x03013f49c42a14546c8bbe58f9d434c3517fccab</code>.</p>
+      <p>
+        Use the contract hash <code>0x03013f49c42a14546c8bbe58f9d434c3517fccab</code> or resolve the NeoNS alias
+        <code> pricefeed.morpheus.neo </code> to the same script hash.
+      </p>
       
       <CodeBlock
         language="csharp"
@@ -83,7 +86,7 @@ function checkPrice(string memory pair) public view returns (int256) {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Mainnet feeds are synchronized every <strong>100 blocks</strong> or when a price deviation exceeds <strong>0.5%</strong>. This ensures high economic accuracy while maintaining cost efficiency.
+          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. Only pairs whose observed price has moved by at least <strong>0.1%</strong> are submitted on-chain, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
         </p>
       </div>
     </div>

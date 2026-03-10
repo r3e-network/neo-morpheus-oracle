@@ -3,6 +3,10 @@
   "neo_n3": {
     "rpc_url": "https://testnet1.neo.coz.io:443",
     "network_magic": 894710606,
+    "domains": {
+      "morpheus_oracle": "",
+      "morpheus_datafeed": ""
+    },
     "contracts": {
       "morpheus_oracle": "0x4b882e94ed766807c4fd728768f972e13008ad52",
       "oracle_callback_consumer": "0x6af95dac2c55d4af01f657c86b83583b6dd2fabe",

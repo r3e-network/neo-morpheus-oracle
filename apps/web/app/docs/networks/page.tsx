@@ -46,6 +46,7 @@ export default function DocsNetworks() {
             <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-dim)' }}>
               <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>CONTRACT</th>
               <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>HASH</th>
+              <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>NNS</th>
             </tr>
           </thead>
           <tbody>
@@ -53,7 +54,12 @@ export default function DocsNetworks() {
               <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>MorpheusOracle</td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  0x017520f068fd602082fe5572596185e62a4ad991 {copyBtn("0x017520f068fd602082fe5572596185e62a4ad991")}
+                  {NETWORKS.neo_n3.oracle} {copyBtn(NETWORKS.neo_n3.oracle)}
+                </div>
+              </td>
+              <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {NETWORKS.neo_n3.domains.oracle} {copyBtn(NETWORKS.neo_n3.domains.oracle)}
                 </div>
               </td>
             </tr>
@@ -64,6 +70,9 @@ export default function DocsNetworks() {
                   0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844 {copyBtn("0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844")}
                 </div>
               </td>
+              <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.75rem' }}>No NNS alias</span>
+              </td>
             </tr>
             <tr>
               <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>MorpheusDatafeed</td>
@@ -72,9 +81,20 @@ export default function DocsNetworks() {
                   {NETWORKS.neo_n3.datafeed} {copyBtn(NETWORKS.neo_n3.datafeed)}
                 </div>
               </td>
+              <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {NETWORKS.neo_n3.domains.datafeed} {copyBtn(NETWORKS.neo_n3.domains.datafeed)}
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div className="card-industrial" style={{ padding: '1.5rem', marginTop: '-2rem', marginBottom: '4rem', borderLeft: '4px solid var(--accent-blue)' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes, so both the hash and the NNS name are valid registry references.
+        </p>
       </div>
 
       <h2>Neo X Mainnet</h2>
