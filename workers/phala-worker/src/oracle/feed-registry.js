@@ -80,12 +80,6 @@ export const DEFAULT_FEED_PAIRS = {
       twelvedata: { symbol: 'DOGE-USD' },
     },
   },
-  'HYPE-USD': {
-    providers: {
-      // TwelveData exposes HYPE against USDT; we anchor it into the USD feed set under the stablecoin parity assumption.
-      twelvedata: { symbol: 'HYPE-USDT' },
-    },
-  },
 };
 
 const DEFAULT_SOURCE_SET_IDS = {

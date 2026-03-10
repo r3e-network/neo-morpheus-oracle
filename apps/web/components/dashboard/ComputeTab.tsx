@@ -129,7 +129,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
           </div>
 
           <div className="glass-card stagger-3" style={{ padding: '1.5rem', border: '1px solid var(--border-neo)' }}>
-            <button className="btn btn-neo" style={{ width: '100%', padding: '1rem' }} onClick={runSimulation} disabled={isSimulating}>
+            <button className="btn btn-neo" style={{ width: '100%', padding: '1rem' }} onClick={handleExecute} disabled={isSimulating}>
               {isSimulating ? 'Simulating...' : <><Play size={16} fill="currentColor" /> Run Simulation</>}
             </button>
             <div style={{ marginTop: '1.25rem', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
