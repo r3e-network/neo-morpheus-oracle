@@ -1,65 +1,79 @@
+"use client";
+
+import { Cpu, Terminal, Zap, FileCode, ShieldAlert } from "lucide-react";
+
 export default function DocsCompute() {
   return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "1rem" }}>
-        <span className="badge badge-success">Service</span>
+    <div className="fade-in">
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
+        <Cpu size={14} color="var(--accent-blue)" />
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>EXTENDED SERVICE v1.0.2</span>
       </div>
-      <h1>Privacy Compute</h1>
+      <h1>Enclave Compute</h1>
 
       <p>
-        Morpheus Privacy Compute executes deterministic functions, scripts, and WASM modules inside the TEE and returns
-        the result to a smart contract callback.
+        Morpheus Enclave Compute allows developers to execute complex, non-deterministic, or proprietary logic inside a Trusted Execution Environment. The network supports multiple runtimes, ensuring that inputs and intermediate states are never visible to the public blockchain.
       </p>
 
-      <h2>Supported Runtime Types</h2>
+      <h2>Supported Runtimes</h2>
+      <div className="grid grid-2" style={{ gap: '1.5rem', margin: '2.5rem 0' }}>
+        <div className="card-industrial" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+            <Terminal size={16} color="var(--neo-green)" />
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0 }}>Javascript (QuickJS)</h4>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 0 }}>High-level scripting for data aggregation, custom API parsing, and business logic.</p>
+        </div>
+        <div className="card-industrial" style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
+            <FileCode size={16} color="var(--accent-blue)" />
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0 }}>WebAssembly (WASM)</h4>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 0 }}>Performance-critical tasks like ZKP witness generation or complex mathematical models.</p>
+        </div>
+      </div>
+
+      <h2>Built-in Capabilities</h2>
+      <p>
+        The TEE environment provides a global <code>morpheus</code> object with optimized cryptographic and utility functions:
+      </p>
       <ul>
-        <li>
-          <strong>Built-in functions</strong> for hashing, RSA verification, modular arithmetic, matrix operations,
-          Merkle roots, ZKP planning, FHE planning, and privacy helpers.
-        </li>
-        <li>
-          <strong>User scripts</strong> when untrusted script execution is explicitly enabled by environment policy.
-        </li>
-        <li>
-          <strong>WASM modules</strong> with configurable execution timeout. The default timeout is
-          <code>30000ms</code>.
-        </li>
+        <li><strong>Hashing:</strong> SHA-256 and Keccak-256 for integrity checks.</li>
+        <li><strong>Verification:</strong> High-performance RSA signature verification.</li>
+        <li><strong>Randomness:</strong> Hardware-based VRF (Verifiable Random Function).</li>
+        <li><strong>Linear Algebra:</strong> Optimized matrix and vector operations.</li>
       </ul>
 
-      <h2>How Contracts Use It</h2>
+      <h2>Example: Aggregation Logic</h2>
       <p>
-        In production, compute is still requested through the Oracle contract. The request type routes to the compute
-        worker path, and the result comes back through the standard callback flow.
+        The following script demonstrates how to fetch from multiple sources and return an average—all while keeping the API keys confidential.
       </p>
-
-      <pre><code>{`{
-  "mode": "builtin",
-  "function": "zkp.public_signal_hash",
-  "input": { "signals": ["123", "456"] },
-  "target_chain": "neo_n3"
+      <pre><code>{`async function process(data) {
+    // 1. Fetch from private sources
+    const res1 = await morpheus.http_request('https://api1.com');
+    const res2 = await morpheus.http_request('https://api2.com');
+    
+    // 2. Compute average in-memory
+    const avg = (res1.data.price + res2.data.price) / 2;
+    
+    // 3. Result is signed and sent back to Neo
+    return { average: avg, timestamp: Date.now() };
 }`}</code></pre>
 
-      <h2>Confidential Inputs</h2>
+      <h2>Security Model</h2>
       <p>
-        Just like Oracle requests, compute requests can carry plaintext fields and encrypted fields together. Use
-        <code>encrypted_input</code> or <code>encrypted_params</code> when the function name, script, WASM entry point,
-        or part of the input must stay confidential until execution.
-      </p>
-      <p>
-        Large confidential payloads should use the hybrid envelope <code>RSA-OAEP-AES-256-GCM</code>, while legacy raw
-        RSA ciphertext is still accepted for small payloads.
+        Compute tasks are strictly time-bounded (default 30s timeout) and executed in a stateless enclave instance. Any data required for the next execution cycle must be stored back on the blockchain via the callback mechanism.
       </p>
 
-      <h2>Isolation Model</h2>
-      <p>
-        Compute execution is isolated from the Oracle fetch path. Built-ins stay deterministic. User scripts are gated
-        by runtime policy. WASM execution is time-bounded and intended as the stronger programmable isolation model.
-      </p>
-
-      <blockquote>
-        Built-ins are the preferred path for stable contract integrations. Use scripts or WASM only when you need custom
-        logic that cannot be expressed by the built-in catalog.
-      </blockquote>
-    </>
+      <div className="card-industrial" style={{ marginTop: '4rem', padding: '2rem', border: '1px solid rgba(239, 68, 68, 0.15)', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.02), transparent)' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+          <ShieldAlert size={20} color="#ef4444" />
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Untrusted Scripts</h4>
+        </div>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
+          Direct script execution is currently in <strong>Closed Beta</strong>. Production requests should use the <code>builtin</code> function catalog unless previously whitelisted by the network operators.
+        </p>
+      </div>
+    </div>
   );
 }

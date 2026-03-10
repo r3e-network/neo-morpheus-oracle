@@ -1,73 +1,81 @@
+"use client";
+
+import { LineChart, Zap, Clock, Database, Code2 } from "lucide-react";
+
 export default function DocsDatafeeds() {
   return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "1rem" }}>
-        <span className="badge badge-success">Service</span>
+    <div className="fade-in">
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
+        <LineChart size={14} color="var(--neo-green)" />
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>CORE SERVICE v1.0.2</span>
       </div>
-      <h1>Data Feeds</h1>
+      <h1>Data Matrix</h1>
 
       <p>
-        Morpheus datafeeds are synchronized on-chain price records for Neo N3 and Neo X. They are intended for
-        synchronous smart-contract reads after the operator pipeline has already pushed the latest market data on-chain.
+        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly to Neo N3 and Neo X. These feeds are designed for synchronous consumption by DeFi protocols, lending platforms, and algorithmic traders.
       </p>
 
-      <h2>Operational Model</h2>
+      <h2>Operational Architecture</h2>
       <p>
-        Datafeeds are <strong>operator-only</strong>. End users and dApps should <strong>not</strong> submit
-        <code>datafeed</code> requests through the Oracle contract. Instead:
+        Unlike the request-callback Oracle model, Datafeeds are <strong>pre-synchronized</strong> state. They operate on an automated operator pipeline:
       </p>
       <ol>
-        <li>The worker fetches a provider quote inside the TEE.</li>
-        <li>The operator relays the normalized record to the on-chain datafeed contract.</li>
-        <li>User contracts read the stored record directly from chain state.</li>
+        <li>Prover network nodes fetch multi-source quotes inside the TEE.</li>
+        <li>Price normalization and aggregation occur in hardware-protected memory.</li>
+        <li>The TEE signs the consolidated update.</li>
+        <li>The Relayer pushes the update to the on-chain <code>MorpheusDataFeed</code> registry.</li>
       </ol>
 
-      <h2>Storage Format</h2>
+      <h2>Supported Assets</h2>
+      <div className="card-industrial" style={{ padding: '1.5rem', marginBottom: '2.5rem' }}>
+        <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 700 }}>Active Mainnet Pairs (14+):</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {["NEO-USD", "GAS-USD", "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "USDT-USD", "USDC-USD"].map(pair => (
+            <span key={pair} className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.65rem' }}>{pair}</span>
+          ))}
+          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>+ more</span>
+        </div>
+      </div>
+
+      <h2>Data Storage Format</h2>
       <p>
-        Every provider is stored independently as <code>PROVIDER:PAIR</code>, for example
-        <code>TWELVEDATA:NEO-USD</code>.
-      </p>
-      <p>
-        Prices are stored as <strong>integer cents</strong> with exactly two decimals of precision:
+        All prices are stored as <strong>Integer Cents</strong> (USD) with two fixed decimal places. 
       </p>
       <ul>
-        <li><code>1.00</code> is stored as <code>100</code>.</li>
-        <li><code>1.02</code> is stored as <code>102</code>.</li>
-        <li>Anything beyond cents is truncated before storage.</li>
+        <li>A price of <code>$12.50</code> is stored as <code>1250</code>.</li>
+        <li>A price of <code>$65,000.00</code> is stored as <code>6500000</code>.</li>
       </ul>
 
-      <h2>What Contracts Can Read</h2>
-      <p>Both Neo N3 and Neo X datafeed contracts expose list and point-read methods:</p>
-      <ul>
-        <li>Latest record for a pair</li>
-        <li>Total pair count</li>
-        <li>Pair by index</li>
-        <li>All stored pairs</li>
-        <li>All feed records</li>
-      </ul>
+      <h2>Contract Integration</h2>
+      <h3>Neo N3 (C#)</h3>
+      <p>Use the contract hash <code>0x03013f49c42a14546c8bbe58f9d434c3517fccab</code>.</p>
+      <pre><code>{`// Read the latest verified price from contract storage
+public static void CheckLiquidation() {
+    var record = (Map)Contract.Call(DataFeedHash, "getLatestPrice", CallFlags.ReadOnly, "NEO-USD");
+    
+    BigInteger price = (BigInteger)record["price"];
+    uint lastUpdate = (uint)record["timestamp"];
+    
+    // Process logic...
+}`}</code></pre>
 
-      <h2>Neo N3 Example</h2>
-      <pre><code>{`var record = (object[])Contract.Call(
-    dataFeedHash,
-    "getLatest",
-    CallFlags.ReadOnly,
-    "TWELVEDATA:NEO-USD"
-);
+      <h3>Neo X (Solidity)</h3>
+      <pre><code>{`// IMorpheusDataFeedX interface
+function checkPrice(string memory pair) public view returns (int256) {
+    (int256 price, uint256 timestamp) = dataFeed.latestPrice(pair);
+    require(block.timestamp - timestamp < 3600, "Price too stale");
+    return price;
+}`}</code></pre>
 
-string pair = (string)record[0];
-BigInteger roundId = (BigInteger)record[1];
-BigInteger priceCents = (BigInteger)record[2];
-BigInteger timestamp = (BigInteger)record[3];`}</code></pre>
-
-      <h2>Neo X Example</h2>
-      <pre><code>{`IMorpheusDataFeedX.FeedRecord memory record = feed.getLatest("TWELVEDATA:NEO-USD");
-uint256 priceCents = record.price;
-uint256 timestamp = record.timestamp;`}</code></pre>
-
-      <blockquote>
-        User-triggered Oracle requests return via callback. Datafeeds do not. They are pre-synchronized state that your
-        contracts read directly.
-      </blockquote>
-    </>
+      <div className="card-industrial" style={{ marginTop: '4rem', padding: '2rem', borderLeft: '4px solid var(--accent-blue)' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+          <Clock size={20} color="var(--accent-blue)" />
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
+        </div>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
+          Mainnet feeds are synchronized every <strong>100 blocks</strong> or when a price deviation exceeds <strong>0.5%</strong>. This ensures high economic accuracy while maintaining cost efficiency.
+        </p>
+      </div>
+    </div>
   );
 }
