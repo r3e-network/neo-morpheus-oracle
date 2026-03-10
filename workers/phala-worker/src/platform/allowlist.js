@@ -114,7 +114,7 @@ export function addAllow(allowlist, contractHash, ...methods) {
 
 export function buildTxProxyAllowlist() {
   const allowlist = parseTxProxyAllowlist(env("TXPROXY_ALLOWLIST"));
-  addAllow(allowlist, env("CONTRACT_MORPHEUS_DATAFEED_HASH", "CONTRACT_PRICEFEED_HASH"), "updateFeed", "update");
+  addAllow(allowlist, env("CONTRACT_MORPHEUS_DATAFEED_HASH", "CONTRACT_PRICEFEED_HASH"), "updateFeed", "updateFeeds", "update");
   addAllow(allowlist, env("CONTRACT_RANDOMNESSLOG_HASH"), "record");
   addAllow(allowlist, env("CONTRACT_AUTOMATIONANCHOR_HASH"), "markExecuted");
   addAllow(allowlist, env("CONTRACT_MORPHEUS_ORACLE_HASH"), "fulfillRequest", "queueAutomationRequest");

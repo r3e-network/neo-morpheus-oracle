@@ -22,47 +22,68 @@ export const DEFAULT_FEED_PAIRS = {
   },
   'BTC-USD': {
     providers: {
-      twelvedata: { symbol: 'BTC/USD' },
-      'binance-spot': { symbol: 'BTCUSDT' },
+      twelvedata: { symbol: 'BTC-USD' },
     },
   },
   'ETH-USD': {
     providers: {
-      twelvedata: { symbol: 'ETH/USD' },
-      'binance-spot': { symbol: 'ETHUSDT' },
+      twelvedata: { symbol: 'ETH-USD' },
     },
   },
   'TRX-USD': {
     providers: {
-      twelvedata: { symbol: 'TRX/USD' },
-      'binance-spot': { symbol: 'TRXUSDT' },
+      twelvedata: { symbol: 'TRX-USD' },
     },
   },
   'SOL-USD': {
     providers: {
-      twelvedata: { symbol: 'SOL/USD' },
-      'binance-spot': { symbol: 'SOLUSDT' },
+      twelvedata: { symbol: 'SOL-USD' },
     },
   },
   'BNB-USD': {
     providers: {
-      twelvedata: { symbol: 'BNB/USD' },
-      'binance-spot': { symbol: 'BNBUSDT' },
+      twelvedata: { symbol: 'BNB-USD' },
     },
   },
   'XAU-USD': {
     providers: {
-      twelvedata: { symbol: 'XAU/USD' },
+      twelvedata: { symbol: 'XAU-USD' },
     },
   },
   'XAG-USD': {
     providers: {
-      twelvedata: { symbol: 'XAG/USD' },
+      twelvedata: { symbol: 'XAG-USD' },
     },
   },
   'OIL-USD': {
     providers: {
-      twelvedata: { symbol: 'XTI/USD' },
+      twelvedata: { symbol: 'WTI-USD' },
+    },
+  },
+  'USDT-USD': {
+    providers: {
+      twelvedata: { symbol: 'USDT-USD' },
+    },
+  },
+  'USDC-USD': {
+    providers: {
+      twelvedata: { symbol: 'USDC-USD' },
+    },
+  },
+  'XRP-USD': {
+    providers: {
+      twelvedata: { symbol: 'XRP-USD' },
+    },
+  },
+  'DOGE-USD': {
+    providers: {
+      twelvedata: { symbol: 'DOGE-USD' },
+    },
+  },
+  'HYPE-USD': {
+    providers: {
+      // TwelveData exposes HYPE against USDT; we anchor it into the USD feed set under the stablecoin parity assumption.
+      twelvedata: { symbol: 'HYPE-USDT' },
     },
   },
 };
