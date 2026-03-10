@@ -5,6 +5,7 @@
 - `.env.example`
 - `.env.development.example`
 - `.env.production.example`
+- `docs/ENVIRONMENT.md` for bilingual variable explanations and operator guidance
 
 ## Frontend
 
@@ -20,6 +21,12 @@ Required env vars:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - optional but recommended in production: `MORPHEUS_PROVIDER_CONFIG_API_KEY` or `ADMIN_CONSOLE_API_KEY`
+- optional and recommended for scoped admin separation:
+  - `MORPHEUS_PROVIDER_CONFIG_API_KEY`
+  - `MORPHEUS_RELAYER_ADMIN_API_KEY`
+  - `MORPHEUS_SIGNING_ADMIN_API_KEY`
+  - `MORPHEUS_RELAY_ADMIN_API_KEY`
+  - `MORPHEUS_OPERATOR_API_KEY`
 - optional datafeed defaults: `MORPHEUS_FEED_PROJECT_SLUG`, `MORPHEUS_FEED_PROVIDER`
 
 ## Phala Worker
@@ -98,7 +105,13 @@ Optional:
 - `MORPHEUS_RELAYER_LOG_LEVEL`
 - `MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS`
 - `MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS`
+- `MORPHEUS_RELAYER_NEO_N3_START_BLOCK`
+- `MORPHEUS_RELAYER_NEO_X_START_BLOCK`
 - `MORPHEUS_RELAYER_STATE_FILE`
+- `MORPHEUS_AUTOMATION_ENABLED`
+- `MORPHEUS_AUTOMATION_BATCH_SIZE`
+- `MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK`
+- `MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS`
 
 ## Supabase
 
@@ -108,10 +121,22 @@ Apply, in order:
 - `supabase/migrations/0002_morpheus_policies_and_seeds.sql`
 - `supabase/migrations/0003_provider_configs.sql`
 - `supabase/migrations/0004_relayer_ops.sql`
+- `supabase/migrations/0005_operation_logs.sql`
 
 Optional:
 
 - `supabase/seed.sql`
+
+## Supabase Recording Model
+
+Current persistence behavior:
+
+- relayer runs and jobs are recorded in `morpheus_relayer_runs` and `morpheus_relayer_jobs`
+- web/API operations are recorded in `morpheus_operation_logs`
+- encrypted request fields such as `encrypted_params`, `encrypted_input`, `encrypted_payload`, and `encrypted_inputs.*` are stored directly as ciphertext in `morpheus_encrypted_secrets`
+- plaintext secret-like keys are redacted before operation-log persistence
+- automation registrations are stored in `morpheus_automation_jobs`
+- automation queue attempts are stored in `morpheus_automation_runs`
 
 ## Contracts
 
@@ -128,6 +153,7 @@ The intended logic is consistent across both chains:
 - privacy oracle requests
 - off-chain privacy compute through oracle/compute worker modules
 - datafeed storage and updater-controlled publication
+- automation registration, execution queueing, and callback fulfillment
 
 Provider control-plane notes:
 
