@@ -64,12 +64,12 @@ export default function DocsIntroduction() {
 
       <h2>Next Steps</h2>
       <div className="grid grid-2" style={{ gap: '1.5rem' }}>
-        <Link href="/docs/oracle" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
+        <Link href="/docs/quickstart" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>INTEGRATION GUIDE</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>QUICKSTART GUIDE</span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Learn how to call Morpheus from Solidity or C# contracts.</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Integrate the Morpheus Oracle into your smart contracts in under 5 minutes.</p>
         </Link>
         <Link href="/docs/architecture" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
