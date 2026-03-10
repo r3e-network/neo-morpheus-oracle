@@ -20,7 +20,7 @@ async function neoRpcCall(rpcUrl, method, params = []) {
   return body.result;
 }
 
-function decodeNeoItem(item) {
+export function decodeNeoItem(item) {
   if (!item || typeof item !== "object") return null;
   const type = trimString(item.type).toLowerCase();
   switch (type) {
@@ -38,6 +38,9 @@ function decodeNeoItem(item) {
       const raw = trimString(item.value);
       if (!raw) return "";
       if (/^[0-9a-fA-F]+$/.test(raw) && raw.length % 2 === 0) {
+        if (raw.length === 40) {
+          return `0x${Buffer.from(raw, "hex").reverse().toString("hex")}`;
+        }
         try {
           return Buffer.from(raw, "hex").toString("utf8");
         } catch {
@@ -45,7 +48,11 @@ function decodeNeoItem(item) {
         }
       }
       try {
-        return Buffer.from(raw, "base64").toString("utf8");
+        const bytes = Buffer.from(raw, "base64");
+        if (bytes.length === 20) {
+          return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+        }
+        return bytes.toString("utf8");
       } catch {
         return raw;
       }

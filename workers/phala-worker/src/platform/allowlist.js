@@ -117,7 +117,7 @@ export function buildTxProxyAllowlist() {
   addAllow(allowlist, env("CONTRACT_MORPHEUS_DATAFEED_HASH", "CONTRACT_PRICEFEED_HASH"), "updateFeed", "update");
   addAllow(allowlist, env("CONTRACT_RANDOMNESSLOG_HASH"), "record");
   addAllow(allowlist, env("CONTRACT_AUTOMATIONANCHOR_HASH"), "markExecuted");
-  addAllow(allowlist, env("CONTRACT_MORPHEUS_ORACLE_HASH"), "fulfillRequest");
+  addAllow(allowlist, env("CONTRACT_MORPHEUS_ORACLE_HASH"), "fulfillRequest", "queueAutomationRequest");
   addAllow(allowlist, env("CONTRACT_PAYMENTHUB_HASH"), "pay");
   addAllow(allowlist, env("CONTRACT_GOVERNANCE_HASH"), "stake", "unstake", "vote");
   addAllow(allowlist, env("CONTRACT_GAS_HASH") || "0xd2a4cff31913016155e38e474a2c06d08be276cf", "transfer");
