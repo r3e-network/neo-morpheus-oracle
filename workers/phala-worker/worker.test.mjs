@@ -42,6 +42,7 @@ const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = a
 const { __resetOracleKeyMaterialForTests } = await import('./src/oracle/crypto.js');
 const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
 const { allowlistAllows } = await import('./src/platform/allowlist.js');
+const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
 
 function authHeaders() {
   return {
@@ -241,6 +242,28 @@ test('feeds catalog lists default symbols', async () => {
   assert.ok(body.pairs.includes('NEO-USD'));
   assert.ok(body.pairs.includes('PAXG-USD'));
   assert.ok(body.pairs.includes('WTI-USD'));
+});
+
+test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
+  const previousRelayerWif = process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
+  const previousRelayerPrivateKey = process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
+  const previousWorkerPrivateKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  const previousWorkerWif = process.env.PHALA_NEO_N3_WIF;
+  const previousNeoN3Wif = process.env.NEO_N3_WIF;
+  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  delete process.env.PHALA_NEO_N3_WIF;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
+  delete process.env.NEO_N3_WIF;
+  process.env.MORPHEUS_RELAYER_NEO_N3_WIF = 'Kzopomhb6ufUbYigzTjjy7t34AE1k2sNn3suXrRGePVoPRVP6rsn';
+
+  const context = loadNeoN3Context({}, { required: true, requireRpc: false });
+  assert.equal(context.account.address, 'NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32');
+
+  process.env.MORPHEUS_RELAYER_NEO_N3_WIF = previousRelayerWif;
+  process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY = previousRelayerPrivateKey;
+  process.env.PHALA_NEO_N3_PRIVATE_KEY = previousWorkerPrivateKey;
+  process.env.PHALA_NEO_N3_WIF = previousWorkerWif;
+  process.env.NEO_N3_WIF = previousNeoN3Wif;
 });
 
 test('feed quote supports twelvedata provider', async () => {

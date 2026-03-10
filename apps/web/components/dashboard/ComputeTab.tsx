@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Cpu, Play, FileCode, ShieldCheck, Database, Zap, Code, Terminal, Info } from "lucide-react";
+import { Cpu, Play, FileCode, Database, Code, Fingerprint, Lock, ShieldAlert } from "lucide-react";
 
 export function ComputeTab({ computeFunctions, setOutput }: any) {
   const [selectedFunc, setSelectedFunc] = useState<string>("");
@@ -9,12 +9,15 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
   const [userCode, setUserCode] = useState(`function process(data) {\n  // Sandbox Simulation\n  // Access mock data here\n  return data.args.reduce((a, b) => a + b, 0);\n}`);
   const [isSimulating, setIsSimulating] = useState(false);
 
-  // Hardcoded premium templates for the UI presentation
+  // Expanded set of professional templates reflecting built-in capabilities
   const mockTemplates = [
-    { name: "zkp.public_signal_hash", runtime: "JS", desc: "Hash signals for zero-knowledge proofs." },
-    { name: "defi.twap_aggregator", runtime: "JS", desc: "Calculate Time-Weighted Average Price across exchanges." },
-    { name: "identity.kyc_verify", runtime: "WASM", desc: "Verify KYC credentials without exposing PII." },
-    { name: "random.vrf_generator", runtime: "JS", desc: "Generate verifiable randomness inside TEE." }
+    { name: "hash.sha256", runtime: "JS", desc: "Standard SHA-256 hashing for any JSON payload.", cat: "Hash" },
+    { name: "zkp.public_signal_hash", runtime: "JS", desc: "Deterministic digest over ZKP public signals.", cat: "ZKP" },
+    { name: "math.modexp", runtime: "JS", desc: "Big integer modular exponentiation.", cat: "Math" },
+    { name: "matrix.multiply", runtime: "JS", desc: "High-performance dense matrix multiplication.", cat: "Linear Algebra" },
+    { name: "privacy.mask", runtime: "JS", desc: "Sensitive data masking with edge preservation.", cat: "Privacy" },
+    { name: "privacy.add_noise", runtime: "JS", desc: "Laplace noise injection for differential privacy.", cat: "Privacy" },
+    { name: "random.vrf_generator", runtime: "JS", desc: "Verifiable randomness using TEE entropy.", cat: "Entropy" }
   ];
 
   const handleExecute = async () => {
@@ -55,45 +58,43 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
   };
 
   return (
-    <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
-      <div className="glass-card neo-card" style={{ padding: '2rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ background: 'var(--neo-purple-glow)', padding: '10px', borderRadius: '12px' }}><Cpu className="text-purple" size={24} /></div>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 900 }}>Enclave Sandbox (Local)</h2>
-            <p style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>Test your privacy functions offline in a simulated TEE environment before deploying to mainnet.</p>
-          </div>
+    <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border-dim)', paddingBottom: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>Enclave Sandbox</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Test your privacy logic locally before deploying to the prover network.</p>
         </div>
       </div>
 
       <div className="grid grid-2" style={{ alignItems: 'start', gap: '2rem' }}>
-        <div className="glass-card stagger-1" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.5rem' }}>
-            <Database size={18} className="text-neo" />
-            <h3 style={{ fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Function Templates</h3>
+        <div className="card-industrial stagger-1" style={{ padding: '0' }}>
+          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+              <Database className="text-neo" size={16} /> Functions Catalog
+            </h3>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '600px', overflowY: 'auto' }}>
             {mockTemplates.map((f) => (
               <button
                 key={f.name}
                 onClick={() => {
                   setSelectedFunc(f.name);
-                  if (f.name.includes("twap")) setUserCode(`function process(data) {\n  // Fetch prices from multiple DEXs\n  return { twap: 105.2 };\n}`);
+                  if (f.name.includes("noise")) setUserCode(`function process(data) {\n  // data: { value: number, scale: number }\n  return { noisy_value: data.value + (Math.random() * data.scale) };\n}`);
                   else if (f.name.includes("vrf")) setUserCode(`async function process(data) {\n  const res = await morpheus.get_vrf_random();\n  return res;\n}`);
+                  else if (f.name.includes("mask")) setUserCode(`function process(data) {\n  const s = String(data.value);\n  return s.slice(0, 2) + "****" + s.slice(-2);\n}`);
                   else setUserCode(`function process(data) {\n  return data.args.reduce((a, b) => a + b, 0);\n}`);
                 }}
                 style={{
                   width: '100%',
-                  padding: '1.25rem',
-                  borderRadius: '12px',
-                  border: '1px solid',
-                  borderColor: selectedFunc === f.name ? 'var(--neo-purple)' : 'var(--border-subtle)',
-                  background: selectedFunc === f.name ? 'var(--neo-purple-glow)' : 'rgba(255,255,255,0.02)',
-                  color: selectedFunc === f.name ? '#fff' : 'var(--text-dim)',
+                  padding: '1.5rem',
+                  border: 'none',
+                  borderBottom: '1px solid var(--border-dim)',
+                  background: selectedFunc === f.name ? 'rgba(0,255,163,0.05)' : 'transparent',
+                  color: selectedFunc === f.name ? '#fff' : 'var(--text-secondary)',
                   textAlign: 'left',
                   cursor: 'pointer',
-                  transition: 'all 0.2s',
+                  transition: 'background 0.2s',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '8px'
@@ -101,12 +102,12 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <Code size={16} className={selectedFunc === f.name ? "text-purple" : "text-muted"} />
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{f.name}</span>
+                    <Fingerprint size={16} color={selectedFunc === f.name ? 'var(--neo-green)' : 'var(--text-muted)'} />
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>{f.name}</span>
                   </div>
-                  <span className="badge" style={{ fontSize: '0.6rem', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>{f.runtime}</span>
+                  <span className="badge-outline" style={{ color: 'var(--accent-purple)', fontSize: '0.55rem' }}>{f.cat}</span>
                 </div>
-                <div style={{ fontSize: '0.7rem', color: selectedFunc === f.name ? 'rgba(255,255,255,0.8)' : 'var(--text-muted)' }}>
+                <div style={{ fontSize: '0.75rem', color: selectedFunc === f.name ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)', lineHeight: 1.5 }}>
                   {f.desc}
                 </div>
               </button>
@@ -115,28 +116,38 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
         </div>
 
         <div className="flex flex-col gap-6">
-          <div className="glass-card stagger-2" style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem' }}>
-              <FileCode size={18} className="text-neo" />
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 800 }}>MOCK INPUT (JSON)</h3>
+          <div className="card-industrial stagger-2" style={{ padding: '0', marginBottom: '2rem' }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                <Code className="text-neo" size={16} /> Sandbox Logic (JS)
+              </h3>
             </div>
-            <textarea 
-              className="code-editor" 
-              value={computeInput} 
-              onChange={(e) => setComputeInput(e.target.value)}
-              style={{ minHeight: '120px' }}
-            />
+            <div style={{ padding: '1.5rem' }}>
+              <textarea 
+                className="code-editor" 
+                value={userCode} 
+                onChange={(e) => setUserCode(e.target.value)}
+                style={{ minHeight: '220px', border: 'none', background: 'transparent', boxShadow: 'none', padding: '0' }}
+              />
+            </div>
           </div>
 
-          <div className="glass-card stagger-3" style={{ padding: '1.5rem', border: '1px solid var(--border-neo)' }}>
-            <button className="btn btn-neo" style={{ width: '100%', padding: '1rem' }} onClick={handleExecute} disabled={isSimulating}>
-              {isSimulating ? 'Simulating...' : <><Play size={16} fill="currentColor" /> Run Simulation</>}
-            </button>
-            <div style={{ marginTop: '1.25rem', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <Info size={16} className="text-muted" style={{ marginTop: '2px' }} />
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', lineHeight: 1.5 }}>
-                The simulation uses a browser-based sandbox. Functions that work here are guaranteed to execute identically in the Morpheus production Enclave.
-              </p>
+          <div className="card-industrial stagger-3" style={{ padding: '0' }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+                <FileCode className="text-neo" size={16} /> Mock Input (JSON)
+              </h3>
+            </div>
+            <div style={{ padding: '1.5rem' }}>
+              <textarea 
+                className="code-editor" 
+                value={computeInput} 
+                onChange={(e) => setComputeInput(e.target.value)}
+                style={{ minHeight: '100px', border: 'none', background: 'transparent', boxShadow: 'none', padding: '0', marginBottom: '1.5rem' }}
+              />
+              <button className="btn-ata" style={{ width: '100%', justifyContent: 'center' }} onClick={handleExecute} disabled={isSimulating}>
+                {isSimulating ? 'Executing...' : 'Run Local Simulation'}
+              </button>
             </div>
           </div>
         </div>

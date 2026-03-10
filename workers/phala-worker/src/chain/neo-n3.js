@@ -50,7 +50,16 @@ export function loadNeoN3Context(payload = {}, { required = false, requireRpc = 
     trimString(payload.private_key) ||
     trimString(payload.signing_key) ||
     trimString(payload.wif) ||
-    env("PHALA_NEO_N3_PRIVATE_KEY", "PHALA_NEO_N3_WIF", "NEO_N3_WIF", "NEO_PLATFORM_KEY", "TEE_PRIVATE_KEY", "NEO_TESTNET_WIF");
+    env(
+      "PHALA_NEO_N3_PRIVATE_KEY",
+      "PHALA_NEO_N3_WIF",
+      "MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY",
+      "MORPHEUS_RELAYER_NEO_N3_WIF",
+      "NEO_N3_WIF",
+      "NEO_PLATFORM_KEY",
+      "TEE_PRIVATE_KEY",
+      "NEO_TESTNET_WIF",
+    );
 
   if (!key) {
     if (required) throw new Error("Neo N3 signing key is not configured");
