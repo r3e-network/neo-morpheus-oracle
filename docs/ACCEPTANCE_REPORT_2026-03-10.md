@@ -18,9 +18,15 @@ This report covers the Neo N3 mainnet deployment, runtime reconfiguration, and e
 - Public worker endpoint:
   - `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network`
 - Current worker image:
+<<<<<<< HEAD
   - `ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:sha-71f7d85`
 - Current relayer image:
   - `ghcr.io/r3e-network/neo-morpheus-oracle-relayer:sha-f6d088c`
+=======
+  - `ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:sha-d7f3499`
+- Current relayer image:
+  - `ghcr.io/r3e-network/neo-morpheus-oracle-relayer:sha-d7f3499`
+>>>>>>> daeac36 (feat(web): comprehensive frontend overhaul with professional UI and on-chain verification)
 - Runtime network:
   - `mainnet`
 
@@ -46,6 +52,22 @@ Deployment transactions:
 - Example consumer deploy: `0x572b38fb211dff47d909124002deba5c9697315c367e5cb53419ab0f549573b0`
 - Example reader deploy: `0xa565e89aa20ddeba81a68c08bc83311ab3a82c82b0dcfa7df62c7f4d535923d2`
 
+<<<<<<< HEAD
+=======
+### Neo X Mainnet
+
+Current status:
+
+- canonical mainnet RPC corrected to `https://mainnet-2.rpc.banelabs.org`
+- chain id confirmed as `47763`
+- mainnet contract addresses are still not deployed / assigned in this repo
+
+Deployment blocker confirmed during validation:
+
+- user-provided Neo X EOA `0xE864216cdE1390FF3D52d2784BF965AC6e74ae99` currently has `0` balance on Neo X mainnet
+- without Neo X mainnet gas funding, Oracle / Callback / DataFeed mainnet deployment cannot be completed safely
+
+>>>>>>> daeac36 (feat(web): comprehensive frontend overhaul with professional UI and on-chain verification)
 ## Runtime Verification
 
 - `GET /health` returned `status=ok`
@@ -190,6 +212,14 @@ Repo fixes landed in:
 
 Live relayer was hot-patched so automation validation could complete immediately.
 
+<<<<<<< HEAD
+=======
+These automation fixes were then rolled into the official mainline images:
+
+- PR: `#3`
+- merge commit: `d7f34996301a0a610df8b8c8fce6333a4fb4c2f5`
+
+>>>>>>> daeac36 (feat(web): comprehensive frontend overhaul with professional UI and on-chain verification)
 ## Datafeed Rules Confirmed
 
 - Datafeed publication is operator-only
