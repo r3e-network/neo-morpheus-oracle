@@ -122,12 +122,17 @@ Default built-in USD pairs:
 - `FLM-USD`
 - `BTC-USD`
 - `ETH-USD`
-- `TRX-USD`
 - `SOL-USD`
+- `TRX-USD`
+- `PAXG-USD`
+- `WTI-USD`
+- `USDT-USD`
+- `USDC-USD`
 - `BNB-USD`
-- `XAU-USD`
-- `XAG-USD`
-- `OIL-USD`
+- `XRP-USD`
+- `DOGE-USD`
+
+Production sync defaults to `twelvedata` only. Other built-in providers remain available for Oracle fetch flows and project-specific overrides.
 
 Inspect at runtime with:
 

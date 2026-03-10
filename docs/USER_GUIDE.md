@@ -153,7 +153,7 @@ There are two main paths.
 
 ### A. Built-in provider mode
 
-Use a built-in provider such as `twelvedata`, `binance-spot`, or `coinbase-spot`.
+Use a built-in provider such as `twelvedata`. Optional providers like `binance-spot` and `coinbase-spot` remain available for project-specific Oracle fetch flows, but production PriceFeed sync defaults to `twelvedata`.
 
 Example:
 
@@ -269,12 +269,15 @@ Current default pair catalog includes:
 - `FLM-USD`
 - `BTC-USD`
 - `ETH-USD`
-- `TRX-USD`
 - `SOL-USD`
+- `TRX-USD`
+- `PAXG-USD`
+- `WTI-USD`
+- `USDT-USD`
+- `USDC-USD`
 - `BNB-USD`
-- `XAU-USD`
-- `XAG-USD`
-- `OIL-USD`
+- `XRP-USD`
+- `DOGE-USD`
 
 You can extend this later via `MORPHEUS_FEED_PAIR_REGISTRY_JSON`.
 
@@ -299,8 +302,8 @@ This returns:
 - `quotes`
 - `errors`
 
-If both sources are available, both quotes are returned.
-If one source fails, the other is still returned.
+If multiple providers are requested, every successful quote is returned and every failed provider is listed in `errors`.
+Production feed sync uses `twelvedata` by default unless you explicitly override `MORPHEUS_FEED_PROVIDERS`.
 
 ### Trigger an on-chain feed sync
 
@@ -323,7 +326,7 @@ curl "$PHALA_API_URL/oracle/feed" \
   -d '{
     "symbol":"NEO-USD",
     "target_chain":"neo_n3",
-    "providers":["twelvedata","binance-spot"],
+    "providers":["twelvedata"],
     "sync_all_sources":true,
     "wait":true
   }'

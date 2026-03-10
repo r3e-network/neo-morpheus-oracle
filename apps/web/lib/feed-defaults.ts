@@ -4,10 +4,10 @@ export const DEFAULT_FEED_SYMBOLS = [
   'FLM-USD',
   'BTC-USD',
   'ETH-USD',
-  'TRX-USD',
   'SOL-USD',
+  'TRX-USD',
   'PAXG-USD',
-  'OIL-USD',
+  'WTI-USD',
   'USDT-USD',
   'USDC-USD',
   'BNB-USD',
@@ -23,6 +23,6 @@ export function parseFeedSymbols(rawValue?: string | null) {
 
 export function parseFeedProviders(rawValue?: string | null) {
   const raw = String(rawValue || '').trim();
-  if (!raw) return ['twelvedata', 'binance-spot'];
+  if (!raw) return ['twelvedata'];
   return raw.split(',').map((provider) => provider.trim().toLowerCase()).filter(Boolean);
 }
