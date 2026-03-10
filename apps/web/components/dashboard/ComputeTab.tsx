@@ -105,7 +105,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
                     <Fingerprint size={16} color={selectedFunc === f.name ? 'var(--neo-green)' : 'var(--text-muted)'} />
                     <span style={{ fontWeight: 700, fontSize: '0.9rem', fontFamily: 'var(--font-mono)' }}>{f.name}</span>
                   </div>
-                  <span className="badge-outline" style={{ color: 'var(--accent-purple)', fontSize: '0.55rem' }}>{f.cat}</span>
+                  <span className="badge-outline" style={{ color: 'var(--accent-purple)', borderColor: 'var(--accent-purple)' }}>{f.cat}</span>
                 </div>
                 <div style={{ fontSize: '0.75rem', color: selectedFunc === f.name ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)', lineHeight: 1.5 }}>
                   {f.desc}
@@ -146,7 +146,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
                 style={{ minHeight: '100px', border: 'none', background: 'transparent', boxShadow: 'none', padding: '0', marginBottom: '1.5rem' }}
               />
               <button className="btn-ata" style={{ width: '100%', justifyContent: 'center' }} onClick={handleExecute} disabled={isSimulating}>
-                {isSimulating ? 'Executing...' : 'Run Local Simulation'}
+                {isSimulating ? 'EXECUTING...' : 'RUN LOCAL SIMULATION'}
               </button>
             </div>
           </div>
