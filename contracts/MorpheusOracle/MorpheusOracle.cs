@@ -25,6 +25,9 @@ namespace MorpheusOracle.Contracts
     public delegate void UpdaterChangedHandler(UInt160 oldUpdater, UInt160 newUpdater);
     public delegate void OracleEncryptionKeyUpdatedHandler(BigInteger version, string algorithm, string publicKey);
     public delegate void OracleVerifierUpdatedHandler(ECPoint oldVerifier, ECPoint newVerifier);
+    public delegate void RequestFeeUpdatedHandler(BigInteger oldFee, BigInteger newFee);
+    public delegate void RequestFeeDepositedHandler(UInt160 from, BigInteger amount, BigInteger creditBalance);
+    public delegate void AccruedFeesWithdrawnHandler(UInt160 to, BigInteger amount);
 
     [DisplayName("MorpheusOracle")]
     [ManifestExtra("Author", "Morpheus Oracle")]
@@ -46,6 +49,10 @@ namespace MorpheusOracle.Contracts
         private static readonly byte[] PREFIX_TOTAL_FULFILLED = new byte[] { 0x11 };
         private static readonly byte[] PREFIX_TYPE_REQUESTS = new byte[] { 0x12 };
         private static readonly byte[] PREFIX_TYPE_FULFILLED = new byte[] { 0x13 };
+        private static readonly byte[] PREFIX_REQUEST_FEE = new byte[] { 0x14 };
+        private static readonly byte[] PREFIX_REQUEST_CREDIT = new byte[] { 0x15 };
+        private static readonly byte[] PREFIX_ACCRUED_REQUEST_FEES = new byte[] { 0x16 };
+        private static readonly byte[] FULFILLMENT_SIGNATURE_DOMAIN = new byte[] { 109, 111, 114, 112, 104, 101, 117, 115, 45, 102, 117, 108, 102, 105, 108, 108, 109, 101, 110, 116, 45, 118, 50 };
 
         private const int MAX_REQUEST_TYPE_LENGTH = 64;
         private const int MAX_CALLBACK_METHOD_LENGTH = 64;
@@ -55,6 +62,7 @@ namespace MorpheusOracle.Contracts
         private const int MAX_ORACLE_KEY_ALGO_LENGTH = 64;
         private const int MAX_ORACLE_KEY_LENGTH = 2048;
         private const string CALLBACK_METHOD = "onOracleResult";
+        private const long DEFAULT_REQUEST_FEE = 1_000_000;
 
         public struct OracleRequest
         {
@@ -96,12 +104,22 @@ namespace MorpheusOracle.Contracts
         [DisplayName("OracleVerifierUpdated")]
         public static event OracleVerifierUpdatedHandler OnOracleVerifierUpdated;
 
+        [DisplayName("RequestFeeUpdated")]
+        public static event RequestFeeUpdatedHandler OnRequestFeeUpdated;
+
+        [DisplayName("RequestFeeDeposited")]
+        public static event RequestFeeDepositedHandler OnRequestFeeDeposited;
+
+        [DisplayName("AccruedFeesWithdrawn")]
+        public static event AccruedFeesWithdrawnHandler OnAccruedFeesWithdrawn;
+
         public static void _deploy(object data, bool update)
         {
             if (update) return;
             Transaction tx = Runtime.Transaction;
             Storage.Put(Storage.CurrentContext, PREFIX_ADMIN, tx.Sender);
             Storage.Put(Storage.CurrentContext, PREFIX_COUNTER, 0);
+            Storage.Put(Storage.CurrentContext, PREFIX_REQUEST_FEE, DEFAULT_REQUEST_FEE);
         }
 
         [Safe]
@@ -140,6 +158,28 @@ namespace MorpheusOracle.Contracts
         {
             ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_ORACLE_VERIFIER);
             return raw == null ? null : (ECPoint)(byte[])raw;
+        }
+
+        [Safe]
+        public static BigInteger RequestFee()
+        {
+            ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_REQUEST_FEE);
+            return raw == null ? DEFAULT_REQUEST_FEE : (BigInteger)raw;
+        }
+
+        [Safe]
+        public static BigInteger FeeCreditOf(UInt160 requester)
+        {
+            if (requester == null || !requester.IsValid) return 0;
+            ByteString raw = RequestCreditMap().Get((byte[])requester);
+            return raw == null ? 0 : (BigInteger)raw;
+        }
+
+        [Safe]
+        public static BigInteger AccruedRequestFees()
+        {
+            ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES);
+            return raw == null ? 0 : (BigInteger)raw;
         }
 
         private static void ValidateAdmin()
@@ -198,10 +238,48 @@ namespace MorpheusOracle.Contracts
             OnOracleVerifierUpdated(oldVerifier, publicKey);
         }
 
+        public static void SetRequestFee(BigInteger amount)
+        {
+            ValidateAdmin();
+            ExecutionEngine.Assert(amount > 0, "invalid request fee");
+            BigInteger oldFee = RequestFee();
+            Storage.Put(Storage.CurrentContext, PREFIX_REQUEST_FEE, amount);
+            OnRequestFeeUpdated(oldFee, amount);
+        }
+
+        public static void WithdrawAccruedFees(UInt160 to, BigInteger amount)
+        {
+            ValidateAdmin();
+            ExecutionEngine.Assert(to != null && to.IsValid, "invalid recipient");
+            ExecutionEngine.Assert(amount > 0, "invalid amount");
+
+            BigInteger accrued = AccruedRequestFees();
+            ExecutionEngine.Assert(accrued >= amount, "insufficient accrued fees");
+            ExecutionEngine.Assert(
+                GAS.Transfer(Runtime.ExecutingScriptHash, to, amount, null),
+                "fee transfer failed"
+            );
+            Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, accrued - amount);
+            OnAccruedFeesWithdrawn(to, amount);
+        }
+
         private static StorageMap AllowedCallbackMap() => new StorageMap(Storage.CurrentContext, PREFIX_ALLOWED_CALLBACK);
         private static StorageMap RequestMap() => new StorageMap(Storage.CurrentContext, PREFIX_REQUEST);
         private static StorageMap TypeRequestsMap() => new StorageMap(Storage.CurrentContext, PREFIX_TYPE_REQUESTS);
         private static StorageMap TypeFulfilledMap() => new StorageMap(Storage.CurrentContext, PREFIX_TYPE_FULFILLED);
+        private static StorageMap RequestCreditMap() => new StorageMap(Storage.CurrentContext, PREFIX_REQUEST_CREDIT);
+
+        private static void ValidateRequestInputs(string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
+        {
+            ExecutionEngine.Assert(requestType != null && requestType.Length > 0, "request type required");
+            ExecutionEngine.Assert(callbackContract != null && callbackContract.IsValid, "callback contract required");
+            ExecutionEngine.Assert(callbackMethod != null && callbackMethod.Length > 0, "callback method required");
+            ExecutionEngine.Assert(requestType.Length <= MAX_REQUEST_TYPE_LENGTH, "request type too long");
+            ExecutionEngine.Assert(callbackMethod.Length <= MAX_CALLBACK_METHOD_LENGTH, "callback method too long");
+            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD, "unsupported callback method");
+            ExecutionEngine.Assert(payload == null || payload.Length <= MAX_PAYLOAD_LENGTH, "payload too large");
+            ExecutionEngine.Assert(IsAllowedCallback(callbackContract), "callback contract not allowed");
+        }
 
         public static void AddAllowedCallback(UInt160 contractHash)
         {
@@ -314,20 +392,10 @@ namespace MorpheusOracle.Contracts
             return (OracleRequest)StdLib.Deserialize(raw);
         }
 
-        public static BigInteger Request(string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
+        private static BigInteger QueueRequestInternal(UInt160 requester, string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
         {
-            ExecutionEngine.Assert(requestType != null && requestType.Length > 0, "request type required");
-            ExecutionEngine.Assert(callbackContract != null && callbackContract.IsValid, "callback contract required");
-            ExecutionEngine.Assert(callbackMethod != null && callbackMethod.Length > 0, "callback method required");
-            ExecutionEngine.Assert(requestType.Length <= MAX_REQUEST_TYPE_LENGTH, "request type too long");
-            ExecutionEngine.Assert(callbackMethod.Length <= MAX_CALLBACK_METHOD_LENGTH, "callback method too long");
-            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD, "unsupported callback method");
-            ExecutionEngine.Assert(payload == null || payload.Length <= MAX_PAYLOAD_LENGTH, "payload too large");
-            ExecutionEngine.Assert(IsAllowedCallback(callbackContract), "callback contract not allowed");
-
-            UInt160 requester = Runtime.Transaction.Sender;
+            ValidateRequestInputs(requestType, payload, callbackContract, callbackMethod);
             ExecutionEngine.Assert(requester != null && requester.IsValid, "requester required");
-            ExecutionEngine.Assert(Runtime.CheckWitness(requester), "unauthorized requester");
 
             BigInteger requestId = NextRequestId();
             OracleRequest req = new OracleRequest
@@ -353,6 +421,34 @@ namespace MorpheusOracle.Contracts
             return requestId;
         }
 
+        public static BigInteger Request(string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
+        {
+            UInt160 requester = Runtime.Transaction.Sender;
+            ExecutionEngine.Assert(requester != null && requester.IsValid, "requester required");
+            ExecutionEngine.Assert(Runtime.CheckWitness(requester), "unauthorized requester");
+            ConsumeRequestFee(requester, callbackContract);
+            return QueueRequestInternal(requester, requestType, payload, callbackContract, callbackMethod);
+        }
+
+        public static BigInteger QueueAutomationRequest(UInt160 requester, string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
+        {
+            ValidateUpdater();
+            ExecutionEngine.Assert(requester != null && requester.IsValid, "requester required");
+            ConsumeRequestFee(requester, callbackContract);
+            return QueueRequestInternal(requester, requestType, payload, callbackContract, callbackMethod);
+        }
+
+        public static void OnNEP17Payment(UInt160 from, BigInteger amount, object data)
+        {
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == GAS.Hash, "only GAS accepted");
+            ExecutionEngine.Assert(from != null && from.IsValid, "invalid sender");
+            ExecutionEngine.Assert(amount > 0, "invalid amount");
+
+            BigInteger nextCredit = FeeCreditOf(from) + amount;
+            RequestCreditMap().Put((byte[])from, nextCredit);
+            OnRequestFeeDeposited(from, amount, nextCredit);
+        }
+
         private static ByteString ComputeResultHash(ByteString result)
         {
             return CryptoLib.Sha256(result ?? (ByteString)"");
@@ -361,6 +457,35 @@ namespace MorpheusOracle.Contracts
         private static BigInteger ComputeResultSize(ByteString result)
         {
             return result == null ? 0 : result.Length;
+        }
+
+        private static byte[] ToUInt256Bytes(BigInteger value)
+        {
+            ExecutionEngine.Assert(value >= 0, "invalid uint256");
+            byte[] raw = value.ToByteArray();
+            int length = raw.Length;
+            if (length > 32)
+            {
+                ExecutionEngine.Assert(length == 33 && raw[32] == 0, "uint256 overflow");
+                length = 32;
+            }
+
+            byte[] output = new byte[32];
+            for (int index = 0; index < length; index++)
+            {
+                output[31 - index] = raw[index];
+            }
+            return output;
+        }
+
+        private static ByteString ComputeFulfillmentDigest(BigInteger requestId, string requestType, bool success, ByteString result, string error)
+        {
+            byte[] payload = Helper.Concat(FULFILLMENT_SIGNATURE_DOMAIN, ToUInt256Bytes(requestId));
+            payload = Helper.Concat(payload, CryptoLib.Sha256((ByteString)(requestType ?? "")));
+            payload = Helper.Concat(payload, new byte[] { success ? (byte)0x01 : (byte)0x00 });
+            payload = Helper.Concat(payload, ComputeResultHash(result));
+            payload = Helper.Concat(payload, CryptoLib.Sha256((ByteString)(error ?? "")));
+            return CryptoLib.Sha256((ByteString)payload);
         }
 
         public static void FulfillRequest(BigInteger requestId, bool success, ByteString result, string error, ByteString verificationSignature)
@@ -375,8 +500,9 @@ namespace MorpheusOracle.Contracts
             ECPoint verifier = OracleVerificationPublicKey();
             ExecutionEngine.Assert(verifier != null && verifier.IsValid, "oracle verifier not set");
             ExecutionEngine.Assert(verificationSignature != null && verificationSignature.Length == 64, "invalid verification signature");
+            ByteString fulfillmentDigest = ComputeFulfillmentDigest(requestId, req.RequestType, success, result ?? (ByteString)"", error ?? "");
             ExecutionEngine.Assert(
-                CryptoLib.VerifyWithECDsa(result ?? (ByteString)"", verifier, verificationSignature, NamedCurveHash.secp256r1SHA256),
+                CryptoLib.VerifyWithECDsa(fulfillmentDigest, verifier, verificationSignature, NamedCurveHash.secp256r1SHA256),
                 "invalid verification signature"
             );
 
@@ -412,6 +538,30 @@ namespace MorpheusOracle.Contracts
         {
             ValidateAdmin();
             ContractManagement.Update(nefFile, manifest, null);
+        }
+
+        private static void ConsumeRequestFee(UInt160 requester, UInt160 callbackContract)
+        {
+            BigInteger fee = RequestFee();
+            if (fee <= 0) return;
+
+            UInt160 feePayer = ResolveFeePayer(requester, callbackContract, fee);
+            BigInteger credit = FeeCreditOf(feePayer);
+            ExecutionEngine.Assert(credit >= fee, "request fee not paid");
+            RequestCreditMap().Put((byte[])feePayer, credit - fee);
+            Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, AccruedRequestFees() + fee);
+        }
+
+        private static UInt160 ResolveFeePayer(UInt160 requester, UInt160 callbackContract, BigInteger fee)
+        {
+            if (callbackContract != null
+                && callbackContract.IsValid
+                && FeeCreditOf(callbackContract) >= fee)
+            {
+                return callbackContract;
+            }
+
+            return requester;
         }
     }
 }

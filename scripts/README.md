@@ -39,7 +39,8 @@
 
 ## Expected env vars
 
-- `NEO_TESTNET_WIF`
+- `NEO_N3_WIF` (preferred)
+- legacy `NEO_TESTNET_WIF`
 - `NEO_RPC_URL`
 - `NEO_NETWORK_MAGIC`
 - `CONTRACT_MORPHEUS_ORACLE_HASH`

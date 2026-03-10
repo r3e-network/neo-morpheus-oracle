@@ -36,6 +36,7 @@ const shouldRunN3 = Boolean(
   trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH)
   && trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH)
   && hasAny(
+    'NEO_N3_WIF',
     'NEO_TESTNET_WIF',
     'PHALA_NEO_N3_WIF',
     'PHALA_NEO_N3_PRIVATE_KEY',

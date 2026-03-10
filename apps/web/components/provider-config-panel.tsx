@@ -76,7 +76,7 @@ export function ProviderConfigPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const savedKey = window.localStorage.getItem("morpheus.providerConfigApiKey") || "";
+    const savedKey = window.sessionStorage.getItem("morpheus.providerConfigApiKey") || "";
     setAdminApiKey(savedKey);
 
     (async () => {
@@ -88,7 +88,11 @@ export function ProviderConfigPanel() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("morpheus.providerConfigApiKey", adminApiKey);
+    if (adminApiKey) {
+      window.sessionStorage.setItem("morpheus.providerConfigApiKey", adminApiKey);
+    } else {
+      window.sessionStorage.removeItem("morpheus.providerConfigApiKey");
+    }
   }, [adminApiKey]);
 
   useEffect(() => {
@@ -99,92 +103,119 @@ export function ProviderConfigPanel() {
   }, [projectSlug, adminApiKey]);
 
   return (
-    <section className="card">
-      <h3>Provider Configs</h3>
-      <small>
+    <div className="card">
+      <h3 className="card-title">Provider Configs</h3>
+      <p className="card-description">
         Persist project-level built-in provider settings in Supabase. Set <code>MORPHEUS_PROVIDER_CONFIG_API_KEY</code>
-        or <code>ADMIN_CONSOLE_API_KEY</code> in production and paste it here to manage configs.
-      </small>
+        or <code>ADMIN_CONSOLE_API_KEY</code> in production to manage configs. The key is kept only for the current browser session.
+      </p>
 
-      <div className="grid grid-2">
-        <input value={projectSlug} onChange={(event) => setProjectSlug(event.target.value)} placeholder="project slug" />
-        <input
-          type="password"
-          value={adminApiKey}
-          onChange={(event) => setAdminApiKey(event.target.value)}
-          placeholder="admin api key (optional in local dev)"
-        />
-      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">Project Slug</label>
+            <input value={projectSlug} onChange={(event) => setProjectSlug(event.target.value)} placeholder="demo" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Admin API Key</label>
+            <input
+              type="password"
+              value={adminApiKey}
+              onChange={(event) => setAdminApiKey(event.target.value)}
+              placeholder="••••••••••••••••"
+            />
+          </div>
+        </div>
 
-      <div className="grid grid-2">
-        <input
-          value={providerId}
-          list="builtin-provider-ids"
-          onChange={(event) => setProviderId(event.target.value)}
-          placeholder="provider id"
-        />
-        <button onClick={() => setConfigJson(exampleConfig)}>Reset Example Config</button>
-      </div>
-      <datalist id="builtin-provider-ids">
-        {(providers.length ? providers : [{ id: "twelvedata" }, { id: "binance-spot" }, { id: "coinbase-spot" }]).map((provider) => (
-          <option key={provider.id} value={provider.id}>
-            {provider.description || provider.id}
-          </option>
-        ))}
-      </datalist>
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">Provider ID</label>
+            <input
+              value={providerId}
+              list="builtin-provider-ids"
+              onChange={(event) => setProviderId(event.target.value)}
+              placeholder="e.g. binance-spot"
+            />
+          </div>
+          <div className="form-group" style={{ justifyContent: 'flex-end', display: 'flex' }}>
+             <button className="btn btn-outline btn-sm" onClick={() => setConfigJson(exampleConfig)}>Reset Example Config</button>
+          </div>
+        </div>
+        
+        <datalist id="builtin-provider-ids">
+          {(providers.length ? providers : [{ id: "twelvedata" }, { id: "binance-spot" }, { id: "coinbase-spot" }]).map((provider) => (
+            <option key={provider.id} value={provider.id}>
+              {provider.description || provider.id}
+            </option>
+          ))}
+        </datalist>
 
-      <textarea value={configJson} onChange={(event) => setConfigJson(event.target.value)} placeholder={exampleConfig} />
+        <div className="form-group">
+          <label className="form-label">Configuration JSON</label>
+          <textarea value={configJson} onChange={(event) => setConfigJson(event.target.value)} placeholder={exampleConfig} />
+        </div>
 
-      <div className="grid grid-3">
-        <button
-          onClick={async () => {
-            let parsedConfig: Record<string, unknown>;
-            try {
-              const parsed = JSON.parse(configJson);
-              if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-                throw new Error("config must be a JSON object");
+        <div className="grid grid-3" style={{ marginTop: "0.5rem" }}>
+          <button
+            className="btn btn-primary"
+            onClick={async () => {
+              let parsedConfig: Record<string, unknown>;
+              try {
+                const parsed = JSON.parse(configJson);
+                if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+                  throw new Error("config must be a JSON object");
+                }
+                parsedConfig = parsed as Record<string, unknown>;
+              } catch (error) {
+                setMessage(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2));
+                return;
               }
-              parsedConfig = parsed as Record<string, unknown>;
-            } catch (error) {
-              setMessage(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2));
-              return;
-            }
 
-            const body = await callJSON("/api/provider-configs", {
-              method: "POST",
-              adminApiKey,
-              body: {
-                project_slug: projectSlug,
-                provider_id: providerId,
-                enabled: true,
-                config: parsedConfig,
-              },
-            });
-            setMessage(JSON.stringify(body, null, 2));
-            await refresh();
-          }}
-        >
-          Save Provider Config
-        </button>
-        <button onClick={() => refresh()}>Refresh</button>
-        <button
-          onClick={async () => {
-            const body = await callJSON(
-              `/api/provider-configs?project_slug=${encodeURIComponent(projectSlug)}&provider_id=${encodeURIComponent(providerId)}`,
-              {
-                method: "DELETE",
+              const body = await callJSON("/api/provider-configs", {
+                method: "POST",
                 adminApiKey,
-              },
-            );
-            setMessage(JSON.stringify(body, null, 2));
-            await refresh();
-          }}
-        >
-          Delete Provider Config
-        </button>
-      </div>
+                body: {
+                  project_slug: projectSlug,
+                  provider_id: providerId,
+                  enabled: true,
+                  config: parsedConfig,
+                },
+              });
+              setMessage(JSON.stringify(body, null, 2));
+              await refresh();
+            }}
+          >
+            Save Config
+          </button>
+          <button className="btn btn-outline" onClick={() => refresh()}>Refresh</button>
+          <button
+            className="btn btn-ghost"
+            style={{ color: 'var(--error)' }}
+            onClick={async () => {
+              const body = await callJSON(
+                `/api/provider-configs?project_slug=${encodeURIComponent(projectSlug)}&provider_id=${encodeURIComponent(providerId)}`,
+                {
+                  method: "DELETE",
+                  adminApiKey,
+                },
+              );
+              setMessage(JSON.stringify(body, null, 2));
+              await refresh();
+            }}
+          >
+            Delete
+          </button>
+        </div>
 
-      <pre>{message || (loading ? "Loading configs..." : JSON.stringify(configs, null, 2))}</pre>
-    </section>
+        <div className="terminal-panel" style={{ marginTop: '1rem' }}>
+          <div className="terminal-header">
+            <div className="terminal-title">System Message</div>
+          </div>
+          <div className="terminal-body" style={{ maxHeight: '200px' }}>
+            <pre className="terminal-pre">{message || (loading ? "Loading configs..." : JSON.stringify(configs, null, 2))}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

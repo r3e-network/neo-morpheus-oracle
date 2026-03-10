@@ -1,0 +1,20 @@
+{
+  "project_slug": "demo",
+  "trigger": {
+    "type": "price_threshold",
+    "feed_chain": "neo_x",
+    "pair": "TWELVEDATA:NEO-USD",
+    "comparator": "cross_above",
+    "threshold": "300",
+    "cooldown_ms": 300000
+  },
+  "execution": {
+    "request_type": "privacy_oracle",
+    "payload": {
+      "url": "https://postman-echo.com/get?probe=automation-threshold",
+      "json_path": "args.probe",
+      "target_chain": "neo_x",
+      "encrypted_params": "<ciphertext>"
+    }
+  }
+}

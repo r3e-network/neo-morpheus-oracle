@@ -1,0 +1,129 @@
+Testing Neo N3 provider callback flow...
+Testing Neo N3 encrypted compute flow...
+Testing Neo N3 custom URL oracle flow...
+Reading Neo N3 synchronized on-chain datafeed...
+{
+  "network": "testnet",
+  "neo_n3": {
+    "consumer_hash": "0xf778cbccb304449cc6b3792099be4dc0141e0d35",
+    "feed_reader_hash": "0xae9c17da3d8d1cc45b2a95f77ddce391b9bdcad4",
+    "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+    "datafeed_hash": "0x9bea75cf702f6afc09125aa6d22f082bfd2ee064",
+    "provider_request": {
+      "txid": "0x24bd11e908a20deaa028c4711daa0d81f14ac66fa6cadae051f21ad6baa0041a",
+      "request_id": "72",
+      "callback": {
+        "request_type": "privacy_oracle",
+        "success": true,
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.49\",\"result\":\"2.49\"},\"verification\":{\"output_hash\":\"a54afc505196cae70dce5715e239b0df8960518afec113e7a809a0750dee6033\",\"attestation_hash\":\"a54afc505196cae70dce5715e239b0df8960518afec113e7a809a0750dee6033\",\"signature\":\"1eaae8f77f8ff36e6dcda1ea800f968610304c81f05f5c0082332846b9330d2a2905499fbc0529c18aeb32d745991d99baaf8403a365e68ff6622a26e6f379e3\",\"public_key\":\"03ca637032787820b38737090580c5e4013cbf34624b7d5510a36b92fb49d5b42a\",\"tee_attestation\":{\"app_id\":\"966f16610bdfe1794a503e16c5ae0bc69a1d92f1\",\"compose_hash\":\"118bdb5ed76bea34aac6d0ef2020472aca8f63aaac570d9ae195ba3fa6eb18c3\",\"report_data\":\"a54afc505196cae70dce5715e239b0df8960518afec113e7a809a0750dee60330000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"df6ae3d4188c526867cbe125b0d28daedf8afb2aaed343511c0a9b804ced5032\"}}}",
+        "result_json": {
+          "version": "morpheus-result/v1",
+          "request_type": "privacy_oracle",
+          "success": true,
+          "result": {
+            "mode": "fetch",
+            "target_chain": "neo_n3",
+            "request_source": "morpheus-relayer:neo_n3",
+            "upstream_status": 200,
+            "extracted_value": "2.49",
+            "result": "2.49"
+          },
+          "verification": {
+            "output_hash": "a54afc505196cae70dce5715e239b0df8960518afec113e7a809a0750dee6033",
+            "attestation_hash": "a54afc505196cae70dce5715e239b0df8960518afec113e7a809a0750dee6033",
+            "signature": "1eaae8f77f8ff36e6dcda1ea800f968610304c81f05f5c0082332846b9330d2a2905499fbc0529c18aeb32d745991d99baaf8403a365e68ff6622a26e6f379e3",
+            "public_key": "03ca637032787820b38737090580c5e4013cbf34624b7d5510a36b92fb49d5b42a",
+            "tee_attestation": {
+              "app_id": "966f16610bdfe1794a503e16c5ae0bc69a1d92f1",
+              "compose_hash": "118bdb5ed76bea34aac6d0ef2020472aca8f63aaac570d9ae195ba3fa6eb18c3",
+              "report_data": "a54afc505196cae70dce5715e239b0df8960518afec113e7a809a0750dee60330000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "df6ae3d4188c526867cbe125b0d28daedf8afb2aaed343511c0a9b804ced5032"
+            }
+          }
+        },
+        "error_text": ""
+      }
+    },
+    "compute_request": {
+      "txid": "0x17733321509c69527e760394b96153fb872f08d041c83334de4c8d93c572a2b4",
+      "request_id": "73",
+      "callback": {
+        "request_type": "compute",
+        "success": true,
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"compute\",\"success\":true,\"result\":{\"mode\":\"builtin\",\"function\":\"math.modexp\",\"target_chain\":\"neo_n3\",\"result\":{\"value\":\"4\"}},\"verification\":{\"output_hash\":\"b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d\",\"attestation_hash\":\"b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d\",\"signature\":\"336696eee3d2b324125dc98bc366500380c944d877c67a68636a9a93d61d8702952ac4a971f49f71730796535b8821269fe45c2611c1d35577c6ba248b714ad7\",\"public_key\":\"03ca637032787820b38737090580c5e4013cbf34624b7d5510a36b92fb49d5b42a\",\"tee_attestation\":{\"app_id\":\"966f16610bdfe1794a503e16c5ae0bc69a1d92f1\",\"compose_hash\":\"118bdb5ed76bea34aac6d0ef2020472aca8f63aaac570d9ae195ba3fa6eb18c3\",\"report_data\":\"b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"86e4357db341b40f2ef30eda3d2f9422cdd1bf1e59dbe66e8255c9191a082ba8\"}}}",
+        "result_json": {
+          "version": "morpheus-result/v1",
+          "request_type": "compute",
+          "success": true,
+          "result": {
+            "mode": "builtin",
+            "function": "math.modexp",
+            "target_chain": "neo_n3",
+            "result": {
+              "value": "4"
+            }
+          },
+          "verification": {
+            "output_hash": "b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d",
+            "attestation_hash": "b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d",
+            "signature": "336696eee3d2b324125dc98bc366500380c944d877c67a68636a9a93d61d8702952ac4a971f49f71730796535b8821269fe45c2611c1d35577c6ba248b714ad7",
+            "public_key": "03ca637032787820b38737090580c5e4013cbf34624b7d5510a36b92fb49d5b42a",
+            "tee_attestation": {
+              "app_id": "966f16610bdfe1794a503e16c5ae0bc69a1d92f1",
+              "compose_hash": "118bdb5ed76bea34aac6d0ef2020472aca8f63aaac570d9ae195ba3fa6eb18c3",
+              "report_data": "b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d0000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "86e4357db341b40f2ef30eda3d2f9422cdd1bf1e59dbe66e8255c9191a082ba8"
+            }
+          }
+        },
+        "error_text": ""
+      }
+    },
+    "custom_oracle_request": {
+      "txid": "0x17b760fc02dd8b70065d745c4ffd63f4c353fbec18a7b3622fd21e94d5dcb52e",
+      "request_id": "74",
+      "callback": {
+        "request_type": "oracle",
+        "success": true,
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"neo-morpheus\",\"result\":\"neo-morpheus\"},\"verification\":{\"output_hash\":\"88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae\",\"attestation_hash\":\"88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae\",\"signature\":\"c4ada4730c986f9ba13fca516a4817a1326aeccc9c58382489b012a98a11c6daed4b97fc1f1447442fef1df35ab1421e713b8068470e132f445a64108b6d4605\",\"public_key\":\"03ca637032787820b38737090580c5e4013cbf34624b7d5510a36b92fb49d5b42a\",\"tee_attestation\":{\"app_id\":\"966f16610bdfe1794a503e16c5ae0bc69a1d92f1\",\"compose_hash\":\"118bdb5ed76bea34aac6d0ef2020472aca8f63aaac570d9ae195ba3fa6eb18c3\",\"report_data\":\"88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"617a29c10f1cc760647d996a5b1ce9c1efb38d1607dfc2dfd483a2d4a8ebb1c5\"}}}",
+        "result_json": {
+          "version": "morpheus-result/v1",
+          "request_type": "oracle",
+          "success": true,
+          "result": {
+            "mode": "fetch",
+            "target_chain": "neo_n3",
+            "request_source": "morpheus-relayer:neo_n3",
+            "upstream_status": 200,
+            "extracted_value": "neo-morpheus",
+            "result": "neo-morpheus"
+          },
+          "verification": {
+            "output_hash": "88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae",
+            "attestation_hash": "88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae",
+            "signature": "c4ada4730c986f9ba13fca516a4817a1326aeccc9c58382489b012a98a11c6daed4b97fc1f1447442fef1df35ab1421e713b8068470e132f445a64108b6d4605",
+            "public_key": "03ca637032787820b38737090580c5e4013cbf34624b7d5510a36b92fb49d5b42a",
+            "tee_attestation": {
+              "app_id": "966f16610bdfe1794a503e16c5ae0bc69a1d92f1",
+              "compose_hash": "118bdb5ed76bea34aac6d0ef2020472aca8f63aaac570d9ae195ba3fa6eb18c3",
+              "report_data": "88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae0000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "617a29c10f1cc760647d996a5b1ce9c1efb38d1607dfc2dfd483a2d4a8ebb1c5"
+            }
+          }
+        },
+        "error_text": ""
+      }
+    },
+    "onchain_feed_snapshot": {
+      "pair": "TWELVEDATA:NEO-USD",
+      "round_id": "1773053257",
+      "price": "249200000",
+      "timestamp": "1773076253",
+      "attestation_hash": "0x3629145ec86550fd824ee14c82c24237e7fdeaf4c0d7726b12673da04c3df678",
+      "source_set_id": "1",
+      "reader_pairs": [
+        "TWELVEDATA:NEO-USD"
+      ]
+    }
+  }
+}

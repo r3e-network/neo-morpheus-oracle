@@ -1,6 +1,8 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 
+const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -25,6 +27,10 @@ function tryParseJson(value) {
 
 await loadDotEnv();
 
+const network = trimString(process.env.MORPHEUS_NETWORK || "testnet").toLowerCase();
+const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
+const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
+
 function decodeCallbackArray(item) {
   if (!item || item.type !== 'Array' || !Array.isArray(item.value)) return null;
   if (item.value.length < 4) return null;
@@ -40,6 +46,70 @@ function decodeCallbackArray(item) {
     result_json: tryParseJson(resultText),
     error_text: errorText,
   };
+}
+
+function parseStackItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const type = trimString(item.type).toLowerCase();
+  switch (type) {
+    case 'integer':
+      return String(item.value ?? '0');
+    case 'boolean':
+      return Boolean(item.value);
+    case 'hash160':
+    case 'hash256':
+    case 'string':
+      return String(item.value ?? '');
+    case 'bytestring':
+    case 'bytearray':
+      return decodeBase64String(item.value || '');
+    default:
+      return item.value ?? null;
+  }
+}
+
+async function invokeRead(rpcClient, contractHash, method, params = []) {
+  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  if (String(response.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
+  }
+  return parseStackItem(response.stack?.[0]);
+}
+
+async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash) {
+  const currentCredit = BigInt(await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [{ type: 'Hash160', value: `0x${account.scriptHash}` }]) || '0');
+  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, 'requestFee', []) || '0');
+  if (requestFee <= 0n || currentCredit >= requestFee) {
+    return { request_fee: requestFee.toString(), funded: false, current_credit: currentCredit.toString() };
+  }
+
+  const gas = new experimental.SmartContract(GAS_HASH, {
+    rpcAddress: rpcUrl,
+    networkMagic,
+    account,
+  });
+  const deficit = requestFee - currentCredit;
+  await gas.invoke('transfer', [
+    sc.ContractParam.hash160(`0x${account.scriptHash}`),
+    sc.ContractParam.hash160(oracleHash),
+    sc.ContractParam.integer(deficit.toString()),
+    sc.ContractParam.any(null),
+  ]);
+
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    const updatedCredit = BigInt(await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [{ type: 'Hash160', value: `0x${account.scriptHash}` }]) || '0');
+    if (updatedCredit >= requestFee) {
+      return {
+        request_fee: requestFee.toString(),
+        funded: true,
+        deposit_amount: deficit.toString(),
+        current_credit: updatedCredit.toString(),
+      };
+    }
+    await sleep(2000);
+  }
+  throw new Error('timed out waiting for Neo N3 request fee credit');
 }
 
 async function waitForRequestId(rpcClient, txid, timeoutMs = 60000) {
@@ -67,9 +137,9 @@ async function waitForCallback(rpcClient, callbackHash, requestId, timeoutMs = 1
   throw new Error(`timed out waiting for callback ${requestId}`);
 }
 
-const rpcUrl = trimString(process.env.NEO_RPC_URL || 'https://testnet1.neo.coz.io:443');
-const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || 894710606);
-const wif = trimString(process.env.NEO_TESTNET_WIF || '');
+const rpcUrl = trimString(process.env.NEO_RPC_URL || defaultRpcUrl);
+const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || defaultNetworkMagic);
+const wif = trimString(process.env.NEO_N3_WIF || process.env.NEO_TESTNET_WIF || process.env.MORPHEUS_RELAYER_NEO_N3_WIF || '');
 const oracleHash = trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
 const callbackHash = trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || '');
 const provider = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'twelvedata') || 'twelvedata';
@@ -80,7 +150,7 @@ const script = trimString(process.env.MORPHEUS_SMOKE_SCRIPT || '');
 const requestTimeoutMs = Number(process.env.MORPHEUS_SMOKE_REQUEST_TIMEOUT_MS || 90000);
 const callbackTimeoutMs = Number(process.env.MORPHEUS_SMOKE_CALLBACK_TIMEOUT_MS || 180000);
 
-if (!wif) throw new Error('NEO_TESTNET_WIF is required');
+if (!wif) throw new Error('NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required');
 if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
 if (!callbackHash) throw new Error('CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH is required');
 
@@ -98,6 +168,8 @@ const oracle = new experimental.SmartContract(oracleHash, {
   account,
 });
 const rpcClient = new neoRpc.RPCClient(rpcUrl);
+const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash);
+console.error(`Neo N3 smoke fee credit ready: request_fee=${feeStatus.request_fee} current_credit=${feeStatus.current_credit}`);
 
 const txid = await oracle.invoke('request', [
   requestType,
@@ -105,12 +177,15 @@ const txid = await oracle.invoke('request', [
   sc.ContractParam.hash160(callbackHash),
   'onOracleResult',
 ]);
+console.error(`Neo N3 smoke request txid: ${txid}`);
 
 const requestId = await waitForRequestId(rpcClient, txid, requestTimeoutMs);
 const callback = await waitForCallback(rpcClient, callbackHash, requestId, callbackTimeoutMs);
 const summary = {
   txid,
   request_id: requestId,
+  request_fee: feeStatus.request_fee,
+  request_credit: feeStatus.current_credit,
   provider,
   symbol,
   callback,

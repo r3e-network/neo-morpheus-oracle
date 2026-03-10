@@ -219,8 +219,12 @@ export async function executeStandaloneCompute(payload) {
   if (wasmModuleBase64) {
     const entryPoint = trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || "run") || "run";
     const timeoutMs = parseDurationMs(
-      payload.wasm_timeout_ms || payload.script_timeout_ms || payload.compute_timeout_ms || env("COMPUTE_WASM_TIMEOUT_MS") || 15000,
-      15000,
+      payload.wasm_timeout_ms
+        || payload.script_timeout_ms
+        || payload.compute_timeout_ms
+        || env("COMPUTE_WASM_TIMEOUT_MS", "MORPHEUS_WASM_TIMEOUT_MS")
+        || 30000,
+      30000,
     );
     return {
       runtime: "wasm",

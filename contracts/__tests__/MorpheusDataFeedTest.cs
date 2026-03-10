@@ -13,6 +13,7 @@ namespace MorpheusOracle.Contracts.Tests
                 "MorpheusDataFeed.cs");
 
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "void", "UpdateFeed");
+            ContractSourceAssertions.AssertHasPublicStaticMethod(code, "void", "UpdateFeeds");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "FeedRecord", "GetLatest");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "BigInteger", "GetPairCount");
             ContractSourceAssertions.AssertHasPublicStaticMethod(code, "string", "GetPairByIndex");

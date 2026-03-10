@@ -1,0 +1,6 @@
+{
+  "provider": "twelvedata",
+  "symbol": "NEO-USD",
+  "target_chain": "neo_n3",
+  "encrypted_params": "<rsa-oaep-ciphertext>"
+}

@@ -1,10 +1,54 @@
 # Security Audit Notes
 
+Date: 2026-03-10
+
+## Executive Summary
+
+The current system is materially stronger than earlier iterations and is operating successfully on testnet. The worker, relayer, and contracts passed the current test suite and real end-to-end chain validation.
+
+However, one protocol-level finding remains open and should be treated as the primary unresolved security issue before claiming a fully hardened production posture.
+
 ## Scope
 
 - Neo N3 contracts
 - Neo X contracts
 - Phala worker privacy Oracle and compute execution paths
+- Relayer callback fulfillment path
+- Web admin/control-plane surfaces
+
+## Open Findings
+
+### High: fulfillment signatures do not bind full callback context
+
+Status: open
+
+Affected files:
+
+- `contracts/MorpheusOracle/MorpheusOracle.cs`
+- `contracts/neox/contracts/MorpheusOracleX.sol`
+- `workers/morpheus-relayer/src/relayer.js`
+
+Current behavior:
+
+- the relayer asks the worker to sign only the callback `result`
+- both contracts verify only that signature over `result`
+- `requestId`, `requestType`, `success`, and `error` are not covered by the worker signature
+
+Impact:
+
+- if the updater/relayer key is compromised, an attacker can finalize pending requests with a mismatched success/error context while still presenting a valid worker signature over some result bytes
+- this weakens non-repudiation of the full callback envelope
+
+Required fix:
+
+- change the worker, relayer, and both contracts to verify a canonical fulfillment envelope that binds:
+  - `requestId`
+  - `requestType`
+  - `success`
+  - `result`
+  - `error`
+
+This requires a coordinated contract upgrade on both chains.
 
 ## Findings addressed
 
@@ -65,6 +109,33 @@ Fixed in `workers/phala-worker/src/compute/index.js`:
 
 - `entry_point` must match a valid JS identifier
 
+### 8. Browser admin keys were persisted too broadly
+
+Fixed in frontend admin panels:
+
+- provider-config admin key now uses `sessionStorage`, not `localStorage`
+- relayer-ops admin key now uses `sessionStorage`, not `localStorage`
+- browser restart no longer silently retains privileged admin keys
+
+### 9. One admin key previously covered too many backend capabilities
+
+Fixed in web API auth routing:
+
+- provider config routes now prefer `MORPHEUS_PROVIDER_CONFIG_API_KEY`
+- relayer operation routes now prefer `MORPHEUS_RELAYER_ADMIN_API_KEY`
+- signing routes now prefer `MORPHEUS_SIGNING_ADMIN_API_KEY`
+- relay transaction routes now prefer `MORPHEUS_RELAY_ADMIN_API_KEY`
+- `MORPHEUS_OPERATOR_API_KEY` and legacy `ADMIN_CONSOLE_API_KEY` remain optional fallback keys for compatibility
+
+### 10. API operations were not comprehensively persisted, and encrypted request fields were not guaranteed to be stored as ciphertext
+
+Fixed in web/API layer:
+
+- added `morpheus_operation_logs` for API operation auditing
+- added route-level and proxy-level logging for Oracle, Compute, Feed, Runtime, Attestation, Provider Config, Relayer, Signing, and Relay routes
+- encrypted request fields are now extracted and stored in `morpheus_encrypted_secrets` as ciphertext without decryption
+- plaintext secret-like keys are redacted before operation-log persistence
+
 ## Phala tappd / attestation progress
 
 The worker now includes first-stage and second-stage Phala dstack/tappd integration:
@@ -81,6 +152,7 @@ The worker now includes first-stage and second-stage Phala dstack/tappd integrat
 
 - N3 contracts still expose an explicit admin-only `Update(...)`, while the Neo X contracts are currently non-upgradeable plain contracts. This is a lifecycle difference, not an immediate exploitable vulnerability.
 - Relayer-side transaction signing now supports dstack-derived key fallback for N3 and Neo X fulfill transactions, but explicit env keys are still supported as operational overrides.
+- The locally ignored file `deploy/phala/morpheus.env` currently contains live operational secrets and private keys. It is ignored by git, but it still represents a workstation secret concentration risk and should be handled as sensitive operator material.
 
 ## Validation
 
@@ -88,3 +160,7 @@ The worker now includes first-stage and second-stage Phala dstack/tappd integrat
 - `npm --prefix workers/phala-worker test`
 - `npm --prefix contracts/neox test`
 - `dotnet test contracts/__tests__/NeoContracts.Tests.csproj`
+- `node examples/scripts/test-neox-examples.mjs`
+- `node examples/scripts/test-n3-examples.mjs`
+- live Phala health and public-key endpoint verification
+- live Supabase write verification for `morpheus_operation_logs` and `morpheus_encrypted_secrets`

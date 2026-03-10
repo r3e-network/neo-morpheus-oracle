@@ -2,6 +2,10 @@
 
 This folder contains the recommended first-stage deployment layout for `neo-morpheus-oracle` on **Phala Confidential VM**.
 
+For a bilingual explanation of the important environment variables, see:
+
+- `docs/ENVIRONMENT.md`
+
 ## Recommended topology
 
 Use **1 CVM with 2 containers**:

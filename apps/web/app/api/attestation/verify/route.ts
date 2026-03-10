@@ -1,4 +1,5 @@
 import { verifyAttestation } from "@/lib/attestation";
+import { recordOperationLog } from "@/lib/operation-logs";
 
 function badRequest(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -6,7 +7,19 @@ function badRequest(message: string, status = 400) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  if (!body || typeof body !== "object") return badRequest("invalid JSON body");
+  if (!body || typeof body !== "object") {
+    const response = badRequest("invalid JSON body");
+    await recordOperationLog({
+      route: "/api/attestation/verify",
+      method: "POST",
+      category: "attestation",
+      requestPayload: body,
+      responsePayload: { error: "invalid JSON body" },
+      httpStatus: 400,
+      error: "invalid JSON body",
+    });
+    return response;
+  }
 
   const result = verifyAttestation({
     attestation: body.attestation,
@@ -17,5 +30,15 @@ export async function POST(request: Request) {
     expectedInstanceId: typeof body.expected_instance_id === "string" ? body.expected_instance_id : undefined,
   });
 
-  return Response.json(result, { status: result.ok ? 200 : 400 });
+  const status = result.ok ? 200 : 400;
+  await recordOperationLog({
+    route: "/api/attestation/verify",
+    method: "POST",
+    category: "attestation",
+    requestPayload: body,
+    responsePayload: result,
+    httpStatus: status,
+    error: result.ok ? null : "attestation verification failed",
+  });
+  return Response.json(result, { status });
 }

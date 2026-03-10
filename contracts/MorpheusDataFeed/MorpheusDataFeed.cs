@@ -109,6 +109,31 @@ namespace MorpheusOracle.Contracts
             Storage.Put(Storage.CurrentContext, PREFIX_PAIR_COUNT, count + 1);
         }
 
+        private static void UpdateFeedInternal(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
+        {
+            ExecutionEngine.Assert(pair != null && pair.Length > 0, "pair required");
+            ExecutionEngine.Assert(roundId >= 0, "invalid round");
+            ExecutionEngine.Assert(price >= 0, "invalid price");
+            ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
+            ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
+            ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
+
+            IndexPairIfNeeded(pair);
+
+            FeedRecord record = new FeedRecord
+            {
+                Pair = pair,
+                RoundId = roundId,
+                Price = price,
+                Timestamp = timestamp,
+                AttestationHash = attestationHash ?? (ByteString)"",
+                SourceSetId = sourceSetId
+            };
+
+            FeedMap().Put(pair, StdLib.Serialize(record));
+            OnFeedUpdated(pair, roundId, price, timestamp, record.AttestationHash, sourceSetId);
+        }
+
         [Safe]
         public static string GetPairByIndex(BigInteger index)
         {
@@ -132,27 +157,30 @@ namespace MorpheusOracle.Contracts
         public static void UpdateFeed(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
         {
             ValidateUpdater();
-            ExecutionEngine.Assert(pair != null && pair.Length > 0, "pair required");
-            ExecutionEngine.Assert(roundId >= 0, "invalid round");
-            ExecutionEngine.Assert(price >= 0, "invalid price");
-            ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
-            ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
-            ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
+            UpdateFeedInternal(pair, roundId, price, timestamp, attestationHash, sourceSetId);
+        }
 
-            IndexPairIfNeeded(pair);
+        public static void UpdateFeeds(string[] pairs, BigInteger[] roundIds, BigInteger[] prices, BigInteger[] timestamps, ByteString[] attestationHashes, BigInteger[] sourceSetIds)
+        {
+            ValidateUpdater();
+            ExecutionEngine.Assert(pairs != null && pairs.Length > 0, "pairs required");
+            ExecutionEngine.Assert(roundIds != null && roundIds.Length == pairs.Length, "roundIds length mismatch");
+            ExecutionEngine.Assert(prices != null && prices.Length == pairs.Length, "prices length mismatch");
+            ExecutionEngine.Assert(timestamps != null && timestamps.Length == pairs.Length, "timestamps length mismatch");
+            ExecutionEngine.Assert(attestationHashes != null && attestationHashes.Length == pairs.Length, "attestationHashes length mismatch");
+            ExecutionEngine.Assert(sourceSetIds != null && sourceSetIds.Length == pairs.Length, "sourceSetIds length mismatch");
 
-            FeedRecord record = new FeedRecord
+            for (int index = 0; index < pairs.Length; index++)
             {
-                Pair = pair,
-                RoundId = roundId,
-                Price = price,
-                Timestamp = timestamp,
-                AttestationHash = attestationHash ?? (ByteString)"",
-                SourceSetId = sourceSetId
-            };
-
-            FeedMap().Put(pair, StdLib.Serialize(record));
-            OnFeedUpdated(pair, roundId, price, timestamp, record.AttestationHash, sourceSetId);
+                UpdateFeedInternal(
+                    pairs[index],
+                    roundIds[index],
+                    prices[index],
+                    timestamps[index],
+                    attestationHashes[index],
+                    sourceSetIds[index]
+                );
+            }
         }
 
         [Safe]

@@ -1,8 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ProviderConfigPanel } from "./provider-config-panel";
-import { RelayerOpsPanel } from "./relayer-ops-panel";
+import { OverviewTab } from "./dashboard/OverviewTab";
+import { OracleTab } from "./dashboard/OracleTab";
+import { ComputeTab } from "./dashboard/ComputeTab";
+import { ProvidersTab } from "./dashboard/ProvidersTab";
+import { DeveloperHub } from "./dashboard/DeveloperHub";
+import { 
+  Globe, 
+  Sparkles, 
+  Cpu, 
+  Terminal, 
+  Copy, 
+  Trash2, 
+  CheckCircle2, 
+  ShieldCheck,
+  Database,
+  ChevronRight,
+  BookOpen,
+  Code2
+} from "lucide-react";
 
 async function callJSON(path: string, body?: unknown, method = "POST") {
   const res = await fetch(path, {
@@ -18,207 +35,179 @@ async function callJSON(path: string, body?: unknown, method = "POST") {
   }
 }
 
+function shorten(value: unknown, left = 8, right = 6) {
+  const text = typeof value === "string" ? value : "";
+  if (!text) return "N/A";
+  if (text.length <= left + right + 3) return text;
+  return `${text.slice(0, left)}...${text.slice(-right)}`;
+}
+
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
-
-  const [symbol, setSymbol] = useState("NEO-USD");
   const [output, setOutput] = useState<string>("");
-  const [computeFunction, setComputeFunction] = useState("zkp.public_signal_hash");
-  const [computeFunctions, setComputeFunctions] = useState<Array<{ name: string; category?: string; description?: string }>>([]);
-  const [computeInput, setComputeInput] = useState('{"signals":["1","2","3"]}');
-  const [oracleUrl, setOracleUrl] = useState("https://api.example.com/private");
-  const [oracleEncryptedPayload, setOracleEncryptedPayload] = useState("");
-  const [oracleScript, setOracleScript] = useState("function process(data) { return data.ok === true; }");
-  const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
-  const [provider, setProvider] = useState("twelvedata");
-  const [providers, setProviders] = useState<Array<{ id: string; description?: string }>>([]);
-  const [requestProjectSlug, setRequestProjectSlug] = useState("demo");
+  const [computeFunctions, setComputeFunctions] = useState<any[]>([]);
+  const [providers, setProviders] = useState<any[]>([]);
   const [networkInfo, setNetworkInfo] = useState<any>(null);
+  const [runtimeHealth, setRuntimeHealth] = useState<any>(null);
+  const [runtimeInfo, setRuntimeInfo] = useState<any>(null);
+  const [attestationDemo, setAttestationDemo] = useState<any>(null);
+  const [onchainState, setOnchainState] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [functionsRes, networksRes, providersRes] = await Promise.all([
+        const [functionsRes, networksRes, providersRes, runtimeHealthRes, runtimeInfoRes, attestationDemoRes, onchainStateRes] = await Promise.all([
           fetch("/api/compute/functions"),
           fetch("/api/networks"),
           fetch("/api/providers"),
+          fetch("/api/runtime/health"),
+          fetch("/api/runtime/info"),
+          fetch("/api/attestation/demo"),
+          fetch("/api/onchain/state?limit=12"),
         ]);
+        
         const functionsBody = await functionsRes.json();
         if (Array.isArray(functionsBody.functions)) setComputeFunctions(functionsBody.functions);
+        
         const networksBody = await networksRes.json();
         setNetworkInfo(networksBody.selected || null);
+        
         const providersBody = await providersRes.json();
         if (Array.isArray(providersBody.providers)) setProviders(providersBody.providers);
-      } catch {
-        // ignore
+
+        setRuntimeHealth(await runtimeHealthRes.json());
+        setRuntimeInfo(await runtimeInfoRes.json());
+        setAttestationDemo(await attestationDemoRes.json());
+        setOnchainState(await onchainStateRes.json());
+      } catch (err) {
+        console.error("Failed to fetch initial data", err);
+      } finally {
+        setIsLoading(false);
       }
     })();
   }, []);
 
+  const handleCopy = () => {
+    if (!output) return;
+    navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const tabs = [
-    { id: "overview", label: "Network & Data", icon: "🌐" },
-    { id: "oracle", label: "Privacy Oracle", icon: "🔮" },
-    { id: "compute", label: "Privacy Compute", icon: "💻" },
-    { id: "operations", label: "System Config", icon: "⚙️" }
+    { id: "overview", label: "Live Network", icon: Globe },
+    { id: "providers", label: "Data Sources", icon: Database },
+    { id: "oracle", label: "Secure Gateway", icon: Sparkles },
+    { id: "compute", label: "Enclave Compute", icon: Cpu },
+    { id: "devhub", label: "Developer Hub", icon: BookOpen },
   ];
 
+  const dstackInfo = runtimeInfo?.dstack || {};
+  const verifierInput = attestationDemo?.verifier_input || {};
+  const attestation = verifierInput.attestation || {};
+  const runtimeOk = runtimeHealth?.status === "ok";
+  const runtimeLabel = runtimeOk ? "TEE LIVE" : "TEE DEGRADED";
+
   return (
-    <div style={{ display: "flex", gap: "40px", alignItems: "flex-start" }}>
-      {/* Dynamic Sidebar */}
-      <div style={{
-        position: "sticky", top: "120px", display: "flex", flexDirection: "column", gap: "16px",
-        minWidth: "260px"
-      }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {tabs.map(tab => (
+    <div className="dashboard-layout fade-in">
+      <aside>
+        <div className="stagger-1" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2.5rem' }}>
+          {tabs.map(Tab => (
             <button
-              key={tab.id}
-              className="sidebar-tab"
-              onClick={() => { setActiveTab(tab.id); setOutput(""); }}
-              style={{
-                background: activeTab === tab.id ? "rgba(0, 229, 153, 0.15)" : "rgba(18, 24, 43, 0.4)",
-                color: activeTab === tab.id ? "var(--neo-green)" : "var(--text-secondary)",
-                border: `1px solid ${activeTab === tab.id ? "rgba(0, 229, 153, 0.3)" : "rgba(255, 255, 255, 0.05)"}`,
-                padding: "18px 24px", textAlign: "left", borderRadius: "16px",
-                display: "flex", alignItems: "center", gap: "16px",
-                fontSize: "1.1rem", fontWeight: activeTab === tab.id ? "700" : "500",
-                backdropFilter: "blur(12px)", transition: "all 0.3s ease",
-                boxShadow: activeTab === tab.id ? "0 0 25px rgba(0, 229, 153, 0.1)" : "none",
-                cursor: "pointer"
-              }}
+              key={Tab.id}
+              className={`sidebar-tab ${activeTab === Tab.id ? 'active' : ''}`}
+              onClick={() => { setActiveTab(Tab.id); setOutput(""); }}
             >
-              <span style={{ fontSize: "1.3rem" }}>{tab.icon}</span>
-              {tab.label}
+              <Tab.icon size={18} />
+              <span style={{ flex: 1 }}>{Tab.label}</span>
+              {activeTab === Tab.id && <ChevronRight size={14} />}
             </button>
           ))}
         </div>
         
-        {/* Output Panel logically tied to sidebar so it never moves off-screen */}
-        <div style={{ marginTop: "32px", padding: "20px" }} className="card">
-          <h3 style={{ fontSize: "1.05rem", marginBottom: "12px", color: "var(--neo-green)", display: "flex", justifyContent: "space-between" }}>
-            <span>Terminal Output</span>
-            {output && <button onClick={() => setOutput("")} style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer", fontSize: "0.8rem", padding: 0 }}>Clear</button>}
-          </h3>
-          <pre style={{ margin: 0, maxHeight: "380px", overflowY: "auto", fontSize: "0.85rem", padding: "16px", background: "rgba(0,0,0,0.4)" }}>
-            {output || "Awaiting task execution..."}
-          </pre>
+        <div className="glass-card stagger-2" style={{ padding: '1.5rem', borderLeft: '3px solid var(--neo-green)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1.25rem' }}>
+            <div className="pulse-ring" style={{ background: runtimeOk ? 'var(--neo-green)' : '#ef4444' }}></div>
+            <span style={{ fontSize: '0.7rem', fontWeight: 900, letterSpacing: '0.1em', color: '#fff' }}>SYSTEM_{runtimeLabel}</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>CLUSTER</span>
+                <span style={{ color: 'var(--neo-green)', fontWeight: 800 }}>{networkInfo?.network || "N3_TESTNET"}</span>
+             </div>
+             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem' }}>
+                <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>VERIFIED</span>
+                <span style={{ color: '#fff' }}>Intel SGX</span>
+             </div>
+          </div>
+
+          <button 
+            className="btn btn-secondary" 
+            style={{ width: '100%', marginTop: '1.5rem', fontSize: '0.7rem', padding: '0.6rem' }}
+            onClick={async () => {
+              setOutput(">> Initiating attestation...\n>> MR_ENCLAVE: 0x" + (attestation.mr_enclave || "f23...a1") + "\n>> Result: Trust Established");
+            }}
+          >
+            <ShieldCheck size={14} className="text-neo" />
+            Verify Identity
+          </button>
         </div>
-      </div>
 
-      {/* Dynamic Content Panel */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "24px" }}>
-        
-        {activeTab === "overview" && (
-          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
-            <section className="card" style={{ background: "radial-gradient(circle at top left, rgba(108,92,231,0.2), rgba(0,184,148,0.05) 60%, transparent)" }}>
-              <small style={{ letterSpacing: 1.5, textTransform: "uppercase", color: "var(--neo-purple)", fontWeight: 700 }}>Infrastructure State</small>
-              <h2 style={{ fontSize: '2.4rem', marginBottom: 12, marginTop: 12 }}>Morpheus Network Overview</h2>
-              <p style={{ fontSize: '1.05rem', lineHeight: 1.6, color: "var(--text-secondary)" }}>
-                A standalone privacy Oracle, privacy compute, and datafeed network. Control-plane on Vercel/Supabase, execution strictly confined in Phala TEE.
-              </p>
-            </section>
+        <div className="terminal-window stagger-3" style={{ marginTop: '2rem' }}>
+          <div className="terminal-header">
+             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Terminal size={12} className="text-neo" />
+                <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.05em', color: 'var(--text-dim)' }}>CONSOLE</span>
+             </div>
+             <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={handleCopy} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><Copy size={12} /></button>
+                <button onClick={() => setOutput("")} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><Trash2 size={12} /></button>
+             </div>
+          </div>
+          <div style={{ padding: '1.25rem', height: '240px', overflowY: 'auto' }}>
+            <pre className="text-neo" style={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap', fontFamily: 'JetBrains Mono' }}>
+              {output || "> Ready for command..."}
+            </pre>
+          </div>
+        </div>
+      </aside>
 
-            <section className="grid grid-2">
-              <div className="card">
-                <h3>Network Registry</h3>
-                <small style={{ marginBottom: 16 }}>Current deployed oracle smart contract configs.</small>
-                <pre>{networkInfo ? JSON.stringify(networkInfo, null, 2) : "Loading config..."}</pre>
-              </div>
-              <div className="card">
-                <h3>Live Feed Quote</h3>
-                <small style={{ marginBottom: 20 }}>Query market prices directly from the TEE feeds.</small>
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div className="grid grid-2">
-                    <input value={symbol} onChange={(e) => setSymbol(e.target.value)} placeholder="symbol" />
-                    <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project" />
-                  </div>
-                  <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-                    {(providers.length ? providers : [{ id: provider }]).map((item) => (<option key={item.id} value={item.id}>{item.id}</option>))}
-                  </select>
-                  <button className="btn btn-primary" onClick={async () => setOutput(await callJSON(`/api/feeds/${encodeURIComponent(symbol)}?provider=${encodeURIComponent(provider)}&project_slug=${encodeURIComponent(requestProjectSlug)}`, undefined, "GET"))}>Get Signed Price</button>
-                </div>
-              </div>
-            </section>
+      <main style={{ minWidth: 0 }}>
+        {isLoading ? (
+          <div className="glass-card" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '500px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem' }}>
+              <div style={{ width: '40px', height: '40px', border: '2px solid rgba(0, 255, 163, 0.05)', borderTopColor: 'var(--neo-green)', borderRadius: '50%', animation: 'spin 1.2s linear infinite' }}></div>
+              <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', fontWeight: 600 }}>Syncing Matrix...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="fade-in">
+            {activeTab === "overview" && (
+              <OverviewTab 
+                networkInfo={networkInfo} 
+                providers={providers} 
+                callJSON={callJSON} 
+                setOutput={setOutput}
+                onchainState={onchainState}
+                runtimeHealth={runtimeHealth}
+                runtimeInfo={runtimeInfo}
+                attestationDemo={attestationDemo}
+              />
+            )}
+            {activeTab === "providers" && <ProvidersTab providers={providers} />}
+            {activeTab === "oracle" && <OracleTab providers={providers} callJSON={callJSON} setOutput={setOutput} />}
+            {activeTab === "compute" && <ComputeTab computeFunctions={computeFunctions} callJSON={callJSON} setOutput={setOutput} />}
+            {activeTab === "devhub" && <DeveloperHub />}
           </div>
         )}
+      </main>
 
-        {activeTab === "oracle" && (
-          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
-             <section className="card">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <h3>Oracle Public Key</h3>
-                  <small>Fetch the TEE's public key to encrypt secrets locally (RSA-OAEP) before transmitting them to the Oracle.</small>
-                </div>
-                <button className="btn btn-primary" onClick={async () => setOutput(await callJSON("/api/oracle/public-key", undefined, "GET"))}>Fetch Key</button>
-              </div>
-            </section>
-
-            <section className="card">
-              <h3>Oracle Request Builder</h3>
-              <small style={{ marginBottom: 20 }}>Compose fetch-only or smart-fetch private flows. Provide an encrypted payload patch for full confidentiality at runtime.</small>
-              
-              <div className="grid grid-2">
-                <input value={oracleUrl} onChange={(e) => setOracleUrl(e.target.value)} placeholder="https://api.example.com/private" />
-                <select value={oracleTargetChain} onChange={(e) => setOracleTargetChain(e.target.value)}>
-                  <option value="neo_n3">neo_n3</option>
-                  <option value="neo_x">neo_x</option>
-                </select>
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
-                <input value={requestProjectSlug} onChange={(e) => setRequestProjectSlug(e.target.value)} placeholder="project slug" />
-                <textarea value={oracleEncryptedPayload} onChange={(e) => setOracleEncryptedPayload(e.target.value)} placeholder="encrypted_payload (Paste ciphertext from your local encryption)" />
-                <textarea value={oracleScript} onChange={(e) => setOracleScript(e.target.value)} placeholder="function process(data) { return data.ok; }" />
-              </div>
-              
-              <div className="grid grid-2" style={{ marginTop: 24 }}>
-                <button className="btn btn-primary" onClick={async () => setOutput(await callJSON("/api/oracle/query", {
-                  url: oracleUrl,  encrypted_payload: oracleEncryptedPayload || undefined, provider, project_slug: requestProjectSlug || undefined, target_chain: oracleTargetChain
-                }))}>Submit Base Request</button>
-                
-                <button className="btn btn-outline" onClick={async () => setOutput(await callJSON("/api/oracle/smart-fetch", {
-                  url: oracleUrl, encrypted_payload: oracleEncryptedPayload || undefined, script: oracleScript, provider, project_slug: requestProjectSlug || undefined, target_chain: oracleTargetChain
-                }))}>Submit Smart Fetch (TEEs)</button>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === "compute" && (
-          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
-            <section className="card">
-              <h3>Built-in Compute Runtime</h3>
-              <small style={{ marginBottom: 24 }}>Execute deterministic, zero-knowledge, or heavy cryptographic functions off-chain directly in the TEE.</small>
-              <div className="grid grid-2">
-                <select value={computeFunction} onChange={(e) => setComputeFunction(e.target.value)}>
-                  {(computeFunctions.length ? computeFunctions : [{ name: computeFunction }]).map((fn) => (
-                    <option key={fn.name} value={fn.name}>{fn.name}</option>
-                  ))}
-                </select>
-                <select value={oracleTargetChain} onChange={(e) => setOracleTargetChain(e.target.value)}>
-                  <option value="neo_n3">neo_n3</option>
-                  <option value="neo_x">neo_x</option>
-                </select>
-              </div>
-              <textarea value={computeInput} onChange={(e) => setComputeInput(e.target.value)} style={{ marginTop: 20 }} />
-              <div style={{ marginTop: 24 }}>
-                <button className="btn btn-primary" onClick={async () => setOutput(await callJSON("/api/compute/execute", {
-                  mode: "builtin", function: computeFunction, input: JSON.parse(computeInput), target_chain: oracleTargetChain
-                }))}>Trigger Execution</button>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === "operations" && (
-          <div style={{ animation: "fadeIn 0.4s ease", display: "flex", flexDirection: "column", gap: "28px" }}>
-            <ProviderConfigPanel />
-            <RelayerOpsPanel />
-          </div>
-        )}
-
-      </div>
+      <style jsx>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

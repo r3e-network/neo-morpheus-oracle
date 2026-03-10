@@ -1,17 +1,29 @@
 import { getServerSupabaseClient, isAuthorizedAdminRequest } from "@/lib/server-supabase";
+import { recordOperationLog } from "@/lib/operation-logs";
 
 function badRequest(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
 function requireAdmin(request: Request) {
-  if (isAuthorizedAdminRequest(request)) return null;
+  if (isAuthorizedAdminRequest(request, "relayer_ops")) return null;
   return badRequest("unauthorized", 401);
 }
 
 export async function GET(request: Request) {
   const unauthorized = requireAdmin(request);
-  if (unauthorized) return unauthorized;
+  if (unauthorized) {
+    await recordOperationLog({
+      route: "/api/relayer/dead-letters",
+      method: "GET",
+      category: "relayer",
+      requestPayload: Object.fromEntries(new URL(request.url).searchParams.entries()),
+      responsePayload: { error: "unauthorized" },
+      httpStatus: 401,
+      error: "unauthorized",
+    });
+    return unauthorized;
+  }
 
   const supabase = getServerSupabaseClient();
   if (!supabase) return badRequest("Supabase server configuration missing", 500);
@@ -26,6 +38,26 @@ export async function GET(request: Request) {
     .order("updated_at", { ascending: false })
     .limit(limit);
 
-  if (error) return badRequest(error.message, 500);
-  return Response.json({ dead_letters: data || [] });
+  if (error) {
+    await recordOperationLog({
+      route: "/api/relayer/dead-letters",
+      method: "GET",
+      category: "relayer",
+      requestPayload: Object.fromEntries(url.searchParams.entries()),
+      responsePayload: { error: error.message },
+      httpStatus: 500,
+      error: error.message,
+    });
+    return badRequest(error.message, 500);
+  }
+  const body = { dead_letters: data || [] };
+  await recordOperationLog({
+    route: "/api/relayer/dead-letters",
+    method: "GET",
+    category: "relayer",
+    requestPayload: Object.fromEntries(url.searchParams.entries()),
+    responsePayload: body,
+    httpStatus: 200,
+  });
+  return Response.json(body);
 }

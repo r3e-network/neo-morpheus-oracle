@@ -10,17 +10,43 @@ export type ProjectProviderConfigRecord = {
   updated_at?: string;
 };
 
-function resolveProviderConfigAdminKey() {
-  return process.env.MORPHEUS_PROVIDER_CONFIG_API_KEY || process.env.ADMIN_CONSOLE_API_KEY || "";
+function resolveAdminKeys(scope: "provider_config" | "relayer_ops" | "sign_payload" | "relay_transaction" = "provider_config") {
+  const values =
+    scope === "provider_config"
+      ? [
+          process.env.MORPHEUS_PROVIDER_CONFIG_API_KEY,
+          process.env.ADMIN_CONSOLE_API_KEY,
+        ]
+      : scope === "relayer_ops"
+        ? [
+            process.env.MORPHEUS_RELAYER_ADMIN_API_KEY,
+            process.env.MORPHEUS_OPERATOR_API_KEY,
+            process.env.ADMIN_CONSOLE_API_KEY,
+          ]
+        : scope === "sign_payload"
+          ? [
+              process.env.MORPHEUS_SIGNING_ADMIN_API_KEY,
+              process.env.MORPHEUS_OPERATOR_API_KEY,
+              process.env.ADMIN_CONSOLE_API_KEY,
+            ]
+          : [
+              process.env.MORPHEUS_RELAY_ADMIN_API_KEY,
+              process.env.MORPHEUS_OPERATOR_API_KEY,
+              process.env.ADMIN_CONSOLE_API_KEY,
+            ];
+  return [...new Set(values.map((value) => (value || "").trim()).filter(Boolean))];
 }
 
-export function isAuthorizedAdminRequest(request: Request) {
-  const configured = resolveProviderConfigAdminKey();
-  if (!configured) return false;
+export function isAuthorizedAdminRequest(
+  request: Request,
+  scope: "provider_config" | "relayer_ops" | "sign_payload" | "relay_transaction" = "provider_config",
+) {
+  const configured = resolveAdminKeys(scope);
+  if (configured.length === 0) return false;
 
   const headerKey = (request.headers.get("x-admin-api-key") || "").trim();
   const bearer = (request.headers.get("authorization") || "").trim();
-  return headerKey === configured || bearer === `Bearer ${configured}`;
+  return configured.includes(headerKey) || configured.some((value) => bearer === `Bearer ${value}`);
 }
 
 export function getServerSupabaseClient() {

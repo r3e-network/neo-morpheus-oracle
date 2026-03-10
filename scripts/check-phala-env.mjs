@@ -37,6 +37,11 @@ function anyPresent(env, runtimeConfig, keys) {
   return keys.some((key) => getValue(env, runtimeConfig, key));
 }
 
+function isTrue(value) {
+  const normalized = trimString(value).toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
 const required = [
   'PHALA_SHARED_SECRET',
   'SUPABASE_URL',
@@ -65,7 +70,11 @@ const raw = await fs.readFile(envPath, 'utf8');
 const env = parseDotEnv(raw);
 const runtimeConfig = parseRuntimeConfig(env);
 const missing = required.filter((key) => !getValue(env, runtimeConfig, key));
-const missingEither = requiredEither.filter((group) => !group.some((key) => getValue(env, runtimeConfig, key)));
+const useDerivedKeys = isTrue(getValue(env, runtimeConfig, 'PHALA_USE_DERIVED_KEYS'));
+const missingEither = requiredEither.filter((group) => {
+  if (useDerivedKeys && group[0].startsWith('PHALA_NEO_N3_')) return false;
+  return !group.some((key) => getValue(env, runtimeConfig, key));
+});
 
 const neoXEnabled = anyPresent(env, runtimeConfig, [
   'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS',

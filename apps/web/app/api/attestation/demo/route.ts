@@ -1,4 +1,5 @@
 import { proxyToPhala } from "@/lib/phala";
+import { recordOperationLog } from "@/lib/operation-logs";
 
 export async function GET() {
   const payload = {
@@ -25,7 +26,7 @@ export async function GET() {
     body = { raw: text };
   }
 
-  return Response.json({
+  const finalBody = {
     demo_request: payload,
     worker_response: body,
     verifier_input: {
@@ -37,5 +38,15 @@ export async function GET() {
       },
       expected_output_hash: body?.verification?.output_hash || body?.output_hash || null,
     },
-  }, { status: response.status });
+  };
+  await recordOperationLog({
+    route: "/api/attestation/demo",
+    method: "GET",
+    category: "attestation",
+    requestPayload: payload,
+    responsePayload: finalBody,
+    httpStatus: response.status,
+    metadata: { upstream_path: "/compute/execute" },
+  });
+  return Response.json(finalBody, { status: response.status });
 }

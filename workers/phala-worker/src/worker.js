@@ -88,6 +88,11 @@ export default async function handler(request) {
         public_key: keyMaterial.publicKeyDer,
         public_key_pem: keyMaterial.publicKeyPem,
         key_source: keyMaterial.source,
+        recommended_payload_encryption: "RSA-OAEP-AES-256-GCM",
+        supported_payload_encryption: [
+          "RSA-OAEP-SHA256",
+          "RSA-OAEP-AES-256-GCM",
+        ],
       });
     }
 

@@ -10,5 +10,5 @@ This is the Vercel-ready frontend and API proxy for Morpheus Oracle.
 - `/api/compute/functions`
 - `/api/compute/execute`
 - `/api/feeds/[symbol]`
-- `/api/sign/payload`
-- `/api/relay/transaction`
+- `/api/sign/payload` (admin-only)
+- `/api/relay/transaction` (admin-only)

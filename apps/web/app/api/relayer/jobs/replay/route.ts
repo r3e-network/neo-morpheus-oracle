@@ -1,22 +1,34 @@
 import { getServerSupabaseClient, isAuthorizedAdminRequest } from "@/lib/server-supabase";
+import { recordOperationLog } from "@/lib/operation-logs";
 
 function badRequest(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
 function requireAdmin(request: Request) {
-  if (isAuthorizedAdminRequest(request)) return null;
+  if (isAuthorizedAdminRequest(request, "relayer_ops")) return null;
   return badRequest("unauthorized", 401);
 }
 
 export async function POST(request: Request) {
   const unauthorized = requireAdmin(request);
-  if (unauthorized) return unauthorized;
+  const body = await request.json().catch(() => null);
+  if (unauthorized) {
+    await recordOperationLog({
+      route: "/api/relayer/jobs/replay",
+      method: "POST",
+      category: "relayer",
+      requestPayload: body,
+      responsePayload: { error: "unauthorized" },
+      httpStatus: 401,
+      error: "unauthorized",
+    });
+    return unauthorized;
+  }
 
   const supabase = getServerSupabaseClient();
   if (!supabase) return badRequest("Supabase server configuration missing", 500);
 
-  const body = await request.json().catch(() => null);
   const eventKey = typeof body?.event_key === "string" ? body.event_key.trim() : "";
   if (!eventKey) return badRequest("event_key required");
 
@@ -41,6 +53,26 @@ export async function POST(request: Request) {
     })
     .eq("event_key", eventKey);
 
-  if (error) return badRequest(error.message, 500);
-  return Response.json({ ok: true, event_key: eventKey, action: "manual_replay_requested" });
+  if (error) {
+    await recordOperationLog({
+      route: "/api/relayer/jobs/replay",
+      method: "POST",
+      category: "relayer",
+      requestPayload: body,
+      responsePayload: { error: error.message },
+      httpStatus: 500,
+      error: error.message,
+    });
+    return badRequest(error.message, 500);
+  }
+  const responseBody = { ok: true, event_key: eventKey, action: "manual_replay_requested" };
+  await recordOperationLog({
+    route: "/api/relayer/jobs/replay",
+    method: "POST",
+    category: "relayer",
+    requestPayload: body,
+    responsePayload: responseBody,
+    httpStatus: 200,
+  });
+  return Response.json(responseBody);
 }

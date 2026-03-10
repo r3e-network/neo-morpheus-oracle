@@ -2,6 +2,24 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { experimental, sc, wallet } from '@cityofzion/neon-js';
 
+function trimString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function resolveNeoN3NetworkDefaults() {
+  const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
+  if (network === 'mainnet') {
+    return {
+      rpcAddress: 'https://mainnet1.neo.coz.io:443',
+      networkMagic: 860833102,
+    };
+  }
+  return {
+    rpcAddress: 'https://testnet1.neo.coz.io:443',
+    networkMagic: 894710606,
+  };
+}
+
 export async function loadContractArtifacts(baseName, buildDir = path.resolve('contracts/build')) {
   const nefPath = path.join(buildDir, `${baseName}.nef`);
   const manifestPath = path.join(buildDir, `${baseName}.manifest.json`);
@@ -16,10 +34,17 @@ export async function loadContractArtifacts(baseName, buildDir = path.resolve('c
 }
 
 export function getDeployConfig() {
-  const rpcAddress = process.env.NEO_RPC_URL || 'https://testnet1.neo.coz.io:443';
-  const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || 894710606);
-  const wif = process.env.NEO_TESTNET_WIF || '';
-  if (!wif) throw new Error('NEO_TESTNET_WIF is required');
+  const defaults = resolveNeoN3NetworkDefaults();
+  const rpcAddress = trimString(process.env.NEO_RPC_URL || defaults.rpcAddress);
+  const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || defaults.networkMagic);
+  const wif = trimString(
+    process.env.NEO_N3_WIF
+      || process.env.NEO_TESTNET_WIF
+      || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+      || process.env.PHALA_NEO_N3_WIF
+      || '',
+  );
+  if (!wif) throw new Error('NEO_N3_WIF or compatible Neo N3 WIF env is required');
   const account = new wallet.Account(wif);
   return { rpcAddress, networkMagic, account };
 }

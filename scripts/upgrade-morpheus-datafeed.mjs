@@ -1,17 +1,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { experimental, sc, u, wallet } from '@cityofzion/neon-js';
+import { loadDotEnv } from './lib-env.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-const rpcAddress = trimString(process.env.NEO_RPC_URL || 'https://testnet1.neo.coz.io:443');
-const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || 894710606);
-const wif = trimString(process.env.NEO_TESTNET_WIF || '');
+await loadDotEnv();
+
+const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
+const rpcAddress = trimString(process.env.NEO_RPC_URL || (network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443'));
+const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606));
+const wif = trimString(process.env.NEO_N3_WIF || process.env.NEO_TESTNET_WIF || process.env.MORPHEUS_RELAYER_NEO_N3_WIF || '');
 const contractHash = trimString(process.env.CONTRACT_MORPHEUS_DATAFEED_HASH || '');
 
-if (!wif) throw new Error('NEO_TESTNET_WIF is required');
+if (!wif) throw new Error('NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required');
 if (!contractHash) throw new Error('CONTRACT_MORPHEUS_DATAFEED_HASH is required');
 
 const account = new wallet.Account(wif);
