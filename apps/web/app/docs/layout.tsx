@@ -33,6 +33,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
     {
       title: "Reference",
       items: [
+        { href: "/docs/networks", label: "Networks & Contracts", icon: Layers },
         { href: "/docs/api-reference", label: "API Reference", icon: Code2 },
         { href: "/docs/verifier", label: "Attestation Spec", icon: CheckCircle },
         { href: "/docs/faq", label: "FAQ & Troubleshooting", icon: HelpCircle },
@@ -131,8 +132,40 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           <div style={{ maxWidth: '840px' }}>
             {children}
             
+            {/* Next/Prev Navigation */}
+            {(() => {
+              const flatItems = sections.flatMap(s => s.items);
+              const currentIndex = flatItems.findIndex(i => i.href === pathname);
+              const prevItem = currentIndex > 0 ? flatItems[currentIndex - 1] : null;
+              const nextItem = currentIndex !== -1 && currentIndex < flatItems.length - 1 ? flatItems[currentIndex + 1] : null;
+
+              if (!prevItem && !nextItem) return null;
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '4rem' }}>
+                  {prevItem ? (
+                    <Link href={prevItem.href} className="card-industrial" style={{ padding: '1.5rem', textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', transition: 'border-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--neo-green)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-dim)'}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Previous</span>
+                      <span style={{ fontSize: '1rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ArrowLeft size={16} color="var(--neo-green)" /> {prevItem.label}
+                      </span>
+                    </Link>
+                  ) : <div></div>}
+                  
+                  {nextItem ? (
+                    <Link href={nextItem.href} className="card-industrial" style={{ padding: '1.5rem', textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', transition: 'border-color 0.2s' }} onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--neo-green)'} onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-dim)'}>
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>Next</span>
+                      <span style={{ fontSize: '1rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {nextItem.label} <ChevronRight size={16} color="var(--neo-green)" />
+                      </span>
+                    </Link>
+                  ) : <div></div>}
+                </div>
+              );
+            })()}
+
             {/* Footer Navigation */}
-            <div style={{ marginTop: '8rem', paddingTop: '3rem', borderTop: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ marginTop: '4rem', paddingTop: '3rem', borderTop: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '0.1em' }}>REVISION 1.0.2</span>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>LAST UPDATED: 2026-03-10</span>

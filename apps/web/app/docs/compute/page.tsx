@@ -1,6 +1,7 @@
 "use client";
 
 import { Cpu, Terminal, Zap, FileCode, ShieldAlert } from "lucide-react";
+import { CodeBlock } from "@/components/ui/CodeBlock";
 
 export default function DocsCompute() {
   return (
@@ -48,7 +49,11 @@ export default function DocsCompute() {
       <p>
         The following script demonstrates how to fetch from multiple sources and return an average—all while keeping the API keys confidential.
       </p>
-      <pre><code>{`async function process(data) {
+      
+      <CodeBlock
+        language="javascript"
+        title="Custom Aggregator Script"
+        code={`async function process(data) {
     // 1. Fetch from private sources
     const res1 = await morpheus.http_request('https://api1.com');
     const res2 = await morpheus.http_request('https://api2.com');
@@ -58,7 +63,8 @@ export default function DocsCompute() {
     
     // 3. Result is signed and sent back to Neo
     return { average: avg, timestamp: Date.now() };
-}`}</code></pre>
+}`}
+      />
 
       <h2>Security Model</h2>
       <p>

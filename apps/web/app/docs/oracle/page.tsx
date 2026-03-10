@@ -1,6 +1,7 @@
 "use client";
 
 import { Shield, Lock, Zap, ArrowRight, FileCode } from "lucide-react";
+import { CodeBlock } from "@/components/ui/CodeBlock";
 
 export default function DocsOracle() {
   return (
@@ -38,22 +39,31 @@ export default function DocsOracle() {
         To protect your secrets, you must use <strong>RSA-OAEP 2048</strong> encryption. You can fetch the active public key from the <code>/api/oracle/public-key</code> endpoint.
       </p>
       
-      <pre><code>{`// Example: Encrypting a secret header locally
+      <CodeBlock
+        language="javascript"
+        title="Web3 Frontend (Client-side)"
+        code={`// Fetch TEE Public Key
 const { public_key_pem } = await fetch("/api/oracle/public-key").then(r => r.json());
 
+// Your private headers or query parameters
 const secrets = {
   headers: { "X-API-KEY": "secret_value_123" }
 };
 
 // Encrypt locally (no network trip required for the secret plaintext)
-const encryptedParams = await encrypt(JSON.stringify(secrets), public_key_pem);`}</code></pre>
+const encryptedParams = await encrypt(JSON.stringify(secrets), public_key_pem);`}
+      />
 
       <h2>Contract Integration</h2>
       <h3>Neo X (Solidity)</h3>
       <p>
         Inherit from <code>MorpheusConsumerX</code> and implement the <code>__morpheusCallback</code> function.
       </p>
-      <pre><code>{`function requestMarketData(string memory pair) public payable {
+      
+      <CodeBlock
+        language="solidity"
+        title="Neo X Oracle Request"
+        code={`function requestMarketData(string memory pair) public payable {
     bytes memory encrypted = "..."; // Sealed parameters
     oracle.request{value: msg.value}(
         "twelvedata",
@@ -63,18 +73,23 @@ const encryptedParams = await encrypt(JSON.stringify(secrets), public_key_pem);`
         address(this),
         this.__morpheusCallback.selector
     );
-}`}</code></pre>
+}`}
+      />
 
       <h3>Neo N3 (C#)</h3>
       <p>
         Use the <code>MorpheusOracle</code> contract hash and trigger a request via the <code>request</code> method.
       </p>
-      <pre><code>{`public static void RequestData() {
+      <CodeBlock
+        language="csharp"
+        title="Neo N3 Oracle Request"
+        code={`public static void RequestData() {
     object[] args = new object[] {
         "twelvedata", "NEO-USD", encryptedParams, "price"
     };
     Contract.Call(OracleHash, "request", CallFlags.All, args);
-}`}</code></pre>
+}`}
+      />
 
       <div className="card-industrial" style={{ marginTop: '4rem', padding: '2.5rem', borderLeft: '4px solid var(--neo-green)' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
