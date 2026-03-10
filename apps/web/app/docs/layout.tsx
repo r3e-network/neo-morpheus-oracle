@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
 import { 
   Book, Layers, Shield, Cpu, LineChart, CheckCircle, 
-  Search, Github, Menu, X, Boxes, ChevronRight,
+  Search, Github, Menu, X, Boxes, ChevronRight, ArrowLeft,
   Code2, HelpCircle, Zap
 } from "lucide-react";
 
@@ -28,6 +28,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/oracle", label: "Privacy Oracle", icon: Shield },
         { href: "/docs/compute", label: "Enclave Compute", icon: Cpu },
         { href: "/docs/datafeeds", label: "Data Matrix", icon: LineChart },
+        { href: "/docs/r/USER_GUIDE", label: "User Guide", icon: Book },
       ]
     },
     {
@@ -37,6 +38,18 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/api-reference", label: "API Reference", icon: Code2 },
         { href: "/docs/verifier", label: "Attestation Spec", icon: CheckCircle },
         { href: "/docs/faq", label: "FAQ & Troubleshooting", icon: HelpCircle },
+      ]
+    },
+    {
+      title: "Extended Documentation",
+      items: [
+        { href: "/docs/r/EXAMPLES", label: "Examples Portfolio", icon: Code2 },
+        { href: "/docs/r/BUILTIN_COMPUTE", label: "Built-in Compute", icon: Cpu },
+        { href: "/docs/r/PROVIDERS", label: "Supported Providers", icon: Boxes },
+        { href: "/docs/r/DEPLOYMENT", label: "Deployment Node", icon: Boxes },
+        { href: "/docs/r/ENVIRONMENT", label: "Environment Setup", icon: Zap },
+        { href: "/docs/r/ASYNC_PRIVACY_ORACLE_SPEC", label: "Async Privacy Spec", icon: Shield },
+        { href: "/docs/r/SECURITY_AUDIT", label: "Security Audit", icon: Shield },
       ]
     }
   ];
@@ -55,6 +68,11 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         </Link>
         
         <div className="nav-links hide-mobile">
+          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-dim)', borderRadius: '4px', padding: '0.4rem 0.8rem', gap: '8px', cursor: 'pointer', transition: 'border-color 0.2s', marginRight: '1rem' }} className="hover-search">
+            <Search size={14} color="var(--text-muted)" />
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Search documentation...</span>
+            <span style={{ marginLeft: '1.5rem', padding: '0.15rem 0.35rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-dim)', borderRadius: '2px', fontSize: '0.65rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontWeight: 700 }}>⌘K</span>
+          </div>
           <Link href="/explorer" className="nav-link">Network Explorer</Link>
           <a href="https://github.com/r3e-network/neo-morpheus-oracle" target="_blank" className="nav-link">
             <Github size={16} />

@@ -50,30 +50,23 @@ export async function fetchNeoXPrice(pair: string): Promise<OnChainPrice | null>
 
 export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null> {
   try {
-    const response = await fetch(NETWORKS.neo_n3.rpc, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: Date.now(),
-        method: "invokefunction",
-        params: [NETWORKS.neo_n3.datafeed, "getLatestPrice", [{ type: "String", value: pair }]]
-      })
-    });
+    const encodedPair = typeof window !== 'undefined' ? window.btoa(pair) : Buffer.from(pair).toString('base64');
+    const url = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.mainnet&contract_hash=eq.${NETWORKS.neo_n3.datafeed}&event_name=eq.FeedUpdated&state_json->value->0->>value=eq.${encodedPair}&limit=1&order=block_index.desc`;
+    const response = await fetch(url, { headers: { "Accept": "application/json" }});
     const body = await response.json();
-    if (body.result?.state === "HALT") {
-      const stack = body.result.stack[0];
-      if (stack.type === "Map") {
-        const priceItem = stack.value.find((v: any) => atob(v.key.value) === "price");
-        const tsItem = stack.value.find((v: any) => atob(v.key.value) === "timestamp");
-        return {
-          price: (Number(priceItem.value.value) / 100).toFixed(2),
-          timestamp: Number(tsItem.value.value),
-          pair,
-          network: "Neo N3",
-          contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`
-        };
-      }
+    
+    if (body && body.length > 0) {
+      const stateArray = body[0].state_json.value;
+      const priceItem = stateArray[2];
+      const tsItem = stateArray[3];
+      
+      return {
+        price: (Number(priceItem.value) / 100).toFixed(2),
+        timestamp: Number(tsItem.value) * 1000,
+        pair,
+        network: "Neo N3",
+        contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`
+      };
     }
     return null;
   } catch { return null; }
