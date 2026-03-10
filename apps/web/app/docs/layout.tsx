@@ -206,10 +206,8 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         .docs-content ul, .docs-content ol { color: var(--text-secondary); margin-bottom: 2.5rem; padding-left: 1.25rem; font-size: 1rem; line-height: 1.8; }
         .docs-content li { margin-bottom: 0.75rem; }
         .docs-content li::marker { color: var(--neo-green); }
-        .docs-content code { background: #111; padding: 0.2rem 0.4rem; border-radius: 2px; font-family: var(--font-mono); font-size: 0.85em; color: var(--neo-green); border: 1px solid var(--border-dim); }
-        .docs-content pre { background: #000; border: 1px solid var(--border-dim); padding: 1.5rem; border-radius: 4px; overflow-x: auto; margin: 2.5rem 0; position: relative; }
-        .docs-content pre::before { content: 'CONSOLE'; position: absolute; top: 0; right: 1rem; font-size: 0.55rem; color: var(--text-muted); font-family: var(--font-mono); font-weight: 800; padding: 0.5rem 0; }
-        .docs-content pre code { background: transparent; padding: 0; color: #fff; border: none; font-size: 0.8rem; line-height: 1.6; }
+        .docs-content p code, .docs-content li code { background: rgba(0,255,163,0.05); padding: 0.2rem 0.35rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85em; color: var(--neo-green); border: 1px solid rgba(0,255,163,0.2); }
+        .docs-content pre code { background: transparent; padding: 0; border: none; font-size: 0.8rem; line-height: 1.6; }
         .docs-content blockquote { border-left: 2px solid var(--neo-green); background: rgba(0, 255, 163, 0.01); padding: 1.25rem 1.5rem; margin: 2.5rem 0; color: var(--text-secondary); font-size: 0.95rem; }
         .docs-content strong { color: #fff; font-weight: 700; }
         
