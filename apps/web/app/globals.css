@@ -1,5 +1,5 @@
 :root {
-  /* ATA-Inspired Dark Palette */
+  /* ATA-Inspired Deep Dark Palette */
   --bg-main: #000000;
   --bg-card: #050505;
   --bg-nav: rgba(0, 0, 0, 0.85);
@@ -168,6 +168,19 @@ body {
 .glass-card::after { bottom: -1px; right: -1px; border-bottom-color: var(--border-active); border-right-color: var(--border-active); }
 .glass-card:hover::before, .glass-card:hover::after { border-color: var(--neo-green); }
 
+.card-industrial {
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 2rem;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.card-industrial:hover {
+  border-color: var(--border-highlight);
+}
+
 /* --- Inputs & Code --- */
 .code-editor {
   background: #000;
@@ -255,6 +268,27 @@ body {
   box-shadow: 0 0 15px var(--neo-green-glow);
 }
 
+.btn-ata {
+  background: #fff;
+  color: #000;
+  padding: 0.75rem 2.5rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-ata:hover {
+  background: var(--neo-green);
+}
+
 /* --- Grid System --- */
 .grid { display: grid; gap: 2rem; }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
@@ -294,6 +328,15 @@ body {
 }
 @keyframes pulse-out { 0% { transform: scale(0.8); opacity: 1; } 100% { transform: scale(2.5); opacity: 0; } }
 
+.status-dot { 
+  width: 6px; 
+  height: 6px; 
+  border-radius: 50%; 
+  background: var(--neo-green); 
+  animation: pulse 2s infinite; 
+}
+@keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+
 /* Form Styles */
 .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
 .form-label { font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font-mono); }
@@ -306,6 +349,7 @@ body {
 
 /* Animations */
 .fade-in { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.fade-up { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 @keyframes slideUpFade { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .stagger-1 { animation: slideUpFade 0.6s 0.05s forwards; opacity: 0; }
 .stagger-2 { animation: slideUpFade 0.6s 0.1s forwards; opacity: 0; }
