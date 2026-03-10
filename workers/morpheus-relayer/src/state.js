@@ -163,6 +163,8 @@ export function enqueueRetryItem(state, chain, event, options = {}) {
     updated_at: new Date().toISOString(),
     last_error: options.last_error || null,
     manual_action: options.manual_action || null,
+    finalize_only: Boolean(options.finalize_only),
+    terminal_error: options.terminal_error || null,
   };
   const index = chainState.retry_queue.findIndex((entry) => entry.key === key);
   if (index >= 0) {

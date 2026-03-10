@@ -1,7 +1,7 @@
 import { createRelayerConfig } from "./config.js";
 import { createLogger } from "./logger.js";
 import { callPhala } from "./phala.js";
-import { buildWorkerPayload, decodePayloadText, encodeFulfillmentResult, resolveWorkerRoute } from "./router.js";
+import { buildWorkerPayload, decodePayloadText, encodeFulfillmentResult, isOperatorOnlyRequestType, resolveWorkerRoute } from "./router.js";
 import {
   buildRelayerJobRecord,
   fetchRelayerJobsByStatuses,
@@ -34,6 +34,28 @@ function sleep(ms) {
 
 function normalizeErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function trimOnchainErrorMessage(value, maxLength = 240) {
+  const text = normalizeErrorMessage(value).trim();
+  if (!text) return "request execution failed";
+  return text.length > maxLength
+    ? `${text.slice(0, maxLength - 3)}...`
+    : text;
+}
+
+function isAlreadyFulfilledError(message) {
+  const normalized = normalizeErrorMessage(message).toLowerCase();
+  return normalized.includes("already fulfilled")
+    || normalized.includes("request already fulfilled")
+    || normalized.includes("reason: request already fulfilled");
+}
+
+function computeRetryDelayMs(config, attempts) {
+  return Math.min(
+    config.retryBaseDelayMs * (2 ** Math.max(attempts - 1, 0)),
+    config.retryMaxDelayMs,
+  );
 }
 
 async function mapWithConcurrency(items, limit, worker) {
@@ -125,13 +147,26 @@ async function syncManualActions(config, state, logger, chain) {
 
 async function processOracleRequest(config, event) {
   const payload = decodePayloadText(event.payloadText);
+  if (isOperatorOnlyRequestType(event.requestType)) {
+    const verification = await signFulfillmentPayload(config, event.chain, "");
+    return {
+      success: false,
+      result: "",
+      error: "datafeed requests are operator-only; users should read synchronized on-chain feed data",
+      route: "operator-only:rejected",
+      worker_response: null,
+      worker_status: null,
+      fulfill_tx: event.chain === "neo_n3"
+        ? await fulfillNeoN3Request(config, event.requestId, false, "", "datafeed requests are operator-only; users should read synchronized on-chain feed data", verification.signature)
+        : await fulfillNeoXRequest(config, event.requestId, false, "", "datafeed requests are operator-only; users should read synchronized on-chain feed data", verification.signature),
+      verification_signature: verification.signature,
+    };
+  }
   const route = resolveWorkerRoute(event.requestType, payload);
   const workerPayload = buildWorkerPayload(event.chain, event.requestType, payload, event.requestId);
   const workerResponse = await callPhala(config, route, workerPayload);
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
-  const verification = fulfillment.success
-    ? await signFulfillmentPayload(config, event.chain, fulfillment.result)
-    : null;
+  const verification = await signFulfillmentPayload(config, event.chain, fulfillment.result || "");
 
   if (event.chain === "neo_n3") {
     const tx = await fulfillNeoN3Request(
@@ -140,7 +175,7 @@ async function processOracleRequest(config, event) {
       fulfillment.success,
       fulfillment.result,
       fulfillment.error,
-      verification?.signature || "",
+      verification.signature,
     );
     return {
       ...fulfillment,
@@ -148,7 +183,7 @@ async function processOracleRequest(config, event) {
       worker_response: workerResponse.body,
       worker_status: workerResponse.status,
       fulfill_tx: tx,
-      verification_signature: verification?.signature || null,
+      verification_signature: verification.signature,
     };
   }
 
@@ -158,7 +193,7 @@ async function processOracleRequest(config, event) {
     fulfillment.success,
     fulfillment.result,
     fulfillment.error,
-    verification?.signature || "",
+    verification.signature,
   );
   return {
     ...fulfillment,
@@ -166,14 +201,32 @@ async function processOracleRequest(config, event) {
     worker_response: workerResponse.body,
     worker_status: workerResponse.status,
     fulfill_tx: tx,
-    verification_signature: verification?.signature || null,
+    verification_signature: verification.signature,
+  };
+}
+
+async function finalizeFailedRequest(config, event, errorMessage) {
+  const safeError = trimOnchainErrorMessage(errorMessage);
+  const verification = await signFulfillmentPayload(config, event.chain, "");
+  const fulfillTx = event.chain === "neo_n3"
+    ? await fulfillNeoN3Request(config, event.requestId, false, "", safeError, verification.signature)
+    : await fulfillNeoXRequest(config, event.requestId, false, "", safeError, verification.signature);
+  return {
+    success: false,
+    result: "",
+    error: safeError,
+    route: "failure-finalize",
+    worker_response: null,
+    worker_status: null,
+    fulfill_tx: fulfillTx,
+    verification_signature: verification.signature,
   };
 }
 
 async function signFulfillmentPayload(config, chain, result) {
   const response = await callPhala(config, "/sign/payload", {
     target_chain: chain,
-    data_base64: Buffer.from(result || "", "utf8").toString("base64"),
+    message: result || "",
   });
   if (!response.ok || typeof response.body?.signature !== "string" || !response.body.signature) {
     throw new Error(
@@ -192,6 +245,12 @@ function createPersistor(config, state) {
 async function processEvent(config, state, persistState, logger, event, retryItem = null) {
   const eventKey = buildEventKey(event);
   const attempts = retryItem?.attempts || 0;
+  const isFinalizeOnly = Boolean(retryItem?.finalize_only);
+  const terminalError = trimOnchainErrorMessage(
+    retryItem?.terminal_error
+      || retryItem?.last_error
+      || "request execution failed",
+  );
 
   logger.info({
     chain: event.chain,
@@ -210,17 +269,24 @@ async function processEvent(config, state, persistState, logger, event, retryIte
   });
 
   try {
-    incrementMetric(state, "worker_calls_total");
-    const result = await processOracleRequest(config, event);
-    if (!result.success) incrementMetric(state, "worker_failures_total");
+    let result;
+    if (isFinalizeOnly) {
+      result = await finalizeFailedRequest(config, event, terminalError);
+      incrementMetric(state, "fulfill_failure_total");
+    } else {
+      incrementMetric(state, "worker_calls_total");
+      result = await processOracleRequest(config, event);
+      if (!result.success) incrementMetric(state, "worker_failures_total");
+      incrementMetric(state, result.success ? "fulfill_success_total" : "fulfill_failure_total");
+    }
     incrementMetric(state, "events_processed_total");
-    incrementMetric(state, result.success ? "fulfill_success_total" : "fulfill_failure_total");
 
     recordProcessedEvent(state, event.chain, event, result.success ? "fulfilled" : "failed", {
       attempts,
       route: result.route,
       fulfill_tx: result.fulfill_tx,
       worker_status: result.worker_status,
+      last_error: result.error || null,
     }, config);
     clearRetryItem(state, event.chain, eventKey);
     persistState();
@@ -249,35 +315,136 @@ async function processEvent(config, state, persistState, logger, event, retryIte
     return { event, result, event_key: eventKey, attempts };
   } catch (error) {
     const message = normalizeErrorMessage(error);
-    const retry = scheduleRetry(state, event.chain, event, message, config);
-
-    if (retry.status === "exhausted") {
-      incrementMetric(state, "events_failed_total");
-      incrementMetric(state, "retries_exhausted_total");
-      recordProcessedEvent(state, event.chain, event, "exhausted", {
-        attempts: retry.attempts,
-        last_error: message,
+    if (isAlreadyFulfilledError(message)) {
+      recordProcessedEvent(state, event.chain, event, "settled", {
+        attempts,
+        route: isFinalizeOnly ? "failure-finalize:already-fulfilled" : "already-fulfilled",
+        last_error: trimOnchainErrorMessage(message),
       }, config);
+      clearRetryItem(state, event.chain, eventKey);
       persistState();
 
       await maybeUpsertJob(logger, event, {
         event_key: eventKey,
-        status: "exhausted",
-        attempts: retry.attempts,
-        last_error: message,
+        status: "settled",
+        attempts,
+        last_error: trimOnchainErrorMessage(message),
         completed_at: new Date().toISOString(),
         next_retry_at: null,
       });
 
-      logger.error({
+      logger.info({
         chain: event.chain,
         request_id: event.requestId,
         request_type: event.requestType,
         event_key: eventKey,
-        attempts: retry.attempts,
-        error: message,
-      }, "Exhausted retries for Morpheus oracle request");
-      return { event, error: message, retry_status: "exhausted", event_key: eventKey, attempts: retry.attempts };
+        attempts,
+      }, "Oracle request was already settled on-chain");
+      return { event, result: null, event_key: eventKey, attempts, retry_status: "settled" };
+    }
+
+    if (isFinalizeOnly) {
+      const nextAttempts = attempts + 1;
+      const retryItemNext = enqueueRetryItem(state, event.chain, event, {
+        attempts: nextAttempts,
+        next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
+        first_failed_at: retryItem?.first_failed_at || new Date().toISOString(),
+        last_error: trimOnchainErrorMessage(message),
+        finalize_only: true,
+        terminal_error: terminalError,
+      });
+      incrementMetric(state, "retries_scheduled_total");
+      persistState();
+
+      await maybeUpsertJob(logger, event, {
+        event_key: eventKey,
+        status: "failure_callback_retry_scheduled",
+        attempts: retryItemNext.attempts,
+        last_error: retryItemNext.last_error,
+        next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
+      });
+
+      logger.warn({
+        chain: event.chain,
+        request_id: event.requestId,
+        request_type: event.requestType,
+        event_key: eventKey,
+        attempts: retryItemNext.attempts,
+        retry_at: retryItemNext.next_retry_at,
+        error: retryItemNext.last_error,
+      }, "Retrying terminal failure callback delivery");
+      return { event, error: retryItemNext.last_error, retry_status: "scheduled", event_key: eventKey, attempts: retryItemNext.attempts };
+    }
+
+    const retry = scheduleRetry(state, event.chain, event, message, config);
+
+    if (retry.status === "exhausted") {
+      incrementMetric(state, "retries_exhausted_total");
+      try {
+        const result = await finalizeFailedRequest(config, event, message);
+        incrementMetric(state, "events_processed_total");
+        incrementMetric(state, "events_failed_total");
+        incrementMetric(state, "fulfill_failure_total");
+        recordProcessedEvent(state, event.chain, event, "failed", {
+          attempts: retry.attempts,
+          route: result.route,
+          fulfill_tx: result.fulfill_tx,
+          worker_status: null,
+          last_error: result.error,
+        }, config);
+        clearRetryItem(state, event.chain, eventKey);
+        persistState();
+
+        await maybeUpsertJob(logger, event, {
+          event_key: eventKey,
+          status: "failed",
+          attempts: retry.attempts,
+          last_error: result.error,
+          fulfill_tx: result.fulfill_tx,
+          completed_at: new Date().toISOString(),
+          next_retry_at: null,
+        });
+
+        logger.warn({
+          chain: event.chain,
+          request_id: event.requestId,
+          request_type: event.requestType,
+          event_key: eventKey,
+          attempts: retry.attempts,
+          error: result.error,
+        }, "Finalized oracle request with an on-chain failure callback");
+        return { event, result, event_key: eventKey, attempts: retry.attempts };
+      } catch (finalizeError) {
+        const nextAttempts = retry.attempts + 1;
+        const retryItemNext = enqueueRetryItem(state, event.chain, event, {
+          attempts: nextAttempts,
+          next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
+          first_failed_at: new Date().toISOString(),
+          last_error: trimOnchainErrorMessage(finalizeError),
+          finalize_only: true,
+          terminal_error: trimOnchainErrorMessage(message),
+        });
+        incrementMetric(state, "retries_scheduled_total");
+        persistState();
+
+        await maybeUpsertJob(logger, event, {
+          event_key: eventKey,
+          status: "failure_callback_retry_scheduled",
+          attempts: retryItemNext.attempts,
+          last_error: retryItemNext.last_error,
+          next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
+        });
+
+        logger.error({
+          chain: event.chain,
+          request_id: event.requestId,
+          request_type: event.requestType,
+          event_key: eventKey,
+          attempts: retryItemNext.attempts,
+          error: retryItemNext.last_error,
+        }, "Primary execution exhausted; retrying terminal failure callback");
+        return { event, error: retryItemNext.last_error, retry_status: "scheduled", event_key: eventKey, attempts: retryItemNext.attempts };
+      }
     }
 
     incrementMetric(state, "retries_scheduled_total");
