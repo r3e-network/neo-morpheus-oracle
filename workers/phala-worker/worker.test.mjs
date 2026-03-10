@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createSign, generateKeyPairSync } from 'node:crypto';
+import { Interface, Transaction } from 'ethers';
 
 const originalFetch = global.fetch;
 const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
@@ -63,6 +64,48 @@ async function encryptForOracle(publicKeyBase64, plaintext) {
     new TextEncoder().encode(plaintext),
   );
   return Buffer.from(encrypted).toString('base64');
+}
+
+async function encryptHybridForOracle(publicKeyBase64, plaintext) {
+  const spki = Buffer.from(publicKeyBase64, 'base64');
+  const rsaKey = await globalThis.crypto.subtle.importKey(
+    'spki',
+    spki,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['encrypt'],
+  );
+  const aesKey = await globalThis.crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt'],
+  );
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const encryptedBytes = new Uint8Array(
+    await globalThis.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      aesKey,
+      new TextEncoder().encode(plaintext),
+    ),
+  );
+  const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);
+  const tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
+  const rawAesKey = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', aesKey));
+  const wrappedKey = new Uint8Array(
+    await globalThis.crypto.subtle.encrypt(
+      { name: 'RSA-OAEP' },
+      rsaKey,
+      rawAesKey,
+    ),
+  );
+  return Buffer.from(JSON.stringify({
+    version: 1,
+    algorithm: 'RSA-OAEP-AES-256-GCM',
+    encrypted_key: Buffer.from(wrappedKey).toString('base64'),
+    iv: Buffer.from(iv).toString('base64'),
+    ciphertext: Buffer.from(ciphertextBytes).toString('base64'),
+    tag: Buffer.from(tagBytes).toString('base64'),
+  })).toString('base64');
 }
 
 test('oracle query loads project provider defaults inside worker', async () => {
@@ -326,6 +369,10 @@ test('oracle public key endpoint returns RSA metadata', async () => {
   assert.equal(body.algorithm, 'RSA-OAEP-SHA256');
   assert.ok(body.public_key);
   assert.ok(body.public_key_pem);
+  assert.equal(body.recommended_payload_encryption, 'RSA-OAEP-AES-256-GCM');
+  assert.ok(Array.isArray(body.supported_payload_encryption));
+  assert.ok(body.supported_payload_encryption.includes('RSA-OAEP-SHA256'));
+  assert.ok(body.supported_payload_encryption.includes('RSA-OAEP-AES-256-GCM'));
 });
 
 test('oracle public key can be stabilized with a dstack-sealed keystore', async () => {
@@ -486,6 +533,31 @@ test('compute execute supports encrypted confidential payload patches', async ()
   assert.equal(body.result.value, '4');
   assert.equal(body.target_chain, 'neo_x');
   assert.equal(body.target_chain_id, '12227332');
+});
+
+test('compute execute supports hybrid encrypted payloads larger than raw RSA limits', async () => {
+  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyBody = await keyRes.json();
+  const ciphertext = await encryptHybridForOracle(keyBody.public_key, JSON.stringify({
+    mode: 'builtin',
+    function: 'hash.sha256',
+    input: {
+      message: 'neo-morpheus',
+      note: 'x'.repeat(2048),
+    },
+    target_chain: 'neo_n3',
+  }));
+
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ encrypted_input: ciphertext }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'builtin');
+  assert.equal(body.function, 'hash.sha256');
+  assert.ok(body.result.digest);
 });
 
 test('compute execute supports wasm runtime', async () => {
@@ -746,6 +818,13 @@ test('oracle feed supports neo_x contract relay mode', async () => {
   assert.ok(Array.isArray(body.sync_results));
   assert.equal(body.sync_results[0].relay_status, 'submitted');
   assert.ok(body.sync_results[0].anchored_tx);
+  assert.equal(body.sync_results[0].quote.decimals, 2);
+  const iface = new Interface([
+    'function updateFeed(string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)',
+  ]);
+  const txEnvelope = Transaction.from(body.sync_results[0].anchored_tx.raw_transaction);
+  const decoded = iface.decodeFunctionData('updateFeed', txEnvelope.data);
+  assert.equal(decoded[2].toString(), '1234');
 });
 
 test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {
