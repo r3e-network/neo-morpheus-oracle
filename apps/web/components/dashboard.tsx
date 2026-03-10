@@ -188,18 +188,13 @@ export function Dashboard() {
             {activeTab === "overview" && (
               <OverviewTab 
                 networkInfo={networkInfo} 
-                providers={providers} 
-                callJSON={callJSON} 
                 setOutput={setOutput}
                 onchainState={onchainState}
-                runtimeHealth={runtimeHealth}
-                runtimeInfo={runtimeInfo}
-                attestationDemo={attestationDemo}
               />
             )}
             {activeTab === "providers" && <ProvidersTab providers={providers} />}
             {activeTab === "oracle" && <OracleTab providers={providers} callJSON={callJSON} setOutput={setOutput} />}
-            {activeTab === "compute" && <ComputeTab computeFunctions={computeFunctions} callJSON={callJSON} setOutput={setOutput} />}
+            {activeTab === "compute" && <ComputeTab computeFunctions={computeFunctions} setOutput={setOutput} />}
             {activeTab === "devhub" && <DeveloperHub />}
           </div>
         )}
