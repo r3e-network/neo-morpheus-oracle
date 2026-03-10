@@ -10,12 +10,12 @@ import { CONTRACT_EXAMPLES, AUTOMATION_PATTERNS, BUILTIN_FUNCTIONS, SECURITY_CON
 
 export function DeveloperHub() {
   const [activeLang, setActiveLang] = useState<"neo_x" | "neo_n3">("neo_x");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(text);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   return (

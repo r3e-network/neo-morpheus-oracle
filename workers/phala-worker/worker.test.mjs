@@ -239,7 +239,8 @@ test('feeds catalog lists default symbols', async () => {
   const body = await res.json();
   assert.ok(Array.isArray(body.pairs));
   assert.ok(body.pairs.includes('NEO-USD'));
-  assert.ok(body.pairs.includes('XAU-USD'));
+  assert.ok(body.pairs.includes('PAXG-USD'));
+  assert.ok(body.pairs.includes('WTI-USD'));
 });
 
 test('feed quote supports twelvedata provider', async () => {

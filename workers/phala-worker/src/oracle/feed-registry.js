@@ -30,32 +30,22 @@ export const DEFAULT_FEED_PAIRS = {
       twelvedata: { symbol: 'ETH-USD' },
     },
   },
-  'TRX-USD': {
-    providers: {
-      twelvedata: { symbol: 'TRX-USD' },
-    },
-  },
   'SOL-USD': {
     providers: {
       twelvedata: { symbol: 'SOL-USD' },
     },
   },
-  'BNB-USD': {
+  'TRX-USD': {
     providers: {
-      twelvedata: { symbol: 'BNB-USD' },
+      twelvedata: { symbol: 'TRX-USD' },
     },
   },
-  'XAU-USD': {
+  'PAXG-USD': {
     providers: {
-      twelvedata: { symbol: 'XAU-USD' },
+      twelvedata: { symbol: 'PAXG-USD' },
     },
   },
-  'XAG-USD': {
-    providers: {
-      twelvedata: { symbol: 'XAG-USD' },
-    },
-  },
-  'OIL-USD': {
+  'WTI-USD': {
     providers: {
       twelvedata: { symbol: 'WTI-USD' },
     },
@@ -68,6 +58,11 @@ export const DEFAULT_FEED_PAIRS = {
   'USDC-USD': {
     providers: {
       twelvedata: { symbol: 'USDC-USD' },
+    },
+  },
+  'BNB-USD': {
+    providers: {
+      twelvedata: { symbol: 'BNB-USD' },
     },
   },
   'XRP-USD': {
