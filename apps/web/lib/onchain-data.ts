@@ -1,19 +1,24 @@
 import { ethers } from "ethers";
 
-export const DEFAULT_PAIRS = ["NEO-USD", "GAS-USD", "BTC-USD", "ETH-USD", "BNB-USD"];
+export const DEFAULT_PAIRS = [
+  "NEO-USD", "GAS-USD", "FLM-USD", "BTC-USD", 
+  "ETH-USD", "SOL-USD", "TRX-USD", "PAXG-USD", 
+  "WTI-USD", "USDT-USD", "USDC-USD", "BNB-USD", 
+  "XRP-USD", "DOGE-USD"
+];
 
 export const NETWORKS = {
   neo_x: {
-    name: "Neo X Testnet",
-    rpc: "https://neoxt4seed1.ngd.network",
-    datafeed: "0x2E35a79BEA7808EBb8B72279cB34c1A73F80339C",
-    explorer: "https://xt4scan.ngd.network/address/",
+    name: "Neo X (Soon)",
+    rpc: "https://mainnet-2.rpc.banelabs.org",
+    datafeed: "",
+    explorer: "https://xexplorer.neo.org/address/",
   },
   neo_n3: {
-    name: "Neo N3 Testnet",
-    rpc: "https://testnet1.neo.coz.io:443",
-    datafeed: "0x9bea75cf702f6afc09125aa6d22f082bfd2ee064",
-    explorer: "https://testnet.neotube.io/contract/",
+    name: "Neo N3 Mainnet",
+    rpc: "https://mainnet1.neo.coz.io:443",
+    datafeed: "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
+    explorer: "https://neotube.io/contract/",
   }
 };
 
@@ -28,6 +33,7 @@ export interface OnChainPrice {
 }
 
 export async function fetchNeoXPrice(pair: string): Promise<OnChainPrice | null> {
+  if (!NETWORKS.neo_x.datafeed) return null;
   try {
     const provider = new ethers.JsonRpcProvider(NETWORKS.neo_x.rpc);
     const contract = new ethers.Contract(NETWORKS.neo_x.datafeed, EVM_DATAFEED_ABI, provider);

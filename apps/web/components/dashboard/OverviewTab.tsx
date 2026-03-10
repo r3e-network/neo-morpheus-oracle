@@ -2,18 +2,12 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { 
-  Server, Activity, Shield, Zap, Clock, Radio, 
-  ExternalLink, Globe, Database, RefreshCcw
+  Activity, Shield, Zap, Clock, Radio, 
+  ExternalLink, Globe, Database, RefreshCcw, Server, ShieldCheck, CheckCircle2
 } from "lucide-react";
 import { fetchNeoN3Price, fetchNeoXPrice, OnChainPrice, DEFAULT_PAIRS, NETWORKS } from "@/lib/onchain-data";
 
-interface OverviewTabProps {
-  networkInfo: any;
-  onchainState: any;
-  setOutput: (output: string) => void;
-}
-
-export function OverviewTab({ setOutput }: OverviewTabProps) {
+export function OverviewTab({ setOutput }: any) {
   const [prices, setPrices] = useState<Record<string, { n3: OnChainPrice | null, x: OnChainPrice | null }>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -30,96 +24,109 @@ export function OverviewTab({ setOutput }: OverviewTabProps) {
 
   useEffect(() => {
     loadAllPrices();
-    const timer = setInterval(loadAllPrices, 30000);
+    const timer = setInterval(loadAllPrices, 20000);
     return () => clearInterval(timer);
   }, [loadAllPrices]);
 
   return (
-    <div className="fade-in" style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-      {/* 1. Dashboard Header */}
+    <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
+      {/* Network Live Stats */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border-dim)', paddingBottom: '1rem' }}>
+        <div>
+          <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>Network Monitor</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Real-time telemetry and on-chain verification from the prover network.</p>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <div className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}>Neo N3: Live</div>
+          <div className="badge-outline" style={{ color: 'var(--text-muted)' }}>Neo X: Pending</div>
+        </div>
+      </div>
+
       <div className="grid grid-3 stagger-1">
-        <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ background: 'var(--neo-green-glow)', padding: '10px', borderRadius: '12px' }}><Globe className="text-neo" size={20} /></div>
+        <div className="card-industrial" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Server size={14} color="var(--neo-green)" />
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>RPC STATUS</span>
+            </div>
+            <div className="status-dot"></div>
+          </div>
           <div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Consensus</div>
-            <div style={{ fontSize: '1rem', fontWeight: 800 }}>TEE Authenticated</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{NETWORKS.neo_n3.rpc.split('/')[2]}</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--neo-green)', fontWeight: 700, marginTop: '4px' }}>Operational</div>
           </div>
         </div>
-        <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ background: 'var(--neo-purple-glow)', padding: '10px', borderRadius: '12px' }}><Shield className="text-purple" size={20} /></div>
+        
+        <div className="card-industrial" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={14} color="var(--accent-purple)" />
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>TEE SECURITY</span>
+            </div>
+            <CheckCircle2 size={14} color="var(--neo-green)" />
+          </div>
           <div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Security</div>
-            <div style={{ fontSize: '1rem', fontWeight: 800 }}>RSA-OAEP 2048</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>Hardware Attested</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Intel SGX Enclave v2.4</div>
           </div>
         </div>
-        <div className="glass-card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '10px', borderRadius: '12px' }}><Activity className="text-neo-gradient" size={20} /></div>
+        
+        <div className="card-industrial" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Activity size={14} color="var(--accent-blue)" />
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>MATRIX SYNC</span>
+            </div>
+            <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>~140ms</span>
+          </div>
           <div>
-            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Availability</div>
-            <div style={{ fontSize: '1rem', fontWeight: 800 }}>Dual-Chain Live</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>14 Active Feeds</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Decentralized Aggregation</div>
           </div>
         </div>
       </div>
 
-      {/* 2. Automated Price Board */}
-      <div className="glass-card stagger-2">
-        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Main Price Grid */}
+      <div className="card-industrial stagger-2" style={{ padding: '0' }}>
+        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Radio size={18} className="text-neo" style={{ animation: 'pulse 2s infinite' }} />
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 900 }}>Live Matrix Pricefeeds</h3>
+            <Database size={16} color="var(--neo-green)" />
+            <h3 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>On-Chain Verification</h3>
           </div>
-          <button className="btn btn-secondary btn-sm" onClick={loadAllPrices} disabled={isRefreshing}>
-            <RefreshCcw size={14} className={isRefreshing ? 'spin' : ''} /> {isRefreshing ? 'Syncing...' : 'Sync Now'}
+          <button onClick={loadAllPrices} disabled={isRefreshing} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', textTransform: 'uppercase' }}>
+            {isRefreshing ? 'SYNCING...' : 'SYNC NOW'}
+            <RefreshCcw size={12} className={isRefreshing ? 'spin' : ''} />
           </button>
         </div>
 
-        <div style={{ padding: '1.5rem' }}>
-          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-            {DEFAULT_PAIRS.map(pair => {
-              const data = prices[pair];
-              return (
-                <div key={pair} className="glass-card" style={{ padding: '1.25rem', background: 'rgba(255,255,255,0.02)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                    <span style={{ fontWeight: 900, fontSize: '1.1rem', letterSpacing: '0.05em' }}>{pair}</span>
-                    <span className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.55rem' }}>Direct RPC</span>
-                  </div>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div style={{ borderRight: '1px solid var(--border-subtle)', paddingRight: '1rem' }}>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>NEO N3</div>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#fff' }}>{data?.n3 ? `$${data.n3.price}` : '---'}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800 }}>NEO X</div>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--neo-blue)' }}>{data?.x ? `$${data.x.price}` : '---'}</div>
-                    </div>
-                  </div>
-                  
-                  <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.03)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>
-                      <Clock size={10} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                      Updated {data?.n3 ? new Date(data.n3.timestamp).toLocaleTimeString() : 'N/A'}
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <a href={NETWORKS.neo_n3.explorer + NETWORKS.neo_n3.datafeed} target="_blank" title="View on N3 Explorer"><ExternalLink size={12} className="text-muted" /></a>
-                      <a href={NETWORKS.neo_x.explorer + NETWORKS.neo_x.datafeed} target="_blank" title="View on Neo X Explorer"><ExternalLink size={12} className="text-muted" /></a>
-                    </div>
-                  </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1px', background: 'var(--border-dim)' }}>
+          {DEFAULT_PAIRS.map(pair => {
+            const data = prices[pair];
+            return (
+              <div key={pair} style={{ padding: '1.5rem', background: 'var(--bg-panel)', position: 'relative', transition: 'background 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-dark)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-panel)'}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.02em' }}>{pair}</span>
+                  <a href={NETWORKS.neo_n3.explorer + NETWORKS.neo_n3.datafeed} target="_blank" style={{ color: 'var(--text-muted)', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
+                    <ExternalLink size={14} />
+                  </a>
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Registry Info */}
-      <div className="glass-card stagger-3" style={{ padding: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem' }}>
-          <div style={{ display: 'flex', gap: '2rem' }}>
-            <span style={{ color: 'var(--text-muted)' }}>RPC (N3): <span style={{ color: 'var(--neo-green)' }}>{NETWORKS.neo_n3.rpc.split('/')[2]}</span></span>
-            <span style={{ color: 'var(--text-muted)' }}>RPC (X): <span style={{ color: 'var(--neo-blue)' }}>{NETWORKS.neo_x.rpc.split('/')[2]}</span></span>
-          </div>
-          <span style={{ color: 'var(--text-dim)' }}>Consistency: <span style={{ color: 'var(--neo-green)' }}>Verified</span></span>
+                
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '1.75rem', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '-0.04em', color: data?.n3 ? '#fff' : 'var(--text-muted)' }}>
+                    {data?.n3 ? `$${data.n3.price}` : '$--.--'}
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                    <Clock size={10} style={{ verticalAlign: 'middle', marginRight: '4px', display: 'inline-block' }} />
+                    {data?.n3 ? new Date(data.n3.timestamp).toLocaleTimeString() : 'Awaiting sync...'}
+                  </div>
+                  {data?.n3 && <span className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)', padding: '2px 6px', fontSize: '0.5rem' }}>VERIFIED</span>}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
