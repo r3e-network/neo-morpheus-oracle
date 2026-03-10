@@ -27,7 +27,7 @@ import {
   scheduleRetry,
   snapshotMetrics,
 } from "./src/state.js";
-import { encodeUtf8ByteArrayParamValue, hasNeoN3RelayerConfig } from "./src/neo-n3.js";
+import { decodeNeoItem, encodeUtf8ByteArrayParamValue, hasNeoN3RelayerConfig } from "./src/neo-n3.js";
 import { hasNeoXRelayerConfig } from "./src/neo-x.js";
 import { sanitizeForPostgres } from "./src/persistence.js";
 
@@ -225,6 +225,15 @@ test("relayer config accepts derived-key mode for Neo N3 and Neo X", () => {
 test("encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8", () => {
   const encoded = encodeUtf8ByteArrayParamValue('{"ok":true}');
   assert.equal(Buffer.from(encoded, 'base64').toString('utf8'), '{"ok":true}');
+});
+
+test("decodeNeoItem converts 20-byte base64 notifications into hash160", () => {
+  const littleEndianHashBytes = Buffer.from("6d0656f6dd91469db1c90cc1e574380613f43738", "hex").reverse();
+  const decoded = decodeNeoItem({
+    type: "ByteString",
+    value: littleEndianHashBytes.toString("base64"),
+  });
+  assert.equal(decoded, "0x6d0656f6dd91469db1c90cc1e574380613f43738");
 });
 
 test("buildOnchainResultEnvelope keeps working when verification is missing", () => {
