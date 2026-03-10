@@ -29,6 +29,12 @@ export function CodeBlock({ code, language = "javascript", title }: CodeBlockPro
         borderBottom: '1px solid var(--border-dim)' 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* macOS window controls */}
+          <div style={{ display: 'flex', gap: '6px', marginRight: '0.5rem' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ff5f56' }}></div>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#ffbd2e' }}></div>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#27c93f' }}></div>
+          </div>
           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             {language}
           </span>
