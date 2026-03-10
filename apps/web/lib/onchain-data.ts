@@ -7,6 +7,10 @@ export const DEFAULT_PAIRS = [
   "XRP-USD", "DOGE-USD"
 ];
 
+export const PAIR_DISPLAY_NAMES: Record<string, string> = {
+  "FLM-USD": "1000FLM-USD",
+};
+
 export const NETWORKS = {
   neo_x: {
     name: "Neo X (Soon)",

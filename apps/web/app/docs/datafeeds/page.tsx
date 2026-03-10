@@ -31,7 +31,7 @@ export default function DocsDatafeeds() {
       <div className="card-industrial" style={{ padding: '1.5rem', marginBottom: '2.5rem' }}>
         <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 700 }}>Active Mainnet Pairs (14+):</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          {["NEO-USD", "GAS-USD", "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "USDT-USD", "USDC-USD"].map(pair => (
+          {["NEO-USD", "GAS-USD", "1000FLM-USD", "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "USDT-USD", "USDC-USD"].map(pair => (
             <span key={pair} className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.65rem' }}>{pair}</span>
           ))}
           <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>+ more</span>
@@ -45,6 +45,7 @@ export default function DocsDatafeeds() {
       <ul>
         <li>A price of <code>$12.50</code> is stored as <code>1250</code>.</li>
         <li>A price of <code>$65,000.00</code> is stored as <code>6500000</code>.</li>
+        <li><code>FLM-USD</code> is tracked as a <code>1000 FLM</code> basket so sub-cent token pricing still remains representable in integer cents.</li>
       </ul>
 
       <h2>Contract Integration</h2>

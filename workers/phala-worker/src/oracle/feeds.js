@@ -16,8 +16,11 @@ import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from 
 import {
   applyFeedProviderDefaults,
   getDefaultFeedSymbols,
+  getFeedDisplaySymbol,
   getFeedProvidersForPair,
+  getFeedPriceMultiplier,
   getFeedStoragePair,
+  getFeedUnitLabel,
   getSourceSetIdForProvider,
 } from './feed-registry.js';
 
@@ -60,6 +63,27 @@ export function decimalToIntegerString(value, decimals = FEED_PRICE_DECIMALS) {
   const fractionValue = BigInt(fraction || '0');
   const scale = 10n ** BigInt(decimals);
   return ((whole * scale) + fractionValue) * sign + '';
+}
+
+export function multiplyDecimalString(value, multiplier = 1) {
+  const raw = trimString(value);
+  const factor = Number(multiplier);
+  if (!raw) throw new Error('decimal value required');
+  if (!Number.isFinite(factor) || factor <= 0) throw new Error(`invalid multiplier: ${multiplier}`);
+  if (factor === 1) return raw;
+
+  const sign = raw.startsWith('-') ? '-' : '';
+  const normalized = raw.replace(/^[+-]/, '');
+  if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error(`invalid decimal value: ${value}`);
+
+  const [wholePart, fractionPart = ''] = normalized.split('.');
+  const scale = 10n ** BigInt(fractionPart.length);
+  const base = BigInt(`${wholePart}${fractionPart}` || '0');
+  const scaled = base * BigInt(Math.trunc(factor));
+  const digits = scaled.toString().padStart(fractionPart.length + 1, '0');
+  const whole = fractionPart.length > 0 ? digits.slice(0, -fractionPart.length) : digits;
+  const fraction = fractionPart.length > 0 ? digits.slice(-fractionPart.length).replace(/0+$/, '') : '';
+  return `${sign}${fraction ? `${whole}.${fraction}` : whole}`;
 }
 
 function getFeedStatePath() {
@@ -179,13 +203,21 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     throw new Error(response.provider_error?.message || `${provider} fetch failed`);
   }
   const pair = providerRequest.pair || normalizePairSymbol(symbol);
-  const price = extractQuotePrice(response);
-  if (price === null || price === undefined || price === '') throw new Error(`${provider} response missing price`);
+  const rawPrice = extractQuotePrice(response);
+  if (rawPrice === null || rawPrice === undefined || rawPrice === '') throw new Error(`${provider} response missing price`);
+  const displaySymbol = getFeedDisplaySymbol(pair);
+  const unitLabel = getFeedUnitLabel(pair) || null;
+  const priceMultiplier = getFeedPriceMultiplier(pair);
+  const price = multiplyDecimalString(String(rawPrice), priceMultiplier);
 
   const quote = {
     feed_id: `${provider}:${pair}`,
     pair,
+    display_symbol: displaySymbol,
+    unit_label: unitLabel,
     provider,
+    raw_price: String(rawPrice),
+    price_multiplier: priceMultiplier,
     price: String(price),
     decimals: FEED_PRICE_DECIMALS,
     timestamp: new Date().toISOString(),
