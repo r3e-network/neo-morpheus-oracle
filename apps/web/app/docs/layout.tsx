@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState } from "react";
 import { 
   Book, Layers, Shield, Cpu, LineChart, CheckCircle, 
-  Search, Github, ArrowLeft, Menu, X, Boxes, ChevronRight,
-  Code2, HelpCircle, FileText
+  Search, Github, Menu, X, Boxes, ChevronRight,
+  Code2, HelpCircle, Zap
 } from "lucide-react";
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
@@ -188,20 +188,3 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-const Zap = ({ size, color, ...props }: any) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    {...props}
-  >
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-  </svg>
-);
