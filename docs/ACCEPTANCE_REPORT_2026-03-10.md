@@ -18,15 +18,9 @@ This report covers the Neo N3 mainnet deployment, runtime reconfiguration, and e
 - Public worker endpoint:
   - `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network`
 - Current worker image:
-<<<<<<< HEAD
-  - `ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:sha-71f7d85`
-- Current relayer image:
-  - `ghcr.io/r3e-network/neo-morpheus-oracle-relayer:sha-f6d088c`
-=======
   - `ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:sha-d7f3499`
 - Current relayer image:
   - `ghcr.io/r3e-network/neo-morpheus-oracle-relayer:sha-d7f3499`
->>>>>>> daeac36 (feat(web): comprehensive frontend overhaul with professional UI and on-chain verification)
 - Runtime network:
   - `mainnet`
 
@@ -52,8 +46,6 @@ Deployment transactions:
 - Example consumer deploy: `0x572b38fb211dff47d909124002deba5c9697315c367e5cb53419ab0f549573b0`
 - Example reader deploy: `0xa565e89aa20ddeba81a68c08bc83311ab3a82c82b0dcfa7df62c7f4d535923d2`
 
-<<<<<<< HEAD
-=======
 ### Neo X Mainnet
 
 Current status:
@@ -67,7 +59,6 @@ Deployment blocker confirmed during validation:
 - user-provided Neo X EOA `0xE864216cdE1390FF3D52d2784BF965AC6e74ae99` currently has `0` balance on Neo X mainnet
 - without Neo X mainnet gas funding, Oracle / Callback / DataFeed mainnet deployment cannot be completed safely
 
->>>>>>> daeac36 (feat(web): comprehensive frontend overhaul with professional UI and on-chain verification)
 ## Runtime Verification
 
 - `GET /health` returned `status=ok`
@@ -212,14 +203,11 @@ Repo fixes landed in:
 
 Live relayer was hot-patched so automation validation could complete immediately.
 
-<<<<<<< HEAD
-=======
 These automation fixes were then rolled into the official mainline images:
 
 - PR: `#3`
 - merge commit: `d7f34996301a0a610df8b8c8fce6333a4fb4c2f5`
 
->>>>>>> daeac36 (feat(web): comprehensive frontend overhaul with professional UI and on-chain verification)
 ## Datafeed Rules Confirmed
 
 - Datafeed publication is operator-only
@@ -227,6 +215,148 @@ These automation fixes were then rolled into the official mainline images:
 - Neo N3 sponsored fee payment works through contract-held fee credit
 - Prices are stored as integer cents with two decimals
 - Provider-scoped storage pairs are preserved, for example `TWELVEDATA:NEO-USD`
+
+## Post-Validation Mainnet Addendum
+
+Additional live validation and runtime remediation were performed on 2026-03-10 after the initial acceptance pass.
+
+### Live Runtime Rekey And Hybrid Encryption Recovery
+
+Issue discovered:
+
+- the live worker image `sha-d7f3499` did not fully match the current repository runtime behavior for hybrid confidential payload decryption
+- a fresh encrypted compute request failed with:
+  - `error:0200006C:rsa routines::data greater than mod len`
+
+Remediation performed:
+
+- backed up live `.env`, packed Phala runtime config, and the sealed Oracle keystore into:
+  - `private-backups/966f16610bdfe1794a503e16c5ae0bc69a1d92f1/2026-03-10T13-11-20-465Z`
+- inserted those backup records into Supabase `morpheus_system_backups`
+- rotated the live Oracle RSA key inside the CVM and republished the new public key on Neo N3:
+  - `setOracleEncryptionKey` tx: `0xb278241f7978f1cc91023ecefe5d1cfa608b23f3f45913715f8197da8a91de5b`
+- hot-patched the live worker runtime to the current mainline implementations of:
+  - `workers/phala-worker/src/oracle/crypto.js`
+  - `workers/phala-worker/src/worker.js`
+  - `workers/phala-worker/src/platform/core.js`
+  - `workers/phala-worker/src/oracle/feeds.js`
+  - `workers/phala-worker/src/platform/allowlist.js`
+  - `workers/phala-worker/src/chain/neo-n3.js`
+- hot-patched the live relayer runtime to the current mainline `workers/morpheus-relayer/src/relayer.js`
+
+Post-fix confirmation:
+
+- direct live `POST /compute/execute` with `RSA-OAEP-AES-256-GCM` confidential payload succeeded
+- direct live `POST /oracle/public-key` again reported:
+  - `recommended_payload_encryption=RSA-OAEP-AES-256-GCM`
+  - `supported_payload_encryption=[RSA-OAEP-SHA256, RSA-OAEP-AES-256-GCM]`
+
+### Additional Mainnet Oracle Validation
+
+Validated again against Neo N3 mainnet after the live runtime hot-patch:
+
+- smoke request succeeded:
+  - txid: `0xc58a40a1c0153678b6f11d738bb954d11465a2c695fadd5ccd871eceea731b26`
+  - request_id: `59`
+- provider callback succeeded:
+  - txid: `0xee45e7769dbd148ae461ce7a5441d7a3a8805a9d976878d84ab60a3bb3227994`
+  - request_id: `62`
+- hybrid encrypted compute callback succeeded:
+  - txid: `0xc82ad15daee3a3a9311b7c675c242856ae2bd121b915bb8f60268bc7742509a0`
+  - request_id: `63`
+- sponsored provider callback succeeded:
+  - txid: `0x3ef5fd24800e7fb66baffe249c3c217057d31828c0b5f346211f707b35640a07`
+  - request_id: `64`
+- custom URL plus encrypted params callback succeeded:
+  - txid: `0x070858b7a8802daa4ded16fc85dfde429a6efdb799c27d412fbd3fa0b5c1b1d5`
+  - request_id: `65`
+  - extracted value: `neo-morpheus`
+- custom URL plus encrypted params plus custom JS callback succeeded:
+  - txid: `0xbd90265c6d881856d16184359afc5cc3aedc93f03ba213e33a5d90834a303289`
+  - request_id: `68`
+  - final result: `neo-morpheus-script`
+
+### Automatic Feed Scan And Batch Sync Confirmation
+
+The automatic PriceFeed scan-and-sync loop was revalidated directly on the live relayer and worker.
+
+Current configured policy remained:
+
+- `MORPHEUS_FEED_CHANGE_THRESHOLD_BPS=10`
+- `MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS=15000`
+- `MORPHEUS_FEED_SYNC_INTERVAL_MS=15000`
+
+Live relayer log evidence showed repeated automatic feed-sync starts at approximately 15-second cadence, for example:
+
+- `2026-03-10T16:04:23.706Z`
+- `2026-03-10T16:04:39.995Z`
+- `2026-03-10T16:04:55.670Z`
+- `2026-03-10T16:05:11.178Z`
+
+The full 14-pair live catalog was confirmed:
+
+- `TWELVEDATA:NEO-USD`
+- `TWELVEDATA:GAS-USD`
+- `TWELVEDATA:FLM-USD`
+- `TWELVEDATA:BTC-USD`
+- `TWELVEDATA:ETH-USD`
+- `TWELVEDATA:SOL-USD`
+- `TWELVEDATA:TRX-USD`
+- `TWELVEDATA:PAXG-USD`
+- `TWELVEDATA:WTI-USD`
+- `TWELVEDATA:USDT-USD`
+- `TWELVEDATA:USDC-USD`
+- `TWELVEDATA:BNB-USD`
+- `TWELVEDATA:XRP-USD`
+- `TWELVEDATA:DOGE-USD`
+
+Two live worker validations were performed:
+
+- normal threshold scan:
+  - `symbols_count=14`
+  - `sync_results_count=14`
+  - `submitted_count=0`
+  - `skipped_count=14`
+  - interpretation: all 14 pairs were scanned; none exceeded the configured `0.1%` threshold at that moment, so no chain transaction was sent
+- forced full-batch scan:
+  - `symbols_count=14`
+  - `sync_results_count=14`
+  - `submitted_count=14`
+  - `batch_submitted=true`
+  - `batch_count=14`
+  - single batch tx: `0xa34fe7c5bfff65d1ead1d9e6be12458dfdcf76253e5694dc24c4b30b42fd1204`
+  - all 14 pairs were emitted inside the same `updateFeeds` transaction
+
+Direct live operator-triggered single-symbol batch publication also succeeded:
+
+- tx: `0x39c1a67e5d5ca47728bda6798b17191adfee862a660ac4f317f8f40e492d800c`
+- notification pair: `TWELVEDATA:NEO-USD`
+- new round id: `1773053364`
+- new integer price: `251`
+- new timestamp: `1773149864`
+
+Latest on-chain reader confirmation after the automatic-scan validation window:
+
+- pair: `TWELVEDATA:NEO-USD`
+- round id: `1773053390`
+- integer price: `253`
+- timestamp: `1773158674`
+
+Operational conclusion:
+
+- automatic feed scanning is running
+- all 14 configured pairs are included in scans
+- only pairs that exceed `0.1%` should be queued for submission during normal operation
+- all pairs that do exceed the threshold are submitted in one batch transaction via `updateFeeds`
+
+### Remaining Operational Packaging Risk
+
+The live CVM now reflects the corrected runtime behavior, but part of this recovery was applied through in-container hot patches.
+
+Therefore:
+
+- the live service is functioning correctly now
+- a full worker / relayer image rebuild and Phala redeploy are still required to make these runtime fixes immutable across future container recreation
 
 ## Local Verification Performed
 
