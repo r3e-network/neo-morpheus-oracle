@@ -33,6 +33,19 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function getFeedSyncDelayMs(config, state, nowMs = Date.now()) {
+  if (!config.feedSync?.enabled) return Number.POSITIVE_INFINITY;
+  const intervalMs = Math.max(Number(config.feedSync.intervalMs) || 0, 0);
+  if (intervalMs <= 0) return 0;
+
+  const lastStartedAt = state.metrics.last_feed_sync_started_at
+    ? new Date(state.metrics.last_feed_sync_started_at).getTime()
+    : 0;
+  if (!lastStartedAt) return 0;
+
+  return Math.max((lastStartedAt + intervalMs) - nowMs, 0);
+}
+
 function normalizeErrorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -332,10 +345,8 @@ async function processFeedSync(config, state, logger) {
   }
 
   const now = Date.now();
-  const lastCompletedAt = state.metrics.last_feed_sync_completed_at
-    ? new Date(state.metrics.last_feed_sync_completed_at).getTime()
-    : 0;
-  if (lastCompletedAt > 0 && (now - lastCompletedAt) < config.feedSync.intervalMs) {
+  const feedSyncDelayMs = getFeedSyncDelayMs(config, state, now);
+  if (feedSyncDelayMs > 0) {
     incrementMetric(state, "feed_sync_skipped_total");
     return { enabled: true, skipped: true, chains: [] };
   }
@@ -730,9 +741,18 @@ export async function runRelayerLoop(options = {}) {
     try {
       const result = await runRelayerOnce({ config, logger });
       logger.info({ metrics: result.metrics }, "Relayer loop tick complete");
+      const feedSyncDelayMs = getFeedSyncDelayMs(config, result.state, Date.now());
+      const sleepMs = Math.max(
+        0,
+        Math.min(
+          Math.max(config.pollIntervalMs, 0),
+          Number.isFinite(feedSyncDelayMs) ? feedSyncDelayMs : Number.POSITIVE_INFINITY,
+        ),
+      );
+      await sleep(sleepMs);
     } catch (error) {
       logger.error({ error }, "Relayer loop tick failed");
+      await sleep(config.pollIntervalMs);
     }
-    await sleep(config.pollIntervalMs);
   }
 }
