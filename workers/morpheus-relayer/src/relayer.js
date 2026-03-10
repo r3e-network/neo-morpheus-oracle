@@ -292,6 +292,68 @@ function createPersistor(config, state) {
   return () => saveRelayerState(config.stateFile, state);
 }
 
+async function processFeedSync(config, state, logger) {
+  if (!config.feedSync?.enabled) {
+    return { enabled: false, chains: [] };
+  }
+
+  const now = Date.now();
+  const lastCompletedAt = state.metrics.last_feed_sync_completed_at
+    ? new Date(state.metrics.last_feed_sync_completed_at).getTime()
+    : 0;
+  if (lastCompletedAt > 0 && (now - lastCompletedAt) < config.feedSync.intervalMs) {
+    incrementMetric(state, "feed_sync_skipped_total");
+    return { enabled: true, skipped: true, chains: [] };
+  }
+
+  state.metrics.last_feed_sync_started_at = new Date(now).toISOString();
+  incrementMetric(state, "feed_sync_runs_total");
+  saveRelayerState(config.stateFile, state);
+
+  const targetChains = ["neo_n3", "neo_x"];
+  const chains = [];
+  for (const targetChain of targetChains) {
+    try {
+      const payload = {
+        target_chain: targetChain,
+        symbols: config.feedSync.symbols,
+        project_slug: config.feedSync.projectSlug || undefined,
+        feed_change_threshold_bps: config.feedSync.changeThresholdBps,
+        feed_min_update_interval_ms: config.feedSync.minUpdateIntervalMs,
+        wait: false,
+      };
+      if (config.feedSync.provider) {
+        payload.provider = config.feedSync.provider;
+      } else if (Array.isArray(config.feedSync.providers) && config.feedSync.providers.length > 0) {
+        payload.providers = config.feedSync.providers;
+      }
+
+      const response = await callPhala(config, "/oracle/feed", payload);
+      chains.push({
+        target_chain: targetChain,
+        ok: response.ok,
+        status: response.status,
+        body: response.body,
+      });
+      incrementMetric(state, response.ok ? "feed_sync_success_total" : "feed_sync_error_total");
+    } catch (error) {
+      chains.push({
+        target_chain: targetChain,
+        ok: false,
+        status: 500,
+        body: { error: normalizeErrorMessage(error) },
+      });
+      incrementMetric(state, "feed_sync_error_total");
+      logger.warn({ target_chain: targetChain, error }, "Feed sync tick failed");
+    }
+  }
+
+  state.metrics.last_feed_sync_completed_at = new Date().toISOString();
+  state.metrics.last_feed_sync_duration_ms = Date.now() - now;
+  saveRelayerState(config.stateFile, state);
+  return { enabled: true, skipped: false, chains };
+}
+
 async function processEvent(config, state, persistState, logger, event, retryItem = null) {
   const eventKey = buildEventKey(event);
   const attempts = retryItem?.attempts || 0;
@@ -609,6 +671,7 @@ export async function runRelayerOnce(options = {}) {
     getLatestBlock: getNeoXLatestBlock,
     scan: scanNeoXOracleRequests,
   });
+  const feedSync = await processFeedSync(config, state, logger);
   const automation = await processAutomationJobs(config, logger);
 
   state.metrics.last_tick_completed_at = new Date().toISOString();
@@ -618,6 +681,7 @@ export async function runRelayerOnce(options = {}) {
   const result = {
     neo_n3: neoN3,
     neo_x: neoX,
+    feed_sync: feedSync,
     automation,
     state,
     metrics: snapshotMetrics(state),

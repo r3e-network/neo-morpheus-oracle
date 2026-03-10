@@ -9,6 +9,12 @@ function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function parseList(value) {
+  const raw = trimString(value);
+  if (!raw) return [];
+  return raw.split(",").map((entry) => trimString(entry)).filter(Boolean);
+}
+
 let runtimeConfigCache;
 
 function getRuntimeConfig() {
@@ -75,6 +81,16 @@ export function createRelayerConfig() {
     retryMaxDelayMs: Math.max(Number(env("MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS") || 300000), 1000),
     processedCacheSize: Math.max(Number(env("MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE") || 5000), 100),
     deadLetterLimit: Math.max(Number(env("MORPHEUS_RELAYER_DEAD_LETTER_LIMIT") || 500), 10),
+    feedSync: {
+      enabled: (env("MORPHEUS_FEED_SYNC_ENABLED") || "true").toLowerCase() !== "false",
+      intervalMs: Math.max(Number(env("MORPHEUS_FEED_SYNC_INTERVAL_MS") || 15000), 1000),
+      projectSlug: env("MORPHEUS_FEED_PROJECT_SLUG") || "demo",
+      provider: env("MORPHEUS_FEED_PROVIDER"),
+      providers: parseList(env("MORPHEUS_FEED_PROVIDERS")),
+      symbols: parseList(env("MORPHEUS_FEED_SYMBOLS")),
+      changeThresholdBps: env("MORPHEUS_FEED_CHANGE_THRESHOLD_BPS") || "10",
+      minUpdateIntervalMs: env("MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS") || "15000",
+    },
     automation: {
       enabled: (env("MORPHEUS_AUTOMATION_ENABLED") || "true").toLowerCase() !== "false",
       batchSize: Math.max(Number(env("MORPHEUS_AUTOMATION_BATCH_SIZE") || 50), 1),
