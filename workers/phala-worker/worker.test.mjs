@@ -283,6 +283,27 @@ test('feed quote supports twelvedata provider', async () => {
   assert.equal(body.price, '45.67');
 });
 
+test('feed quote scales FLM into 1000 FLM display units', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    assert.match(String(url), /FLM%2FUSD/);
+    return new Response(JSON.stringify({ price: '0.00123' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pair, 'FLM-USD');
+  assert.equal(body.display_symbol, '1000FLM-USD');
+  assert.equal(body.unit_label, '1000 FLM');
+  assert.equal(body.raw_price, '0.00123');
+  assert.equal(body.price, '1.23');
+  assert.equal(body.price_multiplier, 1000);
+});
+
 
 
 test('feed quote supports coinbase-spot provider', async () => {

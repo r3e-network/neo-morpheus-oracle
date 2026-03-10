@@ -5,7 +5,7 @@ import {
   Activity, Shield, Zap, Clock, Radio, 
   ExternalLink, Globe, Database, RefreshCcw, Server, ShieldCheck, CheckCircle2
 } from "lucide-react";
-import { fetchNeoN3Price, fetchNeoXPrice, OnChainPrice, DEFAULT_PAIRS, NETWORKS } from "@/lib/onchain-data";
+import { fetchNeoN3Price, fetchNeoXPrice, OnChainPrice, DEFAULT_PAIRS, NETWORKS, PAIR_DISPLAY_NAMES } from "@/lib/onchain-data";
 
 export function OverviewTab({ setOutput }: any) {
   const [prices, setPrices] = useState<Record<string, { n3: OnChainPrice | null, x: OnChainPrice | null }>>({});
@@ -102,11 +102,12 @@ export function OverviewTab({ setOutput }: any) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1px', background: 'var(--border-dim)' }}>
           {DEFAULT_PAIRS.map(pair => {
             const data = prices[pair];
+            const displayPair = PAIR_DISPLAY_NAMES[pair] || pair;
             return (
               <div key={pair} style={{ padding: '1.5rem', background: 'var(--bg-panel)', position: 'relative', transition: 'background 0.3s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-dark)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-panel)'}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
                   <div>
-                    <span style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.02em', display: 'block' }}>{pair}</span>
+                    <span style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.02em', display: 'block' }}>{displayPair}</span>
                     <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{NETWORKS.neo_n3.domains.datafeed}</span>
                   </div>
                   <a href={NETWORKS.neo_n3.explorer + NETWORKS.neo_n3.datafeed} target="_blank" style={{ color: 'var(--text-muted)', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}>
@@ -119,6 +120,11 @@ export function OverviewTab({ setOutput }: any) {
                     {data?.n3 ? `$${data.n3.price}` : '$--.--'}
                   </span>
                 </div>
+                {pair === 'FLM-USD' && (
+                  <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginBottom: '0.5rem' }}>
+                    Unit: 1000 FLM
+                  </div>
+                )}
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem' }}>
                   <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>

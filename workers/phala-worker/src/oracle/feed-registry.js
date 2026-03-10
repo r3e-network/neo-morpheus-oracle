@@ -15,6 +15,9 @@ export const DEFAULT_FEED_PAIRS = {
     },
   },
   'FLM-USD': {
+    display_symbol: '1000FLM-USD',
+    unit_label: '1000 FLM',
+    price_multiplier: 1000,
     providers: {
       twelvedata: { symbol: 'FLM/USD' },
       'binance-spot': { symbol: 'FLMUSDT' },
@@ -114,6 +117,19 @@ export function getFeedPairRegistry() {
 export function getFeedPairConfig(pair) {
   const registry = getFeedPairRegistry();
   return registry[trimString(pair).toUpperCase()] || null;
+}
+
+export function getFeedDisplaySymbol(pair) {
+  return trimString(getFeedPairConfig(pair)?.display_symbol || '') || trimString(pair).toUpperCase();
+}
+
+export function getFeedUnitLabel(pair) {
+  return trimString(getFeedPairConfig(pair)?.unit_label || '');
+}
+
+export function getFeedPriceMultiplier(pair) {
+  const raw = Number(getFeedPairConfig(pair)?.price_multiplier ?? 1);
+  return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
 export function getFeedProvidersForPair(pair) {

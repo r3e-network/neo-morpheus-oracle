@@ -119,7 +119,7 @@ Default built-in USD pairs:
 
 - `NEO-USD`
 - `GAS-USD`
-- `FLM-USD`
+- `FLM-USD` (`1000 FLM` unit)
 - `BTC-USD`
 - `ETH-USD`
 - `SOL-USD`
