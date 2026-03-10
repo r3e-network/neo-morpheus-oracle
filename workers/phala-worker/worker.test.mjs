@@ -38,6 +38,7 @@ process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
 const { default: handler } = await import('./src/worker.js');
 const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = await import('./src/platform/dstack.js');
 const { __resetOracleKeyMaterialForTests } = await import('./src/oracle/crypto.js');
+const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
 
 function authHeaders() {
   return {
@@ -203,6 +204,7 @@ test.after(() => {
   process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = originalEnableUserScripts;
   __resetDstackClientStateForTests();
   __resetOracleKeyMaterialForTests();
+  __resetFeedStateForTests();
 });
 
 
@@ -789,10 +791,15 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
 
 
 test('oracle feed supports neo_x contract relay mode', async () => {
+  __resetFeedStateForTests();
   process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
   global.fetch = async (url, init) => {
-    if (/^https:\/\/api\.twelvedata\.com\//.test(String(url))) {
+    const value = String(url);
+    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('NEO%2FUSD')) {
       return new Response(JSON.stringify({ price: '12.34' }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('GAS%2FUSD')) {
+      return new Response(JSON.stringify({ price: '5.67' }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     throw new Error(`unexpected fetch ${url}`);
   };
@@ -801,7 +808,7 @@ test('oracle feed supports neo_x contract relay mode', async () => {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
-      symbol: 'NEO-USD',
+      symbols: ['NEO-USD', 'GAS-USD'],
       target_chain: 'neo_x',
       broadcast: false,
       contract_address: '0x1111111111111111111111111111111111111111',
@@ -816,15 +823,81 @@ test('oracle feed supports neo_x contract relay mode', async () => {
   const body = await res.json();
   assert.equal(body.target_chain, 'neo_x');
   assert.ok(Array.isArray(body.sync_results));
+  assert.equal(body.batch_submitted, true);
+  assert.equal(body.batch_count, 2);
+  assert.ok(body.batch_tx);
   assert.equal(body.sync_results[0].relay_status, 'submitted');
-  assert.ok(body.sync_results[0].anchored_tx);
+  assert.equal(body.sync_results[1].relay_status, 'submitted');
   assert.equal(body.sync_results[0].quote.decimals, 2);
   const iface = new Interface([
-    'function updateFeed(string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)',
+    'function updateFeeds(string[] pairs,uint256[] roundIds,uint256[] prices,uint256[] timestamps,bytes32[] attestationHashes,uint256[] sourceSetIds)',
   ]);
-  const txEnvelope = Transaction.from(body.sync_results[0].anchored_tx.raw_transaction);
-  const decoded = iface.decodeFunctionData('updateFeed', txEnvelope.data);
-  assert.equal(decoded[2].toString(), '1234');
+  const txEnvelope = Transaction.from(body.batch_tx.raw_transaction);
+  const decoded = iface.decodeFunctionData('updateFeeds', txEnvelope.data);
+  assert.deepEqual(Array.from(decoded[0]), ['TWELVEDATA:NEO-USD', 'TWELVEDATA:GAS-USD']);
+  assert.equal(decoded[2][0].toString(), '1234');
+  assert.equal(decoded[2][1].toString(), '567');
+});
+
+test('oracle feed records scan prices and skips chain tx when all changes stay below threshold', async () => {
+  __resetFeedStateForTests();
+  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
+
+  let currentPrice = '12.34';
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('NEO%2FUSD')) {
+      return new Response(JSON.stringify({ price: currentPrice }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const first = await handler(new Request('http://local/oracle/feed', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      symbols: ['NEO-USD'],
+      target_chain: 'neo_x',
+      feed_change_threshold_bps: 10,
+      feed_min_update_interval_ms: 0,
+      broadcast: false,
+      contract_address: '0x1111111111111111111111111111111111111111',
+      chain_id: 47763,
+      nonce: 1,
+      gas_limit: '250000',
+      max_fee_per_gas: '1000000000',
+      max_priority_fee_per_gas: '100000000'
+    }),
+  }));
+  assert.equal(first.status, 200);
+  const firstBody = await first.json();
+  assert.equal(firstBody.batch_submitted, true);
+
+  currentPrice = '12.35'; // ~0.081% change from 12.34
+  const second = await handler(new Request('http://local/oracle/feed', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      symbols: ['NEO-USD'],
+      target_chain: 'neo_x',
+      feed_change_threshold_bps: 10,
+      feed_min_update_interval_ms: 0,
+      broadcast: false,
+      contract_address: '0x1111111111111111111111111111111111111111',
+      chain_id: 47763,
+      nonce: 2,
+      gas_limit: '250000',
+      max_fee_per_gas: '1000000000',
+      max_priority_fee_per_gas: '100000000'
+    }),
+  }));
+  assert.equal(second.status, 200);
+  const secondBody = await second.json();
+  assert.equal(secondBody.batch_submitted, false);
+  assert.equal(secondBody.batch_count, 0);
+  assert.equal(secondBody.batch_tx, null);
+  assert.equal(secondBody.sync_results[0].relay_status, 'skipped');
+  assert.equal(secondBody.sync_results[0].skip_reason, 'price-change-below-threshold');
 });
 
 test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {
