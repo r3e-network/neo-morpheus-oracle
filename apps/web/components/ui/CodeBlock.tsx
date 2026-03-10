@@ -3,13 +3,16 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
 
+import hljs from 'highlight.js';
+import 'highlight.js/styles/atom-one-dark.css';
+
 interface CodeBlockProps {
   code: string;
   language?: string;
   title?: string;
 }
 
-export function CodeBlock({ code, language = "javascript", title }: CodeBlockProps) {
+export function CodeBlock({ code, language = "plaintext", title }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -18,8 +21,12 @@ export function CodeBlock({ code, language = "javascript", title }: CodeBlockPro
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Safely grab a language that HLJS supports, default to plaintext if missing
+  const validLanguage = hljs.getLanguage(language) ? language : 'plaintext';
+  const highlighted = hljs.highlight(code, { language: validLanguage }).value;
+
   return (
-    <div className="card-industrial" style={{ padding: '0', overflow: 'hidden', margin: '2rem 0' }}>
+    <div className="card-industrial code-block-wrapper" style={{ padding: '0', overflow: 'hidden', margin: '2rem 0' }}>
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -63,14 +70,17 @@ export function CodeBlock({ code, language = "javascript", title }: CodeBlockPro
         border: 'none', 
         overflowX: 'auto' 
       }}>
-        <code style={{ 
-          fontFamily: 'var(--font-mono)', 
-          fontSize: '0.85rem', 
-          color: '#fff', 
-          lineHeight: 1.6 
-        }}>
-          {code}
-        </code>
+        <code 
+          className={`hljs language-${validLanguage}`}
+          style={{ 
+            fontFamily: 'var(--font-mono)', 
+            fontSize: '0.85rem', 
+            lineHeight: 1.6,
+            background: 'transparent',
+            padding: 0
+          }}
+          dangerouslySetInnerHTML={{ __html: highlighted }}
+        />
       </pre>
     </div>
   );

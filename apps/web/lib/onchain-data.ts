@@ -48,25 +48,51 @@ export async function fetchNeoXPrice(pair: string): Promise<OnChainPrice | null>
   } catch { return null; }
 }
 
+let n3IndexCache: any = null;
+let n3IndexCacheTime = 0;
+
 export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null> {
   try {
-    const encodedPair = typeof window !== 'undefined' ? window.btoa(pair) : Buffer.from(pair).toString('base64');
-    const url = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.mainnet&contract_hash=eq.${NETWORKS.neo_n3.datafeed}&event_name=eq.FeedUpdated&state_json->value->0->>value=eq.${encodedPair}&limit=1&order=block_index.desc`;
-    const response = await fetch(url, { headers: { "Accept": "application/json" }});
-    const body = await response.json();
+    const now = Date.now();
+    let body = n3IndexCache;
+
+    // Cache for 10 seconds to deduplicate the 14 parallel frontend fetch calls
+    if (!body || now - n3IndexCacheTime > 10000) {
+      const url = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.mainnet&contract_hash=eq.${NETWORKS.neo_n3.datafeed}&event_name=eq.FeedUpdated&limit=100&order=block_index.desc`;
+      const response = await fetch(url, { headers: { "Accept": "application/json" }});
+      body = await response.json();
+      n3IndexCache = body;
+      n3IndexCacheTime = now;
+    }
     
-    if (body && body.length > 0) {
-      const stateArray = body[0].state_json.value;
-      const priceItem = stateArray[2];
-      const tsItem = stateArray[3];
-      
-      return {
-        price: (Number(priceItem.value) / 100).toFixed(2),
-        timestamp: Number(tsItem.value) * 1000,
-        pair,
-        network: "Neo N3",
-        contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`
-      };
+    if (body && Array.isArray(body)) {
+      const event = body.find((b: any) => {
+        const pairB64 = b.state_json?.value?.[0]?.value;
+        if (!pairB64) return false;
+        
+        let decoded = "";
+        if (typeof window !== 'undefined') {
+          decoded = window.atob(pairB64);
+        } else {
+          decoded = Buffer.from(pairB64, 'base64').toString('utf8');
+        }
+        
+        return decoded.endsWith(pair);
+      });
+
+      if (event) {
+        const stateArray = event.state_json.value;
+        const priceItem = stateArray[2];
+        const tsItem = stateArray[3];
+        
+        return {
+          price: (Number(priceItem.value) / 100).toFixed(2),
+          timestamp: Number(tsItem.value) * 1000,
+          pair,
+          network: "Neo N3",
+          contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`
+        };
+      }
     }
     return null;
   } catch { return null; }
