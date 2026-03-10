@@ -4,12 +4,16 @@ export const DEFAULT_FEED_SYMBOLS = [
   'FLM-USD',
   'BTC-USD',
   'ETH-USD',
-  'XAU-USD',
-  'XAG-USD',
-  'OIL-USD',
   'TRX-USD',
   'SOL-USD',
+  'PAXG-USD',
+  'OIL-USD',
+  'USDT-USD',
+  'USDC-USD',
   'BNB-USD',
+  'XRP-USD',
+  'DOGE-USD',
+  'HYPE-USD',
 ] as const;
 
 export function parseFeedSymbols(rawValue?: string | null) {

@@ -1,5 +1,7 @@
 import { ethers } from "ethers";
 
+export const DEFAULT_PAIRS = ["NEO-USD", "GAS-USD", "BTC-USD", "ETH-USD", "BNB-USD"];
+
 export const NETWORKS = {
   neo_x: {
     name: "Neo X Testnet",
@@ -30,7 +32,6 @@ export async function fetchNeoXPrice(pair: string): Promise<OnChainPrice | null>
     const provider = new ethers.JsonRpcProvider(NETWORKS.neo_x.rpc);
     const contract = new ethers.Contract(NETWORKS.neo_x.datafeed, EVM_DATAFEED_ABI, provider);
     const [price, timestamp] = await contract.latestPrice(pair);
-    
     return {
       price: (Number(price) / 100).toFixed(2),
       timestamp: Number(timestamp) * 1000,
@@ -38,10 +39,7 @@ export async function fetchNeoXPrice(pair: string): Promise<OnChainPrice | null>
       network: "Neo X",
       contractLink: `${NETWORKS.neo_x.explorer}${NETWORKS.neo_x.datafeed}`
     };
-  } catch (err) {
-    console.error("Neo X fetch error:", err);
-    return null;
-  }
+  } catch { return null; }
 }
 
 export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null> {
@@ -56,14 +54,12 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
         params: [NETWORKS.neo_n3.datafeed, "getLatestPrice", [{ type: "String", value: pair }]]
       })
     });
-
     const body = await response.json();
     if (body.result?.state === "HALT") {
       const stack = body.result.stack[0];
       if (stack.type === "Map") {
         const priceItem = stack.value.find((v: any) => atob(v.key.value) === "price");
         const tsItem = stack.value.find((v: any) => atob(v.key.value) === "timestamp");
-        
         return {
           price: (Number(priceItem.value.value) / 100).toFixed(2),
           timestamp: Number(tsItem.value.value),
@@ -74,8 +70,5 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
       }
     }
     return null;
-  } catch (err) {
-    console.error("Neo N3 fetch error:", err);
-    return null;
-  }
+  } catch { return null; }
 }

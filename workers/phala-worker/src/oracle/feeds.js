@@ -248,6 +248,15 @@ function buildRoundId(previousRecord) {
   return String(Number(previousRecord.round_id) + 1);
 }
 
+function buildNeoN3RelaySigningPayload(payload = {}) {
+  const signingKey = trimString(payload.private_key || payload.signing_key || '');
+  const wif = trimString(payload.wif || '');
+  return {
+    ...(signingKey ? { private_key: signingKey } : {}),
+    ...(wif ? { wif } : {}),
+  };
+}
+
 async function submitQuoteToN3(dataFeedHash, neoContext, payload, quote, storagePair, roundId, sourceSetId) {
   const invokeResult = await relayNeoN3Invocation({
     request_id: trimString(payload.request_id) || `pricefeed:${storagePair}:${Date.now()}`,
@@ -264,6 +273,7 @@ async function submitQuoteToN3(dataFeedHash, neoContext, payload, quote, storage
     wait: Boolean(payload.wait ?? true),
     rpc_url: neoContext.rpcUrl,
     network_magic: neoContext.networkMagic,
+    ...buildNeoN3RelaySigningPayload(payload),
   });
   if (invokeResult.status >= 400) {
     throw new Error(invokeResult.body?.error || 'Neo N3 feed submit failed');
@@ -287,6 +297,7 @@ async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
     wait: Boolean(payload.wait ?? true),
     rpc_url: neoContext.rpcUrl,
     network_magic: neoContext.networkMagic,
+    ...buildNeoN3RelaySigningPayload(payload),
   });
   if (invokeResult.status >= 400) {
     throw new Error(invokeResult.body?.error || 'Neo N3 batch feed submit failed');
