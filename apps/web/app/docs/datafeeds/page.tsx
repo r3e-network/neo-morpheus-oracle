@@ -1,6 +1,7 @@
 "use client";
 
 import { LineChart, Zap, Clock, Database, Code2 } from "lucide-react";
+import { CodeBlock } from "@/components/ui/CodeBlock";
 
 export default function DocsDatafeeds() {
   return (
@@ -49,7 +50,11 @@ export default function DocsDatafeeds() {
       <h2>Contract Integration</h2>
       <h3>Neo N3 (C#)</h3>
       <p>Use the contract hash <code>0x03013f49c42a14546c8bbe58f9d434c3517fccab</code>.</p>
-      <pre><code>{`// Read the latest verified price from contract storage
+      
+      <CodeBlock
+        language="csharp"
+        title="Direct Read on N3"
+        code={`// Read the latest verified price from contract storage
 public static void CheckLiquidation() {
     var record = (Map)Contract.Call(DataFeedHash, "getLatestPrice", CallFlags.ReadOnly, "NEO-USD");
     
@@ -57,15 +62,20 @@ public static void CheckLiquidation() {
     uint lastUpdate = (uint)record["timestamp"];
     
     // Process logic...
-}`}</code></pre>
+}`}
+      />
 
       <h3>Neo X (Solidity)</h3>
-      <pre><code>{`// IMorpheusDataFeedX interface
+      <CodeBlock
+        language="solidity"
+        title="Direct Read on Neo X"
+        code={`// IMorpheusDataFeedX interface
 function checkPrice(string memory pair) public view returns (int256) {
     (int256 price, uint256 timestamp) = dataFeed.latestPrice(pair);
     require(block.timestamp - timestamp < 3600, "Price too stale");
     return price;
-}`}</code></pre>
+}`}
+      />
 
       <div className="card-industrial" style={{ marginTop: '4rem', padding: '2rem', borderLeft: '4px solid var(--accent-blue)' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>

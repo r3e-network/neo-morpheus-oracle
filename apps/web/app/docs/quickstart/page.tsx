@@ -2,6 +2,7 @@
 
 import { Zap, ArrowRight, Code2, Terminal } from "lucide-react";
 import Link from "next/link";
+import { CodeBlock } from "@/components/ui/CodeBlock";
 
 export default function DocsQuickstart() {
   return (
@@ -26,7 +27,10 @@ export default function DocsQuickstart() {
         Before calling the Oracle contract, you should encrypt any sensitive API keys or headers. Use our endpoint to fetch the live RSA public key of the TEE worker.
       </p>
 
-      <pre><code>{`// Fetch TEE Public Key
+      <CodeBlock 
+        language="javascript" 
+        title="Encrypt Parameters"
+        code={`// Fetch TEE Public Key
 const res = await fetch("https://morpheus.network/api/oracle/public-key");
 const { public_key_pem } = await res.json();
 
@@ -36,18 +40,18 @@ const secrets = {
 };
 
 // Encrypt using standard RSA-OAEP
-const encryptedBlob = await encrypt(JSON.stringify(secrets), public_key_pem);`}</code></pre>
+const encryptedBlob = await encrypt(JSON.stringify(secrets), public_key_pem);`} 
+      />
 
       <h2>Step 3: Submit On-Chain Request</h2>
       <p>
         Pass the <code>encryptedBlob</code> along with public routing parameters (like the URL) to the Morpheus Oracle contract. Ensure you attach the required GAS fee (0.01 GAS).
       </p>
 
-      <div className="card-industrial" style={{ padding: '0', overflow: 'hidden', marginBottom: '2rem' }}>
-        <div style={{ padding: '1rem 1.5rem', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-dim)' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>Solidity (Neo X)</span>
-        </div>
-        <pre style={{ margin: 0, border: 'none', background: 'transparent' }}><code>{`// Import the Morpheus Consumer Base
+      <CodeBlock 
+        language="solidity" 
+        title="MyOracleConsumer.sol (Neo X)"
+        code={`// Import the Morpheus Consumer Base
 import "./MorpheusConsumerX.sol";
 
 contract MyOracleConsumer is MorpheusConsumerX {
@@ -73,8 +77,8 @@ contract MyOracleConsumer is MorpheusConsumerX {
     function __morpheusCallback(uint256 requestId, int256 result, bytes memory attestation) external override onlyOracle {
         latestData = result;
     }
-}`}</code></pre>
-      </div>
+}`} 
+      />
 
       <h2>Step 4: Await the Relayer Callback</h2>
       <p>
