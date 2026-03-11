@@ -26,6 +26,12 @@ Live deploy/test:
 - `npm run examples:deploy:n3`
 - `npm run examples:test:n3`
 - `npm run examples:all`
-- `examples:all` runs `examples/scripts/deploy-and-test-all.mjs`, which compiles the Neo N3 and Neo X example contracts, deploys them to testnet, allowlists the callback consumer, and runs live oracle / encrypted compute / custom URL oracle / pricefeed flows.
+- `examples:all` runs `examples/scripts/deploy-and-test-all.mjs`, which compiles the Neo N3 and Neo X example contracts, deploys them to testnet, allowlists the callback consumer, and runs live oracle / encrypted compute / custom URL oracle / on-chain feed read flows.
 - Deployment addresses are recorded under `examples/deployments/testnet.json`.
 - The per-chain `examples:test:*` scripts rerun the live checks against the latest recorded deployment addresses without redeploying.
+
+Mainnet validation:
+
+- Neo N3 mainnet privacy matrix report: `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
+- Latest machine-readable report: `examples/deployments/mainnet-privacy-validation.latest.json`
+- Pricefeed synchronization is operator-managed and automatic; end-user contracts should read the on-chain feed registry directly instead of trying to trigger feed publication.

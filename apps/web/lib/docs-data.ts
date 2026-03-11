@@ -63,6 +63,55 @@ export const BUILTIN_FUNCTIONS = [
     example: "const hash = await morpheus.zkp.public_signal_hash({ circuit_id: '...', signals: [] });"
   },
   {
+    name: "zkp.proof_digest",
+    category: "ZKP",
+    desc: "Computes a deterministic digest over a proof object and optional verifying key.",
+    params: "proof: any, verifying_key?: any",
+    example: "const digest = await morpheus.zkp.proof_digest({ proof, verifying_key });"
+  },
+  {
+    name: "zkp.witness_digest",
+    category: "ZKP",
+    desc: "Computes a digest over witness material before proving.",
+    params: "witness: any, circuit_id?: string",
+    example: "const digest = await morpheus.zkp.witness_digest({ witness, circuit_id: 'demo' });"
+  },
+  {
+    name: "zkp.groth16.prove.plan",
+    category: "ZKP",
+    desc: "Returns a planning estimate for Groth16 proving workloads.",
+    params: "constraints: number, witness_count: number",
+    example: "const plan = await morpheus.zkp.groth16.prove.plan({ constraints: 120000, witness_count: 4096 });"
+  },
+  {
+    name: "zkp.plonk.prove.plan",
+    category: "ZKP",
+    desc: "Returns a planning estimate for PLONK proving workloads.",
+    params: "gates: number",
+    example: "const plan = await morpheus.zkp.plonk.prove.plan({ gates: 90000 });"
+  },
+  {
+    name: "fhe.batch_plan",
+    category: "FHE",
+    desc: "Builds a ciphertext batching plan.",
+    params: "slot_count: number, ciphertext_count: number",
+    example: "const plan = await morpheus.fhe.batch_plan({ slot_count: 4096, ciphertext_count: 8 });"
+  },
+  {
+    name: "fhe.noise_budget_estimate",
+    category: "FHE",
+    desc: "Estimates a rough FHE noise budget.",
+    params: "multiplicative_depth: number, scale_bits: number, modulus_bits: number",
+    example: "const estimate = await morpheus.fhe.noise_budget_estimate({ multiplicative_depth: 4, scale_bits: 40, modulus_bits: 218 });"
+  },
+  {
+    name: "fhe.rotation_plan",
+    category: "FHE",
+    desc: "Returns a rotation and key-switch planning summary.",
+    params: "indices: number[]",
+    example: "const plan = await morpheus.fhe.rotation_plan({ indices: [1, 3, -2] });"
+  },
+  {
     name: "privacy.mask",
     category: "Privacy",
     desc: "Masks a sensitive string, leaving edges visible.",
@@ -81,32 +130,48 @@ export const BUILTIN_FUNCTIONS = [
 export const AUTOMATION_PATTERNS = [
   {
     title: "Price Threshold Trigger",
-    desc: "Execute a contract call when a specific asset price crosses a defined limit.",
-    trigger: "PriceFeed (On-chain)",
+    desc: "Queue a normal Oracle callback job when the synchronized on-chain pricefeed crosses a threshold.",
+    trigger: "On-chain PriceFeed",
     steps: [
-      "1. TEE periodically fetches Price from TwelveData",
-      "2. Compares with on-chain threshold",
-      "3. Executes transaction if condition is met"
+      "1. Morpheus syncs pricefeed pairs on Neo N3 every 15 seconds when change >= 0.1%",
+      "2. The automation scheduler compares the latest on-chain pair against your threshold",
+      "3. If matched, it queues a standard Oracle request and consumes the normal 0.01 GAS fee credit"
     ],
     config: {
-      type: "price_threshold",
-      pair: "NEO-USD",
-      operator: "lt",
-      value: "15.00"
+      trigger: {
+        type: "price_threshold",
+        feed_chain: "neo_n3",
+        pair: "TWELVEDATA:NEO-USD",
+        comparator: "cross_above",
+        threshold: "300",
+        cooldown_ms: 300000
+      }
     }
   },
   {
     title: "Scheduled Maintenance",
-    desc: "Run a task every fixed number of blocks (e.g., rebalancing, daily payouts).",
-    trigger: "Block Interval",
+    desc: "Queue Oracle or compute callbacks on a repeating interval with prepaid fee credit.",
+    trigger: "Interval Scheduler",
     steps: [
-      "1. Relayer tracks block height",
-      "2. Triggers Morpheus job every N blocks",
-      "3. TEE executes and signs result"
+      "1. Automation registration is submitted through the Oracle contract",
+      "2. The scheduler wakes up at the configured interval and queues a normal request",
+      "3. The relayer fulfills the callback with the same signed result envelope used by manual requests"
     ],
     config: {
-      type: "interval",
-      interval_blocks: 1000
+      trigger: {
+        type: "interval",
+        interval_ms: 600000,
+        start_at: "2026-03-11T00:10:00Z"
+      },
+      execution: {
+        request_type: "compute",
+        payload: {
+          mode: "builtin",
+          function: "math.modexp",
+          input: { base: "2", exponent: "10", modulus: "17" },
+          target_chain: "neo_n3"
+        }
+      }
     }
   }
 ];
@@ -114,40 +179,83 @@ export const AUTOMATION_PATTERNS = [
 export const SECURITY_CONCEPTS = [
   {
     title: "Remote Attestation",
-    desc: "The process by which a user verifies that the Oracle code is running on genuine Intel SGX hardware without tampering."
+    desc: "Each result can include hardware-backed TEE evidence with app id, compose hash, instance id, and report-data binding."
   },
   {
     title: "X25519 Payload Sealing",
     desc: "Morpheus uses X25519 key exchange plus HKDF-SHA256 and AES-256-GCM to protect user inputs before they leave the browser."
   },
   {
-    title: "Instance Key Isolation",
-    desc: "Each TEE worker generates a unique ephemeral key pair that never leaves the hardware enclave."
+    title: "Sealed Transport Keys",
+    desc: "The Oracle transport key is sealed inside the confidential VM and wrapped by a dstack-derived key so restarts do not rotate user-facing encryption metadata."
   }
 ];
 
 export const CONTRACT_EXAMPLES = {
-  neo_x: `// Neo X (Solidity) Example
-interface IMorpheusDataFeed {
-    function latestPrice(string calldata pair) external view returns (int256, uint256);
+  neo_x: `// Neo X (reference interface)
+interface IMorpheusOracleX {
+    function requestFee() external view returns (uint256);
+    function request(
+        string calldata requestType,
+        bytes calldata payload,
+        address callbackContract,
+        string calldata callbackMethod
+    ) external payable returns (uint256 requestId);
 }
 
-contract DeFiApp {
-    function checkPrice(string memory pair) public view returns (int256) {
-        (int256 price, ) = IMorpheusDataFeed(0x2E35...).latestPrice(pair);
-        return price;
+contract MyConsumer {
+    IMorpheusOracleX public immutable oracle;
+
+    constructor(address oracleAddress) {
+        oracle = IMorpheusOracleX(oracleAddress);
     }
+
+    function requestNeoPrice(bytes calldata encryptedParams) external payable returns (uint256 requestId) {
+        uint256 fee = oracle.requestFee();
+        require(msg.value == fee, "incorrect request fee");
+        bytes memory payload = abi.encodePacked(
+            '{"provider":"twelvedata","symbol":"NEO-USD","encrypted_params":"',
+            encryptedParams,
+            '","json_path":"price","target_chain":"neo_x"}'
+        );
+        requestId = oracle.request{value: fee}("privacy_oracle", payload, address(this), "onOracleResult");
+    }
+
+    function onOracleResult(uint256, string calldata, bool, bytes calldata, string calldata) external {}
 }`,
-  neo_n3: `// Neo N3 (C#) Example
-[ContractHash("0x03013f49c42a14546c8bbe58f9d434c3517fccab")]
-public class MorpheusFeed {
-    public static extern Map GetLatestPrice(string pair);
+  neo_n3: `// Neo N3 (mainnet live)
+[ContractHash("0x017520f068fd602082fe5572596185e62a4ad991")]
+public class MorpheusOracle : SmartContract
+{
+    public static extern BigInteger Request(
+        string requestType,
+        ByteString payload,
+        UInt160 callbackContract,
+        string callbackMethod
+    );
 }
 
-public class MyContract : SmartContract {
-    public static void Execute() {
-        var result = (Map)MorpheusFeed.GetLatestPrice("NEO-USD");
-        BigInteger price = (BigInteger)result["price"];
+public class MyConsumer : SmartContract
+{
+    public static BigInteger RequestNeoPrice(ByteString encryptedParams)
+    {
+        string payloadJson = "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"encrypted_params\":\""
+            + (string)encryptedParams
+            + "\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
+        return (BigInteger)Contract.Call(
+            MorpheusOracle.Hash,
+            "request",
+            CallFlags.All,
+            "privacy_oracle",
+            (ByteString)payloadJson,
+            Runtime.ExecutingScriptHash,
+            "onOracleResult"
+        );
+    }
+
+    public static void OnOracleResult(BigInteger requestId, string requestType, bool success, ByteString result, string error)
+    {
+        // store raw callback bytes first, parse off-chain when possible
     }
 }`
 };

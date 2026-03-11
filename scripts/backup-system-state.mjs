@@ -152,7 +152,7 @@ const rows = [
     metadata: {
       timestamp,
       keystore_path: "/data/morpheus/oracle-key.json",
-      note: "sealed Oracle RSA key backup copied from CVM",
+      note: "sealed Oracle X25519 transport key backup copied from CVM",
     },
   },
 ];

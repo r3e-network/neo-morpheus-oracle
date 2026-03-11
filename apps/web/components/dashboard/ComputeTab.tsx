@@ -5,47 +5,44 @@ import { Cpu, Play, FileCode, Database, Code, Fingerprint, Lock, ShieldAlert } f
 
 export function ComputeTab({ computeFunctions, setOutput }: any) {
   const [selectedFunc, setSelectedFunc] = useState<string>("");
-  const [computeInput, setComputeInput] = useState('{"args": [1, 2, 3]}');
-  const [userCode, setUserCode] = useState(`function process(data) {\n  // Sandbox Simulation\n  // Access mock data here\n  return data.args.reduce((a, b) => a + b, 0);\n}`);
+  const [computeInput, setComputeInput] = useState('{\n  "values": [1, 2, 3]\n}');
+  const [userCode, setUserCode] = useState(`function process(input, helpers) {\n  const values = Array.isArray(input.values) ? input.values : [];\n  return {\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
   const [isSimulating, setIsSimulating] = useState(false);
 
-  // Expanded set of professional templates reflecting built-in capabilities
   const mockTemplates = [
-    { name: "integration.secure_fetch", runtime: "JS", desc: "Unpacks encrypted logic params (Data Sealing) to hit an authorized API.", cat: "Data Sealing" },
-    { name: "hash.sha256", runtime: "JS", desc: "Standard SHA-256 hashing for any JSON payload.", cat: "Hash" },
-    { name: "zkp.public_signal_hash", runtime: "JS", desc: "Deterministic digest over ZKP public signals.", cat: "ZKP" },
-    { name: "math.modexp", runtime: "JS", desc: "Big integer modular exponentiation.", cat: "Math" },
-    { name: "matrix.multiply", runtime: "JS", desc: "High-performance dense matrix multiplication.", cat: "Linear Algebra" },
-    { name: "privacy.mask", runtime: "JS", desc: "Sensitive data masking with edge preservation.", cat: "Privacy" },
-    { name: "privacy.add_noise", runtime: "JS", desc: "Laplace noise injection for differential privacy.", cat: "Privacy" },
-    { name: "random.vrf_generator", runtime: "JS", desc: "Verifiable randomness using TEE entropy.", cat: "Entropy" }
+    { name: "script.sum", runtime: "JS", desc: "Custom JS entry point using the actual process(input, helpers) signature.", cat: "Custom JS" },
+    { name: "script.timestamp", runtime: "JS", desc: "Uses the injected helper set to timestamp results.", cat: "Helpers" },
+    { name: "script.base64_decode", runtime: "JS", desc: "Uses helpers.base64Decode for deterministic input transforms.", cat: "Helpers" },
+    { name: "builtin.math.modexp", runtime: "Builtin", desc: "Reference payload shape for modular exponentiation.", cat: "Math" },
+    { name: "builtin.matrix.multiply", runtime: "Builtin", desc: "Reference payload shape for matrix multiplication.", cat: "Linear Algebra" },
+    { name: "builtin.privacy.mask", runtime: "Builtin", desc: "Reference payload shape for masking a sensitive string.", cat: "Privacy" },
+    { name: "builtin.zkp.public_signal_hash", runtime: "Builtin", desc: "Reference payload shape for a ZKP digest helper.", cat: "ZKP" },
+    { name: "wasm.reference", runtime: "WASM", desc: "Use WASM when you need stronger isolation and a 30s bounded runtime.", cat: "WASM" }
   ];
 
   const handleExecute = async () => {
     setIsSimulating(true);
-    const logs: string[] = [">> Initializing Local TEE Sandbox...", ">> Injecting 'morpheus' mock objects..."];
+    const logs: string[] = [">> Initializing local authoring sandbox...", ">> This simulation does not contact the live worker or the blockchain."];
     
     try {
-      const mockMorpheus = {
-        http_request: async (url: string) => {
-          logs.push(`>> [SIM] Mocking HTTP request to: ${url}`);
-          return { status: 200, data: { price: "25.50", source: "mock" } };
+      const helpers = {
+        getCurrentTimestamp: () => Math.floor(Date.now() / 1000),
+        base64Decode: (value: string) => {
+          if (typeof window !== "undefined") return window.atob(value);
+          return Buffer.from(value, "base64").toString("utf8");
         },
-        get_vrf_random: async () => {
-          logs.push(">> [SIM] Generating pseudo-random VRF value");
-          return { random_value: Math.random().toString(16).slice(2) };
-        }
       };
 
-      const context = { morpheus: mockMorpheus, console: { log: (m: any) => logs.push(`[LOG] ${m}`) } };
-      const args = JSON.parse(computeInput);
+      const input = JSON.parse(computeInput);
       
-      const simulateFunc = new Function('morpheus', 'console', 'data', `
+      const simulateFunc = new Function('helpers', 'input', `
         ${userCode}
-        return typeof process === 'function' ? process(data) : 'No process() function defined.';
+        return typeof process === 'function'
+          ? process(input, helpers)
+          : 'No process(input, helpers) function defined.';
       `);
 
-      const result = await simulateFunc(context.morpheus, context.console, args);
+      const result = await simulateFunc(helpers, input);
       logs.push(">> Simulation complete.");
       logs.push(`>> Return Value: ${JSON.stringify(result, null, 2)}`);
       
@@ -63,7 +60,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border-dim)', paddingBottom: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>Enclave Sandbox</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Test your privacy logic locally before deploying to the prover network.</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Author custom JS payloads locally using the same function signatures that the live runtime expects.</p>
         </div>
       </div>
 
@@ -81,30 +78,30 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
                 key={f.name}
                 onClick={() => {
                   setSelectedFunc(f.name);
-                  if (f.name.includes("secure_fetch")) {
-                    setUserCode(`async function process(data) {\n  // data.args contains the unsealed JSON from Data Sealing\n  const auth = data.args.headers["Authorization"];\n  const uid = data.args.query["private_customer_id"];\n  \n  console.log("Mocking secure API fetch for user: " + uid);\n  // const res = await morpheus.http_request(...)\n  // 100% of the private logic stays off-chain and hidden.\n  return { success: true, user_balance: 42000 };\n}`);
-                    setComputeInput('{\n  "args": {\n    "headers": {\n      "Authorization": "Bearer sk_live_12345"\n    },\n    "query": {\n      "private_customer_id": "cust_999"\n    }\n  }\n}');
-                  } else if (f.name.includes("noise")) {
-                    setUserCode(`function process(data) {\n  // data.args: { value: number, scale: number }\n  return { noisy_value: data.args.value + (Math.random() * data.args.scale) };\n}`);
-                    setComputeInput('{\n  "args": {\n    "value": 100,\n    "scale": 5\n  }\n}');
-                  } else if (f.name.includes("vrf")) {
-                    setUserCode(`async function process(data) {\n  const res = await morpheus.get_vrf_random();\n  return res;\n}`);
-                    setComputeInput('{\n  "args": {}\n}');
-                  } else if (f.name.includes("mask")) {
-                    setUserCode(`function process(data) {\n  const s = String(data.args.value);\n  return { masked_value: s.slice(0, 2) + "****" + s.slice(-2) };\n}`);
-                    setComputeInput('{\n  "args": {\n    "value": "0x1234567890abcdef"\n  }\n}');
-                  } else if (f.name.includes("hash")) {
-                    setUserCode(`function process(data) {\n  // Mocking SHA-256 for local sandbox\n  return {\n    hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"\n  };\n}`);
-                    setComputeInput('{\n  "args": {\n    "payload": "Hello Neo"\n  }\n}');
+                  if (f.name.includes("timestamp")) {
+                    setUserCode(`function process(input, helpers) {\n  return {\n    label: input.label || "demo",\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
+                    setComputeInput('{\n  "label": "demo-run"\n}');
+                  } else if (f.name.includes("base64_decode")) {
+                    setUserCode(`function process(input, helpers) {\n  return {\n    decoded: helpers.base64Decode(input.value || ""),\n  };\n}`);
+                    setComputeInput('{\n  "value": "bmVvLW1vcnBoZXVz"\n}');
+                  } else if (f.name.includes("privacy.mask")) {
+                    setUserCode(`// Builtin payload reference\n// Submit this through requestType="compute"\n// with mode="builtin" and function="privacy.mask"\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "privacy.mask",\n    input: { value: "0x1234567890abcdef", unmasked_left: 2, unmasked_right: 2 }\n  };\n}`);
+                    setComputeInput('{\n  "note": "reference only"\n}');
+                  } else if (f.name.includes("public_signal_hash")) {
+                    setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "zkp.public_signal_hash",\n    input: { circuit_id: "demo", signals: [1, 2, 3] }\n  };\n}`);
+                    setComputeInput('{\n  "note": "reference only"\n}');
                   } else if (f.name.includes("modexp")) {
-                    setUserCode(`function process(data) {\n  const { base, exp, mod } = data.args;\n  let res = 1;\n  for (let i = 0; i < exp; i++) {\n    res = (res * base) % mod;\n  }\n  return { modexp_result: res };\n}`);
-                    setComputeInput('{\n  "args": {\n    "base": 5,\n    "exp": 3,\n    "mod": 13\n  }\n}');
+                    setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "math.modexp",\n    input: { base: "5", exponent: "3", modulus: "13" }\n  };\n}`);
+                    setComputeInput('{\n  "note": "reference only"\n}');
                   } else if (f.name.includes("matrix")) {
-                    setUserCode(`function process(data) {\n  // Mock simplified 2x2 matrix multiplication result for demo\n  return { \n    matrix_result: [[22, 28], [49, 64]] \n  };\n}`);
-                    setComputeInput('{\n  "args": {\n    "m1": [[1, 2], [3, 4]],\n    "m2": [[5, 6], [7, 8]]\n  }\n}');
+                    setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "matrix.multiply",\n    input: { left: [[1, 2], [3, 4]], right: [[5, 6], [7, 8]] }\n  };\n}`);
+                    setComputeInput('{\n  "note": "reference only"\n}');
+                  } else if (f.name.includes("wasm")) {
+                    setUserCode(`// WASM is the recommended path for stronger isolation.\n// Build a module and submit it through the on-chain Oracle/Compute request.\nfunction process(input, helpers) {\n  return {\n    mode: "wasm",\n    note: "Compile a .wasm module and place it into wasm_base64."\n  };\n}`);
+                    setComputeInput('{\n  "note": "reference only"\n}');
                   } else {
-                    setUserCode(`function process(data) {\n  // Example: simple sum reduction\n  if (!data.args || !Array.isArray(data.args)) return 0;\n  return data.args.reduce((a, b) => a + b, 0);\n}`);
-                    setComputeInput('{\n  "args": [1, 2, 3]\n}');
+                    setUserCode(`function process(input, helpers) {\n  const values = Array.isArray(input.values) ? input.values : [];\n  return {\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
+                    setComputeInput('{\n  "values": [1, 2, 3]\n}');
                   }
                 }}
                 style={{
@@ -168,7 +165,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
                 style={{ minHeight: '100px', border: 'none', background: 'transparent', boxShadow: 'none', padding: '0', marginBottom: '1.5rem' }}
               />
               <button className="btn-ata" style={{ width: '100%', justifyContent: 'center' }} onClick={handleExecute} disabled={isSimulating}>
-                {isSimulating ? 'EXECUTING...' : 'RUN LOCAL SIMULATION'}
+                {isSimulating ? 'EXECUTING...' : 'RUN LOCAL AUTHORING CHECK'}
               </button>
             </div>
           </div>

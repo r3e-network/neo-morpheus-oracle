@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Database, Search, Zap, Activity, ExternalLink, Info, Globe, Filter } from "lucide-react";
 import { DEFAULT_PAIRS } from "@/lib/onchain-data";
+import { getFeedDisplaySymbol } from "@/lib/feed-defaults";
 
 interface ProvidersTabProps {
   providers: any[];
@@ -107,7 +108,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                  <div style={{ padding: '4rem', textAlign: 'center', gridColumn: '1/-1', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>SYNCING...</div>
               ) : filteredSymbols.map(s => (
                 <div key={s} style={{ padding: '0.75rem', textAlign: 'center', fontSize: '0.75rem', background: '#000', border: '1px solid var(--border-dim)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', transition: 'all 0.2s', cursor: 'default' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--neo-green)'; e.currentTarget.style.color = '#fff'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-dim)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}>
-                  {s}
+                  {getFeedDisplaySymbol(s)}
                 </div>
               ))}
               {!isLoading && filteredSymbols.length === 0 && (
@@ -126,8 +127,8 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
           <div>
             <h4 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.5rem' }}>Custom URL Construction</h4>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-              Morpheus is not limited to the pairs listed above. You can query any REST API via the <strong>Custom URL</strong> mode. 
-              Always encrypt authorization headers locally in the <strong>Data Sealing</strong> tab before transmission.
+              Morpheus is not limited to the pairs listed above. You can query any REST API via the <strong>Custom URL</strong> mode, but the supported user flow is still:
+              build the payload locally, encrypt secret fields in the <strong>Oracle Payload</strong> tab, then submit the request through the on-chain Oracle contract.
             </p>
           </div>
         </div>

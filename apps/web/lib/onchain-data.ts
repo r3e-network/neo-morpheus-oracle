@@ -1,19 +1,11 @@
 import { ethers } from "ethers";
+import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol } from "./feed-defaults";
 
-export const DEFAULT_PAIRS = [
-  "NEO-USD", "GAS-USD", "FLM-USD", "BTC-USD", 
-  "ETH-USD", "SOL-USD", "TRX-USD", "PAXG-USD", 
-  "WTI-USD", "USDT-USD", "USDC-USD", "BNB-USD", 
-  "XRP-USD", "DOGE-USD"
-];
-
-export const PAIR_DISPLAY_NAMES: Record<string, string> = {
-  "FLM-USD": "1000FLM-USD",
-};
+export const DEFAULT_PAIRS = [...DEFAULT_FEED_SYMBOLS];
 
 export const NETWORKS = {
   neo_x: {
-    name: "Neo X (Soon)",
+    name: "Neo X (Reference Only)",
     rpc: "https://mainnet-2.rpc.banelabs.org",
     oracle: "",
     datafeed: "",
@@ -102,7 +94,7 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
         return {
           price: (Number(priceItem.value) / 100).toFixed(2),
           timestamp: Number(tsItem.value) * 1000,
-          pair,
+          pair: getFeedDisplaySymbol(pair),
           network: "Neo N3",
           contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`
         };

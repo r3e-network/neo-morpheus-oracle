@@ -2,6 +2,7 @@
 
 import { Shield, Lock, Zap, ArrowRight, FileCode } from "lucide-react";
 import { CodeBlock } from "@/components/ui/CodeBlock";
+import { NETWORKS } from "@/lib/onchain-data";
 
 export default function DocsOracle() {
   return (
@@ -16,12 +17,20 @@ export default function DocsOracle() {
         The Morpheus Privacy Oracle allows smart contracts to request off-chain data from any HTTP(S) source with end-to-end encryption. Unlike public oracles, Morpheus ensures that API keys, auth tokens, and sensitive parameters are never exposed on-chain or to the infrastructure operator.
       </p>
 
+      <div style={{ padding: '1.25rem 1.5rem', background: '#000', borderLeft: '4px solid var(--neo-green)', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderRadius: '0 4px 4px 0', margin: '2rem 0' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.7 }}>
+          End users should <strong>not</strong> call the worker endpoints directly. The supported production path is:
+          encrypt locally, submit the JSON payload through the on-chain Oracle contract, and wait for the callback.
+          Neo N3 mainnet Oracle: <code>{NETWORKS.neo_n3.oracle}</code> via <code>{NETWORKS.neo_n3.domains.oracle}</code>.
+        </p>
+      </div>
+
       <h2>Request Lifecycle</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', margin: '2.5rem 0' }}>
         {[
           { step: "1", title: "Parameter Sealing", desc: "User dApp encrypts secret parts of the request (e.g., API keys) locally using the Oracle X25519 public key." },
-          { step: "2", title: "On-Chain Submission", desc: "User contract calls request() on MorpheusOracle, attaching the encrypted blob and paying the fee." },
-          { step: "3", title: "Enclave Execution", desc: "TEE worker picks up the task, unseals the data inside SGX, performs the fetch, and signs the result." },
+          { step: "2", title: "On-Chain Submission", desc: "User contract submits requestType + payload bytes to MorpheusOracle and pays or sponsors the request fee." },
+          { step: "3", title: "Enclave Execution", desc: "The worker receives the request through the relayer, unseals the data inside the TEE, performs the fetch, and signs the result." },
           { step: "4", title: "Verified Callback", desc: "The Relayer submits the TEE-signed result back to the user's contract via a callback function." }
         ].map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: '1.5rem', padding: '1.25rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
@@ -42,7 +51,7 @@ export default function DocsOracle() {
       <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', margin: '2rem 0' }}>
         <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Structure your Confidential JSON</h4>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-          The TEE expects specific keys (<code>headers</code>, <code>query</code>, <code>body</code>) which it will automatically inject into the outbound HTTP request before leaving the secure enclave.
+          The encrypted patch is merged into the public payload inside the TEE. Common confidential fields include <code>headers</code>, <code>query</code>, <code>body</code>, <code>json_path</code>, and even <code>script</code>.
         </p>
         <CodeBlock
           language="json"
@@ -53,7 +62,8 @@ export default function DocsOracle() {
   },
   "query": {
     "private_customer_id": "cust_999"
-  }
+  },
+  "json_path": "data.score"
 }`}
         />
       </div>
@@ -76,7 +86,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
 
       <h2>Smart Contract Integration</h2>
       <p>
-        Now, pass the encrypted blob alongside your public parameters when calling the Oracle contract. The relayer submits it to the TEE, which decrypts the blob using the hardware-sealed private key, makes the HTTP request with the combined parameters, and returns the strictly-defined result.
+        Now, place the encrypted blob into the JSON payload that your contract submits on-chain. The relayer delivers it to the TEE, which decrypts the blob using the sealed transport key, executes the request, and returns the callback envelope.
       </p>
       
       <div className="grid grid-2" style={{ gap: '1.5rem', margin: '2.5rem 0' }}>
@@ -84,29 +94,42 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
           <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo N3 (C#)</h3>
           <CodeBlock
             language="csharp"
-            code={`public static void RequestData() {
-    object[] args = new object[] {
-        "twelvedata", // Provider ID or custom URL
-        "NEO-USD",    // Public Symbol or Path
-        ciphertext,   // The encrypted Base64 blob
-        "price"       // JSON path to extract, or custom JS script
-    };
-    Contract.Call(OracleHash, "request", CallFlags.All, args);
+            code={`public static BigInteger RequestData(ByteString encryptedParams) {
+    string payloadJson =
+        "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"encrypted_params\":\""
+        + (string)encryptedParams
+        + "\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
+
+    return (BigInteger)Contract.Call(
+        OracleHash,
+        "request",
+        CallFlags.All,
+        "privacy_oracle",
+        (ByteString)payloadJson,
+        Runtime.ExecutingScriptHash,
+        "onOracleResult"
+    );
 }`}
           />
         </div>
         <div>
-          <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo X (Solidity)</h3>
+          <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo X (Reference Solidity Interface)</h3>
           <CodeBlock
             language="solidity"
-            code={`function requestData() public payable {
-    oracle.request{value: msg.value}(
-        "twelvedata",
-        "NEO-USD",
-        ciphertext,
-        "price",
+            code={`function requestData(string calldata encryptedParams) public payable {
+    uint256 fee = oracle.requestFee();
+    require(msg.value == fee, "incorrect request fee");
+    bytes memory payload = abi.encodePacked(
+        '{"provider":"twelvedata","symbol":"NEO-USD","encrypted_params":"',
+        encryptedParams,
+        '","json_path":"price","target_chain":"neo_x"}'
+    );
+
+    oracle.request{value: fee}(
+        "privacy_oracle",
+        payload,
         address(this),
-        this.__morpheusCallback.selector
+        "onOracleResult"
     );
 }`}
           />
@@ -119,10 +142,10 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Transformation Logic</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-          Instead of just a static JSON path like <code>"price"</code>, the 4th argument in your contract request can be a full Javascript function (e.g. <code>function process(response) &#123; return response.price * 2; &#125;</code>) that executes securely inside the TEE after the HTTP fetch completes, returning only the precisely computed result.
+          Instead of using only a static <code>json_path</code> like <code>"price"</code>, you can embed a full Javascript function or WASM module <strong>inside the JSON payload</strong>. That logic executes inside the TEE after the HTTP fetch completes and only the derived result is returned.
         </p>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6, paddingBottom: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
-          <strong>Advanced Compute Mapping:</strong> If you are writing a fully custom script using <a href="/docs/compute" style={{ color: 'var(--neo-green)', textDecoration: 'none' }}>Enclave Compute</a>, your sealed parameters bypass automatic HTTP injection and are instead directly exposed to your Javascript logic under the <code>data.args</code> object. This allows you to construct complex, multi-stage requests with your private keys securely.
+          <strong>Advanced Mapping:</strong> Oracle custom JS functions use <code>process(data, context, helpers)</code>. The HTTP body is passed as <code>data</code>, request metadata is passed as <code>context</code>, and helper functions are passed as <code>helpers</code>. For stronger isolation, use <a href="/docs/compute" style={{ color: 'var(--neo-green)', textDecoration: 'none' }}>WASM</a>.
         </p>
       </div>
     </div>

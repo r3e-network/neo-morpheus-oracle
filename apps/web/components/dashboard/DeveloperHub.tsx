@@ -8,7 +8,7 @@ import {
 import { CONTRACT_EXAMPLES, AUTOMATION_PATTERNS, BUILTIN_FUNCTIONS, SECURITY_CONCEPTS } from "@/lib/docs-data";
 
 export function DeveloperHub() {
-  const [activeLang, setActiveLang] = useState<"neo_x" | "neo_n3">("neo_x");
+  const [activeLang, setActiveLang] = useState<"neo_x" | "neo_n3">("neo_n3");
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleCopy = (text: string) => {
@@ -23,7 +23,7 @@ export function DeveloperHub() {
       <section className="card-industrial" style={{ padding: '3rem', textAlign: 'center', background: 'radial-gradient(circle at center, rgba(139, 92, 246, 0.05) 0%, transparent 70%)' }}>
         <h2 style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '1rem', letterSpacing: '-0.03em' }}>Protocol Reference</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', maxWidth: '700px', margin: '0 auto 2rem' }}>
-          Master the Morpheus matrix. From confidential computation within secure enclaves to autonomous cross-chain execution.
+          Master the Morpheus matrix. From sealed payload construction and callback routing to automation and attestation review.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -32,11 +32,11 @@ export function DeveloperHub() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-purple)' }}></div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>ZERO-KNOWLEDGE FETCH</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>SEALED PAYLOADS</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent-blue)' }}></div>
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>MULTI-CHAIN ATTESTED</span>
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>ASYNC CALLBACKS</span>
           </div>
         </div>
       </section>

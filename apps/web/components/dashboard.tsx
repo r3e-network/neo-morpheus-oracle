@@ -6,33 +6,18 @@ import { OracleTab } from "./dashboard/OracleTab";
 import { ComputeTab } from "./dashboard/ComputeTab";
 import { ProvidersTab } from "./dashboard/ProvidersTab";
 import { DeveloperHub } from "./dashboard/DeveloperHub";
-import { 
-  Globe, 
-  Sparkles, 
-  Cpu, 
-  Terminal, 
-  Copy, 
-  Trash2, 
-  CheckCircle2, 
+import {
+  Globe,
+  Cpu,
+  Terminal,
+  Copy,
+  Trash2,
+  CheckCircle2,
   Database,
   ChevronRight,
   BookOpen,
   Box
 } from "lucide-react";
-
-async function callJSON(path: string, body?: unknown, method = "POST") {
-  const res = await fetch(path, {
-    method,
-    headers: body !== undefined ? { "content-type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  try {
-    return JSON.stringify(JSON.parse(text), null, 2);
-  } catch {
-    return text;
-  }
-}
 
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -65,7 +50,7 @@ export function Dashboard() {
   const tabs = [
     { id: "overview", label: "Network Monitor", icon: Globe },
     { id: "providers", label: "Data Catalog", icon: Database },
-    { id: "oracle", label: "Data Sealing", icon: Box },
+    { id: "oracle", label: "Oracle Payload", icon: Box },
     { id: "compute", label: "Enclave Sandbox", icon: Cpu },
     { id: "devhub", label: "Developer Hub", icon: BookOpen },
   ];
@@ -134,7 +119,7 @@ export function Dashboard() {
           <div className="fade-in">
             {activeTab === "overview" && <OverviewTab setOutput={setOutput} />}
             {activeTab === "providers" && <ProvidersTab providers={providers} />}
-            {activeTab === "oracle" && <OracleTab providers={providers} callJSON={callJSON} setOutput={setOutput} />}
+            {activeTab === "oracle" && <OracleTab providers={providers} setOutput={setOutput} />}
             {activeTab === "compute" && <ComputeTab setOutput={setOutput} />}
             {activeTab === "devhub" && <DeveloperHub />}
           </div>

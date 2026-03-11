@@ -2,6 +2,7 @@
 
 import { LineChart, Zap, Clock, Database, Code2 } from "lucide-react";
 import { CodeBlock } from "@/components/ui/CodeBlock";
+import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol } from "@/lib/feed-defaults";
 
 export default function DocsDatafeeds() {
   return (
@@ -13,7 +14,7 @@ export default function DocsDatafeeds() {
       <h1>Data Matrix</h1>
 
       <p>
-        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly to Neo N3 and Neo X. These feeds are designed for synchronous consumption by DeFi protocols, lending platforms, and algorithmic traders.
+        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly to Neo N3 mainnet. These feeds are designed for synchronous consumption by DeFi protocols, lending platforms, and algorithmic traders.
       </p>
 
       <h2>Operational Architecture</h2>
@@ -28,14 +29,12 @@ export default function DocsDatafeeds() {
       </ol>
 
       <h2>Supported Assets</h2>
-      <h2>Supported Assets</h2>
       <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', marginBottom: '2.5rem' }}>
-        <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Mainnet Pairs (14+)</p>
+        <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Mainnet Pairs (14)</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          {["NEO-USD", "GAS-USD", "1000FLM-USD", "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "USDT-USD", "USDC-USD"].map(pair => (
-            <span key={pair} className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.7rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(0,255,163,0.3)', background: 'rgba(0,255,163,0.05)' }}>{pair}</span>
+          {DEFAULT_FEED_SYMBOLS.map((pair) => (
+            <span key={pair} className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.7rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(0,255,163,0.3)', background: 'rgba(0,255,163,0.05)' }}>{getFeedDisplaySymbol(pair)}</span>
           ))}
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '0 0.5rem' }}>+ more endpoints</span>
         </div>
       </div>
 
@@ -52,8 +51,7 @@ export default function DocsDatafeeds() {
       <h2>Contract Integration</h2>
       <h3>Neo N3 (C#)</h3>
       <p>
-        Use the contract hash <code>0x03013f49c42a14546c8bbe58f9d434c3517fccab</code> or resolve the NeoNS alias
-        <code> pricefeed.morpheus.neo </code> to the same script hash.
+        Use the contract hash <code>0x03013f49c42a14546c8bbe58f9d434c3517fccab</code> or resolve the NeoNS alias <code>pricefeed.morpheus.neo</code> to the same script hash.
       </p>
       
       <CodeBlock
@@ -61,19 +59,27 @@ export default function DocsDatafeeds() {
         title="Direct Read on N3"
         code={`// Read the latest verified price from contract storage
 public static void CheckLiquidation() {
-    var record = (Map)Contract.Call(DataFeedHash, "getLatestPrice", CallFlags.ReadOnly, "NEO-USD");
+    object[] record = (object[])Contract.Call(
+        DataFeedHash,
+        "getLatest",
+        CallFlags.ReadOnly,
+        "TWELVEDATA:NEO-USD"
+    );
     
-    BigInteger price = (BigInteger)record["price"];
-    uint lastUpdate = (uint)record["timestamp"];
+    BigInteger priceCents = (BigInteger)record[2];
+    BigInteger lastUpdate = (BigInteger)record[3];
     
     // Process logic...
 }`}
       />
 
       <h3>Neo X (Solidity)</h3>
+      <p>
+        Neo X contract publication is still pending. The reference interface below shows the intended read shape once the live registry is published.
+      </p>
       <CodeBlock
         language="solidity"
-        title="Direct Read on Neo X"
+        title="Reference Read on Neo X"
         code={`// IMorpheusDataFeedX interface
 function checkPrice(string memory pair) public view returns (int256) {
     (int256 price, uint256 timestamp) = dataFeed.latestPrice(pair);

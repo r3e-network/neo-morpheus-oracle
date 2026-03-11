@@ -38,7 +38,7 @@ export default function HomePage() {
             </h1>
             
             <p style={{ maxWidth: '680px', margin: '0 auto 3.5rem', fontSize: '1.2rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              The decentralized prover network utilizing TEE technology for confidential compute and high-integrity datafeeds on Neo N3 and Neo X.
+              The decentralized prover network for confidential oracle callbacks, sealed compute, and high-integrity pricefeeds on Neo N3, with reference interfaces prepared for Neo X.
             </p>
             
             <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
@@ -63,9 +63,9 @@ export default function HomePage() {
             <div className="grid grid-3">
               <div className="glass-card stagger-2">
                 <Shield size={24} color="var(--neo-green)" style={{ marginBottom: '1.5rem' }} />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Intel SGX Enclaves</h3>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Phala TEE Runtime</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.7 }}>
-                  Data is processed exclusively within secure hardware enclaves. Not even the node operator or hypervisor can inspect the memory state.
+                  Data is processed inside attested confidential VM hardware. Operators and infrastructure do not receive the plaintext request contents.
                 </p>
               </div>
               <div className="glass-card stagger-3">
@@ -77,9 +77,9 @@ export default function HomePage() {
               </div>
               <div className="glass-card stagger-4">
                 <Lock size={24} color="var(--text-primary)" style={{ marginBottom: '1.5rem' }} />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Zero-Knowledge Fetch</h3>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confidential Fetch</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.7 }}>
-                  API keys are encrypted locally using X25519 + HKDF-SHA256 + AES-256-GCM. They remain encrypted during transport and are only unsealed inside the enclave.
+                  API keys, function arguments, and custom scripts can be sealed locally with X25519 + HKDF-SHA256 + AES-256-GCM before the on-chain request is submitted.
                 </p>
               </div>
             </div>
@@ -97,7 +97,7 @@ export default function HomePage() {
                 </div>
                 <h2 className="section-title">Decentralized Datafeeds</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '2.5rem', lineHeight: 1.7 }}>
-                  Access 14+ high-fidelity price pairs synchronized directly from the prover network to Neo N3 and Neo X smart contracts.
+                  Access 14 synchronized mainnet price pairs stored directly on Neo N3. Updates are scanned every 15 seconds and only published when movement exceeds 0.1%.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '3rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -106,11 +106,11 @@ export default function HomePage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <CheckCircle2 size={18} color="var(--text-primary)" />
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>Sub-second TEE Attestation</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>Phala app id, compose hash, and attestation metadata</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <CheckCircle2 size={18} color="var(--text-primary)" />
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>Custom URL & Authorization Support</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>Oracle callback workflow with custom URL, encrypted params, and custom logic</span>
                   </div>
                 </div>
                 <Link href="/explorer" className="btn-ata">Explore Live Data <ArrowRight size={16} /></Link>
@@ -122,14 +122,19 @@ export default function HomePage() {
                   <span className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}>SYNC_OK</span>
                 </div>
                 <pre className="text-neo-gradient" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', lineHeight: 1.7, padding: '2rem' }}>
-{`// Fetching verified data on Neo N3
+{`// Read verified integer-cents price data on Neo N3
 public static void Execute() {
-    var result = (Map)Oracle.GetLatestPrice("NEO-USD");
+    object[] record = (object[])Contract.Call(
+        DataFeedHash,
+        "getLatest",
+        CallFlags.ReadOnly,
+        "TWELVEDATA:NEO-USD"
+    );
     
-    BigInteger price = (BigInteger)result["price"];
-    uint timestamp = (uint)result["timestamp"];
+    BigInteger priceCents = (BigInteger)record[2];
+    BigInteger timestamp = (BigInteger)record[3];
     
-    Require(price > 1000, "Price too low");
+    Require(priceCents > 100, "Price too low");
 }`}
                 </pre>
               </div>

@@ -17,9 +17,9 @@ export default function DocsApiReference() {
         Complete technical specifications for the Morpheus smart contracts and the Enclave Javascript SDK. 
       </p>
 
-      <h2>1. Smart Contract Interface (Solidity)</h2>
+      <h2>1. Smart Contract Interface (Solidity Reference)</h2>
       <p>
-        To interact with the Morpheus Oracle on Neo X, you must interact with the main <code>MorpheusOracleX</code> contract.
+        Neo X live contract publication is still pending, but the reference interface below matches the current repository contracts and examples.
       </p>
       
       <div style={{ padding: '0', overflow: 'hidden', marginBottom: '2.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
@@ -30,22 +30,19 @@ export default function DocsApiReference() {
           <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
             <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: '#e5e5e5' }}>{`interface IMorpheusOracleX {
     /**
-     * @dev Submit an Oracle request to the TEE Prover Network.
-     * @param requestType Type of request ("provider", "url", "builtin").
-     * @param target Target provider ID or URL endpoint.
-     * @param encryptedParams X25519-HKDF-SHA256-AES-256-GCM encrypted JSON blob for sensitive data.
-     * @param jsonPath JSONPath expression to extract from the response.
-     * @param callbackAddress Address of the consumer contract to receive the callback.
-     * @param callbackSelector Function selector of the callback method.
+     * @dev Submit an Oracle request to the TEE prover network.
+     * @param requestType Type of request ("privacy_oracle", "oracle", "compute", "automation_register", ...).
+     * @param payload UTF-8 JSON payload bytes. Confidential fields stay inside encrypted_params / encrypted_payload.
+     * @param callbackContract Address of the consumer contract to receive the callback.
+     * @param callbackMethod String callback entrypoint on the consumer contract.
      * @return requestId The unique ID of the request.
      */
+    function requestFee() external view returns (uint256);
     function request(
         string memory requestType,
-        string memory target,
-        bytes memory encryptedParams,
-        string memory jsonPath,
-        address callbackAddress,
-        bytes4 callbackSelector
+        bytes memory payload,
+        address callbackContract,
+        string memory callbackMethod
     ) external payable returns (uint256 requestId);
 }`}</code>
           </pre>
@@ -54,7 +51,7 @@ export default function DocsApiReference() {
 
       <h2>2. Smart Contract Interface (C#)</h2>
       <p>
-        To interact with the Morpheus Oracle on Neo N3, you will use the <code>Contract.Call</code> native method.
+        To interact with the Morpheus Oracle on Neo N3 mainnet, use <code>Contract.Call</code> against <code>0x017520f068fd602082fe5572596185e62a4ad991</code> or NeoNS <code>oracle.morpheus.neo</code>.
       </p>
       
       <div style={{ padding: '0', overflow: 'hidden', marginBottom: '2.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
@@ -65,22 +62,24 @@ export default function DocsApiReference() {
           <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
             <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: '#e5e5e5' }}>{`// Contract Script Hash: 0x017520f068fd602082fe5572596185e62a4ad991
 
-object[] args = new object[] {
-    "provider",          // request type
-    "twelvedata",        // target provider
-    encryptedParams,     // X25519-HKDF-SHA256-AES-256-GCM ciphertext
-    "price",             // json path extraction
-    "callbackFunction"   // callback method name on your contract
-};
+string payloadJson = "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
 
-Contract.Call(MorpheusOracleHash, "request", CallFlags.All, args);`}</code>
+Contract.Call(
+    MorpheusOracleHash,
+    "request",
+    CallFlags.All,
+    "privacy_oracle",
+    (ByteString)payloadJson,
+    Runtime.ExecutingScriptHash,
+    "onOracleResult"
+);`}</code>
           </pre>
         </div>
       </div>
 
       <h2>3. Enclave SDK (Javascript)</h2>
       <p>
-        When writing custom compute scripts for the Morpheus TEE Worker, you have access to a globally injected <code>morpheus</code> object containing hardware-accelerated cryptographic primitives and secure network utilities.
+        When using built-in compute, Morpheus exposes a fixed catalog of functions. Custom JS compute receives <code>input</code> and <code>helpers</code>; Oracle custom JS receives <code>data</code>, <code>context</code>, and <code>helpers</code>.
       </p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>

@@ -14,7 +14,7 @@ export default function DocsIntroduction() {
       <h1>Infrastructure for Machine-Verified Truth</h1>
       
       <p className="lead" style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '2.5rem' }}>
-        Neo Morpheus Oracle is a decentralized privacy-preserving prover network. It utilizes hardware-based Trusted Execution Environments (TEE) to securely bridge sensitive off-chain data with Neo N3 and Neo X smart contracts.
+        Neo Morpheus Oracle is a decentralized privacy-preserving prover network. It uses hardware-backed Trusted Execution Environments to bridge sensitive off-chain data into Neo N3 callback flows, while exposing reference interfaces for Neo X.
       </p>
 
       <div className="grid grid-2" style={{ gap: '1.5rem', marginBottom: '4rem' }}>
@@ -46,7 +46,7 @@ export default function DocsIntroduction() {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', margin: '2.5rem 0' }}>
         {[
-          { icon: Zap, title: "On-Chain Registry & verification", desc: "Native contracts on Neo N3 and Neo X that handle request metadata, escrows, and RSA signature verification." },
+          { icon: Zap, title: "On-Chain Registry & verification", desc: "Native contracts track request metadata, fee credits, callback routing, and verifier-key-checked fulfillment." },
           { icon: Terminal, title: "Asynchronous Relayer", desc: "A robust event-driven bridge that coordinates between the Neo blockchain events and the Phala TEE worker cluster." },
           { icon: Shield, title: "TEE Prover Network", desc: "Hardware-isolated workers that unseal data, execute requests, and generate cryptographically verifiable proofs." }
         ].map((item, i) => (

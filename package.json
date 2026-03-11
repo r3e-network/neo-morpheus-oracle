@@ -9,6 +9,7 @@
   "scripts": {
     "dev:web": "npm --prefix apps/web run dev",
     "build:web": "npm --prefix apps/web run build",
+    "check:web-content": "node scripts/check-web-consistency.mjs",
     "start:web": "npm --prefix apps/web run start",
     "check:worker": "npm --prefix workers/phala-worker run check",
     "test:worker": "npm --prefix workers/phala-worker test",

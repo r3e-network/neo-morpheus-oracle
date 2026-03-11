@@ -32,7 +32,7 @@ export default function DocsNetworks() {
       <h1>Networks & Contracts</h1>
 
       <p className="lead" style={{ fontSize: '1.15rem', color: 'var(--text-primary)', marginBottom: '3rem' }}>
-        Official smart contract addresses for the Morpheus Privacy Oracle and Data Matrix across all supported Neo networks.
+        Official publication status for the Morpheus Privacy Oracle, validation consumers, and Data Matrix contracts.
       </p>
 
       <h2>Neo N3 Mainnet</h2>
@@ -74,6 +74,17 @@ export default function DocsNetworks() {
                 <span style={{ fontSize: '0.75rem' }}>No NNS alias</span>
               </td>
             </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-dim)' }}>
+              <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>ExampleConsumer (mainnet validation)</td>
+              <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  0x89b05cac00804648c666b47ecb1c57bc185821b7 {copyBtn("0x89b05cac00804648c666b47ecb1c57bc185821b7")}
+                </div>
+              </td>
+              <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.75rem' }}>Used in live privacy validation report</span>
+              </td>
+            </tr>
             <tr>
               <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>MorpheusDatafeed</td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
@@ -93,15 +104,15 @@ export default function DocsNetworks() {
 
       <div style={{ padding: '1.5rem', marginTop: '-2rem', marginBottom: '4rem', borderLeft: '4px solid var(--accent-blue)', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderRadius: '0 4px 4px 0' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes. Both the direct hash and the registered NNS name are valid transaction routing targets.
+          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes. The live request fee is <code>0.01 GAS</code> on Neo N3, and the active confidential payload algorithm is <code>X25519-HKDF-SHA256-AES-256-GCM</code>.
         </p>
       </div>
 
       <h2>Neo X Mainnet</h2>
       <div className="card-industrial" style={{ padding: '2rem', borderLeft: '4px solid var(--accent-blue)', marginBottom: '2rem' }}>
-        <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', marginBottom: '0.5rem' }}>Deployment Pending</h4>
+        <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', marginBottom: '0.5rem' }}>Reference Contracts Ready, Live Publication Pending</h4>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Neo X EVM contracts are currently undergoing internal audit and will be published shortly.
+          The repository includes Neo X contract code, examples, and interfaces, but live mainnet contract hashes have not been published in the registry yet.
         </p>
       </div>
       
