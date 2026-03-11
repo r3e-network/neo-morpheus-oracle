@@ -17,7 +17,7 @@ export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
   const [httpMethod, setHttpMethod] = useState("GET");
   const [oracleEncryptedParams, setOracleEncryptedParams] = useState("");
   const [oracleConfidentialJson, setOracleConfidentialJson] = useState('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  }\n}');
-  const [oracleScript, setOracleScript] = useState("function process(data) { return data.price; }");
+  const [oracleScript, setOracleScript] = useState("function process(response) {\n  // 'response' holds the HTTP JSON payload\n  return response.price;\n}");
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
   const [provider, setProvider] = useState("twelvedata");
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
