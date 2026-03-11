@@ -8,6 +8,7 @@ import { NETWORKS } from "@/lib/onchain-data";
 import { encryptJsonWithOraclePublicKey } from "@/lib/browser-encryption";
 
 const universalConsumer = "0x89b05cac00804648c666b47ecb1c57bc185821b7";
+const neoGasHash = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
 
 function escapeForCSharp(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -480,6 +481,18 @@ BigInteger requestId = (BigInteger)Contract.Call(
             <CodeBlock language="json" title="Callback Query Template" code={callbackQueryTemplate} />
 
             <div style={{ padding: "1rem", background: "#000", border: "1px solid var(--border-dim)" }}>
+              <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontWeight: 800, marginBottom: "0.5rem", fontFamily: "var(--font-mono)" }}>NEOLINE MANUAL ENTRY</div>
+              <div style={{ color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                <div><strong style={{ color: "#fff" }}>Contract:</strong> <code>{NETWORKS.neo_n3.oracle}</code></div>
+                <div><strong style={{ color: "#fff" }}>Method:</strong> <code>request</code></div>
+                <div><strong style={{ color: "#fff" }}>Arg 1 / String:</strong> <code>{generated.requestType}</code></div>
+                <div><strong style={{ color: "#fff" }}>Arg 2 / ByteArray:</strong> use the base64 payload above</div>
+                <div><strong style={{ color: "#fff" }}>Arg 3 / Hash160:</strong> <code>{manualCallbackHash}</code></div>
+                <div><strong style={{ color: "#fff" }}>Arg 4 / String:</strong> <code>{manualCallbackMethod}</code></div>
+              </div>
+            </div>
+
+            <div style={{ padding: "1rem", background: "#000", border: "1px solid var(--border-dim)" }}>
               <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontWeight: 800, marginBottom: "0.5rem", fontFamily: "var(--font-mono)" }}>NEO N3 CALL ARGUMENTS</div>
               <div style={{ color: "var(--text-secondary)", lineHeight: 1.8 }}>
                 <div><strong style={{ color: "#fff" }}>Arg 1:</strong> <code>{generated.requestType}</code></div>
@@ -487,6 +500,20 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 <div><strong style={{ color: "#fff" }}>Arg 3:</strong> callback contract = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or <code>{manualCallbackHash}</code> for direct wallet testing</div>
                 <div><strong style={{ color: "#fff" }}>Arg 4:</strong> callback method = <code>{manualCallbackMethod}</code></div>
                 <div><strong style={{ color: "#fff" }}>Fee:</strong> <code>0.01 GAS</code></div>
+              </div>
+            </div>
+
+            <div style={{ padding: "1rem", background: "#000", borderLeft: "4px solid var(--neo-green)", borderTop: "1px solid var(--border-dim)", borderRight: "1px solid var(--border-dim)", borderBottom: "1px solid var(--border-dim)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.5rem" }}>
+                <Shield size={16} color="var(--neo-green)" />
+                <strong style={{ color: "#fff" }}>Zero-Code Mainnet Test Mode</strong>
+              </div>
+              <div style={{ color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                <div>1. Keep callback hash at <code>{universalConsumer}</code>.</div>
+                <div>2. Before calling <code>request</code>, pre-fund fee credit with a GAS transfer to <code>{NETWORKS.neo_n3.oracle}</code>.</div>
+                <div>3. Neo N3 GAS token hash: <code>{neoGasHash}</code>.</div>
+                <div>4. Oracle will consume prepaid credit from the callback contract first, otherwise from the requester address.</div>
+                <div>5. After submission, call <code>getCallback(requestId)</code> on <code>{universalConsumer}</code>.</div>
               </div>
             </div>
 
