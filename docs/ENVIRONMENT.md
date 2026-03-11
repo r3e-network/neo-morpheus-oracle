@@ -165,6 +165,8 @@ They do not usually change trust assumptions.
 - `MORPHEUS_FEED_SYMBOLS`
   English: Comma-separated default pair list.
   中文：默认交易对列表，逗号分隔。
+  English: This now covers crypto, equities, ETFs, commodities, and FX pairs. Pair-level scaling can still be applied through the feed registry.
+  中文：现在默认列表可覆盖加密资产、股票、ETF、大宗商品和外汇；如有超小价格对，仍可通过 feed registry 做单位缩放。
 
 - `MORPHEUS_FEED_CHANGE_THRESHOLD_BPS`
   English: Minimum price change before a new on-chain feed update is submitted.
@@ -225,6 +227,8 @@ They do not usually change trust assumptions.
 - `MORPHEUS_AUTOMATION_PRICE_PAIRS_PER_TICK`
   English: Reserved knob for limiting per-tick price-trigger evaluation fan-out.
   中文：限制每个 tick 价格触发检查扇出的预留参数。
+  English: Keep this at or above the configured pair catalog size if you expect all pairs to be evaluated within the same scheduler cycle.
+  中文：如果你希望同一个调度周期内检查完全部价格对，这个值应不小于当前配置的 pair 总数。
 
 - `MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS`
   English: Default cooldown for price-threshold triggers when the job does not specify one.

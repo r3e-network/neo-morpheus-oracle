@@ -263,22 +263,46 @@ curl "$PHALA_API_URL/feeds/catalog" \
 
 Current default pair catalog includes:
 
-- `NEO-USD`
-- `GAS-USD`
-- `FLM-USD` (`1000 FLM` unit)
-- `BTC-USD`
-- `ETH-USD`
-- `SOL-USD`
-- `TRX-USD`
-- `PAXG-USD`
-- `WTI-USD`
-- `USDT-USD`
-- `USDC-USD`
-- `BNB-USD`
-- `XRP-USD`
-- `DOGE-USD`
+- Core crypto:
+  - `NEO-USD`
+  - `GAS-USD`
+  - `1000FLM-USD` (`1000 FLM` unit)
+  - `BTC-USD`
+  - `ETH-USD`
+  - `SOL-USD`
+  - `TRX-USD`
+  - `BNB-USD`
+  - `XRP-USD`
+  - `DOGE-USD`
+  - `USDT-USD`
+  - `USDC-USD`
+- Commodity / hard-asset:
+  - `PAXG-USD`
+  - `WTI-USD`
+  - `BRENT-USD`
+  - `NATGAS-USD`
+  - `COPPER-USD`
+  - `WHEAT-USD`
+  - `CORN-USD`
+  - `SOY-USD`
+- Equities / ETFs:
+  - `AAPL-USD`
+  - `GOOGL-USD`
+  - `MSFT-USD`
+  - `AMZN-USD`
+  - `TSLA-USD`
+  - `META-USD`
+  - `NVDA-USD`
+  - `SPY-USD`
+  - `QQQ-USD`
+  - `GLD-USD`
+- FX:
+  - `EUR-USD`
+  - `GBP-USD`
+  - `1000JPY-USD` (`1000 JPY` unit, inverted from `USD/JPY`)
+  - `CNY-USD` (inverted from `USD/CNY`)
 
-You can extend this later via `MORPHEUS_FEED_PAIR_REGISTRY_JSON`.
+Scaling is pair-specific. Very small USD prices can be promoted to `1000` or `10000` units while still storing integer cents on-chain.
 
 ### Query current off-chain quotes
 
@@ -428,7 +452,7 @@ Set:
 Example:
 
 ```env
-MORPHEUS_FEED_SYMBOLS=NEO-USD,GAS-USD,FLM-USD,BTC-USD,ETH-USD,SOL-USD
+MORPHEUS_FEED_SYMBOLS=NEO-USD,GAS-USD,1000FLM-USD,BTC-USD,ETH-USD,SOL-USD,WTI-USD,AAPL-USD,EUR-USD,1000JPY-USD
 ```
 
 ### Advanced level: add provider-specific mapping

@@ -14,7 +14,7 @@ export default function DocsDatafeeds() {
       <h1>Data Matrix</h1>
 
       <p>
-        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly to Neo N3 mainnet. These feeds are designed for synchronous consumption by DeFi protocols, lending platforms, and algorithmic traders.
+        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly to Neo N3 mainnet. These feeds are designed for synchronous consumption by DeFi protocols, lending platforms, algorithmic strategies, and FX / commodity aware contracts.
       </p>
 
       <h2>Operational Architecture</h2>
@@ -30,7 +30,7 @@ export default function DocsDatafeeds() {
 
       <h2>Supported Assets</h2>
       <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', marginBottom: '2.5rem' }}>
-        <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Mainnet Pairs (14)</p>
+        <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Configured Default Pair Catalog ({DEFAULT_FEED_SYMBOLS.length})</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           {DEFAULT_FEED_SYMBOLS.map((pair) => (
             <span key={pair} className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.7rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(0,255,163,0.3)', background: 'rgba(0,255,163,0.05)' }}>{getFeedDisplaySymbol(pair)}</span>
@@ -45,7 +45,9 @@ export default function DocsDatafeeds() {
       <ul>
         <li>A price of <code>$12.50</code> is stored as <code>1250</code>.</li>
         <li>A price of <code>$65,000.00</code> is stored as <code>6500000</code>.</li>
-        <li><code>FLM-USD</code> is tracked as a <code>1000 FLM</code> basket so sub-cent token pricing still remains representable in integer cents.</li>
+        <li><code>1000FLM-USD</code> is tracked as a <code>1000 FLM</code> basket so sub-cent token pricing still remains representable in integer cents.</li>
+        <li><code>1000JPY-USD</code> is tracked as a <code>1000 JPY</code> basket because a single JPY is far below one USD cent.</li>
+        <li>For very small USD-denominated assets, pair-level scaling metadata can promote the stored unit to <code>1000</code> or <code>10000</code> underlying units while keeping the on-chain value as integer cents.</li>
       </ul>
 
       <h2>Contract Integration</h2>
@@ -94,7 +96,7 @@ function checkPrice(string memory pair) public view returns (int256) {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. Only pairs whose observed price has moved by at least <strong>0.1%</strong> are submitted on-chain, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
+          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. Only pairs whose observed price has moved by at least <strong>0.1%</strong> are submitted on-chain, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction. Newly configured pairs appear in this catalog immediately in the frontend, then become readable on-chain after the next successful sync/update cycle.
         </p>
       </div>
     </div>

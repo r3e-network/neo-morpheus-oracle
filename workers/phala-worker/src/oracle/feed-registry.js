@@ -1,6 +1,11 @@
 import { env, trimString } from '../platform/core.js';
 import { normalizeProviderId } from './providers.js';
 
+const FEED_PAIR_ALIASES = {
+  'FLM-USD': '1000FLM-USD',
+  'JPY-USD': '1000JPY-USD',
+};
+
 export const DEFAULT_FEED_PAIRS = {
   'NEO-USD': {
     providers: {
@@ -14,7 +19,7 @@ export const DEFAULT_FEED_PAIRS = {
       'binance-spot': { symbol: 'GASUSDT' },
     },
   },
-  'FLM-USD': {
+  '1000FLM-USD': {
     display_symbol: '1000FLM-USD',
     unit_label: '1000 FLM',
     price_multiplier: 1000,
@@ -53,6 +58,36 @@ export const DEFAULT_FEED_PAIRS = {
       twelvedata: { symbol: 'WTI-USD' },
     },
   },
+  'BRENT-USD': {
+    providers: {
+      twelvedata: { symbol: 'BRENT/USD' },
+    },
+  },
+  'NATGAS-USD': {
+    providers: {
+      twelvedata: { symbol: 'NATGAS/USD' },
+    },
+  },
+  'COPPER-USD': {
+    providers: {
+      twelvedata: { symbol: 'COPPER/USD' },
+    },
+  },
+  'WHEAT-USD': {
+    providers: {
+      twelvedata: { symbol: 'WHEAT/USD' },
+    },
+  },
+  'CORN-USD': {
+    providers: {
+      twelvedata: { symbol: 'CORN/USD' },
+    },
+  },
+  'SOY-USD': {
+    providers: {
+      twelvedata: { symbol: 'SOY/USD' },
+    },
+  },
   'USDT-USD': {
     providers: {
       twelvedata: { symbol: 'USDT-USD' },
@@ -76,6 +111,81 @@ export const DEFAULT_FEED_PAIRS = {
   'DOGE-USD': {
     providers: {
       twelvedata: { symbol: 'DOGE-USD' },
+    },
+  },
+  'AAPL-USD': {
+    providers: {
+      twelvedata: { symbol: 'AAPL' },
+    },
+  },
+  'GOOGL-USD': {
+    providers: {
+      twelvedata: { symbol: 'GOOGL' },
+    },
+  },
+  'MSFT-USD': {
+    providers: {
+      twelvedata: { symbol: 'MSFT' },
+    },
+  },
+  'AMZN-USD': {
+    providers: {
+      twelvedata: { symbol: 'AMZN' },
+    },
+  },
+  'TSLA-USD': {
+    providers: {
+      twelvedata: { symbol: 'TSLA' },
+    },
+  },
+  'META-USD': {
+    providers: {
+      twelvedata: { symbol: 'META' },
+    },
+  },
+  'NVDA-USD': {
+    providers: {
+      twelvedata: { symbol: 'NVDA' },
+    },
+  },
+  'SPY-USD': {
+    providers: {
+      twelvedata: { symbol: 'SPY' },
+    },
+  },
+  'QQQ-USD': {
+    providers: {
+      twelvedata: { symbol: 'QQQ' },
+    },
+  },
+  'GLD-USD': {
+    providers: {
+      twelvedata: { symbol: 'GLD' },
+    },
+  },
+  'EUR-USD': {
+    providers: {
+      twelvedata: { symbol: 'EUR/USD' },
+    },
+  },
+  'GBP-USD': {
+    providers: {
+      twelvedata: { symbol: 'GBP/USD' },
+    },
+  },
+  '1000JPY-USD': {
+    display_symbol: '1000JPY-USD',
+    unit_label: '1000 JPY',
+    price_transform: 'inverse',
+    price_multiplier: 1000,
+    providers: {
+      twelvedata: { symbol: 'USD/JPY' },
+    },
+  },
+  'CNY-USD': {
+    price_transform: 'inverse',
+    providers: {
+      twelvedata: { symbol: 'USD/CNY' },
     },
   },
 };
@@ -110,17 +220,22 @@ function parseRegistryOverride() {
   }
 }
 
+export function normalizeFeedPairSymbol(pair) {
+  const normalized = trimString(pair).toUpperCase();
+  return FEED_PAIR_ALIASES[normalized] || normalized;
+}
+
 export function getFeedPairRegistry() {
   return deepMerge(DEFAULT_FEED_PAIRS, parseRegistryOverride());
 }
 
 export function getFeedPairConfig(pair) {
   const registry = getFeedPairRegistry();
-  return registry[trimString(pair).toUpperCase()] || null;
+  return registry[normalizeFeedPairSymbol(pair)] || null;
 }
 
 export function getFeedDisplaySymbol(pair) {
-  return trimString(getFeedPairConfig(pair)?.display_symbol || '') || trimString(pair).toUpperCase();
+  return trimString(getFeedPairConfig(pair)?.display_symbol || '') || normalizeFeedPairSymbol(pair);
 }
 
 export function getFeedUnitLabel(pair) {
@@ -130,6 +245,10 @@ export function getFeedUnitLabel(pair) {
 export function getFeedPriceMultiplier(pair) {
   const raw = Number(getFeedPairConfig(pair)?.price_multiplier ?? 1);
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
+}
+
+export function getFeedPriceTransform(pair) {
+  return trimString(getFeedPairConfig(pair)?.price_transform || '').toLowerCase();
 }
 
 export function getFeedProvidersForPair(pair) {
@@ -143,6 +262,7 @@ export function getDefaultFeedSymbols() {
 }
 
 export function applyFeedProviderDefaults(pair, providerId, payload = {}) {
+  const normalizedPair = normalizeFeedPairSymbol(pair);
   const config = getFeedPairConfig(pair);
   const provider = normalizeProviderId(providerId);
   const providerDefaults = config?.providers?.[provider] && typeof config.providers[provider] === 'object'
@@ -150,7 +270,7 @@ export function applyFeedProviderDefaults(pair, providerId, payload = {}) {
     : {};
   return {
     ...payload,
-    symbol: trimString(payload.symbol || pair).toUpperCase(),
+    symbol: trimString(payload.symbol || normalizedPair).toUpperCase(),
     provider,
     provider_params: {
       ...(providerDefaults || {}),
@@ -160,7 +280,7 @@ export function applyFeedProviderDefaults(pair, providerId, payload = {}) {
 }
 
 export function getFeedStoragePair(providerId, pair) {
-  return `${normalizeProviderId(providerId).toUpperCase()}:${trimString(pair).toUpperCase()}`;
+  return `${normalizeProviderId(providerId).toUpperCase()}:${normalizeFeedPairSymbol(pair)}`;
 }
 
 export function getSourceSetIdForProvider(providerId, fallback = 0) {

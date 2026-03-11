@@ -134,7 +134,7 @@ export function OverviewTab({ setOutput }: any) {
             <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>15s / 0.1%</span>
           </div>
           <div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{datafeedState?.pair_count || DEFAULT_PAIRS.length} Active Feeds</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{datafeedState?.pair_count || 0} Synced / {DEFAULT_PAIRS.length} Configured</div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>NNS: {NETWORKS.neo_n3.domains.datafeed}</div>
           </div>
         </div>

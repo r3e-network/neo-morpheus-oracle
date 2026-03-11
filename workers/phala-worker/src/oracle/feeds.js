@@ -17,8 +17,10 @@ import {
   applyFeedProviderDefaults,
   getDefaultFeedSymbols,
   getFeedDisplaySymbol,
+  normalizeFeedPairSymbol,
   getFeedProvidersForPair,
   getFeedPriceMultiplier,
+  getFeedPriceTransform,
   getFeedStoragePair,
   getFeedUnitLabel,
   getSourceSetIdForProvider,
@@ -40,15 +42,15 @@ export function normalizePairSymbol(rawSymbol) {
   if (!raw) return 'NEO-USD';
   if (/^[A-Z0-9]+-[A-Z0-9]+$/.test(raw)) {
     const [base, quote] = raw.split('-');
-    return `${base}-${quote === 'USDT' ? 'USD' : quote}`;
+    return normalizeFeedPairSymbol(`${base}-${quote === 'USDT' ? 'USD' : quote}`);
   }
   if (/^[A-Z0-9]+[/-_][A-Z0-9]+$/.test(raw)) {
     const [base, quote] = raw.split(/[/_-]/);
-    return `${base}-${quote === 'USDT' ? 'USD' : quote}`;
+    return normalizeFeedPairSymbol(`${base}-${quote === 'USDT' ? 'USD' : quote}`);
   }
-  if (raw.endsWith('USDT')) return `${raw.slice(0, -4)}-USD`;
-  if (raw.endsWith('USD')) return `${raw.slice(0, -3)}-USD`;
-  return `${raw}-USD`;
+  if (raw.endsWith('USDT')) return normalizeFeedPairSymbol(`${raw.slice(0, -4)}-USD`);
+  if (raw.endsWith('USD')) return normalizeFeedPairSymbol(`${raw.slice(0, -3)}-USD`);
+  return normalizeFeedPairSymbol(`${raw}-USD`);
 }
 
 export function decimalToIntegerString(value, decimals = FEED_PRICE_DECIMALS) {
@@ -84,6 +86,26 @@ export function multiplyDecimalString(value, multiplier = 1) {
   const whole = fractionPart.length > 0 ? digits.slice(0, -fractionPart.length) : digits;
   const fraction = fractionPart.length > 0 ? digits.slice(-fractionPart.length).replace(/0+$/, '') : '';
   return `${sign}${fraction ? `${whole}.${fraction}` : whole}`;
+}
+
+function normalizeDecimalNumberString(value, precision = 12) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) throw new Error(`invalid numeric value: ${value}`);
+  return numeric.toFixed(precision).replace(/\.?0+$/, '');
+}
+
+export function transformDecimalString(value, { transform = '', multiplier = 1 } = {}) {
+  let numeric = Number(trimString(value));
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    throw new Error(`invalid decimal value: ${value}`);
+  }
+  if (transform === 'inverse') {
+    numeric = 1 / numeric;
+  }
+  if (Number(multiplier) !== 1) {
+    numeric *= Number(multiplier);
+  }
+  return normalizeDecimalNumberString(numeric);
 }
 
 function getFeedStatePath() {
@@ -208,7 +230,11 @@ async function resolveQuoteForProvider(symbol, options, provider) {
   const displaySymbol = getFeedDisplaySymbol(pair);
   const unitLabel = getFeedUnitLabel(pair) || null;
   const priceMultiplier = getFeedPriceMultiplier(pair);
-  const price = multiplyDecimalString(String(rawPrice), priceMultiplier);
+  const priceTransform = getFeedPriceTransform(pair);
+  const price = transformDecimalString(String(rawPrice), {
+    transform: priceTransform,
+    multiplier: priceMultiplier,
+  });
 
   const quote = {
     feed_id: `${provider}:${pair}`,
@@ -217,6 +243,7 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     unit_label: unitLabel,
     provider,
     raw_price: String(rawPrice),
+    price_transform: priceTransform || null,
     price_multiplier: priceMultiplier,
     price: String(price),
     decimals: FEED_PRICE_DECIMALS,

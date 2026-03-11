@@ -248,6 +248,10 @@ test('feeds catalog lists default symbols', async () => {
   assert.ok(body.pairs.includes('NEO-USD'));
   assert.ok(body.pairs.includes('PAXG-USD'));
   assert.ok(body.pairs.includes('WTI-USD'));
+  assert.ok(body.pairs.includes('AAPL-USD'));
+  assert.ok(body.pairs.includes('EUR-USD'));
+  assert.ok(body.pairs.includes('1000FLM-USD'));
+  assert.ok(body.pairs.includes('1000JPY-USD'));
 });
 
 test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
@@ -289,7 +293,7 @@ test('feed quote supports twelvedata provider', async () => {
   assert.equal(body.price, '45.67');
 });
 
-test('feed quote scales FLM into 1000 FLM display units', async () => {
+test('feed quote uses canonical 1000FLM-USD pair naming', async () => {
   global.fetch = async (url) => {
     assert.match(String(url), /api\.twelvedata\.com\/price/);
     assert.match(String(url), /FLM%2FUSD/);
@@ -299,15 +303,37 @@ test('feed quote scales FLM into 1000 FLM display units', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(new Request('http://local/feeds/price/1000FLM-USD?provider=twelvedata', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.pair, 'FLM-USD');
+  assert.equal(body.pair, '1000FLM-USD');
   assert.equal(body.display_symbol, '1000FLM-USD');
   assert.equal(body.unit_label, '1000 FLM');
   assert.equal(body.raw_price, '0.00123');
   assert.equal(body.price, '1.23');
   assert.equal(body.price_multiplier, 1000);
+});
+
+test('feed quote can invert and scale forex units for canonical 1000JPY-USD', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    assert.match(String(url), /USD%2FJPY/);
+    return new Response(JSON.stringify({ price: '150.0000' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/1000JPY-USD?provider=twelvedata', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pair, '1000JPY-USD');
+  assert.equal(body.display_symbol, '1000JPY-USD');
+  assert.equal(body.unit_label, '1000 JPY');
+  assert.equal(body.raw_price, '150.0000');
+  assert.equal(body.price_transform, 'inverse');
+  assert.equal(body.price_multiplier, 1000);
+  assert.equal(body.price, '6.666666666667');
 });
 
 

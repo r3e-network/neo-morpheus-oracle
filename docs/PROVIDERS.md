@@ -115,22 +115,46 @@ This supports three useful modes:
 
 ## PriceFeed Pair Catalog
 
-Default built-in USD pairs:
+Default built-in USD pairs now cover:
 
-- `NEO-USD`
-- `GAS-USD`
-- `FLM-USD` (`1000 FLM` unit)
-- `BTC-USD`
-- `ETH-USD`
-- `SOL-USD`
-- `TRX-USD`
-- `PAXG-USD`
-- `WTI-USD`
-- `USDT-USD`
-- `USDC-USD`
-- `BNB-USD`
-- `XRP-USD`
-- `DOGE-USD`
+- Core crypto:
+  - `NEO-USD`
+  - `GAS-USD`
+  - `1000FLM-USD` (`1000 FLM` unit)
+  - `BTC-USD`
+  - `ETH-USD`
+  - `SOL-USD`
+  - `TRX-USD`
+  - `BNB-USD`
+  - `XRP-USD`
+  - `DOGE-USD`
+  - `USDT-USD`
+  - `USDC-USD`
+- Commodity / hard-asset:
+  - `PAXG-USD`
+  - `WTI-USD`
+  - `BRENT-USD`
+  - `NATGAS-USD`
+  - `COPPER-USD`
+  - `WHEAT-USD`
+  - `CORN-USD`
+  - `SOY-USD`
+- Equities / ETFs:
+  - `AAPL-USD`
+  - `GOOGL-USD`
+  - `MSFT-USD`
+  - `AMZN-USD`
+  - `TSLA-USD`
+  - `META-USD`
+  - `NVDA-USD`
+  - `SPY-USD`
+  - `QQQ-USD`
+  - `GLD-USD`
+- FX:
+  - `EUR-USD`
+  - `GBP-USD`
+  - `1000JPY-USD` (`1000 JPY` unit, inverted from `USD/JPY`)
+  - `CNY-USD` (inverted from `USD/CNY`)
 
 Production sync defaults to `twelvedata` only. Other built-in providers remain available for Oracle fetch flows and project-specific overrides.
 
