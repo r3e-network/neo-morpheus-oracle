@@ -321,6 +321,14 @@ uint256 requestId = oracle.request{value: fee}(
         </p>
       </div>
 
+      <div className="card-industrial" style={{ padding: '1.25rem 1.5rem', borderLeft: '4px solid var(--accent-blue)' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          For a zero-code mainnet test, set callback hash to <code>0x89b05cac00804648c666b47ecb1c57bc185821b7</code>,
+          keep callback method as <code>onOracleResult</code>, pre-fund <code>0.01 GAS</code> Oracle credit, submit the request,
+          then read back with <code>getCallback(requestId)</code>.
+        </p>
+      </div>
+
       <div className="card-industrial" style={{ padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
           <Zap size={18} color="var(--neo-green)" />
@@ -567,8 +575,8 @@ uint256 requestId = oracle.request{value: fee}(
                 <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
                   <div><strong style={{ color: '#fff' }}>Arg 1:</strong> <code>{generatedRequest.requestType}</code></div>
                   <div><strong style={{ color: '#fff' }}>Arg 2:</strong> UTF-8 payload JSON bytes</div>
-                  <div><strong style={{ color: '#fff' }}>Arg 3:</strong> callback contract = <code>Runtime.ExecutingScriptHash</code></div>
-                  <div><strong style={{ color: '#fff' }}>Arg 4:</strong> callback method = <code>onOracleResult</code></div>
+                  <div><strong style={{ color: '#fff' }}>Arg 3:</strong> callback contract = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or <code>{walletCallbackHash}</code> for direct wallet testing</div>
+                  <div><strong style={{ color: '#fff' }}>Arg 4:</strong> callback method = <code>{walletCallbackMethod}</code></div>
                   <div><strong style={{ color: '#fff' }}>Fee:</strong> <code>{oracleState?.request_fee_display || "0.01 GAS"}</code></div>
                 </div>
               </div>
