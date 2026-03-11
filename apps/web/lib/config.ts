@@ -1,4 +1,4 @@
-const selectedNetwork = (process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || "testnet") === "mainnet"
+const selectedNetwork = (process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || "mainnet") === "mainnet"
   ? "mainnet"
   : "testnet";
 

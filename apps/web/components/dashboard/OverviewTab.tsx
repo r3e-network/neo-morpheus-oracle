@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { DEFAULT_PAIRS, NETWORKS } from "@/lib/onchain-data";
-import { getDeprecatedFeedInfo, getFeedDisplaySymbol, getFeedUnitLabel } from "@/lib/feed-defaults";
+import { getDeprecatedFeedInfo, getFeedDescriptor, getFeedDisplaySymbol, getFeedUnitLabel } from "@/lib/feed-defaults";
 
 type OnchainRecord = {
   pair: string;
@@ -28,6 +28,9 @@ export function OverviewTab({ setOutput }: any) {
   const [onchainState, setOnchainState] = useState<any>(null);
   const [runtimeInfo, setRuntimeInfo] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedPair, setSelectedPair] = useState<string>(DEFAULT_PAIRS[0]);
+  const [liveQuote, setLiveQuote] = useState<any>(null);
+  const [liveQuoteLoading, setLiveQuoteLoading] = useState(false);
 
   const loadState = useCallback(async () => {
     setIsRefreshing(true);
@@ -67,6 +70,24 @@ export function OverviewTab({ setOutput }: any) {
     return () => clearInterval(timer);
   }, [loadState]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadLiveQuote() {
+      setLiveQuoteLoading(true);
+      try {
+        const response = await fetch(`/api/feeds/${encodeURIComponent(selectedPair)}?provider=twelvedata`);
+        const body = await response.json().catch(() => ({}));
+        if (!cancelled) setLiveQuote(body);
+      } catch {
+        if (!cancelled) setLiveQuote(null);
+      } finally {
+        if (!cancelled) setLiveQuoteLoading(false);
+      }
+    }
+    void loadLiveQuote();
+    return () => { cancelled = true; };
+  }, [selectedPair]);
+
   const recordsByPair = useMemo(() => {
     const records = Array.isArray(onchainState?.neo_n3?.datafeed?.records)
       ? onchainState.neo_n3.datafeed.records
@@ -92,6 +113,14 @@ export function OverviewTab({ setOutput }: any) {
   const oracleState = onchainState?.neo_n3?.oracle || null;
   const datafeedState = onchainState?.neo_n3?.datafeed || null;
   const dstack = runtimeInfo?.dstack || null;
+  const configuredSyncedCount = DEFAULT_PAIRS.filter((pair) => recordsByPair.has(pair)).length;
+  const selectedRecord = recordsByPair.get(selectedPair) || null;
+  const selectedDescriptor = getFeedDescriptor(selectedPair);
+  const livePrice = liveQuote?.price ? Number(liveQuote.price) : null;
+  const onchainPrice = selectedRecord?.price_display ? Number(selectedRecord.price_display) : null;
+  const liveDeltaPct = livePrice !== null && onchainPrice !== null && onchainPrice > 0
+    ? ((livePrice - onchainPrice) / onchainPrice) * 100
+    : null;
 
   return (
     <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
@@ -148,7 +177,7 @@ export function OverviewTab({ setOutput }: any) {
             <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>15s / 0.1%</span>
           </div>
           <div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{datafeedState?.pair_count || 0} Synced / {DEFAULT_PAIRS.length} Configured</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{configuredSyncedCount} Synced / {DEFAULT_PAIRS.length} Configured</div>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>NNS: {NETWORKS.neo_n3.domains.datafeed}</div>
           </div>
         </div>
@@ -173,6 +202,68 @@ export function OverviewTab({ setOutput }: any) {
         </section>
       )}
 
+      <section className="card-industrial stagger-2" style={{ padding: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>Selected Feed Detail</h3>
+            <div style={{ marginTop: '0.35rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+              {selectedDescriptor?.label || selectedPair}
+            </div>
+          </div>
+          <span className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}>
+            {selectedDescriptor?.category || "Feed"}
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>PAIR</div>
+            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{selectedPair}</div>
+          </div>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>MEANING</div>
+            <div style={{ color: '#fff' }}>{selectedDescriptor?.meaning || "No description available"}</div>
+          </div>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>CHAIN VALUE</div>
+            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{selectedRecord ? `$${selectedRecord.price_display}` : "Not synced yet"}</div>
+          </div>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>REAL-TIME SOURCE</div>
+            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+              {liveQuoteLoading ? "Loading..." : liveQuote?.price ? `$${liveQuote.price}` : "Unavailable"}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>TWELVEDATA SYMBOL</div>
+            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{selectedDescriptor?.sourceSymbol || "-"}</div>
+          </div>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>UNIT</div>
+            <div style={{ color: '#fff' }}>{selectedDescriptor?.unit || "-"}</div>
+          </div>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>LIVE VS CHAIN</div>
+            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+              {liveDeltaPct === null ? "-" : `${liveDeltaPct >= 0 ? "+" : ""}${liveDeltaPct.toFixed(2)}%`}
+            </div>
+          </div>
+          <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>LAST ON-CHAIN UPDATE</div>
+            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{selectedRecord?.timestamp_iso ? new Date(selectedRecord.timestamp_iso).toLocaleString() : "-"}</div>
+          </div>
+        </div>
+
+        {selectedDescriptor?.note && (
+          <p style={{ marginTop: '1rem', marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+            <strong style={{ color: '#fff' }}>Note:</strong> {selectedDescriptor.note}
+          </p>
+        )}
+      </section>
+
       <div className="card-industrial stagger-2" style={{ padding: '0' }}>
         <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -190,11 +281,13 @@ export function OverviewTab({ setOutput }: any) {
             const record = recordsByPair.get(pair);
             const displayPair = getFeedDisplaySymbol(pair);
             const unitLabel = getFeedUnitLabel(pair);
+            const descriptor = getFeedDescriptor(pair);
             return (
-              <div key={pair} style={{ padding: '1.5rem', background: 'var(--bg-panel)', position: 'relative', transition: 'background 0.3s' }} onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--bg-dark)'; }} onMouseLeave={(event) => { event.currentTarget.style.background = 'var(--bg-panel)'; }}>
+              <div key={pair} onClick={() => setSelectedPair(pair)} role="button" tabIndex={0} style={{ padding: '1.5rem', background: selectedPair === pair ? 'var(--bg-dark)' : 'var(--bg-panel)', position: 'relative', transition: 'background 0.3s', textAlign: 'left', cursor: 'pointer' }} onMouseEnter={(event) => { event.currentTarget.style.background = 'var(--bg-dark)'; }} onMouseLeave={(event) => { event.currentTarget.style.background = selectedPair === pair ? 'var(--bg-dark)' : 'var(--bg-panel)'; }} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setSelectedPair(pair); }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems: 'center' }}>
                   <div>
                     <span style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.02em', display: 'block' }}>{displayPair}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '0.2rem' }}>{descriptor?.label || descriptor?.meaning || displayPair}</span>
                     <span style={{ fontSize: '0.58rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{NETWORKS.neo_n3.domains.datafeed}</span>
                   </div>
                   <a href={NETWORKS.neo_n3.explorer + NETWORKS.neo_n3.datafeed} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-muted)', transition: 'color 0.2s' }} onMouseEnter={(event) => { event.currentTarget.style.color = 'var(--text-primary)'; }} onMouseLeave={(event) => { event.currentTarget.style.color = 'var(--text-muted)'; }}>
