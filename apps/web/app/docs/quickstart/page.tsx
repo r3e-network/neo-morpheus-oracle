@@ -84,6 +84,29 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
         Once the transaction is mined, the <strong>Morpheus Relayer</strong> detects the event, forwards the encrypted payload to the Phala TEE, and then submits a callback transaction back to your contract containing the signed result envelope. If the upstream fetch or compute fails, the request should still finalize with a failure callback instead of being silently dropped.
       </p>
 
+      <div style={{ marginTop: '4rem', padding: '2.5rem', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderLeft: '4px solid var(--neo-green)', borderRadius: '0 4px 4px 0' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+          <Terminal size={20} color="var(--neo-green)" />
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Zero-Code Testing (Mainnet)</h4>
+        </div>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+          You don&apos;t need to write or deploy your own Consumer contract to test Morpheus! We have deployed a universal <code>OracleCallbackConsumer</code> shell on Neo N3 mainnet at <code style={{ color: 'var(--neo-green)', background: 'rgba(0,255,163,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(0,255,163,0.2)', fontSize: '0.85rem', marginLeft: '0.5rem' }}>0x89b05cac00804648c666b47ecb1c57bc185821b7</code>.
+        </p>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+          <strong>1. Submit Request:</strong> Generate your JSON payload using the <strong>Dashboard Oracle Builder</strong>. Then, invoke <code>request</code> on the MorpheusOracle (<code>&#123;NETWORKS.neo_n3.oracle&#125;</code>) directly using NeoLine or Neo-CLI:
+        </p>
+        <ul style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', paddingLeft: '1.5rem', lineHeight: 1.6 }}>
+          <li>Arg 1 (String): <code>"privacy_oracle"</code> or <code>"compute"</code></li>
+          <li>Arg 2 (ByteString): Your generated JSON payload string</li>
+          <li>Arg 3 (Hash160): <code>0x89b05cac00804648c666b47ecb1c57bc185821b7</code></li>
+          <li>Arg 4 (String): <code>"onOracleResult"</code></li>
+          <li style={{ marginTop: '0.5rem' }}><strong style={{ color: '#fff' }}>Fee:</strong> Attach exactly <code>0.01 GAS</code> to the transaction invocation.</li>
+        </ul>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6 }}>
+          <strong>2. Read Result:</strong> Check your transaction to get the <code>requestId</code>. Wait about 60 seconds, then perform a read-only invoke of <code>getCallback(requestId)</code> on the consumer script hash above to view your completely executed result envelope!
+        </p>
+      </div>
+
       <div className="grid grid-2" style={{ gap: '1.5rem', marginTop: '4rem' }}>
         <Link href="/docs/api-reference" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
