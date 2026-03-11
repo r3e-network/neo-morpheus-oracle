@@ -5,8 +5,10 @@ import { getSelectedNetwork } from "./networks";
 type OnchainFeedRecord = {
   pair: string;
   round_id: string;
-  price_cents: string;
+  price_units: string;
   price_display: string;
+  price_scale: string;
+  price_scale_decimals: number;
   timestamp: string;
   timestamp_iso: string | null;
   attestation_hash: string;
@@ -39,7 +41,8 @@ type ChainState = {
 };
 
 const NEON3_GAS_DECIMALS = 8;
-const PRICE_DECIMALS = 2;
+const PRICE_SCALE = 1_000_000;
+const PRICE_DECIMALS = 6;
 
 const ORACLE_X_INTERFACE = new Interface([
   "function requestFee() view returns (uint256)",
@@ -107,13 +110,15 @@ function normalizeFeedRecord(record: {
   attestationHash: unknown;
   sourceSetId: unknown;
 }): OnchainFeedRecord {
-  const priceCents = String(record.price ?? "0");
+  const priceUnits = String(record.price ?? "0");
   const timestamp = String(record.timestamp ?? "0");
   return {
     pair: trimString(record.pair) || "UNKNOWN",
     round_id: String(record.roundId ?? "0"),
-    price_cents: priceCents,
-    price_display: formatFixedPoint(priceCents, PRICE_DECIMALS),
+    price_units: priceUnits,
+    price_display: formatFixedPoint(priceUnits, PRICE_DECIMALS),
+    price_scale: String(PRICE_SCALE),
+    price_scale_decimals: PRICE_DECIMALS,
     timestamp,
     timestamp_iso: toIsoTimestamp(timestamp),
     attestation_hash: normalizeHashText(record.attestationHash),

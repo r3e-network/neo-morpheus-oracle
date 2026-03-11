@@ -102,7 +102,7 @@ export default function HomePage() {
                 </div>
                 <h2 className="section-title">Decentralized Datafeeds</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '2.5rem', lineHeight: 1.7 }}>
-                  Access synchronized mainnet price pairs stored directly on Neo N3. Updates are scanned every 15 seconds and only published when movement versus the current quantized on-chain integer value exceeds 0.1%.
+                  Access synchronized mainnet price pairs stored directly on Neo N3. Prices use a global <code>1 USD = 1,000,000</code> integer scale, and updates are scanned every 15 seconds and only published when movement versus the current quantized on-chain value exceeds 0.1%.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '3rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -127,7 +127,7 @@ export default function HomePage() {
                   <span className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}>SYNC_OK</span>
                 </div>
                 <pre className="text-neo-gradient" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', lineHeight: 1.7, padding: '2rem' }}>
-{`// Read verified integer-cents price data on Neo N3
+{`// Read verified 1e6-scaled USD price data on Neo N3
 public static void Execute() {
     object[] record = (object[])Contract.Call(
         DataFeedHash,
@@ -136,10 +136,11 @@ public static void Execute() {
         "TWELVEDATA:NEO-USD"
     );
     
-    BigInteger priceCents = (BigInteger)record[2];
+    BigInteger priceUnits = (BigInteger)record[2];
     BigInteger timestamp = (BigInteger)record[3];
     
-    Require(priceCents > 100, "Price too low");
+    // 1.000000 USD == 1_000_000 units
+    Require(priceUnits > 1_000_000, "Price too low");
 }`}
                 </pre>
               </div>

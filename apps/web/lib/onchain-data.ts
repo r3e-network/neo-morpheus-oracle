@@ -29,6 +29,8 @@ export const NETWORKS = {
 };
 
 const EVM_DATAFEED_ABI = ["function latestPrice(string pair) view returns (int256, uint256)"];
+const PRICE_SCALE = 1_000_000;
+const PRICE_SCALE_DECIMALS = 6;
 
 export interface OnChainPrice {
   price: string;
@@ -45,7 +47,7 @@ export async function fetchNeoXPrice(pair: string): Promise<OnChainPrice | null>
     const contract = new ethers.Contract(NETWORKS.neo_x.datafeed, EVM_DATAFEED_ABI, provider);
     const [price, timestamp] = await contract.latestPrice(pair);
     return {
-      price: (Number(price) / 100).toFixed(2),
+      price: (Number(price) / PRICE_SCALE).toFixed(PRICE_SCALE_DECIMALS),
       timestamp: Number(timestamp) * 1000,
       pair,
       network: "Neo X",
@@ -92,7 +94,7 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
         const tsItem = stateArray[3];
         
         return {
-          price: (Number(priceItem.value) / 100).toFixed(2),
+          price: (Number(priceItem.value) / PRICE_SCALE).toFixed(PRICE_SCALE_DECIMALS),
           timestamp: Number(tsItem.value) * 1000,
           pair: getFeedDisplaySymbol(pair),
           network: "Neo N3",

@@ -120,7 +120,7 @@ Default built-in USD pairs now cover:
 - Core crypto:
   - `NEO-USD`
   - `GAS-USD`
-  - `1000FLM-USD` (`1000 FLM` unit)
+  - `FLM-USD`
   - `BTC-USD`
   - `ETH-USD`
   - `SOL-USD`
@@ -153,7 +153,7 @@ Default built-in USD pairs now cover:
 - FX:
   - `EUR-USD`
   - `GBP-USD`
-  - `1000JPY-USD` (`1000 JPY` unit, inverted from `USD/JPY`)
+  - `JPY-USD` (inverted from `USD/JPY`)
   - `CNY-USD` (inverted from `USD/CNY`)
 
 Production sync defaults to `twelvedata` only. Other built-in providers remain available for Oracle fetch flows and project-specific overrides.
@@ -171,19 +171,19 @@ On-chain storage is provider-scoped, for example:
 ### Canonical pair table
 
 Use these names exactly in contracts, automation jobs, and documentation.
-Scaled names such as `1000FLM-USD` and `1000JPY-USD` are canonical pair ids.
+Under the global `1 USD = 1,000,000` precision model, direct pair ids such as `FLM-USD` and `JPY-USD` are canonical again.
 
 Deprecated legacy storage key:
 
-- `TWELVEDATA:FLM-USD` is a historical on-chain key and should be treated as deprecated
-- use `TWELVEDATA:1000FLM-USD` on-chain instead
-- use `1000FLM-USD` everywhere in user-facing configs, contracts, and docs
+- historical basket keys such as `TWELVEDATA:1000FLM-USD` and `TWELVEDATA:1000JPY-USD` should be treated as deprecated
+- use `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD` on-chain instead
+- use `FLM-USD` and `JPY-USD` everywhere in user-facing configs, contracts, and docs
 
 | Pair | Category | Meaning | TwelveData symbol | On-chain unit | Note |
 | --- | --- | --- | --- | --- | --- |
 | `NEO-USD` | Crypto | price of 1 NEO in USD | `NEO/USD` | `1 NEO` |  |
 | `GAS-USD` | Crypto | price of 1 GAS in USD | `GAS/USD` | `1 GAS` |  |
-| `1000FLM-USD` | Crypto | price of 1000 FLM in USD | `FLM/USD` | `1000 FLM` | scaled because 1 FLM is too small for integer-cent storage |
+| `FLM-USD` | Crypto | price of 1 FLM in USD | `FLM/USD` | `1 FLM` | direct pair under the global 1e6 USD scale |
 | `BTC-USD` | Crypto | price of 1 BTC in USD | `BTC/USD` | `1 BTC` |  |
 | `ETH-USD` | Crypto | price of 1 ETH in USD | `ETH/USD` | `1 ETH` |  |
 | `SOL-USD` | Crypto | price of 1 SOL in USD | `SOL/USD` | `1 SOL` |  |
@@ -213,7 +213,7 @@ Deprecated legacy storage key:
 | `GLD-USD` | ETF | price of 1 GLD share in USD | `GLD` | `1 ETF share` |  |
 | `EUR-USD` | FX | price of 1 EUR in USD | `EUR/USD` | `1 EUR` |  |
 | `GBP-USD` | FX | price of 1 GBP in USD | `GBP/USD` | `1 GBP` |  |
-| `1000JPY-USD` | FX | price of 1000 JPY in USD | `USD/JPY` | `1000 JPY` | fetched as `USD/JPY`, then inverted and scaled by 1000 |
+| `JPY-USD` | FX | price of 1 JPY in USD | `USD/JPY` | `1 JPY` | fetched as `USD/JPY`, then inverted |
 | `CNY-USD` | FX | price of 1 CNY in USD | `USD/CNY` | `1 CNY` | fetched as `USD/CNY`, then inverted |
 
 ## Selection Model

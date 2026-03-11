@@ -297,7 +297,7 @@ export function OverviewTab({ setOutput }: any) {
 
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '0.5rem' }}>
                   <span style={{ fontSize: '1.75rem', fontWeight: 900, fontFamily: 'var(--font-mono)', letterSpacing: '-0.04em', color: record ? '#fff' : 'var(--text-muted)' }}>
-                    {record ? `$${record.price_display}` : '$--.--'}
+                    {record ? `$${record.price_display}` : '$--.------'}
                   </span>
                 </div>
                 {unitLabel && (

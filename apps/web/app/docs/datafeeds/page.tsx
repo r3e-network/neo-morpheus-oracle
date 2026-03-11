@@ -41,27 +41,25 @@ export default function DocsDatafeeds() {
 
       <h2>Data Storage Format</h2>
       <p>
-        All prices are stored as <strong>Integer Cents</strong> (USD) with two fixed decimal places. 
+        All prices are stored as <strong>scaled USD integers</strong> with a global precision of <strong>1 USD = 1,000,000 units</strong>.
       </p>
       <ul>
-        <li>A price of <code>$12.50</code> is stored as <code>1250</code>.</li>
-        <li>A price of <code>$65,000.00</code> is stored as <code>6500000</code>.</li>
-        <li><code>1000FLM-USD</code> is tracked as a <code>1000 FLM</code> basket so sub-cent token pricing still remains representable in integer cents.</li>
-        <li><code>1000JPY-USD</code> is tracked as a <code>1000 JPY</code> basket because a single JPY is far below one USD cent.</li>
-        <li>For very small USD-denominated assets, pair-level scaling metadata can promote the stored unit to <code>1000</code> or <code>10000</code> underlying units while keeping the on-chain value as integer cents.</li>
-        <li>The 0.1% sync threshold is evaluated against the <strong>quantized on-chain integer price</strong>. If a raw source move is still too small to change the stored cent value, no update is possible and no transaction is sent.</li>
+        <li>A price of <code>$12.50</code> is stored as <code>12500000</code>.</li>
+        <li>A price of <code>$65,000.00</code> is stored as <code>65000000000</code>.</li>
+        <li>A price of <code>$0.002437</code> is stored as <code>2437</code>, which is enough to represent low-priced assets such as FLM directly.</li>
+        <li>The 0.1% sync threshold is evaluated against the <strong>quantized on-chain integer value</strong>. With the global 1e6 scale, the standard pair list can use direct pair names such as <code>FLM-USD</code> and <code>JPY-USD</code> instead of basket names.</li>
       </ul>
 
       <h2>Canonical Pair Meanings</h2>
       <p>
-        Contracts and users should use the pair names exactly as written below. Scaled names such as <code>1000FLM-USD</code> and <code>1000JPY-USD</code> are the canonical identifiers, not just display aliases.
+        Contracts and users should use the pair names exactly as written below. Under the global 1e6 precision model, canonical identifiers use the direct asset names such as <code>FLM-USD</code> and <code>JPY-USD</code>.
       </p>
 
       <div className="card-industrial" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b', marginBottom: '2rem' }}>
         <h4 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#fff', fontSize: '0.95rem', fontWeight: 800 }}>Deprecated Legacy Key</h4>
         <p style={{ marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          The chain still contains the historical key <code>TWELVEDATA:FLM-USD</code>. Treat it as <strong>deprecated</strong>.
-          New integrations must use <code>TWELVEDATA:1000FLM-USD</code> on-chain and <code>1000FLM-USD</code> in user-facing configs, docs, and contracts.
+          The chain may still contain historical basket keys such as <code>TWELVEDATA:1000FLM-USD</code> and <code>TWELVEDATA:1000JPY-USD</code>.
+          New integrations must use <code>TWELVEDATA:FLM-USD</code> and <code>TWELVEDATA:JPY-USD</code> under the global 1e6 price scale.
         </p>
       </div>
 
@@ -113,7 +111,7 @@ public static void CheckLiquidation() {
         "TWELVEDATA:NEO-USD"
     );
     
-    BigInteger priceCents = (BigInteger)record[2];
+    BigInteger priceUnits = (BigInteger)record[2];
     BigInteger lastUpdate = (BigInteger)record[3];
     
     // Process logic...
@@ -141,7 +139,7 @@ function checkPrice(string memory pair) public view returns (int256) {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored integer value</strong>. Only pairs whose change versus the quantized on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
+          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored integer value</strong> using the global <code>1 USD = 1,000,000</code> scale. Only pairs whose change versus the quantized on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
         </p>
       </div>
     </div>

@@ -250,8 +250,8 @@ test('feeds catalog lists default symbols', async () => {
   assert.ok(body.pairs.includes('WTI-USD'));
   assert.ok(body.pairs.includes('AAPL-USD'));
   assert.ok(body.pairs.includes('EUR-USD'));
-  assert.ok(body.pairs.includes('1000FLM-USD'));
-  assert.ok(body.pairs.includes('1000JPY-USD'));
+  assert.ok(body.pairs.includes('FLM-USD'));
+  assert.ok(body.pairs.includes('JPY-USD'));
 });
 
 test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
@@ -310,7 +310,7 @@ test('feed quote preserves explicit TwelveData stock symbols without appending /
   assert.equal(body.price, '260.72');
 });
 
-test('feed quote uses canonical 1000FLM-USD pair naming', async () => {
+test('feed quote uses direct FLM-USD pair naming under 1e6 USD scale', async () => {
   global.fetch = async (url) => {
     assert.match(String(url), /api\.twelvedata\.com\/price/);
     assert.match(String(url), /FLM%2FUSD/);
@@ -320,18 +320,19 @@ test('feed quote uses canonical 1000FLM-USD pair naming', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/1000FLM-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.pair, '1000FLM-USD');
-  assert.equal(body.display_symbol, '1000FLM-USD');
-  assert.equal(body.unit_label, '1000 FLM');
+  assert.equal(body.pair, 'FLM-USD');
+  assert.equal(body.display_symbol, 'FLM-USD');
+  assert.equal(body.unit_label, null);
   assert.equal(body.raw_price, '0.00123');
-  assert.equal(body.price, '1.23');
-  assert.equal(body.price_multiplier, 1000);
+  assert.equal(body.price, '0.00123');
+  assert.equal(body.price_multiplier, 1);
+  assert.equal(body.decimals, 6);
 });
 
-test('feed quote can invert and scale forex units for canonical 1000JPY-USD', async () => {
+test('feed quote can invert forex units for direct JPY-USD pricing under 1e6 USD scale', async () => {
   global.fetch = async (url) => {
     assert.match(String(url), /api\.twelvedata\.com\/price/);
     assert.match(String(url), /USD%2FJPY/);
@@ -341,16 +342,16 @@ test('feed quote can invert and scale forex units for canonical 1000JPY-USD', as
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/1000JPY-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(new Request('http://local/feeds/price/JPY-USD?provider=twelvedata', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.pair, '1000JPY-USD');
-  assert.equal(body.display_symbol, '1000JPY-USD');
-  assert.equal(body.unit_label, '1000 JPY');
+  assert.equal(body.pair, 'JPY-USD');
+  assert.equal(body.display_symbol, 'JPY-USD');
+  assert.equal(body.unit_label, null);
   assert.equal(body.raw_price, '150.0000');
   assert.equal(body.price_transform, 'inverse');
-  assert.equal(body.price_multiplier, 1000);
-  assert.equal(body.price, '6.666666666667');
+  assert.equal(body.price_multiplier, 1);
+  assert.equal(body.price, '0.006666666667');
 });
 
 test('feed quote preserves explicit TwelveData futures symbols', async () => {
@@ -953,15 +954,15 @@ test('oracle feed supports neo_x contract relay mode', async () => {
   assert.ok(body.batch_tx);
   assert.equal(body.sync_results[0].relay_status, 'submitted');
   assert.equal(body.sync_results[1].relay_status, 'submitted');
-  assert.equal(body.sync_results[0].quote.decimals, 2);
+  assert.equal(body.sync_results[0].quote.decimals, 6);
   const iface = new Interface([
     'function updateFeeds(string[] pairs,uint256[] roundIds,uint256[] prices,uint256[] timestamps,bytes32[] attestationHashes,uint256[] sourceSetIds)',
   ]);
   const txEnvelope = Transaction.from(body.batch_tx.raw_transaction);
   const decoded = iface.decodeFunctionData('updateFeeds', txEnvelope.data);
   assert.deepEqual(Array.from(decoded[0]), ['TWELVEDATA:NEO-USD', 'TWELVEDATA:GAS-USD']);
-  assert.equal(decoded[2][0].toString(), '1234');
-  assert.equal(decoded[2][1].toString(), '567');
+  assert.equal(decoded[2][0].toString(), '12340000');
+  assert.equal(decoded[2][1].toString(), '5670000');
 });
 
 test('oracle feed records scan prices and skips chain tx when all changes stay below threshold', async () => {
@@ -1050,7 +1051,7 @@ test('oracle feed records scan prices and skips chain tx when all changes stay b
   assert.equal(thirdBody.sync_results[0].relay_status, 'submitted');
 });
 
-test('oracle feed compares threshold using quantized on-chain integer cents', async () => {
+test('oracle feed compares threshold using quantized on-chain integer price units', async () => {
   __resetFeedStateForTests();
   process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
 
@@ -1084,7 +1085,7 @@ test('oracle feed compares threshold using quantized on-chain integer cents', as
   const firstBody = await first.json();
   assert.equal(firstBody.batch_submitted, true);
 
-  currentPrice = '1.009'; // +0.9%, but still 100 cents on-chain after quantization
+  currentPrice = '1.0000004'; // still quantizes to the same 1e6-scaled on-chain integer
   const second = await handler(new Request('http://local/oracle/feed', {
     method: 'POST',
     headers: authHeaders(),
@@ -1109,7 +1110,7 @@ test('oracle feed compares threshold using quantized on-chain integer cents', as
   assert.equal(secondBody.sync_results[0].change_bps, 0);
   assert.equal(secondBody.sync_results[0].comparison_basis, 'current-chain-price');
 
-  currentPrice = '1.01'; // 101 cents, should now publish
+  currentPrice = '1.001'; // +0.1%, should now publish under 1e6 scale
   const third = await handler(new Request('http://local/oracle/feed', {
     method: 'POST',
     headers: authHeaders(),

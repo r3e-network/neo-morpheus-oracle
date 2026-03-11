@@ -46,7 +46,7 @@ Important properties:
 - all feed pairs are normalized to `*-USD`
 - Morpheus does **not** aggregate or medianize providers
 - each provider is stored independently on-chain as `PROVIDER:PAIR`
-- prices are stored as integer cents with exactly two decimals of precision
+- prices are stored as scaled USD integers with global precision `1 USD = 1,000,000`
 - threshold checks are evaluated against the quantized on-chain integer price, not unbounded source decimals
 - example storage pairs:
   - `TWELVEDATA:NEO-USD`
@@ -267,7 +267,7 @@ Current default pair catalog includes:
 - Core crypto:
   - `NEO-USD`
   - `GAS-USD`
-  - `1000FLM-USD` (`1000 FLM` unit)
+  - `FLM-USD`
   - `BTC-USD`
   - `ETH-USD`
   - `SOL-USD`
@@ -300,18 +300,18 @@ Current default pair catalog includes:
 - FX:
   - `EUR-USD`
   - `GBP-USD`
-  - `1000JPY-USD` (`1000 JPY` unit, inverted from `USD/JPY`)
+  - `JPY-USD` (inverted from `USD/JPY`)
   - `CNY-USD` (inverted from `USD/CNY`)
 
-Scaling is pair-specific. Very small USD prices can be promoted to `1000` or `10000` units while still storing integer cents on-chain.
+With the global `1 USD = 1,000,000` scale, low-priced assets such as `FLM-USD`, `DOGE-USD`, and `JPY-USD` can be represented directly without basket pair names.
 
 For the exact meaning of every canonical pair, including the real TwelveData source symbol and any inversion / scaling rule, read the canonical pair table in `docs/PROVIDERS.md`.
 
 Important deprecation note:
 
-- the old on-chain key `TWELVEDATA:FLM-USD` still exists as historical state
-- treat it as deprecated
-- use `TWELVEDATA:1000FLM-USD` on-chain and `1000FLM-USD` in all new code
+- historical basket keys such as `TWELVEDATA:1000FLM-USD` and `TWELVEDATA:1000JPY-USD` can still exist on-chain because the datafeed registry is append-only
+- treat those basket keys as deprecated historical state
+- use `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD` in all new code
 
 ### Query current off-chain quotes
 
@@ -393,7 +393,7 @@ This means contracts can choose:
 - one specific provider pair
 - all stored pairs
 - all feed records
-- a price format that is always integer cents, for example `249` = `2.49`
+- a price format that is always a 1e6-scaled USD integer, for example `2490000` = `2.490000`
 
 ### New on-chain DataFeed read methods
 
@@ -422,8 +422,8 @@ For **Neo N3 mainnet**, automatic feed sync obeys two rules:
 
 Precision caveat:
 
-- because the chain stores integer cents, a raw source move that is still too small to change the stored cent value cannot trigger an update, even if that raw source move is already greater than `0.1%`
-- if you need finer granularity for small-dollar assets, publish an explicitly scaled pair such as `1000FLM-USD` or another `1000` / `10000` basket pair
+- because the chain stores quantized integers, a raw source move that is still too small to change the stored on-chain integer value cannot trigger an update, even if that raw source move is already greater than `0.1%`
+- with the current `1 USD = 1,000,000` scale, the standard catalog can use direct pairs such as `FLM-USD` and `JPY-USD` without basket naming
 
 These rules apply per stored provider pair, for example:
 
@@ -466,7 +466,7 @@ Set:
 Example:
 
 ```env
-MORPHEUS_FEED_SYMBOLS=NEO-USD,GAS-USD,1000FLM-USD,BTC-USD,ETH-USD,SOL-USD,WTI-USD,AAPL-USD,EUR-USD,1000JPY-USD
+MORPHEUS_FEED_SYMBOLS=NEO-USD,GAS-USD,FLM-USD,BTC-USD,ETH-USD,SOL-USD,WTI-USD,AAPL-USD,EUR-USD,JPY-USD
 ```
 
 ### Advanced level: add provider-specific mapping
