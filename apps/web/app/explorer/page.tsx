@@ -11,6 +11,7 @@ export default function ExplorerPage() {
           <span className="text-gradient" style={{ letterSpacing: '0.1em' }}>MORPHEUS <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>| Explorer</span></span>
         </Link>
         <div className="nav-links">
+          <Link href="/launchpad" className="nav-link">Launchpad</Link>
           <Link href="/docs/feed-status" className="nav-link"><Activity size={14} /> Feed Status</Link>
         </div>
       </nav>

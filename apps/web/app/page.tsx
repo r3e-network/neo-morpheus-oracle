@@ -43,6 +43,9 @@ export default function HomePage() {
             </p>
             
             <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+              <Link href="/launchpad" className="btn-secondary" style={{ padding: '0.75rem 2.5rem', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+                Launchpad
+              </Link>
               <Link href="/explorer" className="btn-ata">
                 Enter Network <ArrowRight size={16} />
               </Link>
