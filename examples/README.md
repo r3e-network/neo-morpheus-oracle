@@ -27,6 +27,7 @@ Live deploy/test:
 - `npm run examples:test:n3`
 - `npm run examples:test:n3:builtins`
 - `npm run examples:test:n3:automation`
+- `npm run examples:test:feed-source`
 - `npm run examples:all`
 - `examples:all` runs `examples/scripts/deploy-and-test-all.mjs`, which compiles the Neo N3 and Neo X example contracts, deploys them to testnet, allowlists the callback consumer, and runs live oracle / encrypted compute / custom URL oracle / on-chain feed read flows.
 - Deployment addresses are recorded under `examples/deployments/testnet.json`.
@@ -49,3 +50,6 @@ Per-script report outputs:
 - `examples:test:n3:automation` now writes:
   - `examples/deployments/n3-automation-validation.<network>.latest.json`
   - `docs/N3_AUTOMATION_VALIDATION_<NETWORK>_<DATE>.md`
+- `examples:test:feed-source` now writes:
+  - `examples/deployments/feed-source-validation.<network>.latest.json`
+  - `docs/FEED_SOURCE_VALIDATION_<NETWORK>_<DATE>.md`

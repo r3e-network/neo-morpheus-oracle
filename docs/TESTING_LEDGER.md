@@ -63,6 +63,8 @@ Use this document together with:
 | `examples/deployments/mainnet-privacy-validation.latest.json` | Machine-readable report | Neo N3 mainnet | Same matrix as JSON |
 | `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md` | Human report | Neo N3 mainnet | Latest mainnet example-consumer provider / compute / sponsored / custom URL / feed read run |
 | `examples/deployments/n3-examples-validation.mainnet.latest.json` | Machine-readable report | Neo N3 mainnet | Same latest example-consumer run as JSON |
+| `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-11.md` | Human report | TwelveData source validation | Verifies current canonical feed catalog mappings against the live source API |
+| `examples/deployments/feed-source-validation.mainnet.latest.json` | Machine-readable report | TwelveData source validation | Same source-validation run as JSON |
 | `docs/ACCEPTANCE_REPORT_2026-03-10.md` | Acceptance report | Neo N3 mainnet | Smoke, example consumer, builtins, automation, feed sync, operational fixes |
 | `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
 | `examples/deployments/test-neox.latest.json` | Partial log only | Neo X testnet | Not a canonical structured validation artifact |
@@ -300,7 +302,35 @@ The following repository-level checks were run after the latest frontend / docum
 | `npm run build:web` | pass | Production frontend build, route generation, type checks |
 | `npm run test:worker` | pass | 38 worker runtime tests including X25519 transport, timeouts, WASM, feed batching, and signing |
 
-## 8. What To Read Next
+## 8. Source Reachability Validation
+
+Source:
+
+- `examples/scripts/validate-feed-source-mappings.mjs`
+- `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-11.md`
+- `examples/deployments/feed-source-validation.mainnet.latest.json`
+
+Result:
+
+- Provider checked: `twelvedata`
+- Canonical pair catalog checked: `34`
+- Success count: `34`
+- Failure count: `0`
+
+Representative validated mappings:
+
+- `AAPL-USD` -> TwelveData symbol `AAPL`
+- `SPY-USD` -> `SPY`
+- `BRENT-USD` -> `XBR/USD`
+- `NATGAS-USD` -> `NG/USD`
+- `COPPER-USD` -> `HG1`
+- `WHEAT-USD` -> `W_1`
+- `CORN-USD` -> `C_1`
+- `SOY-USD` -> `S_1`
+- `1000JPY-USD` -> `USD/JPY` with inverse transform and `1000 JPY` unit scaling
+- `1000FLM-USD` -> `FLM/USD` with `1000 FLM` unit scaling
+
+## 9. What To Read Next
 
 If you need the raw case-by-case payloads and callback verification blobs, read:
 
