@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Github, Shield, Cpu, Lock, ArrowRight, Zap, CheckCircle2, Boxes } from "lucide-react";
+import { Github, Shield, Cpu, Lock, ArrowRight, Zap, CheckCircle2, Boxes, Activity } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -16,6 +16,7 @@ export default function HomePage() {
         </Link>
         <div className="nav-links">
           <Link href="/explorer" className="nav-link">Network</Link>
+          <Link href="/docs/feed-status" className="nav-link">Feed Status</Link>
           <Link href="/docs" className="nav-link">Developers</Link>
           <a href="https://github.com/r3e-network/neo-morpheus-oracle" target="_blank" className="btn-secondary" style={{ padding: '0.5rem 1.25rem', fontSize: '0.8rem', fontWeight: 700, borderRadius: '2px', textDecoration: 'none', border: '1px solid var(--border-highlight)' }}>
             <Github size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> GITHUB
@@ -44,6 +45,10 @@ export default function HomePage() {
             <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
               <Link href="/explorer" className="btn-ata">
                 Enter Network <ArrowRight size={16} />
+              </Link>
+              <Link href="/docs/feed-status" className="btn-secondary" style={{ padding: '0.75rem 2.5rem', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em', fontWeight: 700 }}>
+                <Activity size={14} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} />
+                Feed Status
               </Link>
               <Link href="/docs" className="btn-secondary" style={{ padding: '0.75rem 2.5rem', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.1em', fontWeight: 700 }}>
                 Documentation
