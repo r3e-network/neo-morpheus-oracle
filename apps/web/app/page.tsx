@@ -79,7 +79,7 @@ export default function HomePage() {
                 <Lock size={24} color="var(--text-primary)" style={{ marginBottom: '1.5rem' }} />
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Zero-Knowledge Fetch</h3>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.7 }}>
-                  API keys are encrypted locally using RSA-2048. They remain encrypted during transport and are only unsealed inside the enclave.
+                  API keys are encrypted locally using X25519 + HKDF-SHA256 + AES-256-GCM. They remain encrypted during transport and are only unsealed inside the enclave.
                 </p>
               </div>
             </div>

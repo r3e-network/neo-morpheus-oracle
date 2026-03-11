@@ -217,9 +217,8 @@ Important notes:
 
 - `encrypted_token` is the cleanest choice when only an auth secret must stay private
 - `encrypted_params`, `encrypted_input`, or a JSON-object `encrypted_payload` can carry confidential headers, provider params, compute input, function names, or scripts
-- `encrypted_payload` remains supported as a backward-compatible alias for encrypted auth tokens too
-- for small payloads, raw `RSA-OAEP-SHA256` ciphertext still works
-- for larger confidential payloads, prefer the hybrid envelope `RSA-OAEP-AES-256-GCM`
+- Morpheus confidential payloads are sealed with `X25519-HKDF-SHA256-AES-256-GCM`
+- the encrypted envelope includes an ephemeral X25519 public key plus AES-GCM ciphertext/tag fields
 
 ### Oracle public key
 
@@ -240,7 +239,7 @@ Returned fields:
 
 - `algorithm`
 - `public_key`
-- `public_key_pem`
+- `public_key_format`
 - `key_source`
 - `recommended_payload_encryption`
 - `supported_payload_encryption`

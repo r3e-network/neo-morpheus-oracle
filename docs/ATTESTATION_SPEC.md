@@ -61,7 +61,7 @@ The verifier demo route `/api/attestation/demo` returns both a sample worker res
 
 - `algorithm`
 - `public_key`
-- `public_key_pem`
+- `public_key_format`
 - `key_source`
 
 When `PHALA_USE_DERIVED_KEYS=true`, the worker uses a dstack-derived wrapping key plus a sealed keystore so the Oracle encryption public key remains stable across restarts.

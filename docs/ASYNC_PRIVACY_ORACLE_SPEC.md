@@ -34,11 +34,12 @@
 ## Rules
 
 - `encrypted_token` is the canonical encrypted auth-secret field for private fetches
-- `encrypted_payload` remains backward-compatible as a token alias, but if its decrypted plaintext is a JSON object the worker now treats it as a confidential payload patch and merges it before execution
+- if `encrypted_payload` decrypts to a JSON object, the worker treats it as a confidential payload patch and merges it before execution
 - `encrypted_params` / `encrypted_input` are dedicated aliases for encrypted JSON patches that can carry secret headers, provider params, compute input, function names, or scripts
 - `script` and `script_base64` are interchangeable aliases
 - `callback_contract` and `callback_method` are on-chain request arguments, not JSON payload fields
 - `target_chain` may be `neo_n3` or `neo_x`
+- confidential payload transport uses `X25519-HKDF-SHA256-AES-256-GCM`
 
 ## Built-in Compute API
 

@@ -43,7 +43,7 @@ export default function DocsArchitecture() {
       </p>
       <div style={{ padding: '1.5rem', background: '#000', borderLeft: '3px solid var(--accent-purple)', margin: '2rem 0', borderRadius: '0 4px 4px 0' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          <strong>Zero-Knowledge Relaying:</strong> The relayer does not have access to the request's sensitive plaintext data. It strictly acts as a blind transport layer moving the <code>RSA-OAEP</code> encrypted blobs and TEE signatures between the blockchain and the enclave.
+          <strong>Zero-Knowledge Relaying:</strong> The relayer does not have access to the request's sensitive plaintext data. It strictly acts as a blind transport layer moving the encrypted X25519 payload envelopes and TEE signatures between the blockchain and the enclave.
         </p>
       </div>
 

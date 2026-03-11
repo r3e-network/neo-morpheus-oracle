@@ -90,6 +90,10 @@ export function encodeUtf8Base64(value) {
   return Buffer.from(String(value ?? ""), "utf8").toString("base64");
 }
 
+const ORACLE_ENCRYPTION_ALGORITHM = "X25519-HKDF-SHA256-AES-256-GCM";
+const ORACLE_ENCRYPTION_INFO = "morpheus-confidential-payload-v2";
+const AES_GCM_TAG_LENGTH_BYTES = 16;
+
 function parseNeoRpcString(response) {
   const item = response?.stack?.[0];
   const type = trimString(item?.type).toLowerCase();
@@ -114,13 +118,13 @@ export async function fetchOnchainOraclePublicKey(targetChain) {
       "function oracleEncryptionPublicKey() view returns (string)",
     ], provider);
     const [algorithm, publicKey] = await Promise.all([
-      oracle.oracleEncryptionAlgorithm().catch(() => "RSA-OAEP-SHA256"),
+      oracle.oracleEncryptionAlgorithm().catch(() => ORACLE_ENCRYPTION_ALGORITHM),
       oracle.oracleEncryptionPublicKey(),
     ]);
     if (!trimString(publicKey)) throw new Error("Neo X oracle encryption public key is empty");
     return {
       source: "neo_x_contract",
-      algorithm: trimString(algorithm || "") || "RSA-OAEP-SHA256",
+      algorithm: trimString(algorithm || "") || ORACLE_ENCRYPTION_ALGORITHM,
       public_key: publicKey,
     };
   }
@@ -136,7 +140,7 @@ export async function fetchOnchainOraclePublicKey(targetChain) {
       rpcClient.invokeFunction(oracleHash, "oracleEncryptionAlgorithm", []).catch(() => null),
       rpcClient.invokeFunction(oracleHash, "oracleEncryptionPublicKey", []),
     ]);
-    const algorithm = parseNeoRpcString(algorithmResponse) || "RSA-OAEP-SHA256";
+    const algorithm = parseNeoRpcString(algorithmResponse) || ORACLE_ENCRYPTION_ALGORITHM;
     const publicKey = parseNeoRpcString(publicKeyResponse);
     if (!publicKey) throw new Error("Neo N3 oracle encryption public key is empty");
     return {
@@ -149,18 +153,54 @@ export async function fetchOnchainOraclePublicKey(targetChain) {
   throw new Error(`unsupported target chain for oracle key lookup: ${targetChain}`);
 }
 
+export async function fetchOraclePublicKey(targetChain = "neo_n3") {
+  return fetchOnchainOraclePublicKey(targetChain);
+}
+
 export async function encryptWithOracleKey(publicKeyBase64, plaintext) {
-  const spki = Buffer.from(publicKeyBase64, "base64");
-  const rsaKey = await webcrypto.subtle.importKey(
-    "spki",
-    spki,
-    { name: "RSA-OAEP", hash: "SHA-256" },
+  const recipientPublicKeyBytes = Buffer.from(publicKeyBase64, "base64");
+  const recipientKey = await webcrypto.subtle.importKey(
+    "raw",
+    recipientPublicKeyBytes,
+    { name: "X25519" },
     false,
-    ["encrypt"],
+    [],
   );
-  const aesKey = await webcrypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
+  const ephemeralKeyPair = await webcrypto.subtle.generateKey(
+    { name: "X25519" },
     true,
+    ["deriveBits"],
+  );
+  const ephemeralPublicKeyBytes = new Uint8Array(await webcrypto.subtle.exportKey("raw", ephemeralKeyPair.publicKey));
+  const sharedSecret = new Uint8Array(
+    await webcrypto.subtle.deriveBits(
+      { name: "X25519", public: recipientKey },
+      ephemeralKeyPair.privateKey,
+      256,
+    ),
+  );
+  const keyMaterial = await webcrypto.subtle.importKey(
+    "raw",
+    sharedSecret,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  const info = new Uint8Array([
+    ...new TextEncoder().encode(ORACLE_ENCRYPTION_INFO),
+    ...ephemeralPublicKeyBytes,
+    ...recipientPublicKeyBytes,
+  ]);
+  const aesKey = await webcrypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: recipientPublicKeyBytes,
+      info,
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
     ["encrypt"],
   );
   const iv = webcrypto.getRandomValues(new Uint8Array(12));
@@ -169,20 +209,14 @@ export async function encryptWithOracleKey(publicKeyBase64, plaintext) {
     aesKey,
     new TextEncoder().encode(plaintext),
   ));
-  const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);
-  const tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
-  const rawAesKey = new Uint8Array(await webcrypto.subtle.exportKey("raw", aesKey));
-  const wrappedKey = new Uint8Array(await webcrypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
-    rsaKey,
-    rawAesKey,
-  ));
+  const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
+  const tagBytes = encryptedBytes.slice(encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
   return Buffer.from(JSON.stringify({
-    version: 1,
-    algorithm: "RSA-OAEP-AES-256-GCM",
-    encrypted_key: Buffer.from(wrappedKey).toString("base64"),
+    v: 2,
+    alg: ORACLE_ENCRYPTION_ALGORITHM,
+    epk: Buffer.from(ephemeralPublicKeyBytes).toString("base64"),
     iv: Buffer.from(iv).toString("base64"),
-    ciphertext: Buffer.from(ciphertextBytes).toString("base64"),
+    ct: Buffer.from(ciphertextBytes).toString("base64"),
     tag: Buffer.from(tagBytes).toString("base64"),
   })).toString("base64");
 }

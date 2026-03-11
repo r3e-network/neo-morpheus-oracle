@@ -73,6 +73,7 @@ npm --prefix apps/web run dev
 - `docs/TESTNET_RUNBOOK.md`
 - `docs/SECURITY_AUDIT.md`
 - `docs/ATTESTATION_SPEC.md`
+- `docs/HPKE_X25519_MIGRATION.md`
 - `deploy/phala/README.md`
 - verifier page: `/verifier`
 - verifier demo API: `/api/attestation/demo`

@@ -19,7 +19,7 @@ export default function DocsOracle() {
       <h2>Request Lifecycle</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', margin: '2.5rem 0' }}>
         {[
-          { step: "1", title: "Parameter Sealing", desc: "User dApp encrypts secret parts of the request (e.g., API keys) locally using the Oracle RSA Public Key." },
+          { step: "1", title: "Parameter Sealing", desc: "User dApp encrypts secret parts of the request (e.g., API keys) locally using the Oracle X25519 public key." },
           { step: "2", title: "On-Chain Submission", desc: "User contract calls request() on MorpheusOracle, attaching the encrypted blob and paying the fee." },
           { step: "3", title: "Enclave Execution", desc: "TEE worker picks up the task, unseals the data inside SGX, performs the fetch, and signs the result." },
           { step: "4", title: "Verified Callback", desc: "The Relayer submits the TEE-signed result back to the user's contract via a callback function." }
@@ -59,17 +59,17 @@ export default function DocsOracle() {
       </div>
 
       <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', margin: '2rem 0' }}>
-        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Encrypt Locally (RSA-OAEP)</h4>
+        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Encrypt Locally (X25519)</h4>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
           Fetch the Oracle's current public key and encrypt the JSON string. This operation happens entirely on the client side.
         </p>
         <CodeBlock
           language="javascript"
           code={`// 1. Fetch TEE Public Key
-const { public_key_pem } = await fetch("/api/oracle/public-key").then(r => r.json());
+const { public_key } = await fetch("/api/oracle/public-key").then(r => r.json());
 
 // 2. Encrypt the Confidential JSON
-const ciphertext = await encryptWithRsaOaep(JSON.stringify(secrets), public_key_pem);
+const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public_key);
 // Returns a Base64 encoded encrypted blob: "vF9+kx..."`}
         />
       </div>
