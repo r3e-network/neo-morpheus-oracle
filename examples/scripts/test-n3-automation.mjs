@@ -3,8 +3,10 @@ import {
   encodeUtf8Base64,
   jsonPretty,
   loadExampleEnv,
+  markdownJson,
   normalizeHash160,
   readDeploymentRegistry,
+  writeValidationArtifacts,
   sleep,
   trimString,
   tryParseJson,
@@ -385,7 +387,9 @@ if (!cancelCallback.success) {
 const supabase = await fetchAutomationRecord(automationId);
 const cancelledSupabase = await fetchAutomationRecord(cancelAutomationId);
 
-process.stdout.write(jsonPretty({
+const generatedAt = new Date().toISOString();
+const reportJson = {
+  generated_at: generatedAt,
   network,
   target_chain: "neo_n3",
   consumer_hash: consumerHash,
@@ -414,4 +418,65 @@ process.stdout.write(jsonPretty({
   },
   supabase,
   cancelled_supabase: cancelledSupabase,
+};
+
+const markdown = [
+  "# Neo N3 Automation Validation",
+  "",
+  `Generated: ${generatedAt}`,
+  "",
+  "## Environment",
+  "",
+  `- Network: \`${network}\``,
+  `- Target chain: \`neo_n3\``,
+  `- Consumer: \`${consumerHash}\``,
+  `- Oracle: \`${oracleHash}\``,
+  `- Request fee: \`${feeStatus.request_fee}\``,
+  "",
+  "## Case Matrix",
+  "",
+  "| Case | Tx | Request ID | Result |",
+  "| --- | --- | --- | --- |",
+  `| register | \`${registerTx}\` | \`${registerRequestId}\` | \`${automationId}\` |`,
+  `| queued_execution | \`scheduler\` | \`${execution.request_id}\` | \`${JSON.stringify(execution.callback?.result_json?.result?.result ?? execution.callback?.result_json?.result?.extracted_value ?? null)}\` |`,
+  `| cancel_registration | \`${intervalRegisterTx}\` | \`${intervalRegisterRequestId}\` | \`${cancelAutomationId}\` |`,
+  `| cancel | \`${cancelTx}\` | \`${cancelRequestId}\` | \`${cancelCallback.success}\` |`,
+  "",
+  "## Registration Result",
+  "",
+  markdownJson(reportJson.register),
+  "",
+  "## Queued Execution",
+  "",
+  markdownJson(reportJson.queued_execution),
+  "",
+  "## Cancellation Registration",
+  "",
+  markdownJson(reportJson.cancel_registration),
+  "",
+  "## Cancellation Result",
+  "",
+  markdownJson(reportJson.cancel),
+  "",
+  "## Supabase Job Snapshot",
+  "",
+  markdownJson(reportJson.supabase),
+  "",
+  "## Supabase Cancelled Job Snapshot",
+  "",
+  markdownJson(reportJson.cancelled_supabase),
+  "",
+].join("\n");
+
+const artifacts = await writeValidationArtifacts({
+  baseName: "n3-automation-validation",
+  network,
+  generatedAt,
+  jsonReport: reportJson,
+  markdownReport: markdown,
+});
+
+process.stdout.write(jsonPretty({
+  ...reportJson,
+  ...artifacts,
 }));

@@ -3,8 +3,10 @@ import {
   encodeUtf8Base64,
   jsonPretty,
   loadExampleEnv,
+  markdownJson,
   normalizeHash160,
   readDeploymentRegistry,
+  writeValidationArtifacts,
   sleep,
   trimString,
   tryParseJson,
@@ -178,11 +180,57 @@ for (const builtin of cases) {
   });
 }
 
-process.stdout.write(jsonPretty({
+const generatedAt = new Date().toISOString();
+const reportJson = {
+  generated_at: generatedAt,
   network,
   target_chain: "neo_n3",
+  consumer_hash: consumerHash,
+  oracle_hash: oracleHash,
   request_fee: feeStatus.request_fee,
   request_credit: feeStatus.current_credit,
   request_credit_deposit: feeStatus.deposit_amount,
   builtins: results,
+};
+
+const markdown = [
+  "# Neo N3 Builtin Validation",
+  "",
+  `Generated: ${generatedAt}`,
+  "",
+  "## Environment",
+  "",
+  `- Network: \`${network}\``,
+  `- Target chain: \`neo_n3\``,
+  `- Consumer: \`${consumerHash}\``,
+  `- Oracle: \`${oracleHash}\``,
+  `- Request fee: \`${feeStatus.request_fee}\``,
+  "",
+  "## Builtin Matrix",
+  "",
+  "| Builtin | Tx | Request ID | Result |",
+  "| --- | --- | --- | --- |",
+  ...results.map((item) => `| ${item.name} | \`${item.txid}\` | \`${item.request_id}\` | \`${JSON.stringify(item.result)}\` |`),
+  "",
+  "## Detailed Results",
+  "",
+  ...results.flatMap((item) => [
+    `### ${item.name}`,
+    "",
+    markdownJson(item),
+    "",
+  ]),
+].join("\n");
+
+const artifacts = await writeValidationArtifacts({
+  baseName: "n3-builtins-validation",
+  network,
+  generatedAt,
+  jsonReport: reportJson,
+  markdownReport: markdown,
+});
+
+process.stdout.write(jsonPretty({
+  ...reportJson,
+  ...artifacts,
 }));
