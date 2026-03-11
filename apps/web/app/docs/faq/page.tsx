@@ -55,9 +55,9 @@ export default function DocsFAQ() {
       <h2>Frequently Asked Questions</h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '4rem' }}>
         {faqs.map((faq, i) => (
-          <div key={i} className="card-industrial" style={{ padding: '1.5rem' }}>
-            <h3 style={{ fontSize: '1rem', marginTop: 0, color: 'var(--neo-green)', marginBottom: '0.75rem' }}>Q: {faq.q}</h3>
-            <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: 0 }}>{faq.a}</p>
+          <div key={i} style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', borderLeft: '3px solid var(--neo-green)' }}>
+            <h3 style={{ fontSize: '1rem', marginTop: 0, color: 'var(--text-primary)', marginBottom: '0.75rem', fontWeight: 800 }}>Q: {faq.q}</h3>
+            <p style={{ fontSize: '0.95rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6 }}>{faq.a}</p>
           </div>
         ))}
       </div>
@@ -65,36 +65,36 @@ export default function DocsFAQ() {
       <h2>Error Codes</h2>
       <p>If your callback receives a failure status, refer to the table below to diagnose the issue.</p>
       
-      <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', margin: '2rem 0' }}>
+      <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', margin: '2rem 0', background: '#000' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-dim)' }}>
-              <th style={{ padding: '1rem', color: '#fff', fontWeight: 800 }}>CODE</th>
-              <th style={{ padding: '1rem', color: '#fff', fontWeight: 800 }}>NAME</th>
-              <th style={{ padding: '1rem', color: '#fff', fontWeight: 800 }}>DESCRIPTION</th>
+              <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>CODE</th>
+              <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>NAME</th>
+              <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>DESCRIPTION</th>
             </tr>
           </thead>
           <tbody>
             {errors.map((err, i) => (
               <tr key={i} style={{ borderBottom: '1px solid var(--border-dim)' }}>
-                <td style={{ padding: '1rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>{err.code}</td>
-                <td style={{ padding: '1rem', fontWeight: 700 }}>{err.name}</td>
-                <td style={{ padding: '1rem', color: 'var(--text-dim)', lineHeight: 1.5 }}>{err.desc}</td>
+                <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>{err.code}</td>
+                <td style={{ padding: '1.25rem 1.5rem', fontWeight: 800, color: '#ef4444' }}>{err.name}</td>
+                <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{err.desc}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="card-industrial" style={{ marginTop: '4rem', padding: '2rem', borderLeft: '4px solid var(--accent-blue)' }}>
+      <div style={{ marginTop: '4rem', padding: '2rem', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderLeft: '4px solid var(--accent-blue)', borderRadius: '0 4px 4px 0' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
           <AlertCircle size={20} color="var(--accent-blue)" />
-          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Still having issues?</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Still having issues?</h4>
         </div>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
           If you encounter an error not listed here, please provide your <code>requestId</code> and <code>transactionHash</code> to our support team.
         </p>
-        <button className="btn btn-secondary btn-sm">OPEN SUPPORT TICKET</button>
+        <button className="btn btn-secondary btn-sm" style={{ fontWeight: 800, letterSpacing: '0.05em', border: '1px solid var(--border-dim)' }}>OPEN SUPPORT TICKET</button>
       </div>
     </div>
   );
