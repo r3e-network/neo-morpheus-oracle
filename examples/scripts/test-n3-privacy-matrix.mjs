@@ -430,12 +430,16 @@ const cases = [
   },
 ];
 
-const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, cases.length);
 const results = [];
+let requestFee = "0";
+let totalDeposited = 0n;
 
 for (const testCase of cases) {
   console.log(`Running mainnet privacy case ${testCase.id}...`);
   const prepared = await testCase.prepare();
+  const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 1);
+  requestFee = feeStatus.request_fee;
+  totalDeposited += BigInt(feeStatus.deposit_amount || "0");
   const txid = await consumer.invoke("requestRaw", [
     testCase.requestType,
     sc.ContractParam.byteArray(encodeUtf8Base64(prepared.payloadText)),
@@ -459,6 +463,8 @@ for (const testCase of cases) {
     expected: prepared.expectedDescription,
     public_payload: prepared.publicPayload,
     confidential_summary: prepared.confidentialSummary,
+    fee_credit_before_submit: feeStatus.current_credit,
+    deposit_amount: feeStatus.deposit_amount,
     txid,
     request_id: requestId,
     onchain_request: requestRecord ? {
@@ -481,14 +487,16 @@ for (const testCase of cases) {
 }
 
 const generatedAt = new Date().toISOString();
+const finalCredit = await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0";
 const reportJson = {
   generated_at: generatedAt,
   network,
   chain: "neo_n3",
   oracle_hash: oracleHash,
   consumer_hash: consumerHash,
-  request_fee: feeStatus.request_fee,
-  request_credit: feeStatus.current_credit,
+  request_fee: requestFee,
+  request_credit_remaining: String(finalCredit),
+  request_credit_deposited: totalDeposited.toString(),
   cases: results,
 };
 
@@ -508,7 +516,9 @@ const markdown = [
   `- Chain: \`neo_n3\``,
   `- Oracle: \`${oracleHash}\``,
   `- Example consumer (custom contract): \`${consumerHash}\``,
-  `- Request fee: \`${feeStatus.request_fee}\``,
+  `- Request fee: \`${requestFee}\``,
+  `- Total deposited during run: \`${totalDeposited.toString()}\``,
+  `- Remaining fee credit after run: \`${String(finalCredit)}\``,
   "",
   "## Case Matrix",
   "",

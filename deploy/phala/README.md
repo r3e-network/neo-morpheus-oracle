@@ -133,8 +133,8 @@ Then copy only the direct keys above into Phala Dashboard Encrypted Secrets.
 - use `Caddyfile` only for the public worker edge; keep relayer internal
 - `PHALA_USE_DERIVED_KEYS=true` enables dstack-derived signing key fallback in the worker and relayer
 - `PHALA_EMIT_ATTESTATION=true` enables optional quote attachment in worker responses when requested
-- `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` controls the derived wrapping key path for the stable Oracle encryption key
-- `PHALA_ORACLE_KEYSTORE_PATH` controls where the sealed Oracle RSA key is stored inside the CVM volume
+- `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` controls the derived wrapping key path for the stable Oracle X25519 transport key
+- `PHALA_ORACLE_KEYSTORE_PATH` controls where the sealed Oracle transport key is stored inside the CVM volume
 - mount `/var/run/dstack.sock` so the dstack SDK can fetch info, quotes, and derived keys
 - file-based compose should be launched with `--env-file ./morpheus.env` because Docker Compose does not interpolate image tags from `env_file`
 - worker now supports a stable dstack-sealed Oracle public key instead of restart-random key material

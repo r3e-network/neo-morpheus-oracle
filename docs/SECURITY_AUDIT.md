@@ -145,7 +145,7 @@ The worker now includes first-stage and second-stage Phala dstack/tappd integrat
 - authenticated `GET /keys/derived`
 - optional response-side quote attachment when `PHALA_EMIT_ATTESTATION=true`
 - derived Neo N3 signing fallback when `PHALA_USE_DERIVED_KEYS=true`
-- stable Oracle RSA encryption key using dstack-derived wrapping key + sealed keystore
+- stable Oracle X25519 transport key using dstack-derived wrapping key + sealed keystore
 - verifier API and `/verifier` demo flow for application-level attestation checks
 
 ## Remaining architectural notes
