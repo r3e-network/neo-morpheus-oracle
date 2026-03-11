@@ -193,18 +193,30 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
   if (!previousRecord) return { allow: true, reason: 'first-observation' };
 
   const now = Date.now();
-  const lastObservedAt = Number(previousRecord.last_observed_at_ms || previousRecord.last_submitted_at_ms || 0);
-  if (policy.minUpdateIntervalMs > 0 && lastObservedAt > 0 && (now - lastObservedAt) < policy.minUpdateIntervalMs) {
+  const lastSubmittedAt = Number(previousRecord.last_submitted_at_ms || 0);
+  if (policy.minUpdateIntervalMs > 0 && lastSubmittedAt > 0 && (now - lastSubmittedAt) < policy.minUpdateIntervalMs) {
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
-  const previousObservedPrice = previousRecord.last_observed_price || previousRecord.price;
-  const changeBps = computeChangeBps(previousObservedPrice, quote.price);
+  const onchainPrice = previousRecord.price;
+  const changeBps = computeChangeBps(onchainPrice, quote.price);
   if (policy.thresholdBps > 0 && changeBps < policy.thresholdBps) {
-    return { allow: false, reason: 'price-change-below-threshold', change_bps: changeBps, storage_key: storageKey };
+    return {
+      allow: false,
+      reason: 'price-change-below-threshold',
+      change_bps: changeBps,
+      comparison_basis: 'current-chain-price',
+      storage_key: storageKey,
+    };
   }
 
-  return { allow: true, reason: 'threshold-met', change_bps: changeBps, storage_key: storageKey };
+  return {
+    allow: true,
+    reason: 'threshold-met',
+    change_bps: changeBps,
+    comparison_basis: 'current-chain-price',
+    storage_key: storageKey,
+  };
 }
 
 async function resolveQuoteForProvider(symbol, options, provider) {
@@ -476,6 +488,7 @@ export async function handleOracleFeed(payload) {
           relay_status: 'skipped',
           skip_reason: decision.reason,
           change_bps: decision.change_bps ?? null,
+          comparison_basis: decision.comparison_basis ?? null,
           quote,
         });
         continue;
@@ -495,6 +508,7 @@ export async function handleOracleFeed(payload) {
         storage_pair: storagePair,
         relay_status: 'queued',
         change_bps: decision.change_bps ?? null,
+        comparison_basis: decision.comparison_basis ?? null,
         quote,
       });
     }
