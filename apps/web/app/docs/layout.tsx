@@ -26,6 +26,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       items: [
         { href: "/docs/quickstart", label: "Quickstart", icon: Zap },
         { href: "/docs/use-cases", label: "Use Cases", icon: Briefcase },
+        { href: "/docs/templates", label: "Starter Templates", icon: ClipboardList },
         { href: "/docs/oracle", label: "Privacy Oracle", icon: Shield },
         { href: "/docs/compute", label: "Enclave Compute", icon: Cpu },
         { href: "/docs/datafeeds", label: "Data Matrix", icon: LineChart },

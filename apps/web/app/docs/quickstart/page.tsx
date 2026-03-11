@@ -108,6 +108,13 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
       </div>
 
       <div className="grid grid-2" style={{ gap: '1.5rem', marginTop: '4rem' }}>
+        <Link href="/docs/templates" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>STARTER TEMPLATES</span>
+            <ArrowRight size={18} color="var(--neo-green)" />
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Copy ready Oracle and Compute payloads for mainnet testing and direct user participation.</p>
+        </Link>
         <Link href="/docs/api-reference" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>API REFERENCE</span>
