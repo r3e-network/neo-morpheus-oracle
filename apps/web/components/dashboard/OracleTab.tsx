@@ -15,6 +15,16 @@ function escapeForCSharp(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function encodeUtf8Base64(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return window.btoa(binary);
+}
+
 function copyText(value: string) {
   return navigator.clipboard.writeText(value);
 }
@@ -31,6 +41,8 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
   const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
   const [provider, setProvider] = useState("twelvedata");
+  const [walletCallbackHash, setWalletCallbackHash] = useState("0x89b05cac00804648c666b47ecb1c57bc185821b7");
+  const [walletCallbackMethod, setWalletCallbackMethod] = useState("onOracleResult");
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
   const [oracleState, setOracleState] = useState<any>(null);
   const [isEncrypting, setIsEncrypting] = useState(false);
@@ -259,6 +271,35 @@ uint256 requestId = oracle.request{value: fee}(
     source: oracleKeyMeta?.key_source || "unknown",
   }), [oracleKeyMeta]);
 
+  const payloadBase64 = generatedRequest ? encodeUtf8Base64(generatedRequest.payloadJson) : "";
+  const neoRpcInvoke = generatedRequest ? JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "invokefunction",
+    params: [
+      oracleState?.contract || NETWORKS.neo_n3.oracle,
+      "request",
+      [
+        { type: "String", value: generatedRequest.requestType },
+        { type: "ByteArray", value: payloadBase64 },
+        { type: "Hash160", value: walletCallbackHash },
+        { type: "String", value: walletCallbackMethod },
+      ],
+    ],
+  }, null, 2) : "";
+  const callbackQueryTemplate = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "invokefunction",
+    params: [
+      walletCallbackHash,
+      "getCallback",
+      [
+        { type: "Integer", value: "<requestId>" },
+      ],
+    ],
+  }, null, 2);
+
   return (
     <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border-dim)', paddingBottom: '1rem' }}>
@@ -415,6 +456,17 @@ uint256 requestId = oracle.request{value: fee}(
               <input className="neo-input" value={oracleJsonPath} onChange={(event) => setOracleJsonPath(event.target.value)} placeholder="price or data.score" />
             </div>
 
+            <div className="grid grid-2" style={{ gap: '1rem' }}>
+              <div className="form-group">
+                <label className="form-label">Wallet / Direct Test Callback Hash</label>
+                <input className="neo-input" value={walletCallbackHash} onChange={(event) => setWalletCallbackHash(event.target.value)} placeholder="0x..." />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Callback Method</label>
+                <input className="neo-input" value={walletCallbackMethod} onChange={(event) => setWalletCallbackMethod(event.target.value)} placeholder="onOracleResult" />
+              </div>
+            </div>
+
             <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
               <input type="checkbox" checked={useCustomScript} onChange={(event) => setUseCustomScript(event.target.checked)} />
               Include custom JS reduction (<code>process(data, context, helpers)</code>)
@@ -489,6 +541,17 @@ uint256 requestId = oracle.request{value: fee}(
 
             <div className="grid grid-2" style={{ gap: '1rem' }}>
               <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>PAYLOAD BYTEARRAY (BASE64 UTF-8)</div>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--neo-green)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{payloadBase64}</pre>
+              </div>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO N3 RPC invokeFunction</div>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{neoRpcInvoke}</pre>
+              </div>
+            </div>
+
+            <div className="grid grid-2" style={{ gap: '1rem' }}>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
                 <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO N3 SUBMISSION</div>
                 <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedRequest.neoN3Snippet}</pre>
               </div>
@@ -514,10 +577,15 @@ uint256 requestId = oracle.request{value: fee}(
                 <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                   <div>1. Submit to <code>{oracleState?.contract || NETWORKS.neo_n3.oracle}</code>.</div>
                   <div>2. Read the emitted <code>requestId</code>.</div>
-                  <div>3. Query your consumer contract&apos;s <code>getCallback(requestId)</code>.</div>
+                  <div>3. Query your consumer contract&apos;s <code>getCallback(requestId)</code> or use the template below.</div>
                   <div>4. Verify <code>output_hash</code>, <code>attestation_hash</code>, and <code>tee_attestation.report_data</code> in the verifier.</div>
                 </div>
               </div>
+            </div>
+
+            <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>CALLBACK QUERY TEMPLATE</div>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{callbackQueryTemplate}</pre>
             </div>
           </div>
         </div>
