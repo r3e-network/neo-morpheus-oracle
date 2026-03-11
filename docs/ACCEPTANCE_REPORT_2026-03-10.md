@@ -2,13 +2,18 @@
 
 Date: 2026-03-10
 
+Historical note:
+
+- This report captures the pre-migration mainnet state before the later `1 USD = 1,000,000` datafeed precision rollout.
+- Current production feed precision, canonical pair naming, and live deployment images are recorded in `docs/TESTING_LEDGER.md`.
+
 ## Scope
 
 This report covers the Neo N3 mainnet deployment, runtime reconfiguration, and end-to-end validation of Morpheus Oracle after:
 
 - `0.01 GAS` Neo N3 request-fee hardening
 - contract-sponsored Neo N3 fee payment support
-- operator-only integer-cents datafeed publication
+- operator-only pre-migration integer-cents datafeed publication
 - WASM execution timeout controls
 - hybrid confidential payload encryption rollout
 

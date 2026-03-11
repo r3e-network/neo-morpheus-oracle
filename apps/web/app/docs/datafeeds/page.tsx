@@ -139,7 +139,7 @@ function checkPrice(string memory pair) public view returns (int256) {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored integer value</strong> using the global <code>1 USD = 1,000,000</code> scale. Only pairs whose change versus the quantized on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
+          Mainnet feeds are automatically scanned every <strong>60 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored integer value</strong> using the global <code>1 USD = 1,000,000</code> scale. Only pairs whose change versus the quantized on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
         </p>
       </div>
     </div>

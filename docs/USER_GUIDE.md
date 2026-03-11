@@ -418,7 +418,7 @@ This means contracts can choose:
 For **Neo N3 mainnet**, automatic feed sync obeys two rules:
 
 1. the same price pair is updated only if the fresh quote moved by more than **0.1%** versus the current on-chain stored value
-2. the same storage pair is updated at most **once every 15 seconds**
+2. the same storage pair is updated at most **once every 60 seconds**
 
 Precision caveat:
 

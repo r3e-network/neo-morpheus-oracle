@@ -312,7 +312,7 @@ test("getFeedSyncDelayMs uses the last feed-sync start time", () => {
   const config = {
     feedSync: {
       enabled: true,
-      intervalMs: 15000,
+      intervalMs: 60000,
     },
   };
   const state = createEmptyRelayerState();
@@ -321,10 +321,10 @@ test("getFeedSyncDelayMs uses the last feed-sync start time", () => {
 
   assert.equal(
     getFeedSyncDelayMs(config, state, Date.parse("2026-03-10T13:00:10.000Z")),
-    5000,
+    50000,
   );
   assert.equal(
-    getFeedSyncDelayMs(config, state, Date.parse("2026-03-10T13:00:16.000Z")),
+    getFeedSyncDelayMs(config, state, Date.parse("2026-03-10T13:01:01.000Z")),
     0,
   );
 });

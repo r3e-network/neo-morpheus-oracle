@@ -174,7 +174,7 @@ export function OverviewTab({ setOutput }: any) {
               <Activity size={14} color="var(--accent-blue)" />
               <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>FEED AUTOMATION</span>
             </div>
-            <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>15s / 0.1%</span>
+            <span style={{ fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>60s / 0.1%</span>
           </div>
           <div>
             <div style={{ fontSize: '1.25rem', fontWeight: 800, fontFamily: 'var(--font-mono)', letterSpacing: '-0.02em' }}>{configuredSyncedCount} Synced / {DEFAULT_PAIRS.length} Configured</div>

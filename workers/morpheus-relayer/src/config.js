@@ -83,13 +83,13 @@ export function createRelayerConfig() {
     deadLetterLimit: Math.max(Number(env("MORPHEUS_RELAYER_DEAD_LETTER_LIMIT") || 500), 10),
     feedSync: {
       enabled: (env("MORPHEUS_FEED_SYNC_ENABLED") || "true").toLowerCase() !== "false",
-      intervalMs: Math.max(Number(env("MORPHEUS_FEED_SYNC_INTERVAL_MS") || 15000), 1000),
+      intervalMs: Math.max(Number(env("MORPHEUS_FEED_SYNC_INTERVAL_MS") || 60000), 1000),
       projectSlug: env("MORPHEUS_FEED_PROJECT_SLUG") || "demo",
       provider: env("MORPHEUS_FEED_PROVIDER"),
       providers: parseList(env("MORPHEUS_FEED_PROVIDERS")),
       symbols: parseList(env("MORPHEUS_FEED_SYMBOLS")),
       changeThresholdBps: env("MORPHEUS_FEED_CHANGE_THRESHOLD_BPS") || "10",
-      minUpdateIntervalMs: env("MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS") || "15000",
+      minUpdateIntervalMs: env("MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS") || "60000",
     },
     automation: {
       enabled: (env("MORPHEUS_AUTOMATION_ENABLED") || "true").toLowerCase() !== "false",
