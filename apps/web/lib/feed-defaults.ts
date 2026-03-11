@@ -1,7 +1,7 @@
 export const DEFAULT_FEED_SYMBOLS = [
   'NEO-USD',
   'GAS-USD',
-  '1000FLM-USD',
+  'FLM-USD',
   'BTC-USD',
   'ETH-USD',
   'SOL-USD',
@@ -31,7 +31,7 @@ export const DEFAULT_FEED_SYMBOLS = [
   'GLD-USD',
   'EUR-USD',
   'GBP-USD',
-  '1000JPY-USD',
+  'JPY-USD',
   'CNY-USD',
 ] as const;
 
@@ -51,26 +51,14 @@ export type DeprecatedFeedInfo = {
   reason: string;
 };
 
-const FEED_SYMBOL_ALIASES: Record<string, string> = {
-  'FLM-USD': '1000FLM-USD',
-  'JPY-USD': '1000JPY-USD',
-};
+const FEED_SYMBOL_ALIASES: Record<string, string> = {};
 
-export const FEED_DISPLAY_META: Record<string, { displaySymbol?: string; unitLabel?: string }> = {
-  '1000FLM-USD': {
-    displaySymbol: '1000FLM-USD',
-    unitLabel: '1000 FLM',
-  },
-  '1000JPY-USD': {
-    displaySymbol: '1000JPY-USD',
-    unitLabel: '1000 JPY',
-  },
-};
+export const FEED_DISPLAY_META: Record<string, { displaySymbol?: string; unitLabel?: string }> = {};
 
 export const FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
   "NEO-USD": { pair: "NEO-USD", label: "Neo Token", category: "Crypto", meaning: "Price of 1 NEO in USD", sourceSymbol: "NEO/USD", unit: "1 NEO" },
   "GAS-USD": { pair: "GAS-USD", label: "Neo GAS Token", category: "Crypto", meaning: "Price of 1 GAS in USD", sourceSymbol: "GAS/USD", unit: "1 GAS" },
-  "1000FLM-USD": { pair: "1000FLM-USD", label: "Flamingo Token Basket", category: "Crypto", meaning: "Price of 1000 FLM in USD", sourceSymbol: "FLM/USD", unit: "1000 FLM", note: "Scaled by 1000 because 1 FLM is too small to preserve well as integer cents." },
+  "FLM-USD": { pair: "FLM-USD", label: "Flamingo Token", category: "Crypto", meaning: "Price of 1 FLM in USD", sourceSymbol: "FLM/USD", unit: "1 FLM", note: "With the global 1 USD = 1,000,000 scale, FLM is represented directly without a basket multiplier." },
   "BTC-USD": { pair: "BTC-USD", label: "Bitcoin", category: "Crypto", meaning: "Price of 1 BTC in USD", sourceSymbol: "BTC/USD", unit: "1 BTC" },
   "ETH-USD": { pair: "ETH-USD", label: "Ethereum", category: "Crypto", meaning: "Price of 1 ETH in USD", sourceSymbol: "ETH/USD", unit: "1 ETH" },
   "SOL-USD": { pair: "SOL-USD", label: "Solana Token", category: "Crypto", meaning: "Price of 1 SOL in USD", sourceSymbol: "SOL/USD", unit: "1 SOL" },
@@ -100,15 +88,20 @@ export const FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
   "GLD-USD": { pair: "GLD-USD", label: "SPDR Gold Shares", category: "ETF", meaning: "Price of 1 GLD share in USD", sourceSymbol: "GLD", unit: "1 ETF share" },
   "EUR-USD": { pair: "EUR-USD", label: "Euro", category: "FX", meaning: "Price of 1 EUR in USD", sourceSymbol: "EUR/USD", unit: "1 EUR" },
   "GBP-USD": { pair: "GBP-USD", label: "British Pound", category: "FX", meaning: "Price of 1 GBP in USD", sourceSymbol: "GBP/USD", unit: "1 GBP" },
-  "1000JPY-USD": { pair: "1000JPY-USD", label: "Japanese Yen Basket", category: "FX", meaning: "Price of 1000 JPY in USD", sourceSymbol: "USD/JPY", unit: "1000 JPY", note: "Fetched as USD/JPY, then inverted and scaled by 1000." },
+  "JPY-USD": { pair: "JPY-USD", label: "Japanese Yen", category: "FX", meaning: "Price of 1 JPY in USD", sourceSymbol: "USD/JPY", unit: "1 JPY", note: "Fetched as USD/JPY, then inverted." },
   "CNY-USD": { pair: "CNY-USD", label: "Chinese Yuan", category: "FX", meaning: "Price of 1 CNY in USD", sourceSymbol: "USD/CNY", unit: "1 CNY", note: "Fetched as USD/CNY, then inverted." },
 };
 
 export const DEPRECATED_FEEDS: Record<string, DeprecatedFeedInfo> = {
-  "FLM-USD": {
-    pair: "FLM-USD",
-    replacement: "1000FLM-USD",
-    reason: "Legacy unscaled FLM key kept on-chain for historical continuity. New integrations must use 1000FLM-USD.",
+  "1000FLM-USD": {
+    pair: "1000FLM-USD",
+    replacement: "FLM-USD",
+    reason: "Historical basket key kept on-chain from the old integer-cents model. New integrations must use FLM-USD under the global 1e6 USD scale.",
+  },
+  "1000JPY-USD": {
+    pair: "1000JPY-USD",
+    replacement: "JPY-USD",
+    reason: "Historical basket key kept on-chain from the old integer-cents model. New integrations must use JPY-USD under the global 1e6 USD scale.",
   },
 };
 

@@ -1,10 +1,7 @@
 import { env, trimString } from '../platform/core.js';
 import { normalizeProviderId } from './providers.js';
 
-const FEED_PAIR_ALIASES = {
-  'FLM-USD': '1000FLM-USD',
-  'JPY-USD': '1000JPY-USD',
-};
+const FEED_PAIR_ALIASES = {};
 
 export const DEFAULT_FEED_PAIRS = {
   'NEO-USD': {
@@ -19,10 +16,7 @@ export const DEFAULT_FEED_PAIRS = {
       'binance-spot': { symbol: 'GASUSDT' },
     },
   },
-  '1000FLM-USD': {
-    display_symbol: '1000FLM-USD',
-    unit_label: '1000 FLM',
-    price_multiplier: 1000,
+  'FLM-USD': {
     providers: {
       twelvedata: { symbol: 'FLM/USD' },
       'binance-spot': { symbol: 'FLMUSDT' },
@@ -173,11 +167,8 @@ export const DEFAULT_FEED_PAIRS = {
       twelvedata: { symbol: 'GBP/USD' },
     },
   },
-  '1000JPY-USD': {
-    display_symbol: '1000JPY-USD',
-    unit_label: '1000 JPY',
+  'JPY-USD': {
     price_transform: 'inverse',
-    price_multiplier: 1000,
     providers: {
       twelvedata: { symbol: 'USD/JPY' },
     },

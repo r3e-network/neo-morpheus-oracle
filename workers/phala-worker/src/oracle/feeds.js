@@ -29,7 +29,7 @@ import {
 const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 15_000;
-const FEED_PRICE_DECIMALS = 2;
+const FEED_PRICE_DECIMALS = 6;
 const DATAFEED_X_READ_INTERFACE = new Interface([
   'function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])',
 ]);
@@ -284,17 +284,18 @@ async function fetchNeoN3FeedRecords(rpcUrl, contractHash) {
       .filter((entry) => Array.isArray(entry) && entry.length >= 6)
       .map((entry) => {
         const storagePair = trimString(entry[0]);
-        const priceCents = String(entry[2] ?? '0');
-        return [storagePair, {
-          storage_pair: storagePair,
-          pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
-          round_id: String(entry[1] ?? '0'),
-          price_cents: priceCents,
-          price: integerToDecimalString(priceCents, FEED_PRICE_DECIMALS),
-          timestamp: String(entry[3] ?? '0'),
-          attestation_hash: trimString(entry[4]),
-          source_set_id: String(entry[5] ?? '0'),
-        }];
+          const priceUnits = String(entry[2] ?? '0');
+          return [storagePair, {
+            storage_pair: storagePair,
+            pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
+            round_id: String(entry[1] ?? '0'),
+            price_units: priceUnits,
+            price: integerToDecimalString(priceUnits, FEED_PRICE_DECIMALS),
+            timestamp: String(entry[3] ?? '0'),
+            attestation_hash: trimString(entry[4]),
+            source_set_id: String(entry[5] ?? '0'),
+            price_scale_decimals: FEED_PRICE_DECIMALS,
+          }];
       }),
   );
 }
@@ -312,16 +313,17 @@ async function fetchNeoXFeedRecords(rpcUrl, contractAddress) {
   return Object.fromEntries(
     Array.from(records || []).map((entry) => {
       const storagePair = String(entry.pair ?? '');
-      const priceCents = entry.price?.toString?.() ?? String(entry.price ?? '0');
+      const priceUnits = entry.price?.toString?.() ?? String(entry.price ?? '0');
       return [storagePair, {
         storage_pair: storagePair,
         pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
         round_id: entry.roundId?.toString?.() ?? String(entry.roundId ?? '0'),
-        price_cents: priceCents,
-        price: integerToDecimalString(priceCents, FEED_PRICE_DECIMALS),
+        price_units: priceUnits,
+        price: integerToDecimalString(priceUnits, FEED_PRICE_DECIMALS),
         timestamp: entry.timestamp?.toString?.() ?? String(entry.timestamp ?? '0'),
         attestation_hash: entry.attestationHash?.toString?.() ?? String(entry.attestationHash ?? ''),
         source_set_id: entry.sourceSetId?.toString?.() ?? String(entry.sourceSetId ?? '0'),
+        price_scale_decimals: FEED_PRICE_DECIMALS,
       }];
     }),
   );
@@ -351,20 +353,21 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
-  const previousPriceCents = String(
-    previousRecord.price_cents
+  const previousPriceUnits = String(
+    previousRecord.price_units
+    ?? previousRecord.price_cents
     ?? decimalToIntegerString(previousRecord.price ?? '0', quote.decimals),
   );
-  const nextPriceCents = decimalToIntegerString(quote.price, quote.decimals);
-  const changeBps = computeChangeBps(previousPriceCents, nextPriceCents);
+  const nextPriceUnits = decimalToIntegerString(quote.price, quote.decimals);
+  const changeBps = computeChangeBps(previousPriceUnits, nextPriceUnits);
   if (policy.thresholdBps > 0 && changeBps < policy.thresholdBps) {
     return {
       allow: false,
       reason: 'price-change-below-threshold',
       change_bps: changeBps,
       comparison_basis: 'current-chain-price',
-      current_chain_price_cents: previousPriceCents,
-      candidate_price_cents: nextPriceCents,
+      current_chain_price_units: previousPriceUnits,
+      candidate_price_units: nextPriceUnits,
       storage_key: storageKey,
     };
   }
@@ -374,8 +377,8 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     reason: 'threshold-met',
     change_bps: changeBps,
     comparison_basis: 'current-chain-price',
-    current_chain_price_cents: previousPriceCents,
-    candidate_price_cents: nextPriceCents,
+    current_chain_price_units: previousPriceUnits,
+    candidate_price_units: nextPriceUnits,
     storage_key: storageKey,
   };
 }
@@ -420,6 +423,7 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     price_multiplier: priceMultiplier,
     price: String(price),
     decimals: FEED_PRICE_DECIMALS,
+    price_scale_decimals: FEED_PRICE_DECIMALS,
     timestamp: new Date().toISOString(),
     sources: [provider],
   };
@@ -650,8 +654,9 @@ export async function handleOracleFeed(payload) {
           pair: quote.pair,
           storage_pair: storagePair,
           last_observed_price: quote.price,
-          last_observed_price_cents: decimalToIntegerString(quote.price, quote.decimals),
+          last_observed_price_units: decimalToIntegerString(quote.price, quote.decimals),
           last_observed_at_ms: observedAtMs,
+          price_scale_decimals: FEED_PRICE_DECIMALS,
         };
         syncResults.push({
           provider: quote.provider,
@@ -701,14 +706,15 @@ export async function handleOracleFeed(payload) {
       pair: entry.quote.pair,
       storage_pair: entry.storagePair,
       price: entry.quote.price,
-      price_cents: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
+      price_units: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
       round_id: entry.roundId,
       source_set_id: entry.sourceSetId,
       last_submitted_at_ms: Date.now(),
       last_observed_price: entry.quote.price,
-      last_observed_price_cents: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
+      last_observed_price_units: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
       last_observed_at_ms: entry.observedAtMs,
       attestation_hash: entry.quote.attestation_hash,
+      price_scale_decimals: FEED_PRICE_DECIMALS,
     };
   }
 

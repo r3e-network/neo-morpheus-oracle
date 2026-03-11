@@ -159,8 +159,8 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
       <section className="card-industrial stagger-3" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b' }}>
         <h4 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#fff', fontSize: '0.95rem', fontWeight: 800 }}>Deprecated Legacy Pair</h4>
         <p style={{ marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          If you inspect raw on-chain storage, you may still see the old key <code>TWELVEDATA:FLM-USD</code>. Do not integrate against it.
-          The canonical replacement is <code>TWELVEDATA:1000FLM-USD</code> on-chain and <code>1000FLM-USD</code> everywhere in user-facing code and configuration.
+          If you inspect raw on-chain storage, you may still see historical basket keys such as <code>TWELVEDATA:1000FLM-USD</code> and <code>TWELVEDATA:1000JPY-USD</code>.
+          Under the global <code>1 USD = 1,000,000</code> precision model, the canonical replacements are <code>TWELVEDATA:FLM-USD</code> and <code>TWELVEDATA:JPY-USD</code>.
         </p>
       </section>
 
