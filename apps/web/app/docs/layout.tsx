@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
-import { 
-  Book, Layers, Shield, Cpu, LineChart, CheckCircle, 
+import {
+  Book, Layers, Shield, Cpu, LineChart, CheckCircle,
   Search, Github, Menu, X, Boxes, ChevronRight, ArrowLeft,
-  Code2, HelpCircle, Zap, ClipboardList
+  Code2, HelpCircle, Zap, ClipboardList, Activity
 } from "lucide-react";
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
@@ -28,6 +28,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/oracle", label: "Privacy Oracle", icon: Shield },
         { href: "/docs/compute", label: "Enclave Compute", icon: Cpu },
         { href: "/docs/datafeeds", label: "Data Matrix", icon: LineChart },
+        { href: "/docs/feed-status", label: "Feed Status", icon: Activity },
         { href: "/docs/r/USER_GUIDE", label: "User Guide", icon: Book },
       ]
     },
