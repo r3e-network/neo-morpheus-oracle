@@ -62,6 +62,21 @@ function isPrintableAscii(value: string) {
   return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(value);
 }
 
+function decodeNeoByteString(bytes: Buffer) {
+  const text = bytes.toString("utf8");
+  const reversedText = Buffer.from(bytes).reverse().toString("utf8");
+  const knownPairPrefixes = ["TWELVEDATA:", "BINANCE-SPOT:", "COINBASE-SPOT:"];
+
+  if (isPrintableAscii(reversedText) && knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))) {
+    return reversedText;
+  }
+  if (isPrintableAscii(text)) return text;
+  if (isPrintableAscii(reversedText) && /^[A-Z0-9:_-]+$/.test(reversedText)) {
+    return reversedText;
+  }
+  return `0x${bytes.toString("hex")}`;
+}
+
 function formatFixedPoint(rawValue: string | bigint, decimals: number) {
   const raw = String(rawValue ?? "0");
   const negative = raw.startsWith("-");
@@ -127,11 +142,11 @@ function parseNeoStackItem(item: any): unknown {
       const raw = trimString(item.value);
       if (!raw) return "";
       const bytes = Buffer.from(raw, "base64");
-      if (bytes.length === 20) {
+      const decoded = decodeNeoByteString(bytes);
+      if (bytes.length === 20 && typeof decoded === "string" && decoded.startsWith("0x")) {
         return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
       }
-      const text = bytes.toString("utf8");
-      return isPrintableAscii(text) ? text : `0x${bytes.toString("hex")}`;
+      return decoded;
     }
     default:
       return item.value ?? null;
