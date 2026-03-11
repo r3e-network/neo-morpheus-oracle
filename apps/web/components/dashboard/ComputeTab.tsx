@@ -1,13 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Cpu, Play, FileCode, Database, Code, Fingerprint, Lock, ShieldAlert } from "lucide-react";
+import { Cpu, Play, FileCode, Database, Code, Fingerprint, Lock, ShieldAlert, Copy, CheckCircle2, Zap } from "lucide-react";
+import { NETWORKS } from "@/lib/onchain-data";
 
 export function ComputeTab({ computeFunctions, setOutput }: any) {
   const [selectedFunc, setSelectedFunc] = useState<string>("");
   const [computeInput, setComputeInput] = useState('{\n  "values": [1, 2, 3]\n}');
   const [userCode, setUserCode] = useState(`function process(input, helpers) {\n  const values = Array.isArray(input.values) ? input.values : [];\n  return {\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [generatedPackage, setGeneratedPackage] = useState<{
+    requestType: string;
+    payload: Record<string, unknown>;
+    payloadJson: string;
+    neoN3Snippet: string;
+  } | null>(null);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
   const mockTemplates = [
     { name: "script.sum", runtime: "JS", desc: "Custom JS entry point using the actual process(input, helpers) signature.", cat: "Custom JS" },
@@ -19,6 +27,57 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
     { name: "builtin.zkp.public_signal_hash", runtime: "Builtin", desc: "Reference payload shape for a ZKP digest helper.", cat: "ZKP" },
     { name: "wasm.reference", runtime: "WASM", desc: "Use WASM when you need stronger isolation and a 30s bounded runtime.", cat: "WASM" }
   ];
+
+  function escapeForCSharp(value: string) {
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+
+  function applyComputePreset(name: string) {
+    setSelectedFunc(name);
+    if (name.includes("timestamp")) {
+      setUserCode(`function process(input, helpers) {\n  return {\n    label: input.label || "demo",\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
+      setComputeInput('{\n  "label": "demo-run"\n}');
+      return;
+    }
+    if (name.includes("base64_decode")) {
+      setUserCode(`function process(input, helpers) {\n  return {\n    decoded: helpers.base64Decode(input.value || ""),\n  };\n}`);
+      setComputeInput('{\n  "value": "bmVvLW1vcnBoZXVz"\n}');
+      return;
+    }
+    if (name.includes("privacy.mask")) {
+      setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "privacy.mask",\n    input: { value: "0x1234567890abcdef", unmasked_left: 2, unmasked_right: 2 }\n  };\n}`);
+      setComputeInput('{\n  "note": "reference only"\n}');
+      return;
+    }
+    if (name.includes("public_signal_hash")) {
+      setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "zkp.public_signal_hash",\n    input: { circuit_id: "demo", signals: [1, 2, 3] }\n  };\n}`);
+      setComputeInput('{\n  "note": "reference only"\n}');
+      return;
+    }
+    if (name.includes("modexp")) {
+      setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "math.modexp",\n    input: { base: "5", exponent: "3", modulus: "13" }\n  };\n}`);
+      setComputeInput('{\n  "note": "reference only"\n}');
+      return;
+    }
+    if (name.includes("matrix")) {
+      setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "matrix.multiply",\n    input: { left: [[1, 2], [3, 4]], right: [[5, 6], [7, 8]] }\n  };\n}`);
+      setComputeInput('{\n  "note": "reference only"\n}');
+      return;
+    }
+    if (name.includes("wasm")) {
+      setUserCode(`// WASM is the recommended path for stronger isolation.\nfunction process(input, helpers) {\n  return {\n    mode: "wasm",\n    note: "Compile a .wasm module and place it into wasm_base64."\n  };\n}`);
+      setComputeInput('{\n  "note": "reference only"\n}');
+      return;
+    }
+    setUserCode(`function process(input, helpers) {\n  const values = Array.isArray(input.values) ? input.values : [];\n  return {\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
+    setComputeInput('{\n  "values": [1, 2, 3]\n}');
+  }
+
+  async function handleCopy(id: string, value: string) {
+    await navigator.clipboard.writeText(value);
+    setCopiedItem(id);
+    setTimeout(() => setCopiedItem(null), 1500);
+  }
 
   const handleExecute = async () => {
     setIsSimulating(true);
@@ -55,12 +114,121 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
     }
   };
 
+  const generateOnchainPackage = () => {
+    let payload: Record<string, unknown>;
+
+    if (selectedFunc.includes("privacy.mask")) {
+      payload = {
+        mode: "builtin",
+        function: "privacy.mask",
+        input: { value: "0x1234567890abcdef", unmasked_left: 2, unmasked_right: 2 },
+        target_chain: "neo_n3",
+      };
+    } else if (selectedFunc.includes("public_signal_hash")) {
+      payload = {
+        mode: "builtin",
+        function: "zkp.public_signal_hash",
+        input: { circuit_id: "demo", signals: [1, 2, 3] },
+        target_chain: "neo_n3",
+      };
+    } else if (selectedFunc.includes("modexp")) {
+      payload = {
+        mode: "builtin",
+        function: "math.modexp",
+        input: { base: "5", exponent: "3", modulus: "13" },
+        target_chain: "neo_n3",
+      };
+    } else if (selectedFunc.includes("matrix")) {
+      payload = {
+        mode: "builtin",
+        function: "matrix.multiply",
+        input: { left: [[1, 2], [3, 4]], right: [[5, 6], [7, 8]] },
+        target_chain: "neo_n3",
+      };
+    } else if (selectedFunc.includes("wasm")) {
+      payload = {
+        mode: "wasm",
+        wasm_base64: "<compiled wasm module>",
+        input: { note: "replace with real input" },
+        target_chain: "neo_n3",
+      };
+    } else {
+      let parsedInput: Record<string, unknown> = {};
+      try {
+        parsedInput = JSON.parse(computeInput);
+      } catch {
+        parsedInput = {};
+      }
+      payload = {
+        mode: "script",
+        script: userCode,
+        entry_point: "process",
+        input: parsedInput,
+        target_chain: "neo_n3",
+      };
+    }
+
+    const payloadJson = JSON.stringify(payload, null, 2);
+    const compactPayloadJson = JSON.stringify(payload);
+    const neoN3Snippet = `string payloadJson = "${escapeForCSharp(compactPayloadJson)}";
+
+BigInteger requestId = (BigInteger)Contract.Call(
+    OracleHash,
+    "request",
+    CallFlags.All,
+    "compute",
+    (ByteString)payloadJson,
+    Runtime.ExecutingScriptHash,
+    "onOracleResult"
+);`;
+
+    setGeneratedPackage({
+      requestType: "compute",
+      payload,
+      payloadJson,
+      neoN3Snippet,
+    });
+
+    setOutput([
+      ">> Compute request package generated.",
+      ">> Request type: compute",
+      `>> Oracle contract: ${NETWORKS.neo_n3.oracle}`,
+      ">> Submit this payload through the on-chain Oracle contract.",
+      "",
+      payloadJson,
+    ].join("\n"));
+  };
+
   return (
     <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border-dim)', paddingBottom: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>Enclave Sandbox</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Author custom JS payloads locally using the same function signatures that the live runtime expects.</p>
+        </div>
+      </div>
+
+      <div className="card-industrial" style={{ padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+          <Zap size={18} color="var(--neo-green)" />
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Scenario Presets</h3>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.privacy.mask")}>
+            <Lock size={14} /> privacy.mask
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.math.modexp")}>
+            <Cpu size={14} /> math.modexp
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.zkp.public_signal_hash")}>
+            <Database size={14} /> zkp.public_signal_hash
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.matrix.multiply")}>
+            <Database size={14} /> matrix.multiply
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("wasm.reference")}>
+            <FileCode size={14} /> wasm.reference
+          </button>
         </div>
       </div>
 
@@ -76,34 +244,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
             {mockTemplates.map((f) => (
               <button
                 key={f.name}
-                onClick={() => {
-                  setSelectedFunc(f.name);
-                  if (f.name.includes("timestamp")) {
-                    setUserCode(`function process(input, helpers) {\n  return {\n    label: input.label || "demo",\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
-                    setComputeInput('{\n  "label": "demo-run"\n}');
-                  } else if (f.name.includes("base64_decode")) {
-                    setUserCode(`function process(input, helpers) {\n  return {\n    decoded: helpers.base64Decode(input.value || ""),\n  };\n}`);
-                    setComputeInput('{\n  "value": "bmVvLW1vcnBoZXVz"\n}');
-                  } else if (f.name.includes("privacy.mask")) {
-                    setUserCode(`// Builtin payload reference\n// Submit this through requestType="compute"\n// with mode="builtin" and function="privacy.mask"\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "privacy.mask",\n    input: { value: "0x1234567890abcdef", unmasked_left: 2, unmasked_right: 2 }\n  };\n}`);
-                    setComputeInput('{\n  "note": "reference only"\n}');
-                  } else if (f.name.includes("public_signal_hash")) {
-                    setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "zkp.public_signal_hash",\n    input: { circuit_id: "demo", signals: [1, 2, 3] }\n  };\n}`);
-                    setComputeInput('{\n  "note": "reference only"\n}');
-                  } else if (f.name.includes("modexp")) {
-                    setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "math.modexp",\n    input: { base: "5", exponent: "3", modulus: "13" }\n  };\n}`);
-                    setComputeInput('{\n  "note": "reference only"\n}');
-                  } else if (f.name.includes("matrix")) {
-                    setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "matrix.multiply",\n    input: { left: [[1, 2], [3, 4]], right: [[5, 6], [7, 8]] }\n  };\n}`);
-                    setComputeInput('{\n  "note": "reference only"\n}');
-                  } else if (f.name.includes("wasm")) {
-                    setUserCode(`// WASM is the recommended path for stronger isolation.\n// Build a module and submit it through the on-chain Oracle/Compute request.\nfunction process(input, helpers) {\n  return {\n    mode: "wasm",\n    note: "Compile a .wasm module and place it into wasm_base64."\n  };\n}`);
-                    setComputeInput('{\n  "note": "reference only"\n}');
-                  } else {
-                    setUserCode(`function process(input, helpers) {\n  const values = Array.isArray(input.values) ? input.values : [];\n  return {\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
-                    setComputeInput('{\n  "values": [1, 2, 3]\n}');
-                  }
-                }}
+                onClick={() => applyComputePreset(f.name)}
                 style={{
                   width: '100%',
                   padding: '1.5rem',
@@ -167,10 +308,58 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
               <button className="btn-ata" style={{ width: '100%', justifyContent: 'center' }} onClick={handleExecute} disabled={isSimulating}>
                 {isSimulating ? 'EXECUTING...' : 'RUN LOCAL AUTHORING CHECK'}
               </button>
+              <button className="btn-secondary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.75rem', border: '1px solid var(--border-dim)' }} onClick={generateOnchainPackage}>
+                Generate On-Chain Compute Package
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {generatedPackage && (
+        <div className="card-industrial stagger-3" style={{ padding: '0' }}>
+          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginBottom: '0.25rem' }}>Generated Compute Package</h3>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>requestType = {generatedPackage.requestType}</div>
+            </div>
+            <div className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}>
+              <CheckCircle2 size={12} style={{ marginRight: '6px' }} />
+              READY
+            </div>
+          </div>
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => handleCopy("compute-payload", generatedPackage.payloadJson)}>
+                <Copy size={14} /> {copiedItem === "compute-payload" ? "Copied Payload" : "Copy Payload JSON"}
+              </button>
+              <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => handleCopy("compute-n3", generatedPackage.neoN3Snippet)}>
+                <Copy size={14} /> {copiedItem === "compute-n3" ? "Copied N3" : "Copy Neo N3 Snippet"}
+              </button>
+            </div>
+            <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>PAYLOAD JSON</div>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--neo-green)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
+                {generatedPackage.payloadJson}
+              </pre>
+            </div>
+            <div className="grid grid-2" style={{ gap: '1rem' }}>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO N3 SUBMISSION</div>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedPackage.neoN3Snippet}</pre>
+              </div>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>CALLBACK READBACK</div>
+                <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  <div>1. Submit to <code>{NETWORKS.neo_n3.oracle}</code> with request type <code>compute</code>.</div>
+                  <div>2. Read the emitted <code>requestId</code>.</div>
+                  <div>3. Query your callback consumer&apos;s <code>getCallback(requestId)</code>.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
