@@ -245,6 +245,7 @@ Recorded transactions:
 | --- | --- | --- |
 | Forced full-batch feed sync | `0xa34fe7c5bfff65d1ead1d9e6be12458dfdcf76253e5694dc24c4b30b42fd1204` | single `updateFeeds` transaction containing all 14 pairs |
 | Direct operator-triggered single-symbol publish | `0x39c1a67e5d5ca47728bda6798b17191adfee862a660ac4f317f8f40e492d800c` | updated `TWELVEDATA:NEO-USD`, round `1773053364`, integer price `251` |
+| Forced full-batch sync after catalog expansion to 34 canonical pairs | `0x8a1da3325466bc54839dd0e52016192752ceeec9df827ba79e920a0abc58ebfa` | single `updateFeeds` transaction containing all 34 configured pairs including equities, ETFs, commodities, FX, `1000FLM-USD`, and `1000JPY-USD` |
 
 Latest reader confirmation recorded in acceptance:
 
@@ -252,6 +253,19 @@ Latest reader confirmation recorded in acceptance:
 - round id: `1773053390`
 - integer price: `253`
 - timestamp: `1773158674`
+
+Latest post-expansion confirmation:
+
+- runtime config inside the live relayer container now includes all 34 configured canonical pairs
+- live relayer logs after redeploy continued to show feed sync loops completing roughly every 15 to 17 seconds:
+  - `2026-03-11T09:19:18.945Z`
+  - `2026-03-11T09:19:36.007Z`
+  - `2026-03-11T09:19:52.145Z`
+  - `2026-03-11T09:20:09.385Z`
+  - `2026-03-11T09:20:27.904Z`
+  - `2026-03-11T09:20:45.611Z`
+  - `2026-03-11T09:21:02.455Z`
+  - `2026-03-11T09:21:18.542Z`
 
 ## 5. Neo N3 Testnet Sample Artifact
 
