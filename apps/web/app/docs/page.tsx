@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Shield, Cpu, Zap, Info, Terminal, BookOpen, Code2, ClipboardList } from "lucide-react";
+import { ArrowRight, Shield, Cpu, Zap, Info, Terminal, BookOpen, Code2, ClipboardList, Activity } from "lucide-react";
 
 export default function DocsIntroduction() {
   return (
@@ -84,6 +84,13 @@ export default function DocsIntroduction() {
             <ClipboardList size={18} color="var(--neo-green)" />
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>View the exact scripts, contracts, transactions, request ids, and accepted results behind the current validation set.</p>
+        </Link>
+        <Link href="/docs/feed-status" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>FEED STATUS</span>
+            <Activity size={18} color="var(--neo-green)" />
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Compare configured feed pairs, current on-chain values, live source values, and deprecated legacy keys in one view.</p>
         </Link>
       </div>
     </div>
