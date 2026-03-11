@@ -80,10 +80,28 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
                 key={f.name}
                 onClick={() => {
                   setSelectedFunc(f.name);
-                  if (f.name.includes("noise")) setUserCode(`function process(data) {\n  // data: { value: number, scale: number }\n  return { noisy_value: data.value + (Math.random() * data.scale) };\n}`);
-                  else if (f.name.includes("vrf")) setUserCode(`async function process(data) {\n  const res = await morpheus.get_vrf_random();\n  return res;\n}`);
-                  else if (f.name.includes("mask")) setUserCode(`function process(data) {\n  const s = String(data.value);\n  return s.slice(0, 2) + "****" + s.slice(-2);\n}`);
-                  else setUserCode(`function process(data) {\n  return data.args.reduce((a, b) => a + b, 0);\n}`);
+                  if (f.name.includes("noise")) {
+                    setUserCode(`function process(data) {\n  // data.args: { value: number, scale: number }\n  return { noisy_value: data.args.value + (Math.random() * data.args.scale) };\n}`);
+                    setComputeInput('{\n  "args": {\n    "value": 100,\n    "scale": 5\n  }\n}');
+                  } else if (f.name.includes("vrf")) {
+                    setUserCode(`async function process(data) {\n  const res = await morpheus.get_vrf_random();\n  return res;\n}`);
+                    setComputeInput('{\n  "args": {}\n}');
+                  } else if (f.name.includes("mask")) {
+                    setUserCode(`function process(data) {\n  const s = String(data.args.value);\n  return { masked_value: s.slice(0, 2) + "****" + s.slice(-2) };\n}`);
+                    setComputeInput('{\n  "args": {\n    "value": "0x1234567890abcdef"\n  }\n}');
+                  } else if (f.name.includes("hash")) {
+                    setUserCode(`function process(data) {\n  // Mocking SHA-256 for local sandbox\n  return {\n    hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"\n  };\n}`);
+                    setComputeInput('{\n  "args": {\n    "payload": "Hello Neo"\n  }\n}');
+                  } else if (f.name.includes("modexp")) {
+                    setUserCode(`function process(data) {\n  const { base, exp, mod } = data.args;\n  let res = 1;\n  for (let i = 0; i < exp; i++) {\n    res = (res * base) % mod;\n  }\n  return { modexp_result: res };\n}`);
+                    setComputeInput('{\n  "args": {\n    "base": 5,\n    "exp": 3,\n    "mod": 13\n  }\n}');
+                  } else if (f.name.includes("matrix")) {
+                    setUserCode(`function process(data) {\n  // Mock simplified 2x2 matrix multiplication result for demo\n  return { \n    matrix_result: [[22, 28], [49, 64]] \n  };\n}`);
+                    setComputeInput('{\n  "args": {\n    "m1": [[1, 2], [3, 4]],\n    "m2": [[5, 6], [7, 8]]\n  }\n}');
+                  } else {
+                    setUserCode(`function process(data) {\n  // Example: simple sum reduction\n  if (!data.args || !Array.isArray(data.args)) return 0;\n  return data.args.reduce((a, b) => a + b, 0);\n}`);
+                    setComputeInput('{\n  "args": [1, 2, 3]\n}');
+                  }
                 }}
                 style={{
                   width: '100%',
