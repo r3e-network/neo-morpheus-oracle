@@ -168,6 +168,48 @@ On-chain storage is provider-scoped, for example:
 - `TWELVEDATA:NEO-USD`
 - `BINANCE-SPOT:NEO-USD`
 
+### Canonical pair table
+
+Use these names exactly in contracts, automation jobs, and documentation.
+Scaled names such as `1000FLM-USD` and `1000JPY-USD` are canonical pair ids.
+
+| Pair | Category | Meaning | TwelveData symbol | On-chain unit | Note |
+| --- | --- | --- | --- | --- | --- |
+| `NEO-USD` | Crypto | price of 1 NEO in USD | `NEO/USD` | `1 NEO` |  |
+| `GAS-USD` | Crypto | price of 1 GAS in USD | `GAS/USD` | `1 GAS` |  |
+| `1000FLM-USD` | Crypto | price of 1000 FLM in USD | `FLM/USD` | `1000 FLM` | scaled because 1 FLM is too small for integer-cent storage |
+| `BTC-USD` | Crypto | price of 1 BTC in USD | `BTC/USD` | `1 BTC` |  |
+| `ETH-USD` | Crypto | price of 1 ETH in USD | `ETH/USD` | `1 ETH` |  |
+| `SOL-USD` | Crypto | price of 1 SOL in USD | `SOL/USD` | `1 SOL` |  |
+| `TRX-USD` | Crypto | price of 1 TRX in USD | `TRX/USD` | `1 TRX` |  |
+| `PAXG-USD` | Crypto | price of 1 PAXG in USD | `PAXG/USD` | `1 PAXG` | gold-backed token |
+| `USDT-USD` | Crypto | price of 1 USDT in USD | `USDT/USD` | `1 USDT` |  |
+| `USDC-USD` | Crypto | price of 1 USDC in USD | `USDC/USD` | `1 USDC` |  |
+| `BNB-USD` | Crypto | price of 1 BNB in USD | `BNB/USD` | `1 BNB` |  |
+| `XRP-USD` | Crypto | price of 1 XRP in USD | `XRP/USD` | `1 XRP` |  |
+| `DOGE-USD` | Crypto | price of 1 DOGE in USD | `DOGE/USD` | `1 DOGE` |  |
+| `WTI-USD` | Commodity | WTI crude oil reference price in USD | `WTI/USD` | `WTI reference unit` |  |
+| `BRENT-USD` | Commodity | Brent crude spot reference price in USD | `XBR/USD` | `Brent spot reference unit` |  |
+| `NATGAS-USD` | Commodity | natural gas reference price in USD | `NG/USD` | `natural gas reference unit` |  |
+| `COPPER-USD` | Commodity | copper futures proxy in USD | `HG1` | `1 copper futures reference unit` | front-month proxy |
+| `WHEAT-USD` | Commodity | wheat futures proxy in USD | `W_1` | `1 wheat futures reference unit` | front-month proxy |
+| `CORN-USD` | Commodity | corn futures proxy in USD | `C_1` | `1 corn futures reference unit` | front-month proxy |
+| `SOY-USD` | Commodity | soybean futures proxy in USD | `S_1` | `1 soybean futures reference unit` | front-month proxy |
+| `AAPL-USD` | Equity | price of 1 AAPL share in USD | `AAPL` | `1 share` |  |
+| `GOOGL-USD` | Equity | price of 1 GOOGL share in USD | `GOOGL` | `1 share` |  |
+| `MSFT-USD` | Equity | price of 1 MSFT share in USD | `MSFT` | `1 share` |  |
+| `AMZN-USD` | Equity | price of 1 AMZN share in USD | `AMZN` | `1 share` |  |
+| `TSLA-USD` | Equity | price of 1 TSLA share in USD | `TSLA` | `1 share` |  |
+| `META-USD` | Equity | price of 1 META share in USD | `META` | `1 share` |  |
+| `NVDA-USD` | Equity | price of 1 NVDA share in USD | `NVDA` | `1 share` |  |
+| `SPY-USD` | ETF | price of 1 SPY share in USD | `SPY` | `1 ETF share` |  |
+| `QQQ-USD` | ETF | price of 1 QQQ share in USD | `QQQ` | `1 ETF share` |  |
+| `GLD-USD` | ETF | price of 1 GLD share in USD | `GLD` | `1 ETF share` |  |
+| `EUR-USD` | FX | price of 1 EUR in USD | `EUR/USD` | `1 EUR` |  |
+| `GBP-USD` | FX | price of 1 GBP in USD | `GBP/USD` | `1 GBP` |  |
+| `1000JPY-USD` | FX | price of 1000 JPY in USD | `USD/JPY` | `1000 JPY` | fetched as `USD/JPY`, then inverted and scaled by 1000 |
+| `CNY-USD` | FX | price of 1 CNY in USD | `USD/CNY` | `1 CNY` | fetched as `USD/CNY`, then inverted |
+
 ## Selection Model
 
 - **PriceFeed** can use a built-in provider directly
