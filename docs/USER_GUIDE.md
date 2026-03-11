@@ -47,6 +47,7 @@ Important properties:
 - Morpheus does **not** aggregate or medianize providers
 - each provider is stored independently on-chain as `PROVIDER:PAIR`
 - prices are stored as integer cents with exactly two decimals of precision
+- threshold checks are evaluated against the quantized on-chain integer price, not unbounded source decimals
 - example storage pairs:
   - `TWELVEDATA:NEO-USD`
   - `BINANCE-SPOT:NEO-USD`
@@ -418,6 +419,11 @@ For **Neo N3 mainnet**, automatic feed sync obeys two rules:
 
 1. the same price pair is updated only if the fresh quote moved by more than **0.1%** versus the current on-chain stored value
 2. the same storage pair is updated at most **once every 15 seconds**
+
+Precision caveat:
+
+- because the chain stores integer cents, a raw source move that is still too small to change the stored cent value cannot trigger an update, even if that raw source move is already greater than `0.1%`
+- if you need finer granularity for small-dollar assets, publish an explicitly scaled pair such as `1000FLM-USD` or another `1000` / `10000` basket pair
 
 These rules apply per stored provider pair, for example:
 

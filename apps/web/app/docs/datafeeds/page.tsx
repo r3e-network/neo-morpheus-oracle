@@ -49,6 +49,7 @@ export default function DocsDatafeeds() {
         <li><code>1000FLM-USD</code> is tracked as a <code>1000 FLM</code> basket so sub-cent token pricing still remains representable in integer cents.</li>
         <li><code>1000JPY-USD</code> is tracked as a <code>1000 JPY</code> basket because a single JPY is far below one USD cent.</li>
         <li>For very small USD-denominated assets, pair-level scaling metadata can promote the stored unit to <code>1000</code> or <code>10000</code> underlying units while keeping the on-chain value as integer cents.</li>
+        <li>The 0.1% sync threshold is evaluated against the <strong>quantized on-chain integer price</strong>. If a raw source move is still too small to change the stored cent value, no update is possible and no transaction is sent.</li>
       </ul>
 
       <h2>Canonical Pair Meanings</h2>
@@ -140,7 +141,7 @@ function checkPrice(string memory pair) public view returns (int256) {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored value</strong>. Only pairs whose change versus the on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
+          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored integer value</strong>. Only pairs whose change versus the quantized on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
         </p>
       </div>
     </div>
