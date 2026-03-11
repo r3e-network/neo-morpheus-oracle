@@ -36,7 +36,7 @@ export default function DocsIntroduction() {
       </p>
       
       <blockquote style={{ borderLeft: '2px solid var(--neo-green)', background: 'rgba(0, 255, 163, 0.02)', padding: '1.5rem', margin: '2rem 0' }}>
-        <strong>The Morpheus Solution:</strong> By moving logic into Phala TEE enclaves, Morpheus creates a "Secure Sandbox" where data can be fetched, processed, and signed without ever being exposed to node operators or the underlying cloud provider.
+        <strong>The Morpheus Solution:</strong> By moving logic into the Phala TEE runtime, Morpheus creates a secure sandbox where data can be fetched, processed, and signed without ever being exposed to node operators or the underlying cloud provider.
       </blockquote>
 
       <h2>Core Architecture</h2>
