@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Shield, Cpu, Zap, Info, Terminal, BookOpen, Code2 } from "lucide-react";
+import { ArrowRight, Shield, Cpu, Zap, Info, Terminal, BookOpen, Code2, ClipboardList } from "lucide-react";
 
 export default function DocsIntroduction() {
   return (
@@ -77,6 +77,13 @@ export default function DocsIntroduction() {
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Deep dive into the TEE trust model and relayer logic.</p>
+        </Link>
+        <Link href="/docs/r/TESTING_LEDGER" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>TESTING LEDGER</span>
+            <ClipboardList size={18} color="var(--neo-green)" />
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>View the exact scripts, contracts, transactions, request ids, and accepted results behind the current validation set.</p>
         </Link>
       </div>
     </div>
