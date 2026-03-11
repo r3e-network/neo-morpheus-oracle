@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Shield, Lock, Zap, FileCode, Database, Calculator, Activity, Terminal, Globe } from "lucide-react";
 
 const oracleProviders = [
@@ -203,6 +204,11 @@ export default function DocsUseCases() {
           {participationFlow.map((step) => (
             <div key={step} style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>{step}</div>
           ))}
+        </div>
+        <div style={{ marginTop: "1.25rem" }}>
+          <Link href="/docs/templates" className="btn btn-secondary btn-sm" style={{ textDecoration: "none" }}>
+            Open Starter Templates
+          </Link>
         </div>
       </div>
 
