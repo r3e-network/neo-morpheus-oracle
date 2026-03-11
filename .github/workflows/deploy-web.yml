@@ -6,8 +6,30 @@ on:
     branches: [main]
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
+          HAS_VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID != '' }}
+          HAS_VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID != '' }}
+        run: |
+          echo "HAS_VERCEL_TOKEN=$HAS_VERCEL_TOKEN"
+          echo "HAS_VERCEL_ORG_ID=$HAS_VERCEL_ORG_ID"
+          echo "HAS_VERCEL_PROJECT_ID=$HAS_VERCEL_PROJECT_ID"
+          if [ "$HAS_VERCEL_TOKEN" = "true" ] && [ "$HAS_VERCEL_ORG_ID" = "true" ] && [ "$HAS_VERCEL_PROJECT_ID" = "true" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Vercel deployment skipped because required secrets are missing."
+          fi
+
   deploy:
-    if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_ORG_ID != '' && secrets.VERCEL_PROJECT_ID != '' }}
+    needs: preflight
+    if: ${{ needs.preflight.outputs.ready == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

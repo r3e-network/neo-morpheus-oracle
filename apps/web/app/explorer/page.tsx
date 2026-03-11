@@ -1,6 +1,6 @@
 import { Dashboard } from "../../components/dashboard";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Activity, ArrowLeft } from "lucide-react";
 
 export default function ExplorerPage() {
   return (
@@ -10,6 +10,9 @@ export default function ExplorerPage() {
           <ArrowLeft size={18} />
           <span className="text-gradient" style={{ letterSpacing: '0.1em' }}>MORPHEUS <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>| Explorer</span></span>
         </Link>
+        <div className="nav-links">
+          <Link href="/docs/feed-status" className="nav-link"><Activity size={14} /> Feed Status</Link>
+        </div>
       </nav>
       <main className="container" style={{ flex: 1, padding: '2rem 0' }}>
         <Dashboard />
