@@ -173,6 +173,12 @@ On-chain storage is provider-scoped, for example:
 Use these names exactly in contracts, automation jobs, and documentation.
 Scaled names such as `1000FLM-USD` and `1000JPY-USD` are canonical pair ids.
 
+Deprecated legacy storage key:
+
+- `TWELVEDATA:FLM-USD` is a historical on-chain key and should be treated as deprecated
+- use `TWELVEDATA:1000FLM-USD` on-chain instead
+- use `1000FLM-USD` everywhere in user-facing configs, contracts, and docs
+
 | Pair | Category | Meaning | TwelveData symbol | On-chain unit | Note |
 | --- | --- | --- | --- | --- | --- |
 | `NEO-USD` | Crypto | price of 1 NEO in USD | `NEO/USD` | `1 NEO` |  |

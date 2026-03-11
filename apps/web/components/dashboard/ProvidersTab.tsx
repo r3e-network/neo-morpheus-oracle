@@ -156,6 +156,14 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
         </section>
       )}
 
+      <section className="card-industrial stagger-3" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b' }}>
+        <h4 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#fff', fontSize: '0.95rem', fontWeight: 800 }}>Deprecated Legacy Pair</h4>
+        <p style={{ marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          If you inspect raw on-chain storage, you may still see the old key <code>TWELVEDATA:FLM-USD</code>. Do not integrate against it.
+          The canonical replacement is <code>TWELVEDATA:1000FLM-USD</code> on-chain and <code>1000FLM-USD</code> everywhere in user-facing code and configuration.
+        </p>
+      </section>
+
       <section className="card-industrial stagger-3" style={{ padding: '0' }}>
         <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
           <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Canonical Pair Table</h4>

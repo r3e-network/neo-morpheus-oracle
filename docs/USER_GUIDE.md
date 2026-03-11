@@ -306,6 +306,12 @@ Scaling is pair-specific. Very small USD prices can be promoted to `1000` or `10
 
 For the exact meaning of every canonical pair, including the real TwelveData source symbol and any inversion / scaling rule, read the canonical pair table in `docs/PROVIDERS.md`.
 
+Important deprecation note:
+
+- the old on-chain key `TWELVEDATA:FLM-USD` still exists as historical state
+- treat it as deprecated
+- use `TWELVEDATA:1000FLM-USD` on-chain and `1000FLM-USD` in all new code
+
 ### Query current off-chain quotes
 
 Single provider:
