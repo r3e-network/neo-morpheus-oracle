@@ -6,6 +6,7 @@ import { OracleTab } from "./dashboard/OracleTab";
 import { ComputeTab } from "./dashboard/ComputeTab";
 import { ProvidersTab } from "./dashboard/ProvidersTab";
 import { DeveloperHub } from "./dashboard/DeveloperHub";
+import { StarterStudio } from "./starter/StarterStudio";
 import {
   Globe,
   Cpu,
@@ -52,6 +53,7 @@ export function Dashboard() {
     { id: "providers", label: "Data Catalog", icon: Database },
     { id: "oracle", label: "Oracle Payload", icon: Box },
     { id: "compute", label: "Enclave Sandbox", icon: Cpu },
+    { id: "studio", label: "Starter Studio", icon: Box },
     { id: "devhub", label: "Developer Hub", icon: BookOpen },
   ];
 
@@ -121,6 +123,7 @@ export function Dashboard() {
             {activeTab === "providers" && <ProvidersTab providers={providers} />}
             {activeTab === "oracle" && <OracleTab providers={providers} setOutput={setOutput} />}
             {activeTab === "compute" && <ComputeTab setOutput={setOutput} />}
+            {activeTab === "studio" && <StarterStudio embedded />}
             {activeTab === "devhub" && <DeveloperHub />}
           </div>
         )}
