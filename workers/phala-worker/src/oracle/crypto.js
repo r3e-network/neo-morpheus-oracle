@@ -1,17 +1,13 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
-  constants,
   createCipheriv,
   createDecipheriv,
-  createPrivateKey,
-  createPublicKey,
-  generateKeyPairSync,
-  privateDecrypt,
   randomBytes,
+  webcrypto,
 } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, resolveWasmModuleBase64, toPem, trimString } from "../platform/core.js";
+import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, resolveWasmModuleBase64, trimString } from "../platform/core.js";
 import { deriveKeyBytes, shouldUseDerivedKeys } from "../platform/dstack.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { runWasmWithTimeout } from "../platform/wasm-runner.js";
@@ -19,11 +15,16 @@ import { validateUserScriptSource } from "../platform/script-policy.js";
 
 let oracleKeyMaterialPromise;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
-const HYBRID_ENVELOPE_VERSION = 1;
-const HYBRID_ENVELOPE_ALGORITHM = "RSA-OAEP-AES-256-GCM";
+const ORACLE_ENVELOPE_VERSION = 2;
+const ORACLE_ENVELOPE_ALGORITHM = "X25519-HKDF-SHA256-AES-256-GCM";
+const ORACLE_ENVELOPE_INFO = "morpheus-confidential-payload-v2";
 const AES_GCM_KEY_LENGTH_BYTES = 32;
 const AES_GCM_IV_LENGTH_BYTES = 12;
 const AES_GCM_TAG_LENGTH_BYTES = 16;
+
+function getSubtle() {
+  return globalThis.crypto?.subtle || webcrypto.subtle;
+}
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -49,31 +50,27 @@ export function __resetOracleKeyMaterialForTests() {
   oracleKeyMaterialPromise = undefined;
 }
 
-function formatKeyMaterial({ publicKeyDerBytes, privateKeyDerBytes, source }) {
-  const publicKey = createPublicKey({ key: publicKeyDerBytes, type: "spki", format: "der" });
-  const privateKey = createPrivateKey({ key: privateKeyDerBytes, type: "pkcs8", format: "der" });
+function formatKeyMaterial({ publicKeyRawBytes, privateKeyPkcs8Bytes, source }) {
   return {
-    algorithm: "RSA-OAEP-SHA256",
+    algorithm: ORACLE_ENVELOPE_ALGORITHM,
     source,
-    publicKey,
-    privateKey,
-    publicKeyDerBytes,
-    privateKeyDerBytes,
-    publicKeyDer: Buffer.from(publicKeyDerBytes).toString("base64"),
-    publicKeyPem: toPem("PUBLIC KEY", publicKeyDerBytes),
+    key_format: "raw",
+    publicKeyRawBytes,
+    privateKeyPkcs8Bytes,
+    publicKeyRaw: Buffer.from(publicKeyRawBytes).toString("base64"),
   };
 }
 
-function generateRsaKeyMaterial() {
-  const { publicKey, privateKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    publicExponent: 0x10001,
-    publicKeyEncoding: { type: "spki", format: "der" },
-    privateKeyEncoding: { type: "pkcs8", format: "der" },
-  });
+async function generateX25519KeyMaterial() {
+  const subtle = getSubtle();
+  const keyPair = await subtle.generateKey(
+    { name: "X25519" },
+    true,
+    ["deriveBits"],
+  );
   return {
-    publicKeyDerBytes: Buffer.from(publicKey),
-    privateKeyDerBytes: Buffer.from(privateKey),
+    publicKeyRawBytes: Buffer.from(await subtle.exportKey("raw", keyPair.publicKey)),
+    privateKeyPkcs8Bytes: Buffer.from(await subtle.exportKey("pkcs8", keyPair.privateKey)),
   };
 }
 
@@ -125,27 +122,26 @@ async function loadStableOracleKeyMaterial() {
   try {
     const raw = await fs.readFile(keystorePath, "utf8");
     const parsed = JSON.parse(raw);
-    const publicKeyDerBytes = Buffer.from(parsed.public_key_der, "base64");
-    const privateKeyDerBytes = decryptPrivateKey(parsed.sealed_private_key, wrapKey);
-    return formatKeyMaterial({ publicKeyDerBytes, privateKeyDerBytes, source: "dstack-sealed" });
-  } catch (error) {
-    if (error?.code !== "ENOENT") {
-      throw error;
+    if (!trimString(parsed.public_key_raw) || !parsed.sealed_private_key) {
+      throw new Error("legacy or malformed X25519 keystore");
     }
-  }
+    const publicKeyRawBytes = Buffer.from(parsed.public_key_raw, "base64");
+    const privateKeyPkcs8Bytes = decryptPrivateKey(parsed.sealed_private_key, wrapKey);
+    return formatKeyMaterial({ publicKeyRawBytes, privateKeyPkcs8Bytes, source: "dstack-sealed" });
+  } catch {}
 
-  const generated = generateRsaKeyMaterial();
-  const sealedPrivateKey = encryptPrivateKey(generated.privateKeyDerBytes, wrapKey);
+  const generated = await generateX25519KeyMaterial();
+  const sealedPrivateKey = encryptPrivateKey(generated.privateKeyPkcs8Bytes, wrapKey);
   await ensureDirectory(keystorePath);
   await fs.writeFile(keystorePath, JSON.stringify({
-    algorithm: "RSA-OAEP-SHA256",
-    version: 1,
-    public_key_der: generated.publicKeyDerBytes.toString("base64"),
+    algorithm: ORACLE_ENVELOPE_ALGORITHM,
+    version: ORACLE_ENVELOPE_VERSION,
+    public_key_raw: generated.publicKeyRawBytes.toString("base64"),
     sealed_private_key: sealedPrivateKey,
   }, null, 2));
   return formatKeyMaterial({
-    publicKeyDerBytes: generated.publicKeyDerBytes,
-    privateKeyDerBytes: generated.privateKeyDerBytes,
+    publicKeyRawBytes: generated.publicKeyRawBytes,
+    privateKeyPkcs8Bytes: generated.privateKeyPkcs8Bytes,
     source: "dstack-sealed:new",
   });
 }
@@ -175,14 +171,14 @@ function resolveEncryptedConfidentialPayload(payload) {
   );
 }
 
-function parseHybridEnvelope(ciphertext) {
+function parseX25519Envelope(ciphertext) {
   try {
     const decoded = Buffer.from(decodeBase64(ciphertext)).toString("utf8");
     const parsed = JSON.parse(decoded);
     if (!isPlainObject(parsed)) return null;
-    if (Number(parsed.version) !== HYBRID_ENVELOPE_VERSION) return null;
-    if (trimString(parsed.algorithm) !== HYBRID_ENVELOPE_ALGORITHM) return null;
-    if (!trimString(parsed.encrypted_key) || !trimString(parsed.iv) || !trimString(parsed.ciphertext) || !trimString(parsed.tag)) {
+    if (Number(parsed.v ?? parsed.version) !== ORACLE_ENVELOPE_VERSION) return null;
+    if (trimString(parsed.alg ?? parsed.algorithm) !== ORACLE_ENVELOPE_ALGORITHM) return null;
+    if (!trimString(parsed.epk) || !trimString(parsed.iv) || !trimString(parsed.ct) || !trimString(parsed.tag)) {
       return null;
     }
     return parsed;
@@ -191,37 +187,94 @@ function parseHybridEnvelope(ciphertext) {
   }
 }
 
-function decryptHybridEnvelope(envelope, privateKey) {
-  const wrappedKey = privateDecrypt(
-    {
-      key: privateKey,
-      oaepHash: "sha256",
-      padding: constants.RSA_PKCS1_OAEP_PADDING,
-    },
-    decodeBase64(envelope.encrypted_key),
+async function importX25519PrivateKey(privateKeyPkcs8Bytes) {
+  return getSubtle().importKey(
+    "pkcs8",
+    privateKeyPkcs8Bytes,
+    { name: "X25519" },
+    false,
+    ["deriveBits"],
   );
+}
 
-  if (wrappedKey.length !== AES_GCM_KEY_LENGTH_BYTES) {
-    throw new Error("invalid hybrid envelope key length");
+async function importX25519PublicKey(publicKeyRawBytes) {
+  return getSubtle().importKey(
+    "raw",
+    publicKeyRawBytes,
+    { name: "X25519" },
+    false,
+    [],
+  );
+}
+
+async function deriveAesKey(sharedSecretBytes, senderPublicKeyBytes, recipientPublicKeyBytes, usage) {
+  const subtle = getSubtle();
+  const keyMaterial = await subtle.importKey(
+    "raw",
+    sharedSecretBytes,
+    "HKDF",
+    false,
+    ["deriveKey"],
+  );
+  const info = new Uint8Array([
+    ...Buffer.from(ORACLE_ENVELOPE_INFO, "utf8"),
+    ...senderPublicKeyBytes,
+    ...recipientPublicKeyBytes,
+  ]);
+  return subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: recipientPublicKeyBytes,
+      info,
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    [usage],
+  );
+}
+
+async function decryptX25519Envelope(envelope, keyMaterial) {
+  const senderPublicKeyBytes = decodeBase64(envelope.epk);
+  if (senderPublicKeyBytes.length !== 32) {
+    throw new Error("invalid X25519 envelope public key length");
   }
 
   const iv = decodeBase64(envelope.iv);
   if (iv.length !== AES_GCM_IV_LENGTH_BYTES) {
-    throw new Error("invalid hybrid envelope iv length");
+    throw new Error("invalid X25519 envelope iv length");
   }
 
   const tag = decodeBase64(envelope.tag);
   if (tag.length !== AES_GCM_TAG_LENGTH_BYTES) {
-    throw new Error("invalid hybrid envelope tag length");
+    throw new Error("invalid X25519 envelope tag length");
   }
 
-  const decipher = createDecipheriv("aes-256-gcm", wrappedKey, iv);
-  decipher.setAuthTag(tag);
-  const plaintext = Buffer.concat([
-    decipher.update(decodeBase64(envelope.ciphertext)),
-    decipher.final(),
+  const subtle = getSubtle();
+  const [privateKey, senderPublicKey] = await Promise.all([
+    importX25519PrivateKey(keyMaterial.privateKeyPkcs8Bytes),
+    importX25519PublicKey(senderPublicKeyBytes),
   ]);
-  return plaintext.toString("utf8");
+  const sharedSecretBytes = new Uint8Array(
+    await subtle.deriveBits(
+      { name: "X25519", public: senderPublicKey },
+      privateKey,
+      256,
+    ),
+  );
+  const aesKey = await deriveAesKey(
+    sharedSecretBytes,
+    senderPublicKeyBytes,
+    keyMaterial.publicKeyRawBytes,
+    "decrypt",
+  );
+  const plaintext = await subtle.decrypt(
+    { name: "AES-GCM", iv, tagLength: AES_GCM_TAG_LENGTH_BYTES * 8 },
+    aesKey,
+    Buffer.concat([decodeBase64(envelope.ct), tag]),
+  );
+  return Buffer.from(plaintext).toString("utf8");
 }
 
 export async function ensureOracleKeyMaterial(payload = {}) {
@@ -235,10 +288,10 @@ export async function ensureOracleKeyMaterial(payload = {}) {
         // fall back to ephemeral in-memory key material
       }
 
-      const generated = generateRsaKeyMaterial();
+      const generated = await generateX25519KeyMaterial();
       return formatKeyMaterial({
-        publicKeyDerBytes: generated.publicKeyDerBytes,
-        privateKeyDerBytes: generated.privateKeyDerBytes,
+        publicKeyRawBytes: generated.publicKeyRawBytes,
+        privateKeyPkcs8Bytes: generated.privateKeyPkcs8Bytes,
         source: "ephemeral-memory",
       });
     })();
@@ -249,20 +302,12 @@ export async function ensureOracleKeyMaterial(payload = {}) {
 
 export async function decryptEncryptedToken(ciphertext, payload = {}) {
   if (!ciphertext) return null;
-  const { privateKey } = await ensureOracleKeyMaterial(payload);
-  const hybridEnvelope = parseHybridEnvelope(ciphertext);
-  if (hybridEnvelope) {
-    return decryptHybridEnvelope(hybridEnvelope, privateKey);
+  const keyMaterial = await ensureOracleKeyMaterial(payload);
+  const envelope = parseX25519Envelope(ciphertext);
+  if (!envelope) {
+    throw new Error(`unsupported confidential payload format; expected ${ORACLE_ENVELOPE_ALGORITHM}`);
   }
-  const plaintext = privateDecrypt(
-    {
-      key: privateKey,
-      oaepHash: "sha256",
-      padding: constants.RSA_PKCS1_OAEP_PADDING,
-    },
-    decodeBase64(ciphertext),
-  );
-  return Buffer.from(plaintext).toString("utf8");
+  return decryptX25519Envelope(envelope, keyMaterial);
 }
 
 export async function resolveConfidentialPayload(payload = {}) {

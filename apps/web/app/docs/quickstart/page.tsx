@@ -24,7 +24,7 @@ export default function DocsQuickstart() {
 
       <h2>Step 2: Seal Your Parameters (Off-Chain)</h2>
       <p>
-        Before calling the Oracle contract, you should encrypt any sensitive API keys or parameters. Create a JSON object specifying exactly what needs to be injected (e.g., <code>headers</code>), and encrypt it locally using the Morpheus TEE's active RSA public key.
+        Before calling the Oracle contract, you should encrypt any sensitive API keys or parameters. Create a JSON object specifying exactly what needs to be injected (e.g., <code>headers</code>), and encrypt it locally using the Morpheus TEE's active X25519 public key.
       </p>
 
       <CodeBlock 
@@ -32,15 +32,15 @@ export default function DocsQuickstart() {
         title="Encrypt Parameters"
         code={`// 1. Fetch TEE Public Key
 const res = await fetch("https://morpheus.network/api/oracle/public-key");
-const { public_key_pem } = await res.json();
+const { public_key } = await res.json();
 
 // 2. Your confidential injection payload
 const secrets = {
   "headers": { "Authorization": "Bearer YOUR_PRIVATE_API_KEY" }
 };
 
-// 3. Encrypt locally using standard RSA-OAEP
-const encryptedBlob = await encryptWithRsaOaep(JSON.stringify(secrets), public_key_pem);`} 
+// 3. Encrypt locally using X25519 + HKDF-SHA256 + AES-256-GCM
+const encryptedBlob = await encryptWithOracleX25519(JSON.stringify(secrets), public_key);`} 
       />
 
       <h2>Step 3: Submit On-Chain Request</h2>

@@ -31,7 +31,7 @@ export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
     try {
       const response = await fetch("/api/oracle/public-key");
       const body = await response.json().catch(() => ({}));
-      if (response.ok && body?.public_key_pem) {
+      if (response.ok && body?.public_key) {
         setOracleKeyMeta(body);
       }
     } catch (err) {
@@ -42,18 +42,18 @@ export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
   async function encryptConfidentialPatch() {
     setIsEncrypting(true);
     try {
-      const keyMeta = oracleKeyMeta?.public_key_pem ? oracleKeyMeta : await (async () => {
+      const keyMeta = oracleKeyMeta?.public_key ? oracleKeyMeta : await (async () => {
         const response = await fetch("/api/oracle/public-key");
         const body = await response.json();
         setOracleKeyMeta(body);
         return body;
       })();
 
-      if (!keyMeta?.public_key_pem) throw new Error("Public key not available");
+      if (!keyMeta?.public_key) throw new Error("Public key not available");
 
-      const ciphertext = await encryptJsonWithOraclePublicKey(keyMeta.public_key_pem, oracleConfidentialJson);
+      const ciphertext = await encryptJsonWithOraclePublicKey(keyMeta.public_key, oracleConfidentialJson);
       setOracleEncryptedParams(ciphertext);
-      setOutput(">> Data Encrypted via RSA-OAEP locally.\n>> No TEE interaction was required for this encryption step.\n>> Ciphertext generated and ready for secure transport.");
+      setOutput(">> Data encrypted via X25519 + HKDF-SHA256 + AES-256-GCM locally.\n>> No TEE interaction was required for this encryption step.\n>> Ciphertext generated and ready for secure transport.");
     } catch (err: any) {
       setOutput(`!! Encryption Error: ${err.message}`);
     } finally {
@@ -80,7 +80,7 @@ export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
         {oracleKeyMeta && (
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>PUBLIC KEY</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--neo-green)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>RSA-2048 Loaded</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--neo-green)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>X25519 Loaded</div>
           </div>
         )}
       </div>

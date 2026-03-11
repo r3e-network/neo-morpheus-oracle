@@ -117,8 +117,8 @@ export const SECURITY_CONCEPTS = [
     desc: "The process by which a user verifies that the Oracle code is running on genuine Intel SGX hardware without tampering."
   },
   {
-    title: "RSA-OAEP Encryption",
-    desc: "Morpheus uses 2048-bit RSA with Optimal Asymmetric Encryption Padding to protect user inputs before they leave the browser."
+    title: "X25519 Payload Sealing",
+    desc: "Morpheus uses X25519 key exchange plus HKDF-SHA256 and AES-256-GCM to protect user inputs before they leave the browser."
   },
   {
     title: "Instance Key Isolation",

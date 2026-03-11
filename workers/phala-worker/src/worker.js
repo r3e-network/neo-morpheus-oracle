@@ -85,13 +85,12 @@ export default async function handler(request) {
       const keyMaterial = await ensureOracleKeyMaterial(payload);
       return json(200, {
         algorithm: keyMaterial.algorithm,
-        public_key: keyMaterial.publicKeyDer,
-        public_key_pem: keyMaterial.publicKeyPem,
+        public_key: keyMaterial.publicKeyRaw,
+        public_key_format: keyMaterial.key_format,
         key_source: keyMaterial.source,
-        recommended_payload_encryption: "RSA-OAEP-AES-256-GCM",
+        recommended_payload_encryption: keyMaterial.algorithm,
         supported_payload_encryption: [
-          "RSA-OAEP-SHA256",
-          "RSA-OAEP-AES-256-GCM",
+          keyMaterial.algorithm,
         ],
       });
     }

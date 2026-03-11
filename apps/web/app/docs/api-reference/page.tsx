@@ -33,7 +33,7 @@ export default function DocsApiReference() {
      * @dev Submit an Oracle request to the TEE Prover Network.
      * @param requestType Type of request ("provider", "url", "builtin").
      * @param target Target provider ID or URL endpoint.
-     * @param encryptedParams RSA-OAEP encrypted JSON blob for sensitive data.
+     * @param encryptedParams X25519-HKDF-SHA256-AES-256-GCM encrypted JSON blob for sensitive data.
      * @param jsonPath JSONPath expression to extract from the response.
      * @param callbackAddress Address of the consumer contract to receive the callback.
      * @param callbackSelector Function selector of the callback method.
@@ -68,7 +68,7 @@ export default function DocsApiReference() {
 object[] args = new object[] {
     "provider",          // request type
     "twelvedata",        // target provider
-    encryptedParams,     // RSA-OAEP ciphertext
+    encryptedParams,     // X25519-HKDF-SHA256-AES-256-GCM ciphertext
     "price",             // json path extraction
     "callbackFunction"   // callback method name on your contract
 };

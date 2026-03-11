@@ -53,62 +53,68 @@ function authHeaders() {
 
 const TEST_WASM_OK_BASE64 = 'AGFzbQEAAAABEANgAAF/YAF/AX9gAn9/AX8CGAEIbW9ycGhldXMLbm93X3NlY29uZHMAAAMEAwEAAgUDAQABBgwCfwFBgAgLfwFBAAsHJQQGbWVtb3J5AgAFYWxsb2MAAQpyZXN1bHRfbGVuAAIDcnVuAAMKSQMRAQF/IwAhASMAIABqJAAgAQsEACMBCzAAQQQkAUGAEEH0ADoAAEGBEEHyADoAAEGCEEH1ADoAAEGDEEHlADoAABAAGkGAEAsAQwRuYW1lAQYBAANub3cCHwQAAAECAARzaXplAQRhZGRyAgADAgADcHRyAQNsZW4HEwIABGhlYXABCnJlc3VsdF9sZW4=';
 const TEST_WASM_LOOP_BASE64 = 'AGFzbQEAAAABEANgAX8Bf2AAAX9gAn9/AX8DBAMAAQIFAwEAAQYHAX8BQYAICwclBAZtZW1vcnkCAAVhbGxvYwAACnJlc3VsdF9sZW4AAQNydW4AAgoVAwQAIwALBABBAAsJAANADAALQQALACcEbmFtZQIXAwABAARzaXplAQACAgADcHRyAQNsZW4HBwEABGhlYXA=';
+const TEST_ORACLE_ENCRYPTION_ALGORITHM = 'X25519-HKDF-SHA256-AES-256-GCM';
+const TEST_ORACLE_ENCRYPTION_INFO = 'morpheus-confidential-payload-v2';
+const AES_GCM_TAG_LENGTH_BYTES = 16;
 
 async function encryptForOracle(publicKeyBase64, plaintext) {
-  const spki = Buffer.from(publicKeyBase64, 'base64');
-  const cryptoKey = await globalThis.crypto.subtle.importKey(
-    'spki',
-    spki,
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
+  const recipientPublicKeyBytes = Buffer.from(publicKeyBase64, 'base64');
+  const recipientKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    recipientPublicKeyBytes,
+    { name: 'X25519' },
     false,
-    ['encrypt'],
+    [],
   );
-  const encrypted = await globalThis.crypto.subtle.encrypt(
-    { name: 'RSA-OAEP' },
-    cryptoKey,
-    new TextEncoder().encode(plaintext),
-  );
-  return Buffer.from(encrypted).toString('base64');
-}
-
-async function encryptHybridForOracle(publicKeyBase64, plaintext) {
-  const spki = Buffer.from(publicKeyBase64, 'base64');
-  const rsaKey = await globalThis.crypto.subtle.importKey(
-    'spki',
-    spki,
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false,
-    ['encrypt'],
-  );
-  const aesKey = await globalThis.crypto.subtle.generateKey(
-    { name: 'AES-GCM', length: 256 },
+  const ephemeralKeyPair = await globalThis.crypto.subtle.generateKey(
+    { name: 'X25519' },
     true,
+    ['deriveBits'],
+  );
+  const ephemeralPublicKeyBytes = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', ephemeralKeyPair.publicKey));
+  const sharedSecret = new Uint8Array(await globalThis.crypto.subtle.deriveBits(
+    { name: 'X25519', public: recipientKey },
+    ephemeralKeyPair.privateKey,
+    256,
+  ));
+  const keyMaterial = await globalThis.crypto.subtle.importKey(
+    'raw',
+    sharedSecret,
+    'HKDF',
+    false,
+    ['deriveKey'],
+  );
+  const info = new Uint8Array([
+    ...new TextEncoder().encode(TEST_ORACLE_ENCRYPTION_INFO),
+    ...ephemeralPublicKeyBytes,
+    ...recipientPublicKeyBytes,
+  ]);
+  const aesKey = await globalThis.crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: recipientPublicKeyBytes,
+      info,
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
     ['encrypt'],
   );
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
-  const encryptedBytes = new Uint8Array(
-    await globalThis.crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      aesKey,
-      new TextEncoder().encode(plaintext),
-    ),
-  );
-  const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);
-  const tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
-  const rawAesKey = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', aesKey));
-  const wrappedKey = new Uint8Array(
-    await globalThis.crypto.subtle.encrypt(
-      { name: 'RSA-OAEP' },
-      rsaKey,
-      rawAesKey,
-    ),
-  );
+  const encryptedBytes = new Uint8Array(await globalThis.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    aesKey,
+    new TextEncoder().encode(plaintext),
+  ));
+  const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
+  const tagBytes = encryptedBytes.slice(encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
   return Buffer.from(JSON.stringify({
-    version: 1,
-    algorithm: 'RSA-OAEP-AES-256-GCM',
-    encrypted_key: Buffer.from(wrappedKey).toString('base64'),
+    v: 2,
+    alg: TEST_ORACLE_ENCRYPTION_ALGORITHM,
+    epk: Buffer.from(ephemeralPublicKeyBytes).toString('base64'),
     iv: Buffer.from(iv).toString('base64'),
-    ciphertext: Buffer.from(ciphertextBytes).toString('base64'),
+    ct: Buffer.from(ciphertextBytes).toString('base64'),
     tag: Buffer.from(tagBytes).toString('base64'),
   })).toString('base64');
 }
@@ -424,17 +430,16 @@ test('attestation endpoint works without auth', async () => {
   assert.ok(Object.prototype.hasOwnProperty.call(body, 'attestation'));
 });
 
-test('oracle public key endpoint returns RSA metadata', async () => {
+test('oracle public key endpoint returns X25519 metadata', async () => {
   const res = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.algorithm, 'RSA-OAEP-SHA256');
+  assert.equal(body.algorithm, TEST_ORACLE_ENCRYPTION_ALGORITHM);
   assert.ok(body.public_key);
-  assert.ok(body.public_key_pem);
-  assert.equal(body.recommended_payload_encryption, 'RSA-OAEP-AES-256-GCM');
+  assert.equal(body.public_key_format, 'raw');
+  assert.equal(body.recommended_payload_encryption, TEST_ORACLE_ENCRYPTION_ALGORITHM);
   assert.ok(Array.isArray(body.supported_payload_encryption));
-  assert.ok(body.supported_payload_encryption.includes('RSA-OAEP-SHA256'));
-  assert.ok(body.supported_payload_encryption.includes('RSA-OAEP-AES-256-GCM'));
+  assert.deepEqual(body.supported_payload_encryption, [TEST_ORACLE_ENCRYPTION_ALGORITHM]);
 });
 
 test('oracle public key can be stabilized with a dstack-sealed keystore', async () => {
@@ -597,10 +602,10 @@ test('compute execute supports encrypted confidential payload patches', async ()
   assert.equal(body.target_chain_id, '12227332');
 });
 
-test('compute execute supports hybrid encrypted payloads larger than raw RSA limits', async () => {
+test('compute execute supports X25519 encrypted payloads larger than raw RSA limits', async () => {
   const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
   const keyBody = await keyRes.json();
-  const ciphertext = await encryptHybridForOracle(keyBody.public_key, JSON.stringify({
+  const ciphertext = await encryptForOracle(keyBody.public_key, JSON.stringify({
     mode: 'builtin',
     function: 'hash.sha256',
     input: {

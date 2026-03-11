@@ -199,27 +199,47 @@ async function fetchOracleKey() {
 ```
 
 Encrypt any secret or confidential JSON patch.
-Recommended format: hybrid envelope `RSA-OAEP-AES-256-GCM`.
-Legacy small-payload raw RSA ciphertext still works.
+Recommended format: `X25519-HKDF-SHA256-AES-256-GCM`.
 
 加密任意 secret 或 confidential JSON patch：
 
 ```ts
 async function encryptWithOracleKey(publicKeyBase64: string, plaintext: string) {
-  const binary = atob(publicKeyBase64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-
-  const rsaKey = await crypto.subtle.importKey(
-    "spki",
-    bytes,
-    { name: "RSA-OAEP", hash: "SHA-256" },
+  const recipientBytes = Uint8Array.from(atob(publicKeyBase64), (char) => char.charCodeAt(0));
+  const recipientKey = await crypto.subtle.importKey(
+    "raw",
+    recipientBytes,
+    { name: "X25519" },
     false,
-    ["encrypt"],
+    [],
   );
-  const aesKey = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
+  const ephemeral = await crypto.subtle.generateKey(
+    { name: "X25519" },
     true,
+    ["deriveBits"],
+  );
+  const epk = new Uint8Array(await crypto.subtle.exportKey("raw", ephemeral.publicKey));
+  const shared = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: "X25519", public: recipientKey },
+    ephemeral.privateKey,
+    256,
+  ));
+  const keyMaterial = await crypto.subtle.importKey("raw", shared, "HKDF", false, ["deriveKey"]);
+  const info = new Uint8Array([
+    ...new TextEncoder().encode("morpheus-confidential-payload-v2"),
+    ...epk,
+    ...recipientBytes,
+  ]);
+  const aesKey = await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: recipientBytes,
+      info,
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
     ["encrypt"],
   );
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -230,19 +250,13 @@ async function encryptWithOracleKey(publicKeyBase64: string, plaintext: string) 
   ));
   const ciphertext = encrypted.slice(0, encrypted.length - 16);
   const tag = encrypted.slice(encrypted.length - 16);
-  const rawAesKey = new Uint8Array(await crypto.subtle.exportKey("raw", aesKey));
-  const wrappedKey = new Uint8Array(await crypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
-    rsaKey,
-    rawAesKey,
-  ));
 
   return btoa(JSON.stringify({
-    version: 1,
-    algorithm: "RSA-OAEP-AES-256-GCM",
-    encrypted_key: btoa(String.fromCharCode(...wrappedKey)),
+    v: 2,
+    alg: "X25519-HKDF-SHA256-AES-256-GCM",
+    epk: btoa(String.fromCharCode(...epk)),
     iv: btoa(String.fromCharCode(...iv)),
-    ciphertext: btoa(String.fromCharCode(...ciphertext)),
+    ct: btoa(String.fromCharCode(...ciphertext)),
     tag: btoa(String.fromCharCode(...tag)),
   }));
 }
@@ -254,17 +268,41 @@ async function encryptWithOracleKey(publicKeyBase64: string, plaintext: string) 
 import { webcrypto } from "node:crypto";
 
 async function encryptWithOracleKey(publicKeyBase64, plaintext) {
-  const spki = Buffer.from(publicKeyBase64, "base64");
-  const rsaKey = await webcrypto.subtle.importKey(
-    "spki",
-    spki,
-    { name: "RSA-OAEP", hash: "SHA-256" },
+  const recipientBytes = Buffer.from(publicKeyBase64, "base64");
+  const recipientKey = await webcrypto.subtle.importKey(
+    "raw",
+    recipientBytes,
+    { name: "X25519" },
     false,
-    ["encrypt"],
+    [],
   );
-  const aesKey = await webcrypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
+  const ephemeral = await webcrypto.subtle.generateKey(
+    { name: "X25519" },
     true,
+    ["deriveBits"],
+  );
+  const epk = new Uint8Array(await webcrypto.subtle.exportKey("raw", ephemeral.publicKey));
+  const shared = new Uint8Array(await webcrypto.subtle.deriveBits(
+    { name: "X25519", public: recipientKey },
+    ephemeral.privateKey,
+    256,
+  ));
+  const keyMaterial = await webcrypto.subtle.importKey("raw", shared, "HKDF", false, ["deriveKey"]);
+  const info = new Uint8Array([
+    ...new TextEncoder().encode("morpheus-confidential-payload-v2"),
+    ...epk,
+    ...recipientBytes,
+  ]);
+  const aesKey = await webcrypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: recipientBytes,
+      info,
+    },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
     ["encrypt"],
   );
   const iv = webcrypto.getRandomValues(new Uint8Array(12));
@@ -275,18 +313,12 @@ async function encryptWithOracleKey(publicKeyBase64, plaintext) {
   ));
   const ciphertext = encrypted.slice(0, encrypted.length - 16);
   const tag = encrypted.slice(encrypted.length - 16);
-  const rawAesKey = new Uint8Array(await webcrypto.subtle.exportKey("raw", aesKey));
-  const wrappedKey = new Uint8Array(await webcrypto.subtle.encrypt(
-    { name: "RSA-OAEP" },
-    rsaKey,
-    rawAesKey,
-  ));
   return Buffer.from(JSON.stringify({
-    version: 1,
-    algorithm: "RSA-OAEP-AES-256-GCM",
-    encrypted_key: Buffer.from(wrappedKey).toString("base64"),
+    v: 2,
+    alg: "X25519-HKDF-SHA256-AES-256-GCM",
+    epk: Buffer.from(epk).toString("base64"),
     iv: Buffer.from(iv).toString("base64"),
-    ciphertext: Buffer.from(ciphertext).toString("base64"),
+    ct: Buffer.from(ciphertext).toString("base64"),
     tag: Buffer.from(tag).toString("base64"),
   })).toString("base64");
 }
