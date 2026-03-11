@@ -25,6 +25,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       title: "Guides",
       items: [
         { href: "/docs/quickstart", label: "Quickstart", icon: Zap },
+        { href: "/docs/launchpad", label: "Launchpad", icon: Boxes },
         { href: "/docs/use-cases", label: "Use Cases", icon: Briefcase },
         { href: "/docs/templates", label: "Starter Templates", icon: ClipboardList },
         { href: "/docs/studio", label: "Starter Studio", icon: Boxes },
