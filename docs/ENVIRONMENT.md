@@ -176,6 +176,10 @@ They do not usually change trust assumptions.
   English: Minimum time between feed submissions.
   中文：两次 feed 提交之间的最短间隔。
 
+- `MORPHEUS_FEED_SYNC_INTERVAL_MS`
+  English: Feed-sync scan cadence for the relayer loop.
+  中文：relayer 扫描并触发 feed 同步的周期。
+
 ### Relayer / Relayer
 
 - `MORPHEUS_RELAYER_POLL_INTERVAL_MS`
