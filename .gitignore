@@ -19,3 +19,4 @@ contracts/neox/node_modules
 .morpheus-relayer-state.json
 deploy/phala/morpheus.env
 private-backups/
+.env*.local
