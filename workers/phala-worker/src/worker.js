@@ -24,6 +24,12 @@ import {
   handleSignPayload,
   handleTxProxyInvoke,
 } from "./chain/index.js";
+import {
+  handleNeoDidActionTicket,
+  handleNeoDidBind,
+  handleNeoDidProviders,
+  handleNeoDidRuntime,
+} from "./neodid/index.js";
 
 function handleHealth() {
   return json(200, {
@@ -52,6 +58,10 @@ function handleHealth() {
       "relay/transaction",
       "compute/functions",
       "compute/execute",
+      "neodid/providers",
+      "neodid/runtime",
+      "neodid/bind",
+      "neodid/action-ticket",
     ],
   });
 }
@@ -78,6 +88,11 @@ export default async function handler(request) {
       const role = typeof payload.role === "string" && payload.role.trim() ? payload.role.trim() : "worker";
       return json(200, { derived: await getDerivedKeySummary(role) });
     }
+
+    if (path.endsWith("/neodid/providers")) return handleNeoDidProviders();
+    if (path.endsWith("/neodid/runtime")) return handleNeoDidRuntime(payload);
+    if (path.endsWith("/neodid/bind")) return handleNeoDidBind(payload);
+    if (path.endsWith("/neodid/action-ticket")) return handleNeoDidActionTicket(payload);
 
     if (path.endsWith("/providers")) return handleProvidersList();
 
@@ -122,7 +137,6 @@ export default async function handler(request) {
     if (path.endsWith("/compute/execute")) return handleComputeExecute(payload);
     if (/\/compute\/jobs\/.+/.test(path)) return handleComputeJobs(path.split("/").pop() || null);
     if (path.endsWith("/compute/jobs")) return handleComputeJobs();
-
     return json(404, { error: "not found", path });
   } catch (error) {
     return json(400, { error: error instanceof Error ? error.message : String(error) });

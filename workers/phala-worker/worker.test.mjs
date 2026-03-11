@@ -22,6 +22,7 @@ const originalUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
 const originalOracleKeystorePath = process.env.PHALA_ORACLE_KEYSTORE_PATH;
 const originalEnableUserScripts = process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS;
 const originalOracleHash = process.env.CONTRACT_MORPHEUS_ORACLE_HASH;
+const originalNeoDidSecretSalt = process.env.NEODID_SECRET_SALT;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY = '1111111111111111111111111111111111111111111111111111111111111111';
@@ -36,6 +37,7 @@ process.env.SUPABASE_URL = '';
 process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
 process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0x017520f068fd602082fe5572596185e62a4ad991';
+process.env.NEODID_SECRET_SALT = 'worker-test-neodid-salt';
 
 const { default: handler } = await import('./src/worker.js');
 const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = await import('./src/platform/dstack.js');
@@ -196,6 +198,98 @@ test('oracle query rejects disabled project provider inside worker', async () =>
   assert.match(body.error, /disabled/);
 });
 
+test('neodid providers endpoint lists supported social providers', async () => {
+  const res = await handler(new Request('http://local/neodid/providers', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.providers));
+  assert.ok(body.providers.some((item) => item.id === 'twitter'));
+  assert.ok(body.providers.some((item) => item.id === 'github'));
+  assert.ok(body.providers.some((item) => item.id === 'google'));
+  assert.ok(body.providers.some((item) => item.id === 'binance'));
+  assert.ok(body.providers.some((item) => item.id === 'okx'));
+  assert.ok(body.providers.some((item) => item.id === 'email'));
+});
+
+test('neodid bind returns deterministic master nullifier and ticket signature', async () => {
+  const payload = {
+    vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+    provider: 'twitter',
+    provider_uid: 'twitter_uid_12345',
+    claim_type: 'Twitter_VIP',
+    claim_value: 'followers_gt_1000',
+    metadata: { tier: 'vip' },
+  };
+
+  const firstRes = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  }));
+  assert.equal(firstRes.status, 200);
+  const first = await firstRes.json();
+  assert.equal(first.mode, 'neodid_bind');
+  assert.match(first.master_nullifier, /^0x[0-9a-f]{64}$/);
+  assert.match(first.metadata_hash, /^0x[0-9a-f]{64}$/);
+  assert.match(first.digest, /^0x[0-9a-f]{64}$/);
+  assert.ok(first.signature);
+  assert.ok(first.public_key);
+
+  const secondRes = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  }));
+  assert.equal(secondRes.status, 200);
+  const second = await secondRes.json();
+  assert.equal(second.master_nullifier, first.master_nullifier);
+});
+
+test('neodid action-ticket generates action-specific nullifiers', async () => {
+  const common = {
+    provider: 'twitter',
+    provider_uid: 'twitter_uid_12345',
+    disposable_account: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+  };
+
+  const firstRes = await handler(new Request('http://local/neodid/action-ticket', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ ...common, action_id: 'DAO_Vote_42' }),
+  }));
+  assert.equal(firstRes.status, 200);
+  const first = await firstRes.json();
+  assert.equal(first.mode, 'neodid_action_ticket');
+  assert.match(first.action_nullifier, /^0x[0-9a-f]{64}$/);
+  assert.ok(first.signature);
+
+  const secondRes = await handler(new Request('http://local/neodid/action-ticket', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ ...common, action_id: 'Airdrop_Season_1' }),
+  }));
+  assert.equal(secondRes.status, 200);
+  const second = await secondRes.json();
+  assert.notEqual(first.action_nullifier, second.action_nullifier);
+});
+
+test('neodid action-ticket accepts okex alias and normalizes to okx', async () => {
+  const res = await handler(new Request('http://local/neodid/action-ticket', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      provider: 'okex',
+      provider_uid: 'exchange_uid_123',
+      disposable_account: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+      action_id: 'DAO_Vote_42',
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'neodid_action_ticket');
+  assert.ok(body.signature);
+});
+
 test.after(() => {
   global.fetch = originalFetch;
   process.env.PHALA_SHARED_SECRET = originalPhalaToken;
@@ -213,6 +307,7 @@ test.after(() => {
   process.env.PHALA_ORACLE_KEYSTORE_PATH = originalOracleKeystorePath;
   process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = originalEnableUserScripts;
   process.env.CONTRACT_MORPHEUS_ORACLE_HASH = originalOracleHash;
+  process.env.NEODID_SECRET_SALT = originalNeoDidSecretSalt;
   __resetDstackClientStateForTests();
   __resetOracleKeyMaterialForTests();
   __resetFeedStateForTests();

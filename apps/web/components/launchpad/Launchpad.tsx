@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ArrowRight, Boxes, CheckCircle2, Cpu, Lock, Shield, Sparkles } from "lucide-react";
+import { ArrowRight, Boxes, CheckCircle2, Cpu, Fingerprint, Lock, Shield, Sparkles } from "lucide-react";
 import { NETWORKS } from "@/lib/onchain-data";
 
 type LaunchpadProps = {
@@ -66,6 +66,20 @@ const journeys = [
       { title: "Compare hashes", desc: "Check output_hash, attestation_hash, and report_data prefix.", href: "/docs/verifier", label: "Attestation Spec" },
       { title: "Confirm deployment", desc: "Match the app_id / compose_hash with published production metadata.", href: "/docs/networks", label: "Networks" },
       { title: "Store the result", desc: "Persist the requestId, tx hash, and verified result for your own app workflow.", href: "/docs/r/TESTING_LEDGER", label: "Testing Ledger" },
+    ],
+  },
+  {
+    id: "neodid",
+    title: "NeoDID",
+    icon: Fingerprint,
+    summary: "Bind Web2 or exchange identities to a Neo vault account, then issue unlinkable action tickets for disposable wallets.",
+    requestType: "neodid_bind / neodid_action_ticket",
+    steps: [
+      { title: "Read the model", desc: "Understand master nullifiers, action nullifiers, and the independent NeoDID registry contract.", href: "/docs/neodid", label: "NeoDID Docs" },
+      { title: "Choose the first flow", desc: "Pick whether you want to bind an identity or mint an action ticket.", href: "/docs/use-cases", label: "Use Cases" },
+      { title: "Prepare the payload", desc: "Use Starter Studio or Templates for confidential field structure and callback setup.", href: "/docs/studio", label: "Starter Studio" },
+      { title: "Call the route", desc: "Use /api/neodid/bind or /api/neodid/action-ticket through your app backend or operator workflow.", href: "/docs/neodid", label: "API Flow" },
+      { title: "Register or consume", desc: "Store the binding in NeoDIDRegistry or consume an action ticket from a third-party DApp contract.", href: "/docs/neodid", label: "Registry Contract" },
     ],
   },
 ];
