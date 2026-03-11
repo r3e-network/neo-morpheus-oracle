@@ -28,13 +28,14 @@ export default function DocsDatafeeds() {
       </ol>
 
       <h2>Supported Assets</h2>
-      <div className="card-industrial" style={{ padding: '1.5rem', marginBottom: '2.5rem' }}>
-        <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 700 }}>Active Mainnet Pairs (14+):</p>
+      <h2>Supported Assets</h2>
+      <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', marginBottom: '2.5rem' }}>
+        <p style={{ fontSize: '0.85rem', marginBottom: '1rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Mainnet Pairs (14+)</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           {["NEO-USD", "GAS-USD", "1000FLM-USD", "BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "USDT-USD", "USDC-USD"].map(pair => (
-            <span key={pair} className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.65rem' }}>{pair}</span>
+            <span key={pair} className="badge-outline" style={{ color: 'var(--neo-green)', fontSize: '0.7rem', padding: '0.3rem 0.6rem', border: '1px solid rgba(0,255,163,0.3)', background: 'rgba(0,255,163,0.05)' }}>{pair}</span>
           ))}
-          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>+ more</span>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '0 0.5rem' }}>+ more endpoints</span>
         </div>
       </div>
 

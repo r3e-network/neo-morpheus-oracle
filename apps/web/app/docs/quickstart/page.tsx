@@ -24,28 +24,28 @@ export default function DocsQuickstart() {
 
       <h2>Step 2: Seal Your Parameters (Off-Chain)</h2>
       <p>
-        Before calling the Oracle contract, you should encrypt any sensitive API keys or headers. Use our endpoint to fetch the live RSA public key of the TEE worker.
+        Before calling the Oracle contract, you should encrypt any sensitive API keys or parameters. Create a JSON object specifying exactly what needs to be injected (e.g., <code>headers</code>), and encrypt it locally using the Morpheus TEE's active RSA public key.
       </p>
 
       <CodeBlock 
         language="javascript" 
         title="Encrypt Parameters"
-        code={`// Fetch TEE Public Key
+        code={`// 1. Fetch TEE Public Key
 const res = await fetch("https://morpheus.network/api/oracle/public-key");
 const { public_key_pem } = await res.json();
 
-// Your secret payload
+// 2. Your confidential injection payload
 const secrets = {
-  headers: { "Authorization": "Bearer YOUR_PRIVATE_API_KEY" }
+  "headers": { "Authorization": "Bearer YOUR_PRIVATE_API_KEY" }
 };
 
-// Encrypt using standard RSA-OAEP
-const encryptedBlob = await encrypt(JSON.stringify(secrets), public_key_pem);`} 
+// 3. Encrypt locally using standard RSA-OAEP
+const encryptedBlob = await encryptWithRsaOaep(JSON.stringify(secrets), public_key_pem);`} 
       />
 
       <h2>Step 3: Submit On-Chain Request</h2>
       <p>
-        Pass the <code>encryptedBlob</code> along with public routing parameters (like the URL) to the Morpheus Oracle contract. Ensure you attach the required GAS fee (0.01 GAS).
+        Pass the <code>encryptedBlob</code> along with public routing parameters (like the URL) to the Morpheus Oracle contract. Ensure you attach the required GAS fee (0.01 GAS per request).
       </p>
 
       <CodeBlock 

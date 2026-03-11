@@ -46,17 +46,17 @@ export default function DocsIntroduction() {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', margin: '2.5rem 0' }}>
         {[
-          { icon: Zap, title: "On-Chain Registry", desc: "Native contracts on Neo N3 and Neo X that handle request lifecycle and signature verification." },
-          { icon: Terminal, title: "Asynchronous Relayer", desc: "A robust event-driven bridge that coordinates between the blockchain and the TEE worker." },
-          { icon: Shield, title: "TEE Prover Network", desc: "Hardware-isolated workers that execute requests, manage RSA keys, and generate proofs." }
+          { icon: Zap, title: "On-Chain Registry & verification", desc: "Native contracts on Neo N3 and Neo X that handle request metadata, escrows, and RSA signature verification." },
+          { icon: Terminal, title: "Asynchronous Relayer", desc: "A robust event-driven bridge that coordinates between the Neo blockchain events and the Phala TEE worker cluster." },
+          { icon: Shield, title: "TEE Prover Network", desc: "Hardware-isolated workers that unseal data, execute requests, and generate cryptographically verifiable proofs." }
         ].map((item, i) => (
-          <div key={i} style={{ display: 'flex', gap: '1.5rem', padding: '1.25rem', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
-            <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px', borderRadius: '4px', height: 'fit-content' }}>
-              <item.icon size={18} color="var(--neo-green)" />
+          <div key={i} style={{ display: 'flex', gap: '1.5rem', padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
+            <div style={{ background: 'rgba(0,255,163,0.05)', padding: '12px', borderRadius: '4px', height: 'fit-content', border: '1px solid rgba(0,255,163,0.1)' }}>
+              <item.icon size={20} color="var(--neo-green)" />
             </div>
             <div>
-              <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.25rem', color: '#fff' }}>{item.title}</h4>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 0 }}>{item.desc}</p>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 800, marginBottom: '0.4rem', color: '#fff', letterSpacing: '0.02em', textTransform: 'uppercase' }}>{item.title}</h4>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6 }}>{item.desc}</p>
             </div>
           </div>
         ))}

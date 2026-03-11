@@ -41,33 +41,42 @@ export default function DocsArchitecture() {
       <p>
         A robust middleware layer responsible for event monitoring and transaction management. It ensures that every request is accounted for and that TEE-signed results are successfully delivered back to the source chain.
       </p>
-      <blockquote>
-        The relayer does not have access to the request's sensitive data; it only moves encrypted blobs and TEE signatures.
-      </blockquote>
+      <div style={{ padding: '1.5rem', background: '#000', borderLeft: '3px solid var(--accent-purple)', margin: '2rem 0', borderRadius: '0 4px 4px 0' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+          <strong>Zero-Knowledge Relaying:</strong> The relayer does not have access to the request's sensitive plaintext data. It strictly acts as a blind transport layer moving the <code>RSA-OAEP</code> encrypted blobs and TEE signatures between the blockchain and the enclave.
+        </p>
+      </div>
 
       <h3>3. Phala TEE Runtime Plane</h3>
       <p>
         The "Brain" of the protocol. Running inside Intel SGX secure enclaves via Phala Network's dstack, this environment provides:
       </p>
-      <ul>
-        <li><strong>Confidentiality:</strong> Decryption happens only in hardware-protected memory.</li>
-        <li><strong>Isolation:</strong> User scripts and WASM modules are time-bounded and sandboxed.</li>
-        <li><strong>Attestation:</strong> Every response is cryptographically bound to the specific hardware instance and code hash.</li>
+      <ul style={{ listStyleType: 'none', paddingLeft: 0 }}>
+        <li style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem' }}><span style={{ color: 'var(--neo-green)' }}>✓</span><div><strong>Confidentiality:</strong> Decryption happens strictly in hardware-protected memory.</div></li>
+        <li style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem' }}><span style={{ color: 'var(--neo-green)' }}>✓</span><div><strong>Isolation:</strong> User scripts and WASM modules are time-bounded and sandboxed.</div></li>
+        <li style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem' }}><span style={{ color: 'var(--neo-green)' }}>✓</span><div><strong>Attestation:</strong> Every response is cryptographically bound to the hardware instance.</div></li>
       </ul>
 
       <h2>Security & Verification Model</h2>
       <p>
-        Morpheus operates on a <strong>Trust-but-Verify</strong> model. While on-chain contracts verify the Verifier Key signature for efficiency, the full attestation proof is available for high-value operations.
+        Morpheus operates on a <strong>Trust-but-Verify</strong> model. While on-chain contracts verify the fast ECU signature for efficiency, the full hardware attestation proof is always available for high-value operations.
       </p>
-      <ol>
-        <li><strong>On-Chain:</strong> Contract checks <code>verify(result, signature, oracle_verifying_key)</code>.</li>
-        <li><strong>Off-Chain:</strong> DApps can verify the <code>Remote Attestation Quote</code> to ensure the worker is running the correct Morpheus image on genuine SGX hardware.</li>
-      </ol>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '2rem' }}>
+        <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Fast Verification (On-Chain)</h4>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>Contracts verify the lightweight signature using <code>verify(result, signature, oracle_verifying_key)</code>.</p>
+        </div>
+        <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
+          <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. High Assurance (Off-Chain)</h4>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>DApps can manually inspect the <code>Remote Attestation Quote</code> to guarantee the worker is running genuine SGX hardware.</p>
+        </div>
+      </div>
 
-      <div className="card-industrial" style={{ marginTop: '4rem', padding: '2rem' }}>
-        <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem', color: '#fff' }}>Developer Note</h4>
-        <p style={{ fontSize: '0.9rem', marginBottom: 0, color: 'var(--text-secondary)' }}>
-          To maintain high throughput, Morpheus uses a batching relayer. This means multiple Oracle callbacks may be compressed into a single transaction on Neo X, reducing overall network congestion.
+      <div style={{ marginTop: '4rem', padding: '2rem', background: '#000', borderTop: '1px solid var(--border-dim)' }}>
+        <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.75rem', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Developer Note</h4>
+        <p style={{ fontSize: '0.9rem', marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          To maintain high throughput and minimize costs, Morpheus uses a batching relayer. This means multiple Oracle callbacks may be compressed into a single aggregated transaction on Neo X, significantly reducing overall network congestion.
         </p>
       </div>
     </div>
