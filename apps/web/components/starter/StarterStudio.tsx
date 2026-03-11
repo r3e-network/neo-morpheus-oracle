@@ -13,6 +13,19 @@ function escapeForCSharp(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function encodeUtf8Base64(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  if (typeof window === "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return window.btoa(binary);
+}
+
 function copyText(value: string) {
   return navigator.clipboard.writeText(value);
 }
@@ -81,6 +94,8 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   const [useEncrypted, setUseEncrypted] = useState(true);
   const [useScript, setUseScript] = useState(false);
   const [script, setScript] = useState("function process(data) { return Number(data.price) > 0; }");
+  const [manualCallbackHash, setManualCallbackHash] = useState(universalConsumer);
+  const [manualCallbackMethod, setManualCallbackMethod] = useState("onOracleResult");
   const [confidentialJson, setConfidentialJson] = useState(buildDefaultConfidentialPatch("oracle_provider", false, ""));
   const [encryptedBlob, setEncryptedBlob] = useState("");
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
@@ -251,6 +266,7 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
 
   const payloadJson = JSON.stringify(generated.payload, null, 2);
   const compactPayloadJson = JSON.stringify(generated.payload);
+  const payloadBase64 = useMemo(() => encodeUtf8Base64(compactPayloadJson), [compactPayloadJson]);
   const neoN3Snippet = `string payloadJson = "${escapeForCSharp(compactPayloadJson)}";
 
 BigInteger requestId = (BigInteger)Contract.Call(
@@ -262,6 +278,35 @@ BigInteger requestId = (BigInteger)Contract.Call(
     Runtime.ExecutingScriptHash,
     "onOracleResult"
 );`;
+
+  const neoRpcInvoke = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "invokefunction",
+    params: [
+      NETWORKS.neo_n3.oracle,
+      "request",
+      [
+        { type: "String", value: generated.requestType },
+        { type: "ByteArray", value: payloadBase64 },
+        { type: "Hash160", value: manualCallbackHash },
+        { type: "String", value: manualCallbackMethod },
+      ],
+    ],
+  }, null, 2);
+
+  const callbackQueryTemplate = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "invokefunction",
+    params: [
+      manualCallbackHash,
+      "getCallback",
+      [
+        { type: "Integer", value: "<requestId>" },
+      ],
+    ],
+  }, null, 2);
 
   return (
     <div className={embedded ? "fade-up" : "fade-in"}>
@@ -369,6 +414,16 @@ BigInteger requestId = (BigInteger)Contract.Call(
               Seal sensitive fields before submission
             </label>
 
+            <label>
+              <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Direct Wallet Callback Hash</div>
+              <input className="neo-input" value={manualCallbackHash} onChange={(event) => setManualCallbackHash(event.target.value)} />
+            </label>
+
+            <label>
+              <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Callback Method</div>
+              <input className="neo-input" value={manualCallbackMethod} onChange={(event) => setManualCallbackMethod(event.target.value)} />
+            </label>
+
             {useEncrypted && (
               <>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -420,14 +475,17 @@ BigInteger requestId = (BigInteger)Contract.Call(
 
             <CodeBlock language="json" title="Payload JSON" code={payloadJson} />
             <CodeBlock language="csharp" title="Neo N3 Request Snippet" code={neoN3Snippet} />
+            <CodeBlock language="text" title="Payload ByteArray (Base64 UTF-8)" code={payloadBase64} />
+            <CodeBlock language="json" title="Neo N3 RPC invokeFunction Params" code={neoRpcInvoke} />
+            <CodeBlock language="json" title="Callback Query Template" code={callbackQueryTemplate} />
 
             <div style={{ padding: "1rem", background: "#000", border: "1px solid var(--border-dim)" }}>
               <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontWeight: 800, marginBottom: "0.5rem", fontFamily: "var(--font-mono)" }}>NEO N3 CALL ARGUMENTS</div>
               <div style={{ color: "var(--text-secondary)", lineHeight: 1.8 }}>
                 <div><strong style={{ color: "#fff" }}>Arg 1:</strong> <code>{generated.requestType}</code></div>
                 <div><strong style={{ color: "#fff" }}>Arg 2:</strong> UTF-8 payload JSON bytes</div>
-                <div><strong style={{ color: "#fff" }}>Arg 3:</strong> callback contract = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or <code>{universalConsumer}</code> for zero-code testing</div>
-                <div><strong style={{ color: "#fff" }}>Arg 4:</strong> callback method = <code>onOracleResult</code></div>
+                <div><strong style={{ color: "#fff" }}>Arg 3:</strong> callback contract = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or <code>{manualCallbackHash}</code> for direct wallet testing</div>
+                <div><strong style={{ color: "#fff" }}>Arg 4:</strong> callback method = <code>{manualCallbackMethod}</code></div>
                 <div><strong style={{ color: "#fff" }}>Fee:</strong> <code>0.01 GAS</code></div>
               </div>
             </div>
