@@ -1023,6 +1023,31 @@ test('oracle feed records scan prices and skips chain tx when all changes stay b
   assert.equal(secondBody.batch_tx, null);
   assert.equal(secondBody.sync_results[0].relay_status, 'skipped');
   assert.equal(secondBody.sync_results[0].skip_reason, 'price-change-below-threshold');
+  assert.equal(secondBody.sync_results[0].comparison_basis, 'current-chain-price');
+
+  currentPrice = '12.36'; // >0.1% from submitted chain value 12.34, but only ~0.08% from prior scan 12.35
+  const third = await handler(new Request('http://local/oracle/feed', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      symbols: ['NEO-USD'],
+      target_chain: 'neo_x',
+      feed_change_threshold_bps: 10,
+      feed_min_update_interval_ms: 0,
+      broadcast: false,
+      contract_address: '0x1111111111111111111111111111111111111111',
+      chain_id: 47763,
+      nonce: 3,
+      gas_limit: '250000',
+      max_fee_per_gas: '1000000000',
+      max_priority_fee_per_gas: '100000000'
+    }),
+  }));
+  assert.equal(third.status, 200);
+  const thirdBody = await third.json();
+  assert.equal(thirdBody.batch_submitted, true);
+  assert.equal(thirdBody.batch_count, 1);
+  assert.equal(thirdBody.sync_results[0].relay_status, 'submitted');
 });
 
 test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {

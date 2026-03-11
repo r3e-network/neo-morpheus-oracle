@@ -818,7 +818,7 @@ Current sync behavior:
 当前同步行为：
 
 - every 15 seconds, scan all configured feed pairs
-- compare each pair with the previous scan price
+- compare each pair with the current on-chain stored value for that storage pair
 - only pairs whose change is greater than 0.1% are selected for on-chain publication
 - if no pair crosses the threshold, no chain transaction is sent
 - if multiple pairs cross the threshold, they are grouped into one batch transaction per chain

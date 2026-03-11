@@ -140,7 +140,7 @@ function checkPrice(string memory pair) public view returns (int256) {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. Only pairs whose observed price has moved by at least <strong>0.1%</strong> are submitted on-chain, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction. Newly configured pairs appear in this catalog immediately in the frontend, then become readable on-chain after the next successful sync/update cycle.
+          Mainnet feeds are automatically scanned every <strong>15 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored value</strong>. Only pairs whose change versus the on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
         </p>
       </div>
     </div>

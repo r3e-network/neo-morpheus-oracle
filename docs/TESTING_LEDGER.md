@@ -236,7 +236,7 @@ Configured policy:
 Accepted observations:
 
 - All 14 configured pairs were scanned every ~15 seconds.
-- When no pair exceeded `0.1%`, no chain transaction was sent.
+- When no pair exceeded `0.1%` versus the current on-chain stored value, no chain transaction was sent.
 - When multiple pairs exceeded threshold, they were grouped into one batch `updateFeeds` transaction.
 
 Recorded transactions:

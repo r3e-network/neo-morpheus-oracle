@@ -102,7 +102,7 @@ export default function HomePage() {
                 </div>
                 <h2 className="section-title">Decentralized Datafeeds</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', marginBottom: '2.5rem', lineHeight: 1.7 }}>
-                  Access 14 synchronized mainnet price pairs stored directly on Neo N3. Updates are scanned every 15 seconds and only published when movement exceeds 0.1%.
+                  Access synchronized mainnet price pairs stored directly on Neo N3. Updates are scanned every 15 seconds and only published when movement versus the current on-chain value exceeds 0.1%.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '3rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
