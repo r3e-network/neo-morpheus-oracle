@@ -207,8 +207,11 @@ export function buildProviderRequest(payload) {
     case "twelvedata": {
       const params = coerceProviderParams(payload.provider_params);
       const pair = trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD";
-      const sourceSymbol = trimString(params.symbol || payload.provider_symbol || pair) || pair;
-      const symbol = sourceSymbol.includes("/") ? sourceSymbol : pairToTwelveDataSymbol(sourceSymbol);
+      const explicitSymbol = trimString(params.symbol || payload.provider_symbol || "");
+      const sourceSymbol = explicitSymbol || pair;
+      const symbol = explicitSymbol
+        ? (/^[A-Z0-9]+-[A-Z0-9]+$/i.test(explicitSymbol) ? pairToTwelveDataSymbol(explicitSymbol) : explicitSymbol)
+        : (sourceSymbol.includes("/") ? sourceSymbol : pairToTwelveDataSymbol(sourceSymbol));
       const endpoint = trimString(params.endpoint || payload.provider_endpoint || "price") || "price";
       const url = new URL(`https://api.twelvedata.com/${endpoint}`);
       url.searchParams.set("symbol", symbol);

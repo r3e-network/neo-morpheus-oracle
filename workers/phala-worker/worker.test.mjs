@@ -293,6 +293,23 @@ test('feed quote supports twelvedata provider', async () => {
   assert.equal(body.price, '45.67');
 });
 
+test('feed quote preserves explicit TwelveData stock symbols without appending /USD', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    assert.match(String(url), /symbol=AAPL(&|%26|$)/);
+    return new Response(JSON.stringify({ price: '260.72' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/AAPL-USD?provider=twelvedata', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pair, 'AAPL-USD');
+  assert.equal(body.price, '260.72');
+});
+
 test('feed quote uses canonical 1000FLM-USD pair naming', async () => {
   global.fetch = async (url) => {
     assert.match(String(url), /api\.twelvedata\.com\/price/);
@@ -334,6 +351,23 @@ test('feed quote can invert and scale forex units for canonical 1000JPY-USD', as
   assert.equal(body.price_transform, 'inverse');
   assert.equal(body.price_multiplier, 1000);
   assert.equal(body.price, '6.666666666667');
+});
+
+test('feed quote preserves explicit TwelveData futures symbols', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    assert.match(String(url), /symbol=HG1(&|%26|$)/);
+    return new Response(JSON.stringify({ price: '25.20000' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/COPPER-USD?provider=twelvedata', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pair, 'COPPER-USD');
+  assert.equal(body.price, '25.2');
 });
 
 

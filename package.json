@@ -37,6 +37,7 @@
     "examples:test:n3:privacy": "node examples/scripts/test-n3-privacy-matrix.mjs",
     "examples:test:n3:automation": "node examples/scripts/test-n3-automation.mjs",
     "examples:test:n3:builtins": "node examples/scripts/test-n3-builtins.mjs",
+    "examples:test:feed-source": "node examples/scripts/validate-feed-source-mappings.mjs",
     "examples:test:all": "node examples/scripts/test-all-examples.mjs",
     "examples:live": "node examples/scripts/deploy-and-test-all.mjs",
     "examples:all": "node examples/scripts/deploy-and-test-all.mjs",

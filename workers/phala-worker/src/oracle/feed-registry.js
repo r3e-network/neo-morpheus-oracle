@@ -60,32 +60,32 @@ export const DEFAULT_FEED_PAIRS = {
   },
   'BRENT-USD': {
     providers: {
-      twelvedata: { symbol: 'BRENT/USD' },
+      twelvedata: { symbol: 'XBR/USD' },
     },
   },
   'NATGAS-USD': {
     providers: {
-      twelvedata: { symbol: 'NATGAS/USD' },
+      twelvedata: { symbol: 'NG/USD' },
     },
   },
   'COPPER-USD': {
     providers: {
-      twelvedata: { symbol: 'COPPER/USD' },
+      twelvedata: { symbol: 'HG1' },
     },
   },
   'WHEAT-USD': {
     providers: {
-      twelvedata: { symbol: 'WHEAT/USD' },
+      twelvedata: { symbol: 'W_1' },
     },
   },
   'CORN-USD': {
     providers: {
-      twelvedata: { symbol: 'CORN/USD' },
+      twelvedata: { symbol: 'C_1' },
     },
   },
   'SOY-USD': {
     providers: {
-      twelvedata: { symbol: 'SOY/USD' },
+      twelvedata: { symbol: 'S_1' },
     },
   },
   'USDT-USD': {
