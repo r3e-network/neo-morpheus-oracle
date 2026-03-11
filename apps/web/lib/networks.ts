@@ -7,7 +7,7 @@ export const networkRegistry = {
 } as const;
 
 export function getSelectedNetwork() {
-  const selectedEnv = process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || "testnet";
+  const selectedEnv = process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || "mainnet";
   const selected = selectedEnv === "mainnet" ? "mainnet" : "testnet";
   return networkRegistry[selected];
 }
