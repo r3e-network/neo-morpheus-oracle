@@ -30,14 +30,17 @@ async function fetchLiveQuote(pair: string) {
     headers.set("x-phala-token", appConfig.phalaToken);
   }
 
-  const response = await fetch(
-    `${appConfig.phalaApiUrl.replace(/\/$/, "")}/feeds/price/${encodeURIComponent(pair)}?provider=twelvedata`,
-    {
-      method: "GET",
-      headers,
-      cache: "no-store",
-    },
-  );
+  const quoteUrl = new URL(`${appConfig.phalaApiUrl.replace(/\/$/, "")}/feeds/price/${encodeURIComponent(pair)}`);
+  quoteUrl.searchParams.set("provider", appConfig.feedProvider || "twelvedata");
+  if (appConfig.feedProjectSlug) {
+    quoteUrl.searchParams.set("project_slug", appConfig.feedProjectSlug);
+  }
+
+  const response = await fetch(quoteUrl.toString(), {
+    method: "GET",
+    headers,
+    cache: "no-store",
+  });
 
   const text = await response.text();
   const body = maybeParseJson(text);

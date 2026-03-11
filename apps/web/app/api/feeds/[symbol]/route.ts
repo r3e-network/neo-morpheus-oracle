@@ -1,4 +1,5 @@
 import { parseJsonObjectParam, resolveProviderAwarePayload } from "@/lib/provider-configs";
+import { appConfig } from "@/lib/config";
 import { recordOperationLog } from "@/lib/operation-logs";
 import { proxyToPhala } from "@/lib/phala";
 
@@ -33,9 +34,10 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
   if (providerParams) payload.provider_params = providerParams;
 
   try {
-    const provider = url.searchParams.get("provider");
+    const provider = url.searchParams.get("provider") || appConfig.feedProvider;
+    const projectSlug = url.searchParams.get("project_slug") || appConfig.feedProjectSlug || undefined;
     const resolved = await resolveProviderAwarePayload(payload, {
-      projectSlug: url.searchParams.get("project_slug") || undefined,
+      projectSlug,
       fallbackProviderId: provider ? String(provider) : undefined,
     });
 
