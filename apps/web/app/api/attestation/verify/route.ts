@@ -22,9 +22,13 @@ export async function POST(request: Request) {
   }
 
   const result = verifyAttestation({
-    attestation: body.attestation,
+    envelope: body.envelope ?? body.worker_response ?? body.callback_result ?? body.response,
+    verification: body.verification,
+    attestation: body.attestation ?? body.envelope ?? body.worker_response ?? body.callback_result ?? body.response,
     expectedPayload: body.expected_payload,
     expectedOutputHash: typeof body.expected_output_hash === "string" ? body.expected_output_hash : undefined,
+    expectedAttestationHash: typeof body.expected_attestation_hash === "string" ? body.expected_attestation_hash : undefined,
+    expectedOnchainAttestationHash: typeof body.expected_onchain_attestation_hash === "string" ? body.expected_onchain_attestation_hash : undefined,
     expectedComposeHash: typeof body.expected_compose_hash === "string" ? body.expected_compose_hash : undefined,
     expectedAppId: typeof body.expected_app_id === "string" ? body.expected_app_id : undefined,
     expectedInstanceId: typeof body.expected_instance_id === "string" ? body.expected_instance_id : undefined,

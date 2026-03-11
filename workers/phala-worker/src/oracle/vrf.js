@@ -6,7 +6,7 @@ export async function handleVrf(payload) {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const randomness = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   const signed = await buildSignedResultEnvelope({ randomness }, payload);
-  const teeAttestation = await maybeBuildDstackAttestation(payload, { randomness, output_hash: signed.output_hash });
+  const teeAttestation = await maybeBuildDstackAttestation(payload, signed.output_hash);
   return json(200, {
     request_id: payload.request_id || crypto.randomUUID(),
     randomness,

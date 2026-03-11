@@ -30,6 +30,9 @@ const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 15_000;
 const FEED_PRICE_DECIMALS = 2;
+const DATAFEED_X_READ_INTERFACE = new Interface([
+  'function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])',
+]);
 
 let feedStateCache;
 
@@ -65,6 +68,16 @@ export function decimalToIntegerString(value, decimals = FEED_PRICE_DECIMALS) {
   const fractionValue = BigInt(fraction || '0');
   const scale = 10n ** BigInt(decimals);
   return ((whole * scale) + fractionValue) * sign + '';
+}
+
+export function integerToDecimalString(value, decimals = FEED_PRICE_DECIMALS) {
+  const raw = String(value ?? '0');
+  const negative = raw.startsWith('-');
+  const digits = raw.replace(/^[+-]/, '') || '0';
+  const padded = digits.padStart(decimals + 1, '0');
+  const whole = padded.slice(0, -decimals) || '0';
+  const fraction = padded.slice(-decimals);
+  return `${negative ? '-' : ''}${whole}.${fraction}`;
 }
 
 export function multiplyDecimalString(value, multiplier = 1) {
@@ -188,6 +201,146 @@ function computeChangeBps(previousPrice, nextPrice) {
   return Math.abs((next - previous) / previous) * 10_000;
 }
 
+function isPrintableAscii(value) {
+  return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(value);
+}
+
+function decodeNeoByteString(bytes) {
+  const text = bytes.toString('utf8');
+  const reversedText = Buffer.from(bytes).reverse().toString('utf8');
+  const knownPairPrefixes = ['TWELVEDATA:', 'BINANCE-SPOT:', 'COINBASE-SPOT:'];
+  if (isPrintableAscii(reversedText) && knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))) {
+    return reversedText;
+  }
+  if (isPrintableAscii(text)) return text;
+  if (isPrintableAscii(reversedText) && /^[A-Z0-9:_-]+$/.test(reversedText)) {
+    return reversedText;
+  }
+  return `0x${bytes.toString('hex')}`;
+}
+
+function parseNeoStackItem(item) {
+  if (!item || typeof item !== 'object') return null;
+  const type = trimString(item.type).toLowerCase();
+  switch (type) {
+    case 'array':
+    case 'struct':
+      return Array.isArray(item.value) ? item.value.map((entry) => parseNeoStackItem(entry)) : [];
+    case 'string':
+    case 'hash160':
+    case 'hash256':
+      return String(item.value ?? '');
+    case 'integer':
+      return String(item.value ?? '0');
+    case 'boolean':
+      return Boolean(item.value);
+    case 'bytestring':
+    case 'bytearray': {
+      const raw = trimString(item.value);
+      if (!raw) return '';
+      const bytes = Buffer.from(raw, 'base64');
+      const decoded = decodeNeoByteString(bytes);
+      if (bytes.length === 20 && typeof decoded === 'string' && decoded.startsWith('0x')) {
+        return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
+      }
+      return decoded;
+    }
+    default:
+      return item.value ?? null;
+  }
+}
+
+async function fetchJsonRpc(url, body) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(trimString(payload?.error?.message) || trimString(payload?.message) || `rpc request failed with status ${response.status}`);
+  }
+  if (payload?.error?.message) {
+    throw new Error(payload.error.message);
+  }
+  return payload?.result;
+}
+
+async function fetchNeoN3FeedRecords(rpcUrl, contractHash) {
+  if (!trimString(rpcUrl) || !trimString(contractHash)) return {};
+  const result = await fetchJsonRpc(rpcUrl, {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'invokefunction',
+    params: [contractHash, 'getAllFeedRecords', []],
+  });
+  if (String(result?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(trimString(result?.exception) || 'getAllFeedRecords faulted');
+  }
+  const rawRecords = parseNeoStackItem(result?.stack?.[0]);
+  if (!Array.isArray(rawRecords)) return {};
+  return Object.fromEntries(
+    rawRecords
+      .filter((entry) => Array.isArray(entry) && entry.length >= 6)
+      .map((entry) => {
+        const storagePair = trimString(entry[0]);
+        const priceCents = String(entry[2] ?? '0');
+        return [storagePair, {
+          storage_pair: storagePair,
+          pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
+          round_id: String(entry[1] ?? '0'),
+          price_cents: priceCents,
+          price: integerToDecimalString(priceCents, FEED_PRICE_DECIMALS),
+          timestamp: String(entry[3] ?? '0'),
+          attestation_hash: trimString(entry[4]),
+          source_set_id: String(entry[5] ?? '0'),
+        }];
+      }),
+  );
+}
+
+async function fetchNeoXFeedRecords(rpcUrl, contractAddress) {
+  if (!trimString(rpcUrl) || !trimString(contractAddress)) return {};
+  const callData = DATAFEED_X_READ_INTERFACE.encodeFunctionData('getAllFeedRecords');
+  const response = await fetchJsonRpc(rpcUrl, {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'eth_call',
+    params: [{ to: contractAddress, data: callData }, 'latest'],
+  });
+  const [records] = DATAFEED_X_READ_INTERFACE.decodeFunctionResult('getAllFeedRecords', response);
+  return Object.fromEntries(
+    Array.from(records || []).map((entry) => {
+      const storagePair = String(entry.pair ?? '');
+      const priceCents = entry.price?.toString?.() ?? String(entry.price ?? '0');
+      return [storagePair, {
+        storage_pair: storagePair,
+        pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
+        round_id: entry.roundId?.toString?.() ?? String(entry.roundId ?? '0'),
+        price_cents: priceCents,
+        price: integerToDecimalString(priceCents, FEED_PRICE_DECIMALS),
+        timestamp: entry.timestamp?.toString?.() ?? String(entry.timestamp ?? '0'),
+        attestation_hash: entry.attestationHash?.toString?.() ?? String(entry.attestationHash ?? ''),
+        source_set_id: entry.sourceSetId?.toString?.() ?? String(entry.sourceSetId ?? '0'),
+      }];
+    }),
+  );
+}
+
+async function loadOnchainFeedRecords(targetChain, { neoContext = null, neoXRpcUrl = null, dataFeedHash = null, dataFeedAddress = null } = {}) {
+  try {
+    if (targetChain === 'neo_n3') {
+      return await fetchNeoN3FeedRecords(neoContext?.rpcUrl, dataFeedHash);
+    }
+    if (targetChain === 'neo_x') {
+      return await fetchNeoXFeedRecords(trimString(neoXRpcUrl) || trimString(env('NEO_X_RPC_URL', 'NEOX_RPC_URL', 'EVM_RPC_URL')), dataFeedAddress);
+    }
+  } catch {
+    // best effort; local state remains a valid fallback
+  }
+  return {};
+}
+
 function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = false) {
   if (force) return { allow: true, reason: 'forced' };
   if (!previousRecord) return { allow: true, reason: 'first-observation' };
@@ -198,14 +351,20 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
-  const onchainPrice = previousRecord.price;
-  const changeBps = computeChangeBps(onchainPrice, quote.price);
+  const previousPriceCents = String(
+    previousRecord.price_cents
+    ?? decimalToIntegerString(previousRecord.price ?? '0', quote.decimals),
+  );
+  const nextPriceCents = decimalToIntegerString(quote.price, quote.decimals);
+  const changeBps = computeChangeBps(previousPriceCents, nextPriceCents);
   if (policy.thresholdBps > 0 && changeBps < policy.thresholdBps) {
     return {
       allow: false,
       reason: 'price-change-below-threshold',
       change_bps: changeBps,
       comparison_basis: 'current-chain-price',
+      current_chain_price_cents: previousPriceCents,
+      candidate_price_cents: nextPriceCents,
       storage_key: storageKey,
     };
   }
@@ -215,6 +374,8 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     reason: 'threshold-met',
     change_bps: changeBps,
     comparison_basis: 'current-chain-price',
+    current_chain_price_cents: previousPriceCents,
+    candidate_price_cents: nextPriceCents,
     storage_key: storageKey,
   };
 }
@@ -456,6 +617,12 @@ export async function handleOracleFeed(payload) {
   const dataFeedAddress = targetChain === 'neo_x'
     ? trimString(env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
     : null;
+  const onchainRecords = await loadOnchainFeedRecords(targetChain, {
+    neoContext,
+    neoXRpcUrl: trimString(payload.rpc_url),
+    dataFeedHash,
+    dataFeedAddress,
+  });
 
   for (const symbol of symbols) {
     const quoteSet = await fetchPriceQuotes(symbol, payload);
@@ -465,20 +632,25 @@ export async function handleOracleFeed(payload) {
     }
     for (const quote of quoteSet.quotes) {
       const storagePair = getFeedStoragePair(quote.provider, quote.pair);
-      const previousRecord = state.records[storagePair] || null;
-      const decision = shouldSubmitFeed(storagePair, quote, previousRecord, policy, Boolean(payload.force));
-      const roundId = trimString(payload.round_id) || buildRoundId(previousRecord);
+      const previousRecord = {
+        ...(state.records[storagePair] || {}),
+        ...(onchainRecords[storagePair] || {}),
+      };
+      const hasPreviousRecord = Object.keys(previousRecord).length > 0;
+      const decision = shouldSubmitFeed(storagePair, quote, hasPreviousRecord ? previousRecord : null, policy, Boolean(payload.force));
+      const roundId = trimString(payload.round_id) || buildRoundId(hasPreviousRecord ? previousRecord : null);
       const sourceSetId = Number(payload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0));
       const timestampSec = Math.floor(Date.now() / 1000);
       const observedAtMs = Date.now();
 
       if (!decision.allow) {
         state.records[storagePair] = {
-          ...(previousRecord || {}),
+          ...(hasPreviousRecord ? previousRecord : {}),
           provider: quote.provider,
           pair: quote.pair,
           storage_pair: storagePair,
           last_observed_price: quote.price,
+          last_observed_price_cents: decimalToIntegerString(quote.price, quote.decimals),
           last_observed_at_ms: observedAtMs,
         };
         syncResults.push({
@@ -529,10 +701,12 @@ export async function handleOracleFeed(payload) {
       pair: entry.quote.pair,
       storage_pair: entry.storagePair,
       price: entry.quote.price,
+      price_cents: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
       round_id: entry.roundId,
       source_set_id: entry.sourceSetId,
       last_submitted_at_ms: Date.now(),
       last_observed_price: entry.quote.price,
+      last_observed_price_cents: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
       last_observed_at_ms: entry.observedAtMs,
       attestation_hash: entry.quote.attestation_hash,
     };

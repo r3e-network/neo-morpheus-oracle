@@ -24,72 +24,156 @@ function normalizeHex(value: unknown) {
   return String(value || "").trim().replace(/^0x/i, "").toLowerCase();
 }
 
-function unwrapAttestation(input: unknown) {
+function normalizeText(value: unknown) {
+  const text = String(value || "").trim();
+  return text || null;
+}
+
+function unwrapRecord(input: unknown) {
   if (!input || typeof input !== "object") return null;
   const record = input as Record<string, unknown>;
-  if (record.tee_attestation && typeof record.tee_attestation === "object") return record.tee_attestation as Record<string, unknown>;
-  if (record.attestation && typeof record.attestation === "object") return record.attestation as Record<string, unknown>;
+  if (record.worker_response && typeof record.worker_response === "object") {
+    return record.worker_response as Record<string, unknown>;
+  }
+  if (record.envelope && typeof record.envelope === "object") {
+    return record.envelope as Record<string, unknown>;
+  }
   return record;
 }
 
+function unwrapVerification(input: unknown) {
+  const record = unwrapRecord(input);
+  if (!record) return null;
+  if (record.verification && typeof record.verification === "object") {
+    return record.verification as Record<string, unknown>;
+  }
+  if (record.output_hash || record.attestation_hash || record.tee_attestation) return record;
+  return null;
+}
+
+function unwrapAttestation(input: unknown) {
+  const record = unwrapRecord(input);
+  if (!record) return null;
+  if (record.tee_attestation && typeof record.tee_attestation === "object") return record.tee_attestation as Record<string, unknown>;
+  if (record.attestation && typeof record.attestation === "object") return record.attestation as Record<string, unknown>;
+  if (record.report_data || record.quote || record.event_log || record.compose_hash || record.app_id) return record;
+  return null;
+}
+
+function reportDataPrefix(reportData: unknown) {
+  const normalized = normalizeHex(reportData);
+  if (!normalized) return "";
+  return normalized.slice(0, 64);
+}
+
 export function verifyAttestation(input: {
-  attestation: unknown;
+  envelope?: unknown;
+  verification?: unknown;
+  attestation?: unknown;
   expectedPayload?: unknown;
   expectedOutputHash?: string;
+  expectedAttestationHash?: string;
+  expectedOnchainAttestationHash?: string;
   expectedComposeHash?: string;
   expectedAppId?: string;
   expectedInstanceId?: string;
 }) {
-  const attestation = unwrapAttestation(input.attestation);
-  if (!attestation) {
+  const record = unwrapRecord(input.envelope ?? input.verification ?? input.attestation);
+  const verification = unwrapVerification(input.verification ?? record ?? input.attestation);
+  const attestation = unwrapAttestation(input.attestation ?? verification ?? record);
+  if (!verification && !attestation) {
     return {
       ok: false,
-      error: "attestation object missing",
+      error: "verification or attestation object missing",
       checks: {},
     };
   }
 
-  const expectedReportData = normalizeHex(
+  const actualOutputHash = normalizeHex(verification?.output_hash);
+  const actualAttestationHash = normalizeHex(verification?.attestation_hash);
+  const actualReportData = normalizeHex(attestation?.report_data);
+  const actualReportDataPrefix = reportDataPrefix(attestation?.report_data);
+  const actualComposeHash = normalizeText(attestation?.compose_hash);
+  const actualAppId = normalizeText(attestation?.app_id);
+  const actualInstanceId = normalizeText(attestation?.instance_id);
+
+  const expectedOutputHash = normalizeHex(
     input.expectedOutputHash
       || (input.expectedPayload !== undefined ? sha256Hex(input.expectedPayload) : ""),
   );
-  const actualReportData = normalizeHex(attestation.report_data);
-  const actualComposeHash = String(attestation.compose_hash || "").trim();
-  const actualAppId = String(attestation.app_id || "").trim();
-  const actualInstanceId = String(attestation.instance_id || "").trim();
+  const expectedAttestationHash = normalizeHex(
+    input.expectedAttestationHash
+      || input.expectedOnchainAttestationHash
+      || expectedOutputHash,
+  );
 
-  const checks = {
-    has_quote: Boolean(attestation.quote),
-    has_event_log: Object.prototype.hasOwnProperty.call(attestation, "event_log"),
-    has_report_data: Boolean(actualReportData),
-    report_data_matches: expectedReportData ? actualReportData === expectedReportData : null,
-    compose_hash_matches: input.expectedComposeHash ? actualComposeHash === input.expectedComposeHash : null,
-    app_id_matches: input.expectedAppId ? actualAppId === input.expectedAppId : null,
-    instance_id_matches: input.expectedInstanceId ? actualInstanceId === input.expectedInstanceId : null,
+  const bindingChecks = {
+    output_hash_matches_expected: expectedOutputHash && actualOutputHash ? actualOutputHash === expectedOutputHash : null,
+    attestation_hash_matches_expected: expectedAttestationHash && actualAttestationHash ? actualAttestationHash === expectedAttestationHash : null,
+    attestation_hash_matches_output_hash: actualOutputHash && actualAttestationHash ? actualOutputHash === actualAttestationHash : null,
+    report_data_prefix_matches_output_hash: actualReportDataPrefix && actualOutputHash ? actualReportDataPrefix === actualOutputHash : null,
+    report_data_prefix_matches_attestation_hash: actualReportDataPrefix && actualAttestationHash ? actualReportDataPrefix === actualAttestationHash : null,
+    report_data_prefix_matches_expected: actualReportDataPrefix && (expectedAttestationHash || expectedOutputHash)
+      ? actualReportDataPrefix === (expectedAttestationHash || expectedOutputHash)
+      : null,
   };
 
-  const failed = Object.entries(checks)
+  const metadataChecks = {
+    compose_hash_matches: input.expectedComposeHash ? actualComposeHash === normalizeText(input.expectedComposeHash) : null,
+    app_id_matches: input.expectedAppId ? actualAppId === normalizeText(input.expectedAppId) : null,
+    instance_id_matches: input.expectedInstanceId ? actualInstanceId === normalizeText(input.expectedInstanceId) : null,
+  };
+
+  const bindingFailed = Object.entries(bindingChecks)
+    .filter(([, value]) => value === false)
+    .map(([key]) => key);
+  const metadataFailed = Object.entries(metadataChecks)
     .filter(([, value]) => value === false)
     .map(([key]) => key);
 
+  const hasBindingEvidence = Boolean(actualOutputHash || actualAttestationHash || actualReportDataPrefix);
+  const bindingOk = hasBindingEvidence && bindingFailed.length === 0;
+  const hasQuote = Boolean(attestation?.quote);
+  const hasEventLog = Object.prototype.hasOwnProperty.call(attestation || {}, "event_log");
+  const fullAttestationOk = bindingOk && hasQuote && hasEventLog && metadataFailed.length === 0;
+
   return {
-    ok: failed.length === 0 && checks.has_quote && checks.has_event_log && checks.has_report_data,
-    checks,
-    attestation: {
-      app_id: actualAppId || null,
-      instance_id: actualInstanceId || null,
-      compose_hash: actualComposeHash || null,
+    ok: bindingOk && metadataFailed.length === 0,
+    binding_ok: bindingOk,
+    full_attestation_ok: fullAttestationOk,
+    evidence: {
+      has_verification: Boolean(verification),
+      has_attestation: Boolean(attestation),
+      has_output_hash: Boolean(actualOutputHash),
+      has_attestation_hash: Boolean(actualAttestationHash),
+      has_report_data: Boolean(actualReportData),
+      has_quote: hasQuote,
+      has_event_log: hasEventLog,
+    },
+    checks: {
+      ...bindingChecks,
+      ...metadataChecks,
+    },
+    actual: {
+      output_hash: actualOutputHash ? `0x${actualOutputHash}` : null,
+      attestation_hash: actualAttestationHash ? `0x${actualAttestationHash}` : null,
       report_data: actualReportData ? `0x${actualReportData}` : null,
-      device_id: attestation.device_id || null,
-      app_name: attestation.app_name || null,
+      report_data_prefix: actualReportDataPrefix ? `0x${actualReportDataPrefix}` : null,
+      compose_hash: actualComposeHash,
+      app_id: actualAppId,
+      instance_id: actualInstanceId,
+      device_id: attestation?.device_id || null,
+      app_name: attestation?.app_name || null,
     },
     expected: {
-      report_data: expectedReportData ? `0x${expectedReportData}` : null,
-      compose_hash: input.expectedComposeHash || null,
-      app_id: input.expectedAppId || null,
-      instance_id: input.expectedInstanceId || null,
+      output_hash: expectedOutputHash ? `0x${expectedOutputHash}` : null,
+      attestation_hash: expectedAttestationHash ? `0x${expectedAttestationHash}` : null,
+      report_data_prefix: (expectedAttestationHash || expectedOutputHash) ? `0x${expectedAttestationHash || expectedOutputHash}` : null,
+      compose_hash: normalizeText(input.expectedComposeHash),
+      app_id: normalizeText(input.expectedAppId),
+      instance_id: normalizeText(input.expectedInstanceId),
     },
-    failed,
-    note: "This verifier checks application-level attestation consistency. It does not fully validate Intel/TDX quote signatures.",
+    failed: [...bindingFailed, ...metadataFailed],
+    note: "Morpheus attestation_hash currently mirrors output_hash. TDX report_data is 64 bytes; this verifier compares its first 32 bytes against output_hash/attestation_hash. Full Intel/TDX quote-chain validation is out of scope for this application-level verifier.",
   };
 }

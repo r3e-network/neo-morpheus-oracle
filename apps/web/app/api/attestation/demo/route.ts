@@ -30,6 +30,7 @@ export async function GET() {
     demo_request: payload,
     worker_response: body,
     verifier_input: {
+      envelope: body,
       attestation: body?.tee_attestation || body?.verification?.tee_attestation || null,
       expected_payload: {
         function: body?.function,
@@ -37,6 +38,7 @@ export async function GET() {
         entry_point: body?.entry_point,
       },
       expected_output_hash: body?.verification?.output_hash || body?.output_hash || null,
+      expected_attestation_hash: body?.verification?.attestation_hash || body?.attestation_hash || null,
     },
   };
   await recordOperationLog({

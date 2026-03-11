@@ -23,6 +23,7 @@ export default function VerifierPage() {
   const [attestationJson, setAttestationJson] = useState("{}");
   const [expectedPayloadJson, setExpectedPayloadJson] = useState("{}");
   const [expectedOutputHash, setExpectedOutputHash] = useState("");
+  const [expectedAttestationHash, setExpectedAttestationHash] = useState("");
   const [expectedComposeHash, setExpectedComposeHash] = useState("");
   const [expectedAppId, setExpectedAppId] = useState("");
   const [expectedInstanceId, setExpectedInstanceId] = useState("");
@@ -61,7 +62,7 @@ export default function VerifierPage() {
                 Attestation Verifier
               </h1>
               <small>
-                Load a sample attestation, paste a real worker response, and check report-data binding, compose hash, app id, and instance id.
+                Paste a worker response, on-chain callback envelope, or raw TEE attestation JSON and verify hash binding, report-data prefix, compose hash, app id, and instance id.
               </small>
             </div>
             <ShieldCheck size={34} color="var(--neo-green)" />
@@ -84,9 +85,10 @@ export default function VerifierPage() {
                 }
 
                 const verifierInput = (body as { verifier_input?: Record<string, unknown> }).verifier_input || {};
-                setAttestationJson(JSON.stringify(verifierInput.attestation || {}, null, 2));
+                setAttestationJson(JSON.stringify(verifierInput.envelope || verifierInput.attestation || {}, null, 2));
                 setExpectedPayloadJson(JSON.stringify(verifierInput.expected_payload || {}, null, 2));
                 setExpectedOutputHash(String(verifierInput.expected_output_hash || ""));
+                setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || ""));
                 setResult(JSON.stringify(body, null, 2));
               }}
             >
@@ -100,8 +102,8 @@ export default function VerifierPage() {
           <section className="card">
             <div className="card-topline">
               <div>
-                <h3>Attestation Object</h3>
-                <small>Paste raw TEE attestation JSON here.</small>
+                <h3>Worker / Callback / Attestation JSON</h3>
+                <small>Paste a full worker response, compact callback envelope, or raw <code>tee_attestation</code> object.</small>
               </div>
               <ClipboardList size={22} color="var(--neo-green)" />
             </div>
@@ -109,7 +111,7 @@ export default function VerifierPage() {
               value={attestationJson}
               onChange={(event) => setAttestationJson(event.target.value)}
               style={{ minHeight: "360px" }}
-              placeholder='{ "attestation": { ... } }'
+              placeholder='{ "verification": { "attestation_hash": "...", "tee_attestation": { ... } } }'
             />
           </section>
 
@@ -136,6 +138,11 @@ export default function VerifierPage() {
                 placeholder="Expected output hash"
               />
               <input
+                value={expectedAttestationHash}
+                onChange={(event) => setExpectedAttestationHash(event.target.value)}
+                placeholder="Expected / on-chain attestation hash"
+              />
+              <input
                 value={expectedComposeHash}
                 onChange={(event) => setExpectedComposeHash(event.target.value)}
                 placeholder="Expected compose hash"
@@ -160,9 +167,12 @@ export default function VerifierPage() {
                     const parsedAttestation = JSON.parse(attestationJson);
                     const parsedPayload = expectedPayloadJson.trim() ? JSON.parse(expectedPayloadJson) : undefined;
                     const body = await requestJSON("/api/attestation/verify", {
+                      envelope: parsedAttestation,
                       attestation: parsedAttestation,
                       expected_payload: parsedPayload,
                       expected_output_hash: expectedOutputHash || undefined,
+                      expected_attestation_hash: expectedAttestationHash || undefined,
+                      expected_onchain_attestation_hash: expectedAttestationHash || undefined,
                       expected_compose_hash: expectedComposeHash || undefined,
                       expected_app_id: expectedAppId || undefined,
                       expected_instance_id: expectedInstanceId || undefined,
@@ -182,13 +192,13 @@ export default function VerifierPage() {
         </div>
 
         <section className="card" style={{ marginTop: "24px" }}>
-          <div className="card-topline">
-            <div>
-              <h3>Verification Result</h3>
-              <small>Application-level consistency checks for TEE output and metadata.</small>
+            <div className="card-topline">
+              <div>
+                <h3>Verification Result</h3>
+                <small>Application-level checks for `output_hash`, `attestation_hash`, and the first 32 bytes of TEE `report_data`.</small>
+              </div>
+              <CheckCircle2 size={22} color="var(--neo-green)" />
             </div>
-            <CheckCircle2 size={22} color="var(--neo-green)" />
-          </div>
           <pre>{result || "Awaiting verification input..."}</pre>
         </section>
       </main>

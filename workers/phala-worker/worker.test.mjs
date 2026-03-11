@@ -1050,6 +1050,90 @@ test('oracle feed records scan prices and skips chain tx when all changes stay b
   assert.equal(thirdBody.sync_results[0].relay_status, 'submitted');
 });
 
+test('oracle feed compares threshold using quantized on-chain integer cents', async () => {
+  __resetFeedStateForTests();
+  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
+
+  let currentPrice = '1.00';
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('USDT%2FUSD')) {
+      return new Response(JSON.stringify({ price: currentPrice }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+  const first = await handler(new Request('http://local/oracle/feed', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      symbols: ['USDT-USD'],
+      target_chain: 'neo_x',
+      feed_change_threshold_bps: 10,
+      feed_min_update_interval_ms: 0,
+      broadcast: false,
+      contract_address: '0x1111111111111111111111111111111111111111',
+      chain_id: 47763,
+      nonce: 11,
+      gas_limit: '250000',
+      max_fee_per_gas: '1000000000',
+      max_priority_fee_per_gas: '100000000'
+    }),
+  }));
+  assert.equal(first.status, 200);
+  const firstBody = await first.json();
+  assert.equal(firstBody.batch_submitted, true);
+
+  currentPrice = '1.009'; // +0.9%, but still 100 cents on-chain after quantization
+  const second = await handler(new Request('http://local/oracle/feed', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      symbols: ['USDT-USD'],
+      target_chain: 'neo_x',
+      feed_change_threshold_bps: 10,
+      feed_min_update_interval_ms: 0,
+      broadcast: false,
+      contract_address: '0x1111111111111111111111111111111111111111',
+      chain_id: 47763,
+      nonce: 12,
+      gas_limit: '250000',
+      max_fee_per_gas: '1000000000',
+      max_priority_fee_per_gas: '100000000'
+    }),
+  }));
+  assert.equal(second.status, 200);
+  const secondBody = await second.json();
+  assert.equal(secondBody.batch_submitted, false);
+  assert.equal(secondBody.sync_results[0].skip_reason, 'price-change-below-threshold');
+  assert.equal(secondBody.sync_results[0].change_bps, 0);
+  assert.equal(secondBody.sync_results[0].comparison_basis, 'current-chain-price');
+
+  currentPrice = '1.01'; // 101 cents, should now publish
+  const third = await handler(new Request('http://local/oracle/feed', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      symbols: ['USDT-USD'],
+      target_chain: 'neo_x',
+      feed_change_threshold_bps: 10,
+      feed_min_update_interval_ms: 0,
+      broadcast: false,
+      contract_address: '0x1111111111111111111111111111111111111111',
+      chain_id: 47763,
+      nonce: 13,
+      gas_limit: '250000',
+      max_fee_per_gas: '1000000000',
+      max_priority_fee_per_gas: '100000000'
+    }),
+  }));
+  assert.equal(third.status, 200);
+  const thirdBody = await third.json();
+  assert.equal(thirdBody.batch_submitted, true);
+  assert.equal(thirdBody.batch_count, 1);
+  assert.equal(thirdBody.sync_results[0].relay_status, 'submitted');
+});
+
 test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {
   global.fetch = originalFetch;
 
