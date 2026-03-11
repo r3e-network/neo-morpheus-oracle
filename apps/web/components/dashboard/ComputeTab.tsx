@@ -11,6 +11,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
 
   // Expanded set of professional templates reflecting built-in capabilities
   const mockTemplates = [
+    { name: "integration.secure_fetch", runtime: "JS", desc: "Unpacks encrypted logic params (Data Sealing) to hit an authorized API.", cat: "Data Sealing" },
     { name: "hash.sha256", runtime: "JS", desc: "Standard SHA-256 hashing for any JSON payload.", cat: "Hash" },
     { name: "zkp.public_signal_hash", runtime: "JS", desc: "Deterministic digest over ZKP public signals.", cat: "ZKP" },
     { name: "math.modexp", runtime: "JS", desc: "Big integer modular exponentiation.", cat: "Math" },
@@ -80,7 +81,10 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
                 key={f.name}
                 onClick={() => {
                   setSelectedFunc(f.name);
-                  if (f.name.includes("noise")) {
+                  if (f.name.includes("secure_fetch")) {
+                    setUserCode(`async function process(data) {\n  // data.args contains the unsealed JSON from Data Sealing\n  const auth = data.args.headers["Authorization"];\n  const uid = data.args.query["private_customer_id"];\n  \n  console.log("Mocking secure API fetch for user: " + uid);\n  // const res = await morpheus.http_request(...)\n  // 100% of the private logic stays off-chain and hidden.\n  return { success: true, user_balance: 42000 };\n}`);
+                    setComputeInput('{\n  "args": {\n    "headers": {\n      "Authorization": "Bearer sk_live_12345"\n    },\n    "query": {\n      "private_customer_id": "cust_999"\n    }\n  }\n}');
+                  } else if (f.name.includes("noise")) {
                     setUserCode(`function process(data) {\n  // data.args: { value: number, scale: number }\n  return { noisy_value: data.args.value + (Math.random() * data.args.scale) };\n}`);
                     setComputeInput('{\n  "args": {\n    "value": 100,\n    "scale": 5\n  }\n}');
                   } else if (f.name.includes("vrf")) {

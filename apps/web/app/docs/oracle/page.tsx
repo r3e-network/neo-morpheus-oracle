@@ -113,13 +113,16 @@ const ciphertext = await encryptWithRsaOaep(JSON.stringify(secrets), public_key_
         </div>
       </div>
 
-      <div className="card-industrial" style={{ marginTop: '4rem', padding: '2.5rem', borderLeft: '4px solid var(--neo-green)' }}>
+      <div style={{ marginTop: '4rem', padding: '2.5rem', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderLeft: '4px solid var(--neo-green)', borderRadius: '0 4px 4px 0' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
           <Zap size={20} color="var(--neo-green)" />
-          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Transformation Logic</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Transformation Logic</h4>
         </div>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Instead of just a JSON path like <code>"price"</code>, the 4th argument can be a full Javascript function (e.g. <code>function process(data) &#123; return data.price * 2; &#125;</code>) that executes securely inside the TEE after the HTTP fetch completes, returning only the precisely transformed result.
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
+          Instead of just a static JSON path like <code>"price"</code>, the 4th argument in your contract request can be a full Javascript function (e.g. <code>function process(response) &#123; return response.price * 2; &#125;</code>) that executes securely inside the TEE after the HTTP fetch completes, returning only the precisely computed result.
+        </p>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6, paddingBottom: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
+          <strong>Advanced Compute Mapping:</strong> If you are writing a fully custom script using <a href="/docs/compute" style={{ color: 'var(--neo-green)', textDecoration: 'none' }}>Enclave Compute</a>, your sealed parameters bypass automatic HTTP injection and are instead directly exposed to your Javascript logic under the <code>data.args</code> object. This allows you to construct complex, multi-stage requests with your private keys securely.
         </p>
       </div>
     </div>

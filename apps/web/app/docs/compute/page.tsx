@@ -18,19 +18,19 @@ export default function DocsCompute() {
 
       <h2>Supported Runtimes</h2>
       <div className="grid grid-2" style={{ gap: '1.5rem', margin: '2.5rem 0' }}>
-        <div className="card-industrial" style={{ padding: '1.5rem' }}>
+        <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
             <Terminal size={16} color="var(--neo-green)" />
-            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0 }}>Javascript (QuickJS)</h4>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Javascript (QuickJS)</h4>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 0 }}>High-level scripting for data aggregation, custom API parsing, and business logic.</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6 }}>High-level scripting for data aggregation, custom API parsing, and business logic.</p>
         </div>
-        <div className="card-industrial" style={{ padding: '1.5rem' }}>
+        <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
             <FileCode size={16} color="var(--accent-blue)" />
-            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0 }}>WebAssembly (WASM)</h4>
+            <h4 style={{ fontSize: '0.9rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>WebAssembly (WASM)</h4>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 0 }}>Performance-critical tasks like ZKP witness generation or complex mathematical models.</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6 }}>Performance-critical tasks like ZKP witness generation or complex mathematical models.</p>
         </div>
       </div>
 
@@ -75,12 +75,12 @@ export default function DocsCompute() {
         Compute tasks are strictly time-bounded (default 30s timeout) and executed in a stateless enclave instance. Any data required for the next execution cycle must be stored back on the blockchain via the callback mechanism.
       </p>
 
-      <div className="card-industrial" style={{ marginTop: '4rem', padding: '2rem', border: '1px solid rgba(239, 68, 68, 0.15)', background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.02), transparent)' }}>
+      <div style={{ marginTop: '4rem', padding: '2rem', background: '#000', borderTop: '1px solid rgba(239, 68, 68, 0.2)', borderRight: '1px solid rgba(239, 68, 68, 0.2)', borderBottom: '1px solid rgba(239, 68, 68, 0.2)', borderLeft: '4px solid #ef4444', borderRadius: '0 4px 4px 0' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
           <ShieldAlert size={20} color="#ef4444" />
-          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Untrusted Scripts</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Untrusted Scripts</h4>
         </div>
-        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6 }}>
           Direct script execution is currently in <strong>Closed Beta</strong>. Production requests should use the <code>builtin</code> function catalog unless previously whitelisted by the network operators.
         </p>
       </div>
