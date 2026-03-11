@@ -30,11 +30,11 @@ export default function DocsArchitecture() {
       
       <h3>1. On-Chain Control Plane</h3>
       <p>
-        The entrance and exit points of the protocol. <code>MorpheusOracle</code> contracts on Neo handle request queuing, fee collection (in GAS), and final callback execution. 
+        The entrance and exit points of the protocol. <code>MorpheusOracle</code> contracts on Neo handle request queuing, prepaid fee accounting, and final callback execution.
       </p>
       <ul>
         <li><strong>N3 Implementation:</strong> C# contracts with native <code>Oracle</code> service integration.</li>
-        <li><strong>Neo X Implementation:</strong> Solidity contracts with EVM-compatible callback interfaces.</li>
+        <li><strong>Neo X Implementation:</strong> Solidity reference interfaces and contracts prepared for publication.</li>
       </ul>
 
       <h3>2. Asynchronous Relayer Plane</h3>
@@ -43,13 +43,13 @@ export default function DocsArchitecture() {
       </p>
       <div style={{ padding: '1.5rem', background: '#000', borderLeft: '3px solid var(--accent-purple)', margin: '2rem 0', borderRadius: '0 4px 4px 0' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          <strong>Zero-Knowledge Relaying:</strong> The relayer does not have access to the request's sensitive plaintext data. It strictly acts as a blind transport layer moving the encrypted X25519 payload envelopes and TEE signatures between the blockchain and the enclave.
+          <strong>Blind Relaying:</strong> The relayer only transports ciphertext payloads, metadata, and signed result envelopes. It never needs the decrypted request contents.
         </p>
       </div>
 
       <h3>3. Phala TEE Runtime Plane</h3>
       <p>
-        The "Brain" of the protocol. Running inside Intel SGX secure enclaves via Phala Network's dstack, this environment provides:
+        The "Brain" of the protocol. Running inside Phala's attested TEE runtime, this environment provides:
       </p>
       <ul style={{ listStyleType: 'none', paddingLeft: 0 }}>
         <li style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem' }}><span style={{ color: 'var(--neo-green)' }}>✓</span><div><strong>Confidentiality:</strong> Decryption happens strictly in hardware-protected memory.</div></li>
@@ -59,24 +59,24 @@ export default function DocsArchitecture() {
 
       <h2>Security & Verification Model</h2>
       <p>
-        Morpheus operates on a <strong>Trust-but-Verify</strong> model. While on-chain contracts verify the fast ECU signature for efficiency, the full hardware attestation proof is always available for high-value operations.
+        Morpheus operates on a <strong>Trust-but-Verify</strong> model. Contracts verify the relayed fulfillment signature, while applications can additionally inspect TEE attestation metadata for stronger assurance.
       </p>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '2rem' }}>
         <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
           <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Fast Verification (On-Chain)</h4>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>Contracts verify the lightweight signature using <code>verify(result, signature, oracle_verifying_key)</code>.</p>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>Contracts verify the fulfillment against the Oracle verification key configured in the registry contract.</p>
         </div>
         <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
           <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. High Assurance (Off-Chain)</h4>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>DApps can manually inspect the <code>Remote Attestation Quote</code> to guarantee the worker is running genuine SGX hardware.</p>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>DApps can inspect <code>app_id</code>, <code>compose_hash</code>, <code>instance_id</code>, and <code>report_data</code> through the attestation verifier.</p>
         </div>
       </div>
 
       <div style={{ marginTop: '4rem', padding: '2rem', background: '#000', borderTop: '1px solid var(--border-dim)' }}>
         <h4 style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '0.75rem', color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Developer Note</h4>
         <p style={{ fontSize: '0.9rem', marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          To maintain high throughput and minimize costs, Morpheus uses a batching relayer. This means multiple Oracle callbacks may be compressed into a single aggregated transaction on Neo X, significantly reducing overall network congestion.
+          To reduce unnecessary chain writes, Morpheus batches qualifying pricefeed updates into a single Neo N3 transaction whenever multiple pairs exceed the 0.1% threshold in the same 15-second scan.
         </p>
       </div>
     </div>

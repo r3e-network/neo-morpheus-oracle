@@ -1,30 +1,51 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Key, Send, FileCode, Zap, ShieldCheck, Globe, Lock, Cpu, Play, CheckCircle2, Circle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, Copy, Cpu, Lock } from "lucide-react";
+
 import { encryptJsonWithOraclePublicKey } from "@/lib/browser-encryption";
+import { NETWORKS } from "@/lib/onchain-data";
 
 interface OracleTabProps {
   providers: any[];
-  callJSON: (path: string, body?: any, method?: string) => Promise<string>;
   setOutput: (output: string) => void;
 }
 
-export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
+function escapeForCSharp(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function copyText(value: string) {
+  return navigator.clipboard.writeText(value);
+}
+
+export function OracleTab({ providers, setOutput }: OracleTabProps) {
   const [requestMode, setRequestMode] = useState("provider");
   const [oracleUrl, setOracleUrl] = useState("https://postman-echo.com/get?probe=morpheus");
   const [providerSymbol, setProviderSymbol] = useState("NEO-USD");
   const [httpMethod, setHttpMethod] = useState("GET");
   const [oracleEncryptedParams, setOracleEncryptedParams] = useState("");
   const [oracleConfidentialJson, setOracleConfidentialJson] = useState('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  }\n}');
-  const [oracleScript, setOracleScript] = useState("function process(response) {\n  // 'response' holds the HTTP JSON payload\n  return response.price;\n}");
+  const [oracleScript, setOracleScript] = useState("function process(data, context, helpers) {\n  return data.args.probe + '-script';\n}");
+  const [oracleJsonPath, setOracleJsonPath] = useState("price");
+  const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
   const [provider, setProvider] = useState("twelvedata");
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
+  const [oracleState, setOracleState] = useState<any>(null);
   const [isEncrypting, setIsEncrypting] = useState(false);
+  const [generatedRequest, setGeneratedRequest] = useState<{
+    requestType: string;
+    payload: Record<string, unknown>;
+    payloadJson: string;
+    neoN3Snippet: string;
+    neoXSnippet: string;
+  } | null>(null);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
   useEffect(() => {
-    loadOracleKey();
+    void loadOracleKey();
+    void loadOracleState();
   }, []);
 
   async function loadOracleKey() {
@@ -36,6 +57,16 @@ export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
       }
     } catch (err) {
       console.error("Failed to load oracle public key", err);
+    }
+  }
+
+  async function loadOracleState() {
+    try {
+      const response = await fetch("/api/onchain/state?limit=20");
+      const body = await response.json().catch(() => ({}));
+      setOracleState(body?.neo_n3?.oracle || null);
+    } catch (err) {
+      console.error("Failed to load on-chain oracle state", err);
     }
   }
 
@@ -53,7 +84,7 @@ export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
 
       const ciphertext = await encryptJsonWithOraclePublicKey(keyMeta.public_key, oracleConfidentialJson);
       setOracleEncryptedParams(ciphertext);
-      setOutput(">> Data encrypted via X25519 + HKDF-SHA256 + AES-256-GCM locally.\n>> No TEE interaction was required for this encryption step.\n>> Ciphertext generated and ready for secure transport.");
+      setOutput(">> Confidential patch encrypted locally.\n>> Submit the generated payload through the on-chain Oracle contract.\n>> No live worker execution was triggered by this page.");
     } catch (err: any) {
       setOutput(`!! Encryption Error: ${err.message}`);
     } finally {
@@ -62,136 +93,305 @@ export function OracleTab({ providers, callJSON, setOutput }: OracleTabProps) {
   }
 
   function buildOraclePayload() {
-    const base: Record<string, unknown> = {
+    const payload: Record<string, unknown> = {
       target_chain: oracleTargetChain,
-      encrypted_params: oracleEncryptedParams || undefined,
     };
-    if (requestMode === "provider") return { ...base, provider, symbol: providerSymbol };
-    return { ...base, url: oracleUrl, method: httpMethod };
+
+    if (requestMode === "provider") {
+      payload.provider = provider;
+      payload.symbol = providerSymbol;
+    } else {
+      payload.url = oracleUrl;
+      if ((httpMethod || "GET").toUpperCase() !== "GET") {
+        payload.method = httpMethod.toUpperCase();
+      }
+    }
+
+    if (oracleJsonPath.trim()) {
+      payload.json_path = oracleJsonPath.trim();
+    }
+    if (useCustomScript && oracleScript.trim()) {
+      payload.script = oracleScript.trim();
+    }
+    if (oracleEncryptedParams.trim()) {
+      payload.encrypted_params = oracleEncryptedParams.trim();
+    }
+
+    return payload;
   }
+
+  function buildRequestType() {
+    return requestMode === "provider" ? "privacy_oracle" : "oracle";
+  }
+
+  function generateOnchainPackage() {
+    const requestType = buildRequestType();
+    const payload = buildOraclePayload();
+    const payloadJson = JSON.stringify(payload);
+    const escapedPayloadJson = escapeForCSharp(payloadJson);
+
+    const neoN3Snippet = `string payloadJson = "${escapedPayloadJson}";
+
+BigInteger requestId = (BigInteger)Contract.Call(
+    OracleHash,
+    "request",
+    CallFlags.All,
+    "${requestType}",
+    (ByteString)payloadJson,
+    Runtime.ExecutingScriptHash,
+    "onOracleResult"
+);`;
+
+    const neoXSnippet = `bytes memory payload = abi.encodePacked('${payloadJson.replace(/'/g, "\\'")}');
+uint256 fee = oracle.requestFee();
+uint256 requestId = oracle.request{value: fee}(
+    "${requestType}",
+    payload,
+    address(this),
+    "onOracleResult"
+);`;
+
+    setGeneratedRequest({
+      requestType,
+      payload,
+      payloadJson,
+      neoN3Snippet,
+      neoXSnippet,
+    });
+
+    setOutput([
+      ">> Oracle request package generated.",
+      `>> Request type: ${requestType}`,
+      `>> Neo N3 request fee: ${oracleState?.request_fee_display || "0.01 GAS"}`,
+      `>> Oracle contract: ${oracleState?.contract || NETWORKS.neo_n3.oracle}`,
+      ">> Submit this payload through the on-chain Oracle contract. Do not call /oracle/smart-fetch directly from user flows.",
+      "",
+      payloadJson,
+    ].join("\n"));
+  }
+
+  async function handleCopy(id: string, value: string) {
+    await copyText(value);
+    setCopiedItem(id);
+    setTimeout(() => setCopiedItem(null), 1500);
+  }
+
+  const keySummary = useMemo(() => ({
+    algorithm: oracleKeyMeta?.algorithm || "X25519-HKDF-SHA256-AES-256-GCM",
+    source: oracleKeyMeta?.key_source || "unknown",
+  }), [oracleKeyMeta]);
 
   return (
     <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderBottom: '1px solid var(--border-dim)', paddingBottom: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>Data Sealing</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Encrypt sensitive parameters locally using the TEE public key.</p>
+          <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: '0.5rem' }}>Oracle Payload Builder</h2>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>Seal confidential fields locally, then generate the exact on-chain request payload and callback snippets.</p>
         </div>
-        {oracleKeyMeta && (
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>PUBLIC KEY</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--neo-green)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>X25519 Loaded</div>
-          </div>
-        )}
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>LIVE ORACLE</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--neo-green)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{oracleState?.request_fee_display || "0.01 GAS"}</div>
+        </div>
+      </div>
+
+      <div className="card-industrial" style={{ padding: '1.25rem 1.5rem', borderLeft: '4px solid var(--neo-green)' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          This page does <strong>not</strong> send a live Oracle request. It only encrypts locally and prepares a payload for
+          on-chain submission through <code>{oracleState?.domain || NETWORKS.neo_n3.domains.oracle}</code>.
+          You can also move <code>json_path</code> or <code>script</code> into the encrypted JSON if you want those fields hidden from the public transaction.
+        </p>
       </div>
 
       <div className="grid grid-2" style={{ alignItems: 'start', gap: '2rem' }}>
-        {/* Step 1: Encryption */}
         <div className="card-industrial stagger-1" style={{ padding: '0' }}>
           <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
             <h3 style={{ fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-              <Lock className="text-neo" size={16} /> 1. Parameter Protection
+              <Lock className="text-neo" size={16} /> 1. Local Encryption
             </h3>
           </div>
-          
+
           <div style={{ padding: '1.5rem' }}>
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
               <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>Plaintext JSON</span>
-                <span style={{ color: 'var(--accent-purple)' }}>Local Only</span>
+                <span>Confidential JSON Patch</span>
+                <span style={{ color: 'var(--accent-purple)' }}>Browser Only</span>
               </label>
-              <div style={{ position: 'relative' }}>
-                <textarea 
-                  className="code-editor"
-                  value={oracleConfidentialJson} 
-                  onChange={(e) => setOracleConfidentialJson(e.target.value)} 
-                  style={{ minHeight: '160px', opacity: oracleEncryptedParams ? 0.3 : 1 }}
-                  disabled={!!oracleEncryptedParams}
-                />
-                {oracleEncryptedParams && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)' }}>
-                    <Lock size={32} color="var(--neo-green)" style={{ marginBottom: '0.5rem' }} />
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--neo-green)', fontFamily: 'var(--font-mono)' }}>PAYLOAD SECURED</span>
-                  </div>
-                )}
+              <textarea
+                className="code-editor"
+                value={oracleConfidentialJson}
+                onChange={(event) => setOracleConfidentialJson(event.target.value)}
+                style={{ minHeight: '180px' }}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>ALGORITHM</div>
+                <div style={{ fontSize: '0.78rem', color: '#fff', fontFamily: 'var(--font-mono)', wordBreak: 'break-word' }}>{keySummary.algorithm}</div>
+              </div>
+              <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>KEY SOURCE</div>
+                <div style={{ fontSize: '0.78rem', color: '#fff', fontFamily: 'var(--font-mono)' }}>{keySummary.source}</div>
               </div>
             </div>
-            
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              {!oracleEncryptedParams ? (
-                <button className="btn-ata" style={{ flex: 1, justifyContent: 'center' }} onClick={encryptConfidentialPatch} disabled={isEncrypting || !oracleKeyMeta}>
-                  {isEncrypting ? 'Encrypting...' : 'Encrypt & Lock'}
-                </button>
-              ) : (
-                <button className="btn-secondary" style={{ flex: 1, padding: '0.75rem', fontSize: '0.8rem', fontWeight: 600, border: '1px solid var(--border-dim)' }} onClick={() => setOracleEncryptedParams("")}>
-                  Unlock & Edit
+
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <button className="btn-ata" style={{ flex: 1, justifyContent: 'center' }} onClick={encryptConfidentialPatch} disabled={isEncrypting || !oracleKeyMeta}>
+                {isEncrypting ? "Encrypting..." : "Encrypt Patch"}
+              </button>
+              {oracleEncryptedParams && (
+                <button className="btn-secondary" style={{ padding: '0.75rem 1rem', border: '1px solid var(--border-dim)' }} onClick={() => setOracleEncryptedParams("")}>
+                  Clear
                 </button>
               )}
             </div>
-            
+
             {oracleEncryptedParams && (
-              <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#000', border: '1px solid var(--border-dim)', borderLeft: '2px solid var(--neo-green)' }}>
-                 <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>CIPHERTEXT (BASE64)</div>
-                 <div style={{ fontSize: '0.75rem', color: 'var(--neo-green)', opacity: 0.8, wordBreak: 'break-all', fontFamily: 'var(--font-mono)' }}>
-                    {oracleEncryptedParams.slice(0, 150)}...
-                 </div>
+              <div style={{ marginTop: '1rem', padding: '1rem', background: '#000', border: '1px solid var(--border-dim)', borderLeft: '2px solid var(--neo-green)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>ENCRYPTED PARAMS</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--neo-green)', wordBreak: 'break-all', fontFamily: 'var(--font-mono)' }}>
+                  {oracleEncryptedParams}
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Step 2: Request Execution */}
         <div className="card-industrial stagger-2" style={{ padding: '0' }}>
           <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
             <h3 style={{ fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-              <Cpu className="text-neo" size={16} /> 2. Secure Execution
+              <Cpu className="text-neo" size={16} /> 2. On-Chain Request Shape
             </h3>
           </div>
-          
-          <div style={{ padding: '1.5rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2rem' }}>
-              <div className="form-group">
-                 <label className="form-label">Data Source</label>
-                 <select className="neo-select" value={requestMode} onChange={(e) => setRequestMode(e.target.value)}>
-                    <option value="provider">Built-in Provider</option>
-                    <option value="url">Custom API URL</option>
-                 </select>
-              </div>
-              
-              {requestMode === "provider" ? (
-                <div className="grid grid-2" style={{ gap: '1rem' }}>
-                  <div className="form-group">
-                     <label className="form-label">Provider</label>
-                     <select className="neo-select" value={provider} onChange={(e) => setProvider(e.target.value)}>
-                        {providers.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
-                     </select>
-                  </div>
-                  <div className="form-group">
-                     <label className="form-label">Symbol</label>
-                     <input className="neo-input" value={providerSymbol} onChange={(e) => setProviderSymbol(e.target.value)} placeholder="NEO-USD" />
-                  </div>
-                </div>
-              ) : (
-                <div className="form-group">
-                   <label className="form-label">API Endpoint</label>
-                   <input className="neo-input" value={oracleUrl} onChange={(e) => setOracleUrl(e.target.value)} placeholder="https://..." />
-                </div>
-              )}
 
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="grid grid-2" style={{ gap: '1rem' }}>
               <div className="form-group">
-                 <label className="form-label">Transformation Logic (JS)</label>
-                 <textarea className="code-editor" value={oracleScript} onChange={(e) => setOracleScript(e.target.value)} style={{ minHeight: '80px' }} />
+                <label className="form-label">Request Mode</label>
+                <select className="neo-select" value={requestMode} onChange={(event) => setRequestMode(event.target.value)}>
+                  <option value="provider">Built-in Provider</option>
+                  <option value="url">Custom URL</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Target Chain</label>
+                <select className="neo-select" value={oracleTargetChain} onChange={(event) => setOracleTargetChain(event.target.value)}>
+                  <option value="neo_n3">Neo N3</option>
+                  <option value="neo_x">Neo X (reference)</option>
+                </select>
               </div>
             </div>
 
-            <button className="btn-ata" style={{ width: '100%', justifyContent: 'center' }} onClick={async () => {
-              setOutput(await callJSON("/api/oracle/smart-fetch", { ...buildOraclePayload(), script: oracleScript }));
-            }}>
-              Dispatch Secure Request
+            {requestMode === "provider" ? (
+              <div className="grid grid-2" style={{ gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Provider</label>
+                  <select className="neo-select" value={provider} onChange={(event) => setProvider(event.target.value)}>
+                    {providers.map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Symbol</label>
+                  <input className="neo-input" value={providerSymbol} onChange={(event) => setProviderSymbol(event.target.value)} placeholder="NEO-USD" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Custom URL</label>
+                  <input className="neo-input" value={oracleUrl} onChange={(event) => setOracleUrl(event.target.value)} placeholder="https://..." />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">HTTP Method</label>
+                  <select className="neo-select" value={httpMethod} onChange={(event) => setHttpMethod(event.target.value)}>
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            <div className="form-group">
+              <label className="form-label">JSON Path</label>
+              <input className="neo-input" value={oracleJsonPath} onChange={(event) => setOracleJsonPath(event.target.value)} placeholder="price or data.score" />
+            </div>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              <input type="checkbox" checked={useCustomScript} onChange={(event) => setUseCustomScript(event.target.checked)} />
+              Include custom JS reduction (<code>process(data, context, helpers)</code>)
+            </label>
+
+            {useCustomScript && (
+              <div className="form-group">
+                <label className="form-label">Oracle Script</label>
+                <textarea className="code-editor" value={oracleScript} onChange={(event) => setOracleScript(event.target.value)} style={{ minHeight: '120px' }} />
+              </div>
+            )}
+
+            <button className="btn-ata" style={{ width: '100%', justifyContent: 'center' }} onClick={generateOnchainPackage}>
+              Generate On-Chain Package
             </button>
           </div>
         </div>
       </div>
+
+      {generatedRequest && (
+        <div className="card-industrial stagger-3" style={{ padding: '0' }}>
+          <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginBottom: '0.25rem' }}>3. Generated Request Package</h3>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>requestType = {generatedRequest.requestType}</div>
+            </div>
+            <div className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}>
+              <CheckCircle2 size={12} style={{ marginRight: '6px' }} />
+              READY
+            </div>
+          </div>
+
+          <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => handleCopy("payload", generatedRequest.payloadJson)}>
+                <Copy size={14} /> {copiedItem === "payload" ? "Copied Payload" : "Copy Payload JSON"}
+              </button>
+              <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => handleCopy("n3", generatedRequest.neoN3Snippet)}>
+                <Copy size={14} /> {copiedItem === "n3" ? "Copied N3" : "Copy Neo N3 Snippet"}
+              </button>
+              <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => handleCopy("neox", generatedRequest.neoXSnippet)}>
+                <Copy size={14} /> {copiedItem === "neox" ? "Copied Neo X" : "Copy Neo X Snippet"}
+              </button>
+            </div>
+
+            <div className="grid grid-2" style={{ gap: '1rem' }}>
+              <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>ORACLE CONTRACT</div>
+                <div style={{ fontSize: '0.8rem', color: '#fff', fontFamily: 'var(--font-mono)', wordBreak: 'break-word' }}>{oracleState?.contract || NETWORKS.neo_n3.oracle}</div>
+              </div>
+              <div style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>REQUEST FEE</div>
+                <div style={{ fontSize: '0.8rem', color: '#fff', fontFamily: 'var(--font-mono)' }}>{oracleState?.request_fee_display || "0.01 GAS"}</div>
+              </div>
+            </div>
+
+            <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>PAYLOAD JSON</div>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--neo-green)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
+                {JSON.stringify(generatedRequest.payload, null, 2)}
+              </pre>
+            </div>
+
+            <div className="grid grid-2" style={{ gap: '1rem' }}>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO N3 SUBMISSION</div>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedRequest.neoN3Snippet}</pre>
+              </div>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO X REFERENCE</div>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedRequest.neoXSnippet}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

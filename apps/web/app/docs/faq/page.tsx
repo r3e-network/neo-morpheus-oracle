@@ -10,7 +10,7 @@ export default function DocsFAQ() {
     },
     {
       q: "Which networks are currently supported?",
-      a: "Neo N3 Mainnet is fully supported. Neo X support is currently in internal testing and will be deployed to Mainnet soon."
+      a: "Neo N3 Mainnet is the live production network today. Neo X interfaces and examples are available in the repository, but live Neo X mainnet contract publication is still pending."
     },
     {
       q: "Do I need to run my own relayer?",
@@ -18,7 +18,7 @@ export default function DocsFAQ() {
     },
     {
       q: "Is the TEE code open source?",
-      a: "Yes. All code running inside the Phala SGX enclaves is open source and can be audited. The MR_ENCLAVE measurement can be verified against the official repository builds."
+      a: "Yes. The worker, relayer, contracts, and frontend are open source. The public verifier checks application-level attestation consistency, and deeper quote-chain validation can be layered on top if required."
     }
   ];
 
@@ -31,12 +31,12 @@ export default function DocsFAQ() {
     {
       code: "0x02",
       name: "INSUFFICIENT_FEE",
-      desc: "The attached GAS fee is lower than the required minimum. Check the 'request_fee' value in the contract."
+      desc: "The request fee was not prepaid correctly. On Neo N3, deposit or sponsor 0.01 GAS fee credit first. On Neo X, match the live requestFee() value."
     },
     {
       code: "0x03",
       name: "TEE_TIMEOUT",
-      desc: "The request took longer than 30 seconds to execute inside the enclave. Simplify your Javascript/WASM logic or optimize network calls."
+      desc: "The request exceeded the configured execution timeout. The system should still finalize the request with a failure callback instead of dropping it."
     }
   ];
 
@@ -94,7 +94,7 @@ export default function DocsFAQ() {
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
           If you encounter an error not listed here, please provide your <code>requestId</code> and <code>transactionHash</code> to our support team.
         </p>
-        <button className="btn btn-secondary btn-sm" style={{ fontWeight: 800, letterSpacing: '0.05em', border: '1px solid var(--border-dim)' }}>OPEN SUPPORT TICKET</button>
+        <a href="https://github.com/r3e-network/neo-morpheus-oracle/issues" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ fontWeight: 800, letterSpacing: '0.05em', border: '1px solid var(--border-dim)', textDecoration: 'none' }}>OPEN ISSUE</a>
       </div>
     </div>
   );

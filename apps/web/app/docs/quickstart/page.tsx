@@ -3,6 +3,7 @@
 import { Zap, ArrowRight, Code2, Terminal } from "lucide-react";
 import Link from "next/link";
 import { CodeBlock } from "@/components/ui/CodeBlock";
+import { NETWORKS } from "@/lib/onchain-data";
 
 export default function DocsQuickstart() {
   return (
@@ -24,14 +25,14 @@ export default function DocsQuickstart() {
 
       <h2>Step 2: Seal Your Parameters (Off-Chain)</h2>
       <p>
-        Before calling the Oracle contract, you should encrypt any sensitive API keys or parameters. Create a JSON object specifying exactly what needs to be injected (e.g., <code>headers</code>), and encrypt it locally using the Morpheus TEE's active X25519 public key.
+        Before calling the Oracle contract, encrypt any sensitive API keys or parameters locally. The worker&apos;s active X25519 public key is exposed through the frontend proxy and also published on-chain in the Oracle registry metadata.
       </p>
 
       <CodeBlock 
         language="javascript" 
         title="Encrypt Parameters"
         code={`// 1. Fetch TEE Public Key
-const res = await fetch("https://morpheus.network/api/oracle/public-key");
+const res = await fetch("/api/oracle/public-key");
 const { public_key } = await res.json();
 
 // 2. Your confidential injection payload
@@ -45,44 +46,42 @@ const encryptedBlob = await encryptWithOracleX25519(JSON.stringify(secrets), pub
 
       <h2>Step 3: Submit On-Chain Request</h2>
       <p>
-        Pass the <code>encryptedBlob</code> along with public routing parameters (like the URL) to the Morpheus Oracle contract. Ensure you attach the required GAS fee (0.01 GAS per request).
+        Build a JSON payload, then pass that payload bytestring to the Oracle contract. On Neo N3 the request currently costs <code>0.01 GAS</code> of prepaid credit; on Neo X the reference interface uses <code>requestFee()</code>.
       </p>
 
       <CodeBlock 
-        language="solidity" 
-        title="MyOracleConsumer.sol (Neo X)"
-        code={`// Import the Morpheus Consumer Base
-import "./MorpheusConsumerX.sol";
+        language="csharp" 
+        title="MyOracleConsumer.cs (Neo N3 Mainnet)"
+        code={`// Mainnet Oracle: ${NETWORKS.neo_n3.oracle}
+// NeoNS alias: ${NETWORKS.neo_n3.domains.oracle}
 
-contract MyOracleConsumer is MorpheusConsumerX {
-    // Contract state to store the result
-    int256 public latestData;
+public static BigInteger FetchPrivateData(ByteString encryptedBlob)
+{
+    string payloadJson = "{\\"url\\":\\"https://api.secret.io\\","
+        + "\\"encrypted_params\\":\\"" + (string)encryptedBlob + "\\","
+        + "\\"json_path\\":\\"data.price\\","
+        + "\\"target_chain\\":\\"neo_n3\\"}";
 
-    constructor(address _oracle) MorpheusConsumerX(_oracle) {}
+    return (BigInteger)Contract.Call(
+        OracleHash,
+        "request",
+        CallFlags.All,
+        "oracle",
+        (ByteString)payloadJson,
+        Runtime.ExecutingScriptHash,
+        "onOracleResult"
+    );
+}
 
-    // Initiate the request
-    function fetchPrivateData(bytes memory encryptedBlob) public payable {
-        // Send request with 0.01 GAS equivalent fee
-        oracle.request{value: msg.value}(
-            "url",                     // provider mode
-            "https://api.secret.io",   // target url
-            encryptedBlob,             // the sealed parameters
-            "data.price",              // json extraction path
-            address(this),             // callback target
-            this.__morpheusCallback.selector // callback selector
-        );
-    }
-
-    // This is called by the Morpheus Relayer
-    function __morpheusCallback(uint256 requestId, int256 result, bytes memory attestation) external override onlyOracle {
-        latestData = result;
-    }
+public static void OnOracleResult(BigInteger requestId, string requestType, bool success, ByteString result, string error)
+{
+    Storage.Put(Storage.CurrentContext, "last_result", result);
 }`} 
       />
 
       <h2>Step 4: Await the Relayer Callback</h2>
       <p>
-        Once the transaction is mined, the <strong>Morpheus Relayer</strong> detects the event, forwards the encrypted payload to the Phala TEE, and then submits a callback transaction back to your contract containing the signature and result.
+        Once the transaction is mined, the <strong>Morpheus Relayer</strong> detects the event, forwards the encrypted payload to the Phala TEE, and then submits a callback transaction back to your contract containing the signed result envelope. If the upstream fetch or compute fails, the request should still finalize with a failure callback instead of being silently dropped.
       </p>
 
       <div className="grid grid-2" style={{ gap: '1.5rem', marginTop: '4rem' }}>

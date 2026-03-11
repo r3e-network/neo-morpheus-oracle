@@ -63,7 +63,7 @@ Read these first:
 - Section 17: PriceFeed Read: Neo X
 - Section 18: PriceFeed Read: Neo N3
 - Section 19: Feed Pair Discovery
-- Section 20: PriceFeed Publish Trigger
+- Section 20: Operator Feed Sync Behavior
 
 ### Operator / 运维与部署人员
 
@@ -73,7 +73,7 @@ Read these first:
 
 - Section 1: Routing Map
 - Section 19: Feed Pair Discovery
-- Section 20: PriceFeed Publish Trigger
+- Section 20: Operator Feed Sync Behavior
 - Section 21: Preferred Patterns
 - Section 22: Quick Combination Matrix
 - `docs/ENVIRONMENT.md`
@@ -103,13 +103,13 @@ If your question is “how do I do X?”, use this shortcut table:
 
 | Goal / 目标 | Start with / 先看 |
 | --- | --- |
-| Get a public market price on-chain / 把公开价格送回链上 | Section 5, 6, 7, 20 |
+| Trigger a one-off Oracle price callback / 发起一次 Oracle 价格回调 | Section 5, 6, 7 |
 | Call a private API with an encrypted token / 用加密 token 调私有 API | Section 3, 7 |
 | Keep function name and inputs encrypted / 把函数名和输入一起加密 | Section 3, 10 |
 | Run a custom Oracle reduction inside TEE / 在 TEE 里跑自定义 Oracle 逻辑 | Section 11 |
 | Run a stronger isolated workload / 使用更强隔离的执行模型 | Section 14, 15, 16 |
 | Read on-chain feed state from my contract / 在用户合约里读取 pricefeed | Section 17, 18, 19 |
-| Trigger feed publication / 触发 feed 发布 | Section 20 |
+| Understand automatic feed synchronization / 理解自动 pricefeed 同步 | Section 20 |
 | Decide between JS and WASM / 在 JS 与 WASM 之间做选择 | Section 21 |
 | Register automation jobs / 注册自动化任务 | Section 23 |
 
@@ -331,12 +331,13 @@ async function encryptWithOracleKey(publicKeyBase64, plaintext) {
 pragma solidity ^0.8.24;
 
 interface IMorpheusOracleX {
+    function requestFee() external view returns (uint256);
     function request(
         string calldata requestType,
         bytes calldata payload,
         address callbackContract,
         string calldata callbackMethod
-    ) external returns (uint256 requestId);
+    ) external payable returns (uint256 requestId);
 }
 
 contract UserConsumerX {
@@ -355,12 +356,14 @@ contract UserConsumerX {
         oracle = IMorpheusOracleX(oracleAddress);
     }
 
-    function requestNeoPrice() external returns (uint256 requestId) {
+    function requestNeoPrice() external payable returns (uint256 requestId) {
+        uint256 fee = oracle.requestFee();
+        require(msg.value == fee, "incorrect request fee");
         bytes memory payload = abi.encodePacked(
             "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_x\"}"
         );
 
-        requestId = oracle.request(
+        requestId = oracle.request{value: fee}(
             "privacy_oracle",
             payload,
             address(this),
@@ -392,6 +395,7 @@ using System.Numerics;
 using Neo;
 using Neo.SmartContract.Framework;
 using Neo.SmartContract.Framework.Attributes;
+using Neo.SmartContract.Framework.Native;
 using Neo.SmartContract.Framework.Services;
 
 [DisplayName("UserConsumerN3")]
@@ -406,6 +410,11 @@ public class UserConsumerN3 : SmartContract
     public static void SetOracle(UInt160 oracle)
     {
         Storage.Put(Storage.CurrentContext, PREFIX_ORACLE, oracle);
+    }
+
+    public static void DepositOracleCredits(BigInteger amount)
+    {
+        GAS.Transfer(Runtime.ExecutingScriptHash, Oracle(), amount, Runtime.ExecutingScriptHash);
     }
 
     public static BigInteger RequestNeoPrice()
@@ -431,6 +440,16 @@ public class UserConsumerN3 : SmartContract
     }
 }
 ```
+
+Fee note:
+
+手续费说明：
+
+- Neo N3 currently consumes prepaid Oracle credit at `0.01 GAS` per request.
+- Neo X reference contracts use `requestFee()` and `msg.value`.
+
+- Neo N3 现在每次请求消耗预存的 `0.01 GAS` Oracle credit。
+- Neo X 参考合约通过 `requestFee()` 和 `msg.value` 支付。
 
 ## 7. Oracle + Encrypted Token / 预言机 + 加密 token
 
@@ -776,11 +795,11 @@ public static string[] GetAllPairs(UInt160 dataFeedHash)
 }
 ```
 
-## 20. PriceFeed Publish Trigger / 触发 PriceFeed 发布
+## 20. Operator Feed Sync Behavior / 运维侧 Feed 同步行为
 
-This is an oracle-feed request, so `requestType` must include `feed`.
+This is an operator-only route. End users should not submit `datafeed` requests through the Oracle contract.
 
-这是 feed 发布请求，所以 `requestType` 必须包含 `feed`。
+这是运维内部路由，终端用户不应通过 Oracle 合约提交 `datafeed` 请求。
 
 ```json
 {
@@ -790,9 +809,9 @@ This is an oracle-feed request, so `requestType` must include `feed`.
 }
 ```
 
-This route is operator-only and should not be exposed as a user contract flow.
+This route is used by the relayer / operator automation layer and should not be exposed as a user contract flow.
 
-这个路由是运维内部使用，不应暴露成用户合约调用路径。
+这个路由属于 relayer / 运维自动化层，不应暴露成用户合约调用路径。
 
 Current sync behavior:
 

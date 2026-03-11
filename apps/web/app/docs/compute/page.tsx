@@ -41,32 +41,27 @@ export default function DocsCompute() {
       <ul>
         <li><strong>Hashing:</strong> SHA-256 and Keccak-256 for integrity checks.</li>
         <li><strong>Verification:</strong> High-performance RSA signature verification.</li>
-        <li><strong>Randomness:</strong> Hardware-based VRF (Verifiable Random Function).</li>
+        <li><strong>Planning:</strong> ZKP and FHE planning helpers for witness, proof, batching, and rotation workflows.</li>
         <li><strong>Linear Algebra:</strong> Optimized matrix and vector operations.</li>
+        <li><strong>Privacy:</strong> Masking and noise helpers for privacy-preserving post-processing.</li>
       </ul>
 
       <h2>Handling Confidential Arguments</h2>
       <p>
-        When you dispatch a compute job, the encrypted blob you sealed locally is decrypted by the TEE core. Once unsealed, its contents—along with any public arguments—are injected into your JavaScript context via the <code>data.args</code> object. This allows you to combine on-chain public state with off-chain private keys securely.
+        When you dispatch a compute job, the encrypted blob you sealed locally is decrypted by the TEE core and merged into the final compute payload. For custom JS compute, your entry point receives <code>input</code> and <code>helpers</code>, not a live network client.
       </p>
 
       <CodeBlock
         language="javascript"
-        title="Custom Aggregator Script"
-        code={`async function process(data) {
-    // data.args contains the unsealed JSON you encrypted earlier
-    const apiKey1 = data.args.headers["X-API-KEY-1"];
-    const apiKey2 = data.args.headers["X-API-KEY-2"];
-    
-    // 1. Fetch from private sources using the unsealed keys
-    const res1 = await morpheus.http_request('https://api.source-a.com', { headers: { "Authorization": apiKey1 } });
-    const res2 = await morpheus.http_request('https://api.source-b.com', { headers: { "Authorization": apiKey2 } });
-    
-    // 2. Compute average in-memory safely off-chain
-    const avg = (res1.data.price + res2.data.price) / 2;
-    
-    // 3. Result is signed by TEE and sent back to Neo
-    return { average: avg, timestamp: Date.now() };
+        title="Custom Compute Script"
+        code={`function process(input, helpers) {
+    const values = Array.isArray(input.values) ? input.values : [];
+    const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
+    return {
+        total,
+        count: values.length,
+        generated_at: helpers.getCurrentTimestamp(),
+    };
 }`}
       />
 
@@ -81,7 +76,7 @@ export default function DocsCompute() {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Untrusted Scripts</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6 }}>
-          Direct script execution is currently in <strong>Closed Beta</strong>. Production requests should use the <code>builtin</code> function catalog unless previously whitelisted by the network operators.
+          Direct JS execution requires <code>MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS=true</code>. Production deployments should prefer built-in functions or WASM when stronger isolation and tighter runtime control are required.
         </p>
       </div>
     </div>
