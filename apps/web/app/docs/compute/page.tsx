@@ -45,23 +45,27 @@ export default function DocsCompute() {
         <li><strong>Linear Algebra:</strong> Optimized matrix and vector operations.</li>
       </ul>
 
-      <h2>Example: Aggregation Logic</h2>
+      <h2>Handling Confidential Arguments</h2>
       <p>
-        The following script demonstrates how to fetch from multiple sources and return an average—all while keeping the API keys confidential.
+        When you dispatch a compute job, the encrypted blob you sealed locally is decrypted by the TEE core. Once unsealed, its contents—along with any public arguments—are injected into your JavaScript context via the <code>data.args</code> object. This allows you to combine on-chain public state with off-chain private keys securely.
       </p>
-      
+
       <CodeBlock
         language="javascript"
         title="Custom Aggregator Script"
         code={`async function process(data) {
-    // 1. Fetch from private sources
-    const res1 = await morpheus.http_request('https://api1.com');
-    const res2 = await morpheus.http_request('https://api2.com');
+    // data.args contains the unsealed JSON you encrypted earlier
+    const apiKey1 = data.args.headers["X-API-KEY-1"];
+    const apiKey2 = data.args.headers["X-API-KEY-2"];
     
-    // 2. Compute average in-memory
+    // 1. Fetch from private sources using the unsealed keys
+    const res1 = await morpheus.http_request('https://api.source-a.com', { headers: { "Authorization": apiKey1 } });
+    const res2 = await morpheus.http_request('https://api.source-b.com', { headers: { "Authorization": apiKey2 } });
+    
+    // 2. Compute average in-memory safely off-chain
     const avg = (res1.data.price + res2.data.price) / 2;
     
-    // 3. Result is signed and sent back to Neo
+    // 3. Result is signed by TEE and sent back to Neo
     return { average: avg, timestamp: Date.now() };
 }`}
       />
