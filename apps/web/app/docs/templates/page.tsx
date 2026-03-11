@@ -158,6 +158,15 @@ export default function DocsTemplates() {
 
       <h2>3. Best Next Steps</h2>
       <div className="grid grid-2" style={{ gap: "1.5rem", marginTop: "2rem" }}>
+        <Link href="/docs/studio" className="card-industrial" style={{ padding: "2rem", textDecoration: "none" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>Starter Studio</span>
+            <ArrowRight size={18} color="var(--neo-green)" />
+          </div>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "1rem", marginBottom: 0 }}>
+            Use the interactive generator to choose a flow and auto-build the payload and Neo N3 request snippet.
+          </p>
+        </Link>
         <Link href="/docs/use-cases" className="card-industrial" style={{ padding: "2rem", textDecoration: "none" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>Use Cases</span>

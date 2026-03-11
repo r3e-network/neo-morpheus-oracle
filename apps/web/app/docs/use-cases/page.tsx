@@ -205,9 +205,12 @@ export default function DocsUseCases() {
             <div key={step} style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>{step}</div>
           ))}
         </div>
-        <div style={{ marginTop: "1.25rem" }}>
+        <div style={{ marginTop: "1.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
           <Link href="/docs/templates" className="btn btn-secondary btn-sm" style={{ textDecoration: "none" }}>
             Open Starter Templates
+          </Link>
+          <Link href="/docs/studio" className="btn btn-secondary btn-sm" style={{ textDecoration: "none" }}>
+            Open Starter Studio
           </Link>
         </div>
       </div>
