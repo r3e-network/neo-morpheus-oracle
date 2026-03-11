@@ -40,7 +40,7 @@ export default function DocsNetworks() {
         Production-ready environment powered by decentralized Phala TEE workers.
       </p>
 
-      <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', marginBottom: '4rem' }}>
+      <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', marginBottom: '4rem', background: '#000' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-dim)' }}>
@@ -91,9 +91,9 @@ export default function DocsNetworks() {
         </table>
       </div>
 
-      <div className="card-industrial" style={{ padding: '1.5rem', marginTop: '-2rem', marginBottom: '4rem', borderLeft: '4px solid var(--accent-blue)' }}>
+      <div style={{ padding: '1.5rem', marginTop: '-2rem', marginBottom: '4rem', borderLeft: '4px solid var(--accent-blue)', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderRadius: '0 4px 4px 0' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes, so both the hash and the NNS name are valid registry references.
+          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes. Both the direct hash and the registered NNS name are valid transaction routing targets.
         </p>
       </div>
 
