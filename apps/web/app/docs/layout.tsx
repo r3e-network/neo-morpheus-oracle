@@ -6,7 +6,7 @@ import { ReactNode, useState } from "react";
 import {
   Book, Layers, Shield, Cpu, LineChart, CheckCircle,
   Search, Github, Menu, X, Boxes, ChevronRight, ArrowLeft,
-  Code2, HelpCircle, Zap, ClipboardList, Activity
+  Code2, HelpCircle, Zap, ClipboardList, Activity, Briefcase
 } from "lucide-react";
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
@@ -25,6 +25,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       title: "Guides",
       items: [
         { href: "/docs/quickstart", label: "Quickstart", icon: Zap },
+        { href: "/docs/use-cases", label: "Use Cases", icon: Briefcase },
         { href: "/docs/oracle", label: "Privacy Oracle", icon: Shield },
         { href: "/docs/compute", label: "Enclave Compute", icon: Cpu },
         { href: "/docs/datafeeds", label: "Data Matrix", icon: LineChart },

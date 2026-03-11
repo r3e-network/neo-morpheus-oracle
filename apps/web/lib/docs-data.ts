@@ -133,7 +133,7 @@ export const AUTOMATION_PATTERNS = [
     desc: "Queue a normal Oracle callback job when the synchronized on-chain pricefeed crosses a threshold.",
     trigger: "On-chain PriceFeed",
     steps: [
-      "1. Morpheus syncs pricefeed pairs on Neo N3 every 15 seconds when change >= 0.1%",
+      "1. Morpheus syncs pricefeed pairs on Neo N3 every 60 seconds when change >= 0.1%",
       "2. The automation scheduler compares the latest on-chain pair against your threshold",
       "3. If matched, it queues a standard Oracle request and consumes the normal 0.01 GAS fee credit"
     ],

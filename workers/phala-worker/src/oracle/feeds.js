@@ -28,7 +28,7 @@ import {
 
 const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
-const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 15_000;
+const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 60_000;
 const FEED_PRICE_DECIMALS = 6;
 const DATAFEED_X_READ_INTERFACE = new Interface([
   'function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])',

@@ -1,6 +1,6 @@
 # Feed Source Validation
 
-Generated: 2026-03-11T09:01:43.115Z
+Generated: 2026-03-11T14:47:44.705Z
 
 ## Summary
 
@@ -13,40 +13,40 @@ Generated: 2026-03-11T09:01:43.115Z
 
 | Pair | Provider Pair | Raw Price | Status |
 | --- | --- | --- | --- |
-| NEO-USD | NEO-USD | 2.521 | ok |
-| GAS-USD | GAS-USD | 1.534 | ok |
-| 1000FLM-USD | 1000FLM-USD | 0.002437 | ok |
-| BTC-USD | BTC-USD | 69607.7 | ok |
-| ETH-USD | ETH-USD | 2021.25 | ok |
-| SOL-USD | SOL-USD | 85.43 | ok |
-| TRX-USD | TRX-USD | 0.287308 | ok |
-| PAXG-USD | PAXG-USD | 5186 | ok |
-| WTI-USD | WTI-USD | 85.71 | ok |
-| BRENT-USD | BRENT-USD | 89.07 | ok |
-| NATGAS-USD | NATGAS-USD | 3.080792 | ok |
+| NEO-USD | NEO-USD | 2.584 | ok |
+| GAS-USD | GAS-USD | 1.555 | ok |
+| FLM-USD | FLM-USD | 0.002482 | ok |
+| BTC-USD | BTC-USD | 70780.8 | ok |
+| ETH-USD | ETH-USD | 2069.64 | ok |
+| SOL-USD | SOL-USD | 86.84 | ok |
+| TRX-USD | TRX-USD | 0.2897 | ok |
+| PAXG-USD | PAXG-USD | 5181 | ok |
+| WTI-USD | WTI-USD | 85.07 | ok |
+| BRENT-USD | BRENT-USD | 89.24 | ok |
+| NATGAS-USD | NATGAS-USD | 3.089045 | ok |
 | COPPER-USD | COPPER-USD | 25.20000 | ok |
-| WHEAT-USD | WHEAT-USD | 586.37111 | ok |
-| CORN-USD | CORN-USD | 438.16639 | ok |
-| SOY-USD | SOY-USD | 1194.54729 | ok |
-| USDT-USD | USDT-USD | 0.99999 | ok |
-| USDC-USD | USDC-USD | 0.9999 | ok |
-| BNB-USD | BNB-USD | 641.83 | ok |
-| XRP-USD | XRP-USD | 1.3744 | ok |
-| DOGE-USD | DOGE-USD | 0.09201 | ok |
-| AAPL-USD | AAPL-USD | 260.72000 | ok |
-| GOOGL-USD | GOOGL-USD | 307.040009 | ok |
-| MSFT-USD | MSFT-USD | 405.76001 | ok |
-| AMZN-USD | AMZN-USD | 214.34000 | ok |
-| TSLA-USD | TSLA-USD | 399.23499 | ok |
-| META-USD | META-USD | 654.080017 | ok |
-| NVDA-USD | NVDA-USD | 184.75999 | ok |
-| SPY-USD | SPY-USD | 677.049988 | ok |
-| QQQ-USD | QQQ-USD | 607.64001 | ok |
-| GLD-USD | GLD-USD | 477.73001 | ok |
-| EUR-USD | EUR-USD | 1.16125 | ok |
-| GBP-USD | GBP-USD | 1.34248 | ok |
-| 1000JPY-USD | 1000JPY-USD | 158.40735 | ok |
-| CNY-USD | CNY-USD | 6.87087 | ok |
+| WHEAT-USD | WHEAT-USD | 613 | ok |
+| CORN-USD | CORN-USD | 439.64101 | ok |
+| SOY-USD | SOY-USD | 1205.91900 | ok |
+| USDT-USD | USDT-USD | 1.00009 | ok |
+| USDC-USD | USDC-USD | 1 | ok |
+| BNB-USD | BNB-USD | 649.3 | ok |
+| XRP-USD | XRP-USD | 1.39939 | ok |
+| DOGE-USD | DOGE-USD | 0.09394 | ok |
+| AAPL-USD | AAPL-USD | 260.5 | ok |
+| GOOGL-USD | GOOGL-USD | 309.82 | ok |
+| MSFT-USD | MSFT-USD | 404.24 | ok |
+| AMZN-USD | AMZN-USD | 213.98 | ok |
+| TSLA-USD | TSLA-USD | 410.65 | ok |
+| META-USD | META-USD | 653.71 | ok |
+| NVDA-USD | NVDA-USD | 186.31 | ok |
+| SPY-USD | SPY-USD | 677.31 | ok |
+| QQQ-USD | QQQ-USD | 609.03 | ok |
+| GLD-USD | GLD-USD | 476.21 | ok |
+| EUR-USD | EUR-USD | 1.15875 | ok |
+| GBP-USD | GBP-USD | 1.34264 | ok |
+| JPY-USD | JPY-USD | 158.63523 | ok |
+| CNY-USD | CNY-USD | 6.86730 | ok |
 
 ## Detailed Results
 
@@ -60,7 +60,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "NEO-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=NEO%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "2.521",
+  "raw_price": "2.584",
   "ok": true
 }
 ```
@@ -75,22 +75,22 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "GAS-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=GAS%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "1.534",
+  "raw_price": "1.555",
   "ok": true
 }
 ```
 
-### 1000FLM-USD
+### FLM-USD
 
 ```json
 {
-  "pair": "1000FLM-USD",
-  "display_symbol": "1000FLM-USD",
-  "unit_label": "1000 FLM",
+  "pair": "FLM-USD",
+  "display_symbol": "FLM-USD",
+  "unit_label": null,
   "provider": "twelvedata",
-  "provider_pair": "1000FLM-USD",
+  "provider_pair": "FLM-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=FLM%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "0.002437",
+  "raw_price": "0.002482",
   "ok": true
 }
 ```
@@ -105,7 +105,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "BTC-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=BTC%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "69607.7",
+  "raw_price": "70780.8",
   "ok": true
 }
 ```
@@ -120,7 +120,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "ETH-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=ETH%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "2021.25",
+  "raw_price": "2069.64",
   "ok": true
 }
 ```
@@ -135,7 +135,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "SOL-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=SOL%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "85.43",
+  "raw_price": "86.84",
   "ok": true
 }
 ```
@@ -150,7 +150,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "TRX-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=TRX%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "0.287308",
+  "raw_price": "0.2897",
   "ok": true
 }
 ```
@@ -165,7 +165,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "PAXG-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=PAXG%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "5186",
+  "raw_price": "5181",
   "ok": true
 }
 ```
@@ -180,7 +180,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "WTI-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=WTI%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "85.71",
+  "raw_price": "85.07",
   "ok": true
 }
 ```
@@ -195,7 +195,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "BRENT-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=XBR%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "89.07",
+  "raw_price": "89.24",
   "ok": true
 }
 ```
@@ -210,7 +210,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "NATGAS-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=NG%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "3.080792",
+  "raw_price": "3.089045",
   "ok": true
 }
 ```
@@ -240,7 +240,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "WHEAT-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=W_1&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "586.37111",
+  "raw_price": "613",
   "ok": true
 }
 ```
@@ -255,7 +255,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "CORN-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=C_1&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "438.16639",
+  "raw_price": "439.64101",
   "ok": true
 }
 ```
@@ -270,7 +270,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "SOY-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=S_1&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "1194.54729",
+  "raw_price": "1205.91900",
   "ok": true
 }
 ```
@@ -285,7 +285,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "USDT-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=USDT%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "0.99999",
+  "raw_price": "1.00009",
   "ok": true
 }
 ```
@@ -300,7 +300,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "USDC-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=USDC%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "0.9999",
+  "raw_price": "1",
   "ok": true
 }
 ```
@@ -315,7 +315,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "BNB-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=BNB%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "641.83",
+  "raw_price": "649.3",
   "ok": true
 }
 ```
@@ -330,7 +330,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "XRP-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=XRP%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "1.3744",
+  "raw_price": "1.39939",
   "ok": true
 }
 ```
@@ -345,7 +345,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "DOGE-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=DOGE%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "0.09201",
+  "raw_price": "0.09394",
   "ok": true
 }
 ```
@@ -360,7 +360,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "AAPL-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=AAPL&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "260.72000",
+  "raw_price": "260.5",
   "ok": true
 }
 ```
@@ -375,7 +375,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "GOOGL-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=GOOGL&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "307.040009",
+  "raw_price": "309.82",
   "ok": true
 }
 ```
@@ -390,7 +390,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "MSFT-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=MSFT&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "405.76001",
+  "raw_price": "404.24",
   "ok": true
 }
 ```
@@ -405,7 +405,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "AMZN-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=AMZN&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "214.34000",
+  "raw_price": "213.98",
   "ok": true
 }
 ```
@@ -420,7 +420,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "TSLA-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=TSLA&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "399.23499",
+  "raw_price": "410.65",
   "ok": true
 }
 ```
@@ -435,7 +435,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "META-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=META&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "654.080017",
+  "raw_price": "653.71",
   "ok": true
 }
 ```
@@ -450,7 +450,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "NVDA-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=NVDA&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "184.75999",
+  "raw_price": "186.31",
   "ok": true
 }
 ```
@@ -465,7 +465,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "SPY-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=SPY&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "677.049988",
+  "raw_price": "677.31",
   "ok": true
 }
 ```
@@ -480,7 +480,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "QQQ-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=QQQ&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "607.64001",
+  "raw_price": "609.03",
   "ok": true
 }
 ```
@@ -495,7 +495,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "GLD-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=GLD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "477.73001",
+  "raw_price": "476.21",
   "ok": true
 }
 ```
@@ -510,7 +510,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "EUR-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=EUR%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "1.16125",
+  "raw_price": "1.15875",
   "ok": true
 }
 ```
@@ -525,22 +525,22 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "GBP-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=GBP%2FUSD&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "1.34248",
+  "raw_price": "1.34264",
   "ok": true
 }
 ```
 
-### 1000JPY-USD
+### JPY-USD
 
 ```json
 {
-  "pair": "1000JPY-USD",
-  "display_symbol": "1000JPY-USD",
-  "unit_label": "1000 JPY",
+  "pair": "JPY-USD",
+  "display_symbol": "JPY-USD",
+  "unit_label": null,
   "provider": "twelvedata",
-  "provider_pair": "1000JPY-USD",
+  "provider_pair": "JPY-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=USD%2FJPY&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "158.40735",
+  "raw_price": "158.63523",
   "ok": true
 }
 ```
@@ -555,7 +555,7 @@ Generated: 2026-03-11T09:01:43.115Z
   "provider": "twelvedata",
   "provider_pair": "CNY-USD",
   "request_url": "https://api.twelvedata.com/price?symbol=USD%2FCNY&apikey=0ef2f088d3f24ac784ecd279ca57ffc4",
-  "raw_price": "6.87087",
+  "raw_price": "6.86730",
   "ok": true
 }
 ```
