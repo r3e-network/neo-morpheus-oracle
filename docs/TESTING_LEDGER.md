@@ -61,6 +61,8 @@ Use this document together with:
 | --- | --- | --- | --- |
 | `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md` | Human report | Neo N3 mainnet | Full 7-case confidential Oracle / compute matrix |
 | `examples/deployments/mainnet-privacy-validation.latest.json` | Machine-readable report | Neo N3 mainnet | Same matrix as JSON |
+| `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md` | Human report | Neo N3 mainnet | Latest mainnet example-consumer provider / compute / sponsored / custom URL / feed read run |
+| `examples/deployments/n3-examples-validation.mainnet.latest.json` | Machine-readable report | Neo N3 mainnet | Same latest example-consumer run as JSON |
 | `docs/ACCEPTANCE_REPORT_2026-03-10.md` | Acceptance report | Neo N3 mainnet | Smoke, example consumer, builtins, automation, feed sync, operational fixes |
 | `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
 | `examples/deployments/test-neox.latest.json` | Partial log only | Neo X testnet | Not a canonical structured validation artifact |
@@ -76,6 +78,11 @@ Current report generator outputs after the latest script upgrade:
 - `examples/scripts/test-n3-automation.mjs`
   - JSON latest: `examples/deployments/n3-automation-validation.<network>.latest.json`
   - Markdown: `docs/N3_AUTOMATION_VALIDATION_<NETWORK>_<DATE>.md`
+
+Catalog note:
+
+- The historical mainnet acceptance evidence in this ledger still reflects the 14-pair synchronized catalog that was live during the recorded validation window.
+- The repository default feed catalog may be expanded further in code and env configuration after that point; treat new configured pairs as pending sync until a fresh deployment / validation report records them on-chain.
 
 ## 4. Neo N3 Mainnet Transaction Ledger
 
@@ -126,6 +133,21 @@ Source:
 | Sponsored provider callback | `0x04e3050db92046b623d8d7634a876b81f28b1b967a4eff75311e443437097e87` | `10` | success |
 | Custom URL oracle callback | `0x16ef1e5be1bea2c6c325ceede7aec0397f5b01eb0f7eab35db4f3d94e3da8a1b` | `11` | success |
 | On-chain feed read | N/A | N/A | `TWELVEDATA:NEO-USD`, stored integer price `252`, display `2.52` |
+
+#### Latest regenerated mainnet example consumer run
+
+Source:
+
+- `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md`
+- `examples/deployments/n3-examples-validation.mainnet.latest.json`
+
+| Case | Txid | Request id | Result |
+| --- | --- | --- | --- |
+| Provider callback | `0x44041c38781f89abbf8ccbaceb6289c00ce23e858272b330fe72be1c6592ba5f` | `115` | extracted value `2.517` |
+| Encrypted compute callback | `0xb39d14fd8b6fbc4f1adfd9c06de57f7ed83859c58e563088bb5f5081b5375e78` | `116` | builtin result `4` |
+| Sponsored provider callback | `0x7a9ad19ef845787e4039d25f445fde8773f0b0ce96575bf3d20e81a4adcbfce6` | `117` | extracted value `2.51` |
+| Custom URL oracle callback | `0x138715d83bf16ecddc3fc94a30c15ee09652f9f8e6fd579a239c72121e195e76` | `118` | result `neo-morpheus` |
+| On-chain feed read | N/A | N/A | reader observed 14 currently synced pairs at report time |
 
 #### Additional mainnet Oracle validation after live hot patch
 
