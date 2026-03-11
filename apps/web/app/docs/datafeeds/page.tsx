@@ -2,9 +2,10 @@
 
 import { LineChart, Zap, Clock, Database, Code2 } from "lucide-react";
 import { CodeBlock } from "@/components/ui/CodeBlock";
-import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol } from "@/lib/feed-defaults";
+import { DEFAULT_FEED_SYMBOLS, getAllFeedDescriptors, getFeedDisplaySymbol } from "@/lib/feed-defaults";
 
 export default function DocsDatafeeds() {
+  const descriptors = getAllFeedDescriptors();
   return (
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
@@ -49,6 +50,41 @@ export default function DocsDatafeeds() {
         <li><code>1000JPY-USD</code> is tracked as a <code>1000 JPY</code> basket because a single JPY is far below one USD cent.</li>
         <li>For very small USD-denominated assets, pair-level scaling metadata can promote the stored unit to <code>1000</code> or <code>10000</code> underlying units while keeping the on-chain value as integer cents.</li>
       </ul>
+
+      <h2>Canonical Pair Meanings</h2>
+      <p>
+        Contracts and users should use the pair names exactly as written below. Scaled names such as <code>1000FLM-USD</code> and <code>1000JPY-USD</code> are the canonical identifiers, not just display aliases.
+      </p>
+
+      <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', background: '#000', marginBottom: '2.5rem' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)' }}>
+                <th style={{ padding: '0.9rem 1rem', textAlign: 'left' }}>Pair</th>
+                <th style={{ padding: '0.9rem 1rem', textAlign: 'left' }}>Category</th>
+                <th style={{ padding: '0.9rem 1rem', textAlign: 'left' }}>Meaning</th>
+                <th style={{ padding: '0.9rem 1rem', textAlign: 'left' }}>TwelveData Symbol</th>
+                <th style={{ padding: '0.9rem 1rem', textAlign: 'left' }}>On-Chain Unit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {descriptors.map((item) => (
+                <tr key={item.pair} style={{ borderBottom: '1px solid var(--border-dim)' }}>
+                  <td style={{ padding: '0.85rem 1rem', fontFamily: 'var(--font-mono)', color: '#fff' }}>{item.pair}</td>
+                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>{item.category}</td>
+                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
+                    <div>{item.meaning}</div>
+                    {item.note && <div style={{ fontSize: '0.74rem', marginTop: '0.3rem', color: 'var(--text-muted)' }}>{item.note}</div>}
+                  </td>
+                  <td style={{ padding: '0.85rem 1rem', fontFamily: 'var(--font-mono)', color: '#fff' }}>{item.sourceSymbol}</td>
+                  <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>{item.unit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <h2>Contract Integration</h2>
       <h3>Neo N3 (C#)</h3>
