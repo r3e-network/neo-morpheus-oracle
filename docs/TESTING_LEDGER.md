@@ -257,6 +257,10 @@ Latest reader confirmation recorded in acceptance:
 Latest post-expansion confirmation:
 
 - runtime config inside the live relayer container now includes all 34 configured canonical pairs
+- the chain still returns one historical legacy key, `TWELVEDATA:FLM-USD`, in addition to the new canonical set
+- integration guidance is therefore:
+  - deprecated: `TWELVEDATA:FLM-USD`
+  - canonical replacement: `TWELVEDATA:1000FLM-USD`
 - live relayer logs after redeploy continued to show feed sync loops completing roughly every 15 to 17 seconds:
   - `2026-03-11T09:19:18.945Z`
   - `2026-03-11T09:19:36.007Z`

@@ -56,6 +56,14 @@ export default function DocsDatafeeds() {
         Contracts and users should use the pair names exactly as written below. Scaled names such as <code>1000FLM-USD</code> and <code>1000JPY-USD</code> are the canonical identifiers, not just display aliases.
       </p>
 
+      <div className="card-industrial" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b', marginBottom: '2rem' }}>
+        <h4 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#fff', fontSize: '0.95rem', fontWeight: 800 }}>Deprecated Legacy Key</h4>
+        <p style={{ marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          The chain still contains the historical key <code>TWELVEDATA:FLM-USD</code>. Treat it as <strong>deprecated</strong>.
+          New integrations must use <code>TWELVEDATA:1000FLM-USD</code> on-chain and <code>1000FLM-USD</code> in user-facing configs, docs, and contracts.
+        </p>
+      </div>
+
       <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', background: '#000', marginBottom: '2.5rem' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
