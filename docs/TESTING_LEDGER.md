@@ -246,6 +246,19 @@ Follow-up verification on 2026-03-11:
 - Added regression coverage for a `1.00 -> 1.009` quote move, confirming that a raw `0.9%` move still does not publish if the stored chain value remains `100` cents.
 - Added application-level attestation verification updates so `report_data[0:32]`, `output_hash`, and `attestation_hash` are checked consistently in the web verifier and API.
 
+Precision migration verification on 2026-03-11:
+
+- Global datafeed price precision was migrated from integer cents to `1 USD = 1,000,000` units.
+- Canonical pairs now use direct names `FLM-USD` and `JPY-USD`.
+- Historical basket keys `TWELVEDATA:1000FLM-USD` and `TWELVEDATA:1000JPY-USD` remain on-chain as deprecated append-only records.
+- Production frontend `/api/feeds/status` reported `configured_pair_count = 34`, `synced_configured_pair_count = 34`, and `deprecated_chain_record_count = 2` after migration.
+- Forced full-batch migration sync transaction:
+  - `0x6ef958bcfba49ae9ca631cca4f58fbc090627b4d2df5b5b0c39443fcac70b035`
+- Sample migrated on-chain values:
+  - `TWELVEDATA:NEO-USD = 2577000` -> `2.577000`
+  - `TWELVEDATA:FLM-USD = 2467` -> `0.002467`
+  - `TWELVEDATA:JPY-USD = 6308` -> `0.006308`
+
 Recorded transactions:
 
 | Validation step | Txid | Result |
