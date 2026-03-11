@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Copy, Cpu, Lock } from "lucide-react";
+import { CheckCircle2, Copy, Cpu, Lock, Zap, Shield } from "lucide-react";
 
 import { encryptJsonWithOraclePublicKey } from "@/lib/browser-encryption";
 import { NETWORKS } from "@/lib/onchain-data";
@@ -72,6 +72,59 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
       setOracleConfidentialJson('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  },\n  "json_path": "args.probe"\n}');
     }
   }, [requestMode, useCustomScript]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function applyOraclePreset(preset: "public_quote" | "private_api" | "boolean_check" | "hidden_builtin") {
+    if (preset === "public_quote") {
+      setRequestMode("provider");
+      setProvider("twelvedata");
+      setProviderSymbol("NEO-USD");
+      setOracleJsonPath("price");
+      setOracleTargetChain("neo_n3");
+      setUseCustomScript(false);
+      setOracleEncryptedParams("");
+      setOracleConfidentialJson('{\n  "json_path": "price"\n}');
+      setOutput(">> Loaded preset: Public Quote\n>> Built-in provider quote request for Neo N3.");
+      return;
+    }
+
+    if (preset === "private_api") {
+      setRequestMode("url");
+      setOracleUrl("https://api.example.com/private-price");
+      setHttpMethod("GET");
+      setOracleJsonPath("data.price");
+      setOracleTargetChain("neo_n3");
+      setUseCustomScript(false);
+      setOracleEncryptedParams("");
+      setOracleConfidentialJson('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  },\n  "json_path": "data.price"\n}');
+      setOutput(">> Loaded preset: Private API\n>> Encrypt the confidential JSON patch locally before submitting.");
+      return;
+    }
+
+    if (preset === "boolean_check") {
+      const nextScript = "function process(data, context, helpers) {\n  return Number(data.followers || 0) > 10000;\n}";
+      setRequestMode("url");
+      setOracleUrl("https://api.example.com/private-profile");
+      setHttpMethod("GET");
+      setOracleJsonPath("data.followers");
+      setOracleTargetChain("neo_n3");
+      setUseCustomScript(true);
+      setOracleScript(nextScript);
+      setOracleEncryptedParams("");
+      setOracleConfidentialJson('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  },\n  "json_path": "data.followers",\n  "script": "function process(data, context, helpers) { return Number(data.followers || 0) > 10000; }",\n  "entry_point": "process"\n}');
+      setOutput(">> Loaded preset: Boolean Check\n>> This pattern returns only a boolean to the callback.");
+      return;
+    }
+
+    setRequestMode("provider");
+    setProvider("twelvedata");
+    setProviderSymbol("BTC-USD");
+    setOracleJsonPath("price");
+    setOracleTargetChain("neo_n3");
+    setUseCustomScript(false);
+    setOracleEncryptedParams("");
+    setOracleConfidentialJson('{\n  "json_path": "price",\n  "target_chain": "neo_n3"\n}');
+    setOutput(">> Loaded preset: Hidden Built-in Params\n>> Encrypt the patch so helper fields stay private.");
+  }
 
   async function loadOracleKey() {
     try {
@@ -225,6 +278,27 @@ uint256 requestId = oracle.request{value: fee}(
           on-chain submission through <code>{oracleState?.domain || NETWORKS.neo_n3.domains.oracle}</code>.
           You can also move <code>json_path</code> or <code>script</code> into the encrypted JSON if you want those fields hidden from the public transaction.
         </p>
+      </div>
+
+      <div className="card-industrial" style={{ padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '1rem' }}>
+          <Zap size={18} color="var(--neo-green)" />
+          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>Scenario Presets</h3>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyOraclePreset("public_quote")}>
+            <Shield size={14} /> Public Quote
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyOraclePreset("private_api")}>
+            <Lock size={14} /> Private API
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyOraclePreset("boolean_check")}>
+            <Cpu size={14} /> Boolean Check
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyOraclePreset("hidden_builtin")}>
+            <Lock size={14} /> Hidden Built-in Params
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-2" style={{ alignItems: 'start', gap: '2rem' }}>
