@@ -497,6 +497,28 @@ uint256 requestId = oracle.request{value: fee}(
                 <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedRequest.neoXSnippet}</pre>
               </div>
             </div>
+
+            <div className="grid grid-2" style={{ gap: '1rem' }}>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO N3 CALL ARGUMENTS</div>
+                <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+                  <div><strong style={{ color: '#fff' }}>Arg 1:</strong> <code>{generatedRequest.requestType}</code></div>
+                  <div><strong style={{ color: '#fff' }}>Arg 2:</strong> UTF-8 payload JSON bytes</div>
+                  <div><strong style={{ color: '#fff' }}>Arg 3:</strong> callback contract = <code>Runtime.ExecutingScriptHash</code></div>
+                  <div><strong style={{ color: '#fff' }}>Arg 4:</strong> callback method = <code>onOracleResult</code></div>
+                  <div><strong style={{ color: '#fff' }}>Fee:</strong> <code>{oracleState?.request_fee_display || "0.01 GAS"}</code></div>
+                </div>
+              </div>
+              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>CALLBACK READBACK</div>
+                <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                  <div>1. Submit to <code>{oracleState?.contract || NETWORKS.neo_n3.oracle}</code>.</div>
+                  <div>2. Read the emitted <code>requestId</code>.</div>
+                  <div>3. Query your consumer contract&apos;s <code>getCallback(requestId)</code>.</div>
+                  <div>4. Verify <code>output_hash</code>, <code>attestation_hash</code>, and <code>tee_attestation.report_data</code> in the verifier.</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
