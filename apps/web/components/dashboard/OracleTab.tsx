@@ -48,6 +48,31 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
     void loadOracleState();
   }, []);
 
+  useEffect(() => {
+    if (requestMode === "provider") {
+      setOracleUrl("https://postman-echo.com/get?probe=morpheus");
+      setHttpMethod("GET");
+      setOracleJsonPath("price");
+      if (useCustomScript) {
+        setOracleScript("function process(data, context, helpers) {\n  return Number(data.price) > 0;\n}");
+      }
+      if (!oracleEncryptedParams.trim()) {
+        setOracleConfidentialJson('{\n  "json_path": "price"\n}');
+      }
+      return;
+    }
+
+    setOracleUrl("https://postman-echo.com/get?probe=morpheus");
+    setHttpMethod("GET");
+    setOracleJsonPath("args.probe");
+    if (useCustomScript) {
+      setOracleScript("function process(data, context, helpers) {\n  return data.args.probe + '-script';\n}");
+    }
+    if (!oracleEncryptedParams.trim()) {
+      setOracleConfidentialJson('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  },\n  "json_path": "args.probe"\n}');
+    }
+  }, [requestMode, useCustomScript]); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function loadOracleKey() {
     try {
       const response = await fetch("/api/oracle/public-key");
@@ -320,6 +345,15 @@ uint256 requestId = oracle.request{value: fee}(
               <input type="checkbox" checked={useCustomScript} onChange={(event) => setUseCustomScript(event.target.checked)} />
               Include custom JS reduction (<code>process(data, context, helpers)</code>)
             </label>
+
+            <div style={{ padding: '0.9rem 1rem', background: '#000', border: '1px solid var(--border-dim)' }}>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>PAYLOAD TEMPLATE</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                {requestMode === "provider"
+                  ? "Built-in provider mode: keep provider + symbol public, and optionally hide json_path or script inside encrypted_params."
+                  : "Custom URL mode: keep the URL public, and hide headers/query/body/json_path/script in encrypted_params when needed."}
+              </div>
+            </div>
 
             {useCustomScript && (
               <div className="form-group">

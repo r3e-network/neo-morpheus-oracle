@@ -140,7 +140,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             <h4 style={{ fontSize: '0.65rem', fontWeight: 800, marginBottom: '0.5rem', color: '#fff', textTransform: 'uppercase' }}>Resources</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <a href="https://github.com/r3e-network/neo-morpheus-oracle" target="_blank" style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }} className="hover-link"><Github size={12} /> Source Code</a>
-              <a href="#" style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }} className="hover-link"><HelpCircle size={12} /> Support</a>
+              <a href="https://github.com/r3e-network/neo-morpheus-oracle/issues" target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.75rem', color: 'var(--text-dim)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }} className="hover-link"><HelpCircle size={12} /> Support</a>
             </div>
           </div>
         </aside>
@@ -186,7 +186,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             <div style={{ marginTop: '4rem', paddingTop: '3rem', borderTop: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '0.1em' }}>REVISION 1.0.2</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>LAST UPDATED: 2026-03-10</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>LAST UPDATED: 2026-03-11</span>
               </div>
               <div>
                 <a href="https://github.com/r3e-network/neo-morpheus-oracle" target="_blank" className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem' }}>

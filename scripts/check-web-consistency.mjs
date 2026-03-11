@@ -35,6 +35,10 @@ const [
   feedDefaultsText,
   workerFeedRegistryText,
   mainnetConfigText,
+  oracleDocsText,
+  quickstartDocsText,
+  apiReferenceDocsText,
+  datafeedsDocsText,
 ] = await Promise.all([
   read("apps/web/lib/docs-data.ts"),
   read("workers/phala-worker/src/compute/index.js"),
@@ -42,6 +46,10 @@ const [
   read("apps/web/lib/feed-defaults.ts"),
   read("workers/phala-worker/src/oracle/feed-registry.js"),
   read("config/networks/mainnet.json"),
+  read("apps/web/app/docs/oracle/page.tsx"),
+  read("apps/web/app/docs/quickstart/page.tsx"),
+  read("apps/web/app/docs/api-reference/page.tsx"),
+  read("apps/web/app/docs/datafeeds/page.tsx"),
 ]);
 
 const frontendBuiltinNames = new Set(extractBuiltinNames(docsDataText));
@@ -80,9 +88,28 @@ assert(
   "apps/web/lib/onchain-data.ts should source default pairs from apps/web/lib/feed-defaults.ts",
 );
 
+const forbiddenFragments = [
+  "morpheus.network/api/oracle/public-key",
+  'Type of request ("provider", "url", "builtin")',
+  "GetLatestPrice(",
+  "Trigger feed publication",
+];
+
+const combinedWebDocsText = [
+  oracleDocsText,
+  quickstartDocsText,
+  apiReferenceDocsText,
+  datafeedsDocsText,
+].join("\n");
+
+for (const fragment of forbiddenFragments) {
+  assert(!combinedWebDocsText.includes(fragment), `web docs still contain stale fragment: ${fragment}`);
+}
+
 console.log(JSON.stringify({
   ok: true,
   builtins_checked: workerBuiltinNames.size,
   feed_pairs_checked: frontendFeedSymbols.length,
   mainnet_values_checked: requiredOnchainValues.length,
+  stale_fragments_checked: forbiddenFragments.length,
 }, null, 2));
