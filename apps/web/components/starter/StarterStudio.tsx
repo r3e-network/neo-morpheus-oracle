@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { Boxes, ArrowRight, Lock, Cpu, Shield } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Boxes, ArrowRight, Lock, Cpu, Shield, Copy, CheckCircle2 } from "lucide-react";
 import { CodeBlock } from "@/components/ui/CodeBlock";
 import { NETWORKS } from "@/lib/onchain-data";
+import { encryptJsonWithOraclePublicKey } from "@/lib/browser-encryption";
 
 const universalConsumer = "0x89b05cac00804648c666b47ecb1c57bc185821b7";
 
@@ -12,9 +13,63 @@ function escapeForCSharp(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function copyText(value: string) {
+  return navigator.clipboard.writeText(value);
+}
+
 type StarterStudioProps = {
   embedded?: boolean;
 };
+
+type PresetId =
+  | "oracle_quote"
+  | "oracle_private_api"
+  | "oracle_boolean"
+  | "compute_mask"
+  | "compute_modexp";
+
+function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script: string) {
+  if (flow === "oracle_provider") {
+    if (useScript && script.trim()) {
+      return JSON.stringify({
+        json_path: "price",
+        script: script.trim(),
+        entry_point: "process",
+      }, null, 2);
+    }
+    return JSON.stringify({ json_path: "price" }, null, 2);
+  }
+
+  if (flow === "oracle_custom") {
+    const payload: Record<string, unknown> = {
+      headers: {
+        Authorization: "Bearer secret_token",
+      },
+      json_path: "data.score",
+    };
+    if (useScript && script.trim()) {
+      payload.script = script.trim();
+      payload.entry_point = "process";
+    }
+    return JSON.stringify(payload, null, 2);
+  }
+
+  if (flow === "compute_builtin") {
+    return JSON.stringify({
+      mode: "builtin",
+      function: "privacy.mask",
+      input: { value: "13812345678", unmasked_left: 3, unmasked_right: 4 },
+      target_chain: "neo_n3",
+    }, null, 2);
+  }
+
+  return JSON.stringify({
+    mode: "builtin",
+    function: "math.modexp",
+    input: { base: "2", exponent: "10", modulus: "17" },
+    target_chain: "neo_n3",
+  }, null, 2);
+}
 
 export function StarterStudio({ embedded = false }: StarterStudioProps) {
   const [flow, setFlow] = useState("oracle_provider");
@@ -26,6 +81,127 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   const [useEncrypted, setUseEncrypted] = useState(true);
   const [useScript, setUseScript] = useState(false);
   const [script, setScript] = useState("function process(data) { return Number(data.price) > 0; }");
+  const [confidentialJson, setConfidentialJson] = useState(buildDefaultConfidentialPatch("oracle_provider", false, ""));
+  const [encryptedBlob, setEncryptedBlob] = useState("");
+  const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
+  const [isEncrypting, setIsEncrypting] = useState(false);
+  const [copiedItem, setCopiedItem] = useState<string | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch("/api/oracle/public-key");
+        const body = await response.json().catch(() => ({}));
+        if (response.ok && body?.public_key) {
+          setOracleKeyMeta(body);
+        }
+      } catch {
+        // best effort only
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    setEncryptedBlob("");
+    setConfidentialJson(buildDefaultConfidentialPatch(flow, useScript, script));
+  }, [flow]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function applyPreset(preset: PresetId) {
+    if (preset === "oracle_quote") {
+      setFlow("oracle_provider");
+      setProvider("twelvedata");
+      setSymbol("NEO-USD");
+      setJsonPath("price");
+      setTargetChain("neo_n3");
+      setUseEncrypted(false);
+      setUseScript(false);
+      setScript("function process(data) { return Number(data.price) > 0; }");
+      setConfidentialJson(buildDefaultConfidentialPatch("oracle_provider", false, ""));
+      setEncryptedBlob("");
+      return;
+    }
+
+    if (preset === "oracle_private_api") {
+      setFlow("oracle_custom");
+      setCustomUrl("https://api.example.com/private-price");
+      setJsonPath("data.price");
+      setTargetChain("neo_n3");
+      setUseEncrypted(true);
+      setUseScript(false);
+      setScript("function process(data) { return Number(data.price) > 0; }");
+      setConfidentialJson(JSON.stringify({
+        headers: { Authorization: "Bearer secret_token" },
+        json_path: "data.price",
+      }, null, 2));
+      setEncryptedBlob("");
+      return;
+    }
+
+    if (preset === "oracle_boolean") {
+      setFlow("oracle_custom");
+      setCustomUrl("https://api.example.com/private-profile");
+      setJsonPath("data.followers");
+      setTargetChain("neo_n3");
+      setUseEncrypted(true);
+      setUseScript(true);
+      const nextScript = "function process(data) { return Number(data.followers) > 10000; }";
+      setScript(nextScript);
+      setConfidentialJson(JSON.stringify({
+        headers: { Authorization: "Bearer secret_token" },
+        json_path: "data.followers",
+        script: nextScript,
+        entry_point: "process",
+      }, null, 2));
+      setEncryptedBlob("");
+      return;
+    }
+
+    if (preset === "compute_mask") {
+      setFlow("compute_builtin");
+      setTargetChain("neo_n3");
+      setUseEncrypted(false);
+      setUseScript(false);
+      setConfidentialJson(buildDefaultConfidentialPatch("compute_builtin", false, ""));
+      setEncryptedBlob("");
+      return;
+    }
+
+    setFlow("compute_encrypted");
+    setTargetChain("neo_n3");
+    setUseEncrypted(true);
+    setUseScript(false);
+    setConfidentialJson(buildDefaultConfidentialPatch("compute_encrypted", false, ""));
+    setEncryptedBlob("");
+  }
+
+  async function encryptPatch() {
+    setIsEncrypting(true);
+    try {
+      const keyMeta = oracleKeyMeta?.public_key
+        ? oracleKeyMeta
+        : await (async () => {
+            const response = await fetch("/api/oracle/public-key");
+            const body = await response.json();
+            setOracleKeyMeta(body);
+            return body;
+          })();
+
+      if (!keyMeta?.public_key) throw new Error("Oracle public key unavailable");
+      const ciphertext = await encryptJsonWithOraclePublicKey(keyMeta.public_key, confidentialJson);
+      setEncryptedBlob(ciphertext);
+    } catch (error) {
+      setEncryptedBlob("");
+      throw error;
+    } finally {
+      setIsEncrypting(false);
+    }
+  }
+
+  async function handleCopy(id: string, value: string) {
+    await copyText(value);
+    setCopiedItem(id);
+    setTimeout(() => setCopiedItem(null), 1500);
+  }
 
   const generated = useMemo(() => {
     const payload: Record<string, unknown> = { target_chain: targetChain };
@@ -34,48 +210,44 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     if (flow === "oracle_provider") {
       payload.provider = provider;
       payload.symbol = symbol;
-      if (jsonPath.trim()) payload.json_path = jsonPath.trim();
-      if (useEncrypted) payload.encrypted_payload = "<sealed confidential patch>";
-      if (useScript && script.trim()) {
-        payload.script = script.trim();
-        payload.entry_point = "process";
+      if (useEncrypted) {
+        payload.encrypted_payload = encryptedBlob || "<sealed confidential patch>";
+      } else {
+        if (jsonPath.trim()) payload.json_path = jsonPath.trim();
+        if (useScript && script.trim()) {
+          payload.script = script.trim();
+          payload.entry_point = "process";
+        }
       }
       requestType = useEncrypted ? "privacy_oracle" : "oracle";
     } else if (flow === "oracle_custom") {
       payload.url = customUrl;
-      if (jsonPath.trim()) payload.json_path = jsonPath.trim();
       if (useEncrypted) {
-        payload.encrypted_token = "<sealed bearer token>";
-        payload.token_header = "Authorization";
-      }
-      if (useScript && script.trim()) {
-        payload.script = script.trim();
-        payload.entry_point = "process";
+        payload.encrypted_params = encryptedBlob || "<sealed confidential patch>";
+      } else {
+        if (jsonPath.trim()) payload.json_path = jsonPath.trim();
+        if (useScript && script.trim()) {
+          payload.script = script.trim();
+          payload.entry_point = "process";
+        }
       }
       requestType = useEncrypted ? "privacy_oracle" : "oracle";
     } else if (flow === "compute_builtin") {
-      payload.mode = "builtin";
-      payload.function = "privacy.mask";
-      payload.input = { value: "13812345678", unmasked_left: 3, unmasked_right: 4 };
       requestType = "compute";
       if (useEncrypted) {
-        return {
-          requestType,
-          payload: {
-            encrypted_payload: "<sealed {\"mode\":\"builtin\",\"function\":\"privacy.mask\",\"input\":{\"value\":\"13812345678\",\"unmasked_left\":3,\"unmasked_right\":4},\"target_chain\":\"neo_n3\"}>",
-          },
-        };
+        payload.encrypted_payload = encryptedBlob || buildDefaultConfidentialPatch("compute_builtin", false, "");
+      } else {
+        payload.mode = "builtin";
+        payload.function = "privacy.mask";
+        payload.input = { value: "13812345678", unmasked_left: 3, unmasked_right: 4 };
       }
     } else {
-      payload.mode = "builtin";
-      payload.function = "math.modexp";
-      payload.input = { base: "2", exponent: "10", modulus: "17" };
       requestType = "compute";
-      payload.encrypted_payload = "<sealed compute patch>";
+      payload.encrypted_payload = encryptedBlob || buildDefaultConfidentialPatch("compute_encrypted", false, "");
     }
 
     return { requestType, payload };
-  }, [customUrl, flow, jsonPath, provider, script, symbol, targetChain, useEncrypted, useScript]);
+  }, [customUrl, encryptedBlob, flow, jsonPath, provider, script, symbol, targetChain, useEncrypted, useScript]);
 
   const payloadJson = JSON.stringify(generated.payload, null, 2);
   const compactPayloadJson = JSON.stringify(generated.payload);
@@ -87,7 +259,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
     CallFlags.All,
     "${generated.requestType}",
     (ByteString)payloadJson,
-    (UInt160)StdLib.Base58CheckDecode("${universalConsumer}"),
+    Runtime.ExecutingScriptHash,
     "onOracleResult"
 );`;
 
@@ -109,15 +281,25 @@ BigInteger requestId = (BigInteger)Contract.Call(
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: "1px solid var(--border-dim)", paddingBottom: "1rem", marginBottom: "2rem" }}>
           <div>
             <h2 style={{ fontSize: "2rem", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: "0.5rem" }}>Starter Studio</h2>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>Choose a user flow, then generate payload JSON and Neo N3 request snippets instantly.</p>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>Choose a user flow, encrypt locally if needed, then generate payload JSON and Neo N3 request snippets instantly.</p>
           </div>
         </div>
       ) : (
         <p className="lead" style={{ fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "2.5rem", lineHeight: 1.6 }}>
-          Pick a user flow, choose a data source or built-in function, decide whether parameters stay encrypted,
+          Pick a user flow, choose a data source or built-in function, optionally encrypt the confidential patch in-browser,
           and Morpheus will generate the payload and Neo N3 request snippet you need next.
         </p>
       )}
+
+      <div className="card-industrial" style={{ padding: "1.25rem 1.5rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+          <button className="btn-secondary" style={{ border: "1px solid var(--border-dim)" }} onClick={() => applyPreset("oracle_quote")}>Preset: Public Quote</button>
+          <button className="btn-secondary" style={{ border: "1px solid var(--border-dim)" }} onClick={() => applyPreset("oracle_private_api")}>Preset: Private API</button>
+          <button className="btn-secondary" style={{ border: "1px solid var(--border-dim)" }} onClick={() => applyPreset("oracle_boolean")}>Preset: Boolean Check</button>
+          <button className="btn-secondary" style={{ border: "1px solid var(--border-dim)" }} onClick={() => applyPreset("compute_mask")}>Preset: privacy.mask</button>
+          <button className="btn-secondary" style={{ border: "1px solid var(--border-dim)" }} onClick={() => applyPreset("compute_modexp")}>Preset: Encrypted modexp</button>
+        </div>
+      </div>
 
       <div className="grid grid-2" style={{ gap: "2rem", alignItems: "start" }}>
         <div className="card-industrial" style={{ padding: "1.75rem" }}>
@@ -166,7 +348,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
               </label>
             )}
 
-            {(flow === "oracle_provider" || flow === "oracle_custom") && (
+            {(flow === "oracle_provider" || flow === "oracle_custom") && !useEncrypted && (
               <>
                 <label>
                   <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>JSON Path</div>
@@ -186,6 +368,44 @@ BigInteger requestId = (BigInteger)Contract.Call(
               <input type="checkbox" checked={useEncrypted} onChange={(event) => setUseEncrypted(event.target.checked)} />
               Seal sensitive fields before submission
             </label>
+
+            {useEncrypted && (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div style={{ padding: "1rem", background: "#000", border: "1px solid var(--border-dim)" }}>
+                    <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontWeight: 800, marginBottom: "0.35rem", fontFamily: "var(--font-mono)" }}>ALGORITHM</div>
+                    <div style={{ fontSize: "0.78rem", color: "#fff", fontFamily: "var(--font-mono)", wordBreak: "break-word" }}>{oracleKeyMeta?.algorithm || "X25519-HKDF-SHA256-AES-256-GCM"}</div>
+                  </div>
+                  <div style={{ padding: "1rem", background: "#000", border: "1px solid var(--border-dim)" }}>
+                    <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontWeight: 800, marginBottom: "0.35rem", fontFamily: "var(--font-mono)" }}>KEY SOURCE</div>
+                    <div style={{ fontSize: "0.78rem", color: "#fff", fontFamily: "var(--font-mono)" }}>{oracleKeyMeta?.key_source || "loading"}</div>
+                  </div>
+                </div>
+
+                <label>
+                  <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Confidential JSON Patch</div>
+                  <textarea className="code-editor" value={confidentialJson} onChange={(event) => setConfidentialJson(event.target.value)} style={{ minHeight: "180px" }} />
+                </label>
+
+                <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <button className="btn-ata" onClick={() => void encryptPatch()} disabled={isEncrypting} style={{ justifyContent: "center" }}>
+                    {isEncrypting ? "Encrypting..." : "Encrypt Patch Locally"}
+                  </button>
+                  {encryptedBlob && (
+                    <button className="btn-secondary" style={{ border: "1px solid var(--border-dim)" }} onClick={() => void handleCopy("ciphertext", encryptedBlob)}>
+                      <Copy size={14} /> {copiedItem === "ciphertext" ? "Copied Ciphertext" : "Copy Ciphertext"}
+                    </button>
+                  )}
+                </div>
+
+                {encryptedBlob && (
+                  <div style={{ padding: "1rem", background: "#000", border: "1px solid var(--border-dim)", borderLeft: "2px solid var(--neo-green)" }}>
+                    <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontWeight: 800, marginBottom: "0.5rem", fontFamily: "var(--font-mono)" }}>SEALED BLOB</div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--neo-green)", wordBreak: "break-all", fontFamily: "var(--font-mono)" }}>{encryptedBlob}</div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
@@ -201,6 +421,17 @@ BigInteger requestId = (BigInteger)Contract.Call(
             <CodeBlock language="json" title="Payload JSON" code={payloadJson} />
             <CodeBlock language="csharp" title="Neo N3 Request Snippet" code={neoN3Snippet} />
 
+            <div style={{ padding: "1rem", background: "#000", border: "1px solid var(--border-dim)" }}>
+              <div style={{ fontSize: "0.65rem", color: "var(--text-secondary)", fontWeight: 800, marginBottom: "0.5rem", fontFamily: "var(--font-mono)" }}>NEO N3 CALL ARGUMENTS</div>
+              <div style={{ color: "var(--text-secondary)", lineHeight: 1.8 }}>
+                <div><strong style={{ color: "#fff" }}>Arg 1:</strong> <code>{generated.requestType}</code></div>
+                <div><strong style={{ color: "#fff" }}>Arg 2:</strong> UTF-8 payload JSON bytes</div>
+                <div><strong style={{ color: "#fff" }}>Arg 3:</strong> callback contract = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or <code>{universalConsumer}</code> for zero-code testing</div>
+                <div><strong style={{ color: "#fff" }}>Arg 4:</strong> callback method = <code>onOracleResult</code></div>
+                <div><strong style={{ color: "#fff" }}>Fee:</strong> <code>0.01 GAS</code></div>
+              </div>
+            </div>
+
             <div style={{ padding: "1rem", background: "#000", borderLeft: "4px solid var(--neo-green)", borderTop: "1px solid var(--border-dim)", borderRight: "1px solid var(--border-dim)", borderBottom: "1px solid var(--border-dim)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.5rem" }}>
                 {generated.requestType.includes("compute")
@@ -208,12 +439,14 @@ BigInteger requestId = (BigInteger)Contract.Call(
                   : generated.requestType.includes("privacy")
                     ? <Lock size={16} color="var(--neo-green)" />
                     : <Shield size={16} color="var(--neo-green)" />}
-                <strong style={{ color: "#fff" }}>Production path</strong>
+                <strong style={{ color: "#fff" }}>Callback Readback</strong>
               </div>
-              <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                Submit this through <code>{NETWORKS.neo_n3.oracle}</code> on Neo N3 mainnet, target callback consumer <code>{universalConsumer}</code>,
-                callback method <code>onOracleResult</code>, and attach <code>0.01 GAS</code>.
-              </p>
+              <div style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
+                <div>1. Submit the request through <code>{NETWORKS.neo_n3.oracle}</code>.</div>
+                <div>2. Read the emitted <code>requestId</code> from your transaction result.</div>
+                <div>3. If using the universal consumer, call <code>getCallback(requestId)</code> on <code>{universalConsumer}</code>.</div>
+                <div>4. Verify <code>output_hash</code>, <code>attestation_hash</code>, and <code>tee_attestation.report_data</code> in <Link href="/verifier" style={{ color: "var(--neo-green)", textDecoration: "none" }}>Attestation Verifier</Link>.</div>
+              </div>
             </div>
           </div>
         </div>
