@@ -6,7 +6,7 @@ import { ReactNode, useState } from "react";
 import { 
   Book, Layers, Shield, Cpu, LineChart, CheckCircle, 
   Search, Github, Menu, X, Boxes, ChevronRight, ArrowLeft,
-  Code2, HelpCircle, Zap
+  Code2, HelpCircle, Zap, ClipboardList
 } from "lucide-react";
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
@@ -48,6 +48,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/r/PROVIDERS", label: "Supported Providers", icon: Boxes },
         { href: "/docs/r/DEPLOYMENT", label: "Deployment Node", icon: Boxes },
         { href: "/docs/r/ENVIRONMENT", label: "Environment Setup", icon: Zap },
+        { href: "/docs/r/TESTING_LEDGER", label: "Testing Ledger", icon: ClipboardList },
         { href: "/docs/r/ASYNC_PRIVACY_ORACLE_SPEC", label: "Async Privacy Spec", icon: Shield },
         { href: "/docs/r/SECURITY_AUDIT", label: "Security Audit", icon: Shield },
       ]
