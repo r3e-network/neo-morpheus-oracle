@@ -6,8 +6,10 @@ import {
   encodeUtf8Base64,
   jsonPretty,
   loadExampleEnv,
+  markdownJson,
   normalizeHash160,
   readDeploymentRegistry,
+  writeValidationArtifacts,
   sleep,
   trimString,
   tryParseJson,
@@ -274,7 +276,9 @@ if (BigInt(roundId || "0") <= 0n || BigInt(price || "0") <= 0n) {
   throw new Error(`Neo N3 datafeed ${pair || "TWELVEDATA:NEO-USD"} is not populated on-chain`);
 }
 
-process.stdout.write(jsonPretty({
+const generatedAt = new Date().toISOString();
+const reportJson = {
+  generated_at: generatedAt,
   network,
   neo_n3: {
     consumer_hash: consumerHash,
@@ -313,4 +317,64 @@ process.stdout.write(jsonPretty({
       reader_pairs: readerPairs,
     },
   },
+};
+
+const markdown = [
+  "# Neo N3 Example Validation",
+  "",
+  `Generated: ${generatedAt}`,
+  "",
+  "## Environment",
+  "",
+  `- Network: \`${network}\``,
+  `- Consumer: \`${consumerHash}\``,
+  `- Feed reader: \`${readerHash}\``,
+  `- Oracle: \`${oracleHash}\``,
+  `- Datafeed: \`${datafeedHash}\``,
+  `- Request fee: \`${feeStatus.request_fee}\``,
+  `- Request credit before run: \`${feeStatus.current_credit}\``,
+  "",
+  "## Case Matrix",
+  "",
+  "| Case | Tx | Request ID | Result |",
+  "| --- | --- | --- | --- |",
+  `| provider_request | \`${providerTx}\` | \`${providerRequestId}\` | \`${JSON.stringify(providerCallback.result_json?.result?.result ?? providerCallback.result_json?.result?.extracted_value ?? null)}\` |`,
+  `| compute_request | \`${computeTx}\` | \`${computeRequestId}\` | \`${JSON.stringify(computeCallback.result_json?.result?.result ?? null)}\` |`,
+  `| sponsored_provider_request | \`${sponsoredProviderTx}\` | \`${sponsoredProviderRequestId}\` | \`${JSON.stringify(sponsoredProviderCallback.result_json?.result?.result ?? sponsoredProviderCallback.result_json?.result?.extracted_value ?? null)}\` |`,
+  `| custom_oracle_request | \`${customOracleTx}\` | \`${customOracleRequestId}\` | \`${JSON.stringify(customOracleCallback.result_json?.result?.result ?? customOracleCallback.result_json?.result?.extracted_value ?? null)}\` |`,
+  "",
+  "## Provider Request",
+  "",
+  markdownJson(reportJson.neo_n3.provider_request),
+  "",
+  "## Compute Request",
+  "",
+  markdownJson(reportJson.neo_n3.compute_request),
+  "",
+  "## Sponsored Provider Request",
+  "",
+  markdownJson(reportJson.neo_n3.sponsored_provider_request),
+  "",
+  "## Custom Oracle Request",
+  "",
+  markdownJson(reportJson.neo_n3.custom_oracle_request),
+  "",
+  "## On-Chain Feed Snapshot",
+  "",
+  markdownJson(reportJson.neo_n3.onchain_feed_snapshot),
+  "",
+].join("\n");
+
+const artifacts = await writeValidationArtifacts({
+  baseName: "n3-examples-validation",
+  network,
+  generatedAt,
+  jsonReport: reportJson,
+  markdownReport: markdown,
+  legacyJsonFileNames: network === "testnet" ? ["test-n3.latest.json"] : [],
+});
+
+process.stdout.write(jsonPretty({
+  ...reportJson,
+  ...artifacts,
 }));

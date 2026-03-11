@@ -10,6 +10,7 @@ import { loadDotEnv } from "../../scripts/lib-env.mjs";
 
 export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const deploymentsDir = path.resolve(repoRoot, "examples/deployments");
+export const docsDir = path.resolve(repoRoot, "docs");
 const relayerStateFile = path.resolve(process.env.TMPDIR || "/tmp", `morpheus-relayer-examples-${process.pid}.json`);
 
 export function trimString(value) {
@@ -52,6 +53,55 @@ export async function writeDeploymentRegistry(network, value) {
   const filePath = path.resolve(deploymentsDir, `${network}.json`);
   await fs.mkdir(deploymentsDir, { recursive: true });
   await fs.writeFile(filePath, jsonPretty(value));
+}
+
+export function reportDateStamp(isoString = new Date().toISOString()) {
+  return String(isoString).slice(0, 10);
+}
+
+export function repoRelativePath(absolutePath) {
+  return path.relative(repoRoot, absolutePath).replace(/\\/g, "/");
+}
+
+export function markdownJson(value) {
+  return `\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\``;
+}
+
+export async function writeValidationArtifacts({
+  baseName,
+  network,
+  generatedAt = new Date().toISOString(),
+  jsonReport,
+  markdownReport,
+  legacyJsonFileNames = [],
+}) {
+  const date = reportDateStamp(generatedAt);
+  const normalizedBase = trimString(baseName).replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
+  const normalizedNetwork = trimString(network).toLowerCase() || "unknown";
+  const docBase = normalizedBase.replace(/-/g, "_").toUpperCase();
+
+  const datedJsonPath = path.resolve(deploymentsDir, `${normalizedBase}.${normalizedNetwork}.${date}.json`);
+  const latestJsonPath = path.resolve(deploymentsDir, `${normalizedBase}.${normalizedNetwork}.latest.json`);
+  const markdownPath = path.resolve(docsDir, `${docBase}_${normalizedNetwork.toUpperCase()}_${date}.md`);
+
+  await fs.mkdir(deploymentsDir, { recursive: true });
+  await fs.mkdir(docsDir, { recursive: true });
+  await fs.writeFile(datedJsonPath, jsonPretty(jsonReport));
+  await fs.writeFile(latestJsonPath, jsonPretty(jsonReport));
+  await fs.writeFile(markdownPath, markdownReport.endsWith("\n") ? markdownReport : `${markdownReport}\n`);
+
+  for (const legacyFileName of legacyJsonFileNames) {
+    const legacyPath = path.resolve(deploymentsDir, legacyFileName);
+    await fs.writeFile(legacyPath, jsonPretty(jsonReport));
+  }
+
+  return {
+    generated_at: generatedAt,
+    json_report: repoRelativePath(datedJsonPath),
+    json_latest: repoRelativePath(latestJsonPath),
+    markdown_report: repoRelativePath(markdownPath),
+    legacy_json_reports: legacyJsonFileNames.map((fileName) => repoRelativePath(path.resolve(deploymentsDir, fileName))),
+  };
 }
 
 export function normalizeAddress(value) {

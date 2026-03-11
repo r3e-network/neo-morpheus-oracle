@@ -65,6 +65,18 @@ Use this document together with:
 | `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
 | `examples/deployments/test-neox.latest.json` | Partial log only | Neo X testnet | Not a canonical structured validation artifact |
 
+Current report generator outputs after the latest script upgrade:
+
+- `examples/scripts/test-n3-examples.mjs`
+  - JSON latest: `examples/deployments/n3-examples-validation.<network>.latest.json`
+  - Markdown: `docs/N3_EXAMPLES_VALIDATION_<NETWORK>_<DATE>.md`
+- `examples/scripts/test-n3-builtins.mjs`
+  - JSON latest: `examples/deployments/n3-builtins-validation.<network>.latest.json`
+  - Markdown: `docs/N3_BUILTINS_VALIDATION_<NETWORK>_<DATE>.md`
+- `examples/scripts/test-n3-automation.mjs`
+  - JSON latest: `examples/deployments/n3-automation-validation.<network>.latest.json`
+  - Markdown: `docs/N3_AUTOMATION_VALIDATION_<NETWORK>_<DATE>.md`
+
 ## 4. Neo N3 Mainnet Transaction Ledger
 
 ### 4.1 Mainnet Privacy Matrix
