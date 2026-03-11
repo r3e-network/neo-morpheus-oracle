@@ -7,13 +7,14 @@ import {
   Database,
   ExternalLink,
   Fingerprint,
+  Info,
   Radio,
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react";
 
 import { DEFAULT_PAIRS, NETWORKS } from "@/lib/onchain-data";
-import { getFeedDisplaySymbol, getFeedUnitLabel } from "@/lib/feed-defaults";
+import { getDeprecatedFeedInfo, getFeedDisplaySymbol, getFeedUnitLabel } from "@/lib/feed-defaults";
 
 type OnchainRecord = {
   pair: string;
@@ -73,6 +74,19 @@ export function OverviewTab({ setOutput }: any) {
     return new Map<string, OnchainRecord>(
       records.map((record: OnchainRecord) => [String(record.pair || "").replace(/^TWELVEDATA:/, ""), record]),
     );
+  }, [onchainState]);
+
+  const deprecatedRecords = useMemo(() => {
+    const records = Array.isArray(onchainState?.neo_n3?.datafeed?.records)
+      ? onchainState.neo_n3.datafeed.records
+      : [];
+    return records
+      .map((record: OnchainRecord) => {
+        const normalizedPair = String(record.pair || "").replace(/^TWELVEDATA:/, "");
+        const deprecated = getDeprecatedFeedInfo(normalizedPair);
+        return deprecated ? { record, deprecated } : null;
+      })
+      .filter(Boolean) as Array<{ record: OnchainRecord; deprecated: ReturnType<typeof getDeprecatedFeedInfo> }>;
   }, [onchainState]);
 
   const oracleState = onchainState?.neo_n3?.oracle || null;
@@ -139,6 +153,25 @@ export function OverviewTab({ setOutput }: any) {
           </div>
         </div>
       </div>
+
+      {deprecatedRecords.length > 0 && (
+        <section className="card-industrial stagger-2" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+            <Info color="#f59e0b" size={22} style={{ flexShrink: 0 }} />
+            <div>
+              <h4 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#fff', fontSize: '1rem', fontWeight: 800 }}>Deprecated On-Chain Feed Keys Detected</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {deprecatedRecords.map(({ record, deprecated }) => (
+                  <div key={record.pair} style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                    <code>{record.pair}</code> is deprecated. Use <code>{deprecated?.replacement}</code> instead.
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{deprecated?.reason}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <div className="card-industrial stagger-2" style={{ padding: '0' }}>
         <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>

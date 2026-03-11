@@ -44,6 +44,12 @@ export type FeedDescriptor = {
   note?: string;
 };
 
+export type DeprecatedFeedInfo = {
+  pair: string;
+  replacement: string;
+  reason: string;
+};
+
 const FEED_SYMBOL_ALIASES: Record<string, string> = {
   'FLM-USD': '1000FLM-USD',
   'JPY-USD': '1000JPY-USD',
@@ -97,6 +103,14 @@ export const FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
   "CNY-USD": { pair: "CNY-USD", category: "FX", meaning: "Price of 1 CNY in USD", sourceSymbol: "USD/CNY", unit: "1 CNY", note: "Fetched as USD/CNY, then inverted." },
 };
 
+export const DEPRECATED_FEEDS: Record<string, DeprecatedFeedInfo> = {
+  "FLM-USD": {
+    pair: "FLM-USD",
+    replacement: "1000FLM-USD",
+    reason: "Legacy unscaled FLM key kept on-chain for historical continuity. New integrations must use 1000FLM-USD.",
+  },
+};
+
 export function normalizeFeedSymbol(symbol: string) {
   const normalized = String(symbol || '').trim().toUpperCase();
   return FEED_SYMBOL_ALIASES[normalized] || normalized;
@@ -113,6 +127,15 @@ export function getFeedUnitLabel(symbol: string) {
 
 export function getFeedDescriptor(symbol: string) {
   return FEED_DESCRIPTORS[normalizeFeedSymbol(symbol)] || null;
+}
+
+export function getDeprecatedFeedInfo(symbol: string) {
+  const normalized = String(symbol || "").trim().toUpperCase().replace(/^TWELVEDATA:/, "").replace(/^BINANCE-SPOT:/, "");
+  return DEPRECATED_FEEDS[normalized] || null;
+}
+
+export function isDeprecatedFeedSymbol(symbol: string) {
+  return Boolean(getDeprecatedFeedInfo(symbol));
 }
 
 export function getAllFeedDescriptors() {
