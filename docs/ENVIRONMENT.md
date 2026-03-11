@@ -288,12 +288,12 @@ Only touch these if you understand the runtime model.
 ### Oracle Key Storage / Oracle 密钥封装存储
 
 - `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH`
-  English: Derived wrapping-key path for the stable Oracle RSA key.
-  中文：稳定 Oracle RSA 密钥所使用的派生封装密钥路径。
+  English: Derived wrapping-key path for the stable Oracle X25519 transport key.
+  中文：稳定 Oracle X25519 传输密钥所使用的派生封装密钥路径。
 
 - `PHALA_ORACLE_KEYSTORE_PATH`
-  English: Filesystem path where the sealed Oracle RSA key is stored.
-  中文：封装后的 Oracle RSA 密钥在文件系统中的存放路径。
+  English: Filesystem path where the sealed Oracle transport key is stored.
+  中文：封装后的 Oracle 传输密钥在文件系统中的存放路径。
 
 ## Deliberately Disabled By Default / 默认故意关闭的高风险项
 

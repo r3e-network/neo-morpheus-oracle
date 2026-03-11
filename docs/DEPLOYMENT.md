@@ -48,8 +48,8 @@ Deploy `workers/phala-worker` to Phala with:
 - optional `PHALA_DSTACK_ENDPOINT` to override the dstack endpoint (defaults to `/var/run/dstack.sock` when mounted)
 - optional `PHALA_DSTACK_NEO_N3_KEY_PATH` / `PHALA_DSTACK_NEOX_KEY_PATH` to override worker derived key paths
 - optional `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH` / `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH` to override relayer derived key paths
-- optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle encryption key storage
-- optional `PHALA_ORACLE_KEYSTORE_PATH` to control where the sealed Oracle RSA key is persisted (default `/data/morpheus/oracle-key.json` inside the shared CVM volume)
+- optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle X25519 transport key storage
+- optional `PHALA_ORACLE_KEYSTORE_PATH` to control where the sealed Oracle transport key is persisted (default `/data/morpheus/oracle-key.json` inside the shared CVM volume)
 - web verifier API: `/api/attestation/verify`
 - demo verifier flow: `/api/attestation/demo` and `/verifier`
 
