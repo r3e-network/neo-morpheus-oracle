@@ -34,70 +34,92 @@ export default function DocsOracle() {
         ))}
       </div>
 
-      <h2>Data Sealing (Encryption)</h2>
+      <h2>Data Sealing (Parameter Encryption)</h2>
       <p>
-        To protect your secrets, you must use <strong>RSA-OAEP 2048</strong> encryption. You can fetch the active public key from the <code>/api/oracle/public-key</code> endpoint.
+        To ensure API keys, authentication tokens, and private identifiers never leak on-chain, Morpheus provides a zero-knowledge parameter sealing mechanism. You encrypt the sensitive parts of your request locally. 
       </p>
-      
-      <CodeBlock
-        language="javascript"
-        title="Web3 Frontend (Client-side)"
-        code={`// Fetch TEE Public Key
+
+      <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', margin: '2rem 0' }}>
+        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>1. Structure your Confidential JSON</h4>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          The TEE expects specific keys (<code>headers</code>, <code>query</code>, <code>body</code>) which it will automatically inject into the outbound HTTP request before leaving the secure enclave.
+        </p>
+        <CodeBlock
+          language="json"
+          code={`{
+  "headers": {
+    "Authorization": "Bearer sk_live_123456789",
+    "X-Project-ID": "proj_xyz"
+  },
+  "query": {
+    "private_customer_id": "cust_999"
+  }
+}`}
+        />
+      </div>
+
+      <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', margin: '2rem 0' }}>
+        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>2. Encrypt Locally (RSA-OAEP)</h4>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          Fetch the Oracle's current public key and encrypt the JSON string. This operation happens entirely on the client side.
+        </p>
+        <CodeBlock
+          language="javascript"
+          code={`// 1. Fetch TEE Public Key
 const { public_key_pem } = await fetch("/api/oracle/public-key").then(r => r.json());
 
-// Your private headers or query parameters
-const secrets = {
-  headers: { "X-API-KEY": "secret_value_123" }
-};
+// 2. Encrypt the Confidential JSON
+const ciphertext = await encryptWithRsaOaep(JSON.stringify(secrets), public_key_pem);
+// Returns a Base64 encoded encrypted blob: "vF9+kx..."`}
+        />
+      </div>
 
-// Encrypt locally (no network trip required for the secret plaintext)
-const encryptedParams = await encrypt(JSON.stringify(secrets), public_key_pem);`}
-      />
-
-      <h2>Contract Integration</h2>
-      <h3>Neo X (Solidity)</h3>
+      <h2>Smart Contract Integration</h2>
       <p>
-        Inherit from <code>MorpheusConsumerX</code> and implement the <code>__morpheusCallback</code> function.
+        Now, pass the encrypted blob alongside your public parameters when calling the Oracle contract. The relayer submits it to the TEE, which decrypts the blob using the hardware-sealed private key, makes the HTTP request with the combined parameters, and returns the strictly-defined result.
       </p>
       
-      <CodeBlock
-        language="solidity"
-        title="Neo X Oracle Request"
-        code={`function requestMarketData(string memory pair) public payable {
-    bytes memory encrypted = "..."; // Sealed parameters
+      <div className="grid grid-2" style={{ gap: '1.5rem', margin: '2.5rem 0' }}>
+        <div>
+          <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo N3 (C#)</h3>
+          <CodeBlock
+            language="csharp"
+            code={`public static void RequestData() {
+    object[] args = new object[] {
+        "twelvedata", // Provider ID or custom URL
+        "NEO-USD",    // Public Symbol or Path
+        ciphertext,   // The encrypted Base64 blob
+        "price"       // JSON path to extract, or custom JS script
+    };
+    Contract.Call(OracleHash, "request", CallFlags.All, args);
+}`}
+          />
+        </div>
+        <div>
+          <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo X (Solidity)</h3>
+          <CodeBlock
+            language="solidity"
+            code={`function requestData() public payable {
     oracle.request{value: msg.value}(
         "twelvedata",
-        pair,
-        encrypted,
+        "NEO-USD",
+        ciphertext,
         "price",
         address(this),
         this.__morpheusCallback.selector
     );
 }`}
-      />
-
-      <h3>Neo N3 (C#)</h3>
-      <p>
-        Use the <code>MorpheusOracle</code> contract hash or the NeoNS alias <code>oracle.morpheus.neo</code>, which currently resolves to the same Neo N3 script hash.
-      </p>
-      <CodeBlock
-        language="csharp"
-        title="Neo N3 Oracle Request"
-        code={`public static void RequestData() {
-    object[] args = new object[] {
-        "twelvedata", "NEO-USD", encryptedParams, "price"
-    };
-    Contract.Call(OracleHash, "request", CallFlags.All, args);
-}`}
-      />
+          />
+        </div>
+      </div>
 
       <div className="card-industrial" style={{ marginTop: '4rem', padding: '2.5rem', borderLeft: '4px solid var(--neo-green)' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
           <Zap size={20} color="var(--neo-green)" />
-          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Production Readiness</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Transformation Logic</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          The Oracle service is currently live on Neo N3 Mainnet. Each request costs a flat fee of <strong>0.01 GAS</strong> to cover TEE computation and relayer overhead.
+          Instead of just a JSON path like <code>"price"</code>, the 4th argument can be a full Javascript function (e.g. <code>function process(data) &#123; return data.price * 2; &#125;</code>) that executes securely inside the TEE after the HTTP fetch completes, returning only the precisely transformed result.
         </p>
       </div>
     </div>
