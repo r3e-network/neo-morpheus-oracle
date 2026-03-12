@@ -140,6 +140,20 @@ If one of these is wrong, the system usually stops working.
   English: API key for the default market-data provider.
   中文：默认行情数据源 TwelveData 的 API key。
 
+### NeoDID Web3Auth / NeoDID 的 Web3Auth 配置
+
+- `WEB3AUTH_CLIENT_ID`
+  English: Server-side Web3Auth client id used by the TEE worker when verifying `id_token` for `provider = "web3auth"`.
+  中文：当 `provider = "web3auth"` 时，TEE worker 用来校验 `id_token` 的服务端 Web3Auth client id。
+
+- `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`
+  English: Browser-exposed Web3Auth client id for the Next.js app. The worker also accepts it as a fallback if `WEB3AUTH_CLIENT_ID` is not set.
+  中文：Next.js 前端可见的 Web3Auth client id。如果没有设置 `WEB3AUTH_CLIENT_ID`，worker 也会把它作为回退值使用。
+
+- `WEB3AUTH_JWKS_URL`
+  English: JWKS endpoint used by the TEE worker to verify Web3Auth JWT signatures. Default is `https://api-auth.web3auth.io/.well-known/jwks.json`.
+  中文：TEE worker 用于校验 Web3Auth JWT 签名的 JWKS 地址。默认值是 `https://api-auth.web3auth.io/.well-known/jwks.json`。
+
 ## Common Tuning / 常用调节项
 
 These variables are safe to change when tuning behavior.
@@ -173,8 +187,8 @@ They do not usually change trust assumptions.
   中文：价格变化至少达到多少 basis points 才提交新的链上 feed 更新。
 
 - `MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS`
-  English: Minimum time between feed submissions.
-  中文：两次 feed 提交之间的最短间隔。
+  English: Minimum time between feed submissions. Current production default is `60000` so the mainnet scanner evaluates the full catalog once per minute.
+  中文：两次 feed 提交之间的最短间隔。当前生产默认值是 `60000`，也就是主网每分钟扫描一次完整价格目录。
 
 - `MORPHEUS_FEED_SYNC_INTERVAL_MS`
   English: Feed-sync scan cadence for the relayer loop.

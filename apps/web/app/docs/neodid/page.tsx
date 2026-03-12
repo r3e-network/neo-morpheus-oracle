@@ -105,8 +105,9 @@ public class NeoDIDRegistry : SmartContract
       <div className="card-industrial" style={{ padding: "1.25rem 1.5rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2rem" }}>
         <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
           Recommended AA integration: treat <code>web3auth</code> as the DID root. Link Google / Apple / email / SMS / other social providers inside
-          Web3Auth first, then pass the stable Web3Auth user identifier as <code>provider_uid</code> to NeoDID. AA and recovery verifiers only consume
-          NeoDID tickets; they do not need to know which underlying social login was used.
+          Web3Auth first, then pass the resulting <code>id_token</code> to NeoDID. The TEE verifies the JWT against the configured JWKS and derives the
+          stable provider root internally. <code>provider_uid</code>, if supplied, is only used as an optional consistency check. AA and recovery verifiers
+          only consume NeoDID tickets; they do not need to know which underlying social login was used.
         </p>
       </div>
 
@@ -127,6 +128,19 @@ public class NeoDIDRegistry : SmartContract
 }`}
       />
 
+      <h2>Web3Auth Root Example</h2>
+      <CodeBlock
+        language="json"
+        title="POST /api/neodid/bind (provider = web3auth)"
+        code={`{
+  "vault_account": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+  "provider": "web3auth",
+  "id_token": "<web3auth jwt>",
+  "claim_type": "Web3Auth_PrimaryIdentity",
+  "claim_value": "linked_social_root"
+}`}
+      />
+
       <h2>Action Ticket Example</h2>
       <CodeBlock
         language="json"
@@ -144,7 +158,7 @@ public class NeoDIDRegistry : SmartContract
         language="json"
         title="POST /api/neodid/recovery-ticket"
         code={`{
-  "provider": "github",
+  "provider": "web3auth",
   "network": "neo_n3",
   "aa_contract": "0x711c1899a3b7fa0e055ae0d17c9acfcd1bef6423",
   "verifier_contract": "0x1111111111111111111111111111111111111111",
@@ -152,7 +166,7 @@ public class NeoDIDRegistry : SmartContract
   "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
   "recovery_nonce": "7",
   "expires_at": "1735689600",
-  "encrypted_params": "<sealed provider_uid / oauth / email patch>"
+  "encrypted_params": "<sealed id_token / linked account patch>"
 }`}
       />
 
