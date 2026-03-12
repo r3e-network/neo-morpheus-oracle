@@ -146,6 +146,10 @@ If one of these is wrong, the system usually stops working.
   English: Server-side Web3Auth client id used by the TEE worker when verifying `id_token` for `provider = "web3auth"`.
   中文：当 `provider = "web3auth"` 时，TEE worker 用来校验 `id_token` 的服务端 Web3Auth client id。
 
+- `WEB3AUTH_CLIENT_SECRET`
+  English: Server-only Web3Auth app key used to sign `originData` for frontend domain validation. This must never be exposed as a `NEXT_PUBLIC_*` variable.
+  中文：仅服务端使用的 Web3Auth app key，用来为前端域名生成 `originData` 签名。它绝不能暴露成 `NEXT_PUBLIC_*` 变量。
+
 - `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`
   English: Browser-exposed Web3Auth client id for the Next.js app. The worker also accepts it as a fallback if `WEB3AUTH_CLIENT_ID` is not set.
   中文：Next.js 前端可见的 Web3Auth client id。如果没有设置 `WEB3AUTH_CLIENT_ID`，worker 也会把它作为回退值使用。

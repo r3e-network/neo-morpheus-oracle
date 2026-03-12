@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Copy, ExternalLink, Fingerprint, KeyRound, Lock, LogIn, LogOut, RefreshCcw, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Web3AuthProvider, useIdentityToken, useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
+import { authConnector } from "@web3auth/no-modal";
 
 import { encryptJsonWithOraclePublicKey } from "@/lib/browser-encryption";
 
@@ -30,6 +31,13 @@ type RuntimeState = {
     audience_configured?: boolean;
     derives_provider_uid_in_tee?: boolean;
   } | null;
+};
+
+type OriginDataState = {
+  client_id?: string;
+  origin?: string;
+  origin_data?: Record<string, string>;
+  error?: string;
 };
 
 type BindResult = {
@@ -67,7 +75,22 @@ function maskToken(token: string) {
   return `${token.slice(0, 18)}...${token.slice(-18)}`;
 }
 
-function Web3AuthLiveStudioInner() {
+function describeWeb3AuthError(message: string) {
+  const text = String(message || "");
+  if (!text) return "";
+  if (text.includes("could not validate redirect") || text.includes("whitelist your domain")) {
+    return "Web3Auth rejected the login because the current origin is not trusted. If server-side origin signing is active, refresh this page and try again. Otherwise add the current domain to Web3Auth dashboard whitelist or configure WEB3AUTH_CLIENT_SECRET on the server.";
+  }
+  if (text.includes("WEB3AUTH_CLIENT_SECRET is not configured")) {
+    return "The live page cannot sign originData because WEB3AUTH_CLIENT_SECRET is missing on the server. Add it to Vercel project envs or local .env before testing.";
+  }
+  if (text.includes("WEB3AUTH_CLIENT_SECRET does not match")) {
+    return "The configured Web3Auth client secret does not belong to the configured client id. Fix the pair before retrying.";
+  }
+  return text;
+}
+
+function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginDataState | null }) {
   const { connect, loading: connectLoading, error: connectError, isConnected } = useWeb3AuthConnect();
   const { disconnect, loading: disconnectLoading, error: disconnectError } = useWeb3AuthDisconnect();
   const { getIdentityToken, loading: tokenLoading, error: tokenError } = useIdentityToken();
@@ -89,6 +112,12 @@ function Web3AuthLiveStudioInner() {
   const userInfoRecord = (userInfo || {}) as Record<string, unknown>;
   const busy = connectLoading || disconnectLoading || tokenLoading || userLoading || bindLoading;
   const audienceConfigured = runtime?.web3auth?.audience_configured === true;
+  const web3authErrors = [
+    connectError?.message,
+    disconnectError?.message,
+    tokenError?.message,
+    userError?.message,
+  ].filter((value): value is string => Boolean(value));
 
   useEffect(() => {
     void (async () => {
@@ -101,6 +130,7 @@ function Web3AuthLiveStudioInner() {
         setRuntimeError(error instanceof Error ? error.message : String(error));
       }
     })();
+
   }, []);
 
   async function copyWithToast(id: string, value: string) {
@@ -268,9 +298,9 @@ function Web3AuthLiveStudioInner() {
             <span style={{ fontWeight: 700 }}>{isConnected ? "Connected" : "Not connected"}</span>
           </div>
 
-          {(connectError || disconnectError || tokenError || userError) ? (
+          {web3authErrors.length > 0 ? (
             <div style={{ color: "#ff8f8f", lineHeight: 1.6 }}>
-              {[connectError?.message, disconnectError?.message, tokenError?.message, userError?.message].filter(Boolean).join(" | ")}
+              {web3authErrors.map(describeWeb3AuthError).join(" | ")}
             </div>
           ) : null}
 
@@ -281,6 +311,24 @@ function Web3AuthLiveStudioInner() {
               Verifier: <code>{String(userInfoRecord.verifier || "n/a")}</code>
             </div>
           ) : null}
+
+          <div style={{ marginTop: "1rem", color: originDataState?.error ? "#ff8f8f" : "var(--text-secondary)", lineHeight: 1.6 }}>
+            Origin signing:
+            {" "}
+            <code>{originDataState?.origin || (typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || "unknown")}</code>
+            <br />
+            Status:
+            {" "}
+            <code>{originDataState?.origin_data ? "signed" : originDataState?.error ? "unavailable" : "loading"}</code>
+            {originDataState?.error ? (
+              <>
+                <br />
+                Reason:
+                {" "}
+                <code>{describeWeb3AuthError(originDataState.error)}</code>
+              </>
+            ) : null}
+          </div>
         </div>
 
         <div className="card-industrial" style={{ padding: "1.5rem" }}>
@@ -406,6 +454,32 @@ function Web3AuthLiveStudioInner() {
 export function Web3AuthLiveStudio() {
   const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || DEFAULT_WEB3AUTH_CLIENT_ID;
   const web3AuthNetwork = (process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK || DEFAULT_WEB3AUTH_NETWORK) as "sapphire_mainnet";
+  const [originDataState, setOriginDataState] = useState<OriginDataState | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch(`/api/web3auth/origin-data?origin=${encodeURIComponent(window.location.origin)}`);
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body?.error || "Failed to load Web3Auth origin signature");
+        setOriginDataState(body);
+      } catch (error) {
+        setOriginDataState({
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+  }, []);
+
+  const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}` : undefined;
+  const connectors = useMemo(() => [
+    authConnector({
+      connectorSettings: {
+        redirectUrl,
+        originData: originDataState?.origin_data,
+      },
+    }),
+  ], [originDataState?.origin_data, redirectUrl]);
 
   return (
     <Web3AuthProvider
@@ -416,10 +490,11 @@ export function Web3AuthLiveStudio() {
           ssr: false,
           sessionTime: 3600,
           enableLogging: false,
+          connectors,
         },
       }}
     >
-      <Web3AuthLiveStudioInner />
+      <Web3AuthLiveStudioInner originDataState={originDataState} />
     </Web3AuthProvider>
   );
 }
