@@ -16,10 +16,14 @@ Required env vars:
 - `PHALA_API_URL`
 - `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
 - `TWELVEDATA_API_KEY` for the TwelveData built-in provider
+- `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`
 - optional Coinbase spot provider requires no secret
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- recommended for NeoDID Web3Auth production login:
+  - `WEB3AUTH_CLIENT_SECRET`
+  - `NEXT_PUBLIC_WEB3AUTH_NETWORK`
 - optional but recommended in production: `MORPHEUS_PROVIDER_CONFIG_API_KEY` or `ADMIN_CONSOLE_API_KEY`
 - optional and recommended for scoped admin separation:
   - `MORPHEUS_PROVIDER_CONFIG_API_KEY`
@@ -28,6 +32,10 @@ Required env vars:
   - `MORPHEUS_RELAY_ADMIN_API_KEY`
   - `MORPHEUS_OPERATOR_API_KEY`
 - optional datafeed defaults: `MORPHEUS_FEED_PROJECT_SLUG`, `MORPHEUS_FEED_PROVIDER`
+- public NeoDID endpoints exposed by the frontend:
+  - `/api/neodid/resolve`
+  - `/launchpad/neodid-live`
+  - `/launchpad/neodid-resolver`
 
 ## Phala Worker
 
@@ -40,6 +48,8 @@ Deploy `workers/phala-worker` to Phala with:
 - `PHALA_NEOX_PRIVATE_KEY`
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
 - `SUPABASE_SERVICE_ROLE_KEY` (or compatible service key) for worker-side provider-config lookup
+- `WEB3AUTH_CLIENT_ID` for in-TEE Web3Auth JWT audience verification
+- optional `WEB3AUTH_JWKS_URL` to override the default Web3Auth JWKS endpoint
 - optional `ORACLE_TIMEOUT` for upstream fetch timeout (for example `20s`)
 - optional `ORACLE_SCRIPT_TIMEOUT_MS` for privacy Oracle script execution timeout
 - optional `COMPUTE_SCRIPT_TIMEOUT_MS` for compute script execution timeout
@@ -145,7 +155,7 @@ Use `config/networks/testnet.json` and `config/networks/mainnet.json` as the can
 
 Core contracts:
 
-- Neo N3: `MorpheusOracle`, `OracleCallbackConsumer`, `MorpheusDataFeed`
+- Neo N3: `MorpheusOracle`, `OracleCallbackConsumer`, `MorpheusDataFeed`, `NeoDIDRegistry`, `AbstractAccount`
 - Neo X: `MorpheusOracleX`, `OracleCallbackConsumerX`, `MorpheusDataFeedX`
 
 The intended logic is consistent across both chains:
@@ -153,7 +163,15 @@ The intended logic is consistent across both chains:
 - privacy oracle requests
 - off-chain privacy compute through oracle/compute worker modules
 - datafeed storage and updater-controlled publication
+- NeoDID bind / action-ticket / recovery-ticket issuance through the Oracle callback path
 - automation registration, execution queueing, and callback fulfillment
+
+Published Neo N3 service anchors are tracked in `config/networks/mainnet.json`, including:
+
+- `oracle.morpheus.neo`
+- `pricefeed.morpheus.neo`
+- `neodid.morpheus.neo`
+- `aa.morpheus.neo`
 
 Provider control-plane notes:
 

@@ -10,7 +10,7 @@ export default function DocsDatafeeds() {
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
         <LineChart size={14} color="var(--neo-green)" />
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>CORE SERVICE v1.0.2</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>CORE SERVICE v1.0.3</span>
       </div>
       <h1>Data Matrix</h1>
 

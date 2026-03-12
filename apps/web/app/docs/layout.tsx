@@ -30,6 +30,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/templates", label: "Starter Templates", icon: ClipboardList },
         { href: "/docs/studio", label: "Starter Studio", icon: Boxes },
         { href: "/docs/neodid", label: "NeoDID", icon: Fingerprint },
+        { href: "/docs/r/NEODID_DID_METHOD", label: "NeoDID DID Method", icon: Fingerprint },
         { href: "/docs/r/AA_SOCIAL_RECOVERY", label: "AA Social Recovery", icon: Shield },
         { href: "/docs/oracle", label: "Privacy Oracle", icon: Shield },
         { href: "/docs/compute", label: "Enclave Compute", icon: Cpu },
@@ -57,6 +58,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/r/ENVIRONMENT", label: "Environment Setup", icon: Zap },
         { href: "/docs/r/TESTING_LEDGER", label: "Testing Ledger", icon: ClipboardList },
         { href: "/docs/r/ASYNC_PRIVACY_ORACLE_SPEC", label: "Async Privacy Spec", icon: Shield },
+        { href: "/docs/r/NEODID_DID_METHOD", label: "NeoDID DID Method Spec", icon: Fingerprint },
         { href: "/docs/r/AA_SOCIAL_RECOVERY", label: "AA Social Recovery Spec", icon: Fingerprint },
         { href: "/docs/r/SECURITY_AUDIT", label: "Security Audit", icon: Shield },
       ]
@@ -194,8 +196,8 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             {/* Footer Navigation */}
             <div style={{ marginTop: '4rem', paddingTop: '3rem', borderTop: '1px solid var(--border-dim)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '0.1em' }}>REVISION 1.0.2</span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>LAST UPDATED: 2026-03-11</span>
+                <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '0.1em' }}>REVISION 1.0.3</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>LAST UPDATED: 2026-03-12</span>
               </div>
               <div>
                 <a href="https://github.com/r3e-network/neo-morpheus-oracle" target="_blank" className="btn btn-secondary btn-sm" style={{ fontSize: '0.7rem' }}>

@@ -8,7 +8,7 @@ export default function DocsCompute() {
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
         <Cpu size={14} color="var(--accent-blue)" />
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>EXTENDED SERVICE v1.0.2</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>EXTENDED SERVICE v1.0.3</span>
       </div>
       <h1>Enclave Compute</h1>
 

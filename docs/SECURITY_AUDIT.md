@@ -13,6 +13,7 @@ However, one protocol-level finding remains open and should be treated as the pr
 - Neo N3 contracts
 - Neo X contracts
 - Phala worker privacy Oracle and compute execution paths
+- NeoDID bind / ticket issuance and public DID resolution surfaces
 - Relayer callback fulfillment path
 - Web admin/control-plane surfaces
 
@@ -152,6 +153,7 @@ The worker now includes first-stage and second-stage Phala dstack/tappd integrat
 
 - N3 contracts still expose an explicit admin-only `Update(...)`, while the Neo X contracts are currently non-upgradeable plain contracts. This is a lifecycle difference, not an immediate exploitable vulnerability.
 - Relayer-side transaction signing now supports dstack-derived key fallback for N3 and Neo X fulfill transactions, but explicit env keys are still supported as operational overrides.
+- The public NeoDID DID resolver should remain metadata-only. It must not be extended to expose provider UIDs, Web3Auth JWT claims, master nullifiers, action nullifiers, or decrypted confidential payloads.
 - The locally ignored file `deploy/phala/morpheus.env` currently contains live operational secrets and private keys. It is ignored by git, but it still represents a workstation secret concentration risk and should be handled as sensitive operator material.
 
 ## Validation
