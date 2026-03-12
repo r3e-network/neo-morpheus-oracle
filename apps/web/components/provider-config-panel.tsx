@@ -16,9 +16,9 @@ type ProviderConfigRecord = {
 };
 
 const DEFAULT_PROVIDER_CONFIGS: Record<string, string> = {
-  twelvedata: JSON.stringify({ symbol: "NEO-USD", endpoint: "price", interval: "1min" }, null, 2),
-  "binance-spot": JSON.stringify({ symbol: "NEOUSDT" }, null, 2),
-  "coinbase-spot": JSON.stringify({ symbol: "NEO-USD" }, null, 2),
+  twelvedata: JSON.stringify({ symbol: "TWELVEDATA:NEO-USD", endpoint: "price", interval: "1min" }, null, 2),
+  "binance-spot": JSON.stringify({ symbol: "BINANCE-SPOT:NEO-USD" }, null, 2),
+  "coinbase-spot": JSON.stringify({ symbol: "COINBASE-SPOT:NEO-USD" }, null, 2),
 };
 
 async function callJSON(
@@ -57,7 +57,7 @@ export function ProviderConfigPanel() {
   const [loading, setLoading] = useState(false);
 
   const exampleConfig = useMemo(
-    () => DEFAULT_PROVIDER_CONFIGS[providerId] || JSON.stringify({ symbol: "NEO-USD" }, null, 2),
+    () => DEFAULT_PROVIDER_CONFIGS[providerId] || JSON.stringify({ symbol: "TWELVEDATA:NEO-USD" }, null, 2),
     [providerId],
   );
 

@@ -96,7 +96,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
             language="csharp"
             code={`public static BigInteger RequestData(ByteString encryptedParams) {
     string payloadJson =
-        "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"encrypted_params\":\""
+        "{\"symbol\":\"TWELVEDATA:NEO-USD\",\"encrypted_params\":\""
         + (string)encryptedParams
         + "\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
 
@@ -120,7 +120,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
     uint256 fee = oracle.requestFee();
     require(msg.value == fee, "incorrect request fee");
     bytes memory payload = abi.encodePacked(
-        '{"provider":"twelvedata","symbol":"NEO-USD","encrypted_params":"',
+        '{"symbol":"TWELVEDATA:NEO-USD","encrypted_params":"',
         encryptedParams,
         '","json_path":"price","target_chain":"neo_x"}'
     );

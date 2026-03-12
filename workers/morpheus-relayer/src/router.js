@@ -5,6 +5,10 @@ function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function strip0x(value) {
+  return trimString(value).replace(/^0x/i, "");
+}
+
 function sha256Hex(value) {
   return createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
 }
@@ -16,6 +20,93 @@ function sha256Buffer(value) {
       ? Buffer.from(value)
       : Buffer.from(String(value ?? ""), "utf8");
   return createHash("sha256").update(buffer).digest();
+}
+
+function encodeLengthPrefixedUtf8(value) {
+  const bytes = Buffer.from(trimString(value), "utf8");
+  if (bytes.length > 255) throw new Error("compact callback segment exceeds 255 bytes");
+  return Buffer.concat([Buffer.from([bytes.length]), bytes]);
+}
+
+function encodeHash160Bytes(value, fieldName) {
+  const raw = strip0x(value);
+  if (!/^[0-9a-f]{40}$/i.test(raw)) throw new Error(`invalid hash160 for ${fieldName}`);
+  return Buffer.from(raw, "hex");
+}
+
+function encodeHashBytes(value, fieldName) {
+  const raw = strip0x(value);
+  if (!/^[0-9a-f]{64}$/i.test(raw)) throw new Error(`invalid 32-byte hash for ${fieldName}`);
+  return Buffer.from(raw, "hex");
+}
+
+function encodeSignatureBytes(value, fieldName = "signature") {
+  const raw = strip0x(value);
+  if (!/^[0-9a-f]{128}$/i.test(raw)) throw new Error(`invalid 64-byte signature for ${fieldName}`);
+  return Buffer.from(raw, "hex");
+}
+
+function encodeNeoN3RecoveryTicketV1(workerBody) {
+  return Buffer.concat([
+    Buffer.from([0x01]),
+    encodeHash160Bytes(workerBody.new_owner, "new_owner"),
+    encodeLengthPrefixedUtf8(workerBody.recovery_nonce),
+    encodeLengthPrefixedUtf8(workerBody.expires_at),
+    encodeLengthPrefixedUtf8(workerBody.action_id),
+    encodeHashBytes(workerBody.master_nullifier, "master_nullifier"),
+    encodeHashBytes(workerBody.action_nullifier, "action_nullifier"),
+    encodeSignatureBytes(workerBody.signature, "signature"),
+  ]);
+}
+
+function encodeNeoN3ActionTicketV1(workerBody) {
+  return Buffer.concat([
+    Buffer.from([0x01]),
+    encodeHash160Bytes(workerBody.disposable_account, "disposable_account"),
+    encodeLengthPrefixedUtf8(workerBody.action_id),
+    encodeHashBytes(workerBody.action_nullifier, "action_nullifier"),
+    encodeSignatureBytes(workerBody.signature, "signature"),
+  ]);
+}
+
+function encodeNeoN3RecoveryTicketV3(workerBody) {
+  return Buffer.from([
+    "3",
+    Buffer.from(encodeHashBytes(workerBody.master_nullifier, "master_nullifier")).toString("base64"),
+    Buffer.from(encodeHashBytes(workerBody.action_nullifier, "action_nullifier")).toString("base64"),
+    Buffer.from(encodeSignatureBytes(workerBody.signature, "signature")).toString("base64"),
+  ].join("|"), "utf8");
+}
+
+function encodeNeoN3ActionTicketV3(workerBody) {
+  return Buffer.from([
+    "3",
+    Buffer.from(encodeHashBytes(workerBody.action_nullifier, "action_nullifier")).toString("base64"),
+    Buffer.from(encodeSignatureBytes(workerBody.signature, "signature")).toString("base64"),
+  ].join("|"), "utf8");
+}
+
+function resolveCompactCallbackBytes(requestType, workerResponse) {
+  const normalized = normalizeRequestType(requestType);
+  const workerBody = workerResponse?.body && typeof workerResponse.body === "object"
+    ? workerResponse.body
+    : null;
+  const callbackEncoding = normalizeRequestType(workerBody?.callback_encoding || "");
+  if (!workerBody || !callbackEncoding) return null;
+
+  if (normalized === "neodid_recovery_ticket" && callbackEncoding === "neo_n3_recovery_v1") {
+    return encodeNeoN3RecoveryTicketV1(workerBody);
+  }
+  if (normalized === "neodid_recovery_ticket" && callbackEncoding === "neo_n3_recovery_v3") {
+    return encodeNeoN3RecoveryTicketV3(workerBody);
+  }
+  if (normalized === "neodid_action_ticket" && callbackEncoding === "neo_n3_action_v1") {
+    return encodeNeoN3ActionTicketV1(workerBody);
+  }
+  if (normalized === "neodid_action_ticket" && callbackEncoding === "neo_n3_action_v3") {
+    return encodeNeoN3ActionTicketV3(workerBody);
+  }
+  return null;
 }
 
 function encodeUint256Bytes(value) {
@@ -47,6 +138,11 @@ export function resolveWorkerRoute(requestType, payload) {
   if (normalized.includes("compute")) return "/compute/execute";
   if (normalized.includes("feed")) return "/oracle/feed";
   if (normalized.includes("vrf") || normalized.includes("random")) return "/vrf/random";
+  if (normalized.startsWith("neodid")) {
+    if (normalized.includes("recovery")) return "/neodid/recovery-ticket";
+    if (normalized.includes("action")) return "/neodid/action-ticket";
+    return "/neodid/bind";
+  }
   return "/oracle/smart-fetch";
 }
 
@@ -59,14 +155,17 @@ export function buildWorkerPayload(chain, requestType, payload, requestId) {
   };
 }
 
-export function buildFulfillmentDigestBytes(requestId, requestType, success, result, error) {
+export function buildFulfillmentDigestBytes(requestId, requestType, success, result, error, resultBytesBase64 = "") {
   const successByte = Buffer.from([success ? 1 : 0]);
+  const resultBytes = trimString(resultBytesBase64)
+    ? Buffer.from(trimString(resultBytesBase64), "base64")
+    : Buffer.from(String(result || ""), "utf8");
   return createHash("sha256").update(Buffer.concat([
     FULFILLMENT_SIGNATURE_DOMAIN,
     encodeUint256Bytes(requestId),
     sha256Buffer(trimString(requestType || "")),
     successByte,
-    sha256Buffer(Buffer.from(String(result || ""), "utf8")),
+    sha256Buffer(resultBytes),
     sha256Buffer(trimString(error || "")),
   ])).digest();
 }
@@ -147,10 +246,23 @@ function buildBusinessResult(requestType, workerBody) {
     "target_chain_id",
     "request_source",
     "provider",
+    "claim_type",
+    "claim_value",
+    "master_nullifier",
     "provider_pair",
     "feed_id",
     "pair",
     "symbol",
+    "action_id",
+    "action_nullifier",
+    "aa_contract",
+    "verifier_contract",
+    "account_id",
+    "account_address",
+    "new_owner",
+    "recovery_nonce",
+    "expires_at",
+    "digest",
     "price",
     "decimals",
     "timestamp",
@@ -267,6 +379,16 @@ export function encodeFulfillmentResult(requestType, workerResponse) {
       ? workerResponse.body.error
       : `worker request failed with status ${workerResponse.status}`;
     return { success: false, result: "", error: trimErrorMessage(errorMessage) };
+  }
+
+  const compactBytes = resolveCompactCallbackBytes(normalized, workerResponse);
+  if (compactBytes) {
+    return {
+      success: true,
+      result: "",
+      result_bytes_base64: compactBytes.toString("base64"),
+      error: "",
+    };
   }
 
   const payload = buildOnchainResultEnvelope(normalized, workerResponse);

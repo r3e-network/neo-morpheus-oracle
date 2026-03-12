@@ -48,6 +48,9 @@ test("resolveWorkerRoute routes compute, feed, vrf, and oracle payloads", () => 
   assert.equal(resolveWorkerRoute("compute", {}), "/compute/execute");
   assert.equal(resolveWorkerRoute("datafeed", {}), "/oracle/feed");
   assert.equal(resolveWorkerRoute("vrf", {}), "/vrf/random");
+  assert.equal(resolveWorkerRoute("neodid_bind", {}), "/neodid/bind");
+  assert.equal(resolveWorkerRoute("neodid_action_ticket", {}), "/neodid/action-ticket");
+  assert.equal(resolveWorkerRoute("neodid_recovery_ticket", {}), "/neodid/recovery-ticket");
   assert.equal(resolveWorkerRoute("privacy_oracle", { script: "function process(){}" }), "/oracle/smart-fetch");
   assert.equal(resolveWorkerRoute("privacy_oracle", {}), "/oracle/smart-fetch");
 });
@@ -119,6 +122,38 @@ test("encodeFulfillmentResult returns success envelope for worker output", () =>
   assert.equal(failed.error, "bad request");
 });
 
+test("encodeFulfillmentResult emits compact bytes for neodid recovery ticket callbacks when requested", () => {
+  const fulfilled = encodeFulfillmentResult("neodid_recovery_ticket", {
+    ok: true,
+    status: 200,
+    body: {
+      callback_encoding: "neo_n3_recovery_v1",
+      new_owner: "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+      recovery_nonce: "7",
+      expires_at: "1735689600",
+      action_id: "aa_recovery:demo:7",
+      master_nullifier: "0x1111111111111111111111111111111111111111111111111111111111111111",
+      action_nullifier: "0x2222222222222222222222222222222222222222222222222222222222222222",
+      signature: "33".repeat(64),
+    },
+  });
+
+  assert.equal(fulfilled.success, true);
+  assert.equal(fulfilled.result, "");
+  assert.equal(typeof fulfilled.result_bytes_base64, "string");
+  assert.ok(Buffer.from(fulfilled.result_bytes_base64, "base64").length > 100);
+});
+
+test("buildFulfillmentDigestBytes can bind raw callback bytes instead of utf8 JSON", () => {
+  const raw = Buffer.from("01020304", "hex").toString("base64");
+  const baseline = buildFulfillmentDigestBytes("42", "neodid_recovery_ticket", true, "", "", raw);
+  const changed = buildFulfillmentDigestBytes("42", "neodid_recovery_ticket", true, "", "", Buffer.from("05060708", "hex").toString("base64"));
+
+  assert.equal(Buffer.isBuffer(baseline), true);
+  assert.equal(baseline.length, 32);
+  assert.notDeepEqual(baseline, changed);
+});
+
 test("buildOnchainResultEnvelope normalizes verification metadata", () => {
   const envelope = buildOnchainResultEnvelope("vrf", {
     ok: true,
@@ -139,6 +174,34 @@ test("buildOnchainResultEnvelope normalizes verification metadata", () => {
   assert.equal(envelope.verification.output_hash, "deadbeef");
   assert.equal(typeof envelope.verification.tee_attestation.quote_hash, 'string');
   assert.equal(typeof envelope.verification.tee_attestation.event_log_hash, 'string');
+});
+
+test("buildOnchainResultEnvelope preserves neodid recovery ticket fields", () => {
+  const envelope = buildOnchainResultEnvelope("neodid_recovery_ticket", {
+    ok: true,
+    status: 200,
+    body: {
+      mode: "neodid_recovery_ticket",
+      aa_contract: "0x017520f068fd602082fe5572596185e62a4ad991",
+      account_id: "aa-test-01",
+      new_owner: "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+      recovery_nonce: "7",
+      expires_at: "1735689600",
+      action_id: "aa_recovery:neo_n3:oracle:aa-test-01:new:7",
+      master_nullifier: "0x1111111111111111111111111111111111111111111111111111111111111111",
+      action_nullifier: "0x2222222222222222222222222222222222222222222222222222222222222222",
+      digest: "0x3333333333333333333333333333333333333333333333333333333333333333",
+      verification: {
+        output_hash: "deadbeef",
+        attestation_hash: "deadbeef",
+      },
+    },
+  });
+
+  assert.equal(envelope.request_type, "neodid_recovery_ticket");
+  assert.equal(envelope.result.account_id, "aa-test-01");
+  assert.equal(envelope.result.new_owner, "0x89b05cac00804648c666b47ecb1c57bc185821b7");
+  assert.equal(envelope.result.action_nullifier, "0x2222222222222222222222222222222222222222222222222222222222222222");
 });
 
 test("buildOnchainResultEnvelope compacts oversized privacy oracle payloads", () => {
@@ -234,6 +297,14 @@ test("decodeNeoItem converts 20-byte base64 notifications into hash160", () => {
     value: littleEndianHashBytes.toString("base64"),
   });
   assert.equal(decoded, "0x6d0656f6dd91469db1c90cc1e574380613f43738");
+});
+
+test("decodeNeoItem keeps printable 20-byte byte strings as text", () => {
+  const decoded = decodeNeoItem({
+    type: "ByteString",
+    value: Buffer.from("neodid_action_ticket", "utf8").toString("base64"),
+  });
+  assert.equal(decoded, "neodid_action_ticket");
 });
 
 test("buildOnchainResultEnvelope keeps working when verification is missing", () => {

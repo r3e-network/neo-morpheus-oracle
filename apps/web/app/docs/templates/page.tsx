@@ -12,8 +12,7 @@ const oracleTemplates = [
     title: "Built-in Provider Oracle",
     desc: "Fastest path for a public quote callback through the Oracle contract.",
     code: `{
-  "provider": "twelvedata",
-  "symbol": "NEO-USD",
+  "symbol": "TWELVEDATA:NEO-USD",
   "json_path": "price",
   "target_chain": "neo_n3"
 }`,
@@ -34,8 +33,7 @@ const oracleTemplates = [
     title: "Built-in Provider + Encrypted Payload Patch",
     desc: "Hide fields such as json_path, project-specific params, or helper settings.",
     code: `{
-  "provider": "twelvedata",
-  "symbol": "BTC-USD",
+  "symbol": "TWELVEDATA:BTC-USD",
   "encrypted_payload": "<sealed {\\"json_path\\":\\"price\\",\\"target_chain\\":\\"neo_n3\\"}>"
 }`,
   },

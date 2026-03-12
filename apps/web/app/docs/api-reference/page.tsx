@@ -62,7 +62,7 @@ export default function DocsApiReference() {
           <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
             <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: '#e5e5e5' }}>{`// Contract Script Hash: 0x017520f068fd602082fe5572596185e62a4ad991
 
-string payloadJson = "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
+string payloadJson = "{\"symbol\":\"TWELVEDATA:NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
 
 Contract.Call(
     MorpheusOracleHash,

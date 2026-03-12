@@ -161,7 +161,7 @@ Example:
 ```json
 {
   "provider": "twelvedata",
-  "symbol": "NEO-USD",
+  "symbol": "TWELVEDATA:NEO-USD",
   "json_path": "price",
   "target_chain": "neo_n3"
 }
@@ -174,7 +174,7 @@ curl http://localhost:3000/api/oracle/query \
   -H 'content-type: application/json' \
   -d '{
     "provider":"twelvedata",
-    "symbol":"NEO-USD",
+    "symbol":"TWELVEDATA:NEO-USD",
     "json_path":"price",
     "target_chain":"neo_n3"
   }'
@@ -265,60 +265,59 @@ curl "$PHALA_API_URL/feeds/catalog" \
 Current default pair catalog includes:
 
 - Core crypto:
-  - `NEO-USD`
-  - `GAS-USD`
-  - `FLM-USD`
-  - `BTC-USD`
-  - `ETH-USD`
-  - `SOL-USD`
-  - `TRX-USD`
-  - `BNB-USD`
-  - `XRP-USD`
-  - `DOGE-USD`
-  - `USDT-USD`
-  - `USDC-USD`
+  - `TWELVEDATA:NEO-USD`
+  - `TWELVEDATA:GAS-USD`
+  - `TWELVEDATA:FLM-USD`
+  - `TWELVEDATA:BTC-USD`
+  - `TWELVEDATA:ETH-USD`
+  - `TWELVEDATA:SOL-USD`
+  - `TWELVEDATA:TRX-USD`
+  - `TWELVEDATA:BNB-USD`
+  - `TWELVEDATA:XRP-USD`
+  - `TWELVEDATA:DOGE-USD`
+  - `TWELVEDATA:USDT-USD`
+  - `TWELVEDATA:USDC-USD`
 - Commodity / hard-asset:
-  - `PAXG-USD`
-  - `WTI-USD`
-  - `BRENT-USD`
-  - `NATGAS-USD`
-  - `COPPER-USD`
-  - `WHEAT-USD`
-  - `CORN-USD`
-  - `SOY-USD`
+  - `TWELVEDATA:PAXG-USD`
+  - `TWELVEDATA:WTI-USD`
+  - `TWELVEDATA:BRENT-USD`
+  - `TWELVEDATA:NATGAS-USD`
+  - `TWELVEDATA:COPPER-USD`
+  - `TWELVEDATA:WHEAT-USD`
+  - `TWELVEDATA:CORN-USD`
+  - `TWELVEDATA:SOY-USD`
 - Equities / ETFs:
-  - `AAPL-USD`
-  - `GOOGL-USD`
-  - `MSFT-USD`
-  - `AMZN-USD`
-  - `TSLA-USD`
-  - `META-USD`
-  - `NVDA-USD`
-  - `SPY-USD`
-  - `QQQ-USD`
-  - `GLD-USD`
+  - `TWELVEDATA:AAPL-USD`
+  - `TWELVEDATA:GOOGL-USD`
+  - `TWELVEDATA:MSFT-USD`
+  - `TWELVEDATA:AMZN-USD`
+  - `TWELVEDATA:TSLA-USD`
+  - `TWELVEDATA:META-USD`
+  - `TWELVEDATA:NVDA-USD`
+  - `TWELVEDATA:SPY-USD`
+  - `TWELVEDATA:QQQ-USD`
+  - `TWELVEDATA:GLD-USD`
 - FX:
-  - `EUR-USD`
-  - `GBP-USD`
-  - `JPY-USD` (inverted from `USD/JPY`)
-  - `CNY-USD` (inverted from `USD/CNY`)
+  - `TWELVEDATA:EUR-USD`
+  - `TWELVEDATA:GBP-USD`
+  - `TWELVEDATA:JPY-USD` (inverted from `USD/JPY`)
+  - `TWELVEDATA:CNY-USD` (inverted from `USD/CNY`)
 
-With the global `1 USD = 1,000,000` scale, low-priced assets such as `FLM-USD`, `DOGE-USD`, and `JPY-USD` can be represented directly without basket pair names.
+With the global `1 USD = 1,000,000` scale, low-priced assets such as `TWELVEDATA:FLM-USD`, `TWELVEDATA:DOGE-USD`, and `TWELVEDATA:JPY-USD` can be represented directly without basket pair names.
 
 For the exact meaning of every canonical pair, including the real TwelveData source symbol and any inversion / scaling rule, read the canonical pair table in `docs/PROVIDERS.md`.
 
-Important deprecation note:
+Canonical key note:
 
-- historical basket keys such as `TWELVEDATA:1000FLM-USD` and `TWELVEDATA:1000JPY-USD` can still exist on-chain because the datafeed registry is append-only
-- treat those basket keys as deprecated historical state
-- use `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD` in all new code
+- use provider-scoped keys such as `TWELVEDATA:NEO-USD` and `TWELVEDATA:BTC-USD` in all new code
+- the `TWELVEDATA:` prefix is part of the official on-chain key, not just a display alias
 
 ### Query current off-chain quotes
 
 Single provider:
 
 ```bash
-curl "http://localhost:3000/api/feeds/NEO-USD?provider=twelvedata"
+curl "http://localhost:3000/api/feeds/TWELVEDATA:NEO-USD?provider=twelvedata"
 ```
 
 All available built-in providers for the pair:
@@ -356,7 +355,7 @@ curl "$PHALA_API_URL/oracle/feed" \
   -H "Authorization: Bearer $PHALA_API_TOKEN" \
   -H 'content-type: application/json' \
   -d '{
-    "symbol":"NEO-USD",
+    "symbol":"TWELVEDATA:NEO-USD",
     "target_chain":"neo_n3",
     "providers":["twelvedata"],
     "sync_all_sources":true,
@@ -423,7 +422,7 @@ For **Neo N3 mainnet**, automatic feed sync obeys two rules:
 Precision caveat:
 
 - because the chain stores quantized integers, a raw source move that is still too small to change the stored on-chain integer value cannot trigger an update, even if that raw source move is already greater than `0.1%`
-- with the current `1 USD = 1,000,000` scale, the standard catalog can use direct pairs such as `FLM-USD` and `JPY-USD` without basket naming
+- with the current `1 USD = 1,000,000` scale, the standard catalog can use direct source-prefixed pairs such as `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD` without basket naming
 
 These rules apply per stored provider pair, for example:
 
@@ -466,7 +465,7 @@ Set:
 Example:
 
 ```env
-MORPHEUS_FEED_SYMBOLS=NEO-USD,GAS-USD,FLM-USD,BTC-USD,ETH-USD,SOL-USD,WTI-USD,AAPL-USD,EUR-USD,JPY-USD
+MORPHEUS_FEED_SYMBOLS=TWELVEDATA:NEO-USD,TWELVEDATA:GAS-USD,TWELVEDATA:FLM-USD,TWELVEDATA:BTC-USD,TWELVEDATA:ETH-USD,TWELVEDATA:SOL-USD,TWELVEDATA:WTI-USD,TWELVEDATA:AAPL-USD,TWELVEDATA:EUR-USD,TWELVEDATA:JPY-USD
 ```
 
 ### Advanced level: add provider-specific mapping

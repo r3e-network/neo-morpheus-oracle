@@ -11,6 +11,12 @@
 7. Dispatcher calls `FulfillRequest(requestId, success, result, error)`.
 8. Callback executes in the consumer contract.
 
+NeoDID identity flows now also fit this same path when the request type is one of:
+
+- `neodid_bind`
+- `neodid_action_ticket`
+- `neodid_recovery_ticket`
+
 ## Oracle Payload
 
 ```json
@@ -31,6 +37,22 @@
 }
 ```
 
+For `neodid_recovery_ticket`, a typical on-chain payload is:
+
+```json
+{
+  "provider": "github",
+  "network": "neo_n3",
+  "aa_contract": "0x711c1899a3b7fa0e055ae0d17c9acfcd1bef6423",
+  "verifier_contract": "0x1111111111111111111111111111111111111111",
+  "account_id": "aa-social-recovery-demo",
+  "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+  "recovery_nonce": "7",
+  "expires_at": "1735689600",
+  "encrypted_params": "<encrypt({\"provider_uid\":\"github_uid_777\",\"oauth_code\":\"...\"})>"
+}
+```
+
 ## Rules
 
 - `encrypted_token` is the canonical encrypted auth-secret field for private fetches
@@ -40,6 +62,7 @@
 - `callback_contract` and `callback_method` are on-chain request arguments, not JSON payload fields
 - `target_chain` may be `neo_n3` or `neo_x`
 - confidential payload transport uses `X25519-HKDF-SHA256-AES-256-GCM`
+- `neodid_recovery_ticket` binds the signed ticket to `aa_contract`, `account_id`, `new_owner`, `recovery_nonce`, and `expires_at`
 
 ## Built-in Compute API
 

@@ -63,14 +63,17 @@ async function resolveNeoXUpdaterPrivateKey(config) {
   throw new Error("Neo X updater signing material is not configured");
 }
 
-export async function fulfillNeoXRequest(config, requestId, success, result, error, verificationSignature) {
+export async function fulfillNeoXRequest(config, requestId, success, result, error, verificationSignature, resultBytesBase64 = "") {
   const provider = new JsonRpcProvider(config.neo_x.rpcUrl);
   const privateKey = await resolveNeoXUpdaterPrivateKey(config);
   const wallet = new Wallet(privateKey, provider);
+  const resultHex = resultBytesBase64
+    ? Buffer.from(resultBytesBase64, "base64").toString("hex")
+    : Buffer.from(result || "", "utf8").toString("hex");
   const data = morpheusOracleXInterface.encodeFunctionData("fulfillRequest", [
     BigInt(requestId),
     Boolean(success),
-    `0x${Buffer.from(result || "", "utf8").toString("hex")}`,
+    `0x${resultHex}`,
     error || "",
     verificationSignature.startsWith("0x") ? verificationSignature : `0x${verificationSignature}`,
   ]);

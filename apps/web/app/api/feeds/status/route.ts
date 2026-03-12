@@ -3,6 +3,7 @@ import {
   DEFAULT_FEED_SYMBOLS,
   getDeprecatedFeedInfo,
   getFeedDescriptor,
+  normalizeFeedSymbol,
 } from "@/lib/feed-defaults";
 import { fetchOnchainState } from "@/lib/onchain-state";
 import { recordOperationLog } from "@/lib/operation-logs";
@@ -16,7 +17,7 @@ function maybeParseJson(text: string) {
 }
 
 function normalizeChainPair(value: string) {
-  return String(value || "").replace(/^TWELVEDATA:/, "").trim().toUpperCase();
+  return normalizeFeedSymbol(value);
 }
 
 async function fetchLiveQuote(pair: string) {
@@ -31,7 +32,6 @@ async function fetchLiveQuote(pair: string) {
   }
 
   const quoteUrl = new URL(`${appConfig.phalaApiUrl.replace(/\/$/, "")}/feeds/price/${encodeURIComponent(pair)}`);
-  quoteUrl.searchParams.set("provider", appConfig.feedProvider || "twelvedata");
   if (appConfig.feedProjectSlug) {
     quoteUrl.searchParams.set("project_slug", appConfig.feedProjectSlug);
   }
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
 
       return {
         pair,
-        storage_pair: `TWELVEDATA:${pair}`,
+        storage_pair: pair,
         synced: Boolean(chainRecord),
         descriptor,
         chain: chainRecord,
@@ -84,7 +84,7 @@ export async function GET(request: Request) {
   const deprecatedChainRecords = chainRecords
     .map((entry) => {
       const normalized = normalizeChainPair(entry.pair);
-      const deprecated = getDeprecatedFeedInfo(normalized);
+      const deprecated = getDeprecatedFeedInfo(entry.pair);
       if (!deprecated) return null;
       return {
         storage_pair: entry.pair,

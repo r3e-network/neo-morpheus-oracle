@@ -118,43 +118,43 @@ This supports three useful modes:
 Default built-in USD pairs now cover:
 
 - Core crypto:
-  - `NEO-USD`
-  - `GAS-USD`
-  - `FLM-USD`
-  - `BTC-USD`
-  - `ETH-USD`
-  - `SOL-USD`
-  - `TRX-USD`
-  - `BNB-USD`
-  - `XRP-USD`
-  - `DOGE-USD`
-  - `USDT-USD`
-  - `USDC-USD`
+  - `TWELVEDATA:NEO-USD`
+  - `TWELVEDATA:GAS-USD`
+  - `TWELVEDATA:FLM-USD`
+  - `TWELVEDATA:BTC-USD`
+  - `TWELVEDATA:ETH-USD`
+  - `TWELVEDATA:SOL-USD`
+  - `TWELVEDATA:TRX-USD`
+  - `TWELVEDATA:BNB-USD`
+  - `TWELVEDATA:XRP-USD`
+  - `TWELVEDATA:DOGE-USD`
+  - `TWELVEDATA:USDT-USD`
+  - `TWELVEDATA:USDC-USD`
 - Commodity / hard-asset:
-  - `PAXG-USD`
-  - `WTI-USD`
-  - `BRENT-USD`
-  - `NATGAS-USD`
-  - `COPPER-USD`
-  - `WHEAT-USD`
-  - `CORN-USD`
-  - `SOY-USD`
+  - `TWELVEDATA:PAXG-USD`
+  - `TWELVEDATA:WTI-USD`
+  - `TWELVEDATA:BRENT-USD`
+  - `TWELVEDATA:NATGAS-USD`
+  - `TWELVEDATA:COPPER-USD`
+  - `TWELVEDATA:WHEAT-USD`
+  - `TWELVEDATA:CORN-USD`
+  - `TWELVEDATA:SOY-USD`
 - Equities / ETFs:
-  - `AAPL-USD`
-  - `GOOGL-USD`
-  - `MSFT-USD`
-  - `AMZN-USD`
-  - `TSLA-USD`
-  - `META-USD`
-  - `NVDA-USD`
-  - `SPY-USD`
-  - `QQQ-USD`
-  - `GLD-USD`
+  - `TWELVEDATA:AAPL-USD`
+  - `TWELVEDATA:GOOGL-USD`
+  - `TWELVEDATA:MSFT-USD`
+  - `TWELVEDATA:AMZN-USD`
+  - `TWELVEDATA:TSLA-USD`
+  - `TWELVEDATA:META-USD`
+  - `TWELVEDATA:NVDA-USD`
+  - `TWELVEDATA:SPY-USD`
+  - `TWELVEDATA:QQQ-USD`
+  - `TWELVEDATA:GLD-USD`
 - FX:
-  - `EUR-USD`
-  - `GBP-USD`
-  - `JPY-USD` (inverted from `USD/JPY`)
-  - `CNY-USD` (inverted from `USD/CNY`)
+  - `TWELVEDATA:EUR-USD`
+  - `TWELVEDATA:GBP-USD`
+  - `TWELVEDATA:JPY-USD` (inverted from `USD/JPY`)
+  - `TWELVEDATA:CNY-USD` (inverted from `USD/CNY`)
 
 Production sync defaults to `twelvedata` only. Other built-in providers remain available for Oracle fetch flows and project-specific overrides.
 
@@ -171,49 +171,43 @@ On-chain storage is provider-scoped, for example:
 ### Canonical pair table
 
 Use these names exactly in contracts, automation jobs, and documentation.
-Under the global `1 USD = 1,000,000` precision model, direct pair ids such as `FLM-USD` and `JPY-USD` are canonical again.
-
-Deprecated legacy storage key:
-
-- historical basket keys such as `TWELVEDATA:1000FLM-USD` and `TWELVEDATA:1000JPY-USD` should be treated as deprecated
-- use `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD` on-chain instead
-- use `FLM-USD` and `JPY-USD` everywhere in user-facing configs, contracts, and docs
+The canonical key format is provider-scoped. For the current main catalog, `TWELVEDATA:<PAIR>` is the official storage key and user-facing key.
 
 | Pair | Category | Meaning | TwelveData symbol | On-chain unit | Note |
 | --- | --- | --- | --- | --- | --- |
-| `NEO-USD` | Crypto | price of 1 NEO in USD | `NEO/USD` | `1 NEO` |  |
-| `GAS-USD` | Crypto | price of 1 GAS in USD | `GAS/USD` | `1 GAS` |  |
-| `FLM-USD` | Crypto | price of 1 FLM in USD | `FLM/USD` | `1 FLM` | direct pair under the global 1e6 USD scale |
-| `BTC-USD` | Crypto | price of 1 BTC in USD | `BTC/USD` | `1 BTC` |  |
-| `ETH-USD` | Crypto | price of 1 ETH in USD | `ETH/USD` | `1 ETH` |  |
-| `SOL-USD` | Crypto | price of 1 SOL in USD | `SOL/USD` | `1 SOL` |  |
-| `TRX-USD` | Crypto | price of 1 TRX in USD | `TRX/USD` | `1 TRX` |  |
-| `PAXG-USD` | Crypto | price of 1 PAXG in USD | `PAXG/USD` | `1 PAXG` | gold-backed token |
-| `USDT-USD` | Crypto | price of 1 USDT in USD | `USDT/USD` | `1 USDT` |  |
-| `USDC-USD` | Crypto | price of 1 USDC in USD | `USDC/USD` | `1 USDC` |  |
-| `BNB-USD` | Crypto | price of 1 BNB in USD | `BNB/USD` | `1 BNB` |  |
-| `XRP-USD` | Crypto | price of 1 XRP in USD | `XRP/USD` | `1 XRP` |  |
-| `DOGE-USD` | Crypto | price of 1 DOGE in USD | `DOGE/USD` | `1 DOGE` |  |
-| `WTI-USD` | Commodity | WTI crude oil reference price in USD | `WTI/USD` | `WTI reference unit` |  |
-| `BRENT-USD` | Commodity | Brent crude spot reference price in USD | `XBR/USD` | `Brent spot reference unit` |  |
-| `NATGAS-USD` | Commodity | natural gas reference price in USD | `NG/USD` | `natural gas reference unit` |  |
-| `COPPER-USD` | Commodity | copper futures proxy in USD | `HG1` | `1 copper futures reference unit` | front-month proxy |
-| `WHEAT-USD` | Commodity | wheat futures proxy in USD | `W_1` | `1 wheat futures reference unit` | front-month proxy |
-| `CORN-USD` | Commodity | corn futures proxy in USD | `C_1` | `1 corn futures reference unit` | front-month proxy |
-| `SOY-USD` | Commodity | soybean futures proxy in USD | `S_1` | `1 soybean futures reference unit` | front-month proxy |
-| `AAPL-USD` | Equity | price of 1 AAPL share in USD | `AAPL` | `1 share` |  |
-| `GOOGL-USD` | Equity | price of 1 GOOGL share in USD | `GOOGL` | `1 share` |  |
-| `MSFT-USD` | Equity | price of 1 MSFT share in USD | `MSFT` | `1 share` |  |
-| `AMZN-USD` | Equity | price of 1 AMZN share in USD | `AMZN` | `1 share` |  |
-| `TSLA-USD` | Equity | price of 1 TSLA share in USD | `TSLA` | `1 share` |  |
-| `META-USD` | Equity | price of 1 META share in USD | `META` | `1 share` |  |
-| `NVDA-USD` | Equity | price of 1 NVDA share in USD | `NVDA` | `1 share` |  |
+| `TWELVEDATA:NEO-USD` | Crypto | price of 1 NEO in USD | `NEO/USD` | `1 NEO` |  |
+| `TWELVEDATA:GAS-USD` | Crypto | price of 1 GAS in USD | `GAS/USD` | `1 GAS` |  |
+| `TWELVEDATA:FLM-USD` | Crypto | price of 1 FLM in USD | `FLM/USD` | `1 FLM` | direct pair under the global 1e6 USD scale |
+| `TWELVEDATA:BTC-USD` | Crypto | price of 1 BTC in USD | `BTC/USD` | `1 BTC` |  |
+| `TWELVEDATA:ETH-USD` | Crypto | price of 1 ETH in USD | `ETH/USD` | `1 ETH` |  |
+| `TWELVEDATA:SOL-USD` | Crypto | price of 1 SOL in USD | `SOL/USD` | `1 SOL` |  |
+| `TWELVEDATA:TRX-USD` | Crypto | price of 1 TRX in USD | `TRX/USD` | `1 TRX` |  |
+| `TWELVEDATA:PAXG-USD` | Crypto | price of 1 PAXG in USD | `PAXG/USD` | `1 PAXG` | gold-backed token |
+| `TWELVEDATA:USDT-USD` | Crypto | price of 1 USDT in USD | `USDT/USD` | `1 USDT` |  |
+| `TWELVEDATA:USDC-USD` | Crypto | price of 1 USDC in USD | `USDC/USD` | `1 USDC` |  |
+| `TWELVEDATA:BNB-USD` | Crypto | price of 1 BNB in USD | `BNB/USD` | `1 BNB` |  |
+| `TWELVEDATA:XRP-USD` | Crypto | price of 1 XRP in USD | `XRP/USD` | `1 XRP` |  |
+| `TWELVEDATA:DOGE-USD` | Crypto | price of 1 DOGE in USD | `DOGE/USD` | `1 DOGE` |  |
+| `TWELVEDATA:WTI-USD` | Commodity | WTI crude oil reference price in USD | `WTI/USD` | `WTI reference unit` |  |
+| `TWELVEDATA:BRENT-USD` | Commodity | Brent crude spot reference price in USD | `XBR/USD` | `Brent spot reference unit` |  |
+| `TWELVEDATA:NATGAS-USD` | Commodity | natural gas reference price in USD | `NG/USD` | `natural gas reference unit` |  |
+| `TWELVEDATA:COPPER-USD` | Commodity | copper futures proxy in USD | `HG1` | `1 copper futures reference unit` | front-month proxy |
+| `TWELVEDATA:WHEAT-USD` | Commodity | wheat futures proxy in USD | `W_1` | `1 wheat futures reference unit` | front-month proxy |
+| `TWELVEDATA:CORN-USD` | Commodity | corn futures proxy in USD | `C_1` | `1 corn futures reference unit` | front-month proxy |
+| `TWELVEDATA:SOY-USD` | Commodity | soybean futures proxy in USD | `S_1` | `1 soybean futures reference unit` | front-month proxy |
+| `TWELVEDATA:AAPL-USD` | Equity | price of 1 AAPL share in USD | `AAPL` | `1 share` |  |
+| `TWELVEDATA:GOOGL-USD` | Equity | price of 1 GOOGL share in USD | `GOOGL` | `1 share` |  |
+| `TWELVEDATA:MSFT-USD` | Equity | price of 1 MSFT share in USD | `MSFT` | `1 share` |  |
+| `TWELVEDATA:AMZN-USD` | Equity | price of 1 AMZN share in USD | `AMZN` | `1 share` |  |
+| `TWELVEDATA:TSLA-USD` | Equity | price of 1 TSLA share in USD | `TSLA` | `1 share` |  |
+| `TWELVEDATA:META-USD` | Equity | price of 1 META share in USD | `META` | `1 share` |  |
+| `TWELVEDATA:NVDA-USD` | Equity | price of 1 NVDA share in USD | `NVDA` | `1 share` |  |
 | `SPY-USD` | ETF | price of 1 SPY share in USD | `SPY` | `1 ETF share` |  |
 | `QQQ-USD` | ETF | price of 1 QQQ share in USD | `QQQ` | `1 ETF share` |  |
 | `GLD-USD` | ETF | price of 1 GLD share in USD | `GLD` | `1 ETF share` |  |
 | `EUR-USD` | FX | price of 1 EUR in USD | `EUR/USD` | `1 EUR` |  |
 | `GBP-USD` | FX | price of 1 GBP in USD | `GBP/USD` | `1 GBP` |  |
-| `JPY-USD` | FX | price of 1 JPY in USD | `USD/JPY` | `1 JPY` | fetched as `USD/JPY`, then inverted |
+| `TWELVEDATA:JPY-USD` | FX | price of 1 JPY in USD | `USD/JPY` | `1 JPY` | fetched as `USD/JPY`, then inverted |
 | `CNY-USD` | FX | price of 1 CNY in USD | `USD/CNY` | `1 CNY` | fetched as `USD/CNY`, then inverted |
 
 ## Selection Model

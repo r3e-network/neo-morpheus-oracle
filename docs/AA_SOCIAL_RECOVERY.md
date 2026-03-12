@@ -1,0 +1,291 @@
+# AA Social Recovery / AA 社交恢复集成方案
+
+This document defines the recommended integration between `neo-abstract-account` and Morpheus `NeoDID + Privacy Oracle`.
+
+本文定义 `neo-abstract-account` 与 Morpheus `NeoDID + 隐私预言机` 的标准集成方案。
+
+## Goal / 目标
+
+Recover control of an Abstract Account with privacy-preserving social factors such as Twitter, GitHub, Google, Email, Binance, or OKX, without exposing raw Web2 identity data on-chain.
+
+在不把 Web2 明文身份暴露到链上的前提下，允许用户通过 Twitter、GitHub、Google、Email、Binance、OKX 等社交或平台身份恢复 Abstract Account 控制权。
+
+## Recommended Model / 推荐模型
+
+Use a dedicated AA custom verifier, for example `MorpheusSocialRecoveryVerifier`, instead of modifying the AA core contract.
+
+推荐新增一个独立的 AA 自定义验证器，例如 `MorpheusSocialRecoveryVerifier`，而不是直接改 AA 核心合约。
+
+Why:
+
+- `neo-abstract-account` already supports per-account custom verifiers through `setVerifierContract`.
+- Recovery logic remains isolated from the main wallet execution engine.
+- NeoDID master nullifiers and action nullifiers map naturally to recovery factors and one-time recovery approvals.
+- Oracle, NeoDID, and AA can all share one callback-oriented request model.
+
+## Component Roles / 组件职责
+
+### 1. Morpheus Oracle
+
+- Receives on-chain requests through `MorpheusOracle.request(...)`
+- Emits `OracleRequested`
+- Relayer forwards the payload to the Phala worker
+- Always fulfills the request with success or failure callback
+
+### 2. NeoDID Worker
+
+- Verifies confidential provider data inside the TEE
+- Derives:
+  - `master_nullifier`
+  - `action_nullifier`
+- Signs a recovery ticket bound to a specific AA recovery round
+
+### 3. MorpheusSocialRecoveryVerifier
+
+- Stores allowed recovery factors as `master_nullifier`
+- Stores used approvals as `action_nullifier`
+- Verifies the Morpheus / NeoDID signature
+- Applies threshold and timelock
+- Switches recovery ownership to `newOwner`
+
+### 4. Abstract Account
+
+- Keeps using its existing `custom verifier` interface:
+  - `verify(accountId)`
+  - `verifyMetaTx(accountId, signerHashes)`
+- Delegates recovery authorization to the recovery verifier
+
+## Canonical Request Types / 标准请求类型
+
+These request types can now be routed through the Morpheus oracle request pipeline:
+
+- `neodid_bind`
+- `neodid_action_ticket`
+- `neodid_recovery_ticket`
+
+This means AA recovery no longer needs a side-channel worker call. The preferred production path is:
+
+这意味着 AA 恢复不需要旁路调用 worker。生产环境推荐路径是：
+
+1. User contract or recovery coordinator calls `MorpheusOracle.request("neodid_recovery_ticket", payload, callbackContract, callbackMethod)`.
+2. Morpheus relayer routes the request to `/neodid/recovery-ticket`.
+3. TEE signs the recovery ticket.
+4. Callback stores or forwards the ticket to the AA recovery verifier flow.
+
+## Recovery Ticket Schema / 恢复票据结构
+
+`neodid_recovery_ticket` returns a signed result shaped like:
+
+```json
+{
+  "mode": "neodid_recovery_ticket",
+  "network": "neo_n3",
+  "aa_contract": "0x711c1899a3b7fa0e055ae0d17c9acfcd1bef6423",
+  "verifier_contract": "0x1111111111111111111111111111111111111111",
+  "account_address": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+  "account_id": "aa-social-recovery-demo",
+  "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+  "recovery_nonce": "7",
+  "expires_at": "1735689600",
+  "provider": "github",
+  "action_id": "aa_recovery:neo_n3:0x017520f068fd602082fe5572596185e62a4ad991:aa-social-recovery-demo:0x89b05cac00804648c666b47ecb1c57bc185821b7:7",
+  "master_nullifier": "0x...",
+  "action_nullifier": "0x...",
+  "digest": "0x...",
+  "signature": "...",
+  "public_key": "...",
+  "signer_address": "...",
+  "signer_script_hash": "...",
+  "output_hash": "...",
+  "attestation_hash": "...",
+  "verification": {
+    "output_hash": "...",
+    "attestation_hash": "...",
+    "signature": "...",
+    "public_key": "...",
+    "tee_attestation": {
+      "app_id": "...",
+      "compose_hash": "...",
+      "report_data": "0x..."
+    }
+  }
+}
+```
+
+## What The Verifier Must Check / 验证器必须检查的内容
+
+The AA recovery verifier should verify:
+
+- `signature` is valid for `digest`
+- signer public key matches the configured NeoDID/Morpheus verifier key
+- `expires_at` has not passed
+- `aa_contract` matches the configured AA master contract
+- `account_id` matches the account being recovered
+- `new_owner` matches the pending recovery target
+- `recovery_nonce` matches the current recovery round
+- `master_nullifier` belongs to an allowed recovery factor
+- `action_nullifier` has not already been used
+
+AA 恢复验证器应验证：
+
+- `signature` 对 `digest` 有效
+- 签名公钥等于预配置的 NeoDID/Morpheus verifier key
+- `expires_at` 未过期
+- `aa_contract` 与当前 AA 主合约一致
+- `account_id` 与被恢复账户一致
+- `new_owner` 与本次待恢复的新地址一致
+- `recovery_nonce` 与当前恢复轮次一致
+- `master_nullifier` 属于允许的恢复因子集合
+- `action_nullifier` 未被使用
+
+## Confidential Input Model / 隐私输入模型
+
+Sensitive fields should be encrypted with the Morpheus Oracle public key and passed as `encrypted_params`.
+
+敏感字段应使用 Morpheus Oracle 公钥加密，并通过 `encrypted_params` 传入。
+
+Example confidential patch:
+
+```json
+{
+  "provider_uid": "web3auth_user_abc123",
+  "oauth_code": "secret-oauth-code",
+  "verified_email": "alice@example.com",
+  "linked_accounts": ["google", "email", "sms"]
+}
+```
+
+Example on-chain request payload:
+
+```json
+{
+  "provider": "web3auth",
+  "network": "neo_n3",
+  "aa_contract": "0x711c1899a3b7fa0e055ae0d17c9acfcd1bef6423",
+  "verifier_contract": "0x1111111111111111111111111111111111111111",
+  "account_id": "aa-social-recovery-demo",
+  "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+  "recovery_nonce": "7",
+  "expires_at": "1735689600",
+  "encrypted_params": "<base64 ciphertext>"
+}
+```
+
+### Web3Auth As The DID Root / 用 Web3Auth 作为 DID 根身份
+
+Recommended production model:
+
+- users authenticate with Web3Auth
+- multiple linked social providers still map to one stable Web3Auth user id
+- NeoDID uses:
+  - `provider = "web3auth"`
+  - `provider_uid = <stable Web3Auth user identifier>`
+- AA recovery verifiers only care about NeoDID tickets derived from that stable identifier
+
+推荐生产模式：
+
+- 用户先通过 Web3Auth 登录
+- 多个社交账号在 Web3Auth 内部聚合成同一个稳定用户 id
+- NeoDID 统一使用：
+  - `provider = "web3auth"`
+  - `provider_uid = <稳定的 Web3Auth 用户标识>`
+- AA 恢复验证器只消费由这个稳定标识导出的 NeoDID 票据，不关心底层具体用了 Google、Email 还是 SMS
+
+## Recommended Recovery Lifecycle / 推荐恢复流程
+
+### Setup Phase / 初始化阶段
+
+1. User binds Web2 / exchange identities into NeoDID.
+2. User registers selected `master_nullifier` values into `MorpheusSocialRecoveryVerifier`.
+3. User sets:
+   - threshold, for example `2-of-3`
+   - timelock, for example `3 days`
+   - recovery nonce start value
+
+### Recovery Phase / 恢复阶段
+
+1. User loses access to the original owner wallet.
+2. User chooses a new owner address `newOwner`.
+3. User requests one or more `neodid_recovery_ticket` approvals through Morpheus Oracle.
+4. Each successful factor submits one ticket to the verifier.
+5. The verifier marks each `action_nullifier` as used and counts unique approved `master_nullifier` factors.
+6. Once threshold is reached, the verifier opens a pending recovery timelock.
+7. When timelock expires, the verifier finalizes the recovery and switches the verifier-side owner to `newOwner`.
+8. The recovered owner rotates AA admins/managers immediately.
+
+## Why This Is Better Than Dome-Only Recovery / 为什么优于仅 Dome 恢复
+
+AA already has a dome + oracle inactivity path, but that path is best for inactivity unlocking, not for multi-factor identity recovery.
+
+AA 现在已有 dome + oracle 的不活跃恢复通道，但那条路径更适合“不活跃后解锁”，不适合表达多因子身份恢复。
+
+This NeoDID-based model adds:
+
+- privacy-preserving factor commitments
+- one-time recovery approvals via `action_nullifier`
+- factor reuse prevention
+- multi-provider thresholds
+- recovery-round binding through `recovery_nonce`
+- portable TEE attestation and signature evidence
+
+## Security Rules / 安全规则
+
+Do not ship this flow without:
+
+- at least `2-of-N` threshold for valuable accounts
+- `expires_at`
+- `recovery_nonce`
+- timelock
+- `cancelRecovery`
+- `usedActionNullifier`
+- post-recovery admin rotation
+
+高价值账户不应使用单因子恢复。至少要有：
+
+- `2-of-N` 阈值
+- `expires_at`
+- `recovery_nonce`
+- timelock
+- `cancelRecovery`
+- `usedActionNullifier`
+- 恢复完成后的管理员轮换
+
+## Recommended AA-Side Contract Interface / 推荐的 AA 侧接口
+
+Suggested verifier-side interface:
+
+```csharp
+public static void SetupRecovery(
+    ByteString accountId,
+    UInt160 aaContract,
+    ByteString[] allowedMasterNullifiers,
+    BigInteger threshold,
+    BigInteger timelockSeconds);
+
+public static void SubmitRecoveryTicket(
+    ByteString accountId,
+    UInt160 newOwner,
+    BigInteger recoveryNonce,
+    ByteString masterNullifier,
+    ByteString actionNullifier,
+    string expiresAt,
+    ByteString verificationSignature);
+
+public static void FinalizeRecovery(ByteString accountId);
+public static void CancelRecovery(ByteString accountId);
+```
+
+## Integration Status In This Repo / 当前仓库里的实现状态
+
+Implemented here:
+
+- worker route: `/neodid/recovery-ticket`
+- web proxy route: `/api/neodid/recovery-ticket`
+- relayer routing support for `neodid_recovery_ticket`
+- on-chain callback envelope preservation for recovery ticket fields
+
+Still belongs to the AA repository:
+
+- concrete `MorpheusSocialRecoveryVerifier` contract
+- verifier deployment and live AA integration tests
+- frontend recovery wizard inside `neo-abstract-account`

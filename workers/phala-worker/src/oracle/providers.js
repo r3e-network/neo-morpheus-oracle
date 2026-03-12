@@ -35,6 +35,24 @@ export function normalizeProviderId(value) {
   return trimString(value || "").toLowerCase();
 }
 
+const FEED_PROVIDER_PREFIXES = {
+  "TWELVEDATA:": "twelvedata",
+  "BINANCE-SPOT:": "binance-spot",
+  "COINBASE-SPOT:": "coinbase-spot",
+};
+
+export function inferProviderIdFromPairSymbol(value) {
+  const normalized = trimString(value).toUpperCase();
+  const matchedPrefix = Object.keys(FEED_PROVIDER_PREFIXES).find((prefix) => normalized.startsWith(prefix));
+  return matchedPrefix ? FEED_PROVIDER_PREFIXES[matchedPrefix] : "";
+}
+
+export function stripProviderPrefixFromPairSymbol(value) {
+  const normalized = trimString(value).toUpperCase();
+  const matchedPrefix = Object.keys(FEED_PROVIDER_PREFIXES).find((prefix) => normalized.startsWith(prefix));
+  return matchedPrefix ? normalized.slice(matchedPrefix.length) : normalized;
+}
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -138,7 +156,13 @@ async function loadProjectProviderConfig(projectSlug, providerId) {
 
 export async function resolveProviderPayload(payload, options = {}) {
   const fallbackProviderId = normalizeProviderId(options.fallbackProviderId || "");
-  const providerId = normalizeProviderId(payload.provider || payload.source || payload.provider_id || fallbackProviderId);
+  const inferredProviderId = normalizeProviderId(inferProviderIdFromPairSymbol(
+    payload.symbol
+      || payload.pair
+      || (isPlainObject(payload.provider_params) ? payload.provider_params.pair : "")
+      || "",
+  ));
+  const providerId = normalizeProviderId(payload.provider || payload.source || payload.provider_id || fallbackProviderId || inferredProviderId);
   const projectSlug = trimString(payload.project_slug || options.projectSlug || "");
 
   const resolvedPayload = {
@@ -200,13 +224,19 @@ function allowUnsafeProviderBaseUrlOverride() {
 }
 
 export function buildProviderRequest(payload) {
-  const provider = normalizeProviderId(payload.provider || payload.source || payload.provider_id);
+  const symbolCandidate = trimString(
+    payload.symbol
+      || payload.pair
+      || (isPlainObject(payload.provider_params) ? payload.provider_params.pair : "")
+      || "NEO-USD",
+  );
+  const provider = normalizeProviderId(payload.provider || payload.source || payload.provider_id || inferProviderIdFromPairSymbol(symbolCandidate));
   if (!provider) return null;
 
   switch (provider) {
     case "twelvedata": {
       const params = coerceProviderParams(payload.provider_params);
-      const pair = trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD";
+      const pair = stripProviderPrefixFromPairSymbol(trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD") || "NEO-USD";
       const explicitSymbol = trimString(params.symbol || payload.provider_symbol || "");
       const sourceSymbol = explicitSymbol || pair;
       const symbol = explicitSymbol
@@ -224,7 +254,7 @@ export function buildProviderRequest(payload) {
     }
     case "binance-spot": {
       const params = coerceProviderParams(payload.provider_params);
-      const pair = trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD";
+      const pair = stripProviderPrefixFromPairSymbol(trimString(payload.symbol || params.pair || "NEO-USD") || "NEO-USD") || "NEO-USD";
       const symbol = trimString(params.symbol || payload.provider_symbol || pairToBinanceSymbol(pair)) || pairToBinanceSymbol(pair);
       const requestedBaseUrl = trimString(params.base_url || payload.provider_base_url || "");
       const baseUrl = requestedBaseUrl && allowUnsafeProviderBaseUrlOverride()
@@ -236,7 +266,7 @@ export function buildProviderRequest(payload) {
     }
     case "coinbase-spot": {
       const params = coerceProviderParams(payload.provider_params);
-      const pair = trimString(payload.symbol || params.symbol || "NEO-USD") || "NEO-USD";
+      const pair = stripProviderPrefixFromPairSymbol(trimString(payload.symbol || params.symbol || "NEO-USD") || "NEO-USD") || "NEO-USD";
       const normalized = pair.replace(/_/g, "-").toUpperCase();
       const url = `https://api.coinbase.com/v2/prices/${normalized}/spot`;
       return { provider, pair: normalized, method: "GET", url, headers: {}, body: undefined, auth_mode: "none" };

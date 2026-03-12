@@ -43,7 +43,7 @@ const { default: handler } = await import('./src/worker.js');
 const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = await import('./src/platform/dstack.js');
 const { __resetOracleKeyMaterialForTests } = await import('./src/oracle/crypto.js');
 const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
-const { allowlistAllows } = await import('./src/platform/allowlist.js');
+const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
 
 function authHeaders() {
@@ -203,6 +203,7 @@ test('neodid providers endpoint lists supported social providers', async () => {
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.ok(Array.isArray(body.providers));
+  assert.ok(body.providers.some((item) => item.id === 'web3auth'));
   assert.ok(body.providers.some((item) => item.id === 'twitter'));
   assert.ok(body.providers.some((item) => item.id === 'github'));
   assert.ok(body.providers.some((item) => item.id === 'google'));
@@ -290,6 +291,60 @@ test('neodid action-ticket accepts okex alias and normalizes to okx', async () =
   assert.ok(body.signature);
 });
 
+test('neodid recovery-ticket supports confidential provider payloads and binds AA recovery context', async () => {
+  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  assert.equal(keyRes.status, 200);
+  const keyMeta = await keyRes.json();
+  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
+    provider_uid: 'github_uid_777',
+  }));
+
+  const res = await handler(new Request('http://local/neodid/recovery-ticket', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      provider: 'github',
+      aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+      verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
+      account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+      account_id: 'aa-social-recovery-demo',
+      new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+      recovery_nonce: '7',
+      expires_at: '1735689600',
+      encrypted_params: encryptedParams,
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'neodid_recovery_ticket');
+  assert.equal(body.provider, 'github');
+  assert.equal(body.account_id, 'aa-social-recovery-demo');
+  assert.equal(body.recovery_nonce, '7');
+  assert.equal(body.expires_at, '1735689600');
+  assert.match(body.master_nullifier, /^0x[0-9a-f]{64}$/);
+  assert.match(body.action_nullifier, /^0x[0-9a-f]{64}$/);
+  assert.match(body.digest, /^0x[0-9a-f]{64}$/);
+  assert.ok(body.signature);
+  assert.ok(body.public_key);
+
+  const secondRes = await handler(new Request('http://local/neodid/recovery-ticket', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      provider: 'github',
+      aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+      account_id: 'aa-social-recovery-demo',
+      new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+      recovery_nonce: '8',
+      expires_at: '1735689600',
+      encrypted_params: encryptedParams,
+    }),
+  }));
+  assert.equal(secondRes.status, 200);
+  const second = await secondRes.json();
+  assert.notEqual(body.action_nullifier, second.action_nullifier);
+});
+
 test.after(() => {
   global.fetch = originalFetch;
   process.env.PHALA_SHARED_SECRET = originalPhalaToken;
@@ -324,6 +379,13 @@ test('txproxy allowlist permits Oracle fulfillRequest and queueAutomationRequest
   );
 });
 
+test('createByteArrayParam decodes base64 payloads into raw bytes', async () => {
+  const expected = '04030201';
+  assert.equal(createByteArrayParam(Buffer.from('01020304', 'hex')).value.toString(), expected);
+  assert.equal(createByteArrayParam('01020304').value.toString(), expected);
+  assert.equal(createByteArrayParam(Buffer.from('01020304', 'hex').toString('base64')).value.toString(), expected);
+});
+
 
 
 test('providers endpoint lists builtin sources', async () => {
@@ -340,13 +402,13 @@ test('feeds catalog lists default symbols', async () => {
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.ok(Array.isArray(body.pairs));
-  assert.ok(body.pairs.includes('NEO-USD'));
-  assert.ok(body.pairs.includes('PAXG-USD'));
-  assert.ok(body.pairs.includes('WTI-USD'));
-  assert.ok(body.pairs.includes('AAPL-USD'));
-  assert.ok(body.pairs.includes('EUR-USD'));
-  assert.ok(body.pairs.includes('FLM-USD'));
-  assert.ok(body.pairs.includes('JPY-USD'));
+  assert.ok(body.pairs.includes('TWELVEDATA:NEO-USD'));
+  assert.ok(body.pairs.includes('TWELVEDATA:PAXG-USD'));
+  assert.ok(body.pairs.includes('TWELVEDATA:WTI-USD'));
+  assert.ok(body.pairs.includes('TWELVEDATA:AAPL-USD'));
+  assert.ok(body.pairs.includes('TWELVEDATA:EUR-USD'));
+  assert.ok(body.pairs.includes('TWELVEDATA:FLM-USD'));
+  assert.ok(body.pairs.includes('TWELVEDATA:JPY-USD'));
 });
 
 test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
@@ -388,6 +450,24 @@ test('feed quote supports twelvedata provider', async () => {
   assert.equal(body.price, '45.67');
 });
 
+test('feed quote infers provider from canonical prefixed symbol without provider field', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    assert.match(String(url), /BTC-USD|BTC%2FUSD/);
+    return new Response(JSON.stringify({ price: '70123.5' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/TWELVEDATA:BTC-USD', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pair, 'TWELVEDATA:BTC-USD');
+  assert.equal(body.provider_pair, 'BTC-USD');
+  assert.equal(body.price, '70123.5');
+});
+
 test('feed quote preserves explicit TwelveData stock symbols without appending /USD', async () => {
   global.fetch = async (url) => {
     assert.match(String(url), /api\.twelvedata\.com\/price/);
@@ -401,7 +481,7 @@ test('feed quote preserves explicit TwelveData stock symbols without appending /
   const res = await handler(new Request('http://local/feeds/price/AAPL-USD?provider=twelvedata', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.pair, 'AAPL-USD');
+  assert.equal(body.pair, 'TWELVEDATA:AAPL-USD');
   assert.equal(body.price, '260.72');
 });
 
@@ -418,8 +498,8 @@ test('feed quote uses direct FLM-USD pair naming under 1e6 USD scale', async () 
   const res = await handler(new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.pair, 'FLM-USD');
-  assert.equal(body.display_symbol, 'FLM-USD');
+  assert.equal(body.pair, 'TWELVEDATA:FLM-USD');
+  assert.equal(body.display_symbol, 'TWELVEDATA:FLM-USD');
   assert.equal(body.unit_label, null);
   assert.equal(body.raw_price, '0.00123');
   assert.equal(body.price, '0.00123');
@@ -440,8 +520,8 @@ test('feed quote can invert forex units for direct JPY-USD pricing under 1e6 USD
   const res = await handler(new Request('http://local/feeds/price/JPY-USD?provider=twelvedata', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.pair, 'JPY-USD');
-  assert.equal(body.display_symbol, 'JPY-USD');
+  assert.equal(body.pair, 'TWELVEDATA:JPY-USD');
+  assert.equal(body.display_symbol, 'TWELVEDATA:JPY-USD');
   assert.equal(body.unit_label, null);
   assert.equal(body.raw_price, '150.0000');
   assert.equal(body.price_transform, 'inverse');
@@ -462,7 +542,7 @@ test('feed quote preserves explicit TwelveData futures symbols', async () => {
   const res = await handler(new Request('http://local/feeds/price/COPPER-USD?provider=twelvedata', { headers: authHeaders() }));
   assert.equal(res.status, 200);
   const body = await res.json();
-  assert.equal(body.pair, 'COPPER-USD');
+  assert.equal(body.pair, 'TWELVEDATA:COPPER-USD');
   assert.equal(body.price, '25.2');
 });
 

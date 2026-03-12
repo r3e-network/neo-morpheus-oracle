@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, Fingerprint, Lock, ArrowRight } from "lucide-react";
+import { Fingerprint, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { CodeBlock } from "@/components/ui/CodeBlock";
 
@@ -23,8 +23,9 @@ export default function DocsNeoDidPage() {
       <div className="card-industrial" style={{ padding: "1.5rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2rem" }}>
         <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
           Current codebase status: NeoDID now has an independent N3 contract skeleton <code>NeoDIDRegistry</code>,
-          SGX worker routes for <code>bind</code> and <code>action-ticket</code>, and frontend proxy routes.
-          This is the minimal product foundation for the master-nullifier / action-nullifier architecture.
+          SGX worker routes for <code>bind</code>, <code>action-ticket</code>, and <code>recovery-ticket</code>, plus relayer routing for
+          <code> neodid_bind</code>, <code> neodid_action_ticket</code>, and <code> neodid_recovery_ticket</code> request types through the
+          Morpheus Oracle callback pipeline.
         </p>
       </div>
 
@@ -67,6 +68,18 @@ public class NeoDIDRegistry : SmartContract
         <li><code>GET /api/neodid/runtime</code></li>
         <li><code>POST /api/neodid/bind</code></li>
         <li><code>POST /api/neodid/action-ticket</code></li>
+        <li><code>POST /api/neodid/recovery-ticket</code></li>
+      </ul>
+
+      <h2>Oracle Request Types</h2>
+      <p>
+        Preferred production usage is on-chain, not direct worker invocation. These request types can be sent through
+        <code> MorpheusOracle.request(...)</code> and will be routed by the relayer into the correct NeoDID worker endpoint:
+      </p>
+      <ul>
+        <li><code>neodid_bind</code></li>
+        <li><code>neodid_action_ticket</code></li>
+        <li><code>neodid_recovery_ticket</code></li>
       </ul>
 
       <h2>Supported Identity Sources</h2>
@@ -74,6 +87,7 @@ public class NeoDIDRegistry : SmartContract
         NeoDID is designed to support social accounts, exchange identities, and verified contact channels. The current service catalog includes:
       </p>
       <ul>
+        <li><code>web3auth</code> with alias <code>w3a</code></li>
         <li><code>twitter</code></li>
         <li><code>github</code></li>
         <li><code>google</code></li>
@@ -87,6 +101,14 @@ public class NeoDIDRegistry : SmartContract
       <p>
         Each provider can map into different claim types, such as follower thresholds, verified-email status, exchange KYC levels, VIP tiers, or asset-holder attestations.
       </p>
+
+      <div className="card-industrial" style={{ padding: "1.25rem 1.5rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2rem" }}>
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+          Recommended AA integration: treat <code>web3auth</code> as the DID root. Link Google / Apple / email / SMS / other social providers inside
+          Web3Auth first, then pass the stable Web3Auth user identifier as <code>provider_uid</code> to NeoDID. AA and recovery verifiers only consume
+          NeoDID tickets; they do not need to know which underlying social login was used.
+        </p>
+      </div>
 
       <h2>Bind Flow Example</h2>
       <CodeBlock
@@ -116,6 +138,30 @@ public class NeoDIDRegistry : SmartContract
   "action_id": "Airdrop_Season_1"
 }`}
       />
+
+      <h2>AA Recovery Ticket Example</h2>
+      <CodeBlock
+        language="json"
+        title="POST /api/neodid/recovery-ticket"
+        code={`{
+  "provider": "github",
+  "network": "neo_n3",
+  "aa_contract": "0x711c1899a3b7fa0e055ae0d17c9acfcd1bef6423",
+  "verifier_contract": "0x1111111111111111111111111111111111111111",
+  "account_id": "aa-social-recovery-demo",
+  "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+  "recovery_nonce": "7",
+  "expires_at": "1735689600",
+  "encrypted_params": "<sealed provider_uid / oauth / email patch>"
+}`}
+      />
+
+      <p>
+        The recovery ticket flow is specified in the dedicated AA integration guide:
+        <Link href="/docs/r/AA_SOCIAL_RECOVERY" style={{ marginLeft: "0.5rem", color: "var(--neo-green)" }}>
+          AA Social Recovery
+        </Link>
+      </p>
 
       <h2>Third-Party Contract Pattern</h2>
       <CodeBlock
@@ -158,6 +204,15 @@ public class NeoDIDRegistry : SmartContract
           </div>
           <p style={{ color: "var(--text-secondary)", marginTop: "0.85rem", marginBottom: 0 }}>
             Keep using Starter Studio for payload generation patterns while NeoDID service routes mature.
+          </p>
+        </Link>
+        <Link href="/docs/r/AA_SOCIAL_RECOVERY" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>AA Recovery Spec</span>
+            <ArrowRight size={18} color="var(--neo-green)" />
+          </div>
+          <p style={{ color: "var(--text-secondary)", marginTop: "0.85rem", marginBottom: 0 }}>
+            Read the recovery ticket schema, verifier checks, timelock flow, and confidentiality model for Abstract Account recovery.
           </p>
         </Link>
       </div>

@@ -87,8 +87,7 @@ function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script:
 
 export function StarterStudio({ embedded = false }: StarterStudioProps) {
   const [flow, setFlow] = useState("oracle_provider");
-  const [provider, setProvider] = useState("twelvedata");
-  const [symbol, setSymbol] = useState("NEO-USD");
+  const [symbol, setSymbol] = useState("TWELVEDATA:NEO-USD");
   const [customUrl, setCustomUrl] = useState("https://postman-echo.com/get?probe=morpheus");
   const [jsonPath, setJsonPath] = useState("price");
   const [targetChain, setTargetChain] = useState("neo_n3");
@@ -125,8 +124,7 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   function applyPreset(preset: PresetId) {
     if (preset === "oracle_quote") {
       setFlow("oracle_provider");
-      setProvider("twelvedata");
-      setSymbol("NEO-USD");
+      setSymbol("TWELVEDATA:NEO-USD");
       setJsonPath("price");
       setTargetChain("neo_n3");
       setUseEncrypted(false);
@@ -224,7 +222,6 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     let requestType = "privacy_oracle";
 
     if (flow === "oracle_provider") {
-      payload.provider = provider;
       payload.symbol = symbol;
       if (useEncrypted) {
         payload.encrypted_payload = encryptedBlob || "<sealed confidential patch>";
@@ -263,7 +260,7 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     }
 
     return { requestType, payload };
-  }, [customUrl, encryptedBlob, flow, jsonPath, provider, script, symbol, targetChain, useEncrypted, useScript]);
+  }, [customUrl, encryptedBlob, flow, jsonPath, script, symbol, targetChain, useEncrypted, useScript]);
 
   const payloadJson = JSON.stringify(generated.payload, null, 2);
   const compactPayloadJson = JSON.stringify(generated.payload);
@@ -373,15 +370,13 @@ BigInteger requestId = (BigInteger)Contract.Call(
             {flow === "oracle_provider" && (
               <>
                 <label>
-                  <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Provider</div>
-                  <select className="neo-select" value={provider} onChange={(event) => setProvider(event.target.value)}>
-                    <option value="twelvedata">twelvedata</option>
-                    <option value="binance-spot">binance-spot</option>
-                    <option value="coinbase-spot">coinbase-spot</option>
-                  </select>
+                  <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Source</div>
+                  <div className="badge-outline" style={{ minHeight: "44px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    Provider inferred from pair prefix
+                  </div>
                 </label>
                 <label>
-                  <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Symbol</div>
+                  <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Canonical Pair Key</div>
                   <input className="neo-input" value={symbol} onChange={(event) => setSymbol(event.target.value)} />
                 </label>
               </>

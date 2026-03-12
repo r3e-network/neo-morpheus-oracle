@@ -214,7 +214,7 @@ contract MyConsumer {
         uint256 fee = oracle.requestFee();
         require(msg.value == fee, "incorrect request fee");
         bytes memory payload = abi.encodePacked(
-            '{"provider":"twelvedata","symbol":"NEO-USD","encrypted_params":"',
+            '{"provider":"twelvedata","symbol":"TWELVEDATA:NEO-USD","encrypted_params":"',
             encryptedParams,
             '","json_path":"price","target_chain":"neo_x"}'
         );
@@ -239,7 +239,7 @@ public class MyConsumer : SmartContract
 {
     public static BigInteger RequestNeoPrice(ByteString encryptedParams)
     {
-        string payloadJson = "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"encrypted_params\":\""
+        string payloadJson = "{\"provider\":\"twelvedata\",\"symbol\":\"TWELVEDATA:NEO-USD\",\"encrypted_params\":\""
             + (string)encryptedParams
             + "\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
         return (BigInteger)Contract.Call(

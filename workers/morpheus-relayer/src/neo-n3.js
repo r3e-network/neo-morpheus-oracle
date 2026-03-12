@@ -9,6 +9,18 @@ function strip0x(value) {
   return trimString(value).replace(/^0x/i, "").toLowerCase();
 }
 
+function tryDecodeUtf8(bytes) {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function isPrintableText(text) {
+  return typeof text === "string" && /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text);
+}
+
 async function neoRpcCall(rpcUrl, method, params = []) {
   const response = await fetch(rpcUrl, {
     method: "POST",
@@ -38,17 +50,20 @@ export function decodeNeoItem(item) {
       const raw = trimString(item.value);
       if (!raw) return "";
       if (/^[0-9a-fA-F]+$/.test(raw) && raw.length % 2 === 0) {
-        if (raw.length === 40) {
-          return `0x${Buffer.from(raw, "hex").reverse().toString("hex")}`;
-        }
+        const bytes = Buffer.from(raw, "hex");
+        const text = tryDecodeUtf8(bytes);
+        if (isPrintableText(text)) return text;
+        if (raw.length === 40) return `0x${bytes.reverse().toString("hex")}`;
         try {
-          return Buffer.from(raw, "hex").toString("utf8");
+          return bytes.toString("utf8");
         } catch {
           return raw;
         }
       }
       try {
         const bytes = Buffer.from(raw, "base64");
+        const text = tryDecodeUtf8(bytes);
+        if (isPrintableText(text)) return text;
         if (bytes.length === 20) {
           return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
         }
@@ -141,8 +156,9 @@ async function resolveNeoN3UpdaterPayload(config) {
   throw new Error("Neo N3 updater signing material is not configured");
 }
 
-export async function fulfillNeoN3Request(config, requestId, success, result, error, verificationSignature) {
+export async function fulfillNeoN3Request(config, requestId, success, result, error, verificationSignature, resultBytesBase64 = "") {
   const signerPayload = await resolveNeoN3UpdaterPayload(config);
+  const byteArrayValue = trimString(resultBytesBase64) || encodeUtf8ByteArrayParamValue(result || "");
   const invoke = await relayNeoN3Invocation({
     request_id: `relayer:n3:${requestId}`,
     contract_hash: config.neo_n3.oracleContract,
@@ -150,7 +166,7 @@ export async function fulfillNeoN3Request(config, requestId, success, result, er
     params: [
       { type: "Integer", value: String(requestId) },
       { type: "Boolean", value: Boolean(success) },
-      { type: "ByteArray", value: encodeUtf8ByteArrayParamValue(result || "") },
+      { type: "ByteArray", value: byteArrayValue },
       { type: "String", value: error || "" },
       { type: "ByteArray", value: encodeHexByteArrayParamValue(verificationSignature || "") },
     ],

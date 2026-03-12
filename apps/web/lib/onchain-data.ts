@@ -1,5 +1,5 @@
 import { ethers } from "ethers";
-import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol } from "./feed-defaults";
+import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol, normalizeFeedSymbol } from "./feed-defaults";
 
 export const DEFAULT_PAIRS = [...DEFAULT_FEED_SYMBOLS];
 
@@ -61,6 +61,7 @@ let n3IndexCacheTime = 0;
 
 export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null> {
   try {
+    const canonicalPair = normalizeFeedSymbol(pair);
     const now = Date.now();
     let body = n3IndexCache;
 
@@ -85,7 +86,7 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
           decoded = Buffer.from(pairB64, 'base64').toString('utf8');
         }
         
-        return decoded.endsWith(pair);
+        return normalizeFeedSymbol(decoded) === canonicalPair;
       });
 
       if (event) {
@@ -96,7 +97,7 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
         return {
           price: (Number(priceItem.value) / PRICE_SCALE).toFixed(PRICE_SCALE_DECIMALS),
           timestamp: Number(tsItem.value) * 1000,
-          pair: getFeedDisplaySymbol(pair),
+          pair: getFeedDisplaySymbol(canonicalPair),
           network: "Neo N3",
           contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`
         };

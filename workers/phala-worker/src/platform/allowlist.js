@@ -30,12 +30,22 @@ export function canonicalizeMethodName(method) {
 
 export function createByteArrayParam(value) {
   if (Buffer.isBuffer(value) || value instanceof Uint8Array || value instanceof ArrayBuffer) {
-    return sc.ContractParam.byteArray(u.HexString.fromHex(Buffer.from(value).toString("hex")));
+    return sc.ContractParam.byteArray(u.HexString.fromHex(Buffer.from(value).toString("hex"), true));
   }
   const raw = trimString(value);
   if (!raw) return sc.ContractParam.byteArray(u.HexString.fromHex(""));
   if (isHexString(raw)) {
-    return sc.ContractParam.byteArray(u.HexString.fromHex(strip0x(raw)));
+    return sc.ContractParam.byteArray(u.HexString.fromHex(strip0x(raw), true));
+  }
+  if (/^[A-Za-z0-9+/]+={0,2}$/.test(raw) && raw.length % 4 === 0) {
+    try {
+      const decoded = Buffer.from(raw, "base64");
+      if (decoded.length > 0 && decoded.toString("base64") === raw) {
+        return sc.ContractParam.byteArray(u.HexString.fromHex(decoded.toString("hex"), true));
+      }
+    } catch {
+      // fall through to utf-8 string byte array handling
+    }
   }
   return sc.ContractParam.byteArray(raw);
 }

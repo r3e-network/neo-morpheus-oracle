@@ -81,8 +81,7 @@ const oracleScenarios = [
     problem: "You want the convenience of a built-in provider, but you still need to hide fields like `json_path`, provider params, or function name.",
     solution: "Use `encrypted_payload` or `encrypted_params` to patch the request inside the TEE before the built-in provider call executes.",
     payload: `{
-  "provider": "twelvedata",
-  "symbol": "BTC-USD",
+  "symbol": "TWELVEDATA:BTC-USD",
   "encrypted_payload": "<sealed { \\"json_path\\": \\"price\\", \\"target_chain\\": \\"neo_n3\\" }>"
 }`,
   },
@@ -92,8 +91,7 @@ const oracleScenarios = [
     problem: "The upstream API is public, but you want a custom transformed output instead of forwarding the raw response.",
     solution: "Use a normal Oracle request with custom JS or WASM to reduce the response into the exact scalar your contract wants.",
     payload: `{
-  "provider": "twelvedata",
-  "symbol": "SOL-USD",
+  "symbol": "TWELVEDATA:SOL-USD",
   "script": "function process(data) { return Number(data.price) > 100; }",
   "entry_point": "process",
   "target_chain": "neo_n3"

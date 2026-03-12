@@ -169,12 +169,13 @@ async function processOracleRequest(config, event) {
       requestType: event.requestType,
       success: fulfillment.success,
       result: fulfillment.result || "",
+      result_bytes_base64: fulfillment.result_bytes_base64 || "",
       error: fulfillment.error || "",
     });
 
     const fulfillTx = event.chain === "neo_n3"
-      ? await fulfillNeoN3Request(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature)
-      : await fulfillNeoXRequest(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature);
+      ? await fulfillNeoN3Request(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature, fulfillment.result_bytes_base64)
+      : await fulfillNeoXRequest(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature, fulfillment.result_bytes_base64);
 
     return {
       ...fulfillment,
@@ -191,6 +192,7 @@ async function processOracleRequest(config, event) {
       requestType: event.requestType,
       success: false,
       result: "",
+      result_bytes_base64: "",
       error: "datafeed requests are operator-only; users should read synchronized on-chain feed data",
     });
     return {
@@ -201,8 +203,8 @@ async function processOracleRequest(config, event) {
       worker_response: null,
       worker_status: null,
       fulfill_tx: event.chain === "neo_n3"
-        ? await fulfillNeoN3Request(config, event.requestId, false, "", "datafeed requests are operator-only; users should read synchronized on-chain feed data", verification.signature)
-        : await fulfillNeoXRequest(config, event.requestId, false, "", "datafeed requests are operator-only; users should read synchronized on-chain feed data", verification.signature),
+        ? await fulfillNeoN3Request(config, event.requestId, false, "", "datafeed requests are operator-only; users should read synchronized on-chain feed data", verification.signature, "")
+        : await fulfillNeoXRequest(config, event.requestId, false, "", "datafeed requests are operator-only; users should read synchronized on-chain feed data", verification.signature, ""),
       verification_signature: verification.signature,
     };
   }
@@ -215,6 +217,7 @@ async function processOracleRequest(config, event) {
     requestType: event.requestType,
     success: fulfillment.success,
     result: fulfillment.result || "",
+    result_bytes_base64: fulfillment.result_bytes_base64 || "",
     error: fulfillment.error || "",
   });
 
@@ -226,6 +229,7 @@ async function processOracleRequest(config, event) {
       fulfillment.result,
       fulfillment.error,
       verification.signature,
+      fulfillment.result_bytes_base64,
     );
     return {
       ...fulfillment,
@@ -244,6 +248,7 @@ async function processOracleRequest(config, event) {
     fulfillment.result,
     fulfillment.error,
     verification.signature,
+    fulfillment.result_bytes_base64,
   );
   return {
     ...fulfillment,
@@ -262,11 +267,12 @@ async function finalizeFailedRequest(config, event, errorMessage) {
     requestType: event.requestType,
     success: false,
     result: "",
+    result_bytes_base64: "",
     error: safeError,
   });
   const fulfillTx = event.chain === "neo_n3"
-    ? await fulfillNeoN3Request(config, event.requestId, false, "", safeError, verification.signature)
-    : await fulfillNeoXRequest(config, event.requestId, false, "", safeError, verification.signature);
+    ? await fulfillNeoN3Request(config, event.requestId, false, "", safeError, verification.signature, "")
+    : await fulfillNeoXRequest(config, event.requestId, false, "", safeError, verification.signature, "");
   return {
     success: false,
     result: "",
@@ -286,6 +292,7 @@ async function signFulfillmentPayload(config, chain, fulfillment) {
     fulfillment.success,
     fulfillment.result,
     fulfillment.error,
+    fulfillment.result_bytes_base64 || "",
   );
   const response = await callPhala(config, "/sign/payload", {
     target_chain: chain,
