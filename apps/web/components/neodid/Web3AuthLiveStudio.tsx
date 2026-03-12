@@ -134,25 +134,6 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
 
   }, []);
 
-  useEffect(() => {
-    if (!isConnected || identityToken) return;
-    void refreshIdentityArtifacts();
-  }, [identityToken, isConnected]);
-
-  useEffect(() => {
-    void fetch("/api/web3auth/debug-state", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        connected: isConnected,
-        identityToken,
-        jwtPayload,
-        bindResult,
-        error: [bindError, ...web3authErrors].filter(Boolean).join(" | "),
-      }),
-    }).catch(() => {});
-  }, [bindError, bindResult, identityToken, isConnected, jwtPayload, web3authErrors]);
-
   async function copyWithToast(id: string, value: string) {
     await copyText(value);
     setCopiedItem(id);
