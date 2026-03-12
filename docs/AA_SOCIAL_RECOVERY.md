@@ -144,6 +144,7 @@ AA 恢复验证器应验证：
 ## Confidential Input Model / 隐私输入模型
 
 Sensitive fields should be encrypted with the Morpheus Oracle public key and passed as `encrypted_params`.
+If the ciphertext is too large for the chain request payload, store it first and pass `encrypted_params_ref` instead.
 
 敏感字段应使用 Morpheus Oracle 公钥加密，并通过 `encrypted_params` 传入。
 
@@ -170,6 +171,22 @@ Example on-chain request payload:
   "recovery_nonce": "7",
   "expires_at": "1735689600",
   "encrypted_params": "<base64 ciphertext>"
+}
+```
+
+Large-JWT alternative:
+
+```json
+{
+  "provider": "web3auth",
+  "network": "neo_n3",
+  "aa_contract": "0x711c1899a3b7fa0e055ae0d17c9acfcd1bef6423",
+  "verifier_contract": "0x1111111111111111111111111111111111111111",
+  "account_id": "aa-social-recovery-demo",
+  "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+  "recovery_nonce": "7",
+  "expires_at": "1735689600",
+  "encrypted_params_ref": "<secret_ref>"
 }
 ```
 

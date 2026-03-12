@@ -53,6 +53,14 @@ type BindResult = {
   error?: string;
 };
 
+type SecretRefResult = {
+  secret_ref?: string;
+  name?: string;
+  target_chain?: string;
+  encryption_algorithm?: string;
+  created_at?: string;
+};
+
 function copyText(value: string) {
   return navigator.clipboard.writeText(value);
 }
@@ -101,12 +109,15 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
   const [bindResult, setBindResult] = useState<BindResult | null>(null);
   const [bindError, setBindError] = useState("");
   const [bindLoading, setBindLoading] = useState(false);
+  const [storeRefLoading, setStoreRefLoading] = useState(false);
   const [encryptToken, setEncryptToken] = useState(true);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const [vaultAccount, setVaultAccount] = useState("0x6d0656f6dd91469db1c90cc1e574380613f43738");
   const [claimType, setClaimType] = useState("Web3Auth_PrimaryIdentity");
   const [claimValue, setClaimValue] = useState("linked_social_root");
   const [currentOrigin, setCurrentOrigin] = useState("");
+  const [secretRefResult, setSecretRefResult] = useState<SecretRefResult | null>(null);
+  const [secretRefError, setSecretRefError] = useState("");
 
   const jwtPayload = useMemo(() => decodeJwtPayload(identityToken), [identityToken]);
   const busy = connectLoading || disconnectLoading || tokenLoading || bindLoading;
@@ -215,6 +226,66 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
     }
   }
 
+  async function handleCreateSecretRef() {
+    setStoreRefLoading(true);
+    setSecretRefError("");
+    try {
+      let nextToken = identityToken;
+      if (!nextToken) {
+        nextToken = (await getIdentityToken()) || "";
+        setIdentityToken(nextToken);
+      }
+      if (!nextToken) throw new Error("No Web3Auth id_token available");
+
+      const keyResponse = await fetch("/api/oracle/public-key");
+      const keyBody = await keyResponse.json().catch(() => ({}));
+      if (!keyResponse.ok || !keyBody?.public_key) {
+        throw new Error(keyBody?.error || "Oracle public key unavailable");
+      }
+
+      const ciphertext = await encryptJsonWithOraclePublicKey(keyBody.public_key, JSON.stringify({
+        id_token: nextToken,
+      }));
+
+      const storeResponse = await fetch("/api/confidential/store", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ciphertext,
+          target_chain: "neo_n3",
+          metadata: {
+            source: "web3auth-live-studio",
+            aggregateVerifier: jwtPayload?.aggregateVerifier || null,
+          },
+        }),
+      });
+      const storeBody = await storeResponse.json().catch(() => ({}));
+      if (!storeResponse.ok) {
+        throw new Error(storeBody?.error || "Failed to store encrypted token");
+      }
+      setSecretRefResult(storeBody);
+    } catch (error) {
+      setSecretRefError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setStoreRefLoading(false);
+    }
+  }
+
+  const oracleRefPayload = useMemo(() => {
+    if (!secretRefResult?.secret_ref) return "";
+    return JSON.stringify({
+      vault_account: vaultAccount.trim(),
+      provider: "web3auth",
+      claim_type: claimType.trim(),
+      claim_value: claimValue.trim(),
+      encrypted_params_ref: secretRefResult.secret_ref,
+      metadata: {
+        source: "web3auth-live-studio",
+        aggregateVerifier: jwtPayload?.aggregateVerifier || null,
+      },
+    }, null, 2);
+  }, [claimType, claimValue, jwtPayload?.aggregateVerifier, secretRefResult?.secret_ref, vaultAccount]);
+
   return (
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
@@ -227,7 +298,7 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
       <h1>NeoDID Web3Auth Live</h1>
       <p className="lead" style={{ fontSize: "1.05rem", color: "var(--text-primary)", marginBottom: "2rem", lineHeight: 1.6 }}>
         Sign in with Web3Auth, fetch a real <code>id_token</code>, optionally seal it locally with Morpheus X25519 encryption, then submit a live
-        <code>neodid_bind</code> request directly to the production NeoDID TEE.
+        <code>neodid_bind</code> request directly to the production NeoDID TEE or generate a short <code>encrypted_params_ref</code> for the on-chain Oracle callback flow.
       </p>
 
       <div className="card-industrial" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
@@ -443,6 +514,52 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
               </button>
             </div>
           </div>
+        ) : null}
+      </div>
+
+      <div className="card-industrial" style={{ padding: "1.5rem", marginBottom: "1.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "1rem" }}>
+          <Lock size={16} color="var(--neo-green)" />
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>4. Oracle Short Ref</h3>
+        </div>
+
+        <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, marginTop: 0 }}>
+          Large Web3Auth JWTs are too big to place directly into a Neo N3 Oracle request event. Use this step to store the sealed ciphertext in Supabase and
+          carry only <code>encrypted_params_ref</code> on-chain. The worker resolves the ciphertext by reference, decrypts it inside the TEE, verifies the JWT,
+          and returns the normal callback envelope.
+        </p>
+
+        <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+          <button className="btn-ata" onClick={() => void handleCreateSecretRef()} disabled={!isConnected || !identityToken || storeRefLoading}>
+            <Lock size={14} /> {storeRefLoading ? "Storing..." : "Create secret_ref"}
+          </button>
+          {secretRefResult?.secret_ref ? (
+            <button className="btn-secondary" onClick={() => copyWithToast("secret-ref", secretRefResult.secret_ref || "")}>
+              <Copy size={14} /> {copiedItem === "secret-ref" ? "Copied" : "Copy secret_ref"}
+            </button>
+          ) : null}
+          {oracleRefPayload ? (
+            <button className="btn-secondary" onClick={() => copyWithToast("oracle-ref-payload", oracleRefPayload)}>
+              <Copy size={14} /> {copiedItem === "oracle-ref-payload" ? "Copied" : "Copy Oracle payload"}
+            </button>
+          ) : null}
+        </div>
+
+        {secretRefError ? (
+          <div style={{ marginBottom: "1rem", color: "#ff8f8f", lineHeight: 1.6 }}>{secretRefError}</div>
+        ) : null}
+
+        {secretRefResult?.secret_ref ? (
+          <>
+            <div style={{ color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: "1rem" }}>
+              Secret ref: <code>{secretRefResult.secret_ref}</code><br />
+              Target chain: <code>{secretRefResult.target_chain || "neo_n3"}</code><br />
+              Encryption: <code>{secretRefResult.encryption_algorithm || "X25519-HKDF-SHA256-AES-256-GCM"}</code>
+            </div>
+            <pre className="code-editor" style={{ minHeight: "220px", marginBottom: 0 }}>
+{oracleRefPayload}
+            </pre>
+          </>
         ) : null}
       </div>
     </div>
