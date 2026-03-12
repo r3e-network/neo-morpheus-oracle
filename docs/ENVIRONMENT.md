@@ -150,6 +150,10 @@ If one of these is wrong, the system usually stops working.
   English: Browser-exposed Web3Auth client id for the Next.js app. The worker also accepts it as a fallback if `WEB3AUTH_CLIENT_ID` is not set.
   中文：Next.js 前端可见的 Web3Auth client id。如果没有设置 `WEB3AUTH_CLIENT_ID`，worker 也会把它作为回退值使用。
 
+- `NEXT_PUBLIC_WEB3AUTH_NETWORK`
+  English: Browser-side Web3Auth network selection for the live login page. Current production default is `sapphire_mainnet`.
+  中文：前端 Web3Auth 登录页使用的网络选择。当前生产默认值是 `sapphire_mainnet`。
+
 - `WEB3AUTH_JWKS_URL`
   English: JWKS endpoint used by the TEE worker to verify Web3Auth JWT signatures. Default is `https://api-auth.web3auth.io/.well-known/jwks.json`.
   中文：TEE worker 用于校验 Web3Auth JWT 签名的 JWKS 地址。默认值是 `https://api-auth.web3auth.io/.well-known/jwks.json`。
