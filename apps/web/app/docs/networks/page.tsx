@@ -85,6 +85,32 @@ export default function DocsNetworks() {
                 <span style={{ fontSize: '0.75rem' }}>Used in live privacy validation report</span>
               </td>
             </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-dim)' }}>
+              <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>AbstractAccount</td>
+              <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {NETWORKS.neo_n3.aa} {copyBtn(NETWORKS.neo_n3.aa)}
+                </div>
+              </td>
+              <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {NETWORKS.neo_n3.domains.aa} {copyBtn(NETWORKS.neo_n3.domains.aa)}
+                </div>
+              </td>
+            </tr>
+            <tr style={{ borderBottom: '1px solid var(--border-dim)' }}>
+              <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>NeoDID Verifier</td>
+              <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {NETWORKS.neo_n3.neodid} {copyBtn(NETWORKS.neo_n3.neodid)}
+                </div>
+              </td>
+              <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {NETWORKS.neo_n3.domains.neodid} {copyBtn(NETWORKS.neo_n3.domains.neodid)}
+                </div>
+              </td>
+            </tr>
             <tr>
               <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>MorpheusDatafeed</td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
