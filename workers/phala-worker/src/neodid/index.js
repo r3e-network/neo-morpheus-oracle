@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { wallet as neoWallet } from "@cityofzion/neon-js";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { json, sha256Hex, trimString } from "../platform/core.js";
+import { env, json, sha256Hex, trimString } from "../platform/core.js";
 import { resolveConfidentialPayload } from "../oracle/crypto.js";
 import { buildVerificationEnvelope, buildSignedResultEnvelope } from "../chain/index.js";
 import { maybeBuildDstackAttestation, deriveKeyBytes, deriveNeoN3PrivateKeyHex, getDstackInfo, shouldUseDerivedKeys } from "../platform/dstack.js";
@@ -57,7 +57,7 @@ function getWeb3AuthJwks(url) {
 function resolveWeb3AuthJwksUrl(payload = {}) {
   return trimString(
     payload.web3auth_jwks_url
-    || process.env.WEB3AUTH_JWKS_URL
+    || env("WEB3AUTH_JWKS_URL")
     || "https://api-auth.web3auth.io/.well-known/jwks.json",
   );
 }
@@ -65,9 +65,7 @@ function resolveWeb3AuthJwksUrl(payload = {}) {
 function resolveWeb3AuthClientId(payload = {}) {
   return trimString(
     payload.web3auth_client_id
-    || process.env.WEB3AUTH_CLIENT_ID
-    || process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID
-    || process.env.VITE_WEB3AUTH_CLIENT_ID
+    || env("WEB3AUTH_CLIENT_ID", "NEXT_PUBLIC_WEB3AUTH_CLIENT_ID", "VITE_WEB3AUTH_CLIENT_ID")
     || "",
   );
 }
