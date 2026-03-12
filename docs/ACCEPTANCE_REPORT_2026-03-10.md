@@ -285,6 +285,11 @@ Validated again against Neo N3 mainnet after the live runtime hot-patch:
 
 The automatic PriceFeed scan-and-sync loop was revalidated directly on the live relayer and worker.
 
+Historical note:
+
+- This section records the production configuration on `2026-03-10`.
+- Current production code later moved the scan cadence to `60000 ms` while keeping the same `0.1%` chain-relative batching policy.
+
 Current configured policy remained:
 
 - `MORPHEUS_FEED_CHANGE_THRESHOLD_BPS=10`

@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Shield, Cpu, Zap, Info, Terminal, BookOpen, Code2, ClipboardList, Activity } from "lucide-react";
+import { ArrowRight, Shield, Cpu, Zap, Terminal, ClipboardList, Activity, Fingerprint } from "lucide-react";
 
 export default function DocsIntroduction() {
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1.5rem' }}>
         <div className="status-dot"></div>
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--neo-green)', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>DOCUMENTATION v1.0.2</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--neo-green)', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>DOCUMENTATION v1.0.3</span>
       </div>
       
       <h1>Infrastructure for Machine-Verified Truth</h1>
@@ -91,6 +91,13 @@ export default function DocsIntroduction() {
             <Activity size={18} color="var(--neo-green)" />
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Compare configured feed pairs, current on-chain values, live source values, and deprecated legacy keys in one view.</p>
+        </Link>
+        <Link href="/docs/neodid" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>NEODID & DID</span>
+            <Fingerprint size={18} color="var(--neo-green)" />
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Review the Oracle-only NeoDID flow, Web3Auth-in-TEE validation path, and the new W3C DID resolver surface.</p>
         </Link>
       </div>
     </div>

@@ -8,7 +8,7 @@ export default function DocsVerifier() {
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
         <CheckCircle size={14} color="var(--neo-green)" />
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>SECURITY SPEC v1.0.2</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>SECURITY SPEC v1.0.3</span>
       </div>
       <h1>Attestation & Security</h1>
 

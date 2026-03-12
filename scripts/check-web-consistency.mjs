@@ -55,6 +55,17 @@ const [
   quickstartDocsText,
   apiReferenceDocsText,
   datafeedsDocsText,
+  neodidDocsText,
+  docsLayoutText,
+  neodidDidSpecText,
+  docsIndexText,
+  architectureDocsText,
+  networksDocsText,
+  computeDocsText,
+  verifierDocsText,
+  userGuideText,
+  deploymentDocText,
+  securityAuditText,
 ] = await Promise.all([
   read("apps/web/lib/docs-data.ts"),
   read("workers/phala-worker/src/compute/index.js"),
@@ -66,6 +77,17 @@ const [
   read("apps/web/app/docs/quickstart/page.tsx"),
   read("apps/web/app/docs/api-reference/page.tsx"),
   read("apps/web/app/docs/datafeeds/page.tsx"),
+  read("apps/web/app/docs/neodid/page.tsx"),
+  read("apps/web/app/docs/layout.tsx"),
+  read("docs/NEODID_DID_METHOD.md"),
+  read("apps/web/app/docs/page.tsx"),
+  read("apps/web/app/docs/architecture/page.tsx"),
+  read("apps/web/app/docs/networks/page.tsx"),
+  read("apps/web/app/docs/compute/page.tsx"),
+  read("apps/web/app/docs/verifier/page.tsx"),
+  read("docs/USER_GUIDE.md"),
+  read("docs/DEPLOYMENT.md"),
+  read("docs/SECURITY_AUDIT.md"),
 ]);
 
 const frontendBuiltinNames = new Set(extractBuiltinNames(docsDataText));
@@ -92,8 +114,10 @@ const mainnetConfig = JSON.parse(mainnetConfigText);
 const requiredOnchainValues = [
   mainnetConfig.neo_n3.contracts.morpheus_oracle,
   mainnetConfig.neo_n3.contracts.morpheus_datafeed,
+  mainnetConfig.neo_n3.contracts.morpheus_neodid,
   mainnetConfig.neo_n3.domains.morpheus_oracle,
   mainnetConfig.neo_n3.domains.morpheus_datafeed,
+  mainnetConfig.neo_n3.domains.morpheus_neodid,
 ];
 
 for (const value of requiredOnchainValues) {
@@ -117,11 +141,77 @@ const combinedWebDocsText = [
   quickstartDocsText,
   apiReferenceDocsText,
   datafeedsDocsText,
+  neodidDocsText,
 ].join("\n");
 
 for (const fragment of forbiddenFragments) {
   assert(!combinedWebDocsText.includes(fragment), `web docs still contain stale fragment: ${fragment}`);
 }
+
+const requiredNeoDidFragments = [
+  "did:morpheus:neo_n3:service:neodid",
+  "/api/neodid/resolve",
+  "/launchpad/neodid-resolver",
+  "NeoDIDRegistry",
+];
+
+for (const fragment of requiredNeoDidFragments) {
+  assert(neodidDocsText.includes(fragment), `apps/web/app/docs/neodid/page.tsx is missing required NeoDID fragment: ${fragment}`);
+}
+
+assert(
+  docsLayoutText.includes("/docs/r/NEODID_DID_METHOD"),
+  "apps/web/app/docs/layout.tsx must link the NeoDID DID method spec",
+);
+assert(
+  neodidDidSpecText.includes("did:morpheus:neo_n3:service:neodid"),
+  "docs/NEODID_DID_METHOD.md must include the canonical service DID",
+);
+assert(
+  neodidDidSpecText.includes("GET /api/neodid/resolve?did=<did>"),
+  "docs/NEODID_DID_METHOD.md must document the resolver endpoint",
+);
+assert(
+  userGuideText.includes("## 5. NeoDID Usage"),
+  "docs/USER_GUIDE.md must include the NeoDID usage section",
+);
+assert(
+  userGuideText.includes("/launchpad/neodid-resolver"),
+  "docs/USER_GUIDE.md must reference the NeoDID resolver entrypoint",
+);
+assert(
+  deploymentDocText.includes("NEXT_PUBLIC_WEB3AUTH_CLIENT_ID") && deploymentDocText.includes("WEB3AUTH_CLIENT_SECRET"),
+  "docs/DEPLOYMENT.md must document the required Web3Auth deployment variables",
+);
+assert(
+  deploymentDocText.includes("NeoDIDRegistry") && deploymentDocText.includes("neodid.morpheus.neo"),
+  "docs/DEPLOYMENT.md must document the NeoDID deployment anchors",
+);
+assert(
+  securityAuditText.includes("public DID resolver") || securityAuditText.includes("DID resolver should remain metadata-only"),
+  "docs/SECURITY_AUDIT.md must capture the NeoDID resolver privacy boundary",
+);
+
+const versionedDocsText = [
+  docsIndexText,
+  architectureDocsText,
+  networksDocsText,
+  oracleDocsText,
+  computeDocsText,
+  datafeedsDocsText,
+  verifierDocsText,
+  neodidDocsText,
+  docsLayoutText,
+].join("\n");
+
+assert(
+  !versionedDocsText.includes("v1.0.2"),
+  "core docs pages still contain stale v1.0.2 version markers",
+);
+assert(
+  versionedDocsText.includes("v1.0.3") || versionedDocsText.includes("REVISION 1.0.3"),
+  "core docs pages should expose v1.0.3 version markers",
+);
 
 console.log(JSON.stringify({
   ok: true,
@@ -129,4 +219,7 @@ console.log(JSON.stringify({
   feed_pairs_checked: frontendFeedSymbols.length,
   mainnet_values_checked: requiredOnchainValues.length,
   stale_fragments_checked: forbiddenFragments.length,
+  neodid_fragments_checked: requiredNeoDidFragments.length,
+  version_markers_checked: 2,
+  extended_doc_checks: 5,
 }, null, 2));

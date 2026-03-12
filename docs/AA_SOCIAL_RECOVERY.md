@@ -22,6 +22,7 @@ Why:
 - Recovery logic remains isolated from the main wallet execution engine.
 - NeoDID master nullifiers and action nullifiers map naturally to recovery factors and one-time recovery approvals.
 - Oracle, NeoDID, and AA can all share one callback-oriented request model.
+- AA integrations may publicly namespace a recovery identity as `did:morpheus:neo_n3:aa:<account-id>` while still requiring a private NeoDID recovery ticket for actual authorization.
 
 ## Component Roles / 组件职责
 

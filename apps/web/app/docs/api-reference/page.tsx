@@ -79,6 +79,30 @@ Contract.Call(
 
       <h2>3. Enclave SDK (Javascript)</h2>
       <p>
+        NeoDID now also exposes a W3C DID resolution route for public service discovery and subject namespaces:
+      </p>
+
+      <div style={{ padding: '0', overflow: 'hidden', marginBottom: '2.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
+        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>GET /api/neodid/resolve</span>
+        </div>
+        <div style={{ padding: '1.5rem', background: '#0a0a0a', overflowX: 'auto' }}>
+          <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
+            <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: '#e5e5e5' }}>{`GET /api/neodid/resolve?did=did:morpheus:neo_n3:service:neodid
+Accept: application/ld+json;profile="https://w3id.org/did-resolution"
+
+GET /api/neodid/resolve?did=did:morpheus:neo_n3:vault:6d0656f6dd91469db1c90cc1e574380613f43738&format=document
+Accept: application/did+ld+json`}</code>
+          </pre>
+        </div>
+      </div>
+
+      <p>
+        The resolver exposes the public service DID document, TEE verifier JWK, registry anchors, and subject namespaces without leaking provider UIDs or nullifiers.
+      </p>
+
+      <h2>4. Enclave SDK (Javascript)</h2>
+      <p>
         When using built-in compute, Morpheus exposes a fixed catalog of functions. Custom JS compute receives <code>input</code> and <code>helpers</code>; Oracle custom JS receives <code>data</code>, <code>context</code>, and <code>helpers</code>.
       </p>
 

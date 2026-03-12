@@ -16,6 +16,7 @@ export default function NeoDidWeb3AuthLivePage() {
         </Link>
         <div className="nav-links">
           <Link href="/docs/neodid" className="nav-link">NeoDID Docs</Link>
+          <Link href="/launchpad/neodid-resolver" className="nav-link">Resolver</Link>
           <Link href="/verifier" className="nav-link">Verifier</Link>
         </div>
       </nav>

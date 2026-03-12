@@ -72,10 +72,11 @@ const journeys = [
     id: "neodid",
     title: "NeoDID",
     icon: Fingerprint,
-    summary: "Bind Web2 or exchange identities, issue unlinkable action tickets, and mint AA recovery tickets through the same Morpheus callback pipeline.",
+    summary: "Bind Web2 or exchange identities, resolve a W3C DID document, issue unlinkable action tickets, and mint AA recovery tickets through the same Morpheus callback pipeline.",
     requestType: "neodid_bind / neodid_action_ticket / neodid_recovery_ticket",
     steps: [
-      { title: "Read the model", desc: "Understand master nullifiers, action nullifiers, and the independent NeoDID registry contract.", href: "/docs/neodid", label: "NeoDID Docs" },
+      { title: "Read the model", desc: "Understand master nullifiers, action nullifiers, the W3C DID method, and the independent NeoDID registry contract.", href: "/docs/neodid", label: "NeoDID Docs" },
+      { title: "Inspect the DID", desc: "Resolve the public DID document for the NeoDID service, a vault namespace, or an AA recovery namespace.", href: "/launchpad/neodid-resolver", label: "Open Resolver" },
       { title: "Choose the flow", desc: "Pick binding, action ticket, or AA social recovery ticket based on your application.", href: "/docs/use-cases", label: "Use Cases" },
       { title: "Login and fetch JWT", desc: "Open the live Web3Auth studio, sign in, fetch a real id_token, and optionally seal it locally before submission.", href: "/launchpad/neodid-live", label: "Web3Auth Live" },
       { title: "Submit on-chain", desc: "Send neodid_bind, neodid_action_ticket, or neodid_recovery_ticket through MorpheusOracle.request and wait for callback fulfillment.", href: "/docs/neodid", label: "Oracle Flow" },

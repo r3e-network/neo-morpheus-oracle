@@ -27,7 +27,7 @@ export default function DocsNetworks() {
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
         <Globe size={14} color="var(--neo-green)" />
-        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>REGISTRY v1.0.2</span>
+        <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>REGISTRY v1.0.3</span>
       </div>
       <h1>Networks & Contracts</h1>
 
@@ -99,7 +99,7 @@ export default function DocsNetworks() {
               </td>
             </tr>
             <tr style={{ borderBottom: '1px solid var(--border-dim)' }}>
-              <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>NeoDID Verifier</td>
+              <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>NeoDIDRegistry</td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {NETWORKS.neo_n3.neodid} {copyBtn(NETWORKS.neo_n3.neodid)}
@@ -130,7 +130,7 @@ export default function DocsNetworks() {
 
       <div style={{ padding: '1.5rem', marginTop: '-2rem', marginBottom: '4rem', borderLeft: '4px solid var(--accent-blue)', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderRadius: '0 4px 4px 0' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes. The live request fee is <code>0.01 GAS</code> on Neo N3, and the active confidential payload algorithm is <code>X25519-HKDF-SHA256-AES-256-GCM</code>.
+          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes. The live request fee is <code>0.01 GAS</code> on Neo N3, the active confidential payload algorithm is <code>X25519-HKDF-SHA256-AES-256-GCM</code>, and the public NeoDID service DID is <code>did:morpheus:neo_n3:service:neodid</code>.
         </p>
       </div>
 

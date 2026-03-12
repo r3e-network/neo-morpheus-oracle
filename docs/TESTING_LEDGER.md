@@ -239,20 +239,20 @@ Source:
 Configured policy:
 
 - `MORPHEUS_FEED_CHANGE_THRESHOLD_BPS = 10`
-- `MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS = 15000`
-- `MORPHEUS_FEED_SYNC_INTERVAL_MS = 15000`
+- `MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS = 60000`
+- `MORPHEUS_FEED_SYNC_INTERVAL_MS = 60000`
 
 Accepted observations:
 
-- All 14 configured pairs were scanned every ~15 seconds.
+- Current production scans the configured catalog once per minute.
 - When no pair exceeded `0.1%` versus the current on-chain stored value, no chain transaction was sent.
 - When multiple pairs exceeded threshold, they were grouped into one batch `updateFeeds` transaction.
-- Threshold comparison is now evaluated against the quantized on-chain integer-cents price, not raw unbounded source decimals.
-- Sub-cent movements that do not change the stored integer-cents value do not emit redundant feed update transactions.
+- Threshold comparison is now evaluated against the quantized on-chain `1 USD = 1,000,000` integer value, not raw unbounded source decimals.
+- Very small source moves that remain below the `0.1%` chain-relative threshold do not emit redundant feed update transactions, even when the quantized integer changes.
 
 Follow-up verification on 2026-03-11:
 
-- Added regression coverage for a `1.00 -> 1.009` quote move, confirming that a raw `0.9%` move still does not publish if the stored chain value remains `100` cents.
+- Added regression coverage for a `1.000000 -> 1.000900` quote move, confirming that a raw `0.09%` move still does not publish under the current `1 USD = 1,000,000` scale.
 - Added application-level attestation verification updates so `report_data[0:32]`, `output_hash`, and `attestation_hash` are checked consistently in the web verifier and API.
 
 Precision migration verification on 2026-03-11:

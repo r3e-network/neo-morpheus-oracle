@@ -23,6 +23,7 @@
   - privacy oracle
   - privacy compute
   - datafeed
+  - neodid / did resolver metadata
   - vrf
   - signing / relay
         |
@@ -58,6 +59,12 @@
 - Neo X message signing and tx relay
 - chain-aware output envelopes for callback use
 
+### 5. NeoDID
+- independent `NeoDIDRegistry` contract on Neo N3
+- Oracle-routed request types: `neodid_bind`, `neodid_action_ticket`, `neodid_recovery_ticket`
+- Web3Auth JWT verification happens inside the TEE
+- public W3C DID resolver exposes service topology and verifier key without disclosing private claims
+
 ## Deployment Model
 
 - `apps/web` -> Vercel
@@ -71,6 +78,7 @@
 - dispatcher never decrypts secrets
 - Phala returns derived results only
 - privacy oracle and privacy compute share one trusted runtime
+- NeoDID public DID resolution stays separate from private bind / ticket issuance
 - Neo N3 + Neo X are both first-class targets
 
 

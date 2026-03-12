@@ -1,16 +1,18 @@
 # User Guide
 
-This guide explains how to use the three main Morpheus capabilities:
+This guide explains how to use the four main Morpheus capabilities:
 
 - **Privacy Compute**
 - **Privacy Oracle**
 - **PriceFeed / DataFeed**
+- **NeoDID**
 
-It also explains how to inspect supported built-in providers and feed pairs.
+It also explains how to inspect supported built-in providers and feed pairs, and how to use the public NeoDID DID resolver.
 
 Important production rule:
 
 - End users should use Oracle and Compute through the on-chain Morpheus Oracle contracts plus callback fulfillment.
+- End users should use NeoDID bind / action / recovery flows through the on-chain Morpheus Oracle contracts plus callback fulfillment.
 - The direct HTTP routes in this guide are for local development, operator workflows, and payload debugging.
 - `datafeed` sync is operator-only. User contracts read synchronized on-chain feed records directly.
 - Each request currently costs `0.01 GAS`-equivalent.
@@ -51,6 +53,17 @@ Important properties:
 - example storage pairs:
   - `TWELVEDATA:NEO-USD`
   - `BINANCE-SPOT:NEO-USD`
+
+### NeoDID
+Use NeoDID when you need privacy-preserving identity binding, unlinkable action authorization, or AA social recovery.
+
+Important properties:
+
+- production identity issuance still enters through the Oracle request + callback path
+- the public DID resolver exposes service topology and verifier material, not private claims
+- `provider_uid`, JWT claims, master nullifiers, and action nullifiers remain private
+- Web3Auth JWT verification happens inside the TEE for `provider = "web3auth"`
+- current public service DID is `did:morpheus:neo_n3:service:neodid`
 
 ## 2. Privacy Compute Usage
 
@@ -444,7 +457,136 @@ This means contracts can choose:
 - `getAllPairs()`
 - `getAllFeedRecords()`
 
-## 5. Mainnet Update Policy for Neo N3
+## 5. NeoDID Usage
+
+These direct `/neodid/*` HTTP examples are development/operator paths. In production, the same payloads should be
+submitted on-chain through `MorpheusOracle.request(...)` with:
+
+- `neodid_bind`
+- `neodid_action_ticket`
+- `neodid_recovery_ticket`
+
+### Resolve the public DID document
+
+Resolve the service DID:
+
+```bash
+curl "http://localhost:3000/api/neodid/resolve?did=did:morpheus:neo_n3:service:neodid"
+```
+
+Resolve a document-only subject DID:
+
+```bash
+curl "http://localhost:3000/api/neodid/resolve?did=did:morpheus:neo_n3:aa:aa-social-recovery-demo&format=document"
+```
+
+The public DID layer is for:
+
+- service discovery
+- verifier-key publication
+- registry / Oracle / AA recovery endpoint hints
+
+It is not for:
+
+- provider UID disclosure
+- JWT disclosure
+- nullifier disclosure
+- encrypted payload disclosure
+
+### Inspect runtime and provider catalog
+
+```bash
+curl http://localhost:3000/api/neodid/runtime
+curl http://localhost:3000/api/neodid/providers
+```
+
+The runtime response includes:
+
+- `app_id`
+- `compose_hash`
+- `verification_public_key`
+- `verifier_curve`
+- `web3auth.jwks_url`
+- `web3auth.audience_configured`
+
+### Direct bind example
+
+Standard provider:
+
+```bash
+curl http://localhost:3000/api/neodid/bind \
+  -H 'content-type: application/json' \
+  -d '{
+    "vault_account":"0x6d0656f6dd91469db1c90cc1e574380613f43738",
+    "provider":"github",
+    "provider_uid":"github_uid_12345",
+    "claim_type":"Github_VerifiedUser",
+    "claim_value":"public_profile"
+  }'
+```
+
+Web3Auth provider:
+
+```bash
+curl http://localhost:3000/api/neodid/bind \
+  -H 'content-type: application/json' \
+  -d '{
+    "vault_account":"0x6d0656f6dd91469db1c90cc1e574380613f43738",
+    "provider":"web3auth",
+    "id_token":"<web3auth jwt>",
+    "claim_type":"Web3Auth_PrimaryIdentity",
+    "claim_value":"linked_social_root"
+  }'
+```
+
+### Large JWT production pattern
+
+For large Web3Auth JWT payloads:
+
+1. fetch the Oracle public key
+2. seal the JSON patch locally with `X25519-HKDF-SHA256-AES-256-GCM`
+3. store the ciphertext through `POST /api/confidential/store`
+4. submit only `encrypted_params_ref` on-chain inside the Oracle payload
+
+### Action ticket example
+
+```bash
+curl http://localhost:3000/api/neodid/action-ticket \
+  -H 'content-type: application/json' \
+  -d '{
+    "provider":"binance",
+    "provider_uid":"binance_uid_12345",
+    "disposable_account":"0x89b05cac00804648c666b47ecb1c57bc185821b7",
+    "action_id":"Airdrop_Season_1"
+  }'
+```
+
+### Recovery ticket example
+
+```bash
+curl http://localhost:3000/api/neodid/recovery-ticket \
+  -H 'content-type: application/json' \
+  -d '{
+    "provider":"web3auth",
+    "network":"neo_n3",
+    "aa_contract":"0x0466fa7e8fe548480d7978d2652625d4a22589a6",
+    "verifier_contract":"0x1111111111111111111111111111111111111111",
+    "account_id":"aa-social-recovery-demo",
+    "new_owner":"0x89b05cac00804648c666b47ecb1c57bc185821b7",
+    "recovery_nonce":"7",
+    "expires_at":"1735689600",
+    "encrypted_params":"<sealed payload>"
+  }'
+```
+
+### Browser entrypoints
+
+- live Web3Auth flow: `/launchpad/neodid-live`
+- interactive DID resolver: `/launchpad/neodid-resolver`
+- reference docs: `/docs/neodid`
+- formal DID method spec: `docs/NEODID_DID_METHOD.md`
+
+## 6. Mainnet Update Policy for Neo N3
 
 For **Neo N3 mainnet**, automatic feed sync obeys two rules:
 
@@ -463,7 +605,7 @@ These rules apply per stored provider pair, for example:
 
 So one provider can update while another provider is skipped.
 
-## 6. Built-in Provider Support
+## 7. Built-in Provider Support
 
 Current built-in providers:
 
@@ -484,7 +626,7 @@ curl "$PHALA_API_URL/providers" \
   -H "Authorization: Bearer $PHALA_API_TOKEN"
 ```
 
-## 7. How to Add New Pairs Later
+## 8. How to Add New Pairs Later
 
 There are two levels.
 
@@ -521,10 +663,12 @@ Example:
 
 This is the correct place to add pairs whose provider symbols differ from the normalized `PAIR-USD` format.
 
-## 8. Practical Recommendations
+## 9. Practical Recommendations
 
 - use `privacy oracle` when you need fetch + optional secret + optional compute
 - use `privacy compute` when you do not need an external fetch
 - use `pricefeed` for standardized public market data storage
+- use `neodid` for privacy-preserving identity binding, action authorization, and AA recovery
 - for contracts, prefer provider-scoped storage pairs like `TWELVEDATA:NEO-USD`
 - if you need all currently stored feed pairs, use `GetAllPairs()` / `getAllPairs()`
+- use the public DID resolver only for service discovery and verifier material, not for private identity claims
