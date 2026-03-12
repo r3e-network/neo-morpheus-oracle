@@ -12,7 +12,7 @@ import {
   relayNeoN3Invocation,
   relayNeoXTransaction,
 } from '../chain/index.js';
-import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from './providers.js';
+import { buildProviderRequest, fetchProviderJSON, inferProviderIdFromPairSymbol, resolveProviderPayload } from './providers.js';
 import {
   applyFeedProviderDefaults,
   getDefaultFeedSymbols,
@@ -25,7 +25,6 @@ import {
   getFeedUnitLabel,
   getSourceSetIdForProvider,
 } from './feed-registry.js';
-
 const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 60_000;
@@ -43,6 +42,9 @@ export function __resetFeedStateForTests() {
 export function normalizePairSymbol(rawSymbol) {
   const raw = trimString(rawSymbol).toUpperCase();
   if (!raw) return 'NEO-USD';
+  if (raw.includes(':')) {
+    return normalizeFeedPairSymbol(raw);
+  }
   if (/^[A-Z0-9]+-[A-Z0-9]+$/.test(raw)) {
     const [base, quote] = raw.split('-');
     return normalizeFeedPairSymbol(`${base}-${quote === 'USDT' ? 'USD' : quote}`);
@@ -159,6 +161,9 @@ function parseProviderList(value, fallback = []) {
 }
 
 function resolveRequestedProviders(symbol, options = {}) {
+  const inferredProvider = trimString(inferProviderIdFromPairSymbol(symbol)).toLowerCase();
+  if (inferredProvider) return [inferredProvider];
+
   const explicitProviders = parseProviderList(options.providers || options.provider_list);
   if (explicitProviders.length > 0) return explicitProviders;
 
@@ -401,12 +406,13 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     throw new Error(response.provider_error?.message || `${provider} fetch failed`);
   }
   const pair = providerRequest.pair || normalizePairSymbol(symbol);
+  const storagePair = getFeedStoragePair(provider, pair);
   const rawPrice = extractQuotePrice(response);
   if (rawPrice === null || rawPrice === undefined || rawPrice === '') throw new Error(`${provider} response missing price`);
-  const displaySymbol = getFeedDisplaySymbol(pair);
-  const unitLabel = getFeedUnitLabel(pair) || null;
-  const priceMultiplier = getFeedPriceMultiplier(pair);
-  const priceTransform = getFeedPriceTransform(pair);
+  const displaySymbol = getFeedDisplaySymbol(storagePair);
+  const unitLabel = getFeedUnitLabel(storagePair) || null;
+  const priceMultiplier = getFeedPriceMultiplier(storagePair);
+  const priceTransform = getFeedPriceTransform(storagePair);
   const price = transformDecimalString(String(rawPrice), {
     transform: priceTransform,
     multiplier: priceMultiplier,
@@ -414,7 +420,8 @@ async function resolveQuoteForProvider(symbol, options, provider) {
 
   const quote = {
     feed_id: `${provider}:${pair}`,
-    pair,
+    pair: storagePair,
+    provider_pair: pair,
     display_symbol: displaySymbol,
     unit_label: unitLabel,
     provider,
@@ -448,6 +455,7 @@ export async function fetchPriceQuote(symbol, options = {}) {
 export async function fetchPriceQuotes(symbol, options = {}) {
   const providers = resolveRequestedProviders(symbol, options);
   if (providers.length === 0) throw new Error(`no providers configured for ${symbol}`);
+  const normalizedPair = normalizePairSymbol(symbol);
 
   const quotes = [];
   const errors = [];
@@ -460,7 +468,7 @@ export async function fetchPriceQuotes(symbol, options = {}) {
   }
 
   return {
-    pair: normalizePairSymbol(symbol),
+    pair: providers.length === 1 ? getFeedStoragePair(providers[0], normalizedPair) : normalizedPair,
     providers_requested: providers,
     quotes,
     errors,
@@ -470,7 +478,8 @@ export async function fetchPriceQuotes(symbol, options = {}) {
 export async function handleFeedsPrice(symbol, options = {}) {
   try {
     const explicitProvider = trimString(options.provider || options.source || '').toLowerCase();
-    if (explicitProvider && explicitProvider !== 'all') {
+    const inferredProvider = trimString(inferProviderIdFromPairSymbol(symbol)).toLowerCase();
+    if ((explicitProvider && explicitProvider !== 'all') || inferredProvider) {
       return json(200, await fetchPriceQuote(symbol, options));
     }
     return json(200, await fetchPriceQuotes(symbol, options));

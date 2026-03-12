@@ -30,6 +30,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/templates", label: "Starter Templates", icon: ClipboardList },
         { href: "/docs/studio", label: "Starter Studio", icon: Boxes },
         { href: "/docs/neodid", label: "NeoDID", icon: Fingerprint },
+        { href: "/docs/r/AA_SOCIAL_RECOVERY", label: "AA Social Recovery", icon: Shield },
         { href: "/docs/oracle", label: "Privacy Oracle", icon: Shield },
         { href: "/docs/compute", label: "Enclave Compute", icon: Cpu },
         { href: "/docs/datafeeds", label: "Data Matrix", icon: LineChart },
@@ -56,6 +57,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/r/ENVIRONMENT", label: "Environment Setup", icon: Zap },
         { href: "/docs/r/TESTING_LEDGER", label: "Testing Ledger", icon: ClipboardList },
         { href: "/docs/r/ASYNC_PRIVACY_ORACLE_SPEC", label: "Async Privacy Spec", icon: Shield },
+        { href: "/docs/r/AA_SOCIAL_RECOVERY", label: "AA Social Recovery Spec", icon: Fingerprint },
         { href: "/docs/r/SECURITY_AUDIT", label: "Security Audit", icon: Shield },
       ]
     }

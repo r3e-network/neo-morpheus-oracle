@@ -28,6 +28,7 @@ import {
   handleNeoDidActionTicket,
   handleNeoDidBind,
   handleNeoDidProviders,
+  handleNeoDidRecoveryTicket,
   handleNeoDidRuntime,
 } from "./neodid/index.js";
 
@@ -62,6 +63,7 @@ function handleHealth() {
       "neodid/runtime",
       "neodid/bind",
       "neodid/action-ticket",
+      "neodid/recovery-ticket",
     ],
   });
 }
@@ -93,6 +95,7 @@ export default async function handler(request) {
     if (path.endsWith("/neodid/runtime")) return handleNeoDidRuntime(payload);
     if (path.endsWith("/neodid/bind")) return handleNeoDidBind(payload);
     if (path.endsWith("/neodid/action-ticket")) return handleNeoDidActionTicket(payload);
+    if (path.endsWith("/neodid/recovery-ticket")) return handleNeoDidRecoveryTicket(payload);
 
     if (path.endsWith("/providers")) return handleProvidersList();
 

@@ -2,6 +2,7 @@ import { env, trimString } from '../platform/core.js';
 import { normalizeProviderId } from './providers.js';
 
 const FEED_PAIR_ALIASES = {};
+const KNOWN_FEED_PROVIDER_PREFIXES = ['TWELVEDATA:', 'BINANCE-SPOT:', 'COINBASE-SPOT:'];
 
 export const DEFAULT_FEED_PAIRS = {
   'NEO-USD': {
@@ -213,7 +214,10 @@ function parseRegistryOverride() {
 
 export function normalizeFeedPairSymbol(pair) {
   const normalized = trimString(pair).toUpperCase();
-  return FEED_PAIR_ALIASES[normalized] || normalized;
+  const stripped = KNOWN_FEED_PROVIDER_PREFIXES.find((prefix) => normalized.startsWith(prefix))
+    ? normalized.slice(normalized.indexOf(':') + 1)
+    : normalized;
+  return FEED_PAIR_ALIASES[stripped] || stripped;
 }
 
 export function getFeedPairRegistry() {
@@ -226,7 +230,7 @@ export function getFeedPairConfig(pair) {
 }
 
 export function getFeedDisplaySymbol(pair) {
-  return trimString(getFeedPairConfig(pair)?.display_symbol || '') || normalizeFeedPairSymbol(pair);
+  return trimString(getFeedPairConfig(pair)?.display_symbol || '') || getFeedStoragePair('twelvedata', pair);
 }
 
 export function getFeedUnitLabel(pair) {
@@ -249,7 +253,7 @@ export function getFeedProvidersForPair(pair) {
 }
 
 export function getDefaultFeedSymbols() {
-  return Object.keys(getFeedPairRegistry());
+  return Object.keys(getFeedPairRegistry()).map((pair) => getFeedStoragePair('twelvedata', pair));
 }
 
 export function applyFeedProviderDefaults(pair, providerId, payload = {}) {

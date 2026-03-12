@@ -1,4 +1,11 @@
-export const DEFAULT_FEED_SYMBOLS = [
+export const CANONICAL_FEED_PROVIDER_PREFIX = "TWELVEDATA:";
+export const KNOWN_FEED_PROVIDER_PREFIXES = [
+  "TWELVEDATA:",
+  "BINANCE-SPOT:",
+  "COINBASE-SPOT:",
+] as const;
+
+const DEFAULT_FEED_BASE_SYMBOLS = [
   'NEO-USD',
   'GAS-USD',
   'FLM-USD',
@@ -35,6 +42,10 @@ export const DEFAULT_FEED_SYMBOLS = [
   'CNY-USD',
 ] as const;
 
+export const DEFAULT_FEED_SYMBOLS = DEFAULT_FEED_BASE_SYMBOLS.map(
+  (symbol) => `${CANONICAL_FEED_PROVIDER_PREFIX}${symbol}`,
+);
+
 export type FeedDescriptor = {
   pair: string;
   label: string;
@@ -55,7 +66,7 @@ const FEED_SYMBOL_ALIASES: Record<string, string> = {};
 
 export const FEED_DISPLAY_META: Record<string, { displaySymbol?: string; unitLabel?: string }> = {};
 
-export const FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
+const BARE_FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
   "NEO-USD": { pair: "NEO-USD", label: "Neo Token", category: "Crypto", meaning: "Price of 1 NEO in USD", sourceSymbol: "NEO/USD", unit: "1 NEO" },
   "GAS-USD": { pair: "GAS-USD", label: "Neo GAS Token", category: "Crypto", meaning: "Price of 1 GAS in USD", sourceSymbol: "GAS/USD", unit: "1 GAS" },
   "FLM-USD": { pair: "FLM-USD", label: "Flamingo Token", category: "Crypto", meaning: "Price of 1 FLM in USD", sourceSymbol: "FLM/USD", unit: "1 FLM", note: "With the global 1 USD = 1,000,000 scale, FLM is represented directly without a basket multiplier." },
@@ -92,21 +103,29 @@ export const FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
   "CNY-USD": { pair: "CNY-USD", label: "Chinese Yuan", category: "FX", meaning: "Price of 1 CNY in USD", sourceSymbol: "USD/CNY", unit: "1 CNY", note: "Fetched as USD/CNY, then inverted." },
 };
 
-export const DEPRECATED_FEEDS: Record<string, DeprecatedFeedInfo> = {
-  "1000FLM-USD": {
-    pair: "1000FLM-USD",
-    replacement: "FLM-USD",
-    reason: "Historical basket key kept on-chain from the old integer-cents model. New integrations must use FLM-USD under the global 1e6 USD scale.",
-  },
-  "1000JPY-USD": {
-    pair: "1000JPY-USD",
-    replacement: "JPY-USD",
-    reason: "Historical basket key kept on-chain from the old integer-cents model. New integrations must use JPY-USD under the global 1e6 USD scale.",
-  },
-};
+export function stripFeedProviderPrefix(symbol: string) {
+  const normalized = String(symbol || "").trim().toUpperCase();
+  const prefix = KNOWN_FEED_PROVIDER_PREFIXES.find((entry) => normalized.startsWith(entry));
+  return prefix ? normalized.slice(prefix.length) : normalized;
+}
+
+export function toCanonicalFeedSymbol(symbol: string) {
+  const normalized = stripFeedProviderPrefix(symbol);
+  if (!normalized) return `${CANONICAL_FEED_PROVIDER_PREFIX}NEO-USD`;
+  return `${CANONICAL_FEED_PROVIDER_PREFIX}${normalized}`;
+}
+
+export const FEED_DESCRIPTORS: Record<string, FeedDescriptor> = Object.fromEntries(
+  Object.entries(BARE_FEED_DESCRIPTORS).map(([pair, descriptor]) => {
+    const canonicalPair = toCanonicalFeedSymbol(pair);
+    return [canonicalPair, { ...descriptor, pair: canonicalPair }];
+  }),
+);
+
+export const DEPRECATED_FEEDS: Record<string, DeprecatedFeedInfo> = {};
 
 export function normalizeFeedSymbol(symbol: string) {
-  const normalized = String(symbol || '').trim().toUpperCase();
+  const normalized = toCanonicalFeedSymbol(String(symbol || "").trim().toUpperCase());
   return FEED_SYMBOL_ALIASES[normalized] || normalized;
 }
 
@@ -124,8 +143,7 @@ export function getFeedDescriptor(symbol: string) {
 }
 
 export function getDeprecatedFeedInfo(symbol: string) {
-  const normalized = String(symbol || "").trim().toUpperCase().replace(/^TWELVEDATA:/, "").replace(/^BINANCE-SPOT:/, "");
-  return DEPRECATED_FEEDS[normalized] || null;
+  return DEPRECATED_FEEDS[normalizeFeedSymbol(symbol)] || null;
 }
 
 export function isDeprecatedFeedSymbol(symbol: string) {

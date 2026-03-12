@@ -32,7 +32,7 @@ function copyText(value: string) {
 export function OracleTab({ providers, setOutput }: OracleTabProps) {
   const [requestMode, setRequestMode] = useState("provider");
   const [oracleUrl, setOracleUrl] = useState("https://postman-echo.com/get?probe=morpheus");
-  const [providerSymbol, setProviderSymbol] = useState("NEO-USD");
+  const [providerSymbol, setProviderSymbol] = useState("TWELVEDATA:NEO-USD");
   const [httpMethod, setHttpMethod] = useState("GET");
   const [oracleEncryptedParams, setOracleEncryptedParams] = useState("");
   const [oracleConfidentialJson, setOracleConfidentialJson] = useState('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  }\n}');
@@ -40,7 +40,6 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
   const [oracleJsonPath, setOracleJsonPath] = useState("price");
   const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
-  const [provider, setProvider] = useState("twelvedata");
   const [walletCallbackHash, setWalletCallbackHash] = useState("0x89b05cac00804648c666b47ecb1c57bc185821b7");
   const [walletCallbackMethod, setWalletCallbackMethod] = useState("onOracleResult");
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
@@ -88,8 +87,7 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
   function applyOraclePreset(preset: "public_quote" | "private_api" | "boolean_check" | "hidden_builtin") {
     if (preset === "public_quote") {
       setRequestMode("provider");
-      setProvider("twelvedata");
-      setProviderSymbol("NEO-USD");
+      setProviderSymbol("TWELVEDATA:NEO-USD");
       setOracleJsonPath("price");
       setOracleTargetChain("neo_n3");
       setUseCustomScript(false);
@@ -128,8 +126,7 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
     }
 
     setRequestMode("provider");
-    setProvider("twelvedata");
-    setProviderSymbol("BTC-USD");
+    setProviderSymbol("TWELVEDATA:BTC-USD");
     setOracleJsonPath("price");
     setOracleTargetChain("neo_n3");
     setUseCustomScript(false);
@@ -188,7 +185,6 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
     };
 
     if (requestMode === "provider") {
-      payload.provider = provider;
       payload.symbol = providerSymbol;
     } else {
       payload.url = oracleUrl;
@@ -433,14 +429,14 @@ uint256 requestId = oracle.request{value: fee}(
             {requestMode === "provider" ? (
               <div className="grid grid-2" style={{ gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Provider</label>
-                  <select className="neo-select" value={provider} onChange={(event) => setProvider(event.target.value)}>
-                    {providers.map((item) => <option key={item.id} value={item.id}>{item.id}</option>)}
-                  </select>
+                  <label className="form-label">Source</label>
+                  <div className="badge-outline" style={{ alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    Provider inferred from pair prefix
+                  </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Symbol</label>
-                  <input className="neo-input" value={providerSymbol} onChange={(event) => setProviderSymbol(event.target.value)} placeholder="NEO-USD" />
+                  <label className="form-label">Canonical Pair Key</label>
+                  <input className="neo-input" value={providerSymbol} onChange={(event) => setProviderSymbol(event.target.value)} placeholder="TWELVEDATA:NEO-USD" />
                 </div>
               </div>
             ) : (
@@ -484,7 +480,7 @@ uint256 requestId = oracle.request{value: fee}(
               <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>PAYLOAD TEMPLATE</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                 {requestMode === "provider"
-                  ? "Built-in provider mode: keep provider + symbol public, and optionally hide json_path or script inside encrypted_params."
+                  ? "Built-in pair mode: the symbol already carries the source prefix, so only the canonical pair key needs to stay public."
                   : "Custom URL mode: keep the URL public, and hide headers/query/body/json_path/script in encrypted_params when needed."}
               </div>
             </div>

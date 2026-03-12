@@ -75,7 +75,7 @@ export function OverviewTab({ setOutput }: any) {
     async function loadLiveQuote() {
       setLiveQuoteLoading(true);
       try {
-        const response = await fetch(`/api/feeds/${encodeURIComponent(selectedPair)}?provider=twelvedata`);
+        const response = await fetch(`/api/feeds/${encodeURIComponent(selectedPair)}`);
         const body = await response.json().catch(() => ({}));
         if (!cancelled) setLiveQuote(body);
       } catch {
@@ -93,7 +93,7 @@ export function OverviewTab({ setOutput }: any) {
       ? onchainState.neo_n3.datafeed.records
       : [];
     return new Map<string, OnchainRecord>(
-      records.map((record: OnchainRecord) => [String(record.pair || "").replace(/^TWELVEDATA:/, ""), record]),
+      records.map((record: OnchainRecord) => [String(record.pair || "").trim().toUpperCase(), record]),
     );
   }, [onchainState]);
 
@@ -103,7 +103,7 @@ export function OverviewTab({ setOutput }: any) {
       : [];
     return records
       .map((record: OnchainRecord) => {
-        const normalizedPair = String(record.pair || "").replace(/^TWELVEDATA:/, "");
+        const normalizedPair = String(record.pair || "").trim().toUpperCase();
         const deprecated = getDeprecatedFeedInfo(normalizedPair);
         return deprecated ? { record, deprecated } : null;
       })

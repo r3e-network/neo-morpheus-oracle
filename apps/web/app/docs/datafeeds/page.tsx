@@ -47,21 +47,13 @@ export default function DocsDatafeeds() {
         <li>A price of <code>$12.50</code> is stored as <code>12500000</code>.</li>
         <li>A price of <code>$65,000.00</code> is stored as <code>65000000000</code>.</li>
         <li>A price of <code>$0.002437</code> is stored as <code>2437</code>, which is enough to represent low-priced assets such as FLM directly.</li>
-        <li>The 0.1% sync threshold is evaluated against the <strong>quantized on-chain integer value</strong>. With the global 1e6 scale, the standard pair list can use direct pair names such as <code>FLM-USD</code> and <code>JPY-USD</code> instead of basket names.</li>
+        <li>The 0.1% sync threshold is evaluated against the <strong>quantized on-chain integer value</strong>. The canonical storage key keeps the source prefix, for example <code>TWELVEDATA:FLM-USD</code> and <code>TWELVEDATA:JPY-USD</code>.</li>
       </ul>
 
       <h2>Canonical Pair Meanings</h2>
       <p>
-        Contracts and users should use the pair names exactly as written below. Under the global 1e6 precision model, canonical identifiers use the direct asset names such as <code>FLM-USD</code> and <code>JPY-USD</code>.
+        Contracts and users should use the pair keys exactly as written below. The canonical key format is provider-scoped, so the standard mainnet catalog uses identifiers such as <code>TWELVEDATA:NEO-USD</code> and <code>TWELVEDATA:BTC-USD</code>.
       </p>
-
-      <div className="card-industrial" style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b', marginBottom: '2rem' }}>
-        <h4 style={{ marginTop: 0, marginBottom: '0.75rem', color: '#fff', fontSize: '0.95rem', fontWeight: 800 }}>Deprecated Legacy Key</h4>
-        <p style={{ marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          The chain may still contain historical basket keys such as <code>TWELVEDATA:1000FLM-USD</code> and <code>TWELVEDATA:1000JPY-USD</code>.
-          New integrations must use <code>TWELVEDATA:FLM-USD</code> and <code>TWELVEDATA:JPY-USD</code> under the global 1e6 price scale.
-        </p>
-      </div>
 
       <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', background: '#000', marginBottom: '2.5rem' }}>
         <div style={{ overflowX: 'auto' }}>
