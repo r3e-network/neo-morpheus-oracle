@@ -34,8 +34,8 @@ This preserved both the local runtime config snapshots and the sealed Oracle key
 
 Validated from `phala ps` after the final successful update:
 
-- `ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:sha-9ac1cbf`
-- `ghcr.io/r3e-network/neo-morpheus-oracle-relayer:sha-9ac1cbf`
+- `ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:sha-521a794`
+- `ghcr.io/r3e-network/neo-morpheus-oracle-relayer:sha-521a794`
 - `caddy:2-alpine`
 
 Final container state:
@@ -111,19 +111,6 @@ Two separate production issues were resolved in this rollout:
 2. The worker was updated to read `WEB3AUTH_CLIENT_ID` and `WEB3AUTH_JWKS_URL` from `MORPHEUS_RUNTIME_CONFIG_JSON` via the shared runtime config helper, not only from direct process env vars.
 
 Without fix 2, the Phala deployment could build and start successfully but still expose `audience_configured = false` at runtime.
-
-## Remaining Validation Gap
-
-A fully positive live Web3Auth bind or recovery-ticket proof still requires a real Web3Auth-authenticated user session and a valid `id_token` issued for this project.
-
-That positive path was not completed in this terminal-only validation run because no live user login ceremony was available inside the current environment.
-
-The production runtime is now ready for that test:
-
-- JWKS verification is active
-- audience enforcement is active
-- stable provider-root derivation happens inside the TEE
-- failure behavior for missing Web3Auth proof is correct
 
 ## Positive Live Web3Auth Validation
 

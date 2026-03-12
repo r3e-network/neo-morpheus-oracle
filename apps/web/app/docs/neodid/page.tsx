@@ -154,6 +154,34 @@ public class NeoDIDRegistry : SmartContract
 }`}
       />
 
+      <h2>Large JWT Oracle Flow</h2>
+      <p>
+        For large Web3Auth JWTs, do not embed the whole sealed blob directly in the on-chain Oracle payload. Store the ciphertext first, then pass only a short
+        <code> encrypted_params_ref</code> through <code>MorpheusOracle.request(...)</code>.
+      </p>
+      <CodeBlock
+        language="json"
+        title="POST /api/confidential/store"
+        code={`{
+  "ciphertext": "<sealed id_token patch>",
+  "target_chain": "neo_n3",
+  "metadata": {
+    "source": "web3auth-live-studio"
+  }
+}`}
+      />
+      <CodeBlock
+        language="json"
+        title="Oracle payload using encrypted_params_ref"
+        code={`{
+  "vault_account": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+  "provider": "web3auth",
+  "claim_type": "Web3Auth_PrimaryIdentity",
+  "claim_value": "linked_social_root_oracle_ref",
+  "encrypted_params_ref": "<secret_ref>"
+}`}
+      />
+
       <h2>Action Ticket Example</h2>
       <CodeBlock
         language="json"
@@ -224,13 +252,13 @@ public class NeoDIDRegistry : SmartContract
             Use the unified Launchpad to move between Oracle, Compute, Templates, Studio, and Verifier flows.
           </p>
         </Link>
-        <Link href="/docs/studio" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>
+        <Link href="/launchpad/neodid-live" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>Starter Studio</span>
+            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>Web3Auth Live</span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p style={{ color: "var(--text-secondary)", marginTop: "0.85rem", marginBottom: 0 }}>
-            Keep using Starter Studio for payload generation patterns while NeoDID service routes mature.
+            Use the live page to sign in, get a real Web3Auth JWT, create a short confidential reference, and prepare the on-chain Oracle payload with <code>encrypted_params_ref</code>.
           </p>
         </Link>
         <Link href="/docs/r/AA_SOCIAL_RECOVERY" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>

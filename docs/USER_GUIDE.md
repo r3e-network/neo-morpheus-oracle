@@ -218,6 +218,7 @@ Important notes:
 
 - `encrypted_token` is the cleanest choice when only an auth secret must stay private
 - `encrypted_params`, `encrypted_input`, or a JSON-object `encrypted_payload` can carry confidential headers, provider params, compute input, function names, or scripts
+- if the encrypted blob is too large for the chain request payload, first store it through `POST /api/confidential/store` and then carry only `encrypted_params_ref` / `encrypted_payload_ref` on-chain
 - Morpheus confidential payloads are sealed with `X25519-HKDF-SHA256-AES-256-GCM`
 - the encrypted envelope includes an ephemeral X25519 public key plus AES-GCM ciphertext/tag fields
 
@@ -244,6 +245,37 @@ Returned fields:
 - `key_source`
 - `recommended_payload_encryption`
 - `supported_payload_encryption`
+
+### Confidential store for large encrypted payloads
+
+Use this route when a JWT or encrypted JSON patch is too large to fit directly into the Oracle request payload:
+
+```bash
+curl http://localhost:3000/api/confidential/store \
+  -H 'content-type: application/json' \
+  -d '{
+    "ciphertext":"<sealed ciphertext>",
+    "target_chain":"neo_n3"
+  }'
+```
+
+Response:
+
+```json
+{
+  "secret_ref": "<uuid>",
+  "target_chain": "neo_n3",
+  "encryption_algorithm": "client-supplied-ciphertext"
+}
+```
+
+Then place only the short reference on-chain:
+
+```json
+{
+  "encrypted_params_ref": "<uuid>"
+}
+```
 
 ## 4. PriceFeed / DataFeed Usage
 

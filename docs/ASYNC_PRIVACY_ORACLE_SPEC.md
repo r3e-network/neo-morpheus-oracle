@@ -29,6 +29,8 @@ NeoDID identity flows now also fit this same path when the request type is one o
   "encrypted_token": "<base64 ciphertext>",
   "encrypted_payload": "<base64 ciphertext>",
   "encrypted_params": "<base64 ciphertext>",
+  "encrypted_payload_ref": "<uuid secret ref>",
+  "encrypted_params_ref": "<uuid secret ref>",
   "token_header": "Authorization",
   "script": "function process(data) { return data.age > 80; }",
   "script_base64": "ZnVuY3Rpb24gcHJvY2VzcyhkYXRhKSB7IHJldHVybiBkYXRhLmFnZSA+IDgwOyB9",
@@ -53,11 +55,25 @@ For `neodid_recovery_ticket`, a typical on-chain payload is:
 }
 ```
 
+For large Web3Auth JWT payloads, use the short-reference form instead of embedding the full ciphertext directly in the Oracle payload:
+
+```json
+{
+  "vault_account": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+  "provider": "web3auth",
+  "claim_type": "Web3Auth_PrimaryIdentity",
+  "claim_value": "linked_social_root_oracle_ref",
+  "encrypted_params_ref": "<secret_ref>"
+}
+```
+
 ## Rules
 
 - `encrypted_token` is the canonical encrypted auth-secret field for private fetches
 - if `encrypted_payload` decrypts to a JSON object, the worker treats it as a confidential payload patch and merges it before execution
 - `encrypted_params` / `encrypted_input` are dedicated aliases for encrypted JSON patches that can carry secret headers, provider params, compute input, function names, or scripts
+- `encrypted_payload_ref` / `encrypted_params_ref` are short references to ciphertext previously stored in `morpheus_encrypted_secrets`
+- when a ref field is present, the worker loads the ciphertext from Supabase first, then decrypts the same X25519 envelope inside the TEE
 - `script` and `script_base64` are interchangeable aliases
 - `callback_contract` and `callback_method` are on-chain request arguments, not JSON payload fields
 - `target_chain` may be `neo_n3` or `neo_x`

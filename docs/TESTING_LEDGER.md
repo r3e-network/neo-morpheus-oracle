@@ -68,7 +68,7 @@ Use this document together with:
 | Artifact | Kind | Network | Notes |
 | --- | --- | --- | --- |
 | `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md` | Human report | Neo N3 mainnet | Full 7-case confidential Oracle / compute matrix |
-| `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md` | Human report | NeoDID Web3Auth runtime | Production rollout, backup, live runtime evidence, live bind validation, and remaining positive-user-token gap |
+| `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md` | Human report | NeoDID Web3Auth runtime | Production rollout, backup, direct live Web3Auth validation, encrypted validation, and Oracle callback validation via `encrypted_params_ref` |
 | `examples/deployments/mainnet-privacy-validation.latest.json` | Machine-readable report | Neo N3 mainnet | Same matrix as JSON |
 | `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md` | Human report | Neo N3 mainnet | Latest mainnet example-consumer provider / compute / sponsored / custom URL / feed read run |
 | `examples/deployments/n3-examples-validation.mainnet.latest.json` | Machine-readable report | Neo N3 mainnet | Same latest example-consumer run as JSON |
