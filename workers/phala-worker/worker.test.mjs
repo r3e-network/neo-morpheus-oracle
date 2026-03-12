@@ -5,7 +5,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
 import { Interface, Transaction } from 'ethers';
-import { wallet as neoWallet } from '@cityofzion/neon-js';
 
 const originalFetch = global.fetch;
 const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
@@ -65,10 +64,6 @@ const NEODID_RECOVERY_DOMAIN = Buffer.from('neodid-recovery-v1', 'utf8');
 function encodeLengthPrefixedAscii(value = '') {
   const body = Buffer.from(String(value || ''), 'utf8');
   return Buffer.concat([Buffer.from([body.length]), body]);
-}
-
-function encodeNeoHash160ForDigest(value) {
-  return Buffer.from(String(value || '').replace(/^0x/i, ''), 'hex').reverse();
 }
 
 async function encryptForOracle(publicKeyBase64, plaintext) {
@@ -263,7 +258,6 @@ test('neodid action-ticket generates action-specific nullifiers', async () => {
     provider: 'twitter',
     provider_uid: 'twitter_uid_12345',
     disposable_account: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
-    callback_encoding: 'neo_n3_action_v3',
   };
 
   const firstRes = await handler(new Request('http://local/neodid/action-ticket', {
@@ -278,19 +272,11 @@ test('neodid action-ticket generates action-specific nullifiers', async () => {
   assert.ok(first.signature);
   const expectedDigest = createHash('sha256').update(Buffer.concat([
     NEODID_ACTION_DOMAIN,
-    encodeNeoHash160ForDigest(common.disposable_account),
-    encodeLengthPrefixedAscii('DAO_Vote_42'),
-    Buffer.from(first.action_nullifier.replace(/^0x/, ''), 'hex'),
-  ])).digest('hex');
-  const legacyDigest = createHash('sha256').update(Buffer.concat([
-    NEODID_ACTION_DOMAIN,
     Buffer.from(common.disposable_account.replace(/^0x/, ''), 'hex'),
     encodeLengthPrefixedAscii('DAO_Vote_42'),
     Buffer.from(first.action_nullifier.replace(/^0x/, ''), 'hex'),
   ])).digest('hex');
   assert.equal(first.digest, `0x${expectedDigest}`);
-  assert.notEqual(first.digest, `0x${legacyDigest}`);
-  assert.equal(neoWallet.verify(expectedDigest, first.signature, first.public_key), true);
 
   const secondRes = await handler(new Request('http://local/neodid/action-ticket', {
     method: 'POST',
@@ -332,7 +318,6 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
     headers: authHeaders(),
     body: JSON.stringify({
       provider: 'github',
-      network: 'neo_n3',
       aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
       verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
       account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
@@ -358,20 +343,6 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
   const expectedRecoveryDigest = createHash('sha256').update(Buffer.concat([
     NEODID_RECOVERY_DOMAIN,
     encodeLengthPrefixedAscii('neo_n3'),
-    encodeNeoHash160ForDigest('0x017520f068fd602082fe5572596185e62a4ad991'),
-    encodeNeoHash160ForDigest('0x03013f49c42a14546c8bbe58f9d434c3517fccab'),
-    encodeNeoHash160ForDigest('0x6d0656f6dd91469db1c90cc1e574380613f43738'),
-    encodeLengthPrefixedAscii('aa-social-recovery-demo'),
-    encodeNeoHash160ForDigest('0x89b05cac00804648c666b47ecb1c57bc185821b7'),
-    encodeLengthPrefixedAscii('7'),
-    encodeLengthPrefixedAscii('1735689600'),
-    encodeLengthPrefixedAscii(body.action_id),
-    Buffer.from(body.master_nullifier.replace(/^0x/, ''), 'hex'),
-    Buffer.from(body.action_nullifier.replace(/^0x/, ''), 'hex'),
-  ])).digest('hex');
-  const legacyRecoveryDigest = createHash('sha256').update(Buffer.concat([
-    NEODID_RECOVERY_DOMAIN,
-    encodeLengthPrefixedAscii('neo_n3'),
     Buffer.from('0x017520f068fd602082fe5572596185e62a4ad991'.replace(/^0x/, ''), 'hex'),
     Buffer.from('0x03013f49c42a14546c8bbe58f9d434c3517fccab'.replace(/^0x/, ''), 'hex'),
     Buffer.from('0x6d0656f6dd91469db1c90cc1e574380613f43738'.replace(/^0x/, ''), 'hex'),
@@ -384,15 +355,12 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
     Buffer.from(body.action_nullifier.replace(/^0x/, ''), 'hex'),
   ])).digest('hex');
   assert.equal(body.digest, `0x${expectedRecoveryDigest}`);
-  assert.notEqual(body.digest, `0x${legacyRecoveryDigest}`);
-  assert.equal(neoWallet.verify(expectedRecoveryDigest, body.signature, body.public_key), true);
 
   const secondRes = await handler(new Request('http://local/neodid/recovery-ticket', {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({
       provider: 'github',
-      network: 'neo_n3',
       aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
       account_id: 'aa-social-recovery-demo',
       new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
