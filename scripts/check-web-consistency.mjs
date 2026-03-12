@@ -13,9 +13,25 @@ function extractBuiltinNames(sourceText) {
 }
 
 function extractQuotedArrayStrings(sourceText, arrayName) {
-  const blockMatch = sourceText.match(new RegExp(`export const ${arrayName} = \\[(.*?)\\]`, "s"));
+  const blockMatch = sourceText.match(new RegExp(`(?:export\\s+)?const ${arrayName} = \\[(.*?)\\]`, "s"));
   if (!blockMatch) return [];
   return [...blockMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+}
+
+function extractFrontendFeedSymbols(sourceText) {
+  const direct = extractQuotedArrayStrings(sourceText, "DEFAULT_FEED_SYMBOLS");
+  if (direct.length > 0) return direct;
+
+  const baseSymbols = extractQuotedArrayStrings(sourceText, "DEFAULT_FEED_BASE_SYMBOLS");
+  if (baseSymbols.length === 0) return [];
+
+  const prefixMatch = sourceText.match(/export const CANONICAL_FEED_PROVIDER_PREFIX = "([^"]+)";/);
+  const prefix = prefixMatch?.[1] || "";
+  return baseSymbols.map((symbol) => `${prefix}${symbol}`);
+}
+
+function normalizeFeedSymbolForComparison(symbol) {
+  return String(symbol || "").replace(/^[A-Z0-9-]+:/, "");
 }
 
 function extractFeedRegistryPairs(sourceText) {
@@ -61,13 +77,14 @@ const extraBuiltinNames = [...frontendBuiltinNames].filter((name) => !workerBuil
 assert(missingBuiltinNames.length === 0, `frontend docs are missing builtins: ${missingBuiltinNames.join(", ")}`);
 assert(extraBuiltinNames.length === 0, `frontend docs contain unknown builtins: ${extraBuiltinNames.join(", ")}`);
 
-const frontendFeedSymbols = extractQuotedArrayStrings(feedDefaultsText, "DEFAULT_FEED_SYMBOLS");
+const frontendFeedSymbols = extractFrontendFeedSymbols(feedDefaultsText);
 const workerFeedPairs = extractFeedRegistryPairs(workerFeedRegistryText);
 
 assert(frontendFeedSymbols.length > 0, "failed to parse frontend default feed symbols");
 assert(workerFeedPairs.length > 0, "failed to parse worker feed registry pairs");
 assert(
-  JSON.stringify(frontendFeedSymbols) === JSON.stringify(workerFeedPairs),
+  JSON.stringify(frontendFeedSymbols.map(normalizeFeedSymbolForComparison))
+    === JSON.stringify(workerFeedPairs.map(normalizeFeedSymbolForComparison)),
   `frontend feed symbols do not match worker feed registry.\nfrontend=${frontendFeedSymbols.join(",")}\nworker=${workerFeedPairs.join(",")}`,
 );
 

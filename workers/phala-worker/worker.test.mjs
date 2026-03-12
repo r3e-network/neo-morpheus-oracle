@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
 import { Interface, Transaction } from 'ethers';
+import { exportJWK, SignJWT } from 'jose';
 
 const originalFetch = global.fetch;
 const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
@@ -23,6 +24,9 @@ const originalOracleKeystorePath = process.env.PHALA_ORACLE_KEYSTORE_PATH;
 const originalEnableUserScripts = process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS;
 const originalOracleHash = process.env.CONTRACT_MORPHEUS_ORACLE_HASH;
 const originalNeoDidSecretSalt = process.env.NEODID_SECRET_SALT;
+const originalWeb3AuthClientId = process.env.WEB3AUTH_CLIENT_ID;
+const originalNextPublicWeb3AuthClientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
+const originalWeb3AuthJwksUrl = process.env.WEB3AUTH_JWKS_URL;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY = '1111111111111111111111111111111111111111111111111111111111111111';
@@ -38,6 +42,9 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
 process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0x017520f068fd602082fe5572596185e62a4ad991';
 process.env.NEODID_SECRET_SALT = 'worker-test-neodid-salt';
+delete process.env.WEB3AUTH_CLIENT_ID;
+delete process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
+delete process.env.WEB3AUTH_JWKS_URL;
 
 const { default: handler } = await import('./src/worker.js');
 const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = await import('./src/platform/dstack.js');
@@ -45,12 +52,62 @@ const { __resetOracleKeyMaterialForTests } = await import('./src/oracle/crypto.j
 const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
 const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
+const { __resetNeoDidStateForTests } = await import('./src/neodid/index.js');
 
 function authHeaders() {
   return {
     authorization: 'Bearer worker-test-secret',
     'content-type': 'application/json',
   };
+}
+
+async function buildWeb3AuthFixture({
+  claims = {},
+  clientId = 'worker-test-web3auth-client',
+  jwksUrl = 'https://jwks.test/web3auth.json',
+  kid = 'worker-test-web3auth-key',
+} = {}) {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', { namedCurve: 'P-256' });
+  const jwk = await exportJWK(publicKey);
+  jwk.use = 'sig';
+  jwk.alg = 'ES256';
+  jwk.kid = kid;
+  const token = await new SignJWT(claims)
+    .setProtectedHeader({ alg: 'ES256', kid })
+    .setIssuer('https://api-auth.web3auth.io')
+    .setAudience(clientId)
+    .setIssuedAt()
+    .setExpirationTime('2h')
+    .sign(privateKey);
+  return {
+    token,
+    clientId,
+    jwksUrl,
+    jwks: { keys: [jwk] },
+  };
+}
+
+function installWeb3AuthJwksFetch(jwksUrl, jwks) {
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value === jwksUrl) {
+      return new Response(JSON.stringify(jwks), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+}
+
+function computeExpectedMasterNullifier(provider, providerUid) {
+  return createHash('sha256').update(Buffer.concat([
+    Buffer.from(provider, 'utf8'),
+    Buffer.from([0x1f]),
+    Buffer.from(providerUid, 'utf8'),
+    Buffer.from([0x1f]),
+    Buffer.from(createHash('sha256').update(process.env.NEODID_SECRET_SALT).digest('hex'), 'hex'),
+  ])).digest('hex');
 }
 
 const TEST_WASM_OK_BASE64 = 'AGFzbQEAAAABEANgAAF/YAF/AX9gAn9/AX8CGAEIbW9ycGhldXMLbm93X3NlY29uZHMAAAMEAwEAAgUDAQABBgwCfwFBgAgLfwFBAAsHJQQGbWVtb3J5AgAFYWxsb2MAAQpyZXN1bHRfbGVuAAIDcnVuAAMKSQMRAQF/IwAhASMAIABqJAAgAQsEACMBCzAAQQQkAUGAEEH0ADoAAEGBEEHyADoAAEGCEEH1ADoAAEGDEEHlADoAABAAGkGAEAsAQwRuYW1lAQYBAANub3cCHwQAAAECAARzaXplAQRhZGRyAgADAgADcHRyAQNsZW4HEwIABGhlYXABCnJlc3VsdF9sZW4=';
@@ -253,6 +310,102 @@ test('neodid bind returns deterministic master nullifier and ticket signature', 
   assert.equal(second.master_nullifier, first.master_nullifier);
 });
 
+test('neodid bind verifies web3auth id_token and derives provider uid inside the worker', async () => {
+  __resetNeoDidStateForTests();
+  const fixture = await buildWeb3AuthFixture({
+    claims: {
+      aggregateVerifier: 'google-oauth',
+      aggregateVerifierId: 'alice@example.com',
+    },
+    clientId: 'worker-test-web3auth-client-bind',
+    jwksUrl: 'https://jwks.test/web3auth-bind.json',
+    kid: 'worker-test-web3auth-bind',
+  });
+  installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
+
+  const res = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+      provider: 'web3auth',
+      id_token: fixture.token,
+      web3auth_client_id: fixture.clientId,
+      web3auth_jwks_url: fixture.jwksUrl,
+      claim_type: 'Web3Auth_PrimaryIdentity',
+      claim_value: 'linked_social_root',
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  const expectedProviderUid = 'web3auth:google-oauth:alice@example.com';
+  assert.equal(body.provider, 'web3auth');
+  assert.equal(
+    body.master_nullifier,
+    `0x${computeExpectedMasterNullifier('web3auth', expectedProviderUid)}`,
+  );
+});
+
+test('neodid bind rejects a mismatched explicit web3auth provider_uid', async () => {
+  __resetNeoDidStateForTests();
+  const fixture = await buildWeb3AuthFixture({
+    claims: {
+      verifier: 'google',
+      verifierId: 'alice@example.com',
+    },
+    clientId: 'worker-test-web3auth-client-mismatch',
+    jwksUrl: 'https://jwks.test/web3auth-mismatch.json',
+    kid: 'worker-test-web3auth-mismatch',
+  });
+  installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
+
+  const res = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+      provider: 'web3auth',
+      provider_uid: 'web3auth:google:bob@example.com',
+      id_token: fixture.token,
+      web3auth_client_id: fixture.clientId,
+      web3auth_jwks_url: fixture.jwksUrl,
+      claim_type: 'Web3Auth_PrimaryIdentity',
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /provider_uid does not match verified id_token/);
+});
+
+test('neodid bind requires a web3auth client id so audience is always verified', async () => {
+  __resetNeoDidStateForTests();
+  const fixture = await buildWeb3AuthFixture({
+    claims: {
+      verifier: 'google',
+      verifierId: 'alice@example.com',
+    },
+    clientId: 'worker-test-web3auth-client-required',
+    jwksUrl: 'https://jwks.test/web3auth-required.json',
+    kid: 'worker-test-web3auth-required',
+  });
+  installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
+
+  const res = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+      provider: 'web3auth',
+      id_token: fixture.token,
+      web3auth_jwks_url: fixture.jwksUrl,
+      claim_type: 'Web3Auth_PrimaryIdentity',
+    }),
+  }));
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /WEB3AUTH_CLIENT_ID is required/);
+});
+
 test('neodid action-ticket generates action-specific nullifiers', async () => {
   const common = {
     provider: 'twitter',
@@ -374,6 +527,50 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
   assert.notEqual(body.action_nullifier, second.action_nullifier);
 });
 
+test('neodid recovery-ticket accepts confidential web3auth id_token payloads', async () => {
+  __resetNeoDidStateForTests();
+  const fixture = await buildWeb3AuthFixture({
+    claims: {
+      aggregateVerifier: 'web3auth-google',
+      aggregateVerifierId: 'alice@example.com',
+    },
+    clientId: 'worker-test-web3auth-client-recovery',
+    jwksUrl: 'https://jwks.test/web3auth-recovery.json',
+    kid: 'worker-test-web3auth-recovery',
+  });
+  installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
+
+  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  assert.equal(keyRes.status, 200);
+  const keyMeta = await keyRes.json();
+  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
+    id_token: fixture.token,
+    web3auth_client_id: fixture.clientId,
+    web3auth_jwks_url: fixture.jwksUrl,
+  }));
+
+  const res = await handler(new Request('http://local/neodid/recovery-ticket', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      provider: 'web3auth',
+      aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+      verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
+      account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+      account_id: 'aa-social-recovery-demo',
+      new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+      recovery_nonce: '7',
+      expires_at: '1735689600',
+      encrypted_params: encryptedParams,
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.provider, 'web3auth');
+  assert.match(body.master_nullifier, /^0x[0-9a-f]{64}$/);
+  assert.match(body.action_nullifier, /^0x[0-9a-f]{64}$/);
+});
+
 test.after(() => {
   global.fetch = originalFetch;
   process.env.PHALA_SHARED_SECRET = originalPhalaToken;
@@ -392,9 +589,13 @@ test.after(() => {
   process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = originalEnableUserScripts;
   process.env.CONTRACT_MORPHEUS_ORACLE_HASH = originalOracleHash;
   process.env.NEODID_SECRET_SALT = originalNeoDidSecretSalt;
+  process.env.WEB3AUTH_CLIENT_ID = originalWeb3AuthClientId;
+  process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID = originalNextPublicWeb3AuthClientId;
+  process.env.WEB3AUTH_JWKS_URL = originalWeb3AuthJwksUrl;
   __resetDstackClientStateForTests();
   __resetOracleKeyMaterialForTests();
   __resetFeedStateForTests();
+  __resetNeoDidStateForTests();
 });
 
 test('txproxy allowlist permits Oracle fulfillRequest and queueAutomationRequest', async () => {

@@ -35,6 +35,7 @@ Why:
 ### 2. NeoDID Worker
 
 - Verifies confidential provider data inside the TEE
+- For `provider = "web3auth"`, verifies the JWT signature against Web3Auth JWKS inside the TEE and derives the stable DID root from token claims
 - Derives:
   - `master_nullifier`
   - `action_nullifier`
@@ -51,8 +52,10 @@ Why:
 ### 4. Abstract Account
 
 - Keeps using its existing `custom verifier` interface:
-  - `verify(accountId)`
-  - `verifyMetaTx(accountId, signerHashes)`
+  - `verifyExecution(accountId)`
+  - `verifyExecutionMetaTx(accountId, signerHashes)`
+  - `verifyAdmin(accountId)`
+  - `verifyAdminMetaTx(accountId, signerHashes)`
 - Delegates recovery authorization to the recovery verifier
 
 ## Canonical Request Types / 标准请求类型
@@ -148,8 +151,7 @@ Example confidential patch:
 
 ```json
 {
-  "provider_uid": "web3auth_user_abc123",
-  "oauth_code": "secret-oauth-code",
+  "id_token": "<web3auth jwt>",
   "verified_email": "alice@example.com",
   "linked_accounts": ["google", "email", "sms"]
 }
@@ -179,7 +181,9 @@ Recommended production model:
 - multiple linked social providers still map to one stable Web3Auth user id
 - NeoDID uses:
   - `provider = "web3auth"`
-  - `provider_uid = <stable Web3Auth user identifier>`
+  - `id_token = <Web3Auth JWT>`
+- the TEE verifies the JWT and derives the stable provider root internally
+- `provider_uid`, if sent at all, is only treated as an optional consistency check
 - AA recovery verifiers only care about NeoDID tickets derived from that stable identifier
 
 推荐生产模式：
@@ -188,7 +192,9 @@ Recommended production model:
 - 多个社交账号在 Web3Auth 内部聚合成同一个稳定用户 id
 - NeoDID 统一使用：
   - `provider = "web3auth"`
-  - `provider_uid = <稳定的 Web3Auth 用户标识>`
+  - `id_token = <Web3Auth JWT>`
+- TEE 在内部验证 JWT，并派生稳定的 provider 根标识
+- 如果额外传入 `provider_uid`，它只作为可选一致性检查使用
 - AA 恢复验证器只消费由这个稳定标识导出的 NeoDID 票据，不关心底层具体用了 Google、Email 还是 SMS
 
 ## Recommended Recovery Lifecycle / 推荐恢复流程

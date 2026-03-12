@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { wallet as neoWallet } from "@cityofzion/neon-js";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { json, sha256Hex, trimString } from "../platform/core.js";
 import { resolveConfidentialPayload } from "../oracle/crypto.js";
 import { buildVerificationEnvelope, buildSignedResultEnvelope } from "../chain/index.js";
@@ -28,6 +29,8 @@ const PROVIDER_ALIAS_MAP = Object.fromEntries(
   ]),
 );
 
+const WEB3AUTH_JWKS_CACHE = new Map();
+
 function encodeLengthPrefixedAscii(value = "") {
   const text = String(value ?? "");
   const body = Buffer.from(text, "utf8");
@@ -40,6 +43,92 @@ function encodeLengthPrefixedAscii(value = "") {
 function normalizeNeoDidProviderId(value) {
   const normalized = trimString(value).toLowerCase();
   return PROVIDER_ALIAS_MAP[normalized] || normalized;
+}
+
+function getWeb3AuthJwks(url) {
+  const normalized = trimString(url);
+  if (!normalized) throw new Error("WEB3AUTH_JWKS_URL is required");
+  if (!WEB3AUTH_JWKS_CACHE.has(normalized)) {
+    WEB3AUTH_JWKS_CACHE.set(normalized, createRemoteJWKSet(new URL(normalized)));
+  }
+  return WEB3AUTH_JWKS_CACHE.get(normalized);
+}
+
+function resolveWeb3AuthJwksUrl(payload = {}) {
+  return trimString(
+    payload.web3auth_jwks_url
+    || process.env.WEB3AUTH_JWKS_URL
+    || "https://api-auth.web3auth.io/.well-known/jwks.json",
+  );
+}
+
+function resolveWeb3AuthClientId(payload = {}) {
+  return trimString(
+    payload.web3auth_client_id
+    || process.env.WEB3AUTH_CLIENT_ID
+    || process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID
+    || process.env.VITE_WEB3AUTH_CLIENT_ID
+    || "",
+  );
+}
+
+function buildStableWeb3AuthProviderUid(claims = {}) {
+  const aggregateVerifier = trimString(claims.aggregateVerifier || "");
+  const aggregateVerifierId = trimString(claims.aggregateVerifierId || "");
+  if (aggregateVerifier && aggregateVerifierId) {
+    return `web3auth:${aggregateVerifier}:${aggregateVerifierId}`;
+  }
+
+  const verifier = trimString(claims.verifier || "");
+  const verifierId = trimString(claims.verifierId || claims.email || claims.sub || "");
+  if (verifier && verifierId) {
+    return `web3auth:${verifier}:${verifierId}`;
+  }
+
+  const fallback = trimString(claims.sub || claims.email || claims.name || "");
+  return fallback ? `web3auth:user:${fallback}` : "";
+}
+
+function extractWeb3AuthIdToken(payload = {}) {
+  return trimString(
+    payload.id_token
+    || payload.idToken
+    || payload.web3auth_id_token
+    || payload.web3authIdToken
+    || "",
+  );
+}
+
+async function resolveVerifiedProviderUid(provider, payload = {}) {
+  if (provider !== "web3auth") {
+    return resolveProviderUid(payload);
+  }
+
+  const idToken = extractWeb3AuthIdToken(payload);
+  if (!idToken) {
+    throw new Error("web3auth id_token is required");
+  }
+
+  const jwksUrl = resolveWeb3AuthJwksUrl(payload);
+  const clientId = resolveWeb3AuthClientId(payload);
+  if (!clientId) {
+    throw new Error("WEB3AUTH_CLIENT_ID is required for web3auth verification");
+  }
+  const JWKS = getWeb3AuthJwks(jwksUrl);
+  const { payload: claims } = await jwtVerify(idToken, JWKS, {
+    audience: clientId,
+  });
+  const derivedProviderUid = buildStableWeb3AuthProviderUid(claims);
+  if (!derivedProviderUid) {
+    throw new Error("unable to derive stable Web3Auth provider_uid");
+  }
+
+  const suppliedProviderUid = trimString(payload.provider_uid || payload.social_uid || payload.user_id || "");
+  if (suppliedProviderUid && suppliedProviderUid !== derivedProviderUid) {
+    throw new Error("web3auth provider_uid does not match verified id_token");
+  }
+
+  return derivedProviderUid;
 }
 
 function requireSupportedProvider(value) {
@@ -225,6 +314,8 @@ export function handleNeoDidProviders() {
 export async function handleNeoDidRuntime(payload = {}) {
   const info = await getDstackInfo({ required: false });
   const signer = await signDigestBytes(Buffer.from(sha256Hex("neodid-runtime"), "hex"), payload);
+  const web3authJwksUrl = resolveWeb3AuthJwksUrl(payload);
+  const web3authClientId = resolveWeb3AuthClientId(payload);
   return json(200, {
     service: "neodid",
     app_id: info?.app_id || null,
@@ -244,6 +335,11 @@ export async function handleNeoDidRuntime(payload = {}) {
       "neodid_action_ticket",
       "neodid_recovery_ticket",
     ],
+    web3auth: {
+      jwks_url: web3authJwksUrl || null,
+      audience_configured: Boolean(web3authClientId),
+      derives_provider_uid_in_tee: true,
+    },
     providers: SUPPORTED_PROVIDERS,
   });
 }
@@ -251,10 +347,12 @@ export async function handleNeoDidRuntime(payload = {}) {
 export async function handleNeoDidBind(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
+  const provider = requireSupportedProvider(resolvedPayload.provider || "twitter");
+  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
   const ticket = {
     vault_account: resolveHash160(resolvedPayload.vault_account || resolvedPayload.vault_script_hash, "vault_account"),
-    provider: requireSupportedProvider(resolvedPayload.provider || "twitter"),
-    provider_uid: resolveProviderUid(resolvedPayload),
+    provider,
+    provider_uid: providerUid,
     claim_type: trimString(resolvedPayload.claim_type || "Generic_Claim") || "Generic_Claim",
     claim_value: trimString(resolvedPayload.claim_value || ""),
     metadata_hash: computeMetadataHash(resolvedPayload.metadata || {}),
@@ -279,7 +377,7 @@ export async function handleNeoDidActionTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
   const provider = requireSupportedProvider(resolvedPayload.provider || "twitter");
-  const providerUid = resolveProviderUid(resolvedPayload);
+  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
   const actionId = trimString(resolvedPayload.action_id || resolvedPayload.intent || "").trim();
   if (!actionId) throw new Error("action_id is required");
   const actionNullifier = computeActionNullifier(provider, providerUid, actionId, saltBytes);
@@ -304,7 +402,7 @@ export async function handleNeoDidRecoveryTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
   const provider = requireSupportedProvider(resolvedPayload.provider || "twitter");
-  const providerUid = resolveProviderUid(resolvedPayload);
+  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
   const network = resolveRequiredText(resolvedPayload.network || resolvedPayload.target_chain || "neo_n3", "network");
   const aaContract = resolveHash160(
     resolvedPayload.aa_contract || resolvedPayload.account_contract || resolvedPayload.wallet_contract,
@@ -370,4 +468,8 @@ export async function handleNeoDidRecoveryTicket(payload = {}) {
     ...signer,
   };
   return buildNeoDidResponse("neodid_recovery_ticket", result, resolvedPayload);
+}
+
+export function __resetNeoDidStateForTests() {
+  WEB3AUTH_JWKS_CACHE.clear();
 }
