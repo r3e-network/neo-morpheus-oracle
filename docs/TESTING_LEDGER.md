@@ -1,6 +1,6 @@
 # Testing Ledger
 
-Last updated: 2026-03-11
+Last updated: 2026-03-12
 
 This document is the canonical test ledger for the current Neo Morpheus Oracle repository state.
 
@@ -15,6 +15,7 @@ Use this document together with:
 
 - `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 - `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
+- `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md`
 - `examples/deployments/mainnet-privacy-validation.latest.json`
 
 ## 1. Canonical Environment
@@ -42,6 +43,11 @@ Use this document together with:
   - `key_source = dstack-sealed`
 - Current validated compose hash from the latest mainnet privacy matrix:
   - `0529396fc1e09cbb7b0078ef960a0d26d2cf4a04550378057702026de7423615`
+- Current validated NeoDID Web3Auth runtime state after the 2026-03-12 production rollout:
+  - `audience_configured = true`
+  - `derives_provider_uid_in_tee = true`
+  - `jwks_url = https://api-auth.web3auth.io/.well-known/jwks.json`
+  - `verification_public_key = 030f53dc945897a361b2044aed742cc0bdd42f87f0df5783c4c1344875ee52bcf7`
 
 ## 2. Code Under Test
 
@@ -60,6 +66,7 @@ Use this document together with:
 | Artifact | Kind | Network | Notes |
 | --- | --- | --- | --- |
 | `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md` | Human report | Neo N3 mainnet | Full 7-case confidential Oracle / compute matrix |
+| `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md` | Human report | NeoDID Web3Auth runtime | Production rollout, backup, live runtime evidence, live bind validation, and remaining positive-user-token gap |
 | `examples/deployments/mainnet-privacy-validation.latest.json` | Machine-readable report | Neo N3 mainnet | Same matrix as JSON |
 | `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md` | Human report | Neo N3 mainnet | Latest mainnet example-consumer provider / compute / sponsored / custom URL / feed read run |
 | `examples/deployments/n3-examples-validation.mainnet.latest.json` | Machine-readable report | Neo N3 mainnet | Same latest example-consumer run as JSON |
