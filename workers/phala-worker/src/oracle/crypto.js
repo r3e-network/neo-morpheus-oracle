@@ -171,6 +171,68 @@ function resolveEncryptedConfidentialPayload(payload) {
   );
 }
 
+function resolveEncryptedConfidentialRef(payload) {
+  const encryptedInputs = isPlainObject(payload?.encrypted_inputs) ? payload.encrypted_inputs : {};
+  return trimString(
+    payload?.encrypted_params_ref ||
+      payload?.encrypted_input_ref ||
+      payload?.encrypted_payload_ref ||
+      encryptedInputs.params_ref ||
+      encryptedInputs.input_ref ||
+      encryptedInputs.payload_ref ||
+      "",
+  );
+}
+
+function getSupabaseRestConfig() {
+  const baseUrl = trimString(env("SUPABASE_URL") || env("NEXT_PUBLIC_SUPABASE_URL") || env("morpheus_SUPABASE_URL") || "");
+  const apiKey = trimString(
+    env("SUPABASE_SERVICE_ROLE_KEY")
+      || env("morpheus_SUPABASE_SERVICE_ROLE_KEY")
+      || env("SUPABASE_SERVICE_KEY")
+      || env("SUPABASE_SECRET_KEY")
+      || env("morpheus_SUPABASE_SECRET_KEY")
+      || "",
+  );
+  if (!baseUrl || !apiKey) return null;
+  return {
+    restUrl: `${baseUrl.replace(/\/$/, "")}/rest/v1`,
+    apiKey,
+  };
+}
+
+async function loadEncryptedCiphertextByRef(ref) {
+  const restConfig = getSupabaseRestConfig();
+  if (!restConfig) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for encrypted ref resolution");
+
+  const url = new URL(`${restConfig.restUrl}/morpheus_encrypted_secrets`);
+  url.searchParams.set("select", "id,ciphertext");
+  url.searchParams.set("id", `eq.${ref}`);
+  url.searchParams.set("limit", "1");
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    headers: {
+      apikey: restConfig.apiKey,
+      authorization: `Bearer ${restConfig.apiKey}`,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`encrypted ref lookup failed: ${response.status} ${text}`.trim());
+  }
+
+  const rows = await response.json().catch(() => []);
+  const row = Array.isArray(rows) ? rows[0] : null;
+  const ciphertext = trimString(row?.ciphertext || "");
+  if (!ciphertext) {
+    throw new Error(`encrypted ref not found: ${ref}`);
+  }
+  return ciphertext;
+}
+
 function parseX25519Envelope(ciphertext) {
   try {
     const decoded = Buffer.from(decodeBase64(ciphertext)).toString("utf8");
@@ -311,7 +373,11 @@ export async function decryptEncryptedToken(ciphertext, payload = {}) {
 }
 
 export async function resolveConfidentialPayload(payload = {}) {
-  const ciphertext = resolveEncryptedConfidentialPayload(payload);
+  let ciphertext = resolveEncryptedConfidentialPayload(payload);
+  const encryptedRef = resolveEncryptedConfidentialRef(payload);
+  if (!ciphertext && encryptedRef) {
+    ciphertext = await loadEncryptedCiphertextByRef(encryptedRef);
+  }
   if (!ciphertext) return payload;
 
   const plaintext = await decryptEncryptedToken(ciphertext, payload);
