@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2, ClipboardList, FileSearch, Play, ShieldCheck } from "lucide-react";
 
 async function requestJSON(path: string, body?: Record<string, unknown>) {
@@ -19,7 +20,10 @@ async function requestJSON(path: string, body?: Record<string, unknown>) {
   }
 }
 
-export default function VerifierPage() {
+function VerifierPageClient() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialLookupHash = searchParams.get("attestation_hash") || "";
   const [attestationJson, setAttestationJson] = useState("{}");
   const [expectedPayloadJson, setExpectedPayloadJson] = useState("{}");
   const [expectedOutputHash, setExpectedOutputHash] = useState("");
@@ -29,6 +33,86 @@ export default function VerifierPage() {
   const [expectedInstanceId, setExpectedInstanceId] = useState("");
   const [result, setResult] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [lookupHash, setLookupHash] = useState(initialLookupHash);
+  const [isLookuping, setIsLookuping] = useState(false);
+
+  const normalizedLookupHash = useMemo(() => lookupHash.trim(), [lookupHash]);
+
+  const runVerification = useCallback(async (params: {
+    attestation: unknown;
+    expectedPayload?: unknown;
+    expectedOutputHash?: string;
+    expectedAttestationHash?: string;
+    expectedComposeHash?: string;
+    expectedAppId?: string;
+    expectedInstanceId?: string;
+  }) => {
+    const body = await requestJSON("/api/attestation/verify", {
+      envelope: params.attestation,
+      attestation: params.attestation,
+      expected_payload: params.expectedPayload,
+      expected_output_hash: params.expectedOutputHash || undefined,
+      expected_attestation_hash: params.expectedAttestationHash || undefined,
+      expected_onchain_attestation_hash: params.expectedAttestationHash || undefined,
+      expected_compose_hash: params.expectedComposeHash || undefined,
+      expected_app_id: params.expectedAppId || undefined,
+      expected_instance_id: params.expectedInstanceId || undefined,
+    });
+    return body;
+  }, []);
+
+  const lookupAttestation = useCallback(async (hash: string, updateUrl = true) => {
+    const value = hash.trim();
+    if (!value) return;
+
+    if (updateUrl) {
+      router.replace(`/verifier?attestation_hash=${encodeURIComponent(value)}`);
+    }
+
+    setIsLookuping(true);
+    try {
+      const body = await requestJSON(`/api/attestation/lookup?attestation_hash=${encodeURIComponent(value)}`);
+      if ((body as { error?: string }).error && !(body as { found?: boolean }).found) {
+        setResult(JSON.stringify(body, null, 2));
+        return;
+      }
+
+      const verifierInput = (body as { verifier_input?: Record<string, unknown> | null }).verifier_input || null;
+      if (!verifierInput) {
+        setExpectedAttestationHash(value);
+        setResult(JSON.stringify(body, null, 2));
+        return;
+      }
+
+      setAttestationJson(JSON.stringify(verifierInput.envelope || verifierInput.attestation || {}, null, 2));
+      setExpectedOutputHash(String(verifierInput.expected_output_hash || ""));
+      setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || value));
+      setExpectedComposeHash(String(verifierInput.expected_compose_hash || ""));
+      setExpectedAppId(String(verifierInput.expected_app_id || ""));
+      setExpectedInstanceId(String(verifierInput.expected_instance_id || ""));
+
+      const verification = await runVerification({
+        attestation: verifierInput.envelope || verifierInput.attestation || {},
+        expectedOutputHash: String(verifierInput.expected_output_hash || ""),
+        expectedAttestationHash: String(verifierInput.expected_attestation_hash || value),
+        expectedComposeHash: String(verifierInput.expected_compose_hash || ""),
+        expectedAppId: String(verifierInput.expected_app_id || ""),
+        expectedInstanceId: String(verifierInput.expected_instance_id || ""),
+      });
+
+      setResult(JSON.stringify({ lookup: body, verification }, null, 2));
+    } catch (error) {
+      setResult(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2));
+    } finally {
+      setIsLookuping(false);
+    }
+  }, [router, runVerification]);
+
+  useEffect(() => {
+    if (!initialLookupHash) return;
+    setLookupHash(initialLookupHash);
+    void lookupAttestation(initialLookupHash, false);
+  }, [initialLookupHash, lookupAttestation]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -72,6 +156,32 @@ export default function VerifierPage() {
         <section className="card" style={{ marginBottom: "24px" }}>
           <div className="card-topline">
             <div>
+              <h3>Lookup By Attestation Hash</h3>
+              <small>Open this page with <code>?attestation_hash=0x...</code> or paste a hash below to auto-load the matching attestation record.</small>
+            </div>
+            <FileSearch size={22} color="var(--neo-green)" />
+          </div>
+          <div className="grid" style={{ gap: "16px" }}>
+            <input
+              value={lookupHash}
+              onChange={(event) => setLookupHash(event.target.value)}
+              placeholder="0x attestation hash"
+            />
+            <button
+              className="btn btn-primary"
+              disabled={isLookuping || !normalizedLookupHash}
+              onClick={() => {
+                void lookupAttestation(normalizedLookupHash, true);
+              }}
+            >
+              {isLookuping ? "Querying..." : "Lookup Attestation"}
+            </button>
+          </div>
+        </section>
+
+        <section className="card" style={{ marginBottom: "24px" }}>
+          <div className="card-topline">
+            <div>
               <h3>Demo Flow</h3>
               <small>Fetch a sample attested worker response and auto-fill the verifier.</small>
             </div>
@@ -89,6 +199,9 @@ export default function VerifierPage() {
                 setExpectedPayloadJson(JSON.stringify(verifierInput.expected_payload || {}, null, 2));
                 setExpectedOutputHash(String(verifierInput.expected_output_hash || ""));
                 setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || ""));
+                setExpectedComposeHash(String(verifierInput.expected_compose_hash || ""));
+                setExpectedAppId(String(verifierInput.expected_app_id || ""));
+                setExpectedInstanceId(String(verifierInput.expected_instance_id || ""));
                 setResult(JSON.stringify(body, null, 2));
               }}
             >
@@ -166,16 +279,14 @@ export default function VerifierPage() {
                   try {
                     const parsedAttestation = JSON.parse(attestationJson);
                     const parsedPayload = expectedPayloadJson.trim() ? JSON.parse(expectedPayloadJson) : undefined;
-                    const body = await requestJSON("/api/attestation/verify", {
-                      envelope: parsedAttestation,
+                    const body = await runVerification({
                       attestation: parsedAttestation,
-                      expected_payload: parsedPayload,
-                      expected_output_hash: expectedOutputHash || undefined,
-                      expected_attestation_hash: expectedAttestationHash || undefined,
-                      expected_onchain_attestation_hash: expectedAttestationHash || undefined,
-                      expected_compose_hash: expectedComposeHash || undefined,
-                      expected_app_id: expectedAppId || undefined,
-                      expected_instance_id: expectedInstanceId || undefined,
+                      expectedPayload: parsedPayload,
+                      expectedOutputHash,
+                      expectedAttestationHash,
+                      expectedComposeHash,
+                      expectedAppId,
+                      expectedInstanceId,
                     });
                     setResult(JSON.stringify(body, null, 2));
                   } catch (error) {
@@ -203,5 +314,13 @@ export default function VerifierPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function VerifierPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" style={{ background: "var(--bg-primary)" }} />}>
+      <VerifierPageClient />
+    </Suspense>
   );
 }
