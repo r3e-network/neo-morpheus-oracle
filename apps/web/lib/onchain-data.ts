@@ -13,6 +13,8 @@ export const NETWORKS = {
     domains: {
       oracle: "",
       datafeed: "",
+      aa: "",
+      neodid: "",
     },
   },
   neo_n3: {
@@ -20,10 +22,14 @@ export const NETWORKS = {
     rpc: "https://mainnet1.neo.coz.io:443",
     oracle: "0x017520f068fd602082fe5572596185e62a4ad991",
     datafeed: "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
+    aa: "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
+    neodid: "0x975483c2d0928c1ed6da568190b5137463431422",
     explorer: "https://neotube.io/contract/",
     domains: {
       oracle: "oracle.morpheus.neo",
       datafeed: "pricefeed.morpheus.neo",
+      aa: "aa.morpheus.neo",
+      neodid: "neodid.morpheus.neo",
     },
   }
 };
