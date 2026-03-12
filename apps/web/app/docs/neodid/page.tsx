@@ -111,6 +111,19 @@ public class NeoDIDRegistry : SmartContract
         </p>
       </div>
 
+      <div className="card-industrial" style={{ padding: "1.25rem 1.5rem", borderLeft: "4px solid var(--accent-blue)", marginBottom: "2rem" }}>
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+          Ready-to-use entrypoint:
+          {" "}
+          <Link href="/launchpad/neodid-live" style={{ color: "var(--neo-green)" }}>
+            NeoDID Web3Auth Live
+          </Link>
+          {" "}
+          lets you sign in with Web3Auth, fetch a real <code>id_token</code>, optionally seal it locally with X25519, and submit a live
+          <code> neodid_bind</code> probe to the production TEE.
+        </p>
+      </div>
+
       <h2>Bind Flow Example</h2>
       <CodeBlock
         language="json"

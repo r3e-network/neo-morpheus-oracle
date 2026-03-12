@@ -77,7 +77,7 @@ const journeys = [
     steps: [
       { title: "Read the model", desc: "Understand master nullifiers, action nullifiers, and the independent NeoDID registry contract.", href: "/docs/neodid", label: "NeoDID Docs" },
       { title: "Choose the flow", desc: "Pick binding, action ticket, or AA social recovery ticket based on your application.", href: "/docs/use-cases", label: "Use Cases" },
-      { title: "Prepare the payload", desc: "Seal provider UID, OAuth code, email proof, or exchange challenge fields with local encryption before submission.", href: "/docs/studio", label: "Starter Studio" },
+      { title: "Login and fetch JWT", desc: "Open the live Web3Auth studio, sign in, fetch a real id_token, and optionally seal it locally before submission.", href: "/launchpad/neodid-live", label: "Web3Auth Live" },
       { title: "Submit on-chain", desc: "Send neodid_bind, neodid_action_ticket, or neodid_recovery_ticket through MorpheusOracle.request and wait for callback fulfillment.", href: "/docs/neodid", label: "Oracle Flow" },
       { title: "Register or consume", desc: "Store the binding in NeoDIDRegistry, consume an action ticket in a DApp, or consume a recovery ticket in an AA recovery verifier.", href: "/docs/r/AA_SOCIAL_RECOVERY", label: "AA Recovery Spec" },
     ],
