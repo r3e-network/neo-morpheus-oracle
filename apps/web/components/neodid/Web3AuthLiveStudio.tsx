@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Copy, ExternalLink, Fingerprint, KeyRound, Lock, LogIn, LogOut, RefreshCcw, ShieldAlert, ShieldCheck } from "lucide-react";
-import { Web3AuthProvider, useIdentityToken, useWeb3AuthConnect, useWeb3AuthDisconnect, useWeb3AuthUser } from "@web3auth/modal/react";
+import { Web3AuthProvider, useIdentityToken, useWeb3AuthConnect, useWeb3AuthDisconnect } from "@web3auth/modal/react";
 import { authConnector } from "@web3auth/no-modal";
 
 import { encryptJsonWithOraclePublicKey } from "@/lib/browser-encryption";
@@ -94,7 +94,6 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
   const { connect, loading: connectLoading, error: connectError, isConnected } = useWeb3AuthConnect();
   const { disconnect, loading: disconnectLoading, error: disconnectError } = useWeb3AuthDisconnect();
   const { getIdentityToken, loading: tokenLoading, error: tokenError } = useIdentityToken();
-  const { userInfo, getUserInfo, loading: userLoading, error: userError } = useWeb3AuthUser();
 
   const [runtime, setRuntime] = useState<RuntimeState | null>(null);
   const [runtimeError, setRuntimeError] = useState("");
@@ -107,19 +106,21 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
   const [vaultAccount, setVaultAccount] = useState("0x6d0656f6dd91469db1c90cc1e574380613f43738");
   const [claimType, setClaimType] = useState("Web3Auth_PrimaryIdentity");
   const [claimValue, setClaimValue] = useState("linked_social_root");
+  const [currentOrigin, setCurrentOrigin] = useState("");
 
   const jwtPayload = useMemo(() => decodeJwtPayload(identityToken), [identityToken]);
-  const userInfoRecord = (userInfo || {}) as Record<string, unknown>;
-  const busy = connectLoading || disconnectLoading || tokenLoading || userLoading || bindLoading;
+  const busy = connectLoading || disconnectLoading || tokenLoading || bindLoading;
   const audienceConfigured = runtime?.web3auth?.audience_configured === true;
   const web3authErrors = [
     connectError?.message,
     disconnectError?.message,
     tokenError?.message,
-    userError?.message,
   ].filter((value): value is string => Boolean(value));
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCurrentOrigin(window.location.origin);
+    }
     void (async () => {
       try {
         const response = await fetch("/api/neodid/runtime");
@@ -133,6 +134,25 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
 
   }, []);
 
+  useEffect(() => {
+    if (!isConnected || identityToken) return;
+    void refreshIdentityArtifacts();
+  }, [identityToken, isConnected]);
+
+  useEffect(() => {
+    void fetch("/api/web3auth/debug-state", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        connected: isConnected,
+        identityToken,
+        jwtPayload,
+        bindResult,
+        error: [bindError, ...web3authErrors].filter(Boolean).join(" | "),
+      }),
+    }).catch(() => {});
+  }, [bindError, bindResult, identityToken, isConnected, jwtPayload, web3authErrors]);
+
   async function copyWithToast(id: string, value: string) {
     await copyText(value);
     setCopiedItem(id);
@@ -140,12 +160,9 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
   }
 
   async function refreshIdentityArtifacts() {
-    const [token, info] = await Promise.all([
-      getIdentityToken(),
-      getUserInfo(),
-    ]);
+    const token = await getIdentityToken();
     setIdentityToken(token || "");
-    return { token: token || "", info };
+    return { token: token || "" };
   }
 
   async function handleConnect() {
@@ -304,18 +321,18 @@ function Web3AuthLiveStudioInner({ originDataState }: { originDataState: OriginD
             </div>
           ) : null}
 
-          {userInfo ? (
+          {jwtPayload ? (
             <div style={{ marginTop: "1rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              Name: <code>{String(userInfoRecord.name || userInfoRecord.email || userInfoRecord.verifier || "unknown")}</code><br />
-              Email: <code>{String(userInfoRecord.email || "n/a")}</code><br />
-              Verifier: <code>{String(userInfoRecord.verifier || "n/a")}</code>
+              Subject: <code>{String(jwtPayload.sub || "unknown")}</code><br />
+              Email: <code>{String(jwtPayload.email || jwtPayload.verifierId || "n/a")}</code><br />
+              Verifier: <code>{String(jwtPayload.verifier || jwtPayload.aggregateVerifier || "n/a")}</code>
             </div>
           ) : null}
 
           <div style={{ marginTop: "1rem", color: originDataState?.error ? "#ff8f8f" : "var(--text-secondary)", lineHeight: 1.6 }}>
             Origin signing:
             {" "}
-            <code>{originDataState?.origin || (typeof window !== "undefined" ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL || "unknown")}</code>
+            <code>{originDataState?.origin || currentOrigin || process.env.NEXT_PUBLIC_APP_URL || "unknown"}</code>
             <br />
             Status:
             {" "}
@@ -455,8 +472,12 @@ export function Web3AuthLiveStudio() {
   const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID || DEFAULT_WEB3AUTH_CLIENT_ID;
   const web3AuthNetwork = (process.env.NEXT_PUBLIC_WEB3AUTH_NETWORK || DEFAULT_WEB3AUTH_NETWORK) as "sapphire_mainnet";
   const [originDataState, setOriginDataState] = useState<OriginDataState | null>(null);
+  const [redirectUrl, setRedirectUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setRedirectUrl(`${window.location.origin}${window.location.pathname}`);
+    }
     void (async () => {
       try {
         const response = await fetch(`/api/web3auth/origin-data?origin=${encodeURIComponent(window.location.origin)}`);
@@ -471,7 +492,6 @@ export function Web3AuthLiveStudio() {
     })();
   }, []);
 
-  const redirectUrl = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}` : undefined;
   const connectors = useMemo(() => [
     authConnector({
       connectorSettings: {
