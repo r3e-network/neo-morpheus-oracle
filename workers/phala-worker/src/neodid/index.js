@@ -37,6 +37,20 @@ function encodeLengthPrefixedAscii(value = "") {
   return Buffer.concat([Buffer.from([body.length]), body]);
 }
 
+function isNeoN3DigestContext(payload = {}) {
+  const network = trimString(payload.network || payload.target_chain || "").toLowerCase();
+  if (network === "neo_n3") return true;
+  const callbackEncoding = trimString(payload.callback_encoding || payload.result_encoding || "").toLowerCase();
+  return callbackEncoding.startsWith("neo_n3_");
+}
+
+function encodeHash160ForDigest(value, payload = {}) {
+  const bytes = Buffer.from(String(value || "").replace(/^0x/i, ""), "hex");
+  return isNeoN3DigestContext(payload)
+    ? Buffer.from(bytes).reverse()
+    : bytes;
+}
+
 function normalizeNeoDidProviderId(value) {
   const normalized = trimString(value).toLowerCase();
   return PROVIDER_ALIAS_MAP[normalized] || normalized;
@@ -96,10 +110,10 @@ function encodeHash160OrZero(value) {
   return Buffer.from(value.replace(/^0x/i, ""), "hex");
 }
 
-function buildBindingDigestBytes(ticket) {
+function buildBindingDigestBytes(ticket, payload = {}) {
   return createHash("sha256").update(Buffer.concat([
     NEODID_BINDING_DOMAIN,
-    Buffer.from(ticket.vault_account.replace(/^0x/i, ""), "hex"),
+    encodeHash160ForDigest(ticket.vault_account, payload),
     encodeLengthPrefixedAscii(ticket.provider),
     encodeLengthPrefixedAscii(ticket.claim_type),
     encodeLengthPrefixedAscii(ticket.claim_value || ""),
@@ -108,24 +122,24 @@ function buildBindingDigestBytes(ticket) {
   ])).digest();
 }
 
-function buildActionDigestBytes(ticket) {
+function buildActionDigestBytes(ticket, payload = {}) {
   return createHash("sha256").update(Buffer.concat([
     NEODID_ACTION_DOMAIN,
-    Buffer.from(ticket.disposable_account.replace(/^0x/i, ""), "hex"),
+    encodeHash160ForDigest(ticket.disposable_account, payload),
     encodeLengthPrefixedAscii(ticket.action_id),
     Buffer.from(ticket.action_nullifier, "hex"),
   ])).digest();
 }
 
-function buildRecoveryDigestBytes(ticket) {
+function buildRecoveryDigestBytes(ticket, payload = {}) {
   return createHash("sha256").update(Buffer.concat([
     NEODID_RECOVERY_DOMAIN,
     encodeLengthPrefixedAscii(ticket.network),
-    Buffer.from(ticket.aa_contract.replace(/^0x/i, ""), "hex"),
-    encodeHash160OrZero(ticket.verifier_contract),
-    encodeHash160OrZero(ticket.account_address),
+    encodeHash160ForDigest(ticket.aa_contract, payload),
+    ticket.verifier_contract ? encodeHash160ForDigest(ticket.verifier_contract, payload) : Buffer.alloc(20, 0),
+    ticket.account_address ? encodeHash160ForDigest(ticket.account_address, payload) : Buffer.alloc(20, 0),
     encodeLengthPrefixedAscii(ticket.account_id),
-    Buffer.from(ticket.new_owner.replace(/^0x/i, ""), "hex"),
+    encodeHash160ForDigest(ticket.new_owner, payload),
     encodeLengthPrefixedAscii(ticket.recovery_nonce),
     encodeLengthPrefixedAscii(ticket.expires_at),
     encodeLengthPrefixedAscii(ticket.action_id),
@@ -260,7 +274,7 @@ export async function handleNeoDidBind(payload = {}) {
     metadata_hash: computeMetadataHash(resolvedPayload.metadata || {}),
   };
   ticket.master_nullifier = computeMasterNullifier(ticket.provider, ticket.provider_uid, saltBytes);
-  const digestBytes = buildBindingDigestBytes(ticket);
+  const digestBytes = buildBindingDigestBytes(ticket, resolvedPayload);
   const signer = await signDigestBytes(digestBytes, resolvedPayload);
   const result = {
     vault_account: ticket.vault_account,
@@ -288,7 +302,7 @@ export async function handleNeoDidActionTicket(payload = {}) {
     action_id: actionId,
     action_nullifier: actionNullifier,
   };
-  const digestBytes = buildActionDigestBytes(ticket);
+  const digestBytes = buildActionDigestBytes(ticket, resolvedPayload);
   const signer = await signDigestBytes(digestBytes, resolvedPayload);
   const result = {
     disposable_account: ticket.disposable_account,
@@ -351,7 +365,7 @@ export async function handleNeoDidRecoveryTicket(payload = {}) {
     master_nullifier: masterNullifier,
     action_nullifier: actionNullifier,
   };
-  const digestBytes = buildRecoveryDigestBytes(ticket);
+  const digestBytes = buildRecoveryDigestBytes(ticket, resolvedPayload);
   const signer = await signDigestBytes(digestBytes, resolvedPayload);
   const result = {
     network: ticket.network,
