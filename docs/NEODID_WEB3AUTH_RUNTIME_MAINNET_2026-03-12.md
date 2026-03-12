@@ -125,10 +125,88 @@ The production runtime is now ready for that test:
 - stable provider-root derivation happens inside the TEE
 - failure behavior for missing Web3Auth proof is correct
 
+## Positive Live Web3Auth Validation
+
+After the runtime rollout, a real Web3Auth browser login was completed and the resulting JWT was consumed in production.
+
+Live positive direct bind using the real Web3Auth `id_token`:
+
+```json
+{
+  "status": 200,
+  "mode": "neodid_bind",
+  "provider": "web3auth",
+  "claim_type": "Web3Auth_PrimaryIdentity",
+  "claim_value": "linked_social_root",
+  "master_nullifier": "0x506b5fb977e2c3609fa66b19cc5296de6f190e2e645ddf1d6047b7059654b976",
+  "attestation_hash": "91c4e0fc8df4d1fe32711a9e9468cc6fe41f1abc58787a064e336f4c46421ce5"
+}
+```
+
+Live positive encrypted bind using the same real JWT sealed into `encrypted_params`:
+
+```json
+{
+  "status": 200,
+  "mode": "neodid_bind",
+  "provider": "web3auth",
+  "claim_value": "linked_social_root_encrypted",
+  "master_nullifier": "0x506b5fb977e2c3609fa66b19cc5296de6f190e2e645ddf1d6047b7059654b976",
+  "attestation_hash": "429f2f5b285b8380e5876dd10fe3b57d9d8e8e0ba2cdb7b0590a4551a90a05df"
+}
+```
+
+Live positive encrypted action-ticket using the same real JWT sealed into `encrypted_params`:
+
+```json
+{
+  "status": 200,
+  "mode": "neodid_action_ticket",
+  "action_id": "mainnet_web3auth_action_probe_2026_03_12",
+  "action_nullifier": "0x629b4a72d45fbe08781449f7274250197142e7ce436c0baf1042352d4ea7b519",
+  "attestation_hash": "f9f68926c0fa76e3f7370c5b297c4bf6f001fc3d6c12d5b9cdf10fedbd96ff9f"
+}
+```
+
+## Oracle Callback Validation For Large JWT Payloads
+
+A direct on-chain `neodid_bind` request carrying the full Web3Auth JWT in payload bytes failed on Neo N3 because the Oracle request event payload exceeded the chain notification size limit.
+
+Observed failure mode:
+
+- VM fault while estimating system fee
+- root cause: `System.Runtime.Notify failed: notification size shouldn't exceed 1024`
+
+To preserve the production requirement that NeoDID requests still enter through the Oracle contract, the system was extended with short encrypted payload references:
+
+- client stores the ciphertext in `morpheus_encrypted_secrets`
+- on-chain request carries only `encrypted_params_ref`
+- worker resolves the ciphertext by reference, then decrypts and verifies the JWT inside TEE
+
+Validated production callback flow with encrypted reference:
+
+```json
+{
+  "txid": "0x1e236d1e9b658d7d7a9ed49276198bd5b34619d9fe29449cb03b96b326f5b49b",
+  "request_id": "126",
+  "request_type": "neodid_bind",
+  "success": true,
+  "claim_value": "linked_social_root_oracle_ref",
+  "master_nullifier": "0x506b5fb977e2c3609fa66b19cc5296de6f190e2e645ddf1d6047b7059654b976",
+  "attestation_hash": "af0de41125c2398eead0836e904b9be7cdd24326fcfa7ebfd14445ae9ce97d99"
+}
+```
+
+This proves the end-to-end production path now works for Web3Auth-backed NeoDID even when the JWT is too large to be embedded directly in the on-chain Oracle request payload.
+
 ## Acceptance
 
-Accepted for production runtime readiness of the Web3Auth-in-TEE NeoDID path, with one remaining pending live-user validation item:
+Accepted for production runtime readiness and positive mainnet validation of the Web3Auth-in-TEE NeoDID path.
 
-- obtain a real Web3Auth `id_token`
-- submit `neodid_bind` or `neodid_recovery_ticket`
-- record the resulting positive live response / callback evidence
+Validated:
+
+- live user Web3Auth login
+- direct positive `neodid_bind`
+- encrypted positive `neodid_bind`
+- encrypted positive `neodid_action_ticket`
+- on-chain Oracle callback flow using `encrypted_params_ref`

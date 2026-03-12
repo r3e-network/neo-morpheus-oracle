@@ -48,6 +48,8 @@ Use this document together with:
   - `derives_provider_uid_in_tee = true`
   - `jwks_url = https://api-auth.web3auth.io/.well-known/jwks.json`
   - `verification_public_key = 030f53dc945897a361b2044aed742cc0bdd42f87f0df5783c4c1344875ee52bcf7`
+  - positive live Web3Auth JWT validation completed
+  - large JWT Oracle requests now require `encrypted_params_ref` short-reference mode to stay within Neo N3 notification limits
 
 ## 2. Code Under Test
 
