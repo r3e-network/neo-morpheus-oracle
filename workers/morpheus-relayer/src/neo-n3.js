@@ -73,6 +73,7 @@ export function decodeNeoItem(item) {
       }
     }
     case "array":
+    case "struct":
       return Array.isArray(item.value) ? item.value.map((entry) => decodeNeoItem(entry)) : [];
     default:
       return item.value ?? null;

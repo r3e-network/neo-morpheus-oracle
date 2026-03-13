@@ -30,6 +30,7 @@ import {
 import { decodeNeoItem, encodeUtf8ByteArrayParamValue, hasNeoN3RelayerConfig } from "./src/neo-n3.js";
 import { hasNeoXRelayerConfig } from "./src/neo-x.js";
 import { sanitizeForPostgres } from "./src/persistence.js";
+import { createRelayerConfig } from "./src/config.js";
 
 const retryConfig = {
   maxRetries: 3,
@@ -285,6 +286,31 @@ test("relayer config accepts derived-key mode for Neo N3 and Neo X", () => {
   process.env.PHALA_USE_DERIVED_KEYS = previous;
 });
 
+test("createRelayerConfig exposes request cursor start ids", () => {
+  const previousNetwork = process.env.MORPHEUS_NETWORK;
+  const previousNeoN3 = process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID;
+  const previousNeoX = process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID;
+
+  process.env.MORPHEUS_NETWORK = "testnet";
+  process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID = "150";
+  process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID = "77";
+
+  try {
+    const config = createRelayerConfig();
+    assert.equal(config.startRequestIds.neo_n3, 150);
+    assert.equal(config.startRequestIds.neo_x, 77);
+  } finally {
+    if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
+    else process.env.MORPHEUS_NETWORK = previousNetwork;
+
+    if (previousNeoN3 === undefined) delete process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID;
+    else process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID = previousNeoN3;
+
+    if (previousNeoX === undefined) delete process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID;
+    else process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID = previousNeoX;
+  }
+});
+
 test("encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8", () => {
   const encoded = encodeUtf8ByteArrayParamValue('{"ok":true}');
   assert.equal(Buffer.from(encoded, 'base64').toString('utf8'), '{"ok":true}');
@@ -305,6 +331,19 @@ test("decodeNeoItem keeps printable 20-byte byte strings as text", () => {
     value: Buffer.from("neodid_action_ticket", "utf8").toString("base64"),
   });
   assert.equal(decoded, "neodid_action_ticket");
+});
+
+test("decodeNeoItem decodes Neo VM structs recursively", () => {
+  const decoded = decodeNeoItem({
+    type: "Struct",
+    value: [
+      { type: "Integer", value: "150" },
+      { type: "ByteString", value: Buffer.from("compute", "utf8").toString("base64") },
+      { type: "Boolean", value: true },
+    ],
+  });
+
+  assert.deepEqual(decoded, ["150", "compute", true]);
 });
 
 test("buildOnchainResultEnvelope keeps working when verification is missing", () => {

@@ -969,10 +969,10 @@ test('oracle public key endpoint returns X25519 metadata', async () => {
   assert.deepEqual(body.supported_payload_encryption, [TEST_ORACLE_ENCRYPTION_ALGORITHM]);
 });
 
-test('oracle public key can be stabilized with a dstack-sealed keystore', async () => {
+test('oracle public key prefers a dstack-sealed keystore whenever dstack is available', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-oracle-key-'));
   const keystorePath = path.join(tempDir, 'oracle-key.json');
-  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+  process.env.PHALA_USE_DERIVED_KEYS = 'false';
   process.env.PHALA_ORACLE_KEYSTORE_PATH = keystorePath;
 
   __setDstackClientFactoryForTests(async () => ({

@@ -8,7 +8,7 @@ import {
 } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, resolveWasmModuleBase64, trimString } from "../platform/core.js";
-import { deriveKeyBytes, shouldUseDerivedKeys } from "../platform/dstack.js";
+import { deriveKeyBytes } from "../platform/dstack.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { runWasmWithTimeout } from "../platform/wasm-runner.js";
 import { validateUserScriptSource } from "../platform/script-policy.js";
@@ -347,9 +347,7 @@ export async function ensureOracleKeyMaterial(payload = {}) {
   if (!oracleKeyMaterialPromise) {
     oracleKeyMaterialPromise = (async () => {
       try {
-        if (shouldUseDerivedKeys(payload)) {
-          return await loadStableOracleKeyMaterial();
-        }
+        return await loadStableOracleKeyMaterial();
       } catch {
         // fall back to ephemeral in-memory key material
       }
