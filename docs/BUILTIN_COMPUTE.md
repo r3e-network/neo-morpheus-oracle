@@ -54,11 +54,18 @@ Builds a deterministic digest of a proof object and optional verifying key conte
 ### `zkp.witness_digest`
 Builds a deterministic digest of witness material before proving.
 
+### `zkp.groth16.verify`
+Verifies a Groth16 proof against a verifying key and normalized public signals.
+
 ### `zkp.groth16.prove.plan`
 Returns a planning estimate for Groth16 proving workloads.
 
 ### `zkp.plonk.prove.plan`
 Returns a planning estimate for PLONK proving workloads.
+
+### `zkp.zerc20.single_withdraw.verify`
+Validates zERC20 single-withdraw public inputs and can optionally verify a Groth16 proof for the same statement.
+This helper is independent from the paymaster service. Applications may use it to preflight privacy-transaction proofs before submission or before requesting sponsorship.
 
 ### `fhe.batch_plan`
 Returns a batching/packing plan based on slot and ciphertext counts.

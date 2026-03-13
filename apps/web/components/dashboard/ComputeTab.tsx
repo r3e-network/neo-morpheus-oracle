@@ -38,6 +38,8 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
     { name: "builtin.matrix.multiply", runtime: "Builtin", desc: "Reference payload shape for matrix multiplication.", cat: "Linear Algebra" },
     { name: "builtin.privacy.mask", runtime: "Builtin", desc: "Reference payload shape for masking a sensitive string.", cat: "Privacy" },
     { name: "builtin.zkp.public_signal_hash", runtime: "Builtin", desc: "Reference payload shape for a ZKP digest helper.", cat: "ZKP" },
+    { name: "builtin.zkp.groth16.verify", runtime: "Builtin", desc: "Reference payload shape for Groth16 proof verification.", cat: "ZKP" },
+    { name: "builtin.zkp.zerc20.single_withdraw.verify", runtime: "Builtin", desc: "Reference payload shape for zERC20 single-withdraw proof preflight.", cat: "ZKP" },
     { name: "wasm.reference", runtime: "WASM", desc: "Use WASM when you need stronger isolation and a 30s bounded runtime.", cat: "WASM" }
   ];
 
@@ -64,6 +66,16 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
     }
     if (name.includes("public_signal_hash")) {
       setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "zkp.public_signal_hash",\n    input: { circuit_id: "demo", signals: [1, 2, 3] }\n  };\n}`);
+      setComputeInput('{\n  "note": "reference only"\n}');
+      return;
+    }
+    if (name.includes("groth16.verify")) {
+      setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "zkp.groth16.verify",\n    input: {\n      verifying_key: { protocol: "groth16", curve: "bn128" },\n      public_signals: ["1", "2"],\n      proof: { pi_a: [], pi_b: [], pi_c: [] }\n    }\n  };\n}`);
+      setComputeInput('{\n  "note": "reference only"\n}');
+      return;
+    }
+    if (name.includes("zerc20.single_withdraw.verify")) {
+      setUserCode(`// Builtin payload reference\nfunction process(input, helpers) {\n  return {\n    mode: "builtin",\n    function: "zkp.zerc20.single_withdraw.verify",\n    input: {\n      skip_proof_verification: true,\n      public_inputs: {\n        recipient: "0x1111111111111111111111111111111111111111",\n        withdraw_value: "1000000",\n        tree_root: "0x2222222222222222222222222222222222222222222222222222222222222222",\n        path_indices: "0x01",\n        blacklisted_root: "0x3333333333333333333333333333333333333333333333333333333333333333"\n      }\n    }\n  };\n}`);
       setComputeInput('{\n  "note": "reference only"\n}');
       return;
     }
@@ -264,6 +276,12 @@ BigInteger requestId = (BigInteger)Contract.Call(
           </button>
           <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.zkp.public_signal_hash")}>
             <Database size={14} /> zkp.public_signal_hash
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.zkp.groth16.verify")}>
+            <ShieldAlert size={14} /> zkp.groth16.verify
+          </button>
+          <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.zkp.zerc20.single_withdraw.verify")}>
+            <ShieldAlert size={14} /> zerc20.verify
           </button>
           <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => applyComputePreset("builtin.matrix.multiply")}>
             <Database size={14} /> matrix.multiply

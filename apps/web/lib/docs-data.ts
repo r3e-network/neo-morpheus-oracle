@@ -77,6 +77,13 @@ export const BUILTIN_FUNCTIONS = [
     example: "const digest = await morpheus.zkp.witness_digest({ witness, circuit_id: 'demo' });"
   },
   {
+    name: "zkp.groth16.verify",
+    category: "ZKP",
+    desc: "Verifies a Groth16 proof against a verifying key and public signals.",
+    params: "verifying_key: any, public_signals: any[], proof: any",
+    example: "const verdict = await morpheus.zkp.groth16.verify({ verifying_key, public_signals, proof });"
+  },
+  {
     name: "zkp.groth16.prove.plan",
     category: "ZKP",
     desc: "Returns a planning estimate for Groth16 proving workloads.",
@@ -89,6 +96,13 @@ export const BUILTIN_FUNCTIONS = [
     desc: "Returns a planning estimate for PLONK proving workloads.",
     params: "gates: number",
     example: "const plan = await morpheus.zkp.plonk.prove.plan({ gates: 90000 });"
+  },
+  {
+    name: "zkp.zerc20.single_withdraw.verify",
+    category: "ZKP",
+    desc: "Checks zERC20 single-withdraw public inputs and can optionally run Groth16 verification.",
+    params: "public_inputs: object, verifying_key?: any, proof?: any, skip_proof_verification?: boolean",
+    example: "const verdict = await morpheus.zkp.zerc20.single_withdraw.verify({ public_inputs, proof, verifying_key });"
   },
   {
     name: "fhe.batch_plan",
@@ -188,6 +202,10 @@ export const SECURITY_CONCEPTS = [
   {
     title: "Sealed Transport Keys",
     desc: "The Oracle transport key is sealed inside the confidential VM and wrapped by a dstack-derived key so restarts do not rotate user-facing encryption metadata."
+  },
+  {
+    title: "Policy-Gated Paymaster",
+    desc: "Morpheus Paymaster is a separate sponsorship service with per-network policy ids, gas caps, target/method allowlists, and optional account or dapp allowlists. It is not coupled to any specific ZKP circuit."
   }
 ];
 
