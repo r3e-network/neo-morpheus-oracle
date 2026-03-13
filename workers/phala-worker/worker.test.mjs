@@ -1137,16 +1137,24 @@ test('compute execute supports zerc20 single-withdraw verification preflight', a
 test('paymaster authorize enforces network-specific policy', async () => {
   const snapshot = {
     testnetEnabled: process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED,
+    testnetPolicyId: process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID,
     testnetMaxGas: process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS,
     testnetAllowTargets: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS,
     testnetAllowMethods: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS,
+    testnetAllowAccounts: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS,
+    testnetBlockAccounts: process.env.MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS,
+    testnetAllowDapps: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS,
     mainnetEnabled: process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED,
   };
 
   process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED = 'true';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID = 'testnet-aa';
   process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = '500000';
   process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = `0x${'aa'.repeat(20)}`;
   process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = 'executeUserOp';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS = 'aa-test-account';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS = '';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS = 'demo-dapp';
   process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED = 'false';
 
   try {
@@ -1157,16 +1165,21 @@ test('paymaster authorize enforces network-specific policy', async () => {
         network: 'testnet',
         target_chain: 'neo_n3',
         account_id: 'aa-test-account',
+        dapp_id: 'demo-dapp',
         target_contract: `0x${'aa'.repeat(20)}`,
         method: 'executeUserOp',
         estimated_gas_units: 120000,
+        operation_hash: `0x${'44'.repeat(32)}`,
       }),
     }));
     assert.equal(approved.status, 200);
     const approvedBody = await approved.json();
     assert.equal(approvedBody.approved, true);
     assert.equal(approvedBody.network, 'testnet');
+    assert.equal(approvedBody.policy_id, 'testnet-aa');
     assert.ok(approvedBody.sponsorship_id);
+    assert.equal(approvedBody.operation_hash, `0x${'44'.repeat(32)}`);
+    assert.ok(approvedBody.approval_digest);
     assert.ok(approvedBody.signature);
 
     const denied = await handler(new Request('http://local/paymaster/authorize', {
@@ -1176,20 +1189,45 @@ test('paymaster authorize enforces network-specific policy', async () => {
         network: 'mainnet',
         target_chain: 'neo_n3',
         account_id: 'aa-test-account',
+        dapp_id: 'demo-dapp',
         target_contract: `0x${'aa'.repeat(20)}`,
         method: 'executeUserOp',
         estimated_gas_units: 120000,
+        operation_hash: `0x${'44'.repeat(32)}`,
       }),
     }));
     assert.equal(denied.status, 200);
     const deniedBody = await denied.json();
     assert.equal(deniedBody.approved, false);
     assert.match(deniedBody.reason, /disabled/i);
+
+    const deniedDapp = await handler(new Request('http://local/paymaster/authorize', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        network: 'testnet',
+        target_chain: 'neo_n3',
+        account_id: 'aa-test-account',
+        dapp_id: 'rogue-dapp',
+        target_contract: `0x${'aa'.repeat(20)}`,
+        method: 'executeUserOp',
+        estimated_gas_units: 120000,
+        operation_hash: `0x${'55'.repeat(32)}`,
+      }),
+    }));
+    assert.equal(deniedDapp.status, 200);
+    const deniedDappBody = await deniedDapp.json();
+    assert.equal(deniedDappBody.approved, false);
+    assert.match(deniedDappBody.reason, /dapp_id is not allowlisted/i);
   } finally {
     process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED = snapshot.testnetEnabled;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID = snapshot.testnetPolicyId;
     process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = snapshot.testnetMaxGas;
     process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = snapshot.testnetAllowTargets;
     process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = snapshot.testnetAllowMethods;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS = snapshot.testnetAllowAccounts;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS = snapshot.testnetBlockAccounts;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS = snapshot.testnetAllowDapps;
     process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED = snapshot.mainnetEnabled;
   }
 });
