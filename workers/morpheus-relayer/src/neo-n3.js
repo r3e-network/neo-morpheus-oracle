@@ -92,6 +92,30 @@ export async function getNeoN3LatestBlock(config) {
   return Number(blockCount) - 1;
 }
 
+export async function getNeoN3IndexedBlock(config) {
+  const network = trimString(config.network) === "mainnet" ? "mainnet" : "testnet";
+  const baseUrl = trimString(config.neo_n3.indexerUrl || "https://api.n3index.dev/rest/v1").replace(/\/$/, "");
+  const url = new URL(`${baseUrl}/indexer_state`);
+  url.searchParams.set("network", `eq.${network}`);
+  url.searchParams.set("select", "last_indexed_block");
+  url.searchParams.set("limit", "1");
+
+  const response = await fetch(url.toString(), {
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`n3index indexer_state failed: ${response.status} ${text}`.trim());
+  }
+
+  const rows = await response.json().catch(() => []);
+  const latest = Array.isArray(rows) ? Number(rows[0]?.last_indexed_block || 0) : 0;
+  if (!Number.isFinite(latest) || latest <= 0) {
+    throw new Error("n3index last_indexed_block unavailable");
+  }
+  return latest;
+}
+
 export async function getNeoN3LatestRequestId(config) {
   const result = await neoRpcCall(config.neo_n3.rpcUrl, "invokefunction", [
     config.neo_n3.oracleContract,

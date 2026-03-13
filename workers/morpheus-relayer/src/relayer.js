@@ -26,7 +26,7 @@ import {
   scheduleRetry,
   snapshotMetrics,
 } from "./state.js";
-import { fulfillNeoN3Request, getNeoN3LatestBlock, getNeoN3LatestRequestId, hasNeoN3RelayerConfig, scanNeoN3OracleRequests, scanNeoN3OracleRequestsById, scanNeoN3OracleRequestsViaN3Index } from "./neo-n3.js";
+import { fulfillNeoN3Request, getNeoN3IndexedBlock, getNeoN3LatestBlock, getNeoN3LatestRequestId, hasNeoN3RelayerConfig, scanNeoN3OracleRequests, scanNeoN3OracleRequestsById, scanNeoN3OracleRequestsViaN3Index } from "./neo-n3.js";
 import { fulfillNeoXRequest, getNeoXLatestBlock, hasNeoXRelayerConfig, scanNeoXOracleRequests } from "./neo-x.js";
 
 function sleep(ms) {
@@ -801,7 +801,9 @@ export async function runRelayerOnce(options = {}) {
       })
     : await processChain(config, state, logger, "neo_n3", {
         hasConfig: hasNeoN3RelayerConfig,
-        getLatestBlock: getNeoN3LatestBlock,
+        getLatestBlock: config.neo_n3.scanMode === "n3index_notifications"
+          ? getNeoN3IndexedBlock
+          : getNeoN3LatestBlock,
         scan: config.neo_n3.scanMode === "n3index_notifications"
           ? scanNeoN3OracleRequestsViaN3Index
           : scanNeoN3OracleRequests,
