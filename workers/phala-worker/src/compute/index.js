@@ -128,6 +128,111 @@ function verifyRSASignature(publicKeyPem, signatureHex, payloadString) {
   }
 }
 
+function normalizeHexString(value, fieldName) {
+  const raw = trimString(value);
+  if (!raw) throw new Error(`${fieldName} is required`);
+  const normalized = raw.startsWith("0x") ? raw.toLowerCase() : `0x${raw.toLowerCase()}`;
+  if (!/^0x[0-9a-f]+$/i.test(normalized)) {
+    throw new Error(`${fieldName} must be a hex string`);
+  }
+  return normalized;
+}
+
+function normalizeScalarString(value, fieldName) {
+  const raw = trimString(value);
+  if (!raw) throw new Error(`${fieldName} is required`);
+  return raw;
+}
+
+function normalizePublicSignals(value) {
+  if (Array.isArray(value)) return value.map((entry) => String(entry));
+  if (value === undefined || value === null) return [];
+  throw new Error("public_signals must be an array");
+}
+
+async function verifyGroth16Proof(verifyingKey, publicSignals, proof) {
+  const snarkjs = await import("snarkjs");
+  return Boolean(await snarkjs.groth16.verify(verifyingKey, publicSignals, proof));
+}
+
+function normalizeZerc20SingleWithdrawStatement(input = {}) {
+  const source = input.public_inputs && typeof input.public_inputs === "object"
+    ? input.public_inputs
+    : input;
+  return {
+    recipient: normalizeHexString(source.recipient, "recipient"),
+    withdraw_value: normalizeScalarString(source.withdraw_value ?? source.withdrawValue, "withdraw_value"),
+    tree_root: normalizeHexString(source.tree_root ?? source.treeRoot, "tree_root"),
+    path_indices: normalizeHexString(source.path_indices ?? source.pathIndices, "path_indices"),
+    blacklisted_root: normalizeHexString(source.blacklisted_root ?? source.blacklistedRoot, "blacklisted_root"),
+  };
+}
+
+function compareExpected(label, actual, expected) {
+  if (expected === undefined || expected === null || trimString(expected) === "") {
+    return { checked: false, ok: true, actual };
+  }
+  const normalizedExpected = label.includes("value")
+    ? normalizeScalarString(expected, label)
+    : normalizeHexString(expected, label);
+  return {
+    checked: true,
+    ok: actual === normalizedExpected,
+    actual,
+    expected: normalizedExpected,
+  };
+}
+
+async function verifyZerc20SingleWithdraw(input = {}) {
+  const statement = normalizeZerc20SingleWithdrawStatement(input);
+  const publicSignals = normalizePublicSignals(
+    input.public_signals
+      ?? input.publicSignals
+      ?? [
+        statement.recipient,
+        statement.withdraw_value,
+        statement.tree_root,
+        statement.path_indices,
+        statement.blacklisted_root,
+      ],
+  );
+
+  const checks = {
+    recipient: compareExpected("expected_recipient", statement.recipient, input.expected_recipient ?? input.expectedRecipient),
+    withdraw_value: compareExpected("expected_withdraw_value", statement.withdraw_value, input.expected_withdraw_value ?? input.expectedWithdrawValue),
+    tree_root: compareExpected("expected_tree_root", statement.tree_root, input.expected_tree_root ?? input.expectedTreeRoot),
+    path_indices: compareExpected("expected_path_indices", statement.path_indices, input.expected_path_indices ?? input.expectedPathIndices),
+    blacklisted_root: compareExpected("expected_blacklisted_root", statement.blacklisted_root, input.expected_blacklisted_root ?? input.expectedBlacklistedRoot),
+  };
+
+  let proofVerified = null;
+  if (input.skip_proof_verification === true) {
+    proofVerified = null;
+  } else if (input.verifying_key || input.verifyingKey) {
+    const proof = input.proof;
+    if (!proof || typeof proof !== "object") {
+      throw new Error("proof object is required when verifying_key is supplied");
+    }
+    proofVerified = await verifyGroth16Proof(
+      input.verifying_key ?? input.verifyingKey,
+      publicSignals,
+      proof,
+    );
+  } else {
+    throw new Error("verifying_key is required unless skip_proof_verification=true");
+  }
+
+  const statementsMatch = Object.values(checks).every((entry) => entry.ok);
+  return {
+    statement,
+    public_signals: publicSignals,
+    statement_hash: sha256Hex(stableStringify(statement)),
+    checks,
+    proof_verified: proofVerified,
+    is_valid: statementsMatch && (proofVerified === null || proofVerified === true),
+  };
+}
+
 export const BUILTIN_COMPUTE_CATALOG = [
   { name: "hash.sha256", category: "hash", description: "Hashes any JSON-serializable payload with SHA-256." },
   { name: "hash.keccak256", category: "hash", description: "Hashes any JSON-serializable payload with Keccak-256." },
@@ -140,8 +245,10 @@ export const BUILTIN_COMPUTE_CATALOG = [
   { name: "zkp.public_signal_hash", category: "zkp", description: "Computes a deterministic digest over public signals." },
   { name: "zkp.proof_digest", category: "zkp", description: "Computes a deterministic digest over a proof object." },
   { name: "zkp.witness_digest", category: "zkp", description: "Computes a digest over witness material before proving." },
+  { name: "zkp.groth16.verify", category: "zkp", description: "Verifies a Groth16 proof against a verifying key and public signals." },
   { name: "zkp.groth16.prove.plan", category: "zkp", description: "Returns a planning estimate for Groth16 proving workloads." },
   { name: "zkp.plonk.prove.plan", category: "zkp", description: "Returns a planning estimate for PLONK proving workloads." },
+  { name: "zkp.zerc20.single_withdraw.verify", category: "zkp", description: "Verifies zERC20 single-withdraw public inputs and optionally checks a Groth16 proof." },
   { name: "fhe.batch_plan", category: "fhe", description: "Builds a ciphertext batching plan." },
   { name: "fhe.noise_budget_estimate", category: "fhe", description: "Estimates a rough FHE noise budget." },
   { name: "fhe.rotation_plan", category: "fhe", description: "Returns a rotation/key-switch planning summary." },
@@ -179,6 +286,8 @@ export async function executeBuiltinCompute(payload) {
       return { function: fn, result: { digest: sha256Hex(stableStringify({ proof: input.proof || input, verifying_key: input.verifying_key || null })) } };
     case "zkp.witness_digest":
       return { function: fn, result: { digest: sha256Hex(stableStringify({ witness: input.witness || input, circuit_id: input.circuit_id || null })) } };
+    case "zkp.groth16.verify":
+      return { function: fn, result: { is_valid: await verifyGroth16Proof(input.verifying_key ?? input.verifyingKey, normalizePublicSignals(input.public_signals ?? input.publicSignals), input.proof) } };
     case "zkp.groth16.prove.plan": {
       const constraints = Number(input.constraints || 0);
       const witnessCount = Number(input.witness_count || input.witnessCount || 0);
@@ -188,6 +297,8 @@ export async function executeBuiltinCompute(payload) {
       const gates = Number(input.gates || 0);
       return { function: fn, result: { gates, estimated_polynomials: Math.max(Math.ceil(gates / 65536), 1), estimated_memory_mb: Math.max(Math.ceil(gates / 30000), 1) } };
     }
+    case "zkp.zerc20.single_withdraw.verify":
+      return { function: fn, result: await verifyZerc20SingleWithdraw(input) };
     case "fhe.batch_plan": {
       const slotCount = Number(input.slot_count || input.slotCount || 0);
       const ciphertextCount = Number(input.ciphertext_count || input.ciphertextCount || 0);
