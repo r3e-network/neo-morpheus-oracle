@@ -15,9 +15,13 @@ The service does not blindly pay for arbitrary requests.
 Current controls:
 
 - network-scoped enable/disable flags
+- policy ids
 - per-network max gas limit
 - per-network allowlisted target contracts
 - per-network allowlisted method names
+- optional per-network allowlisted account ids
+- optional per-network blocklisted account ids
+- optional per-network allowlisted dapp ids
 - short-lived signed authorization result
 - TEE attestation bound to the authorization payload
 
@@ -44,17 +48,25 @@ This makes the response portable across:
 ### Testnet
 
 - `MORPHEUS_PAYMASTER_TESTNET_ENABLED`
+- `MORPHEUS_PAYMASTER_TESTNET_POLICY_ID`
 - `MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS`
 - `MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS`
 - `MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS`
+- `MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS`
+- `MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS`
+- `MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS`
 - `MORPHEUS_PAYMASTER_TESTNET_TTL_MS`
 
 ### Mainnet
 
 - `MORPHEUS_PAYMASTER_MAINNET_ENABLED`
+- `MORPHEUS_PAYMASTER_MAINNET_POLICY_ID`
 - `MORPHEUS_PAYMASTER_MAINNET_MAX_GAS_UNITS`
 - `MORPHEUS_PAYMASTER_MAINNET_ALLOW_TARGETS`
 - `MORPHEUS_PAYMASTER_MAINNET_ALLOW_METHODS`
+- `MORPHEUS_PAYMASTER_MAINNET_ALLOW_ACCOUNTS`
+- `MORPHEUS_PAYMASTER_MAINNET_BLOCK_ACCOUNTS`
+- `MORPHEUS_PAYMASTER_MAINNET_ALLOW_DAPPS`
 - `MORPHEUS_PAYMASTER_MAINNET_TTL_MS`
 
 ## Request Shape
@@ -64,9 +76,11 @@ This makes the response portable across:
   "network": "testnet",
   "target_chain": "neo_n3",
   "account_id": "0x37298bb6bbb4580fdca24903d67b385ef2268e25",
+  "dapp_id": "demo-dapp",
   "target_contract": "0x9cbbfc969f94a5056fd6a658cab090bcb3604724",
   "method": "executeUserOp",
-  "estimated_gas_units": 120000
+  "estimated_gas_units": 120000,
+  "operation_hash": "0x4444444444444444444444444444444444444444444444444444444444444444"
 }
 ```
 
@@ -97,7 +111,11 @@ Recommended order:
 The bundler can use the signed authorization as a sponsorship ticket and verify:
 
 - signature
+- `policy_id`
 - `expires_at`
+- `account_id`
+- optional `dapp_id`
+- `operation_hash`
 - target contract
 - method
 - gas limit
