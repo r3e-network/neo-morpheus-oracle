@@ -289,7 +289,9 @@ const consumer = new experimental.SmartContract(consumerHash, {
   account,
 });
 
-const feeStatus = await ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, consumerHash, 4);
+// Automation flows can consume additional sponsored executions after registration,
+// so keep a larger fee-credit buffer to avoid false negatives during live tests.
+const feeStatus = await ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, consumerHash, 8);
 const totalRequestsBefore = await invokeRead(rpcClient, oracleHash, "getTotalRequests", []);
 
 const executeAt = new Date(Date.now() + 20_000).toISOString();

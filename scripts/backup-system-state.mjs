@@ -56,20 +56,34 @@ async function fetchRuntimeConfig(appId, apiToken) {
 }
 
 async function backupOracleKeystore(appId, apiToken, destination) {
-  const { stdout } = await execFileAsync("phala", [
-    "ssh",
-    "--api-token",
-    apiToken,
-    appId,
-    "--",
-    "docker",
-    "exec",
+  const candidateContainers = [
+    "morpheus-phala-worker",
     "dstack-phala-worker-1",
-    "cat",
-    "/data/morpheus/oracle-key.json",
-  ], { maxBuffer: 10 * 1024 * 1024 });
-  await fs.writeFile(destination, stdout, "utf8");
-  return JSON.parse(stdout);
+  ];
+
+  let lastError = null;
+  for (const containerName of candidateContainers) {
+    try {
+      const { stdout } = await execFileAsync("phala", [
+        "ssh",
+        "--api-token",
+        apiToken,
+        appId,
+        "--",
+        "docker",
+        "exec",
+        containerName,
+        "cat",
+        "/data/morpheus/oracle-key.json",
+      ], { maxBuffer: 10 * 1024 * 1024 });
+      await fs.writeFile(destination, stdout, "utf8");
+      return JSON.parse(stdout);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("failed to back up oracle keystore");
 }
 
 async function insertSupabaseBackupRows(rows) {
