@@ -11,7 +11,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 - **Privacy Compute** — runs built-in high-cost compute functions and programmable scripts
 - **Datafeed** — operator-synchronized on-chain market data stored as integer cents
 - **Paymaster** — policy-gated sponsorship authorization for AA / relayer / bundler integrations
-- **Relay + Signing** — signs and relays responses for both **Neo N3** and **Neo X**
+- **Relay + Signing** — currently productionized for **Neo N3**
 
 ## Runtime Model
 
@@ -22,7 +22,7 @@ This project gives the Neo blockchain the same thing: **truth**.
   - **Mainnet endpoint**: [https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network](https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network)
   - **Testnet CVM**: `28294e89d490924b79c85cdee057ce55723b3d56`
   - **Testnet endpoint**: [https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network](https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network)
-- **Chains**: Neo N3 + Neo X
+- **Chains**: Neo N3 is the active supported runtime path right now. Neo X artifacts remain in-repo but are not the active production target.
 
 ## Network Registry
 

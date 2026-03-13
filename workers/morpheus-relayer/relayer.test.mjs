@@ -311,6 +311,19 @@ test("createRelayerConfig exposes request cursor start ids", () => {
   }
 });
 
+test("createRelayerConfig defaults active chains to neo_n3 only", () => {
+  const previous = process.env.MORPHEUS_ACTIVE_CHAINS;
+  delete process.env.MORPHEUS_ACTIVE_CHAINS;
+
+  try {
+    const config = createRelayerConfig();
+    assert.deepEqual(config.activeChains, ['neo_n3']);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_ACTIVE_CHAINS;
+    else process.env.MORPHEUS_ACTIVE_CHAINS = previous;
+  }
+});
+
 test("encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8", () => {
   const encoded = encodeUtf8ByteArrayParamValue('{"ok":true}');
   assert.equal(Buffer.from(encoded, 'base64').toString('utf8'), '{"ok":true}');

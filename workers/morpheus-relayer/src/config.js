@@ -15,6 +15,12 @@ function parseList(value) {
   return raw.split(",").map((entry) => trimString(entry)).filter(Boolean);
 }
 
+function parseActiveChains(value) {
+  const requested = parseList(value).map((entry) => entry.toLowerCase());
+  const filtered = requested.filter((entry) => entry === "neo_n3" || entry === "neo_x");
+  return filtered.length > 0 ? filtered : ["neo_n3"];
+}
+
 let runtimeConfigCache;
 
 function getRuntimeConfig() {
@@ -92,6 +98,7 @@ export function createRelayerConfig() {
   return {
     repoRoot,
     network,
+    activeChains: parseActiveChains(env("MORPHEUS_ACTIVE_CHAINS") || "neo_n3"),
     pollIntervalMs: Number(env("MORPHEUS_RELAYER_POLL_INTERVAL_MS") || 5000),
     concurrency: Math.max(Number(env("MORPHEUS_RELAYER_CONCURRENCY") || 4), 1),
     maxBlocksPerTick: Math.max(Number(env("MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK") || 250), 1),

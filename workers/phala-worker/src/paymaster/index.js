@@ -83,6 +83,9 @@ async function evaluatePaymasterAuthorization(payload = {}) {
   if (!normalized.account_id) {
     return buildDeniedVerdict(policy, normalized, "account_id is required");
   }
+  if (normalized.target_chain !== "neo_n3") {
+    return buildDeniedVerdict(policy, normalized, "paymaster currently supports neo_n3 only");
+  }
   if (!normalized.operation_hash) {
     return buildDeniedVerdict(policy, normalized, "operation_hash is required");
   }
