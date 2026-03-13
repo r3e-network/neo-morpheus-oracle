@@ -5,8 +5,6 @@ import { ClipboardList, ArrowRight, Shield, Cpu, Lock, Globe, Terminal } from "l
 import { CodeBlock } from "@/components/ui/CodeBlock";
 import { NETWORKS } from "@/lib/onchain-data";
 
-const universalConsumer = "0x89b05cac00804648c666b47ecb1c57bc185821b7";
-
 const oracleTemplates = [
   {
     title: "Built-in Provider Oracle",
@@ -91,6 +89,8 @@ const computeTemplates = [
 ];
 
 export default function DocsTemplates() {
+  const universalConsumer = NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer;
+
   return (
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
@@ -109,10 +109,10 @@ export default function DocsTemplates() {
       <div className="card-industrial" style={{ padding: "2rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2.5rem" }}>
         <div style={{ display: "flex", gap: "1rem", alignItems: "center", marginBottom: "1rem" }}>
           <Terminal size={20} color="var(--neo-green)" />
-          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "0.05em" }}>Zero-Code Mainnet Test</h3>
+          <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800, color: "#fff", textTransform: "uppercase", letterSpacing: "0.05em" }}>Zero-Code {NETWORKS.neo_n3.environmentLabel} Test</h3>
         </div>
         <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: "0.75rem" }}>
-          You can test Morpheus on Neo N3 mainnet without deploying your own contract first.
+          You can test Morpheus on {NETWORKS.neo_n3.name} without deploying your own contract first.
         </p>
         <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, marginBottom: "0.75rem" }}>
           Oracle contract: <code>{NETWORKS.neo_n3.oracle}</code>
@@ -180,7 +180,7 @@ export default function DocsTemplates() {
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "1rem", marginBottom: 0 }}>
-            Follow the end-to-end Oracle request flow, fee rule, callback target, and readback process on Neo N3 mainnet.
+            Follow the end-to-end Oracle request flow, fee rule, callback target, and readback process on {NETWORKS.neo_n3.name}.
           </p>
         </Link>
       </div>

@@ -9,8 +9,6 @@ type LaunchpadProps = {
   embedded?: boolean;
 };
 
-const universalConsumer = "0x89b05cac00804648c666b47ecb1c57bc185821b7";
-
 const journeys = [
   {
     id: "oracle",
@@ -22,7 +20,7 @@ const journeys = [
       { title: "Choose a starter", desc: "Start from a ready payload or scenario.", href: "/docs/templates", label: "Starter Templates" },
       { title: "Build and encrypt", desc: "Use Starter Studio or Explorer Oracle tab to seal sensitive fields locally.", href: "/docs/studio", label: "Starter Studio" },
       { title: "Submit on-chain", desc: `Call ${NETWORKS.neo_n3.oracle} with callback method onOracleResult and prepaid 0.01 GAS credit.`, href: "/explorer", label: "Open Explorer" },
-      { title: "Read callback", desc: `Query your own consumer, or use the universal test consumer ${universalConsumer}.`, href: "/docs/quickstart", label: "Quickstart" },
+      { title: "Read callback", desc: `Query your own consumer, or use the universal test consumer ${NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer}.`, href: "/docs/quickstart", label: "Quickstart" },
       { title: "Verify result", desc: "Check output_hash, attestation_hash, and report_data binding.", href: "/verifier", label: "Open Verifier" },
     ],
   },
@@ -42,13 +40,13 @@ const journeys = [
   },
   {
     id: "zero_code",
-    title: "Zero-Code Mainnet Test",
+    title: `Zero-Code ${NETWORKS.neo_n3.environmentLabel} Test`,
     icon: Lock,
     summary: "Use the universal callback consumer to test the system without deploying your own contract first.",
     requestType: "privacy_oracle / compute",
     steps: [
       { title: "Pick a canned flow", desc: "Use public quote, private API, boolean check, privacy.mask, or encrypted modexp.", href: "/docs/studio", label: "Starter Studio" },
-      { title: "Use the universal consumer", desc: `Keep callback hash = ${universalConsumer} and callback method = onOracleResult.`, href: "/docs/templates", label: "Templates" },
+      { title: "Use the universal consumer", desc: `Keep callback hash = ${NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer} and callback method = onOracleResult.`, href: "/docs/templates", label: "Templates" },
       { title: "Pre-fund fee credit", desc: "On Neo N3, pre-fund 0.01 GAS Oracle credit before sending the request.", href: "/docs/quickstart", label: "Quickstart" },
       { title: "Submit request", desc: "Use the generated NeoLine or JSON-RPC invoke parameters directly.", href: "/explorer", label: "Open Explorer" },
       { title: "Read and verify", desc: "Call getCallback(requestId), then paste the result into the verifier.", href: "/verifier", label: "Open Verifier" },

@@ -1,6 +1,6 @@
 # Testing Ledger
 
-Last updated: 2026-03-12
+Last updated: 2026-03-13
 
 This document is the canonical test ledger for the current Neo Morpheus Oracle repository state.
 
@@ -16,7 +16,24 @@ Use this document together with:
 - `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 - `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
 - `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md`
+- `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`
 - `examples/deployments/mainnet-privacy-validation.latest.json`
+
+## 0. Environment Split
+
+Canonical environment descriptors are now separated explicitly:
+
+- mainnet registry: `config/networks/mainnet.json`
+- testnet registry: `config/networks/testnet.json`
+- mainnet Phala descriptor: `phala.mainnet.toml`
+- testnet Phala descriptor: `phala.testnet.toml`
+- generated mainnet runtime env: `deploy/phala/morpheus.mainnet.env`
+- generated testnet runtime env: `deploy/phala/morpheus.testnet.env`
+
+Operational rule:
+
+- do not reuse signers, RPC endpoints, contract hashes, or generated env files across networks
+- the small testnet CVM and the medium mainnet CVM are intentionally separated to prevent mixed-runtime evidence
 
 ## 1. Canonical Environment
 
@@ -62,6 +79,7 @@ Use this document together with:
 | Worker runtime | `workers/phala-worker/worker.test.mjs` | worker runtime modules under `workers/phala-worker/src/` | X25519 transport, timeouts, script isolation, WASM runtime, feed batching, relayer helpers |
 | Frontend / docs consistency | `scripts/check-web-consistency.mjs` | `apps/web/`, `workers/phala-worker/src/`, `config/networks/mainnet.json` | Builtin catalog parity, feed pair parity, mainnet address parity, stale-doc regression detection |
 | Frontend production build | `npm run build:web` | `apps/web/` | Type-safe production frontend build and route generation |
+| AA V3 plugin baseline | external AA testnet matrix | `../neo-abstract-account/docs/reports/2026-03-13-v3-testnet-plugin-matrix.md` | Verifier / hook primitive behavior before cross-system NeoDID + Oracle integration |
 
 ## 3. Artifact Index
 

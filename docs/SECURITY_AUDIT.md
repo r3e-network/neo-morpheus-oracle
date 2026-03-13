@@ -1,6 +1,6 @@
 # Security Audit Notes
 
-Date: 2026-03-10
+Date: 2026-03-13
 
 ## Executive Summary
 
@@ -137,6 +137,36 @@ Fixed in web/API layer:
 - encrypted request fields are now extracted and stored in `morpheus_encrypted_secrets` as ciphertext without decryption
 - plaintext secret-like keys are redacted before operation-log persistence
 
+### 11. Mainnet and testnet signer/env selection could drift when a root `.env` value overrode the intended network
+
+Fixed in scripts, worker, relayer, and Phala env generation:
+
+- network-scoped Neo N3 signer resolution now prefers `NEO_TESTNET_WIF` when `MORPHEUS_NETWORK=testnet`
+- generated Phala env files are now split into `morpheus.mainnet.env` and `morpheus.testnet.env`
+- `phala.mainnet.toml` and `phala.testnet.toml` now bind each CVM to the correct generated env file
+- frontend runtime defaults now resolve the selected network's Phala endpoint from `config/networks/*.json`
+
+Security impact:
+
+- prevents accidental mainnet signer leakage into testnet test runs
+- reduces the risk of producing tainted validation artifacts that mix the wrong RPC, contract hash, or CVM metadata
+
+### 12. Supabase data from mainnet and testnet could be mixed under shared slugs and shared operational tables
+
+Fixed in schema and application logic:
+
+- added `network` scoping across active Supabase tables
+- changed project uniqueness from `slug` to `(network, slug)`
+- provider config lookup now resolves by `project_slug + network`
+- relayer, automation, encrypted secret, backup, and operation-log writes now stamp the current network
+- relayer admin queries and attestation lookup now filter by network
+
+Security and ops impact:
+
+- prevents testnet relayer jobs, encrypted refs, and automation state from appearing in mainnet operator views
+- prevents a shared slug like `demo` from resolving to the wrong environment's provider config
+- reduces the risk of cross-environment data leakage when one Supabase instance backs both networks
+
 ## Phala tappd / attestation progress
 
 The worker now includes first-stage and second-stage Phala dstack/tappd integration:
@@ -154,7 +184,7 @@ The worker now includes first-stage and second-stage Phala dstack/tappd integrat
 - N3 contracts still expose an explicit admin-only `Update(...)`, while the Neo X contracts are currently non-upgradeable plain contracts. This is a lifecycle difference, not an immediate exploitable vulnerability.
 - Relayer-side transaction signing now supports dstack-derived key fallback for N3 and Neo X fulfill transactions, but explicit env keys are still supported as operational overrides.
 - The public NeoDID DID resolver should remain metadata-only. It must not be extended to expose provider UIDs, Web3Auth JWT claims, master nullifiers, action nullifiers, or decrypted confidential payloads.
-- The locally ignored file `deploy/phala/morpheus.env` currently contains live operational secrets and private keys. It is ignored by git, but it still represents a workstation secret concentration risk and should be handled as sensitive operator material.
+- The locally ignored generated files `deploy/phala/morpheus.mainnet.env` and `deploy/phala/morpheus.testnet.env` can contain live operational secrets and private keys. They are ignored by git, but they still represent workstation secret concentration risk and should be handled as sensitive operator material.
 
 ## Validation
 
@@ -166,3 +196,5 @@ The worker now includes first-stage and second-stage Phala dstack/tappd integrat
 - `node examples/scripts/test-n3-examples.mjs`
 - live Phala health and public-key endpoint verification
 - live Supabase write verification for `morpheus_operation_logs` and `morpheus_encrypted_secrets`
+- standalone AA verifier / hook baseline in `../neo-abstract-account/docs/reports/2026-03-13-v3-testnet-plugin-matrix.md`
+- planned cross-system attack matrix in `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`

@@ -5,6 +5,8 @@ import { CodeBlock } from "@/components/ui/CodeBlock";
 import { NETWORKS } from "@/lib/onchain-data";
 
 export default function DocsOracle() {
+  const oracleDomain = NETWORKS.neo_n3.domains.oracle || "unassigned";
+
   return (
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
@@ -21,7 +23,7 @@ export default function DocsOracle() {
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.7 }}>
           End users should <strong>not</strong> call the worker endpoints directly. The supported production path is:
           encrypt locally, submit the JSON payload through the on-chain Oracle contract, and wait for the callback.
-          Neo N3 mainnet Oracle: <code>{NETWORKS.neo_n3.oracle}</code> via <code>{NETWORKS.neo_n3.domains.oracle}</code>.
+          {NETWORKS.neo_n3.name} Oracle: <code>{NETWORKS.neo_n3.oracle}</code> via <code>{oracleDomain}</code>.
         </p>
       </div>
 

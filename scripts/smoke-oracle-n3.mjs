@@ -7,6 +7,23 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function resolveNeoN3SignerWif(network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()) {
+  if (network === 'testnet') {
+    return trimString(
+      process.env.NEO_TESTNET_WIF
+      || process.env.NEO_N3_WIF
+      || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+      || '',
+    );
+  }
+  return trimString(
+    process.env.NEO_N3_WIF
+    || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+    || process.env.NEO_TESTNET_WIF
+    || '',
+  );
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -139,7 +156,7 @@ async function waitForCallback(rpcClient, callbackHash, requestId, timeoutMs = 1
 
 const rpcUrl = trimString(process.env.NEO_RPC_URL || defaultRpcUrl);
 const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || defaultNetworkMagic);
-const wif = trimString(process.env.NEO_N3_WIF || process.env.NEO_TESTNET_WIF || process.env.MORPHEUS_RELAYER_NEO_N3_WIF || '');
+const wif = resolveNeoN3SignerWif(network);
 const oracleHash = trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
 const callbackHash = trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || '');
 const provider = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'twelvedata') || 'twelvedata';

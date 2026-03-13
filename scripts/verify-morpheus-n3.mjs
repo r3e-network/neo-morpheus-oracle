@@ -72,13 +72,25 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
 function resolveExpectedUpdater() {
   const updaterHash = normalizeHash160(process.env.MORPHEUS_UPDATER_HASH || '');
   if (updaterHash) return updaterHash;
+  const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
   const key = trimString(
-    process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-      || process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY
-      || process.env.NEO_N3_WIF
-      || process.env.PHALA_NEO_N3_WIF
-      || process.env.PHALA_NEO_N3_PRIVATE_KEY
-      || process.env.NEO_TESTNET_WIF
+    network === 'testnet'
+      ? (
+        process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+        || process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY
+        || process.env.NEO_TESTNET_WIF
+        || process.env.PHALA_NEO_N3_WIF
+        || process.env.PHALA_NEO_N3_PRIVATE_KEY
+        || process.env.NEO_N3_WIF
+      )
+      : (
+        process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+        || process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY
+        || process.env.NEO_N3_WIF
+        || process.env.PHALA_NEO_N3_WIF
+        || process.env.PHALA_NEO_N3_PRIVATE_KEY
+        || process.env.NEO_TESTNET_WIF
+      )
       || '',
   );
   if (!key) return '';

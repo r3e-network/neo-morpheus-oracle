@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { getServerSupabaseClient, resolveProjectIdBySlug } from "./server-supabase";
+import {
+  getServerSupabaseClient,
+  resolveProjectIdBySlug,
+  resolveSupabaseNetwork,
+  type MorpheusNetwork,
+} from "./server-supabase";
 
 type OperationCategory =
   | "oracle"
@@ -127,6 +132,13 @@ function resolveTargetChain(requestPayload: unknown, metadata: Record<string, un
   return candidate === "neo_n3" || candidate === "neo_x" ? candidate : null;
 }
 
+function resolveOperationNetwork(requestPayload: unknown, metadata: Record<string, unknown>): MorpheusNetwork {
+  const requestObject = isPlainObject(requestPayload) ? requestPayload : {};
+  const fromRequest = trimString(requestObject.network || requestObject.morpheus_network);
+  const fromMetadata = trimString(metadata.network || metadata.morpheus_network);
+  return resolveSupabaseNetwork(fromRequest || fromMetadata);
+}
+
 export async function recordOperationLog(input: OperationLogInput) {
   try {
     const supabase = getServerSupabaseClient();
@@ -135,6 +147,7 @@ export async function recordOperationLog(input: OperationLogInput) {
     const metadata = isPlainObject(input.metadata) ? input.metadata : {};
     const requestObject = isPlainObject(input.requestPayload) ? input.requestPayload : {};
     const projectSlug = trimString(requestObject.project_slug || metadata.project_slug || "");
+    const network = resolveOperationNetwork(input.requestPayload, metadata);
     const targetChain = resolveTargetChain(input.requestPayload, metadata);
     const requestId = trimString(requestObject.request_id || metadata.request_id || "");
     const operationId = trimString(metadata.operation_id || "") || randomUUID();
@@ -142,7 +155,7 @@ export async function recordOperationLog(input: OperationLogInput) {
     let projectId: string | null = null;
     if (projectSlug) {
       try {
-        projectId = await resolveProjectIdBySlug(supabase, projectSlug);
+        projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
       } catch {
         projectId = null;
       }
@@ -150,6 +163,7 @@ export async function recordOperationLog(input: OperationLogInput) {
 
     await supabase.from("morpheus_operation_logs").insert({
       operation_id: operationId,
+      network,
       route: input.route,
       method: input.method.toUpperCase(),
       category: input.category,
@@ -171,6 +185,7 @@ export async function recordOperationLog(input: OperationLogInput) {
 
     const rows = encryptedFields.map((entry) => ({
       project_id: projectId,
+      network,
       name: `${input.route}:${operationId}:${entry.field_path}`,
       target_chain: targetChain,
       encryption_algorithm: entry.algorithm,
@@ -180,6 +195,7 @@ export async function recordOperationLog(input: OperationLogInput) {
         operation_id: operationId,
         route: input.route,
         method: input.method.toUpperCase(),
+        network,
         request_id: requestId || null,
         field_path: entry.field_path,
         ciphertext_sha256: sha256Hex(entry.ciphertext),

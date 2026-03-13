@@ -3,7 +3,27 @@ import path from 'node:path';
 
 const repoRoot = process.cwd();
 const rootEnvPath = path.resolve(repoRoot, '.env');
-const outputPath = path.resolve(repoRoot, 'deploy/phala/morpheus.env');
+
+function parseArgs(argv = process.argv.slice(2)) {
+  const parsed = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const current = argv[index];
+    if (current === '--network') {
+      parsed.network = argv[index + 1] || '';
+      index += 1;
+      continue;
+    }
+    if (current === '--output') {
+      parsed.output = argv[index + 1] || '';
+      index += 1;
+    }
+  }
+  return parsed;
+}
+
+const cliArgs = parseArgs();
+const requestedNetwork = trimString(cliArgs.network || process.env.PHALA_ENV_NETWORK || '');
+const requestedOutput = trimString(cliArgs.output || process.env.PHALA_ENV_OUTPUT || '');
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -35,9 +55,9 @@ async function readLocalEnv() {
   }
 }
 
-async function readExistingOutputEnv() {
+async function readExistingOutputEnv(filePath) {
   try {
-    const raw = await fs.readFile(outputPath, 'utf8');
+    const raw = await fs.readFile(filePath, 'utf8');
     return parseDotEnv(raw);
   } catch {
     return {};
@@ -96,11 +116,85 @@ function resolveOracleKeystorePath(get) {
 }
 
 const localEnv = await readLocalEnv();
-const existingEnv = await readExistingOutputEnv();
-const network = trimString(process.env.MORPHEUS_NETWORK || localEnv.MORPHEUS_NETWORK || existingEnv.MORPHEUS_NETWORK) || 'testnet';
+const initialNetwork = requestedNetwork || trimString(process.env.MORPHEUS_NETWORK || localEnv.MORPHEUS_NETWORK) || 'testnet';
+const initialOutputPath = path.resolve(
+  repoRoot,
+  requestedOutput || `deploy/phala/morpheus.${initialNetwork}.env`,
+);
+const existingEnv = await readExistingOutputEnv(initialOutputPath);
+const network = requestedNetwork || trimString(process.env.MORPHEUS_NETWORK || localEnv.MORPHEUS_NETWORK || existingEnv.MORPHEUS_NETWORK) || initialNetwork;
+const outputPath = path.resolve(
+  repoRoot,
+  requestedOutput || `deploy/phala/morpheus.${network}.env`,
+);
 const registry = await readNetworkRegistry(network);
 const get = createResolver(localEnv, existingEnv);
 const getExplicit = createExplicitResolver(localEnv, existingEnv);
+const explicitNetworkMode = Boolean(requestedNetwork);
+
+function resolveNetworkScoped(...keys) {
+  for (const key of keys) {
+    const processValue = trimString(process.env[key]);
+    if (processValue) return processValue;
+  }
+  if (!explicitNetworkMode) {
+    for (const key of keys) {
+      const localValue = trimString(localEnv[key]);
+      if (localValue) return localValue;
+    }
+  }
+  for (const key of keys) {
+    const existingValue = trimString(existingEnv[key]);
+    if (existingValue) return existingValue;
+  }
+  if (explicitNetworkMode) {
+    for (const key of keys) {
+      const localValue = trimString(localEnv[key]);
+      if (localValue) return localValue;
+    }
+  }
+  return '';
+}
+
+function resolveRegistryBackedValue(registryValue, ...keys) {
+  if (explicitNetworkMode && trimString(registryValue)) {
+    return trimString(registryValue);
+  }
+  for (const key of keys) {
+    const processValue = trimString(process.env[key]);
+    if (processValue) return processValue;
+  }
+  for (const key of keys) {
+    const localValue = trimString(localEnv[key]);
+    if (localValue) return localValue;
+  }
+  for (const key of keys) {
+    const existingValue = trimString(existingEnv[key]);
+    if (existingValue) return existingValue;
+  }
+  return trimString(registryValue);
+}
+
+function resolveNetworkScopedValue(baseKey, { allowGeneric = true, defaultValue = "" } = {}) {
+  const scopedKey = `${baseKey}_${network.toUpperCase()}`;
+  const scoped = resolveNetworkScoped(scopedKey);
+  if (scoped) return scoped;
+  if (allowGeneric) {
+    const generic = resolveNetworkScoped(baseKey);
+    if (generic) return generic;
+  }
+  return defaultValue;
+}
+
+function resolveSignerForNetwork(role = 'worker') {
+  if (network === 'testnet') {
+    return resolveNetworkScoped('NEO_TESTNET_WIF');
+  }
+  if (role === 'worker') {
+    return resolveNetworkScoped('PHALA_NEO_N3_WIF', 'NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF');
+  }
+  return resolveNetworkScoped('MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_UPDATER_NEO_N3_WIF', 'NEO_N3_WIF');
+}
 
 const runtimeConfig = {
   TWELVEDATA_API_KEY: get('TWELVEDATA_API_KEY'),
@@ -112,20 +206,20 @@ const runtimeConfig = {
   MORPHEUS_RELAY_ADMIN_API_KEY: get('MORPHEUS_RELAY_ADMIN_API_KEY', 'MORPHEUS_OPERATOR_API_KEY', 'ADMIN_CONSOLE_API_KEY'),
   MORPHEUS_OPERATOR_API_KEY: get('MORPHEUS_OPERATOR_API_KEY', 'ADMIN_CONSOLE_API_KEY'),
   MORPHEUS_NETWORK: network,
-  NEO_RPC_URL: get('NEO_RPC_URL') || trimString(registry.neo_n3?.rpc_url) || 'https://testnet1.neo.coz.io:443',
-  NEO_NETWORK_MAGIC: get('NEO_NETWORK_MAGIC') || String(registry.neo_n3?.network_magic || 894710606),
-  CONTRACT_MORPHEUS_ORACLE_HASH: get('CONTRACT_MORPHEUS_ORACLE_HASH') || trimString(registry.neo_n3?.contracts?.morpheus_oracle || ''),
-  CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH: get('CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH') || trimString(registry.neo_n3?.contracts?.oracle_callback_consumer || ''),
-  CONTRACT_MORPHEUS_DATAFEED_HASH: get('CONTRACT_MORPHEUS_DATAFEED_HASH') || trimString(registry.neo_n3?.contracts?.morpheus_datafeed || ''),
-  PHALA_NEO_N3_WIF: get('PHALA_NEO_N3_WIF', 'NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF', 'NEO_TESTNET_WIF'),
+  NEO_RPC_URL: resolveRegistryBackedValue(registry.neo_n3?.rpc_url || '', 'NEO_RPC_URL'),
+  NEO_NETWORK_MAGIC: resolveRegistryBackedValue(String(registry.neo_n3?.network_magic || 894710606), 'NEO_NETWORK_MAGIC'),
+  CONTRACT_MORPHEUS_ORACLE_HASH: resolveRegistryBackedValue(registry.neo_n3?.contracts?.morpheus_oracle || '', 'CONTRACT_MORPHEUS_ORACLE_HASH'),
+  CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH: resolveRegistryBackedValue(registry.neo_n3?.contracts?.oracle_callback_consumer || '', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH'),
+  CONTRACT_MORPHEUS_DATAFEED_HASH: resolveRegistryBackedValue(registry.neo_n3?.contracts?.morpheus_datafeed || '', 'CONTRACT_MORPHEUS_DATAFEED_HASH'),
+  PHALA_NEO_N3_WIF: resolveSignerForNetwork('worker'),
   PHALA_NEO_N3_PRIVATE_KEY: get('PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'),
-  MORPHEUS_RELAYER_NEO_N3_WIF: get('MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_UPDATER_NEO_N3_WIF', 'NEO_N3_WIF', 'NEO_TESTNET_WIF'),
+  MORPHEUS_RELAYER_NEO_N3_WIF: resolveSignerForNetwork('relayer'),
   MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: get('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_PRIVATE_KEY'),
-  NEOX_RPC_URL: get('NEOX_RPC_URL', 'NEO_X_RPC_URL') || trimString(registry.neo_x?.rpc_url) || 'https://neoxt4seed1.ngd.network',
-  NEOX_CHAIN_ID: get('NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID') || String(registry.neo_x?.chain_id || 12227332),
-  CONTRACT_MORPHEUS_ORACLE_X_ADDRESS: get('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS') || trimString(registry.neo_x?.contracts?.morpheus_oracle_x || ''),
-  CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS: get('CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS') || trimString(registry.neo_x?.contracts?.oracle_callback_consumer_x || ''),
-  CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS: get('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS') || trimString(registry.neo_x?.contracts?.morpheus_datafeed_x || ''),
+  NEOX_RPC_URL: resolveRegistryBackedValue(registry.neo_x?.rpc_url || 'https://neoxt4seed1.ngd.network', 'NEOX_RPC_URL', 'NEO_X_RPC_URL'),
+  NEOX_CHAIN_ID: resolveRegistryBackedValue(String(registry.neo_x?.chain_id || 12227332), 'NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID'),
+  CONTRACT_MORPHEUS_ORACLE_X_ADDRESS: resolveRegistryBackedValue(registry.neo_x?.contracts?.morpheus_oracle_x || '', 'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS'),
+  CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS: resolveRegistryBackedValue(registry.neo_x?.contracts?.oracle_callback_consumer_x || '', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS'),
+  CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS: resolveRegistryBackedValue(registry.neo_x?.contracts?.morpheus_datafeed_x || '', 'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'),
   PHALA_NEOX_PRIVATE_KEY: get('PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY'),
   MORPHEUS_RELAYER_NEOX_PRIVATE_KEY: get('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY'),
   MORPHEUS_FEED_PROJECT_SLUG: get('MORPHEUS_FEED_PROJECT_SLUG') || 'demo',
@@ -151,8 +245,14 @@ const runtimeConfig = {
   MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS: get('MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS') || '60000',
   MORPHEUS_RELAYER_LOG_FORMAT: get('MORPHEUS_RELAYER_LOG_FORMAT', 'LOG_FORMAT') || 'json',
   MORPHEUS_RELAYER_LOG_LEVEL: get('MORPHEUS_RELAYER_LOG_LEVEL', 'LOG_LEVEL') || 'info',
-  MORPHEUS_RELAYER_NEO_N3_START_BLOCK: get('MORPHEUS_RELAYER_NEO_N3_START_BLOCK') || '',
-  MORPHEUS_RELAYER_NEO_X_START_BLOCK: get('MORPHEUS_RELAYER_NEO_X_START_BLOCK') || '',
+  MORPHEUS_RELAYER_NEO_N3_START_BLOCK: resolveNetworkScopedValue(
+    'MORPHEUS_RELAYER_NEO_N3_START_BLOCK',
+    { allowGeneric: network === 'mainnet', defaultValue: network === 'mainnet' ? (existingEnv.MORPHEUS_RELAYER_NEO_N3_START_BLOCK || '') : '' },
+  ) || '',
+  MORPHEUS_RELAYER_NEO_X_START_BLOCK: resolveNetworkScopedValue(
+    'MORPHEUS_RELAYER_NEO_X_START_BLOCK',
+    { allowGeneric: network === 'mainnet', defaultValue: network === 'mainnet' ? (existingEnv.MORPHEUS_RELAYER_NEO_X_START_BLOCK || '') : '' },
+  ) || '',
   ORACLE_TIMEOUT: get('ORACLE_TIMEOUT') || '20s',
   ORACLE_SCRIPT_TIMEOUT_MS: get('ORACLE_SCRIPT_TIMEOUT_MS') || '2000',
   ORACLE_WASM_TIMEOUT_MS: get('ORACLE_WASM_TIMEOUT_MS') || get('MORPHEUS_WASM_TIMEOUT_MS') || '30000',
@@ -194,23 +294,23 @@ const lines = [
   '',
   line('MORPHEUS_NETWORK', network),
   '',
-  line('NEO_RPC_URL', get('NEO_RPC_URL') || trimString(registry.neo_n3?.rpc_url) || 'https://testnet1.neo.coz.io:443'),
-  line('NEO_NETWORK_MAGIC', get('NEO_NETWORK_MAGIC') || String(registry.neo_n3?.network_magic || 894710606)),
-  line('CONTRACT_MORPHEUS_ORACLE_HASH', get('CONTRACT_MORPHEUS_ORACLE_HASH') || trimString(registry.neo_n3?.contracts?.morpheus_oracle || '')),
-  line('CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH', get('CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH') || trimString(registry.neo_n3?.contracts?.oracle_callback_consumer || '')),
-  line('CONTRACT_MORPHEUS_DATAFEED_HASH', get('CONTRACT_MORPHEUS_DATAFEED_HASH') || trimString(registry.neo_n3?.contracts?.morpheus_datafeed || '')),
-  line('PHALA_NEO_N3_WIF', get('PHALA_NEO_N3_WIF', 'NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF', 'NEO_TESTNET_WIF')), 
-  line('PHALA_NEO_N3_PRIVATE_KEY', get('PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY')), 
-  line('MORPHEUS_RELAYER_NEO_N3_WIF', get('MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_UPDATER_NEO_N3_WIF', 'NEO_N3_WIF', 'NEO_TESTNET_WIF')), 
-  line('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', get('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_PRIVATE_KEY')), 
+  line('NEO_RPC_URL', runtimeConfig.NEO_RPC_URL),
+  line('NEO_NETWORK_MAGIC', runtimeConfig.NEO_NETWORK_MAGIC),
+  line('CONTRACT_MORPHEUS_ORACLE_HASH', runtimeConfig.CONTRACT_MORPHEUS_ORACLE_HASH),
+  line('CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH', runtimeConfig.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH),
+  line('CONTRACT_MORPHEUS_DATAFEED_HASH', runtimeConfig.CONTRACT_MORPHEUS_DATAFEED_HASH),
+  line('PHALA_NEO_N3_WIF', runtimeConfig.PHALA_NEO_N3_WIF),
+  line('PHALA_NEO_N3_PRIVATE_KEY', get('PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY')),
+  line('MORPHEUS_RELAYER_NEO_N3_WIF', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_WIF),
+  line('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', get('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_PRIVATE_KEY')),
   '',
-  line('NEOX_RPC_URL', get('NEOX_RPC_URL', 'NEO_X_RPC_URL') || trimString(registry.neo_x?.rpc_url) || 'https://neoxt4seed1.ngd.network'),
-  line('NEOX_CHAIN_ID', get('NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID') || String(registry.neo_x?.chain_id || 12227332)),
-  line('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS', get('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS') || trimString(registry.neo_x?.contracts?.morpheus_oracle_x || '')),
-  line('CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS', get('CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS') || trimString(registry.neo_x?.contracts?.oracle_callback_consumer_x || '')),
-  line('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS', get('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS') || trimString(registry.neo_x?.contracts?.morpheus_datafeed_x || '')),
-  line('PHALA_NEOX_PRIVATE_KEY', get('PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY')), 
-  line('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', get('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY')), 
+  line('NEOX_RPC_URL', runtimeConfig.NEOX_RPC_URL),
+  line('NEOX_CHAIN_ID', runtimeConfig.NEOX_CHAIN_ID),
+  line('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS', runtimeConfig.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS),
+  line('CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS', runtimeConfig.CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS),
+  line('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS', runtimeConfig.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS),
+  line('PHALA_NEOX_PRIVATE_KEY', get('PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY')),
+  line('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', get('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY')),
   '',
   line('MORPHEUS_FEED_PROJECT_SLUG', get('MORPHEUS_FEED_PROJECT_SLUG') || 'demo'),
   line('MORPHEUS_FEED_PROVIDER', get('MORPHEUS_FEED_PROVIDER') || 'twelvedata'),
@@ -259,4 +359,4 @@ const lines = [
 
 await fs.mkdir(path.dirname(outputPath), { recursive: true });
 await fs.writeFile(outputPath, `${lines.join('\n')}\n`, 'utf8');
-console.log(`Wrote ${outputPath}`);
+console.log(`Wrote ${outputPath} for network=${network}`);

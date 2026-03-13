@@ -2,6 +2,7 @@ import {
   getServerSupabaseClient,
   isAuthorizedAdminRequest,
   resolveProjectIdBySlug,
+  resolveSupabaseNetwork,
 } from "@/lib/server-supabase";
 import { recordOperationLog } from "@/lib/operation-logs";
 
@@ -49,24 +50,26 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const projectSlug = (url.searchParams.get("project_slug") || "demo").trim();
-  const projectId = await resolveProjectIdBySlug(supabase, projectSlug);
+  const network = resolveSupabaseNetwork(url.searchParams.get("network"));
+  const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
   if (!projectId) {
     await recordOperationLog({
       route: "/api/provider-configs",
       method: "GET",
       category: "provider_config",
-      requestPayload: { project_slug: projectSlug },
-      responsePayload: { error: `project not found: ${projectSlug}` },
+      requestPayload: { project_slug: projectSlug, network },
+      responsePayload: { error: `project not found: ${projectSlug} on ${network}` },
       httpStatus: 404,
-      error: `project not found: ${projectSlug}`,
+      error: `project not found: ${projectSlug} on ${network}`,
     });
-    return badRequest(`project not found: ${projectSlug}`, 404);
+    return badRequest(`project not found: ${projectSlug} on ${network}`, 404);
   }
 
   const { data, error } = await supabase
     .from("morpheus_provider_configs")
     .select("provider_id, enabled, config, created_at, updated_at")
     .eq("project_id", projectId)
+    .eq("network", network)
     .order("provider_id");
 
   if (error) {
@@ -74,19 +77,19 @@ export async function GET(request: Request) {
       route: "/api/provider-configs",
       method: "GET",
       category: "provider_config",
-      requestPayload: { project_slug: projectSlug },
+      requestPayload: { project_slug: projectSlug, network },
       responsePayload: { error: error.message },
       httpStatus: 500,
       error: error.message,
     });
     return badRequest(error.message, 500);
   }
-  const body = { project_slug: projectSlug, configs: data || [] };
+  const body = { project_slug: projectSlug, network, configs: data || [] };
   await recordOperationLog({
     route: "/api/provider-configs",
     method: "GET",
     category: "provider_config",
-    requestPayload: { project_slug: projectSlug },
+    requestPayload: { project_slug: projectSlug, network },
     responsePayload: body,
     httpStatus: 200,
   });
@@ -135,6 +138,7 @@ export async function POST(request: Request) {
   }
 
   const projectSlug = String(body.project_slug || "demo").trim();
+  const network = resolveSupabaseNetwork(String(body.network || body.morpheus_network || ""));
   const providerId = String(body.provider_id || "").trim();
   const enabled = body.enabled !== false;
   const config = body.config === undefined ? {} : body.config;
@@ -175,22 +179,23 @@ export async function POST(request: Request) {
     return badRequest("config must be a JSON object");
   }
 
-  const projectId = await resolveProjectIdBySlug(supabase, projectSlug);
+  const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
   if (!projectId) {
     await recordOperationLog({
       route: "/api/provider-configs",
       method: "POST",
       category: "provider_config",
       requestPayload: body,
-      responsePayload: { error: `project not found: ${projectSlug}` },
+      responsePayload: { error: `project not found: ${projectSlug} on ${network}` },
       httpStatus: 404,
-      error: `project not found: ${projectSlug}`,
+      error: `project not found: ${projectSlug} on ${network}`,
     });
-    return badRequest(`project not found: ${projectSlug}`, 404);
+    return badRequest(`project not found: ${projectSlug} on ${network}`, 404);
   }
 
   const payload = {
     project_id: projectId,
+    network,
     provider_id: providerId,
     enabled,
     config,
@@ -215,7 +220,7 @@ export async function POST(request: Request) {
     });
     return badRequest(error.message, 500);
   }
-  const responseBody = { ok: true, config: data };
+  const responseBody = { ok: true, network, config: data };
   await recordOperationLog({
     route: "/api/provider-configs",
     method: "POST",
@@ -258,13 +263,14 @@ export async function DELETE(request: Request) {
 
   const url = new URL(request.url);
   const projectSlug = (url.searchParams.get("project_slug") || "demo").trim();
+  const network = resolveSupabaseNetwork(url.searchParams.get("network"));
   const providerId = (url.searchParams.get("provider_id") || "").trim();
   if (!providerId) {
     await recordOperationLog({
       route: "/api/provider-configs",
       method: "DELETE",
       category: "provider_config",
-      requestPayload: { project_slug: projectSlug, provider_id: providerId },
+      requestPayload: { project_slug: projectSlug, provider_id: providerId, network },
       responsePayload: { error: "provider_id required" },
       httpStatus: 400,
       error: "provider_id required",
@@ -272,24 +278,25 @@ export async function DELETE(request: Request) {
     return badRequest("provider_id required");
   }
 
-  const projectId = await resolveProjectIdBySlug(supabase, projectSlug);
+  const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
   if (!projectId) {
     await recordOperationLog({
       route: "/api/provider-configs",
       method: "DELETE",
       category: "provider_config",
-      requestPayload: { project_slug: projectSlug, provider_id: providerId },
-      responsePayload: { error: `project not found: ${projectSlug}` },
+      requestPayload: { project_slug: projectSlug, provider_id: providerId, network },
+      responsePayload: { error: `project not found: ${projectSlug} on ${network}` },
       httpStatus: 404,
-      error: `project not found: ${projectSlug}`,
+      error: `project not found: ${projectSlug} on ${network}`,
     });
-    return badRequest(`project not found: ${projectSlug}`, 404);
+    return badRequest(`project not found: ${projectSlug} on ${network}`, 404);
   }
 
   const { error } = await supabase
     .from("morpheus_provider_configs")
     .delete()
     .eq("project_id", projectId)
+    .eq("network", network)
     .eq("provider_id", providerId);
 
   if (error) {
@@ -297,7 +304,7 @@ export async function DELETE(request: Request) {
       route: "/api/provider-configs",
       method: "DELETE",
       category: "provider_config",
-      requestPayload: { project_slug: projectSlug, provider_id: providerId },
+      requestPayload: { project_slug: projectSlug, provider_id: providerId, network },
       responsePayload: { error: error.message },
       httpStatus: 500,
       error: error.message,
@@ -308,9 +315,9 @@ export async function DELETE(request: Request) {
     route: "/api/provider-configs",
     method: "DELETE",
     category: "provider_config",
-    requestPayload: { project_slug: projectSlug, provider_id: providerId },
-    responsePayload: { ok: true },
+    requestPayload: { project_slug: projectSlug, provider_id: providerId, network },
+    responsePayload: { ok: true, network },
     httpStatus: 200,
   });
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, network });
 }

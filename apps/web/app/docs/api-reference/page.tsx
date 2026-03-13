@@ -3,8 +3,11 @@
 import { Code2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { BUILTIN_FUNCTIONS } from "@/lib/docs-data";
+import { NETWORKS } from "@/lib/onchain-data";
 
 export default function DocsApiReference() {
+  const oracleDomain = NETWORKS.neo_n3.domains.oracle || "unassigned";
+
   return (
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
@@ -51,7 +54,7 @@ export default function DocsApiReference() {
 
       <h2>2. Smart Contract Interface (C#)</h2>
       <p>
-        To interact with the Morpheus Oracle on Neo N3 mainnet, use <code>Contract.Call</code> against <code>0x017520f068fd602082fe5572596185e62a4ad991</code> or NeoNS <code>oracle.morpheus.neo</code>.
+        To interact with the Morpheus Oracle on {NETWORKS.neo_n3.name}, use <code>Contract.Call</code> against <code>{NETWORKS.neo_n3.oracle}</code> or NeoNS <code>{oracleDomain}</code>.
       </p>
       
       <div style={{ padding: '0', overflow: 'hidden', marginBottom: '2.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
@@ -60,7 +63,7 @@ export default function DocsApiReference() {
         </div>
         <div style={{ padding: '1.5rem', background: '#0a0a0a', overflowX: 'auto' }}>
           <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
-            <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: '#e5e5e5' }}>{`// Contract Script Hash: 0x017520f068fd602082fe5572596185e62a4ad991
+            <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: '#e5e5e5' }}>{`// ${NETWORKS.neo_n3.name} Oracle: ${NETWORKS.neo_n3.oracle}
 
 string payloadJson = "{\"symbol\":\"TWELVEDATA:NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
 

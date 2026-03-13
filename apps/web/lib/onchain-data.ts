@@ -1,15 +1,25 @@
 import { ethers } from "ethers";
 import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol, normalizeFeedSymbol } from "./feed-defaults";
+import { getSelectedNetwork, getSelectedNetworkKey } from "./networks";
 
 export const DEFAULT_PAIRS = [...DEFAULT_FEED_SYMBOLS];
-
+const selectedNetwork = getSelectedNetwork();
+export const SELECTED_NETWORK = selectedNetwork;
+export const SELECTED_NETWORK_KEY = getSelectedNetworkKey();
+export const SELECTED_NETWORK_LABEL = SELECTED_NETWORK_KEY === "mainnet" ? "Mainnet" : "Testnet";
 export const NETWORKS = {
+  selected: {
+    key: SELECTED_NETWORK_KEY,
+    label: SELECTED_NETWORK_LABEL,
+    phalaApiUrl: selectedNetwork.phala?.public_api_url || "",
+    phalaCvmId: selectedNetwork.phala?.cvm_id || "",
+  },
   neo_x: {
-    name: "Neo X (Reference Only)",
-    rpc: "https://mainnet-2.rpc.banelabs.org",
-    oracle: "",
-    datafeed: "",
-    explorer: "https://xexplorer.neo.org/address/",
+    name: selectedNetwork.network === "mainnet" ? "Neo X Mainnet" : "Neo X Testnet",
+    rpc: selectedNetwork.neo_x?.rpc_url || "",
+    oracle: selectedNetwork.neo_x?.contracts?.morpheus_oracle_x || "",
+    datafeed: selectedNetwork.neo_x?.contracts?.morpheus_datafeed_x || "",
+    explorer: selectedNetwork.network === "mainnet" ? "https://xexplorer.neo.org/address/" : "https://xt4scan.ngd.network/address/",
     domains: {
       oracle: "",
       datafeed: "",
@@ -18,18 +28,25 @@ export const NETWORKS = {
     },
   },
   neo_n3: {
-    name: "Neo N3 Mainnet",
-    rpc: "https://mainnet1.neo.coz.io:443",
-    oracle: "0x017520f068fd602082fe5572596185e62a4ad991",
-    datafeed: "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
-    aa: "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
-    neodid: "0x975483c2d0928c1ed6da568190b5137463431422",
-    explorer: "https://neotube.io/contract/",
+    name: selectedNetwork.network === "mainnet" ? "Neo N3 Mainnet" : "Neo N3 Testnet",
+    networkKey: SELECTED_NETWORK_KEY,
+    environmentLabel: SELECTED_NETWORK_LABEL,
+    rpc: selectedNetwork.neo_n3?.rpc_url || "",
+    oracle: selectedNetwork.neo_n3?.contracts?.morpheus_oracle || "",
+    callbackConsumer: selectedNetwork.neo_n3?.contracts?.oracle_callback_consumer || "",
+    datafeed: selectedNetwork.neo_n3?.contracts?.morpheus_datafeed || "",
+    aa: selectedNetwork.neo_n3?.contracts?.abstract_account || "",
+    neodid: selectedNetwork.neo_n3?.contracts?.morpheus_neodid || "",
+    exampleConsumer: selectedNetwork.neo_n3?.examples?.oracle_callback_consumer || "",
+    exampleFeedReader: selectedNetwork.neo_n3?.examples?.feed_reader || "",
+    phalaApiUrl: selectedNetwork.phala?.public_api_url || "",
+    phalaCvmId: selectedNetwork.phala?.cvm_id || "",
+    explorer: selectedNetwork.network === "mainnet" ? "https://neotube.io/contract/" : "https://testnet.neotube.io/contract/",
     domains: {
-      oracle: "oracle.morpheus.neo",
-      datafeed: "pricefeed.morpheus.neo",
-      aa: "aa.morpheus.neo",
-      neodid: "neodid.morpheus.neo",
+      oracle: selectedNetwork.neo_n3?.domains?.morpheus_oracle || "",
+      datafeed: selectedNetwork.neo_n3?.domains?.morpheus_datafeed || "",
+      aa: selectedNetwork.neo_n3?.domains?.morpheus_aa || "",
+      neodid: selectedNetwork.neo_n3?.domains?.morpheus_neodid || "",
     },
   }
 };
@@ -73,7 +90,8 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
 
     // Cache for 10 seconds to deduplicate the 14 parallel frontend fetch calls
     if (!body || now - n3IndexCacheTime > 10000) {
-      const url = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.mainnet&contract_hash=eq.${NETWORKS.neo_n3.datafeed}&event_name=eq.FeedUpdated&limit=100&order=block_index.desc`;
+      const n3IndexNetwork = selectedNetwork.network === "mainnet" ? "mainnet" : "testnet";
+      const url = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.${n3IndexNetwork}&contract_hash=eq.${NETWORKS.neo_n3.datafeed}&event_name=eq.FeedUpdated&limit=100&order=block_index.desc`;
       const response = await fetch(url, { headers: { "Accept": "application/json" }});
       body = await response.json();
       n3IndexCache = body;

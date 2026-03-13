@@ -105,11 +105,12 @@ const backupRoot = path.resolve(process.cwd(), "private-backups", appId, timesta
 await ensureBackupDir(backupRoot);
 
 const localEnvPath = path.resolve(process.cwd(), ".env");
-const phalaEnvPath = path.resolve(process.cwd(), "deploy/phala/morpheus.env");
+const backupNetwork = trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || "mainnet") || "mainnet";
+const phalaEnvPath = path.resolve(process.cwd(), `deploy/phala/morpheus.${backupNetwork}.env`);
 const keystoreBackupPath = path.join(backupRoot, "oracle-key.json");
 const runtimeConfigPath = path.join(backupRoot, "runtime-config.json");
 const localEnvBackupPath = path.join(backupRoot, ".env.snapshot.json");
-const phalaEnvBackupPath = path.join(backupRoot, "morpheus.env.snapshot.json");
+const phalaEnvBackupPath = path.join(backupRoot, `morpheus.${backupNetwork}.env.snapshot.json`);
 
 const [localEnvRaw, phalaEnvRaw, runtimeConfig, oracleKeystore] = await Promise.all([
   readEnvFile(localEnvPath),
@@ -125,6 +126,7 @@ await fs.writeFile(runtimeConfigPath, JSON.stringify(runtimeConfig, null, 2) + "
 const rows = [
   {
     backup_kind: "local_env",
+    network: backupNetwork,
     backup_scope: appId,
     checksum: sha256Hex(localEnvRaw),
     payload: sanitizeEnvObject(localEnvRaw),
@@ -132,13 +134,15 @@ const rows = [
   },
   {
     backup_kind: "phala_env",
+    network: backupNetwork,
     backup_scope: appId,
     checksum: sha256Hex(phalaEnvRaw),
     payload: sanitizeEnvObject(phalaEnvRaw),
-    metadata: { timestamp, source_path: "deploy/phala/morpheus.env" },
+    metadata: { timestamp, network: backupNetwork, source_path: `deploy/phala/morpheus.${backupNetwork}.env` },
   },
   {
     backup_kind: "cvm_runtime_config",
+    network: backupNetwork,
     backup_scope: appId,
     checksum: sha256Hex(runtimeConfig),
     payload: runtimeConfig,
@@ -146,6 +150,7 @@ const rows = [
   },
   {
     backup_kind: "oracle_keystore",
+    network: backupNetwork,
     backup_scope: appId,
     checksum: sha256Hex(oracleKeystore),
     payload: oracleKeystore,

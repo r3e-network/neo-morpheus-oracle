@@ -9,6 +9,7 @@ import {
   markdownJson,
   normalizeHash160,
   readDeploymentRegistry,
+  resolveNeoN3SignerWif,
   writeValidationArtifacts,
   sleep,
   trimString,
@@ -176,7 +177,7 @@ const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" 
 const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
 const rpcUrl = trimString(process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl);
 const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic);
-const wif = trimString(process.env.NEO_N3_WIF || process.env.NEO_TESTNET_WIF || process.env.MORPHEUS_RELAYER_NEO_N3_WIF || "");
+const wif = resolveNeoN3SignerWif(network);
 const consumerHash = normalizeHash160(process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || "");
 const readerHash = normalizeHash160(process.env.EXAMPLE_N3_FEED_READER_HASH || deployment.example_feed_reader_hash || "");
 const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || "");

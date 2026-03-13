@@ -1,5 +1,3 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { createHash } from "node:crypto";
 import { experimental, rpc as neoRpc, sc, tx, wallet } from "@cityofzion/neon-js";
 import {
@@ -9,10 +7,11 @@ import {
   loadExampleEnv,
   normalizeHash160,
   readDeploymentRegistry,
-  repoRoot,
+  resolveNeoN3SignerWif,
   sleep,
   trimString,
   tryParseJson,
+  writeValidationArtifacts,
 } from "./common.mjs";
 
 const GAS_HASH = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
@@ -189,14 +188,14 @@ function markdownJson(value) {
 
 await loadExampleEnv();
 
-const network = trimString(process.env.MORPHEUS_NETWORK || "mainnet") || "mainnet";
+const network = trimString(process.env.MORPHEUS_NETWORK || "testnet") || "testnet";
 const registry = await readDeploymentRegistry(network);
 const deployment = registry.neo_n3 || {};
 const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
 const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
 const rpcUrl = trimString(process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl);
 const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic);
-const wif = trimString(process.env.NEO_N3_WIF || process.env.NEO_TESTNET_WIF || process.env.MORPHEUS_RELAYER_NEO_N3_WIF || "");
+const wif = resolveNeoN3SignerWif(network);
 const consumerHash = normalizeHash160(process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || "");
 const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || "");
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 180000);
@@ -435,7 +434,7 @@ let requestFee = "0";
 let totalDeposited = 0n;
 
 for (const testCase of cases) {
-  console.log(`Running mainnet privacy case ${testCase.id}...`);
+  console.log(`Running ${network} privacy case ${testCase.id}...`);
   const prepared = await testCase.prepare();
   const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 1);
   requestFee = feeStatus.request_fee;
@@ -500,13 +499,8 @@ const reportJson = {
   cases: results,
 };
 
-const reportDate = generatedAt.slice(0, 10);
-const jsonOutputPath = path.resolve(repoRoot, "examples/deployments", `mainnet-privacy-validation.${reportDate}.json`);
-const jsonLatestPath = path.resolve(repoRoot, "examples/deployments", "mainnet-privacy-validation.latest.json");
-const markdownOutputPath = path.resolve(repoRoot, "docs", `MAINNET_PRIVACY_VALIDATION_${reportDate}.md`);
-
 const markdown = [
-  "# Mainnet Privacy Validation",
+  "# Neo N3 Privacy Validation",
   "",
   `Generated: ${generatedAt}`,
   "",
@@ -556,14 +550,22 @@ const markdown = [
   ]),
 ].join("\n");
 
-await fs.mkdir(path.dirname(jsonOutputPath), { recursive: true });
-await fs.mkdir(path.dirname(markdownOutputPath), { recursive: true });
-await fs.writeFile(jsonOutputPath, jsonPretty(reportJson), "utf8");
-await fs.writeFile(jsonLatestPath, jsonPretty(reportJson), "utf8");
-await fs.writeFile(markdownOutputPath, `${markdown}\n`, "utf8");
+const reportDate = generatedAt.slice(0, 10);
+const artifacts = await writeValidationArtifacts({
+  baseName: "n3-privacy-validation",
+  network,
+  generatedAt,
+  jsonReport: reportJson,
+  markdownReport: markdown,
+  legacyJsonFileNames: network === "mainnet"
+    ? [
+        `mainnet-privacy-validation.${reportDate}.json`,
+        "mainnet-privacy-validation.latest.json",
+      ]
+    : [],
+});
 
 process.stdout.write(jsonPretty({
   ...reportJson,
-  json_report: path.relative(repoRoot, jsonOutputPath),
-  markdown_report: path.relative(repoRoot, markdownOutputPath),
+  ...artifacts,
 }));

@@ -166,6 +166,23 @@ const [consumerArtifacts, readerArtifacts] = await Promise.all([
   loadContractArtifacts(READER_ARTIFACT, BUILD_DIR),
 ]);
 
+const predictedConsumerHash = normalizeHash160(
+  experimental.getContractHash(config.account.scriptHash, consumerArtifacts.nef.checksum, consumerArtifacts.manifest.name),
+);
+const predictedReaderHash = normalizeHash160(
+  experimental.getContractHash(config.account.scriptHash, readerArtifacts.nef.checksum, readerArtifacts.manifest.name),
+);
+
+if (!(await contractExists(rpcClient, consumerHash)) && await contractExists(rpcClient, predictedConsumerHash)) {
+  console.log(`Reusing existing Neo N3 example consumer at predicted hash ${predictedConsumerHash}`);
+  consumerHash = predictedConsumerHash;
+}
+
+if (!(await contractExists(rpcClient, readerHash)) && await contractExists(rpcClient, predictedReaderHash)) {
+  console.log(`Reusing existing Neo N3 example feed reader at predicted hash ${predictedReaderHash}`);
+  readerHash = predictedReaderHash;
+}
+
 let consumerDeployTx = null;
 if (!(await contractExists(rpcClient, consumerHash))) {
   console.log("Deploying Neo N3 example consumer...");

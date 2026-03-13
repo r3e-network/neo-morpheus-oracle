@@ -15,6 +15,12 @@ function trimString(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function resolveSupabaseNetwork(value) {
+  return trimString(value || process.env.MORPHEUS_NETWORK || process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || "testnet") === "mainnet"
+    ? "mainnet"
+    : "testnet";
+}
+
 function normalizeRequestType(value) {
   return trimString(value).toLowerCase().replace(/[\s-]+/g, "_");
 }
@@ -151,6 +157,7 @@ function buildAutomationJobFromPayload(event, payload) {
   return {
     automation_id: `automation:${event.chain}:${randomUUID()}`,
     registration_request_id: String(event.requestId),
+    network: resolveSupabaseNetwork(event.network),
     project_slug: trimString(payload.project_slug || executionPayload.project_slug || ""),
     chain: event.chain,
     requester: trimString(event.requester || ""),

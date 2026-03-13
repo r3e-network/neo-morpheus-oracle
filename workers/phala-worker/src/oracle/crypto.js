@@ -204,10 +204,14 @@ function getSupabaseRestConfig() {
 async function loadEncryptedCiphertextByRef(ref) {
   const restConfig = getSupabaseRestConfig();
   if (!restConfig) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for encrypted ref resolution");
+  const network = trimString(env("MORPHEUS_NETWORK") || env("NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet") === "mainnet"
+    ? "mainnet"
+    : "testnet";
 
   const url = new URL(`${restConfig.restUrl}/morpheus_encrypted_secrets`);
-  url.searchParams.set("select", "id,ciphertext");
+  url.searchParams.set("select", "id,ciphertext,network");
   url.searchParams.set("id", `eq.${ref}`);
+  url.searchParams.set("network", `eq.${network}`);
   url.searchParams.set("limit", "1");
 
   const response = await fetch(url.toString(), {

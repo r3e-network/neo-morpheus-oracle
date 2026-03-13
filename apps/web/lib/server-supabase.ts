@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 export type ServerSupabaseClient = NonNullable<ReturnType<typeof getServerSupabaseClient>>;
+export type MorpheusNetwork = "mainnet" | "testnet";
 
 export type ProjectProviderConfigRecord = {
   provider_id: string;
@@ -61,11 +62,22 @@ export function getServerSupabaseClient() {
   });
 }
 
-export async function resolveProjectIdBySlug(supabase: ServerSupabaseClient, projectSlug: string) {
+export function resolveSupabaseNetwork(value?: string | null): MorpheusNetwork {
+  return (String(value || process.env.MORPHEUS_NETWORK || process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || "mainnet").trim() === "mainnet"
+    ? "mainnet"
+    : "testnet");
+}
+
+export async function resolveProjectIdBySlug(
+  supabase: ServerSupabaseClient,
+  projectSlug: string,
+  network: MorpheusNetwork = resolveSupabaseNetwork(),
+) {
   const { data, error } = await supabase
     .from("morpheus_projects")
-    .select("id, slug")
+    .select("id, slug, network")
     .eq("slug", projectSlug)
+    .eq("network", network)
     .maybeSingle();
   if (error) throw error;
   return data?.id || null;
@@ -75,14 +87,16 @@ export async function loadProjectProviderConfig(
   supabase: ServerSupabaseClient,
   projectSlug: string,
   providerId: string,
+  network: MorpheusNetwork = resolveSupabaseNetwork(),
 ): Promise<ProjectProviderConfigRecord | null> {
-  const projectId = await resolveProjectIdBySlug(supabase, projectSlug);
+  const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
   if (!projectId) return null;
 
   const { data, error } = await supabase
     .from("morpheus_provider_configs")
     .select("provider_id, enabled, config, created_at, updated_at")
     .eq("project_id", projectId)
+    .eq("network", network)
     .eq("provider_id", providerId)
     .maybeSingle();
 

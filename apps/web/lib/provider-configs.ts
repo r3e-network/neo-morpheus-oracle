@@ -1,4 +1,4 @@
-import { getServerSupabaseClient, loadProjectProviderConfig } from "./server-supabase";
+import { getServerSupabaseClient, loadProjectProviderConfig, resolveSupabaseNetwork } from "./server-supabase";
 
 function trimString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -40,6 +40,7 @@ export async function resolveProviderAwarePayload<T extends Record<string, unkno
   options: {
     projectSlug?: string;
     fallbackProviderId?: string;
+    network?: string;
   } = {},
 ) {
   const projectSlug = trimString(payload.project_slug || options.projectSlug || "");
@@ -66,7 +67,12 @@ export async function resolveProviderAwarePayload<T extends Record<string, unkno
     };
   }
 
-  const providerConfig = await loadProjectProviderConfig(supabase, projectSlug, providerId);
+  const providerConfig = await loadProjectProviderConfig(
+    supabase,
+    projectSlug,
+    providerId,
+    resolveSupabaseNetwork(String(payload.network || options.network || "")),
+  );
   if (!providerConfig) {
     return {
       payload: {

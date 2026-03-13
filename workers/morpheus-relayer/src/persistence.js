@@ -12,6 +12,12 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function resolveSupabaseNetwork() {
+  return trimString(process.env.MORPHEUS_NETWORK || process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || "testnet") === "mainnet"
+    ? "mainnet"
+    : "testnet";
+}
+
 export function sanitizeForPostgres(value) {
   if (typeof value === "string") {
     return value.replace(/\u0000/g, "");
@@ -134,8 +140,10 @@ export async function patchRelayerJob(eventKey, fields) {
 
 export async function fetchRelayerJobsByStatuses(statuses, chain = null, limit = 100) {
   if (!Array.isArray(statuses) || statuses.length === 0) return [];
+  const network = resolveSupabaseNetwork();
   const query = {
     select: "id,event_key,chain,request_id,request_type,tx_hash,block_number,route,status,attempts,last_error,next_retry_at,worker_status,worker_response,fulfill_tx,event,updated_at,completed_at,created_at",
+    network: `eq.${network}`,
     status: `in.(${statuses.join(",")})`,
     order: "updated_at.asc",
     limit,
@@ -146,6 +154,7 @@ export async function fetchRelayerJobsByStatuses(statuses, chain = null, limit =
 
 export function buildRelayerJobRecord(event, details = {}) {
   return {
+    network: details.network || event.network || resolveSupabaseNetwork(),
     event_key: details.event_key,
     chain: event.chain,
     request_id: String(event.requestId || "0"),
@@ -193,7 +202,10 @@ function collectEncryptedFields(value, path = [], results = []) {
 }
 
 export async function upsertAutomationJob(record) {
-  return supabaseRequest("morpheus_automation_jobs", "POST", record, { onConflict: "automation_id" });
+  return supabaseRequest("morpheus_automation_jobs", "POST", {
+    network: record.network || resolveSupabaseNetwork(),
+    ...record,
+  }, { onConflict: "automation_id" });
 }
 
 export async function patchAutomationJob(automationId, fields) {
@@ -210,6 +222,7 @@ export async function patchAutomationJob(automationId, fields) {
 export async function fetchAutomationJobById(automationId) {
   const rows = await supabaseSelect("morpheus_automation_jobs", {
     select: "*",
+    network: `eq.${resolveSupabaseNetwork()}`,
     automation_id: `eq.${automationId}`,
     limit: 1,
   });
@@ -219,6 +232,7 @@ export async function fetchAutomationJobById(automationId) {
 export async function fetchActiveAutomationJobs(limit = 50) {
   return supabaseSelect("morpheus_automation_jobs", {
     select: "*",
+    network: `eq.${resolveSupabaseNetwork()}`,
     status: "eq.active",
     order: "updated_at.asc",
     limit,
@@ -226,7 +240,10 @@ export async function fetchActiveAutomationJobs(limit = 50) {
 }
 
 export async function insertAutomationRun(record) {
-  return supabaseRequest("morpheus_automation_runs", "POST", record);
+  return supabaseRequest("morpheus_automation_runs", "POST", {
+    network: record.network || resolveSupabaseNetwork(),
+    ...record,
+  });
 }
 
 export async function persistAutomationEncryptedFields(job) {
@@ -235,6 +252,7 @@ export async function persistAutomationEncryptedFields(job) {
   if (encryptedFields.length === 0) return;
   const rows = encryptedFields.map((entry) => ({
     project_id: job.project_id || null,
+    network: job.network || resolveSupabaseNetwork(),
     name: `automation:${job.automation_id}:${entry.field_path}:${randomUUID()}`,
     target_chain: job.chain,
     encryption_algorithm: "client-supplied-ciphertext",
@@ -242,6 +260,7 @@ export async function persistAutomationEncryptedFields(job) {
     ciphertext: entry.ciphertext,
     metadata: {
       automation_id: job.automation_id,
+      network: job.network || resolveSupabaseNetwork(),
       registration_request_id: job.registration_request_id,
       field_path: entry.field_path,
       ciphertext_sha256: sha256Hex(entry.ciphertext),

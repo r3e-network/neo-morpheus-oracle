@@ -11,6 +11,8 @@
 - `npm run smoke:n3`
 - `node scripts/upgrade-morpheus-oracle.mjs`
 - `npm run render:phala-env`
+- `npm run render:phala-env:mainnet`
+- `npm run render:phala-env:testnet`
 - `npm run check:phala-env`
 
 ## Neo X contracts
@@ -36,6 +38,11 @@
 - `deploy/phala/docker-compose.yml`
 - `deploy/phala/morpheus.env.example`
 - `deploy/phala/README.md`
+
+Notes:
+
+- `npm run render:phala-env` now aliases mainnet generation
+- `npm run check:phala-env` validates `deploy/phala/morpheus.<network>.env`
 
 ## Expected env vars
 

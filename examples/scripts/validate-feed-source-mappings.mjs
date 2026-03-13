@@ -90,7 +90,7 @@ for (const symbol of symbols) {
 const generatedAt = new Date().toISOString();
 const reportJson = {
   generated_at: generatedAt,
-  network: trimString(process.env.MORPHEUS_NETWORK || "mainnet") || "mainnet",
+  network: trimString(process.env.MORPHEUS_NETWORK || "testnet") || "testnet",
   validation: "feed-source-mappings",
   provider,
   pair_count: results.length,

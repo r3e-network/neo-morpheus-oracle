@@ -1,5 +1,9 @@
 {
   "network": "mainnet",
+  "phala": {
+    "cvm_id": "966f16610bdfe1794a503e16c5ae0bc69a1d92f1",
+    "public_api_url": "https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network"
+  },
   "neo_n3": {
     "rpc_url": "https://mainnet1.neo.coz.io:443",
     "network_magic": 860833102,
@@ -15,6 +19,10 @@
       "morpheus_datafeed": "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
       "abstract_account": "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
       "morpheus_neodid": "0x975483c2d0928c1ed6da568190b5137463431422"
+    },
+    "examples": {
+      "oracle_callback_consumer": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+      "feed_reader": "0x11e454261c21a32f1c9262472ca72a3156f9051f"
     }
   },
   "neo_x": {

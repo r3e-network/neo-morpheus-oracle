@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { recordOperationLog } from "@/lib/operation-logs";
-import { getServerSupabaseClient, resolveProjectIdBySlug } from "@/lib/server-supabase";
+import { getServerSupabaseClient, resolveProjectIdBySlug, resolveSupabaseNetwork } from "@/lib/server-supabase";
 
 function trimString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -12,6 +12,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const ciphertext = trimString(body?.ciphertext);
   const targetChain = trimString(body?.target_chain || body?.targetChain || "neo_n3");
+  const network = resolveSupabaseNetwork(String(body?.network || body?.morpheus_network || ""));
   const projectSlug = trimString(body?.project_slug || body?.projectSlug || "");
   const name = trimString(body?.name || "") || `cipher-ref:${randomUUID()}`;
   const algorithm = trimString(body?.encryption_algorithm || body?.algorithm || "client-supplied-ciphertext");
@@ -30,9 +31,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const projectId = projectSlug ? await resolveProjectIdBySlug(supabase, projectSlug) : null;
+    const projectId = projectSlug ? await resolveProjectIdBySlug(supabase, projectSlug, network) : null;
     const row = {
       project_id: projectId,
+      network,
       name,
       target_chain: targetChain,
       encryption_algorithm: algorithm,
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
       ciphertext,
       metadata: {
         source: "api.confidential.store",
+        network,
         ...metadata,
       },
     };
@@ -53,6 +56,7 @@ export async function POST(request: Request) {
 
     const responsePayload = {
       secret_ref: data.id,
+      network,
       name: data.name,
       target_chain: data.target_chain,
       encryption_algorithm: data.encryption_algorithm,
@@ -65,6 +69,7 @@ export async function POST(request: Request) {
       category: "system",
       requestPayload: {
         project_slug: projectSlug || null,
+        network,
         target_chain: targetChain,
         ciphertext,
       },
@@ -85,6 +90,7 @@ export async function POST(request: Request) {
       category: "system",
       requestPayload: {
         project_slug: projectSlug || null,
+        network,
         target_chain: targetChain,
         ciphertext,
       },

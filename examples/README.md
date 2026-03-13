@@ -33,11 +33,13 @@ Live deploy/test:
 - Deployment addresses are recorded under `examples/deployments/testnet.json`.
 - The per-chain `examples:test:*` scripts rerun the live checks against the latest recorded deployment addresses without redeploying.
 
-Mainnet validation:
+Network-aware validation:
 
-- Neo N3 mainnet privacy matrix report: `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
-- Latest machine-readable report: `examples/deployments/mainnet-privacy-validation.latest.json`
-- Pricefeed synchronization is operator-managed and automatic; end-user contracts should read the on-chain feed registry directly instead of trying to trigger feed publication.
+- `examples:test:n3:privacy` now writes:
+  - `examples/deployments/n3-privacy-validation.<network>.latest.json`
+  - `docs/N3_PRIVACY_VALIDATION_<NETWORK>_<DATE>.md`
+- mainnet keeps the legacy compatibility artifact `examples/deployments/mainnet-privacy-validation.latest.json`
+- pricefeed synchronization is operator-managed and automatic; end-user contracts should read the on-chain feed registry directly instead of trying to trigger feed publication.
 
 Per-script report outputs:
 

@@ -26,7 +26,7 @@ import {
   scheduleRetry,
   snapshotMetrics,
 } from "./state.js";
-import { fulfillNeoN3Request, getNeoN3LatestBlock, hasNeoN3RelayerConfig, scanNeoN3OracleRequests } from "./neo-n3.js";
+import { fulfillNeoN3Request, getNeoN3LatestBlock, getNeoN3LatestRequestId, hasNeoN3RelayerConfig, scanNeoN3OracleRequests, scanNeoN3OracleRequestsById, scanNeoN3OracleRequestsViaN3Index } from "./neo-n3.js";
 import { fulfillNeoXRequest, getNeoXLatestBlock, hasNeoXRelayerConfig, scanNeoXOracleRequests } from "./neo-x.js";
 
 function sleep(ms) {
@@ -702,6 +702,88 @@ async function processChain(config, state, logger, chain, options) {
   };
 }
 
+function resolveRequestCursor(config, state, chain, latestRequestId, logger = null) {
+  const configuredStart = optionsSafeNumber(config.startRequestIds?.[chain]);
+  const defaultStart = Math.max(configuredStart ?? 1, 1);
+  const lastRequestIdRaw = state[chain].last_request_id;
+
+  if (lastRequestIdRaw === null || lastRequestIdRaw === undefined) {
+    return defaultStart;
+  }
+
+  const lastRequestId = Number(lastRequestIdRaw);
+  if (!Number.isFinite(lastRequestId) || lastRequestId < 0) {
+    state[chain].last_request_id = null;
+    logger?.warn?.({
+      chain,
+      invalid_request_checkpoint: lastRequestIdRaw,
+      reset_to_start_request_id: defaultStart,
+    }, "Resetting invalid relayer request checkpoint");
+    return defaultStart;
+  }
+
+  if (lastRequestId > latestRequestId) {
+    state[chain].last_request_id = null;
+    logger?.warn?.({
+      chain,
+      request_checkpoint: lastRequestId,
+      latest_request_id: latestRequestId,
+      reset_to_start_request_id: defaultStart,
+    }, "Resetting relayer request checkpoint ahead of latest request id");
+    return defaultStart;
+  }
+
+  return lastRequestId + 1;
+}
+
+function optionsSafeNumber(value) {
+  return value === null || value === undefined || value === "" ? null : Number(value);
+}
+
+async function processChainByRequestCursor(config, state, logger, chain, options) {
+  if (!options.hasConfig(config)) {
+    logger.debug({ chain }, "Skipping chain with incomplete relayer config");
+    return { scanned_requests: null, retries: [], events: [], manual_actions: [] };
+  }
+
+  await syncManualActions(config, state, logger, chain);
+
+  const latestRequestId = await options.getLatestRequestId(config);
+  const fromRequestId = resolveRequestCursor(config, state, chain, latestRequestId, logger);
+  if (fromRequestId > latestRequestId) {
+    const dueRetries = getDueRetryItems(state, chain);
+    const persistState = createPersistor(config, state);
+    const retryResults = dueRetries.length
+      ? await mapWithConcurrency(dueRetries, config.concurrency, (item) => processEvent(config, state, persistState, logger, item.event, item))
+      : [];
+    return { scanned_requests: null, retries: retryResults, events: [], manual_actions: [] };
+  }
+
+  const toRequestId = Math.min(latestRequestId, fromRequestId + config.maxBlocksPerTick - 1);
+  const scannedEvents = await options.scan(config, fromRequestId, toRequestId);
+  incrementMetric(state, "events_scanned_total", scannedEvents.length);
+  const filtered = filterNewEvents(state, chain, scannedEvents);
+  incrementMetric(state, "duplicates_skipped_total", filtered.duplicates);
+
+  const dueRetries = getDueRetryItems(state, chain);
+  const persistState = createPersistor(config, state);
+  const retryResults = dueRetries.length
+    ? await mapWithConcurrency(dueRetries, config.concurrency, (item) => processEvent(config, state, persistState, logger, item.event, item))
+    : [];
+  const eventResults = filtered.events.length
+    ? await mapWithConcurrency(filtered.events, config.concurrency, (event) => processEvent(config, state, persistState, logger, event))
+    : [];
+
+  state[chain].last_request_id = toRequestId;
+  persistState();
+  return {
+    scanned_requests: { from: fromRequestId, to: toRequestId, latest_request_id: latestRequestId },
+    retries: retryResults,
+    events: eventResults,
+    manual_actions: [],
+  };
+}
+
 export async function runRelayerOnce(options = {}) {
   const config = options.config || createRelayerConfig();
   const logger = options.logger || createLogger(config);
@@ -711,11 +793,19 @@ export async function runRelayerOnce(options = {}) {
   incrementMetric(state, "ticks_total", 1);
   saveRelayerState(config.stateFile, state);
 
-  const neoN3 = await processChain(config, state, logger, "neo_n3", {
-    hasConfig: hasNeoN3RelayerConfig,
-    getLatestBlock: getNeoN3LatestBlock,
-    scan: scanNeoN3OracleRequests,
-  });
+  const neoN3 = config.neo_n3.scanMode === "request_cursor"
+    ? await processChainByRequestCursor(config, state, logger, "neo_n3", {
+        hasConfig: hasNeoN3RelayerConfig,
+        getLatestRequestId: getNeoN3LatestRequestId,
+        scan: scanNeoN3OracleRequestsById,
+      })
+    : await processChain(config, state, logger, "neo_n3", {
+        hasConfig: hasNeoN3RelayerConfig,
+        getLatestBlock: getNeoN3LatestBlock,
+        scan: config.neo_n3.scanMode === "n3index_notifications"
+          ? scanNeoN3OracleRequestsViaN3Index
+          : scanNeoN3OracleRequests,
+      });
   const neoX = await processChain(config, state, logger, "neo_x", {
     hasConfig: hasNeoXRelayerConfig,
     getLatestBlock: getNeoXLatestBlock,
