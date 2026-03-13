@@ -1,27 +1,31 @@
-import { REPLAY_WINDOW_MS, sha256Hex, stableStringify, strip0x, trimString } from "../platform/core.js";
+import { REPLAY_WINDOW_MS, env, sha256Hex, stableStringify, strip0x, trimString } from "../platform/core.js";
 import { wallet as neoWallet } from "@cityofzion/neon-js";
 import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "../platform/dstack.js";
 
 function resolveNeoN3WorkerKey() {
-  const network = trimString(process.env.MORPHEUS_NETWORK || process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || "testnet").toLowerCase();
+  const network = trimString(env("MORPHEUS_NETWORK", "NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet").toLowerCase();
   if (network === "mainnet") {
     return trimString(
-      process.env.PHALA_NEO_N3_PRIVATE_KEY
-      || process.env.PHALA_NEO_N3_WIF
-      || process.env.NEO_N3_WIF
-      || process.env.NEO_PLATFORM_KEY
-      || process.env.TEE_PRIVATE_KEY
-      || process.env.NEO_TESTNET_WIF
+      env(
+        "PHALA_NEO_N3_PRIVATE_KEY",
+        "PHALA_NEO_N3_WIF",
+        "NEO_N3_WIF",
+        "NEO_PLATFORM_KEY",
+        "TEE_PRIVATE_KEY",
+        "NEO_TESTNET_WIF",
+      )
       || "",
     );
   }
   return trimString(
-    process.env.PHALA_NEO_N3_PRIVATE_KEY
-    || process.env.PHALA_NEO_N3_WIF
-    || process.env.NEO_TESTNET_WIF
-    || process.env.NEO_N3_WIF
-    || process.env.NEO_PLATFORM_KEY
-    || process.env.TEE_PRIVATE_KEY
+    env(
+      "PHALA_NEO_N3_PRIVATE_KEY",
+      "PHALA_NEO_N3_WIF",
+      "NEO_TESTNET_WIF",
+      "NEO_N3_WIF",
+      "NEO_PLATFORM_KEY",
+      "TEE_PRIVATE_KEY",
+    )
     || "",
   );
 }
