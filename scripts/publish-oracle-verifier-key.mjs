@@ -1,6 +1,27 @@
 import { experimental, sc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 
+function trimString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function resolveNeoN3SignerWif(network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()) {
+  if (network === 'testnet') {
+    return trimString(
+      process.env.NEO_TESTNET_WIF
+      || process.env.NEO_N3_WIF
+      || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+      || '',
+    );
+  }
+  return trimString(
+    process.env.NEO_N3_WIF
+    || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+    || process.env.NEO_TESTNET_WIF
+    || '',
+  );
+}
+
 async function main() {
   await loadDotEnv();
   const phalaUrl = (process.env.PHALA_API_URL || '').replace(/\/$/, '');
@@ -9,7 +30,7 @@ async function main() {
   const rpcUrl = process.env.NEO_RPC_URL || (network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443');
   const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606));
   const oracleHash = process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '';
-  const wif = process.env.NEO_N3_WIF || process.env.NEO_TESTNET_WIF || process.env.MORPHEUS_RELAYER_NEO_N3_WIF || '';
+  const wif = resolveNeoN3SignerWif(network);
 
   if (!phalaUrl || !oracleHash || !wif) {
     throw new Error('PHALA_API_URL, CONTRACT_MORPHEUS_ORACLE_HASH, and NEO_N3_WIF are required');

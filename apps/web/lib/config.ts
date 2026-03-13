@@ -1,15 +1,17 @@
-const selectedNetwork = (process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || "mainnet") === "mainnet"
-  ? "mainnet"
-  : "testnet";
+import { getSelectedNetwork, getSelectedNetworkKey } from "./networks";
 
-const defaultNeoRpcUrl = selectedNetwork === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
-const defaultNeoXRpcUrl = selectedNetwork === "mainnet" ? "https://mainnet-2.rpc.banelabs.org" : "https://neoxt4seed1.ngd.network";
-const defaultNeoXChainId = selectedNetwork === "mainnet" ? "47763" : "12227332";
+const selectedNetworkKey = getSelectedNetworkKey();
+const selectedNetwork = getSelectedNetwork();
+
+const defaultNeoRpcUrl = selectedNetworkKey === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
+const defaultNeoXRpcUrl = selectedNetworkKey === "mainnet" ? "https://mainnet-2.rpc.banelabs.org" : "https://neoxt4seed1.ngd.network";
+const defaultNeoXChainId = selectedNetworkKey === "mainnet" ? "47763" : "12227332";
+const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || "";
 
 export const appConfig = {
   name: process.env.NEXT_PUBLIC_APP_NAME || "Morpheus Oracle",
   appUrl: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  phalaApiUrl: process.env.PHALA_API_URL || process.env.NEXT_PUBLIC_PHALA_API_URL || "https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network",
+  phalaApiUrl: process.env.PHALA_API_URL || process.env.NEXT_PUBLIC_PHALA_API_URL || defaultPhalaApiUrl,
   phalaToken: process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || "",
   feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || "demo",
   feedProvider: process.env.MORPHEUS_FEED_PROVIDER || "twelvedata",

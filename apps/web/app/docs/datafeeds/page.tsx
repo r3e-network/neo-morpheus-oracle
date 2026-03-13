@@ -3,9 +3,11 @@
 import { LineChart, Zap, Clock, Database, Code2 } from "lucide-react";
 import { CodeBlock } from "@/components/ui/CodeBlock";
 import { DEFAULT_FEED_SYMBOLS, getAllFeedDescriptors, getFeedDisplaySymbol } from "@/lib/feed-defaults";
+import { NETWORKS } from "@/lib/onchain-data";
 
 export default function DocsDatafeeds() {
   const descriptors = getAllFeedDescriptors();
+  const datafeedDomain = NETWORKS.neo_n3.domains.datafeed || "unassigned";
   return (
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
@@ -15,7 +17,7 @@ export default function DocsDatafeeds() {
       <h1>Data Matrix</h1>
 
       <p>
-        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly to Neo N3 mainnet. These feeds are designed for synchronous consumption by DeFi protocols, lending platforms, algorithmic strategies, and FX / commodity aware contracts.
+        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly to {NETWORKS.neo_n3.name}. These feeds are designed for synchronous consumption by DeFi protocols, lending platforms, algorithmic strategies, and FX / commodity aware contracts.
       </p>
 
       <h2>Operational Architecture</h2>
@@ -52,7 +54,7 @@ export default function DocsDatafeeds() {
 
       <h2>Canonical Pair Meanings</h2>
       <p>
-        Contracts and users should use the pair keys exactly as written below. The canonical key format is provider-scoped, so the standard mainnet catalog uses identifiers such as <code>TWELVEDATA:NEO-USD</code> and <code>TWELVEDATA:BTC-USD</code>.
+        Contracts and users should use the pair keys exactly as written below. The canonical key format is provider-scoped, so the standard catalog uses identifiers such as <code>TWELVEDATA:NEO-USD</code> and <code>TWELVEDATA:BTC-USD</code>.
       </p>
 
       <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', background: '#000', marginBottom: '2.5rem' }}>
@@ -88,7 +90,7 @@ export default function DocsDatafeeds() {
       <h2>Contract Integration</h2>
       <h3>Neo N3 (C#)</h3>
       <p>
-        Use the contract hash <code>0x03013f49c42a14546c8bbe58f9d434c3517fccab</code> or resolve the NeoNS alias <code>pricefeed.morpheus.neo</code> to the same script hash.
+        Use the contract hash <code>{NETWORKS.neo_n3.datafeed}</code> or resolve the NeoNS alias <code>{datafeedDomain}</code> to the same script hash.
       </p>
       
       <CodeBlock
@@ -131,7 +133,7 @@ function checkPrice(string memory pair) public view returns (int256) {
           <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>Sync Cycles</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Mainnet feeds are automatically scanned every <strong>60 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored integer value</strong> using the global <code>1 USD = 1,000,000</code> scale. Only pairs whose change versus the quantized on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
+          {NETWORKS.neo_n3.environmentLabel} feeds are automatically scanned every <strong>60 seconds</strong>. For each storage pair, the relayer compares the fresh source quote against the <strong>current on-chain stored integer value</strong> using the global <code>1 USD = 1,000,000</code> scale. Only pairs whose change versus the quantized on-chain value is at least <strong>0.1%</strong> are submitted, and all qualifying pairs are batched into a single <code>updateFeeds</code> transaction.
         </p>
       </div>
     </div>

@@ -30,6 +30,7 @@ function copyText(value: string) {
 }
 
 export function OracleTab({ providers, setOutput }: OracleTabProps) {
+  const defaultCallbackHash = NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || "";
   const [requestMode, setRequestMode] = useState("provider");
   const [oracleUrl, setOracleUrl] = useState("https://postman-echo.com/get?probe=morpheus");
   const [providerSymbol, setProviderSymbol] = useState("TWELVEDATA:NEO-USD");
@@ -40,7 +41,7 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
   const [oracleJsonPath, setOracleJsonPath] = useState("price");
   const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
-  const [walletCallbackHash, setWalletCallbackHash] = useState("0x89b05cac00804648c666b47ecb1c57bc185821b7");
+  const [walletCallbackHash, setWalletCallbackHash] = useState(defaultCallbackHash);
   const [walletCallbackMethod, setWalletCallbackMethod] = useState("onOracleResult");
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
   const [oracleState, setOracleState] = useState<any>(null);
@@ -93,7 +94,7 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
       setUseCustomScript(false);
       setOracleEncryptedParams("");
       setOracleConfidentialJson('{\n  "json_path": "price"\n}');
-      setOutput(">> Loaded preset: Public Quote\n>> Built-in provider quote request for Neo N3.");
+      setOutput(`>> Loaded preset: Public Quote\n>> Built-in provider quote request for ${NETWORKS.neo_n3.name}.`);
       return;
     }
 
@@ -319,7 +320,7 @@ uint256 requestId = oracle.request{value: fee}(
 
       <div className="card-industrial" style={{ padding: '1.25rem 1.5rem', borderLeft: '4px solid var(--accent-blue)' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          For a zero-code mainnet test, set callback hash to <code>0x89b05cac00804648c666b47ecb1c57bc185821b7</code>,
+          For a zero-code {NETWORKS.neo_n3.environmentLabel.toLowerCase()} test, set callback hash to <code>{defaultCallbackHash}</code>,
           keep callback method as <code>onOracleResult</code>, pre-fund <code>0.01 GAS</code> Oracle credit, submit the request,
           then read back with <code>getCallback(requestId)</code>.
         </p>

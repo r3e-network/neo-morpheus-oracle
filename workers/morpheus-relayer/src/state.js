@@ -4,6 +4,7 @@ import path from "path";
 function defaultChainState() {
   return {
     last_block: null,
+    last_request_id: null,
     processed_records: {},
     processed_order: [],
     retry_queue: [],
@@ -52,6 +53,7 @@ function normalizeChainState(raw) {
   return {
     ...defaultChainState(),
     ...(raw && typeof raw === "object" ? raw : {}),
+    last_request_id: raw?.last_request_id ?? null,
     processed_records: raw?.processed_records && typeof raw.processed_records === "object" ? raw.processed_records : {},
     processed_order: Array.isArray(raw?.processed_order) ? raw.processed_order : [],
     retry_queue: Array.isArray(raw?.retry_queue) ? raw.retry_queue : [],
@@ -128,6 +130,10 @@ export function snapshotMetrics(state) {
     checkpoints: {
       neo_n3: state.neo_n3.last_block,
       neo_x: state.neo_x.last_block,
+    },
+    request_checkpoints: {
+      neo_n3: state.neo_n3.last_request_id,
+      neo_x: state.neo_x.last_request_id,
     },
   };
 }

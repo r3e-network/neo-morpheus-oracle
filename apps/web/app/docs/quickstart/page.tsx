@@ -6,6 +6,8 @@ import { CodeBlock } from "@/components/ui/CodeBlock";
 import { NETWORKS } from "@/lib/onchain-data";
 
 export default function DocsQuickstart() {
+  const exampleConsumer = NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer;
+
   return (
     <div className="fade-in">
       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
@@ -51,8 +53,8 @@ const encryptedBlob = await encryptWithOracleX25519(JSON.stringify(secrets), pub
 
       <CodeBlock 
         language="csharp" 
-        title="MyOracleConsumer.cs (Neo N3 Mainnet)"
-        code={`// Mainnet Oracle: ${NETWORKS.neo_n3.oracle}
+        title={`MyOracleConsumer.cs (${NETWORKS.neo_n3.name})`}
+        code={`// ${NETWORKS.neo_n3.name} Oracle: ${NETWORKS.neo_n3.oracle}
 // NeoNS alias: ${NETWORKS.neo_n3.domains.oracle}
 
 public static BigInteger FetchPrivateData(ByteString encryptedBlob)
@@ -87,18 +89,18 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
       <div style={{ marginTop: '4rem', padding: '2.5rem', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderLeft: '4px solid var(--neo-green)', borderRadius: '0 4px 4px 0' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
           <Terminal size={20} color="var(--neo-green)" />
-          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Zero-Code Testing (Mainnet)</h4>
+          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Zero-Code Testing ({NETWORKS.neo_n3.environmentLabel})</h4>
         </div>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-          You don&apos;t need to write or deploy your own Consumer contract to test Morpheus! We have deployed a universal <code>OracleCallbackConsumer</code> shell on Neo N3 mainnet at <code style={{ color: 'var(--neo-green)', background: 'rgba(0,255,163,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(0,255,163,0.2)', fontSize: '0.85rem', marginLeft: '0.5rem' }}>0x89b05cac00804648c666b47ecb1c57bc185821b7</code>.
+          You don&apos;t need to write or deploy your own Consumer contract to test Morpheus. The selected {NETWORKS.neo_n3.name} example callback consumer is <code style={{ color: 'var(--neo-green)', background: 'rgba(0,255,163,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px', border: '1px solid rgba(0,255,163,0.2)', fontSize: '0.85rem', marginLeft: '0.5rem' }}>{exampleConsumer}</code>.
         </p>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-          <strong>1. Submit Request:</strong> Generate your JSON payload using the <strong>Dashboard Oracle Builder</strong>. Then, invoke <code>request</code> on the MorpheusOracle (<code>&#123;NETWORKS.neo_n3.oracle&#125;</code>) directly using NeoLine or Neo-CLI:
+          <strong>1. Submit Request:</strong> Generate your JSON payload using the <strong>Dashboard Oracle Builder</strong>. Then, invoke <code>request</code> on the MorpheusOracle (<code>{NETWORKS.neo_n3.oracle}</code>) directly using NeoLine or Neo-CLI:
         </p>
         <ul style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', paddingLeft: '1.5rem', lineHeight: 1.6 }}>
           <li>Arg 1 (String): <code>"privacy_oracle"</code> or <code>"compute"</code></li>
           <li>Arg 2 (ByteString): Your generated JSON payload string</li>
-          <li>Arg 3 (Hash160): <code>0x89b05cac00804648c666b47ecb1c57bc185821b7</code></li>
+          <li>Arg 3 (Hash160): <code>{exampleConsumer}</code></li>
           <li>Arg 4 (String): <code>"onOracleResult"</code></li>
           <li style={{ marginTop: '0.5rem' }}><strong style={{ color: '#fff' }}>Fee:</strong> Attach exactly <code>0.01 GAS</code> to the transaction invocation.</li>
         </ul>
@@ -113,7 +115,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
             <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>STARTER TEMPLATES</span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Copy ready Oracle and Compute payloads for mainnet testing and direct user participation.</p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Copy ready Oracle and Compute payloads for the selected network and direct user participation.</p>
         </Link>
         <Link href="/docs/api-reference" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

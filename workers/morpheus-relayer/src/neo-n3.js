@@ -92,6 +92,18 @@ export async function getNeoN3LatestBlock(config) {
   return Number(blockCount) - 1;
 }
 
+export async function getNeoN3LatestRequestId(config) {
+  const result = await neoRpcCall(config.neo_n3.rpcUrl, "invokefunction", [
+    config.neo_n3.oracleContract,
+    "getTotalRequests",
+    [],
+  ]);
+  if (String(result?.state || "").toUpperCase() === "FAULT") {
+    throw new Error(result?.exception || "Neo N3 getTotalRequests faulted");
+  }
+  return Number(decodeNeoItem(result?.stack?.[0]) || "0");
+}
+
 export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
   if (fromBlock > toBlock) return [];
   const out = [];
@@ -126,6 +138,116 @@ export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
         }
       }
     }
+  }
+
+  return out;
+}
+
+export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlock) {
+  if (fromBlock > toBlock) return [];
+  const network = trimString(config.network) === "mainnet" ? "mainnet" : "testnet";
+  const baseUrl = trimString(config.neo_n3.indexerUrl || "https://api.n3index.dev/rest/v1").replace(/\/$/, "");
+  const url = new URL(`${baseUrl}/contract_notifications`);
+  url.searchParams.set("network", `eq.${network}`);
+  url.searchParams.set("contract_hash", `eq.${config.neo_n3.oracleContract}`);
+  url.searchParams.set("event_name", "eq.OracleRequested");
+  url.searchParams.set("order", "block_index.desc");
+  url.searchParams.set("limit", String(Math.max(config.maxBlocksPerTick * 4, 500)));
+
+  const response = await fetch(url.toString(), {
+    headers: { accept: "application/json" },
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`n3index OracleRequested scan failed: ${response.status} ${text}`.trim());
+  }
+
+  const rows = await response.json().catch(() => []);
+  if (!Array.isArray(rows)) return [];
+
+  return rows
+    .filter((row) => {
+      const blockIndex = Number(row?.block_index || 0);
+      return blockIndex >= fromBlock && blockIndex <= toBlock;
+    })
+    .sort((left, right) => {
+      const leftBlock = Number(left?.block_index || 0);
+      const rightBlock = Number(right?.block_index || 0);
+      if (leftBlock !== rightBlock) return leftBlock - rightBlock;
+      return Number(left?.notification_index || 0) - Number(right?.notification_index || 0);
+    })
+    .map((row) => {
+    const state = Array.isArray(row?.state_json?.value)
+      ? row.state_json.value
+      : Array.isArray(row?.raw_json?.state?.value)
+        ? row.raw_json.state.value
+        : [];
+    const [requestId, requestType, requester, callbackContract, callbackMethod, payload] = state.map((entry) => decodeNeoItem(entry));
+    return {
+      chain: "neo_n3",
+      requestId: String(requestId || "0"),
+      requestType: String(requestType || ""),
+      requester: String(requester || ""),
+      callbackContract: String(callbackContract || ""),
+      callbackMethod: String(callbackMethod || ""),
+      payloadText: String(payload || ""),
+      blockNumber: Number(row?.block_index || 0),
+      txHash: String(row?.txid || ""),
+      logIndex: Number(row?.notification_index || 0),
+    };
+  }).filter((event) => trimString(event.requestType));
+}
+
+export async function scanNeoN3OracleRequestsById(config, fromRequestId, toRequestId) {
+  if (fromRequestId > toRequestId) return [];
+  const out = [];
+
+  for (let requestId = fromRequestId; requestId <= toRequestId; requestId += 1) {
+    const result = await neoRpcCall(config.neo_n3.rpcUrl, "invokefunction", [
+      config.neo_n3.oracleContract,
+      "getRequest",
+      [{ type: "Integer", value: String(requestId) }],
+    ]);
+    if (String(result?.state || "").toUpperCase() === "FAULT") {
+      throw new Error(result?.exception || `Neo N3 getRequest faulted for request ${requestId}`);
+    }
+
+    const decoded = decodeNeoItem(result?.stack?.[0]);
+    if (!Array.isArray(decoded) || decoded.length < 12) continue;
+
+    const [
+      requestIdValue,
+      requestType,
+      payloadText,
+      callbackContract,
+      callbackMethod,
+      requester,
+      _statusCode,
+      createdAtMs,
+      fulfilledAtMs,
+      _success,
+      resultText,
+      errorText,
+    ] = decoded;
+
+    if (!trimString(requestType)) continue;
+
+    const alreadySettled = trimString(fulfilledAtMs) !== "" && trimString(fulfilledAtMs) !== "0";
+    const hasOutcome = trimString(resultText) !== "" || trimString(errorText) !== "";
+    if (alreadySettled || hasOutcome) continue;
+
+    out.push({
+      chain: "neo_n3",
+      requestId: String(requestIdValue || requestId),
+      requestType: String(requestType || ""),
+      requester: String(requester || ""),
+      callbackContract: String(callbackContract || ""),
+      callbackMethod: String(callbackMethod || ""),
+      payloadText: String(payloadText || ""),
+      blockNumber: Number(createdAtMs || 0),
+      txHash: "",
+      logIndex: 0,
+    });
   }
 
   return out;

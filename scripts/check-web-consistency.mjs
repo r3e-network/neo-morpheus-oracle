@@ -48,9 +48,11 @@ const [
   docsDataText,
   workerComputeText,
   onchainDataText,
+  networksLibText,
   feedDefaultsText,
   workerFeedRegistryText,
   mainnetConfigText,
+  testnetConfigText,
   oracleDocsText,
   quickstartDocsText,
   apiReferenceDocsText,
@@ -70,9 +72,11 @@ const [
   read("apps/web/lib/docs-data.ts"),
   read("workers/phala-worker/src/compute/index.js"),
   read("apps/web/lib/onchain-data.ts"),
+  read("apps/web/lib/networks.ts"),
   read("apps/web/lib/feed-defaults.ts"),
   read("workers/phala-worker/src/oracle/feed-registry.js"),
   read("config/networks/mainnet.json"),
+  read("config/networks/testnet.json"),
   read("apps/web/app/docs/oracle/page.tsx"),
   read("apps/web/app/docs/quickstart/page.tsx"),
   read("apps/web/app/docs/api-reference/page.tsx"),
@@ -111,18 +115,24 @@ assert(
 );
 
 const mainnetConfig = JSON.parse(mainnetConfigText);
-const requiredOnchainValues = [
-  mainnetConfig.neo_n3.contracts.morpheus_oracle,
-  mainnetConfig.neo_n3.contracts.morpheus_datafeed,
-  mainnetConfig.neo_n3.contracts.morpheus_neodid,
-  mainnetConfig.neo_n3.domains.morpheus_oracle,
-  mainnetConfig.neo_n3.domains.morpheus_datafeed,
-  mainnetConfig.neo_n3.domains.morpheus_neodid,
-];
+const testnetConfig = JSON.parse(testnetConfigText);
 
-for (const value of requiredOnchainValues) {
-  assert(onchainDataText.includes(value), `apps/web/lib/onchain-data.ts is missing required mainnet value: ${value}`);
-}
+assert(
+  networksLibText.includes('import testnet') && networksLibText.includes('import mainnet'),
+  "apps/web/lib/networks.ts must import both testnet and mainnet registries",
+);
+assert(
+  onchainDataText.includes("getSelectedNetwork") && onchainDataText.includes("selectedNetwork.neo_n3?.contracts?.morpheus_oracle"),
+  "apps/web/lib/onchain-data.ts must resolve contracts from the selected network registry",
+);
+assert(
+  onchainDataText.includes("selectedNetwork.neo_n3?.examples?.oracle_callback_consumer"),
+  "apps/web/lib/onchain-data.ts must expose the selected-network example consumer",
+);
+assert(
+  onchainDataText.includes("selectedNetwork.phala?.public_api_url"),
+  "apps/web/lib/onchain-data.ts must expose the selected-network Phala endpoint",
+);
 
 assert(
   onchainDataText.includes("DEFAULT_FEED_SYMBOLS"),
@@ -144,8 +154,18 @@ const combinedWebDocsText = [
   neodidDocsText,
 ].join("\n");
 
+const liveAddressFragments = [
+  mainnetConfig.neo_n3.contracts.morpheus_oracle,
+  mainnetConfig.neo_n3.contracts.morpheus_datafeed,
+  testnetConfig.neo_n3.contracts.morpheus_oracle,
+  testnetConfig.neo_n3.contracts.morpheus_datafeed,
+].filter(Boolean);
+
 for (const fragment of forbiddenFragments) {
   assert(!combinedWebDocsText.includes(fragment), `web docs still contain stale fragment: ${fragment}`);
+}
+for (const fragment of liveAddressFragments) {
+  assert(!combinedWebDocsText.includes(fragment), `web docs should not hardcode live address ${fragment}; use the shared network registry`);
 }
 
 const requiredNeoDidFragments = [
@@ -184,8 +204,8 @@ assert(
   "docs/DEPLOYMENT.md must document the required Web3Auth deployment variables",
 );
 assert(
-  deploymentDocText.includes("NeoDIDRegistry") && deploymentDocText.includes("neodid.morpheus.neo"),
-  "docs/DEPLOYMENT.md must document the NeoDID deployment anchors",
+  deploymentDocText.includes("NeoDIDRegistry") && deploymentDocText.includes("phala.mainnet.toml") && deploymentDocText.includes("phala.testnet.toml"),
+  "docs/DEPLOYMENT.md must document NeoDID anchors and both Phala environment descriptors",
 );
 assert(
   securityAuditText.includes("public DID resolver") || securityAuditText.includes("DID resolver should remain metadata-only"),
@@ -217,7 +237,7 @@ console.log(JSON.stringify({
   ok: true,
   builtins_checked: workerBuiltinNames.size,
   feed_pairs_checked: frontendFeedSymbols.length,
-  mainnet_values_checked: requiredOnchainValues.length,
+  network_registries_checked: 2,
   stale_fragments_checked: forbiddenFragments.length,
   neodid_fragments_checked: requiredNeoDidFragments.length,
   version_markers_checked: 2,

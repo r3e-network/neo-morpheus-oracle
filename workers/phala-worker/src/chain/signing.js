@@ -2,6 +2,30 @@ import { REPLAY_WINDOW_MS, sha256Hex, stableStringify, strip0x, trimString } fro
 import { wallet as neoWallet } from "@cityofzion/neon-js";
 import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "../platform/dstack.js";
 
+function resolveNeoN3WorkerKey() {
+  const network = trimString(process.env.MORPHEUS_NETWORK || process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || "testnet").toLowerCase();
+  if (network === "mainnet") {
+    return trimString(
+      process.env.PHALA_NEO_N3_PRIVATE_KEY
+      || process.env.PHALA_NEO_N3_WIF
+      || process.env.NEO_N3_WIF
+      || process.env.NEO_PLATFORM_KEY
+      || process.env.TEE_PRIVATE_KEY
+      || process.env.NEO_TESTNET_WIF
+      || "",
+    );
+  }
+  return trimString(
+    process.env.PHALA_NEO_N3_PRIVATE_KEY
+    || process.env.PHALA_NEO_N3_WIF
+    || process.env.NEO_TESTNET_WIF
+    || process.env.NEO_N3_WIF
+    || process.env.NEO_PLATFORM_KEY
+    || process.env.TEE_PRIVATE_KEY
+    || "",
+  );
+}
+
 const seenRequestIds = new Map();
 
 export function pruneSeenRequestIds() {
@@ -45,7 +69,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   let privateKey = trimString(payload.private_key)
     || trimString(payload.signing_key)
     || trimString(payload.wif)
-    || trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
+    || resolveNeoN3WorkerKey();
   if (shouldUseDerivedKeys(payload)) {
     try {
       privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");
@@ -66,7 +90,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
 }
 
 async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
-  let privateKey = trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || process.env.NEO_N3_WIF || process.env.NEO_PLATFORM_KEY || process.env.TEE_PRIVATE_KEY || process.env.NEO_TESTNET_WIF || "");
+  let privateKey = resolveNeoN3WorkerKey();
   if (shouldUseDerivedKeys(payload)) {
     try {
       privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");

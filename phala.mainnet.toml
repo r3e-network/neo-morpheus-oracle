@@ -1,3 +1,5 @@
+# Mainnet production CVM
 id = "966f16610bdfe1794a503e16c5ae0bc69a1d92f1"
 compose_file = "deploy/phala/docker-compose.ui.yml"
 env_file = "deploy/phala/morpheus.mainnet.env"
+

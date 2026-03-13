@@ -1,4 +1,4 @@
-import { getServerSupabaseClient, isAuthorizedAdminRequest } from "@/lib/server-supabase";
+import { getServerSupabaseClient, isAuthorizedAdminRequest, resolveSupabaseNetwork } from "@/lib/server-supabase";
 import { recordOperationLog } from "@/lib/operation-logs";
 
 function badRequest(message: string, status = 400) {
@@ -30,11 +30,13 @@ export async function POST(request: Request) {
   if (!supabase) return badRequest("Supabase server configuration missing", 500);
 
   const eventKey = typeof body?.event_key === "string" ? body.event_key.trim() : "";
+  const network = resolveSupabaseNetwork(String(body?.network || ""));
   if (!eventKey) return badRequest("event_key required");
 
   const { data: existing, error: existingError } = await supabase
     .from("morpheus_relayer_jobs")
     .select("id, event_key, status, event")
+    .eq("network", network)
     .eq("event_key", eventKey)
     .maybeSingle();
 
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
       completed_at: null,
       updated_at: new Date().toISOString(),
     })
+    .eq("network", network)
     .eq("event_key", eventKey);
 
   if (error) {
@@ -64,7 +67,7 @@ export async function POST(request: Request) {
     });
     return badRequest(error.message, 500);
   }
-  const responseBody = { ok: true, event_key: eventKey, action: "manual_retry_requested" };
+  const responseBody = { ok: true, network, event_key: eventKey, action: "manual_retry_requested" };
   await recordOperationLog({
     route: "/api/relayer/jobs/retry",
     method: "POST",

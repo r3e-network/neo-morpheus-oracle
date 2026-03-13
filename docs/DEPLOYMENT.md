@@ -5,7 +5,17 @@
 - `.env.example`
 - `.env.development.example`
 - `.env.production.example`
+- `config/networks/mainnet.json` for canonical mainnet addresses, domains, CVM id, and public Phala endpoint
+- `config/networks/testnet.json` for canonical testnet addresses, domains, CVM id, and public Phala endpoint
+- `deploy/phala/morpheus.mainnet.env` generated from `npm run render:phala-env:mainnet`
+- `deploy/phala/morpheus.testnet.env` generated from `npm run render:phala-env:testnet`
 - `docs/ENVIRONMENT.md` for bilingual variable explanations and operator guidance
+
+Recommended operator rule:
+
+- keep one root secret set in `.env`
+- render dedicated runtime env files per network
+- never reuse the testnet generated env file on the mainnet CVM or vice versa
 
 ## Frontend
 
@@ -13,6 +23,7 @@ Deploy `apps/web` to Vercel.
 
 Required env vars:
 
+- `NEXT_PUBLIC_MORPHEUS_NETWORK` (`mainnet` or `testnet`)
 - `PHALA_API_URL`
 - `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
 - `TWELVEDATA_API_KEY` for the TwelveData built-in provider
@@ -60,6 +71,8 @@ Deploy `workers/phala-worker` to Phala with:
 - optional `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH` / `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH` to override relayer derived key paths
 - optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle X25519 transport key storage
 - optional `PHALA_ORACLE_KEYSTORE_PATH` to control where the sealed Oracle transport key is persisted (default `/data/morpheus/oracle-key.json` inside the shared CVM volume)
+- current mainnet public endpoint: `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network`
+- current testnet public endpoint: `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network`
 - web verifier API: `/api/attestation/verify`
 - demo verifier flow: `/api/attestation/demo` and `/verifier`
 
@@ -70,11 +83,26 @@ Recommended first deployment:
 - 1 `Confidential VM`
 - 2 containers inside it: `phala-worker` + `morpheus-relayer`
 
+Recommended production split:
+
+- **testnet validation CVM**: `Small TDX`, app id `28294e89d490924b79c85cdee057ce55723b3d56`
+- **mainnet production CVM**: `Medium TDX`, app id `966f16610bdfe1794a503e16c5ae0bc69a1d92f1`
+
+Tracked Phala descriptors:
+
+- `phala.testnet.toml`
+- `phala.mainnet.toml`
+
+Generated local env files:
+
+- `deploy/phala/morpheus.testnet.env`
+- `deploy/phala/morpheus.mainnet.env`
+
 Sizing guidance:
 
-- `Small TDX` → not recommended
-- `Medium TDX` → recommended for testnet / MVP
-- `Large TDX` → recommended default for production
+- `Small TDX` → dedicated testnet validation only
+- `Medium TDX` → current mainnet baseline
+- `Large TDX` → upgrade path for higher production traffic
 
 Deployment files:
 
@@ -86,6 +114,17 @@ Deployment files:
 - `deploy/phala/README.md`
 - `scripts/render-phala-env.mjs`
 - `scripts/check-phala-env.mjs`
+
+Recommended render commands:
+
+```bash
+npm run render:phala-env:mainnet
+npm run render:phala-env:testnet
+```
+
+Compatibility note:
+
+- `npm run render:phala-env` now intentionally aliases mainnet generation.
 
 ## Morpheus Relayer
 
@@ -132,6 +171,9 @@ Apply, in order:
 - `supabase/migrations/0003_provider_configs.sql`
 - `supabase/migrations/0004_relayer_ops.sql`
 - `supabase/migrations/0005_operation_logs.sql`
+- `supabase/migrations/0006_automation.sql`
+- `supabase/migrations/0007_system_backups.sql`
+- `supabase/migrations/0008_network_isolation.sql`
 
 Optional:
 
@@ -147,6 +189,13 @@ Current persistence behavior:
 - plaintext secret-like keys are redacted before operation-log persistence
 - automation registrations are stored in `morpheus_automation_jobs`
 - automation queue attempts are stored in `morpheus_automation_runs`
+
+Network isolation behavior:
+
+- Supabase rows are now scoped by `network` (`mainnet` or `testnet`) for projects, encrypted secrets, relayer state, automation state, operation logs, feed snapshots, request records, and system backups
+- `morpheus_projects` is now unique on `(network, slug)`, so `demo` can exist independently on mainnet and testnet
+- provider config lookup resolves `project_slug + network`, not just `project_slug`
+- relayer admin APIs and attestation lookup now default to the current network and do not mix cross-network rows
 
 ## Contracts
 

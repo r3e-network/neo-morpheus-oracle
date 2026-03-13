@@ -1,8 +1,6 @@
 import { getServerSupabaseClient } from "@/lib/server-supabase";
 import { recordOperationLog } from "@/lib/operation-logs";
-
-const MAINNET_DATAFEED_HASH = "0x03013f49c42a14546c8bbe58f9d434c3517fccab";
-const N3INDEX_FEED_URL = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.mainnet&contract_hash=eq.${MAINNET_DATAFEED_HASH}&event_name=eq.FeedUpdated&limit=200&order=block_index.desc`;
+import { getSelectedNetworkKey, networkRegistry, resolveSelectedNetworkKey } from "@/lib/networks";
 
 function normalizeHex(value: unknown) {
   const normalized = String(value || "").trim().replace(/^0x/i, "").toLowerCase();
@@ -72,13 +70,14 @@ function buildVerifierInput(envelope: Record<string, unknown>, fallbackHash: str
   };
 }
 
-async function lookupOperationLogs(attestationHash: string) {
+async function lookupOperationLogs(attestationHash: string, networkKey: "mainnet" | "testnet") {
   const supabase = getServerSupabaseClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase
     .from("morpheus_operation_logs")
     .select("route, category, created_at, http_status, request_id, target_chain, response_payload")
+    .eq("network", networkKey)
     .order("created_at", { ascending: false })
     .limit(250);
 
@@ -102,8 +101,19 @@ async function lookupOperationLogs(attestationHash: string) {
     .filter(Boolean);
 }
 
-async function lookupFeedNotifications(attestationHash: string) {
-  const response = await fetch(N3INDEX_FEED_URL, {
+function buildFeedLookupUrl(networkKey: "mainnet" | "testnet") {
+  const registry = networkRegistry[networkKey];
+  const contractHash = String(registry.neo_n3?.contracts?.morpheus_datafeed || "").trim();
+  if (!contractHash) return "";
+  const n3IndexNetwork = networkKey === "mainnet" ? "mainnet" : "testnet";
+  return `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.${n3IndexNetwork}&contract_hash=eq.${contractHash}&event_name=eq.FeedUpdated&limit=200&order=block_index.desc`;
+}
+
+async function lookupFeedNotifications(attestationHash: string, networkKey: "mainnet" | "testnet") {
+  const lookupUrl = buildFeedLookupUrl(networkKey);
+  if (!lookupUrl) return [];
+
+  const response = await fetch(lookupUrl, {
     headers: { accept: "application/json" },
     cache: "no-store",
   });
@@ -133,6 +143,7 @@ async function lookupFeedNotifications(attestationHash: string) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const attestationHash = normalizeHex(url.searchParams.get("attestation_hash"));
+  const networkKey = resolveSelectedNetworkKey(url.searchParams.get("network") || getSelectedNetworkKey());
   if (!attestationHash) {
     return Response.json({ error: "attestation_hash query param is required" }, { status: 400 });
   }
@@ -143,8 +154,8 @@ export async function GET(request: Request) {
 
   try {
     [operationMatches, feedMatches] = await Promise.all([
-      lookupOperationLogs(attestationHash),
-      lookupFeedNotifications(attestationHash),
+      lookupOperationLogs(attestationHash, networkKey),
+      lookupFeedNotifications(attestationHash, networkKey),
     ]);
   } catch (error) {
     lookupError = error instanceof Error ? error.message : String(error);
@@ -155,6 +166,7 @@ export async function GET(request: Request) {
 
   const body = {
     ok: !lookupError,
+    network: networkKey,
     attestation_hash: `0x${attestationHash}`,
     found: Boolean(firstVerifierInput || (feedMatches as unknown[]).length > 0),
     verifier_input: firstVerifierInput,

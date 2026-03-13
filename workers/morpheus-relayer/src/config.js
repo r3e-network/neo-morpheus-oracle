@@ -57,6 +57,25 @@ function resolveNetworkName() {
   return env("MORPHEUS_NETWORK", "NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet";
 }
 
+function resolveNeoN3UpdaterWif(networkName) {
+  if (networkName === "mainnet") {
+    return env(
+      "MORPHEUS_RELAYER_NEO_N3_WIF",
+      "MORPHEUS_UPDATER_NEO_N3_WIF",
+      "NEO_N3_WIF",
+      "PHALA_NEO_N3_WIF",
+      "NEO_TESTNET_WIF",
+    );
+  }
+  return env(
+    "MORPHEUS_RELAYER_NEO_N3_WIF",
+    "MORPHEUS_UPDATER_NEO_N3_WIF",
+    "NEO_TESTNET_WIF",
+    "PHALA_NEO_N3_WIF",
+    "NEO_N3_WIF",
+  );
+}
+
 function loadNetworkRegistry(networkName) {
   const registryPath = path.resolve(repoRoot, "config", "networks", `${networkName}.json`);
   return loadJsonFile(registryPath) || { network: networkName, neo_n3: { contracts: {} }, neo_x: { contracts: {} } };
@@ -115,11 +134,14 @@ export function createRelayerConfig() {
       timeoutMs: Number(env("MORPHEUS_PHALA_TIMEOUT_MS") || 30000),
     },
     neo_n3: {
+      scanMode: trimString(env("MORPHEUS_RELAYER_NEO_N3_SCAN_MODE")) || (network === "testnet" ? "n3index_notifications" : "block_cursor"),
+      indexerUrl: trimString(env("MORPHEUS_RELAYER_NEO_N3_INDEXER_URL")) || "https://api.n3index.dev/rest/v1",
+      startRequestId: env("MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID") ? Number(env("MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID")) : null,
       rpcUrl: env("NEO_RPC_URL") || trimString(registry.neo_n3?.rpc_url || ""),
       networkMagic: Number(env("NEO_NETWORK_MAGIC") || registry.neo_n3?.network_magic || 894710606),
       oracleContract: env("CONTRACT_MORPHEUS_ORACLE_HASH") || trimString(registry.neo_n3?.contracts?.morpheus_oracle || ""),
       datafeedContract: env("CONTRACT_MORPHEUS_DATAFEED_HASH") || trimString(registry.neo_n3?.contracts?.morpheus_datafeed || ""),
-      updaterWif: env("MORPHEUS_RELAYER_NEO_N3_WIF", "MORPHEUS_UPDATER_NEO_N3_WIF", "NEO_N3_WIF", "PHALA_NEO_N3_WIF", "NEO_TESTNET_WIF"),
+      updaterWif: resolveNeoN3UpdaterWif(network),
       updaterPrivateKey: env("MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY", "MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY", "PHALA_NEO_N3_PRIVATE_KEY"),
     },
     neo_x: {

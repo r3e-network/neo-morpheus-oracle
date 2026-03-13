@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Shield, Lock, Zap, FileCode, Database, Calculator, Activity, Terminal, Globe } from "lucide-react";
+import { NETWORKS } from "@/lib/onchain-data";
 
 const oracleProviders = [
   {
@@ -308,7 +309,7 @@ export default function DocsUseCases() {
             <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800 }}>Zero-Code Oracle Test</h3>
           </div>
           <p style={{ color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 0 }}>
-            Use the universal callback consumer on Neo N3 mainnet, submit a built-in provider request, and inspect the callback result without deploying your own contract first.
+            Use the universal callback consumer on {NETWORKS.neo_n3.name}, submit a built-in provider request, and inspect the callback result without deploying your own contract first.
           </p>
         </div>
         <div className="card-industrial" style={{ padding: "1.75rem" }}>

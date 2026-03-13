@@ -6,8 +6,6 @@ import { Boxes, ArrowRight, Lock, Cpu, Shield, Copy, CheckCircle2 } from "lucide
 import { CodeBlock } from "@/components/ui/CodeBlock";
 import { NETWORKS } from "@/lib/onchain-data";
 import { encryptJsonWithOraclePublicKey } from "@/lib/browser-encryption";
-
-const universalConsumer = "0x89b05cac00804648c666b47ecb1c57bc185821b7";
 const neoGasHash = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
 
 function escapeForCSharp(value: string) {
@@ -86,6 +84,7 @@ function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script:
 }
 
 export function StarterStudio({ embedded = false }: StarterStudioProps) {
+  const universalConsumer = NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || "";
   const [flow, setFlow] = useState("oracle_provider");
   const [symbol, setSymbol] = useState("TWELVEDATA:NEO-USD");
   const [customUrl, setCustomUrl] = useState("https://postman-echo.com/get?probe=morpheus");
@@ -501,7 +500,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
             <div style={{ padding: "1rem", background: "#000", borderLeft: "4px solid var(--neo-green)", borderTop: "1px solid var(--border-dim)", borderRight: "1px solid var(--border-dim)", borderBottom: "1px solid var(--border-dim)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "0.5rem" }}>
                 <Shield size={16} color="var(--neo-green)" />
-                <strong style={{ color: "#fff" }}>Zero-Code Mainnet Test Mode</strong>
+                <strong style={{ color: "#fff" }}>Zero-Code {NETWORKS.neo_n3.environmentLabel} Test Mode</strong>
               </div>
               <div style={{ color: "var(--text-secondary)", lineHeight: 1.8 }}>
                 <div>1. Keep callback hash at <code>{universalConsumer}</code>.</div>

@@ -1,8 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const envPath = path.resolve(process.cwd(), 'deploy/phala/morpheus.env');
-
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -42,6 +40,14 @@ function isTrue(value) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
+function resolveEnvPath() {
+  const network = trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet') || 'mainnet';
+  const configuredPath = trimString(process.env.PHALA_ENV_FILE || '');
+  return configuredPath
+    ? path.resolve(process.cwd(), configuredPath)
+    : path.resolve(process.cwd(), `deploy/phala/morpheus.${network}.env`);
+}
+
 const required = [
   'PHALA_SHARED_SECRET',
   'SUPABASE_URL',
@@ -66,6 +72,7 @@ const neoXFields = [
   'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY',
 ];
 
+const envPath = resolveEnvPath();
 const raw = await fs.readFile(envPath, 'utf8');
 const env = parseDotEnv(raw);
 const runtimeConfig = parseRuntimeConfig(env);

@@ -223,7 +223,7 @@ contract MyConsumer {
 
     function onOracleResult(uint256, string calldata, bool, bytes calldata, string calldata) external {}
 }`,
-  neo_n3: `// Neo N3 (mainnet live)
+  neo_n3: `// Neo N3 (selected environment)
 [ContractHash("0x017520f068fd602082fe5572596185e62a4ad991")]
 public class MorpheusOracle : SmartContract
 {

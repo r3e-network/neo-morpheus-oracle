@@ -10,7 +10,7 @@ export default function DocsFAQ() {
     },
     {
       q: "Which networks are currently supported?",
-      a: "Neo N3 Mainnet is the live production network today. Neo X interfaces and examples are available in the repository, but live Neo X mainnet contract publication is still pending."
+      a: "Neo N3 mainnet is the live production environment, and Neo N3 testnet is tracked separately with its own CVM, contract registry, and generated env files. Neo X interfaces and examples are available in the repository, but live Neo X mainnet contract publication is still pending."
     },
     {
       q: "Do I need to run my own relayer?",

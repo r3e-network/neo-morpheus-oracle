@@ -1,4 +1,4 @@
-import { getServerSupabaseClient, isAuthorizedAdminRequest } from "@/lib/server-supabase";
+import { getServerSupabaseClient, isAuthorizedAdminRequest, resolveSupabaseNetwork } from "@/lib/server-supabase";
 import { recordOperationLog } from "@/lib/operation-logs";
 
 function badRequest(message: string, status = 400) {
@@ -30,10 +30,12 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const limit = Math.max(Number(url.searchParams.get("limit") || 10), 1);
+  const network = resolveSupabaseNetwork(url.searchParams.get("network"));
 
   const { data, error } = await supabase
     .from("morpheus_relayer_runs")
     .select("id, network, status, started_at, completed_at, duration_ms, metrics, checkpoints, runtime, created_at")
+    .eq("network", network)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
     });
     return badRequest(error.message, 500);
   }
-  const body = { runs: data || [], latest: data?.[0] || null };
+  const body = { network, runs: data || [], latest: data?.[0] || null };
   await recordOperationLog({
     route: "/api/relayer/metrics",
     method: "GET",

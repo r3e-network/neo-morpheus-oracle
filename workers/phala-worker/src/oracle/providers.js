@@ -70,6 +70,12 @@ function coerceProviderParams(value) {
   return {};
 }
 
+function resolveSupabaseNetwork(value) {
+  return trimString(value || env("MORPHEUS_NETWORK") || env("NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet") === "mainnet"
+    ? "mainnet"
+    : "testnet";
+}
+
 function getSupabaseRestConfig() {
   const baseUrl = trimString(env("SUPABASE_URL") || env("NEXT_PUBLIC_SUPABASE_URL") || env("morpheus_SUPABASE_URL") || "");
   const apiKey = trimString(
@@ -121,12 +127,12 @@ async function fetchSupabaseRows(table, query) {
   }
 }
 
-async function loadProjectProviderConfig(projectSlug, providerId) {
+async function loadProjectProviderConfig(projectSlug, providerId, network = resolveSupabaseNetwork()) {
   const normalizedProjectSlug = trimString(projectSlug);
   const normalizedProviderId = normalizeProviderId(providerId);
   if (!normalizedProjectSlug || !normalizedProviderId) return null;
 
-  const cacheKey = `${normalizedProjectSlug}:${normalizedProviderId}`;
+  const cacheKey = `${network}:${normalizedProjectSlug}:${normalizedProviderId}`;
   const cached = providerConfigCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
@@ -134,6 +140,7 @@ async function loadProjectProviderConfig(projectSlug, providerId) {
 
   const projects = await fetchSupabaseRows("morpheus_projects", {
     select: "id,slug",
+    network: `eq.${network}`,
     slug: `eq.${normalizedProjectSlug}`,
     limit: 1,
   });
@@ -145,6 +152,7 @@ async function loadProjectProviderConfig(projectSlug, providerId) {
 
   const configs = await fetchSupabaseRows("morpheus_provider_configs", {
     select: "provider_id,enabled,config,created_at,updated_at",
+    network: `eq.${network}`,
     project_id: `eq.${projectId}`,
     provider_id: `eq.${normalizedProviderId}`,
     limit: 1,
@@ -164,11 +172,13 @@ export async function resolveProviderPayload(payload, options = {}) {
   ));
   const providerId = normalizeProviderId(payload.provider || payload.source || payload.provider_id || fallbackProviderId || inferredProviderId);
   const projectSlug = trimString(payload.project_slug || options.projectSlug || "");
+  const network = resolveSupabaseNetwork(payload.network || options.network);
 
   const resolvedPayload = {
     ...payload,
     ...(providerId ? { provider: providerId } : {}),
     ...(projectSlug ? { project_slug: projectSlug } : {}),
+    ...(network ? { network } : {}),
     ...(payload.provider_params !== undefined ? { provider_params: coerceProviderParams(payload.provider_params) } : {}),
   };
 
@@ -176,7 +186,7 @@ export async function resolveProviderPayload(payload, options = {}) {
     return { payload: resolvedPayload, providerConfig: null };
   }
 
-  const providerConfig = await loadProjectProviderConfig(projectSlug, providerId);
+  const providerConfig = await loadProjectProviderConfig(projectSlug, providerId, network);
   if (!providerConfig) {
     return { payload: resolvedPayload, providerConfig: null };
   }

@@ -6,6 +6,7 @@ import {
   markdownJson,
   normalizeHash160,
   readDeploymentRegistry,
+  resolveNeoN3SignerWif,
   writeValidationArtifacts,
   sleep,
   trimString,
@@ -229,9 +230,11 @@ async function fetchAutomationRecord(automationId) {
     authorization: `Bearer ${apiKey}`,
     accept: "application/json",
   };
+  const network = trimString(process.env.MORPHEUS_NETWORK || "testnet") || "testnet";
 
   const jobUrl = new URL(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_automation_jobs`);
   jobUrl.searchParams.set("select", "*");
+  jobUrl.searchParams.set("network", `eq.${network}`);
   jobUrl.searchParams.set("automation_id", `eq.${automationId}`);
   jobUrl.searchParams.set("limit", "1");
   const jobResponse = await withRetries(
@@ -243,6 +246,7 @@ async function fetchAutomationRecord(automationId) {
 
   const runsUrl = new URL(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_automation_runs`);
   runsUrl.searchParams.set("select", "*");
+  runsUrl.searchParams.set("network", `eq.${network}`);
   runsUrl.searchParams.set("automation_id", `eq.${automationId}`);
   runsUrl.searchParams.set("order", "created_at.asc");
   const runsResponse = await withRetries(
@@ -266,7 +270,7 @@ const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" 
 const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
 const rpcUrl = trimString(process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl);
 const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic);
-const wif = trimString(process.env.NEO_N3_WIF || process.env.NEO_TESTNET_WIF || process.env.MORPHEUS_RELAYER_NEO_N3_WIF || "");
+const wif = resolveNeoN3SignerWif(network);
 const consumerHash = normalizeHash160(process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || "");
 const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || "");
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 240000);

@@ -15,6 +15,7 @@ function encodeUtf8Base64(value: string) {
 }
 
 export function ComputeTab({ computeFunctions, setOutput }: any) {
+  const defaultCallbackHash = NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || "";
   const [selectedFunc, setSelectedFunc] = useState<string>("");
   const [computeInput, setComputeInput] = useState('{\n  "values": [1, 2, 3]\n}');
   const [userCode, setUserCode] = useState(`function process(input, helpers) {\n  const values = Array.isArray(input.values) ? input.values : [];\n  return {\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
@@ -25,7 +26,7 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
     payloadJson: string;
     neoN3Snippet: string;
   } | null>(null);
-  const [walletCallbackHash, setWalletCallbackHash] = useState("0x89b05cac00804648c666b47ecb1c57bc185821b7");
+  const [walletCallbackHash, setWalletCallbackHash] = useState(defaultCallbackHash);
   const [walletCallbackMethod, setWalletCallbackMethod] = useState("onOracleResult");
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
 

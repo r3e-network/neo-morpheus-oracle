@@ -6,6 +6,12 @@ import { NETWORKS } from "@/lib/onchain-data";
 
 export default function DocsNetworks() {
   const [copied, setCopied] = useState<string | null>(null);
+  const oracleDomain = NETWORKS.neo_n3.domains.oracle || "unassigned";
+  const datafeedDomain = NETWORKS.neo_n3.domains.datafeed || "unassigned";
+  const aaDomain = NETWORKS.neo_n3.domains.aa || "unassigned";
+  const neodidDomain = NETWORKS.neo_n3.domains.neodid || "unassigned";
+  const callbackConsumer = NETWORKS.neo_n3.callbackConsumer || "unpublished";
+  const exampleConsumer = NETWORKS.neo_n3.exampleConsumer || callbackConsumer;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -35,9 +41,16 @@ export default function DocsNetworks() {
         Official publication status for the Morpheus Privacy Oracle, validation consumers, and Data Matrix contracts.
       </p>
 
-      <h2>Neo N3 Mainnet</h2>
+      <div style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid var(--neo-green)', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderRadius: '0 4px 4px 0' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.7 }}>
+          Selected environment: <code>{NETWORKS.selected.key}</code>. Canonical registries live in <code>config/networks/mainnet.json</code> and <code>config/networks/testnet.json</code>, while Phala descriptors live in <code>phala.mainnet.toml</code> and <code>phala.testnet.toml</code>.
+          Current Phala CVM: <code>{NETWORKS.neo_n3.phalaCvmId || "unassigned"}</code>. Current public worker endpoint: <code>{NETWORKS.neo_n3.phalaApiUrl || "unassigned"}</code>.
+        </p>
+      </div>
+
+      <h2>{NETWORKS.neo_n3.name}</h2>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-        Production-ready environment powered by decentralized Phala TEE workers.
+        Active environment resolved from <code>NEXT_PUBLIC_MORPHEUS_NETWORK</code> / <code>MORPHEUS_NETWORK</code>.
       </p>
 
       <div style={{ border: '1px solid var(--border-dim)', borderRadius: '4px', overflow: 'hidden', marginBottom: '4rem', background: '#000' }}>
@@ -59,7 +72,7 @@ export default function DocsNetworks() {
               </td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {NETWORKS.neo_n3.domains.oracle} {copyBtn(NETWORKS.neo_n3.domains.oracle)}
+                  {oracleDomain} {copyBtn(oracleDomain)}
                 </div>
               </td>
             </tr>
@@ -67,7 +80,7 @@ export default function DocsNetworks() {
               <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>OracleCallbackConsumer</td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844 {copyBtn("0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844")}
+                  {callbackConsumer} {copyBtn(callbackConsumer)}
                 </div>
               </td>
               <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-muted)' }}>
@@ -75,14 +88,14 @@ export default function DocsNetworks() {
               </td>
             </tr>
             <tr style={{ borderBottom: '1px solid var(--border-dim)' }}>
-              <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>ExampleConsumer (mainnet validation)</td>
+              <td style={{ padding: '1.25rem 1.5rem', fontWeight: 700 }}>ExampleConsumer ({NETWORKS.neo_n3.environmentLabel.toLowerCase()} validation)</td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--neo-green)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  0x89b05cac00804648c666b47ecb1c57bc185821b7 {copyBtn("0x89b05cac00804648c666b47ecb1c57bc185821b7")}
+                  {exampleConsumer} {copyBtn(exampleConsumer)}
                 </div>
               </td>
               <td style={{ padding: '1.25rem 1.5rem', color: 'var(--text-muted)' }}>
-                <span style={{ fontSize: '0.75rem' }}>Used in live privacy validation report</span>
+                <span style={{ fontSize: '0.75rem' }}>Used in the selected-network validation flows</span>
               </td>
             </tr>
             <tr style={{ borderBottom: '1px solid var(--border-dim)' }}>
@@ -94,7 +107,7 @@ export default function DocsNetworks() {
               </td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {NETWORKS.neo_n3.domains.aa} {copyBtn(NETWORKS.neo_n3.domains.aa)}
+                  {aaDomain} {copyBtn(aaDomain)}
                 </div>
               </td>
             </tr>
@@ -107,7 +120,7 @@ export default function DocsNetworks() {
               </td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {NETWORKS.neo_n3.domains.neodid} {copyBtn(NETWORKS.neo_n3.domains.neodid)}
+                  {neodidDomain} {copyBtn(neodidDomain)}
                 </div>
               </td>
             </tr>
@@ -120,7 +133,7 @@ export default function DocsNetworks() {
               </td>
               <td style={{ padding: '1.25rem 1.5rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {NETWORKS.neo_n3.domains.datafeed} {copyBtn(NETWORKS.neo_n3.domains.datafeed)}
+                  {datafeedDomain} {copyBtn(datafeedDomain)}
                 </div>
               </td>
             </tr>
@@ -130,7 +143,7 @@ export default function DocsNetworks() {
 
       <div style={{ padding: '1.5rem', marginTop: '-2rem', marginBottom: '4rem', borderLeft: '4px solid var(--accent-blue)', background: '#000', borderTop: '1px solid var(--border-dim)', borderRight: '1px solid var(--border-dim)', borderBottom: '1px solid var(--border-dim)', borderRadius: '0 4px 4px 0' }}>
         <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
-          Neo N3 aliases are published as NeoNS <code>TEXT</code> records and currently resolve directly to the contract script hashes. The live request fee is <code>0.01 GAS</code> on Neo N3, the active confidential payload algorithm is <code>X25519-HKDF-SHA256-AES-256-GCM</code>, and the public NeoDID service DID is <code>did:morpheus:neo_n3:service:neodid</code>.
+          Neo N3 aliases are published as NeoNS <code>TEXT</code> records when assigned and resolve directly to the contract script hashes. The live request fee is <code>0.01 GAS</code> on Neo N3, the active confidential payload algorithm is <code>X25519-HKDF-SHA256-AES-256-GCM</code>, and the public NeoDID service DID is <code>did:morpheus:neo_n3:service:neodid</code>.
         </p>
       </div>
 
