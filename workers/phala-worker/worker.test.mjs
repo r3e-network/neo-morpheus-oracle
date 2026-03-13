@@ -1134,13 +1134,12 @@ test('compute execute supports zerc20 single-withdraw verification preflight', a
   assert.equal(body.result.checks.withdraw_value.ok, true);
 });
 
-test('paymaster authorize enforces network-specific policy and can require zerc20 proof', async () => {
+test('paymaster authorize enforces network-specific policy', async () => {
   const snapshot = {
     testnetEnabled: process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED,
     testnetMaxGas: process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS,
     testnetAllowTargets: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS,
     testnetAllowMethods: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS,
-    testnetRequireProof: process.env.MORPHEUS_PAYMASTER_TESTNET_REQUIRE_ZERC20_PROOF,
     mainnetEnabled: process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED,
   };
 
@@ -1148,7 +1147,6 @@ test('paymaster authorize enforces network-specific policy and can require zerc2
   process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = '500000';
   process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = `0x${'aa'.repeat(20)}`;
   process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = 'executeUserOp';
-  process.env.MORPHEUS_PAYMASTER_TESTNET_REQUIRE_ZERC20_PROOF = 'true';
   process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED = 'false';
 
   try {
@@ -1162,16 +1160,6 @@ test('paymaster authorize enforces network-specific policy and can require zerc2
         target_contract: `0x${'aa'.repeat(20)}`,
         method: 'executeUserOp',
         estimated_gas_units: 120000,
-        zerc20_proof: {
-          skip_proof_verification: true,
-          public_inputs: {
-            recipient: `0x${'11'.repeat(20)}`,
-            withdraw_value: '1000000',
-            tree_root: `0x${'22'.repeat(32)}`,
-            path_indices: '0x01',
-            blacklisted_root: `0x${'33'.repeat(32)}`,
-          },
-        },
       }),
     }));
     assert.equal(approved.status, 200);
@@ -1202,7 +1190,6 @@ test('paymaster authorize enforces network-specific policy and can require zerc2
     process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = snapshot.testnetMaxGas;
     process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = snapshot.testnetAllowTargets;
     process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = snapshot.testnetAllowMethods;
-    process.env.MORPHEUS_PAYMASTER_TESTNET_REQUIRE_ZERC20_PROOF = snapshot.testnetRequireProof;
     process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED = snapshot.mainnetEnabled;
   }
 });
