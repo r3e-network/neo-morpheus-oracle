@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-10T05:21:20.222Z",
+  "updated_at": "2026-03-13T11:19:31.203Z",
   "neo_x": {
     "deployed_at": "2026-03-10T04:18:24.219Z",
     "rpc_url": "https://neoxt4seed1.ngd.network",
@@ -17,7 +17,7 @@
     }
   },
   "neo_n3": {
-    "deployed_at": "2026-03-10T05:21:20.225Z",
+    "deployed_at": "2026-03-13T11:19:31.204Z",
     "rpc_url": "https://testnet1.neo.coz.io:443",
     "network_magic": 894710606,
     "deployer_address": "NTmHjwiadq4g3VHpJ5FQigQcD4fF5m8TyX",
