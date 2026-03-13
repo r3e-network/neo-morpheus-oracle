@@ -550,6 +550,44 @@ async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
   return invokeResult.body;
 }
 
+function isMissingNeoN3BatchUpdateMethod(error) {
+  const message = trimString(error instanceof Error ? error.message : String(error)).toLowerCase();
+  return message.includes('method not found: updatefeeds/6');
+}
+
+async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, updates) {
+  try {
+    return await submitQuotesToN3(dataFeedHash, neoContext, payload, updates);
+  } catch (error) {
+    if (!isMissingNeoN3BatchUpdateMethod(error)) {
+      throw error;
+    }
+
+    const txs = [];
+    for (const entry of updates) {
+      const tx = await submitQuoteToN3(
+        dataFeedHash,
+        neoContext,
+        payload,
+        entry.quote,
+        entry.storagePair,
+        entry.roundId,
+        entry.sourceSetId,
+      );
+      txs.push({
+        storage_pair: entry.storagePair,
+        tx,
+      });
+    }
+
+    return {
+      mode: 'single_fallback',
+      reason: 'neo_n3_updatefeeds_missing',
+      txs,
+    };
+  }
+}
+
 async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, roundId, sourceSetId) {
   const feedInterface = new Interface([
     'function updateFeed(string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)',
@@ -703,7 +741,7 @@ export async function handleOracleFeed(payload) {
   let batchTx = null;
   if (batchUpdates.length > 0) {
     if (targetChain === 'neo_n3' && dataFeedHash && isConfiguredHash160(dataFeedHash) && neoContext) {
-      batchTx = await submitQuotesToN3(dataFeedHash, neoContext, payload, batchUpdates);
+      batchTx = await submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, batchUpdates);
     } else if (targetChain === 'neo_x' && dataFeedAddress) {
       batchTx = await submitQuotesToNeoX(dataFeedAddress, payload, batchUpdates);
     }
