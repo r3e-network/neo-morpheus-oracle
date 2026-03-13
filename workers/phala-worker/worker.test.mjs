@@ -1104,6 +1104,109 @@ test('compute execute supports builtin heavy functions', async () => {
   assert.ok(body.signature);
 });
 
+test('compute execute supports zerc20 single-withdraw verification preflight', async () => {
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'builtin',
+      function: 'zkp.zerc20.single_withdraw.verify',
+      input: {
+        skip_proof_verification: true,
+        public_inputs: {
+          recipient: `0x${'11'.repeat(20)}`,
+          withdraw_value: '1000000',
+          tree_root: `0x${'22'.repeat(32)}`,
+          path_indices: '0x01',
+          blacklisted_root: `0x${'33'.repeat(32)}`,
+        },
+        expected_recipient: `0x${'11'.repeat(20)}`,
+        expected_withdraw_value: '1000000',
+      },
+      target_chain: 'neo_n3'
+    }),
+  }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.function, 'zkp.zerc20.single_withdraw.verify');
+  assert.equal(body.result.is_valid, true);
+  assert.equal(body.result.statement.recipient, `0x${'11'.repeat(20)}`);
+  assert.equal(body.result.checks.withdraw_value.ok, true);
+});
+
+test('paymaster authorize enforces network-specific policy and can require zerc20 proof', async () => {
+  const snapshot = {
+    testnetEnabled: process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED,
+    testnetMaxGas: process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS,
+    testnetAllowTargets: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS,
+    testnetAllowMethods: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS,
+    testnetRequireProof: process.env.MORPHEUS_PAYMASTER_TESTNET_REQUIRE_ZERC20_PROOF,
+    mainnetEnabled: process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED,
+  };
+
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED = 'true';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = '500000';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = `0x${'aa'.repeat(20)}`;
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = 'executeUserOp';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_REQUIRE_ZERC20_PROOF = 'true';
+  process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED = 'false';
+
+  try {
+    const approved = await handler(new Request('http://local/paymaster/authorize', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        network: 'testnet',
+        target_chain: 'neo_n3',
+        account_id: 'aa-test-account',
+        target_contract: `0x${'aa'.repeat(20)}`,
+        method: 'executeUserOp',
+        estimated_gas_units: 120000,
+        zerc20_proof: {
+          skip_proof_verification: true,
+          public_inputs: {
+            recipient: `0x${'11'.repeat(20)}`,
+            withdraw_value: '1000000',
+            tree_root: `0x${'22'.repeat(32)}`,
+            path_indices: '0x01',
+            blacklisted_root: `0x${'33'.repeat(32)}`,
+          },
+        },
+      }),
+    }));
+    assert.equal(approved.status, 200);
+    const approvedBody = await approved.json();
+    assert.equal(approvedBody.approved, true);
+    assert.equal(approvedBody.network, 'testnet');
+    assert.ok(approvedBody.sponsorship_id);
+    assert.ok(approvedBody.signature);
+
+    const denied = await handler(new Request('http://local/paymaster/authorize', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        network: 'mainnet',
+        target_chain: 'neo_n3',
+        account_id: 'aa-test-account',
+        target_contract: `0x${'aa'.repeat(20)}`,
+        method: 'executeUserOp',
+        estimated_gas_units: 120000,
+      }),
+    }));
+    assert.equal(denied.status, 200);
+    const deniedBody = await denied.json();
+    assert.equal(deniedBody.approved, false);
+    assert.match(deniedBody.reason, /disabled/i);
+  } finally {
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED = snapshot.testnetEnabled;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = snapshot.testnetMaxGas;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = snapshot.testnetAllowTargets;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = snapshot.testnetAllowMethods;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_REQUIRE_ZERC20_PROOF = snapshot.testnetRequireProof;
+    process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED = snapshot.mainnetEnabled;
+  }
+});
+
 test('compute execute supports encrypted confidential payload patches', async () => {
   const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
   const keyBody = await keyRes.json();

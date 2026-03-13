@@ -24,6 +24,7 @@ import {
   handleSignPayload,
   handleTxProxyInvoke,
 } from "./chain/index.js";
+import { handlePaymasterAuthorize } from "./paymaster/index.js";
 import {
   handleNeoDidActionTicket,
   handleNeoDidBind,
@@ -57,6 +58,7 @@ function handleHealth() {
       "txproxy/invoke",
       "sign/payload",
       "relay/transaction",
+      "paymaster/authorize",
       "compute/functions",
       "compute/execute",
       "neodid/providers",
@@ -136,6 +138,7 @@ export default async function handler(request) {
     if (path.endsWith("/txproxy/invoke")) return await handleTxProxyInvoke(payload);
     if (path.endsWith("/sign/payload") || payload.action === "sign_payload") return await handleSignPayload(payload);
     if (path.endsWith("/relay/transaction") || payload.action === "relay_transaction") return await handleRelayTransaction(payload);
+    if (path.endsWith("/paymaster/authorize")) return await handlePaymasterAuthorize(payload);
     if (path.endsWith("/compute/functions")) return handleComputeFunctions();
     if (path.endsWith("/compute/execute")) return await handleComputeExecute(payload);
     if (/\/compute\/jobs\/.+/.test(path)) return handleComputeJobs(path.split("/").pop() || null);

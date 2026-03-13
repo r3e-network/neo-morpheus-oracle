@@ -135,6 +135,7 @@ export function decodePayloadText(rawPayload) {
 
 export function resolveWorkerRoute(requestType, payload) {
   const normalized = normalizeRequestType(requestType);
+  if (normalized.includes("paymaster")) return "/paymaster/authorize";
   if (normalized.includes("compute")) return "/compute/execute";
   if (normalized.includes("feed")) return "/oracle/feed";
   if (normalized.includes("vrf") || normalized.includes("random")) return "/vrf/random";
