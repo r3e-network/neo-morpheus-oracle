@@ -123,6 +123,10 @@ export function createRelayerConfig() {
       neo_n3: Number(env("MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS") || 1),
       neo_x: Number(env("MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS") || 1),
     },
+    startRequestIds: {
+      neo_n3: env("MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID") ? Number(env("MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID")) : null,
+      neo_x: env("MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID") ? Number(env("MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID")) : null,
+    },
     startBlocks: {
       neo_n3: env("MORPHEUS_RELAYER_NEO_N3_START_BLOCK") ? Number(env("MORPHEUS_RELAYER_NEO_N3_START_BLOCK")) : null,
       neo_x: env("MORPHEUS_RELAYER_NEO_X_START_BLOCK") ? Number(env("MORPHEUS_RELAYER_NEO_X_START_BLOCK")) : null,

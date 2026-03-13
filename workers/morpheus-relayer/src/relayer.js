@@ -653,52 +653,85 @@ function filterNewEvents(state, chain, events) {
   return { events: unique, duplicates };
 }
 
+async function reconcilePendingRequests(config, state, logger, chain, options, excludedRequestIds = new Set()) {
+  if (!options.getLatestRequestId || !options.scanByRequestId) {
+    return { scanned_requests: null, events: [] };
+  }
+
+  const latestRequestId = await options.getLatestRequestId(config);
+  const fromRequestId = resolveRequestCursor(config, state, chain, latestRequestId, logger);
+  if (fromRequestId > latestRequestId) {
+    return { scanned_requests: null, events: [] };
+  }
+
+  const toRequestId = Math.min(latestRequestId, fromRequestId + config.maxBlocksPerTick - 1);
+  const scannedEvents = await options.scanByRequestId(config, fromRequestId, toRequestId);
+  const pendingOnly = scannedEvents.filter((event) => !excludedRequestIds.has(String(event.requestId || "")));
+  incrementMetric(state, "events_scanned_total", pendingOnly.length);
+  const filtered = filterNewEvents(state, chain, pendingOnly);
+  incrementMetric(state, "duplicates_skipped_total", filtered.duplicates);
+
+  const persistState = createPersistor(config, state);
+  const eventResults = filtered.events.length
+    ? await mapWithConcurrency(filtered.events, config.concurrency, (event) => processEvent(config, state, persistState, logger, event))
+    : [];
+
+  state[chain].last_request_id = toRequestId;
+  persistState();
+  return {
+    scanned_requests: { from: fromRequestId, to: toRequestId, latest_request_id: latestRequestId },
+    events: eventResults,
+  };
+}
+
 async function processChain(config, state, logger, chain, options) {
   if (!options.hasConfig(config)) {
     logger.debug({ chain }, "Skipping chain with incomplete relayer config");
-    return { scanned_blocks: null, retries: [], events: [], manual_actions: [] };
+    return { scanned_blocks: null, retries: [], events: [], manual_actions: [], request_reconciliation: { scanned_requests: null, events: [] } };
   }
 
   await syncManualActions(config, state, logger, chain);
 
   const latestBlock = await options.getLatestBlock(config);
   const confirmedTip = latestBlock - Math.max(config.confirmations[chain], 0);
-  if (confirmedTip < 0) {
-    return { scanned_blocks: null, retries: [], events: [], manual_actions: [] };
-  }
-
-  const fromBlock = resolveChainFromBlock(config, state, chain, confirmedTip, logger);
-  if (fromBlock > confirmedTip) {
-    const dueRetries = getDueRetryItems(state, chain);
-    const persistState = createPersistor(config, state);
-    const retryResults = dueRetries.length
-      ? await mapWithConcurrency(dueRetries, config.concurrency, (item) => processEvent(config, state, persistState, logger, item.event, item))
-      : [];
-    return { scanned_blocks: null, retries: retryResults, events: [], manual_actions: [] };
-  }
-
-  const toBlock = Math.min(confirmedTip, fromBlock + config.maxBlocksPerTick - 1);
-  const scannedEvents = await options.scan(config, fromBlock, toBlock);
-  incrementMetric(state, "events_scanned_total", scannedEvents.length);
-  const filtered = filterNewEvents(state, chain, scannedEvents);
-  incrementMetric(state, "duplicates_skipped_total", filtered.duplicates);
 
   const dueRetries = getDueRetryItems(state, chain);
   const persistState = createPersistor(config, state);
   const retryResults = dueRetries.length
     ? await mapWithConcurrency(dueRetries, config.concurrency, (item) => processEvent(config, state, persistState, logger, item.event, item))
     : [];
-  const eventResults = filtered.events.length
-    ? await mapWithConcurrency(filtered.events, config.concurrency, (event) => processEvent(config, state, persistState, logger, event))
-    : [];
 
-  state[chain].last_block = toBlock;
-  persistState();
+  let scannedBlocks = null;
+  let eventResults = [];
+  const observedRequestIds = new Set();
+
+  if (confirmedTip >= 0) {
+    const fromBlock = resolveChainFromBlock(config, state, chain, confirmedTip, logger);
+    if (fromBlock <= confirmedTip) {
+      const toBlock = Math.min(confirmedTip, fromBlock + config.maxBlocksPerTick - 1);
+      const scannedEvents = await options.scan(config, fromBlock, toBlock);
+      incrementMetric(state, "events_scanned_total", scannedEvents.length);
+      const filtered = filterNewEvents(state, chain, scannedEvents);
+      incrementMetric(state, "duplicates_skipped_total", filtered.duplicates);
+      eventResults = filtered.events.length
+        ? await mapWithConcurrency(filtered.events, config.concurrency, (event) => processEvent(config, state, persistState, logger, event))
+        : [];
+      for (const event of filtered.events) {
+        observedRequestIds.add(String(event.requestId || ""));
+      }
+      state[chain].last_block = toBlock;
+      persistState();
+      scannedBlocks = { from: fromBlock, to: toBlock, latest: latestBlock, confirmed_tip: confirmedTip };
+    }
+  }
+
+  const requestReconciliation = await reconcilePendingRequests(config, state, logger, chain, options, observedRequestIds);
   return {
-    scanned_blocks: { from: fromBlock, to: toBlock, latest: latestBlock, confirmed_tip: confirmedTip },
+    scanned_blocks: scannedBlocks,
     retries: retryResults,
     events: eventResults,
     manual_actions: [],
+    request_reconciliation: requestReconciliation,
   };
 }
 
@@ -804,9 +837,11 @@ export async function runRelayerOnce(options = {}) {
         getLatestBlock: config.neo_n3.scanMode === "n3index_notifications"
           ? getNeoN3IndexedBlock
           : getNeoN3LatestBlock,
+        getLatestRequestId: getNeoN3LatestRequestId,
         scan: config.neo_n3.scanMode === "n3index_notifications"
           ? scanNeoN3OracleRequestsViaN3Index
           : scanNeoN3OracleRequests,
+        scanByRequestId: scanNeoN3OracleRequestsById,
       });
   const neoX = await processChain(config, state, logger, "neo_x", {
     hasConfig: hasNeoXRelayerConfig,
