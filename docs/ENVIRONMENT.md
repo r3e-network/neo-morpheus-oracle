@@ -172,6 +172,10 @@ They do not usually change trust assumptions.
 
 ### Feed Policy / Feed 策略
 
+- `MORPHEUS_ACTIVE_CHAINS`
+  English: Comma-separated active chain list for relayer scanning and automatic feed sync. Current production default should be `neo_n3`.
+  中文：relayer 扫链和自动 feed 同步所使用的活动链列表，逗号分隔。当前生产默认应该是 `neo_n3`。
+
 - `MORPHEUS_FEED_PROJECT_SLUG`
   English: Default project slug used by feed tasks.
   中文：feed 任务默认使用的项目 slug。

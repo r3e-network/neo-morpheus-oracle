@@ -16,6 +16,7 @@ Recommended operator rule:
 - keep one root secret set in `.env`
 - render dedicated runtime env files per network
 - never reuse the testnet generated env file on the mainnet CVM or vice versa
+- set `MORPHEUS_ACTIVE_CHAINS=neo_n3` while the production rollout remains Neo N3-only
 
 ## Frontend
 
@@ -54,9 +55,8 @@ Deploy `workers/phala-worker` to Phala with:
 
 - `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
 - `NEO_RPC_URL`
-- `NEOX_RPC_URL`
+- `MORPHEUS_ACTIVE_CHAINS=neo_n3`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
-- `PHALA_NEOX_PRIVATE_KEY`
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
 - `SUPABASE_SERVICE_ROLE_KEY` (or compatible service key) for worker-side provider-config lookup
 - `WEB3AUTH_CLIENT_ID` for in-TEE Web3Auth JWT audience verification
@@ -129,6 +129,11 @@ Compatibility note:
 ## Morpheus Relayer
 
 Run `workers/morpheus-relayer` as the async bridge that watches `OracleRequested` events and calls `fulfillRequest` back on-chain.
+
+Current production scope:
+
+- Neo N3 is the active supported chain.
+- Keep `MORPHEUS_ACTIVE_CHAINS=neo_n3` unless you are explicitly validating Neo X in an isolated environment.
 
 Required env vars:
 

@@ -362,7 +362,9 @@ async function processFeedSync(config, state, logger) {
   incrementMetric(state, "feed_sync_runs_total");
   saveRelayerState(config.stateFile, state);
 
-  const targetChains = ["neo_n3", "neo_x"];
+  const targetChains = Array.isArray(config.activeChains) && config.activeChains.length > 0
+    ? config.activeChains
+    : ["neo_n3"];
   const chains = [];
   for (const targetChain of targetChains) {
     try {
@@ -826,28 +828,32 @@ export async function runRelayerOnce(options = {}) {
   incrementMetric(state, "ticks_total", 1);
   saveRelayerState(config.stateFile, state);
 
-  const neoN3 = config.neo_n3.scanMode === "request_cursor"
-    ? await processChainByRequestCursor(config, state, logger, "neo_n3", {
-        hasConfig: hasNeoN3RelayerConfig,
-        getLatestRequestId: getNeoN3LatestRequestId,
-        scan: scanNeoN3OracleRequestsById,
+  const neoN3 = config.activeChains.includes("neo_n3")
+    ? (config.neo_n3.scanMode === "request_cursor"
+      ? await processChainByRequestCursor(config, state, logger, "neo_n3", {
+          hasConfig: hasNeoN3RelayerConfig,
+          getLatestRequestId: getNeoN3LatestRequestId,
+          scan: scanNeoN3OracleRequestsById,
+        })
+      : await processChain(config, state, logger, "neo_n3", {
+          hasConfig: hasNeoN3RelayerConfig,
+          getLatestBlock: config.neo_n3.scanMode === "n3index_notifications"
+            ? getNeoN3IndexedBlock
+            : getNeoN3LatestBlock,
+          getLatestRequestId: getNeoN3LatestRequestId,
+          scan: config.neo_n3.scanMode === "n3index_notifications"
+            ? scanNeoN3OracleRequestsViaN3Index
+            : scanNeoN3OracleRequests,
+          scanByRequestId: scanNeoN3OracleRequestsById,
+        }))
+    : { skipped: true, chain: "neo_n3" };
+  const neoX = config.activeChains.includes("neo_x")
+    ? await processChain(config, state, logger, "neo_x", {
+        hasConfig: hasNeoXRelayerConfig,
+        getLatestBlock: getNeoXLatestBlock,
+        scan: scanNeoXOracleRequests,
       })
-    : await processChain(config, state, logger, "neo_n3", {
-        hasConfig: hasNeoN3RelayerConfig,
-        getLatestBlock: config.neo_n3.scanMode === "n3index_notifications"
-          ? getNeoN3IndexedBlock
-          : getNeoN3LatestBlock,
-        getLatestRequestId: getNeoN3LatestRequestId,
-        scan: config.neo_n3.scanMode === "n3index_notifications"
-          ? scanNeoN3OracleRequestsViaN3Index
-          : scanNeoN3OracleRequests,
-        scanByRequestId: scanNeoN3OracleRequestsById,
-      });
-  const neoX = await processChain(config, state, logger, "neo_x", {
-    hasConfig: hasNeoXRelayerConfig,
-    getLatestBlock: getNeoXLatestBlock,
-    scan: scanNeoXOracleRequests,
-  });
+    : { skipped: true, chain: "neo_x" };
   const feedSync = await processFeedSync(config, state, logger);
   const automation = await processAutomationJobs(config, logger);
 

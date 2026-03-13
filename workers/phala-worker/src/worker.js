@@ -33,13 +33,21 @@ import {
   handleNeoDidRuntime,
 } from "./neodid/index.js";
 
+function resolveActiveTargetChains() {
+  const raw = String(process.env.MORPHEUS_ACTIVE_CHAINS || "").trim();
+  if (!raw) return ["neo_n3"];
+  const chains = raw.split(",").map((entry) => entry.trim().toLowerCase()).filter((entry) => entry === "neo_n3" || entry === "neo_x");
+  return chains.length > 0 ? chains : ["neo_n3"];
+}
+
 function handleHealth() {
+  const targetChains = resolveActiveTargetChains();
   return json(200, {
     status: "ok",
     runtime: "phala-worker",
     oracle: {
       privacy_oracle: true,
-      target_chains: ["neo_n3", "neo_x"],
+      target_chains: targetChains,
       pricefeed_chain: "neo_n3",
       compute_merged_into_oracle: true,
     },
