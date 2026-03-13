@@ -10,6 +10,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 - **Privacy Oracle** — fetches private or public external data inside Phala TEE
 - **Privacy Compute** — runs built-in high-cost compute functions and programmable scripts
 - **Datafeed** — operator-synchronized on-chain market data stored as integer cents
+- **Paymaster** — policy-gated sponsorship authorization for AA / relayer / bundler integrations
 - **Relay + Signing** — signs and relays responses for both **Neo N3** and **Neo X**
 
 ## Runtime Model
@@ -17,8 +18,19 @@ This project gives the Neo blockchain the same thing: **truth**.
 - **Frontend / control plane**: Next.js, deployable to Vercel
 - **State / auth / encrypted secret storage**: Supabase
 - **Trusted execution**: Phala TEE worker
-  - **Live TEE Endpoint**: [https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network](https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network)
+  - **Mainnet CVM**: `966f16610bdfe1794a503e16c5ae0bc69a1d92f1`
+  - **Mainnet endpoint**: [https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network](https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network)
+  - **Testnet CVM**: `28294e89d490924b79c85cdee057ce55723b3d56`
+  - **Testnet endpoint**: [https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network](https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network)
 - **Chains**: Neo N3 + Neo X
+
+## Network Registry
+
+- `config/networks/mainnet.json` is the canonical mainnet registry.
+- `config/networks/testnet.json` is the canonical testnet registry.
+- `phala.mainnet.toml` targets the mainnet Phala CVM.
+- `phala.testnet.toml` targets the testnet Phala CVM.
+- `deploy/phala/morpheus.mainnet.env` and `deploy/phala/morpheus.testnet.env` are generated ignored local runtime env files.
 
 ## Production Usage Model
 
@@ -43,8 +55,15 @@ This project gives the Neo blockchain the same thing: **truth**.
 
 The Morpheus compute module ships with a built-in catalog that users can call directly through `/compute/functions` and `/compute/execute`.
 It covers hashes, RSA verification, modular arithmetic, matrix/vector operations, Merkle roots, ZKP planning/digests, FHE planning, and privacy helpers.
+It now also includes Groth16 verification helpers plus a dedicated `zkp.zerc20.single_withdraw.verify` preflight helper for privacy-transaction circuits.
 
 These are intended as the first layer of built-ins; you can later plug in external ZKP/FHE runtimes behind the same function registry.
+
+Paymaster note:
+
+- `paymaster/authorize` is a separate sponsorship service.
+- It is not tied to any specific ZKP circuit.
+- zERC20 proof verification is available as a standalone compute builtin and can be composed into app-specific sponsorship policy outside the paymaster core.
 
 Built-in providers now include `twelvedata`, `binance-spot`, and `coinbase-spot`.
 
@@ -64,6 +83,7 @@ npm --prefix apps/web run dev
 - `docs/USER_GUIDE.md`
 - `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/BUILTIN_COMPUTE.md`
+- `docs/PAYMASTER.md`
 - `docs/EXAMPLES.md` — bilingual end-to-end calling patterns for Oracle, Compute, encrypted params, WASM, and pricefeeds
 - `docs/PROVIDERS.md`
 - `docs/RELAYER.md`
