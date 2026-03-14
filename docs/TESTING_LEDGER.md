@@ -113,6 +113,8 @@ What is now covered upstream before Morpheus-side integrated testing:
 | `examples/deployments/feed-source-validation.mainnet.latest.json` | Machine-readable report | TwelveData source validation | Same source-validation run as JSON |
 | `docs/N3_CALLBACK_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Direct external callback injection probe against the callback consumer |
 | `examples/deployments/n3-callback-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same callback-boundary probe as JSON |
+| `docs/N3_NEODID_REGISTRY_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | NeoDID action-ticket consumption boundary probe against `NeoDIDRegistry` |
+| `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same NeoDID registry-boundary probe as JSON |
 | `docs/ACCEPTANCE_REPORT_2026-03-10.md` | Acceptance report | Neo N3 mainnet | Smoke, example consumer, builtins, automation, feed sync, operational fixes |
 | `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
 | `examples/deployments/test-neox.latest.json` | Partial log only | Neo X testnet | Not a canonical structured validation artifact |

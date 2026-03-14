@@ -50,6 +50,19 @@ Expected:
 - all cross-account misuse faults
 - all expired / revoked state faults
 
+Executed boundary evidence now available:
+
+- `docs/N3_NEODID_REGISTRY_BOUNDARY_TESTNET_2026-03-14.md`
+
+What it proves:
+
+- `NeoDIDRegistry.UseActionTicket(...)` rejects a caller that is not the declared disposable account
+- the current Oracle callback output still does not expose a ticket-level signature that `NeoDIDRegistry.UseActionTicket(...)` can consume directly, so attempting to use the envelope-level verification signature faults with `invalid verification signature`
+
+Still pending:
+
+- live cross-account misuse against an AA recovery verifier that already consumes NeoDID recovery tickets on-chain
+
 ### B. Oracle callback envelope mismatch
 
 Goal:

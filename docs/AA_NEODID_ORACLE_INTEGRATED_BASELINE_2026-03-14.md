@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T02:37:03.849Z
+Date: 2026-03-14T03:08:15.928Z
 
 ## Purpose
 
@@ -15,6 +15,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtins matrix: `examples/deployments/n3-builtins-validation.testnet.latest.json`
 - Automation matrix: `examples/deployments/n3-automation-validation.testnet.latest.json`
 - Callback boundary probe: `examples/deployments/n3-callback-boundary.testnet.latest.json`
+- NeoDID registry boundary probe: `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`
 
 ## AA Baseline
 
@@ -29,6 +30,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
 - Callback boundary: vmstate=FAULT, tx=`0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d`
+- NeoDID registry boundary: mismatch tx=`0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8`
 
 ## Executed Coverage
 
@@ -41,6 +43,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtin compute catalog
 - Automation register / queue / cancel flow
 - Callback consumer direct injection rejection
+- NeoDID action ticket registry boundary rejection
 
 ## Remaining Integrated Gaps
 
