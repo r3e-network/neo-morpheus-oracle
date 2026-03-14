@@ -147,6 +147,16 @@ Expected:
 
 - method and target scoping remain enforced even when Oracle / compute is the downstream business action
 
+Executed boundary evidence now available:
+
+- `docs/N3_AA_SESSION_ORACLE_BOUNDARY_TESTNET_2026-03-14.md`
+
+What it proves:
+
+- a V3 AA session key scoped to a Morpheus-enabled downstream consumer method can execute the intended Oracle request path
+- the same session key cannot be reused for a different target contract
+- the same session key cannot be reused for a different method
+
 ### E. Automation billing and periodic execution abuse
 
 Goal:

@@ -121,6 +121,8 @@ What is now covered upstream before Morpheus-side integrated testing:
 | `examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same encrypted-ref boundary probe as JSON |
 | `docs/N3_FULFILLMENT_REPLAY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Isolated request-id replay probe for Oracle fulfillment signatures |
 | `examples/deployments/n3-fulfillment-replay.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same fulfillment-replay probe as JSON |
+| `docs/N3_AA_SESSION_ORACLE_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | AA session-key scope probe against a downstream Morpheus Oracle call path |
+| `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same AA session-key Oracle boundary probe as JSON |
 | `docs/ACCEPTANCE_REPORT_2026-03-10.md` | Acceptance report | Neo N3 mainnet | Smoke, example consumer, builtins, automation, feed sync, operational fixes |
 | `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
 | `examples/deployments/test-neox.latest.json` | Partial log only | Neo X testnet | Not a canonical structured validation artifact |

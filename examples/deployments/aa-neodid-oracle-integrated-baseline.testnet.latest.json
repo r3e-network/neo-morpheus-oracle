@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T05:01:47.406Z",
+  "generated_at": "2026-03-14T06:00:52.720Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -187,6 +187,13 @@
       "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
       "fulfill_txid": "0x94532fa7e66526c2c3d25983d3b0779896b1cef42b0a44862d91c488a74997fc",
       "fulfill_vmstate": "HALT"
+    },
+    "aa_session_oracle_boundary": {
+      "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
+      "execute_txid": "0x71ed58e6081b8345f84c551da0e3276b17d0bd22c5cf3e45d6c0cfce9c7bafe8",
+      "request_id": "207",
+      "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
+      "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
     }
   },
   "executed_coverage": [
@@ -202,11 +209,11 @@
     "NeoDID action ticket JSON callback boundary rejection",
     "NeoDID compact action ticket registry consumption and replay rejection",
     "encrypted_params_ref requester and callback binding enforcement",
-    "fulfillment signature request-id replay rejection"
+    "fulfillment signature request-id replay rejection",
+    "AA session-key downstream Morpheus Oracle boundary enforcement"
   ],
   "remaining_integrated_gaps": [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
-    "AA session-key restrictions combined with downstream Morpheus Oracle or Compute calls",
     "AA-aware automation billing races and duplicate-callback protection under sponsored execution"
   ]
 }
