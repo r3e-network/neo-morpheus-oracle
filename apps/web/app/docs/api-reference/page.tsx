@@ -20,41 +20,9 @@ export default function DocsApiReference() {
         Complete technical specifications for the Morpheus smart contracts and the Enclave Javascript SDK. 
       </p>
 
-      <h2>1. Smart Contract Interface (Solidity Reference)</h2>
+      <h2>1. Smart Contract Interface (Neo N3 C#)</h2>
       <p>
-        Neo X live contract publication is still pending, but the reference interface below matches the current repository contracts and examples.
-      </p>
-      
-      <div style={{ padding: '0', overflow: 'hidden', marginBottom: '2.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
-        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border-dim)', display: 'flex', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>IMorpheusOracleX.sol</span>
-        </div>
-        <div style={{ padding: '1.5rem', background: '#0a0a0a', overflowX: 'auto' }}>
-          <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
-            <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', lineHeight: 1.6, color: '#e5e5e5' }}>{`interface IMorpheusOracleX {
-    /**
-     * @dev Submit an Oracle request to the TEE prover network.
-     * @param requestType Type of request ("privacy_oracle", "oracle", "compute", "automation_register", ...).
-     * @param payload UTF-8 JSON payload bytes. Confidential fields stay inside encrypted_params / encrypted_payload.
-     * @param callbackContract Address of the consumer contract to receive the callback.
-     * @param callbackMethod String callback entrypoint on the consumer contract.
-     * @return requestId The unique ID of the request.
-     */
-    function requestFee() external view returns (uint256);
-    function request(
-        string memory requestType,
-        bytes memory payload,
-        address callbackContract,
-        string memory callbackMethod
-    ) external payable returns (uint256 requestId);
-}`}</code>
-          </pre>
-        </div>
-      </div>
-
-      <h2>2. Smart Contract Interface (C#)</h2>
-      <p>
-        To interact with the Morpheus Oracle on {NETWORKS.neo_n3.name}, use <code>Contract.Call</code> against <code>{NETWORKS.neo_n3.oracle}</code> or NeoNS <code>{oracleDomain}</code>.
+        The active on-chain interface is the Neo N3 C# call pattern below. Neo X reference interfaces are intentionally omitted from the public docs because they are not part of the current supported path.
       </p>
       
       <div style={{ padding: '0', overflow: 'hidden', marginBottom: '2.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
@@ -80,7 +48,11 @@ Contract.Call(
         </div>
       </div>
 
-      <h2>3. Enclave SDK (Javascript)</h2>
+      <p>
+        To interact with the Morpheus Oracle on {NETWORKS.neo_n3.name}, use <code>Contract.Call</code> against <code>{NETWORKS.neo_n3.oracle}</code> or NeoNS <code>{oracleDomain}</code>.
+      </p>
+
+      <h2>2. Enclave SDK (Javascript)</h2>
       <p>
         NeoDID now also exposes a W3C DID resolution route for public service discovery and subject namespaces:
       </p>
@@ -104,7 +76,7 @@ Accept: application/did+ld+json`}</code>
         The resolver exposes the public service DID document, TEE verifier JWK, registry anchors, and subject namespaces without leaking provider UIDs or nullifiers.
       </p>
 
-      <h2>4. Enclave SDK (Javascript)</h2>
+      <h2>3. Enclave SDK (Javascript)</h2>
       <p>
         When using built-in compute, Morpheus exposes a fixed catalog of functions. Custom JS compute receives <code>input</code> and <code>helpers</code>; Oracle custom JS receives <code>data</code>, <code>context</code>, and <code>helpers</code>.
       </p>

@@ -9,7 +9,7 @@ export function OperationsTab() {
       <section className="card" style={{ borderLeft: "4px solid var(--warning)" }}>
         <h3 className="card-title text-2xl">Network Management</h3>
         <p className="card-description">
-          Configure external data providers, manage relayer keys, and monitor health across Neo N3 and Neo X gateways.
+          Configure external data providers, manage relayer keys, and monitor health across the Neo N3 runtime.
         </p>
       </section>
       

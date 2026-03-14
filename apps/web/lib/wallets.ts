@@ -4,9 +4,4 @@ export const supportedChains = [
     name: "Neo N3",
     walletSupport: ["NeoLine"],
   },
-  {
-    id: "neo_x",
-    name: "Neo X",
-    walletSupport: ["Web3Auth", "EVM Wallet"],
-  },
 ] as const;

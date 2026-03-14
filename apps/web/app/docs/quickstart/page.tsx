@@ -66,7 +66,7 @@ const encryptedBlob = await encryptWithOracleX25519(JSON.stringify(secrets), pub
 
       <h2>Step 3: Submit On-Chain Request</h2>
       <p>
-        Build a JSON payload, then pass that payload bytestring to the Oracle contract. On Neo N3 the request currently costs <code>0.01 GAS</code> of prepaid credit; on Neo X the reference interface uses <code>requestFee()</code>.
+        Build a JSON payload, then pass that payload bytestring to the Oracle contract. On Neo N3 the request currently costs <code>0.01 GAS</code> of prepaid credit.
       </p>
 
       <CodeBlock 

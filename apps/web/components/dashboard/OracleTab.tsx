@@ -52,7 +52,6 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
     payload: Record<string, unknown>;
     payloadJson: string;
     neoN3Snippet: string;
-    neoXSnippet: string;
   } | null>(null);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
@@ -239,21 +238,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
     "onOracleResult"
 );`;
 
-    const neoXSnippet = `bytes memory payload = abi.encodePacked('${payloadJson.replace(/'/g, "\\'")}');
-uint256 fee = oracle.requestFee();
-uint256 requestId = oracle.request{value: fee}(
-    "${requestType}",
-    payload,
-    address(this),
-    "onOracleResult"
-);`;
-
     setGeneratedRequest({
       requestType,
       payload,
       payloadJson,
       neoN3Snippet,
-      neoXSnippet,
     });
 
     setOutput([
@@ -432,7 +421,6 @@ uint256 requestId = oracle.request{value: fee}(
                 <label className="form-label">Target Chain</label>
                 <select className="neo-select" value={oracleTargetChain} onChange={(event) => setOracleTargetChain(event.target.value)}>
                   <option value="neo_n3">Neo N3</option>
-                  <option value="neo_x">Neo X (reference)</option>
                 </select>
               </div>
             </div>
@@ -535,9 +523,6 @@ uint256 requestId = oracle.request{value: fee}(
               <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => handleCopy("n3", generatedRequest.neoN3Snippet)}>
                 <Copy size={14} /> {copiedItem === "n3" ? "Copied N3" : "Copy Neo N3 Snippet"}
               </button>
-              <button className="btn-secondary" style={{ border: '1px solid var(--border-dim)' }} onClick={() => handleCopy("neox", generatedRequest.neoXSnippet)}>
-                <Copy size={14} /> {copiedItem === "neox" ? "Copied Neo X" : "Copy Neo X Snippet"}
-              </button>
             </div>
 
             <div className="grid grid-2" style={{ gap: '1rem' }}>
@@ -569,15 +554,9 @@ uint256 requestId = oracle.request{value: fee}(
               </div>
             </div>
 
-            <div className="grid grid-2" style={{ gap: '1rem' }}>
-              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO N3 SUBMISSION</div>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedRequest.neoN3Snippet}</pre>
-              </div>
-              <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
-                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO X REFERENCE</div>
-                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedRequest.neoXSnippet}</pre>
-              </div>
+            <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.5rem', fontFamily: 'var(--font-mono)' }}>NEO N3 SUBMISSION</div>
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>{generatedRequest.neoN3Snippet}</pre>
             </div>
 
             <div className="grid grid-2" style={{ gap: '1rem' }}>

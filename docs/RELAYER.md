@@ -13,7 +13,7 @@ It closes the loop:
 ## Supported chains
 
 - Neo N3
-- Neo X
+- Neo X code still exists in-repo as archived reference, but the active supported relayer path is Neo N3 only
 
 ## Request routing
 
@@ -41,11 +41,10 @@ npm --prefix workers/morpheus-relayer run metrics
 - `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
 - `MORPHEUS_NETWORK` (`testnet` or `mainnet`)
 - `NEO_RPC_URL`
-- `NEOX_RPC_URL` or `NEO_X_RPC_URL`
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
-- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
 - `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
-- `MORPHEUS_RELAYER_NEOX_PRIVATE_KEY`
+
+Archived Neo X variables are intentionally omitted here because they are not part of the current supported operations path.
 
 If direct worker-side provider default resolution is needed during relayer processing, also set:
 
@@ -74,7 +73,6 @@ Config knobs:
 - `MORPHEUS_RELAYER_LOG_FORMAT`
 - `MORPHEUS_RELAYER_LOG_LEVEL`
 - `MORPHEUS_RELAYER_NEO_N3_START_BLOCK`
-- `MORPHEUS_RELAYER_NEO_X_START_BLOCK`
 
 Checkpoint note:
 

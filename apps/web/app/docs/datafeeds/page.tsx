@@ -112,20 +112,11 @@ public static void CheckLiquidation() {
 }`}
       />
 
-      <h3>Neo X (Solidity)</h3>
-      <p>
-        Neo X contract publication is still pending. The reference interface below shows the intended read shape once the live registry is published.
-      </p>
-      <CodeBlock
-        language="solidity"
-        title="Reference Read on Neo X"
-        code={`// IMorpheusDataFeedX interface
-function checkPrice(string memory pair) public view returns (int256) {
-    (int256 price, uint256 timestamp) = dataFeed.latestPrice(pair);
-    require(block.timestamp - timestamp < 3600, "Price too stale");
-    return price;
-}`}
-      />
+      <div className="card-industrial" style={{ marginTop: '2rem', padding: '1.5rem', borderLeft: '4px solid var(--accent-blue)' }}>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
+          Public documentation currently covers the Neo N3 feed read path only. Any Neo X datafeed interfaces left in-repo are archived reference material and are not the supported integration target.
+        </p>
+      </div>
 
       <div className="card-industrial" style={{ marginTop: '4rem', padding: '2rem', borderLeft: '4px solid var(--accent-blue)' }}>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>

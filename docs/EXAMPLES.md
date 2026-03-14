@@ -34,6 +34,11 @@ Concrete files also live under:
 - `examples/node-encryption/`
 - `examples/wasm/`
 
+Current support note:
+
+- Neo N3 is the only actively supported public integration path right now.
+- Any Neo X examples that still appear below are archived reference material and should not be used as the default starting point for new integrations.
+
 ## Who Should Read Which Sections / 不同角色应该看哪几节
 
 ### dApp user / 普通 dApp 用户
@@ -58,9 +63,7 @@ Read these first:
 优先看这些：
 
 - Section 2: Callback Shape
-- Section 5: Neo X User Contract: Basic Oracle Request
 - Section 6: Neo N3 User Contract: Basic Oracle Request
-- Section 17: PriceFeed Read: Neo X
 - Section 18: PriceFeed Read: Neo N3
 - Section 19: Feed Pair Discovery
 - Section 20: Operator Feed Sync Behavior
@@ -103,12 +106,12 @@ If your question is “how do I do X?”, use this shortcut table:
 
 | Goal / 目标 | Start with / 先看 |
 | --- | --- |
-| Trigger a one-off Oracle price callback / 发起一次 Oracle 价格回调 | Section 5, 6, 7 |
+| Trigger a one-off Oracle price callback / 发起一次 Oracle 价格回调 | Section 6, 7 |
 | Call a private API with an encrypted token / 用加密 token 调私有 API | Section 3, 7 |
 | Keep function name and inputs encrypted / 把函数名和输入一起加密 | Section 3, 10 |
 | Run a custom Oracle reduction inside TEE / 在 TEE 里跑自定义 Oracle 逻辑 | Section 11 |
 | Run a stronger isolated workload / 使用更强隔离的执行模型 | Section 14, 15, 16 |
-| Read on-chain feed state from my contract / 在用户合约里读取 pricefeed | Section 17, 18, 19 |
+| Read on-chain feed state from my contract / 在用户合约里读取 pricefeed | Section 18, 19 |
 | Understand automatic feed synchronization / 理解自动 pricefeed 同步 | Section 20 |
 | Decide between JS and WASM / 在 JS 与 WASM 之间做选择 | Section 21 |
 | Register automation jobs / 注册自动化任务 | Section 23 |

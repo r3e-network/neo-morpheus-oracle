@@ -6,13 +6,13 @@ const metadataBase = new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhos
 export const metadata = {
   metadataBase,
   title: "Morpheus Oracle",
-  description: "Privacy Oracle, privacy compute, and datafeed network for Neo N3 and Neo X.",
+  description: "Privacy Oracle, privacy compute, and datafeed network for Neo N3.",
   icons: {
     icon: "/logo.svg",
   },
   openGraph: {
     title: "Morpheus Oracle",
-    description: "Truth infrastructure for Neo N3 and Neo X.",
+    description: "Truth infrastructure for Neo N3.",
     images: ["/og-card.svg"],
   },
 };
