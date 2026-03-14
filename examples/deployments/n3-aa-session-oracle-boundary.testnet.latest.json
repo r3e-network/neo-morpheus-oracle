@@ -1,0 +1,61 @@
+{
+  "generated_at": "2026-03-14T05:58:17.161Z",
+  "network": "testnet",
+  "rpc_url": "https://testnet1.neo.coz.io:443",
+  "network_magic": 894710606,
+  "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+  "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+  "aa_core_hash": "0x91bdcb183cd193833a29d22ffaf1ca9e6c566de4",
+  "session_verifier_hash": "0xa624d2af2d9d5a640e472d59b82833dfe9236ceb",
+  "oracle_consumer_hash": "0x88269d280d7a3e9b74a645c1a3aef7783c64a8eb",
+  "account_id": "0x6437636330313039306239356337623933636239",
+  "request_fee_status": {
+    "request_fee": "1000000",
+    "current_credit": "1000000",
+    "deposit_amount": "0"
+  },
+  "success_path": {
+    "execute_txid": "0x71ed58e6081b8345f84c551da0e3276b17d0bd22c5cf3e45d6c0cfce9c7bafe8",
+    "request_id": "207",
+    "callback": {
+      "request_type": "privacy_oracle",
+      "success": true,
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.609\",\"result\":\"2.609\"},\"verification\":{\"output_hash\":\"4a85d0292a8cdea2dfbf1f1b97cb72423f928c9fcf1364ffe2509c8ab3fc0ac5\",\"attestation_hash\":\"4a85d0292a8cdea2dfbf1f1b97cb72423f928c9fcf1364ffe2509c8ab3fc0ac5\",\"signature\":\"4512de64aaea0efee762d5f1069d42a7d2d58d553661eb03ed6cd4431229317cf22817e0f07f0915ec5784ff1a6eb39c8284a0c9a446c402c53d02fbc9f92f40\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"4a85d0292a8cdea2dfbf1f1b97cb72423f928c9fcf1364ffe2509c8ab3fc0ac50000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"5dd03e076e47b004eab3612b6592bc934f4a525c6304bd18be66f69757ce8d06\"}}}",
+      "result_json": {
+        "version": "morpheus-result/v1",
+        "request_type": "privacy_oracle",
+        "success": true,
+        "result": {
+          "mode": "fetch",
+          "target_chain": "neo_n3",
+          "request_source": "morpheus-relayer:neo_n3",
+          "upstream_status": 200,
+          "extracted_value": "2.609",
+          "result": "2.609"
+        },
+        "verification": {
+          "output_hash": "4a85d0292a8cdea2dfbf1f1b97cb72423f928c9fcf1364ffe2509c8ab3fc0ac5",
+          "attestation_hash": "4a85d0292a8cdea2dfbf1f1b97cb72423f928c9fcf1364ffe2509c8ab3fc0ac5",
+          "signature": "4512de64aaea0efee762d5f1069d42a7d2d58d553661eb03ed6cd4431229317cf22817e0f07f0915ec5784ff1a6eb39c8284a0c9a446c402c53d02fbc9f92f40",
+          "public_key": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917",
+          "tee_attestation": {
+            "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
+            "compose_hash": "8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43",
+            "report_data": "4a85d0292a8cdea2dfbf1f1b97cb72423f928c9fcf1364ffe2509c8ab3fc0ac50000000000000000000000000000000000000000000000000000000000000000",
+            "quote_hash": "5dd03e076e47b004eab3612b6592bc934f4a525c6304bd18be66f69757ce8d06"
+          }
+        }
+      },
+      "error_text": ""
+    },
+    "result": "207"
+  },
+  "wrong_target": {
+    "state": "FAULT",
+    "exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted"
+  },
+  "wrong_method": {
+    "state": "FAULT",
+    "exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
+  }
+}

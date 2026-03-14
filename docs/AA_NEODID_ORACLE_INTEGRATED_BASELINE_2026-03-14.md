@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T05:01:47.406Z
+Date: 2026-03-14T06:00:52.720Z
 
 ## Purpose
 
@@ -19,6 +19,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - NeoDID registry v1 probe: `examples/deployments/n3-neodid-registry-v1.testnet.latest.json`
 - Encrypted ref boundary probe: `examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json`
 - Fulfillment replay probe: `examples/deployments/n3-fulfillment-replay.testnet.latest.json`
+- AA session-key Oracle boundary probe: `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json`
 
 ## AA Baseline
 
@@ -37,6 +38,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - NeoDID registry v1: consume tx=`0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1`, replay tx=`0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc`
 - Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
 - Fulfillment replay: replay exception=`at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, fulfill vmstate=`HALT`
+- AA session-key boundary: wrong target=`at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`, wrong method=`at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`
 
 ## Executed Coverage
 
@@ -53,11 +55,11 @@ It does not claim that every cross-system attack has already been live-executed.
 - NeoDID compact action ticket registry consumption and replay rejection
 - encrypted_params_ref requester and callback binding enforcement
 - fulfillment signature request-id replay rejection
+- AA session-key downstream Morpheus Oracle boundary enforcement
 
 ## Remaining Integrated Gaps
 
 - Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier
-- AA session-key restrictions combined with downstream Morpheus Oracle or Compute calls
 - AA-aware automation billing races and duplicate-callback protection under sponsored execution
 
 ## Recommendation

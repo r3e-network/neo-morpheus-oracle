@@ -30,6 +30,7 @@ const inputs = {
   neodidRegistryV1: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-v1.testnet.latest.json"),
   encryptedRefBoundary: path.join(repoRoot, "examples", "deployments", "n3-encrypted-ref-boundary.testnet.latest.json"),
   fulfillmentReplay: path.join(repoRoot, "examples", "deployments", "n3-fulfillment-replay.testnet.latest.json"),
+  aaSessionOracleBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-session-oracle-boundary.testnet.latest.json"),
 };
 
 const aaSuite = readJson(inputs.aaSuite);
@@ -42,6 +43,7 @@ const neodidRegistryBoundary = readJson(inputs.neodidRegistryBoundary);
 const neodidRegistryV1 = readJson(inputs.neodidRegistryV1);
 const encryptedRefBoundary = readJson(inputs.encryptedRefBoundary);
 const fulfillmentReplay = readJson(inputs.fulfillmentReplay);
+const aaSessionOracleBoundary = readJson(inputs.aaSessionOracleBoundary);
 
 const aaStages = Object.fromEntries((aaSuite.stages || []).map((stage) => [stage.id, stage.summary || {}]));
 const neodidCases = Array.isArray(neodid.cases) ? neodid.cases : [];
@@ -129,6 +131,13 @@ const summary = {
       fulfill_txid: fulfillmentReplay.replay_target?.fulfill_txid || null,
       fulfill_vmstate: fulfillmentReplay.replay_target?.fulfill_vmstate || null,
     },
+    aa_session_oracle_boundary: {
+      report_path: rel(inputs.aaSessionOracleBoundary),
+      execute_txid: aaSessionOracleBoundary.success_path?.execute_txid || null,
+      request_id: aaSessionOracleBoundary.success_path?.request_id || null,
+      wrong_target_exception: aaSessionOracleBoundary.wrong_target?.exception || null,
+      wrong_method_exception: aaSessionOracleBoundary.wrong_method?.exception || null,
+    },
   },
   executed_coverage: [
     "AA V3 smoke execution",
@@ -144,10 +153,10 @@ const summary = {
     "NeoDID compact action ticket registry consumption and replay rejection",
     "encrypted_params_ref requester and callback binding enforcement",
     "fulfillment signature request-id replay rejection",
+    "AA session-key downstream Morpheus Oracle boundary enforcement",
   ],
   remaining_integrated_gaps: [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
-    "AA session-key restrictions combined with downstream Morpheus Oracle or Compute calls",
     "AA-aware automation billing races and duplicate-callback protection under sponsored execution",
   ],
 };
@@ -174,6 +183,7 @@ const lines = [
   `- NeoDID registry v1 probe: \`${summary.morpheus.neodid_registry_v1.report_path}\``,
   `- Encrypted ref boundary probe: \`${summary.morpheus.encrypted_ref_boundary.report_path}\``,
   `- Fulfillment replay probe: \`${summary.morpheus.fulfillment_replay.report_path}\``,
+  `- AA session-key Oracle boundary probe: \`${summary.morpheus.aa_session_oracle_boundary.report_path}\``,
   "",
   "## AA Baseline",
   "",
@@ -192,6 +202,7 @@ const lines = [
   `- NeoDID registry v1: consume tx=\`${summary.morpheus.neodid_registry_v1.consume_txid}\`, replay tx=\`${summary.morpheus.neodid_registry_v1.replay_txid}\``,
   `- Encrypted ref boundary: requester mismatch=\`${summary.morpheus.encrypted_ref_boundary.wrong_requester_error}\`, callback mismatch=\`${summary.morpheus.encrypted_ref_boundary.wrong_callback_error}\``,
   `- Fulfillment replay: replay exception=\`${summary.morpheus.fulfillment_replay.replay_exception}\`, fulfill vmstate=\`${summary.morpheus.fulfillment_replay.fulfill_vmstate}\``,
+  `- AA session-key boundary: wrong target=\`${summary.morpheus.aa_session_oracle_boundary.wrong_target_exception}\`, wrong method=\`${summary.morpheus.aa_session_oracle_boundary.wrong_method_exception}\``,
   "",
   "## Executed Coverage",
   "",
