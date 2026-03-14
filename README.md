@@ -84,6 +84,7 @@ npm --prefix apps/web run dev
 - `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/PAYMASTER.md`
+- `docs/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14.md` — live Neo N3 testnet validation for the AA relay + Morpheus paymaster path
 - `docs/EXAMPLES.md` — bilingual end-to-end calling patterns for Oracle, Compute, encrypted params, WASM, and pricefeeds
 - `docs/PROVIDERS.md`
 - `docs/RELAYER.md`
