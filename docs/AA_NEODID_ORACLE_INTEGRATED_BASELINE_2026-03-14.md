@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T09:35:15.707Z
+Date: 2026-03-14T10:08:58.343Z
 
 ## Purpose
 
@@ -15,6 +15,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtins matrix: `examples/deployments/n3-builtins-validation.testnet.latest.json`
 - Automation matrix: `examples/deployments/n3-automation-validation.testnet.latest.json`
 - Automation idempotency probe: `examples/deployments/n3-automation-idempotency.testnet.latest.json`
+- Automation cancellation-race probe: `examples/deployments/n3-automation-cancel-race.testnet.latest.json`
 - Callback boundary probe: `examples/deployments/n3-callback-boundary.testnet.latest.json`
 - NeoDID registry boundary probe: `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`
 - NeoDID registry v1 probe: `examples/deployments/n3-neodid-registry-v1.testnet.latest.json`
@@ -35,6 +36,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
 - Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1`, second tick queued `0`, chain request id=`1082`, callback success=`true`
+- Automation cancel race: executed_after_cancel=`true`, queued chain request id=`1212`
 - Callback boundary: vmstate=FAULT, tx=`0x84db596d27ae69019c58966d015b227b9d083ee679dc1ed2c3e2de57a9df57b5`
 - NeoDID registry JSON boundary: mismatch tx=`0x9a66eaeb8c9dceec23da869fbcbac938acb88eada0f7204dfb951a485707b6e2`
 - NeoDID registry v1: consume tx=`0x7dc01a0e22adf164bcd3d42e8cc377936b3a6b1f8a32048c1a309f21121b4fcd`, replay tx=`0x4b06ae010fb40a8ace188a142ce1219b83cf07d84def154e632e5cf371b91446`
@@ -53,6 +55,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtin compute catalog
 - Automation register / queue / cancel flow
 - Sequential automation duplicate-queue suppression under back-to-back relayer ticks
+- Automation cancellation-race execution probe
 - Callback consumer direct injection rejection
 - NeoDID action ticket JSON callback boundary rejection
 - NeoDID compact action ticket registry consumption and replay rejection
@@ -63,6 +66,7 @@ It does not claim that every cross-system attack has already been live-executed.
 ## Remaining Integrated Gaps
 
 - Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier
+- Automation cancellation race still allows an already-queued execution to fulfill once after cancellation
 - AA-aware automation billing under sponsored execution
 
 ## Recommendation

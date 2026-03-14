@@ -184,16 +184,18 @@ Expected:
 Executed baseline now available:
 
 - `docs/N3_AUTOMATION_IDEMPOTENCY_TESTNET_2026-03-14.md`
+- `docs/N3_AUTOMATION_CANCEL_RACE_TESTNET_2026-03-14.md`
 
 What it proves:
 
 - when the testnet relayer processes the same due automation job in two back-to-back scheduler ticks, the first tick queues exactly one on-chain request for the target job and the second tick queues none
 - the queued run records a deterministic request key and resolves to a single live chain request id before callback fulfillment
 - the target automation job advances to `execution_count = 1` with no duplicate queued rows or failed rows for that job during the isolated probe
+- when an interval automation is already queued and the job is marked `cancelled` before relayer resume, the queued request still fulfills once on the current implementation
 
 Still pending:
 
-- cancellation race proof where an interval job is cancelled while a due execution is already in flight
+- cancellation-race remediation so a queued execution cannot fulfill after the job has already been cancelled
 - deposit-exhaustion proof under a live shared requester credit pool
 - AA-sponsored execution variants where paymaster or AA policy state also participates in the automation trigger / callback path
 
