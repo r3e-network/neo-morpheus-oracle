@@ -17,6 +17,30 @@ Morpheus Compute exposes built-in heavy functions through `POST /compute/execute
 }
 ```
 
+## Script Registry References
+
+If the inline script would make the request payload too large, you can store the script body in a Neo N3 contract getter and send only a small reference:
+
+```json
+{
+  "mode": "script",
+  "script_ref": {
+    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "method": "getScript",
+    "script_name": "double"
+  },
+  "input": { "value": 7 },
+  "target_chain": "neo_n3"
+}
+```
+
+Rules:
+
+- current supported chain for `script_ref` is `neo_n3`
+- the contract getter must be read-only and return either `String` or `ByteString`
+- the fetched script still passes the normal script-policy validator and timeout limits
+- this reduces notification / payload pressure without bypassing the existing execution sandbox
+
 ## Available Built-ins
 
 ### `hash.sha256`
@@ -88,3 +112,9 @@ Takes `value` and `scale` (default 1.0).
 
 These built-ins are the first production-facing layer of Morpheus Compute.
 They are intentionally designed so that later Phala worker profiles can replace the internal implementation with real external ZKP / FHE engines while preserving the API surface.
+
+Current runtime hardening also enforces:
+
+- compute input size limits
+- script / wasm result size limits
+- worker timeouts for JS and WASM execution

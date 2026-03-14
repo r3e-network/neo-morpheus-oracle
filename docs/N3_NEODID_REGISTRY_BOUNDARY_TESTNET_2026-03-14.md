@@ -1,6 +1,6 @@
 # N3 NeoDID Registry Boundary Validation
 
-Date: 2026-03-14T09:19:36.440Z
+Date: 2026-03-14T12:49:16.215Z
 
 ## Scope
 
@@ -8,13 +8,13 @@ This probe verifies the current boundary between Oracle-issued NeoDID action-tic
 
 ## Validated Behaviors
 
-- Action-ticket request tx: `0xa98936f886c977b5b4e25d5d065e28234ba930c2a3cd9cd7eeff2e1dfc32d93e`
-- Request id: `989`
+- Action-ticket request tx: `0xc1154a054a229dc8d17ccf1cb7d0090ababdf47d244b8e22d2aac828919dc700`
+- Request id: `2271`
 - Callback consumer hash: `0x8c506f224d82e67200f20d9d5361f767f0756e3b`
-- Registry hash: `0xb44e3f5979818c7497fd978c6304fde53cc62c95`
+- Registry hash: `0x848d71cae70fdcb98b380bbeb74ec56584a5a536`
 - Wrong witness preview state: `FAULT`
 - Wrong witness preview exception: `at instruction 2188 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized`
-- Persisted consumption tx: `0x9a66eaeb8c9dceec23da869fbcbac938acb88eada0f7204dfb951a485707b6e2`
+- Persisted consumption tx: `0xd5e4918388059efea68b2f3c874ad14e2b19ea1e0c185891779a96cc34b22656`
 - Persisted vmstate: `FAULT`
 - Persisted exception: `at instruction 1703 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`
 

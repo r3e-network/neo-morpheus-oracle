@@ -161,6 +161,53 @@ async function deployRegistry(rpcClient, account, rpcUrl, networkMagic) {
   };
 }
 
+async function ensureExampleConsumer({ rpcClient, account, rpcUrl, networkMagic, oracleHash, consumerHash }) {
+  const { nef, manifestJson } = await loadContractArtifacts(EXAMPLE_CONSUMER_ARTIFACT, EXAMPLE_BUILD_DIR);
+  const forceDeploy = ["1", "true", "yes"].includes(trimString(process.env.MORPHEUS_FORCE_DEPLOY_EXAMPLE_CONSUMER).toLowerCase());
+  let resolvedHash = forceDeploy ? "" : normalizeHash160(consumerHash);
+
+  if (!(await contractExists(rpcClient, resolvedHash))) {
+    const uniqueManifest = sc.ContractManifest.fromJson({
+      ...manifestJson,
+      name: `${manifestJson.name}-${Date.now()}`,
+    });
+    const txid = await experimental.deployContract(nef, uniqueManifest, {
+      account,
+      rpcAddress: rpcUrl,
+      networkMagic,
+      blocksTillExpiry: 200,
+    });
+    const appLog = await waitForApplicationLog(rpcClient, txid);
+    resolvedHash = decodeDeployHash(appLog);
+  }
+
+  const currentOracle = normalizeHash160(await invokeRead(rpcClient, resolvedHash, "oracle").catch(() => ""));
+  const oracleAllowed = Boolean(await invokeRead(rpcClient, oracleHash, "isAllowedCallback", [{ type: "Hash160", value: resolvedHash }]).catch(() => false));
+  const consumer = new experimental.SmartContract(resolvedHash, {
+    rpcAddress: rpcUrl,
+    networkMagic,
+    account,
+  });
+  const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
+
+  if (!oracleAllowed) {
+    const oracle = new experimental.SmartContract(oracleHash, {
+      rpcAddress: rpcUrl,
+      networkMagic,
+      account,
+    });
+    const txid = await oracle.invoke("addAllowedCallback", [sc.ContractParam.hash160(resolvedHash)]);
+    await waitForApplicationLog(rpcClient, txid);
+  }
+
+  if (currentOracle !== oracleHash) {
+    const txid = await consumer.invoke("setOracle", [sc.ContractParam.hash160(oracleHash)], signers);
+    await waitForApplicationLog(rpcClient, txid);
+  }
+
+  return resolvedHash;
+}
+
 async function sendInvocationTransaction({ rpcClient, account, networkMagic, script, signers }) {
   const preview = await rpcClient.invokeScript(u.HexString.fromHex(script), signers);
   const validUntilBlock = (await rpcClient.getBlockCount()) + 1000;
@@ -256,7 +303,12 @@ async function ensureConsumerCredit(consumer, rpcClient, oracleHash, consumerHas
         sc.ContractParam.any(null),
       ], [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry })]);
       await waitForApplicationLog(rpcClient, fundingTxid);
-      contractGasBalance = BigInt(await invokeRead(rpcClient, consumerHash, "contractGasBalance", []).catch(() => "0") || "0");
+      const balanceDeadline = Date.now() + 60000;
+      while (Date.now() < balanceDeadline) {
+        contractGasBalance = BigInt(await invokeRead(rpcClient, consumerHash, "contractGasBalance", []).catch(() => "0") || "0");
+        if (contractGasBalance >= deficit) break;
+        await sleep(2000);
+      }
     }
     assertCondition(contractGasBalance >= deficit, "example callback consumer lacks enough GAS to top up Oracle credit");
     depositTxid = await consumer.invoke("depositOracleCredits", [sc.ContractParam.integer(deficit.toString())], signers);
@@ -298,8 +350,15 @@ async function main() {
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
-  assertCondition(await contractExists(rpcClient, consumerHash), "configured testnet example consumer does not exist");
-  const consumer = new experimental.SmartContract(consumerHash, {
+  const resolvedConsumerHash = await ensureExampleConsumer({
+    rpcClient,
+    account,
+    rpcUrl,
+    networkMagic,
+    oracleHash,
+    consumerHash,
+  });
+  const consumer = new experimental.SmartContract(resolvedConsumerHash, {
     rpcAddress: rpcUrl,
     networkMagic,
     account,
@@ -307,7 +366,7 @@ async function main() {
   const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
 
   const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
-  const feeStatus = await ensureConsumerCredit(consumer, rpcClient, oracleHash, consumerHash, requestFee, 8, {
+  const feeStatus = await ensureConsumerCredit(consumer, rpcClient, oracleHash, resolvedConsumerHash, requestFee, 2, {
     account,
     rpcUrl,
     networkMagic,
@@ -331,7 +390,7 @@ async function main() {
     signers,
   );
   const requestId = await waitForRequestId(rpcClient, requestTxid);
-  const rawCallback = await fetchRawCallbackResult(rpcClient, consumerHash, requestId);
+  const rawCallback = await fetchRawCallbackResult(rpcClient, resolvedConsumerHash, requestId);
   assertCondition(rawCallback.success === true, "action ticket callback should succeed");
   const compactTicket = decodeActionTicketV1(rawCallback.resultBytes);
   assertCondition(compactTicket.disposable_account.toLowerCase() === `0x${account.scriptHash}`.toLowerCase(), "compact ticket disposable account mismatch");

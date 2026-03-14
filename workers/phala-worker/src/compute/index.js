@@ -1,12 +1,13 @@
 import { createVerify, randomBytes } from "node:crypto";
 import { keccak256, toUtf8Bytes } from "ethers";
-import { assertUntrustedScriptsEnabled, env, json, normalizeTargetChain, parseDurationMs, resolveScript, resolveWasmModuleBase64, sha256Hex, stableStringify, trimString } from "../platform/core.js";
+import { assertUntrustedScriptsEnabled, enforceSerializedSizeLimit, env, json, normalizeTargetChain, parseDurationMs, resolveMaxBytes, resolveWasmModuleBase64, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { maybeBuildDstackAttestation } from "../platform/dstack.js";
 import { resolveConfidentialPayload } from "../oracle/crypto.js";
 import { validateUserScriptSource } from "../platform/script-policy.js";
 import { runWasmWithTimeout } from "../platform/wasm-runner.js";
+import { resolveScriptSource } from "../platform/script-source.js";
 
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
@@ -326,8 +327,10 @@ export async function executeBuiltinCompute(payload) {
 }
 
 export async function executeStandaloneCompute(payload) {
+  const maxInputBytes = resolveMaxBytes(env("COMPUTE_MAX_INPUT_BYTES"), 64 * 1024, 1024);
   const wasmModuleBase64 = resolveWasmModuleBase64(payload);
   if (wasmModuleBase64) {
+    enforceSerializedSizeLimit(payload.input ?? {}, "compute input", maxInputBytes);
     const entryPoint = trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || "run") || "run";
     const timeoutMs = parseDurationMs(
       payload.wasm_timeout_ms
@@ -350,12 +353,13 @@ export async function executeStandaloneCompute(payload) {
     };
   }
 
-  const script = resolveScript(payload);
+  const script = await resolveScriptSource(payload);
   if (!script) {
     throw new Error("script or script_base64 required");
   }
   assertUntrustedScriptsEnabled();
   validateUserScriptSource(script);
+  enforceSerializedSizeLimit(payload.input ?? {}, "compute input", maxInputBytes);
 
   const entryPoint = trimString(payload.entry_point || "process") || "process";
   if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entryPoint)) {

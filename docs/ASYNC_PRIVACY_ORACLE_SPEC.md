@@ -34,6 +34,11 @@ NeoDID identity flows now also fit this same path when the request type is one o
   "token_header": "Authorization",
   "script": "function process(data) { return data.age > 80; }",
   "script_base64": "ZnVuY3Rpb24gcHJvY2VzcyhkYXRhKSB7IHJldHVybiBkYXRhLmFnZSA+IDgwOyB9",
+  "script_ref": {
+    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "method": "getScript",
+    "script_name": "age_gate"
+  },
   "target_chain": "neo_n3"
 }
 ```
@@ -74,6 +79,7 @@ For large Web3Auth JWT payloads, use the short-reference form instead of embeddi
 - `encrypted_payload_ref` / `encrypted_params_ref` are short references to ciphertext previously stored in `morpheus_encrypted_secrets`
 - when a ref field is present, the worker loads the ciphertext from Supabase first, then decrypts the same X25519 envelope inside the TEE
 - `script` and `script_base64` are interchangeable aliases
+- `script_ref` lets the worker fetch the script body from a Neo N3 contract getter so the on-chain request only carries a small reference
 - `callback_contract` and `callback_method` are on-chain request arguments, not JSON payload fields
 - `target_chain` is currently `neo_n3` in the active supported path
 - Neo X request fields remain in older examples and in-repo reference code, but they are not the active production route
@@ -205,3 +211,15 @@ Use:
 - `/api/attestation/demo` for a prefilled example
 - `/api/attestation/verify` for server-side verification
 - `/verifier` for the browser verifier UI
+
+## Runtime Limits
+
+The active worker runtime now enforces:
+
+- request body limit at the HTTP ingress
+- script source size limit
+- registered-script fetch size limit
+- oracle programmable input size limit
+- compute input size limit
+- script / wasm result size limits
+- upstream Oracle / provider response size limits

@@ -63,6 +63,24 @@ export function stableStringify(value) {
   return `{${entries.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`).join(",")}}`;
 }
 
+export function resolveMaxBytes(value, fallbackBytes = 0, minBytes = 1024) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return Math.max(fallbackBytes, minBytes);
+  return Math.max(Math.trunc(numeric), minBytes);
+}
+
+export function measureSerializedSizeBytes(value) {
+  return Buffer.byteLength(stableStringify(value), "utf8");
+}
+
+export function enforceSerializedSizeLimit(value, label, maxBytes) {
+  const size = measureSerializedSizeBytes(value);
+  if (size > maxBytes) {
+    throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
+  }
+  return size;
+}
+
 export function ensureBuffer(input) {
   if (Buffer.isBuffer(input)) return input;
   if (input instanceof Uint8Array) return Buffer.from(input);

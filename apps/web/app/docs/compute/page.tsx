@@ -65,9 +65,34 @@ export default function DocsCompute() {
 }`}
       />
 
+      <h2>Contract-Backed Script Registry</h2>
+      <p>
+        If an inline script would make the request payload too large, you can store the script body in a Neo N3 contract getter and send only a compact <code>script_ref</code>. Morpheus resolves the script on-chain, then applies the same sandbox, timeout, and size checks before execution.
+      </p>
+
+      <CodeBlock
+        language="json"
+        title="script_ref Payload"
+        code={`{
+  "mode": "script",
+  "script_ref": {
+    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "method": "getScript",
+    "script_name": "sum"
+  },
+  "entry_point": "process",
+  "input": { "a": 2, "b": 3 },
+  "target_chain": "neo_n3"
+}`}
+      />
+
       <h2>Security Model</h2>
       <p>
         Compute tasks are strictly time-bounded (default 30s timeout) and executed in a stateless enclave instance. Any data required for the next execution cycle must be stored back on the blockchain via the callback mechanism.
+      </p>
+
+      <p>
+        The current runtime also enforces input-size, result-size, and upstream body-size ceilings to reduce DoS risk from oversized user payloads or oversized fetch/script outputs.
       </p>
 
       <div style={{ marginTop: '4rem', padding: '2rem', background: '#000', borderTop: '1px solid rgba(239, 68, 68, 0.2)', borderRight: '1px solid rgba(239, 68, 68, 0.2)', borderBottom: '1px solid rgba(239, 68, 68, 0.2)', borderLeft: '4px solid #ef4444', borderRadius: '0 4px 4px 0' }}>

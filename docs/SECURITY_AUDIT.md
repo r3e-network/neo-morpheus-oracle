@@ -101,14 +101,34 @@ Fixed in worker runtime:
 
 - all provider fetches support timeout/abort
 - direct Oracle HTTP fetches support timeout/abort
+- upstream Oracle / provider responses now have a hard maximum body size
 - configurable with:
   - `ORACLE_TIMEOUT`
+  - `ORACLE_MAX_UPSTREAM_BODY_BYTES`
 
 ### 7. Compute entry-point name allowed identifier injection risk
 
 Fixed in `workers/phala-worker/src/compute/index.js`:
 
 - `entry_point` must match a valid JS identifier
+
+### 7b. Untrusted compute/oracle payloads could still attempt large input/result amplification
+
+Fixed in worker runtime:
+
+- compute input payloads now have a maximum serialized size
+- oracle programmable input payloads now have a maximum serialized size
+- script worker results now have a maximum serialized size
+- wasm worker results now have a maximum serialized size
+- script bodies can be fetched by `script_ref`, but the fetched source still passes the same script-policy checks and size limits
+
+Configurable with:
+
+- `COMPUTE_MAX_INPUT_BYTES`
+- `ORACLE_MAX_SCRIPT_INPUT_BYTES`
+- `SCRIPT_WORKER_MAX_RESULT_BYTES`
+- `WASM_CHILD_MAX_RESULT_BYTES`
+- `MORPHEUS_MAX_REGISTERED_SCRIPT_BYTES`
 
 ### 8. Browser admin keys were persisted too broadly
 

@@ -37,7 +37,8 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
   const [httpMethod, setHttpMethod] = useState("GET");
   const [oracleEncryptedParams, setOracleEncryptedParams] = useState("");
   const [oracleConfidentialJson, setOracleConfidentialJson] = useState('{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  }\n}');
-  const [oracleScript, setOracleScript] = useState("function process(data, context, helpers) {\n  return data.args.probe + '-script';\n}");
+  const [oracleScript, setOracleScript] = useState("function process(data, context, helpers) {\\n  return data.args.probe + '-script';\\n}");
+  const [oracleScriptRefJson, setOracleScriptRefJson] = useState('{\\n  \"contract_hash\": \"0x1111111111111111111111111111111111111111\",\\n  \"method\": \"getScript\",\\n  \"script_name\": \"scoreGate\"\\n}');
   const [oracleJsonPath, setOracleJsonPath] = useState("price");
   const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState("neo_n3");
@@ -198,7 +199,16 @@ export function OracleTab({ providers, setOutput }: OracleTabProps) {
       payload.json_path = oracleJsonPath.trim();
     }
     if (useCustomScript && oracleScript.trim()) {
-      payload.script = oracleScript.trim();
+      try {
+        const parsedScriptRef = oracleScriptRefJson.trim() ? JSON.parse(oracleScriptRefJson) : null;
+        if (parsedScriptRef && typeof parsedScriptRef === "object") {
+          payload.script_ref = parsedScriptRef;
+        } else {
+          payload.script = oracleScript.trim();
+        }
+      } catch {
+        payload.script = oracleScript.trim();
+      }
     }
     if (oracleEncryptedParams.trim()) {
       payload.encrypted_params = oracleEncryptedParams.trim();
@@ -490,6 +500,10 @@ uint256 requestId = oracle.request{value: fee}(
               <div className="form-group">
                 <label className="form-label">Oracle Script</label>
                 <textarea className="code-editor" value={oracleScript} onChange={(event) => setOracleScript(event.target.value)} style={{ minHeight: '120px' }} />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '0.75rem', marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>
+                  Optional script_ref JSON. If valid, it overrides the inline script and lets the worker read the function body from a Neo N3 contract getter.
+                </div>
+                <textarea className="code-editor" value={oracleScriptRefJson} onChange={(event) => setOracleScriptRefJson(event.target.value)} style={{ minHeight: '110px' }} />
               </div>
             )}
 

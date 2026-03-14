@@ -86,6 +86,25 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
         />
       </div>
 
+      <div style={{ padding: '1.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', margin: '2rem 0' }}>
+        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '1rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>3. Resolve Scripts by Reference</h4>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+          If the request script is too large for an on-chain payload, store it in a Neo N3 contract getter and pass a compact <code>script_ref</code> instead of the full source.
+        </p>
+        <CodeBlock
+          language="json"
+          code={`{
+  "url": "https://api.example.com/private",
+  "script_ref": {
+    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "method": "getScript",
+    "script_name": "scoreGate"
+  },
+  "target_chain": "neo_n3"
+}`}
+        />
+      </div>
+
       <h2>Smart Contract Integration</h2>
       <p>
         Now, place the encrypted blob into the JSON payload that your contract submits on-chain. The relayer delivers it to the TEE, which decrypts the blob using the sealed transport key, executes the request, and returns the callback envelope.
@@ -147,7 +166,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
           Instead of using only a static <code>json_path</code> like <code>"price"</code>, you can embed a full Javascript function or WASM module <strong>inside the JSON payload</strong>. That logic executes inside the TEE after the HTTP fetch completes and only the derived result is returned.
         </p>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0, lineHeight: 1.6, paddingBottom: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1rem' }}>
-          <strong>Advanced Mapping:</strong> Oracle custom JS functions use <code>process(data, context, helpers)</code>. The HTTP body is passed as <code>data</code>, request metadata is passed as <code>context</code>, and helper functions are passed as <code>helpers</code>. For stronger isolation, use <a href="/docs/compute" style={{ color: 'var(--neo-green)', textDecoration: 'none' }}>WASM</a>.
+          <strong>Advanced Mapping:</strong> Oracle custom JS functions use <code>process(data, context, helpers)</code>. The HTTP body is passed as <code>data</code>, request metadata is passed as <code>context</code>, and helper functions are passed as <code>helpers</code>. For stronger isolation, use <a href="/docs/compute" style={{ color: 'var(--neo-green)', textDecoration: 'none' }}>WASM</a>. Upstream response bodies and programmable inputs are also size-bounded to reduce DoS risk.
         </p>
       </div>
     </div>

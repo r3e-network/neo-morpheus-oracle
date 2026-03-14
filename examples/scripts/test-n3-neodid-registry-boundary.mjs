@@ -195,12 +195,22 @@ async function ensureConsumerCredit(consumer, rpcClient, oracleHash, consumerHas
       const fundingVmState = String(funded.execution.vmstate || funded.execution.state || "");
       assertCondition(fundingVmState.includes("HALT"), `consumer funding failed: ${funded.execution.exception || fundingVmState}`);
       fundingTxid = funded.txid;
-      contractGasBalance = BigInt(await invokeRead(rpcClient, consumerHash, "contractGasBalance", []).catch(() => "0") || "0");
+      const balanceDeadline = Date.now() + 60000;
+      while (Date.now() < balanceDeadline) {
+        contractGasBalance = BigInt(await invokeRead(rpcClient, consumerHash, "contractGasBalance", []).catch(() => "0") || "0");
+        if (contractGasBalance >= deficit) break;
+        await sleep(2000);
+      }
     }
     assertCondition(contractGasBalance >= deficit, "example callback consumer lacks enough GAS to top up Oracle credit");
     depositTxid = await consumer.invoke("depositOracleCredits", [sc.ContractParam.integer(deficit.toString())], signers);
     await waitForApplicationLog(rpcClient, depositTxid);
-    callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: consumerHash }]) || "0");
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline) {
+      callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: consumerHash }]) || "0");
+      if (callbackCredit >= requestFee) break;
+      await sleep(2000);
+    }
     assertCondition(callbackCredit >= requestFee, "callback consumer top-up did not produce enough request fee credit");
     return {
       callback_credit: callbackCredit.toString(),
@@ -279,7 +289,8 @@ function ensureRegistryArtifacts() {
 
 async function ensureExampleConsumer({ rpcClient, account, rpcUrl, networkMagic, oracleHash, consumerHash }) {
   const { nef, manifestJson } = await loadContractArtifacts(EXAMPLE_CONSUMER_ARTIFACT, EXAMPLE_BUILD_DIR);
-  let resolvedHash = normalizeHash160(consumerHash);
+  const forceDeploy = ["1", "true", "yes"].includes(trimString(process.env.MORPHEUS_FORCE_DEPLOY_EXAMPLE_CONSUMER).toLowerCase());
+  let resolvedHash = forceDeploy ? "" : normalizeHash160(consumerHash);
 
   if (!(await contractExists(rpcClient, resolvedHash))) {
     const uniqueManifest = sc.ContractManifest.fromJson({

@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T10:08:58.343Z
+Date: 2026-03-14T12:02:48.486Z
 
 ## Purpose
 
@@ -22,6 +22,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Encrypted ref boundary probe: `examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json`
 - Fulfillment replay probe: `examples/deployments/n3-fulfillment-replay.testnet.latest.json`
 - AA session-key Oracle boundary probe: `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json`
+- AA recovery cross-account boundary probe: `examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json`
 
 ## AA Baseline
 
@@ -35,14 +36,15 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy: 7/7 cases marked passing
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
-- Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1`, second tick queued `0`, chain request id=`1082`, callback success=`true`
-- Automation cancel race: executed_after_cancel=`true`, queued chain request id=`1212`
-- Callback boundary: vmstate=FAULT, tx=`0x84db596d27ae69019c58966d015b227b9d083ee679dc1ed2c3e2de57a9df57b5`
-- NeoDID registry JSON boundary: mismatch tx=`0x9a66eaeb8c9dceec23da869fbcbac938acb88eada0f7204dfb951a485707b6e2`
-- NeoDID registry v1: consume tx=`0x7dc01a0e22adf164bcd3d42e8cc377936b3a6b1f8a32048c1a309f21121b4fcd`, replay tx=`0x4b06ae010fb40a8ace188a142ce1219b83cf07d84def154e632e5cf371b91446`
+- Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:b68af1d0-e4e9-4606-8322-c8a84332f7f8:1`, second tick queued `0`, chain request id=`1575`, callback success=`true`
+- Automation cancel race: executed_after_cancel=`true`, queued chain request id=`1543`
+- Callback boundary: vmstate=FAULT, tx=`0xa3b4abff609bf04a2fc3aa2fa2c2b2aaac0588f20c9405d039451cd69d7aa8d9`
+- NeoDID registry JSON boundary: mismatch tx=`0x009bb282a4480634770d883ea2d0556915db7ea3ece8fa92fb68fea4baaafc76`
+- NeoDID registry v1: consume tx=`0x22dad8e300ae75f117fa6c9fed4abd16ecd8c081b66a5247a6eeb865832d697b`, replay tx=`0x17d046b479cb784e3f42569194d2c49e33a9ed21a5d06740e87ee6e102b42c7d`
 - Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
 - Fulfillment replay: replay exception=`at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, fulfill vmstate=`HALT`
 - AA session-key boundary: wrong target=`at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`, wrong method=`at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`
+- AA recovery cross-account boundary: wrong account state=`null`, wrong account exception=`null`
 
 ## Executed Coverage
 
@@ -62,10 +64,10 @@ It does not claim that every cross-system attack has already been live-executed.
 - encrypted_params_ref requester and callback binding enforcement
 - fulfillment signature request-id replay rejection
 - AA session-key downstream Morpheus Oracle boundary enforcement
+- AA recovery ticket cross-account replay rejection
 
 ## Remaining Integrated Gaps
 
-- Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier
 - Automation cancellation race still allows an already-queued execution to fulfill once after cancellation
 - AA-aware automation billing under sponsored execution
 

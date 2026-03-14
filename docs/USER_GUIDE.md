@@ -143,7 +143,24 @@ Important notes:
 
 - script execution is time-limited
 - invalid entry points are rejected
+- `script_ref` can fetch the script body from a Neo N3 contract getter when notification size is too small for inline source
 - use built-ins whenever possible for stable semantics
+
+Example registry-backed compute script:
+
+```json
+{
+  "mode": "script",
+  "script_ref": {
+    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "method": "getScript",
+    "script_name": "sum"
+  },
+  "entry_point": "process",
+  "input": { "a": 2, "b": 3 },
+  "target_chain": "neo_n3"
+}
+```
 
 ### Confidential compute payloads
 
@@ -233,6 +250,7 @@ Important notes:
 - `encrypted_token` is the cleanest choice when only an auth secret must stay private
 - `encrypted_params`, `encrypted_input`, or a JSON-object `encrypted_payload` can carry confidential headers, provider params, compute input, function names, or scripts
 - if the encrypted blob is too large for the chain request payload, first store it through `POST /api/confidential/store` and then carry only `encrypted_params_ref` / `encrypted_payload_ref` on-chain
+- if the script body itself is too large for the request payload, move it into a Neo N3 contract getter and use `script_ref`
 - Morpheus confidential payloads are sealed with `X25519-HKDF-SHA256-AES-256-GCM`
 - the encrypted envelope includes an ephemeral X25519 public key plus AES-GCM ciphertext/tag fields
 

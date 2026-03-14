@@ -1,6 +1,6 @@
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { env, trimString } from "./core.js";
+import { env, measureSerializedSizeBytes, resolveMaxBytes, trimString } from "./core.js";
 
 function normalizeError(error) {
   if (error instanceof Error) {
@@ -10,6 +10,10 @@ function normalizeError(error) {
 }
 
 const childPath = fileURLToPath(new URL("./script-child.cjs", import.meta.url));
+
+function resolveMaxResultBytes() {
+  return resolveMaxBytes(env("SCRIPT_WORKER_MAX_RESULT_BYTES"), 64 * 1024, 1024);
+}
 
 function buildPermissionExecArgv() {
   const enabled = trimString(env("SCRIPT_CHILD_ENABLE_PERMISSION_MODEL")).toLowerCase();
@@ -74,6 +78,12 @@ export async function runScriptWithTimeout({ mode, script, entryPoint = "process
       clearTimeout(timer);
       child.kill("SIGKILL");
       if (message?.ok) {
+        const maxResultBytes = resolveMaxResultBytes();
+        const size = measureSerializedSizeBytes(message.result);
+        if (size > maxResultBytes) {
+          reject(new Error(`script result exceeds max size of ${maxResultBytes} bytes`));
+          return;
+        }
         resolve(message.result);
       } else {
         reject(new Error(message?.error?.message || "script execution failed"));

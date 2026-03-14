@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
+import { rpc as neoRpc } from '@cityofzion/neon-js';
 import { Interface, Transaction } from 'ethers';
 import { exportJWK, SignJWT } from 'jose';
 
@@ -1500,6 +1501,27 @@ test('oracle fetch enforces upstream timeout', async () => {
   assert.match(body.error, /timed out/);
 });
 
+test('oracle smart fetch rejects oversized upstream responses', async () => {
+  process.env.ORACLE_MAX_UPSTREAM_BODY_BYTES = '128';
+  global.fetch = async () => new Response('x'.repeat(8192), {
+    status: 200,
+    headers: { 'content-type': 'text/plain' },
+  });
+
+  const res = await handler(new Request('http://local/oracle/smart-fetch', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      url: 'https://api.example.com/large',
+      target_chain: 'neo_n3'
+    }),
+  }));
+  delete process.env.ORACLE_MAX_UPSTREAM_BODY_BYTES;
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /upstream response exceeds max size/i);
+});
+
 test('compute script enforces timeout', async () => {
   const res = await handler(new Request('http://local/compute/execute', {
     method: 'POST',
@@ -1547,6 +1569,76 @@ test('compute script rejects invalid entry point identifiers', async () => {
   assert.match(body.error, /valid identifier/);
 });
 
+test('compute script rejects oversized input payloads', async () => {
+  process.env.COMPUTE_MAX_INPUT_BYTES = '1024';
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'script',
+      script: 'function process(input) { return input.payload.length; }',
+      input: { payload: 'x'.repeat(3000) },
+      target_chain: 'neo_n3'
+    }),
+  }));
+  delete process.env.COMPUTE_MAX_INPUT_BYTES;
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /compute input exceeds max size/i);
+});
+
+test('compute script rejects oversized result payloads', async () => {
+  process.env.SCRIPT_WORKER_MAX_RESULT_BYTES = '1024';
+  const res = await handler(new Request('http://local/compute/execute', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      mode: 'script',
+      script: 'function process(input) { return "x".repeat(4000); }',
+      target_chain: 'neo_n3'
+    }),
+  }));
+  delete process.env.SCRIPT_WORKER_MAX_RESULT_BYTES;
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /script result exceeds max size/i);
+});
+
+test('compute execute resolves script_ref from a Neo N3 contract getter', async () => {
+  const originalInvokeFunction = neoRpc.RPCClient.prototype.invokeFunction;
+  neoRpc.RPCClient.prototype.invokeFunction = async function (_hash, method) {
+    assert.equal(method, 'getScript');
+    return {
+      state: 'HALT',
+      stack: [{
+        type: 'ByteString',
+        value: Buffer.from('function process(input) { return input.value * 2; }', 'utf8').toString('base64'),
+      }],
+    };
+  };
+  try {
+    const res = await handler(new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'script',
+        script_ref: {
+          contract_hash: '0x1111111111111111111111111111111111111111',
+          method: 'getScript',
+          script_name: 'double',
+        },
+        input: { value: 7 },
+        target_chain: 'neo_n3'
+      }),
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.result, 14);
+  } finally {
+    neoRpc.RPCClient.prototype.invokeFunction = originalInvokeFunction;
+  }
+});
+
 test('compute script blocks constructor escape patterns', async () => {
   const res = await handler(new Request('http://local/compute/execute', {
     method: 'POST',
@@ -1581,6 +1673,44 @@ test('oracle smart fetch blocks global object access in user script', async () =
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /global object access is not allowed/);
+});
+
+test('oracle smart fetch resolves script_ref from a Neo N3 contract getter', async () => {
+  const originalInvokeFunction = neoRpc.RPCClient.prototype.invokeFunction;
+  neoRpc.RPCClient.prototype.invokeFunction = async function (_hash, method) {
+    assert.equal(method, 'getScript');
+    return {
+      state: 'HALT',
+      stack: [{
+        type: 'String',
+        value: 'function process(data) { return Number(data.price) > 1; }',
+      }],
+    };
+  };
+  global.fetch = async () => new Response(JSON.stringify({ price: '1.23' }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+  try {
+    const res = await handler(new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/script-ref',
+        script_ref: {
+          contract_hash: '0x2222222222222222222222222222222222222222',
+          method: 'getScript',
+          script_name: 'greaterThanOne',
+        },
+        target_chain: 'neo_n3'
+      }),
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.result, true);
+  } finally {
+    neoRpc.RPCClient.prototype.invokeFunction = originalInvokeFunction;
+  }
 });
 
 test('sign-payload supports neo_n3 and neo_x', async () => {

@@ -401,6 +401,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 {useScript && (
                   <textarea className="code-editor" value={script} onChange={(event) => setScript(event.target.value)} style={{ minHeight: "140px" }} />
                 )}
+                {useScript && (
+                  <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                    If the inline script is too large for the on-chain payload, move it into a Neo N3 contract getter and place a <code>script_ref</code> object into the confidential JSON patch instead.
+                  </div>
+                )}
               </>
             )}
 

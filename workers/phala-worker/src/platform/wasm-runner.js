@@ -1,9 +1,13 @@
 import path from "node:path";
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { env, trimString } from "./core.js";
+import { env, measureSerializedSizeBytes, resolveMaxBytes, trimString } from "./core.js";
 
 const childPath = fileURLToPath(new URL("./wasm-child.cjs", import.meta.url));
+
+function resolveMaxResultBytes() {
+  return resolveMaxBytes(env("WASM_CHILD_MAX_RESULT_BYTES"), 64 * 1024, 1024);
+}
 
 function normalizeError(error) {
   if (error instanceof Error) {
@@ -81,6 +85,12 @@ export async function runWasmWithTimeout({ mode, moduleBase64, entryPoint = "run
       clearTimeout(timer);
       child.kill("SIGKILL");
       if (message?.ok) {
+        const maxResultBytes = resolveMaxResultBytes();
+        const size = measureSerializedSizeBytes(message.result);
+        if (size > maxResultBytes) {
+          reject(new Error(`wasm result exceeds max size of ${maxResultBytes} bytes`));
+          return;
+        }
         resolve(message.result);
       } else {
         reject(new Error(message?.error?.message || "wasm execution failed"));
