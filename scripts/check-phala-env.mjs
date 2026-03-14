@@ -51,7 +51,6 @@ function resolveEnvPath() {
 const required = [
   'PHALA_SHARED_SECRET',
   'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
   'MORPHEUS_NETWORK',
   'NEO_RPC_URL',
   'NEO_NETWORK_MAGIC',
@@ -60,6 +59,7 @@ const required = [
 ];
 
 const requiredEither = [
+  ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'],
   ['PHALA_NEO_N3_WIF', 'PHALA_NEO_N3_PRIVATE_KEY'],
   ['MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'],
 ];

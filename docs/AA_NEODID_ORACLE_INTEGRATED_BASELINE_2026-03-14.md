@@ -14,6 +14,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy matrix: `examples/deployments/n3-privacy-validation.testnet.latest.json`
 - Builtins matrix: `examples/deployments/n3-builtins-validation.testnet.latest.json`
 - Automation matrix: `examples/deployments/n3-automation-validation.testnet.latest.json`
+- Automation idempotency probe: `examples/deployments/n3-automation-idempotency.testnet.latest.json`
 - Callback boundary probe: `examples/deployments/n3-callback-boundary.testnet.latest.json`
 - NeoDID registry boundary probe: `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`
 - NeoDID registry v1 probe: `examples/deployments/n3-neodid-registry-v1.testnet.latest.json`
@@ -33,6 +34,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy: 7/7 cases marked passing
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
+- Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:c82e9ead-b4c7-4b24-8c19-931aad9b3d0a:1`, second tick queued `0`, chain request id=`335`, callback success=`true`
 - Callback boundary: vmstate=FAULT, tx=`0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d`
 - NeoDID registry JSON boundary: mismatch tx=`0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8`
 - NeoDID registry v1: consume tx=`0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1`, replay tx=`0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc`
@@ -50,6 +52,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy oracle encrypted parameter and custom function matrix
 - Builtin compute catalog
 - Automation register / queue / cancel flow
+- Sequential automation duplicate-queue suppression under back-to-back relayer ticks
 - Callback consumer direct injection rejection
 - NeoDID action ticket JSON callback boundary rejection
 - NeoDID compact action ticket registry consumption and replay rejection
@@ -60,9 +63,8 @@ It does not claim that every cross-system attack has already been live-executed.
 ## Remaining Integrated Gaps
 
 - Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier
-- AA-aware automation billing races and duplicate-callback protection under sponsored execution
+- AA-aware automation billing under sponsored execution
 
 ## Recommendation
 
 Use this baseline as the prerequisite evidence set for the next integrated adversarial run. The next executable layer should combine a live AA account, NeoDID-backed recovery or credential state, and Morpheus callback fulfillment under negative replay and cross-account misuse scenarios.
-

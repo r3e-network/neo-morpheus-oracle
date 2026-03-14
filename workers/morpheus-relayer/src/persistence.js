@@ -41,11 +41,11 @@ function getSupabaseRestConfig() {
       || "",
   );
   const apiKey = trimString(
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_SECRET_KEY
+      || process.env.morpheus_SUPABASE_SECRET_KEY
+      || process.env.SUPABASE_SERVICE_ROLE_KEY
       || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY
       || process.env.SUPABASE_SERVICE_KEY
-      || process.env.SUPABASE_SECRET_KEY
-      || process.env.morpheus_SUPABASE_SECRET_KEY
       || "",
   );
   if (!baseUrl || !apiKey) return null;

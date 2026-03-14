@@ -50,7 +50,7 @@ npm --prefix workers/morpheus-relayer run metrics
 If direct worker-side provider default resolution is needed during relayer processing, also set:
 
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SECRET_KEY` preferred, or legacy `SUPABASE_SERVICE_ROLE_KEY`
 
 ## Reliability Model
 

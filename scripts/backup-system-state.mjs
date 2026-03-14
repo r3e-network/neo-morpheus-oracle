@@ -88,9 +88,15 @@ async function backupOracleKeystore(appId, apiToken, destination) {
 
 async function insertSupabaseBackupRows(rows) {
   const baseUrl = trimString(process.env.SUPABASE_URL || process.env.morpheus_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "");
-  const apiKey = trimString(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY || "");
+  const apiKey = trimString(
+    process.env.SUPABASE_SECRET_KEY
+      || process.env.morpheus_SUPABASE_SECRET_KEY
+      || process.env.SUPABASE_SERVICE_ROLE_KEY
+      || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY
+      || "",
+  );
   if (!baseUrl || !apiKey) {
-    throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
+    throw new Error("SUPABASE_URL and a Supabase secret or service-role key are required");
   }
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_system_backups`, {
     method: "POST",

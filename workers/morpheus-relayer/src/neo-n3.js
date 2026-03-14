@@ -329,10 +329,11 @@ export async function fulfillNeoN3Request(config, requestId, success, result, er
   return { ...invoke.body, target_chain: "neo_n3" };
 }
 
-export async function queueNeoN3AutomationRequest(config, requester, requestType, payloadText, callbackContract, callbackMethod) {
+export async function queueNeoN3AutomationRequest(config, requester, requestType, payloadText, callbackContract, callbackMethod, requestIdOverride = "") {
   const signerPayload = await resolveNeoN3UpdaterPayload(config);
+  const requestId = trimString(requestIdOverride) || `automation:n3:${Date.now()}`;
   const invoke = await relayNeoN3Invocation({
-    request_id: `automation:n3:${Date.now()}`,
+    request_id: requestId,
     contract_hash: config.neo_n3.oracleContract,
     method: "queueAutomationRequest",
     params: [
@@ -349,9 +350,12 @@ export async function queueNeoN3AutomationRequest(config, requester, requestType
   });
 
   if (invoke.status >= 400) {
+    if (/request_id already used/i.test(String(invoke.body?.error || ""))) {
+      return { duplicate: true, request_id: requestId, target_chain: "neo_n3" };
+    }
     throw new Error(invoke.body?.error || `Neo N3 automation queue failed for ${requester}`);
   }
-  return { ...invoke.body, target_chain: "neo_n3" };
+  return { ...invoke.body, request_id: invoke.body?.request_id || requestId, target_chain: "neo_n3" };
 }
 
 export async function fetchNeoN3FeedRecord(config, pair) {

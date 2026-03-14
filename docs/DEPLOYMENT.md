@@ -32,7 +32,7 @@ Required env vars:
 - optional Coinbase spot provider requires no secret
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SECRET_KEY` preferred, or legacy `SUPABASE_SERVICE_ROLE_KEY`
 - recommended for NeoDID Web3Auth production login:
   - `WEB3AUTH_CLIENT_SECRET`
   - `NEXT_PUBLIC_WEB3AUTH_NETWORK`
@@ -58,7 +58,7 @@ Deploy `workers/phala-worker` to Phala with:
 - `MORPHEUS_ACTIVE_CHAINS=neo_n3`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
-- `SUPABASE_SERVICE_ROLE_KEY` (or compatible service key) for worker-side provider-config lookup
+- `SUPABASE_SECRET_KEY` (preferred) or `SUPABASE_SERVICE_ROLE_KEY` for worker-side provider-config lookup
 - `WEB3AUTH_CLIENT_ID` for in-TEE Web3Auth JWT audience verification
 - optional `WEB3AUTH_JWKS_URL` to override the default Web3Auth JWKS endpoint
 - optional `ORACLE_TIMEOUT` for upstream fetch timeout (for example `20s`)
