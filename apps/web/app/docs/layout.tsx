@@ -57,6 +57,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/r/DEPLOYMENT", label: "Deployment Node", icon: Boxes },
         { href: "/docs/r/ENVIRONMENT", label: "Environment Setup", icon: Zap },
         { href: "/docs/r/TESTING_LEDGER", label: "Testing Ledger", icon: ClipboardList },
+        { href: "/docs/r/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14", label: "AA Paymaster Validation", icon: CheckCircle },
         { href: "/docs/r/ASYNC_PRIVACY_ORACLE_SPEC", label: "Async Privacy Spec", icon: Shield },
         { href: "/docs/r/NEODID_DID_METHOD", label: "NeoDID DID Method Spec", icon: Fingerprint },
         { href: "/docs/r/AA_SOCIAL_RECOVERY", label: "AA Social Recovery Spec", icon: Fingerprint },
