@@ -31,6 +31,78 @@ function shellQuote(value) {
   return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
 }
 
+async function runPhalaRemoteShell(shellScript, { phalaApiToken, appId, maxBuffer = 10 * 1024 * 1024 } = {}) {
+  let lastError = null;
+  for (const args of [
+    trimString(phalaApiToken)
+      ? ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(shellScript)}`]
+      : null,
+    ["ssh", appId, "--", `sh -lc ${shellQuote(shellScript)}`],
+  ].filter(Boolean)) {
+    try {
+      return await execFileAsync("phala", args, { maxBuffer });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function getCvmStatus(appId) {
+  const { stdout } = await execFileAsync("phala", ["cvms", "get", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  const match = stdout.match(/│\s*Status\s*│\s*([^│\n]+)\s*│/);
+  if (!match) throw new Error(`unexpected phala cvms get output: ${stdout}`);
+  return trimString(match[1]);
+}
+
+async function waitForCvmStatus(appId, targetStatus, timeoutMs = 180000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const status = await getCvmStatus(appId);
+    if (status === targetStatus) return;
+    await sleep(3000);
+  }
+  throw new Error(`timed out waiting for CVM status=${targetStatus}`);
+}
+
+async function waitForContainersRunning(appId, timeoutMs = 300000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const { stdout } = await execFileAsync("phala", ["ps", appId], {
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const relayerRunning = /morpheus-relayer.*running/i.test(stdout);
+      const workerRunning = /phala-worker.*running/i.test(stdout);
+      if (relayerRunning && workerRunning) return;
+    } catch {}
+    await sleep(3000);
+  }
+  throw new Error("timed out waiting for Morpheus containers to become running");
+}
+
+async function stopCvm(appId) {
+  await execFileAsync("phala", ["cvms", "stop", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  }).catch((error) => {
+    const message = String(error?.stderr || error?.stdout || error?.message || error);
+    if (!/already in progress/i.test(message)) throw error;
+  });
+  await waitForCvmStatus(appId, "stopped");
+}
+
+async function startCvm(appId) {
+  await execFileAsync("phala", ["cvms", "start", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  }).catch((error) => {
+    const message = String(error?.stderr || error?.stdout || error?.message || error);
+    if (!/already in progress/i.test(message)) throw error;
+  });
+  await waitForContainersRunning(appId);
+}
+
 function normalizeHash(value = "") {
   const raw = trimString(value).replace(/^0x/i, "").toLowerCase();
   return raw ? `0x${raw}` : "";
@@ -263,8 +335,9 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
 }
 
 async function findRelayerLoopPid({ phalaApiToken, appId }) {
-  const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote("ps -ef | grep 'node src/cli.js loop' | grep -v grep | awk 'NR==1 {print $1}'")}`], {
-    maxBuffer: 10 * 1024 * 1024,
+  const { stdout } = await runPhalaRemoteShell("ps -ef | grep 'node src/cli.js loop' | grep -v grep | awk 'NR==1 {print $1}'", {
+    phalaApiToken,
+    appId,
   });
   return trimString(stdout.split(/\r?\n/, 1)[0] || "");
 }
@@ -272,8 +345,9 @@ async function findRelayerLoopPid({ phalaApiToken, appId }) {
 async function waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning, timeoutMs = 30000 }) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`ps -o pid=,stat=,args= | awk '$1 == ${pid} {print $2}'`)}`], {
-      maxBuffer: 10 * 1024 * 1024,
+    const { stdout } = await runPhalaRemoteShell(`ps -o pid=,stat=,args= | awk '$1 == ${pid} {print $2}'`, {
+      phalaApiToken,
+      appId,
     });
     const status = trimString(stdout.split(/\r?\n/, 1)[0] || "");
     const paused = status.includes("T");
@@ -285,21 +359,27 @@ async function waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning,
 }
 
 async function stopRelayer({ phalaApiToken, appId }) {
-  const pid = await findRelayerLoopPid({ phalaApiToken, appId });
-  assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
-  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s STOP ${pid}`)}`], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: false });
-  return pid;
+  try {
+    const pid = await findRelayerLoopPid({ phalaApiToken, appId });
+    assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
+    await runPhalaRemoteShell(`kill -s STOP ${pid}`, { phalaApiToken, appId });
+    await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: false });
+    return { mode: "signal", pid };
+  } catch {
+    await stopCvm(appId);
+    return { mode: "cvm" };
+  }
 }
 
-async function startRelayer({ phalaApiToken, appId, pid }) {
-  if (!trimString(pid)) return;
-  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s CONT ${pid}`)}`], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: true });
+async function startRelayer({ phalaApiToken, appId, handle }) {
+  if (!handle) return;
+  if (handle.mode === "cvm") {
+    await startCvm(appId);
+    return;
+  }
+  if (!trimString(handle.pid)) return;
+  await runPhalaRemoteShell(`kill -s CONT ${handle.pid}`, { phalaApiToken, appId });
+  await waitForRelayerState({ phalaApiToken, appId, pid: handle.pid, shouldBeRunning: true });
 }
 
 async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
@@ -363,11 +443,11 @@ async function main() {
     if (!phalaApiToken) {
       return ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
     }
-    const pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+    const handle = await stopRelayer({ phalaApiToken, appId: phalaAppId });
     try {
       return await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
     } finally {
-      await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+      await startRelayer({ phalaApiToken, appId: phalaAppId, handle }).catch(() => {});
     }
   }
   const suffix = `session-oracle-${Date.now()}`;
@@ -426,7 +506,7 @@ async function main() {
   const signature = wallet.sign(payload.toString("hex"), account.privateKey);
   const success = phalaApiToken
     ? await (async () => {
-        const pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+        const handle = await stopRelayer({ phalaApiToken, appId: phalaAppId });
         try {
           await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 5);
           return await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, "executeUserOp", [
@@ -441,7 +521,7 @@ async function main() {
             }),
           ], globalSigners);
         } finally {
-          await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+          await startRelayer({ phalaApiToken, appId: phalaAppId, handle }).catch(() => {});
         }
       })()
     : await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, "executeUserOp", [

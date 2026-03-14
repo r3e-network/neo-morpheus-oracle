@@ -175,10 +175,85 @@ function shellQuote(value) {
 }
 
 async function runRemoteCommand(command, { appId, phalaApiToken }) {
-  const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(command)}`], {
+  const attempts = [
+    trimString(phalaApiToken)
+      ? ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(command)}`]
+      : null,
+    ["ssh", appId, "--", `sh -lc ${shellQuote(command)}`],
+  ].filter(Boolean);
+
+  let lastError = null;
+  for (const args of attempts) {
+    try {
+      const { stdout } = await execFileAsync("phala", args, {
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      return stdout;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("failed to execute remote phala ssh command");
+}
+
+async function getCvmStatus(appId) {
+  const { stdout } = await execFileAsync("phala", ["cvms", "get", appId], {
     maxBuffer: 10 * 1024 * 1024,
   });
-  return stdout;
+  const match = stdout.match(/│\s*Status\s*│\s*([^│\n]+)\s*│/);
+  if (!match) {
+    throw new Error(`unexpected phala cvms get output: ${stdout}`);
+  }
+  return trimString(match[1]);
+}
+
+async function waitForCvmStatus(appId, targetStatus, timeoutMs = 180000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const status = await getCvmStatus(appId);
+    if (status === targetStatus) {
+      return status;
+    }
+    await sleep(3000);
+  }
+  throw new Error(`timed out waiting for CVM status=${targetStatus}`);
+}
+
+async function waitForContainersRunning(appId, timeoutMs = 300000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const { stdout } = await execFileAsync("phala", ["ps", appId], {
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const relayerRunning = /dstack-morpheus-relayer-1.*running/i.test(stdout);
+      const workerRunning = /dstack-phala-worker-1.*running/i.test(stdout);
+      if (relayerRunning && workerRunning) return;
+    } catch {}
+    await sleep(3000);
+  }
+  throw new Error("timed out waiting for Morpheus containers to become running");
+}
+
+async function stopCvm(appId) {
+  await execFileAsync("phala", ["cvms", "stop", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  }).catch((error) => {
+    const message = String(error?.stderr || error?.stdout || error?.message || error);
+    if (!/already in progress/i.test(message)) throw error;
+  });
+  await waitForCvmStatus(appId, "stopped");
+}
+
+async function startCvm(appId) {
+  await execFileAsync("phala", ["cvms", "start", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  }).catch((error) => {
+    const message = String(error?.stderr || error?.stdout || error?.message || error);
+    if (!/already in progress/i.test(message)) throw error;
+  });
+  await waitForContainersRunning(appId);
 }
 
 async function findRelayerLoopPid({ appId, phalaApiToken }) {
@@ -200,17 +275,27 @@ async function waitForRelayerState({ appId, phalaApiToken, pid, shouldBeRunning,
 }
 
 async function stopRelayer({ appId, phalaApiToken }) {
-  const pid = await findRelayerLoopPid({ appId, phalaApiToken });
-  assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
-  await runRemoteCommand(`kill -s STOP ${pid}`, { appId, phalaApiToken });
-  await waitForRelayerState({ appId, phalaApiToken, pid, shouldBeRunning: false });
-  return pid;
+  try {
+    const pid = await findRelayerLoopPid({ appId, phalaApiToken });
+    assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
+    await runRemoteCommand(`kill -s STOP ${pid}`, { appId, phalaApiToken });
+    await waitForRelayerState({ appId, phalaApiToken, pid, shouldBeRunning: false });
+    return { mode: "signal", pid };
+  } catch {
+    await stopCvm(appId);
+    return { mode: "cvm" };
+  }
 }
 
-async function startRelayer({ appId, phalaApiToken, pid }) {
-  if (!trimString(pid)) return;
-  await runRemoteCommand(`kill -s CONT ${pid}`, { appId, phalaApiToken });
-  await waitForRelayerState({ appId, phalaApiToken, pid, shouldBeRunning: true });
+async function startRelayer({ appId, phalaApiToken, handle }) {
+  if (!handle) return;
+  if (handle.mode === "cvm") {
+    await startCvm(appId);
+    return;
+  }
+  if (!trimString(handle.pid)) return;
+  await runRemoteCommand(`kill -s CONT ${handle.pid}`, { appId, phalaApiToken });
+  await waitForRelayerState({ appId, phalaApiToken, pid: handle.pid, shouldBeRunning: true });
 }
 
 async function main() {
@@ -248,11 +333,11 @@ async function main() {
   });
   const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
 
-  const pid = await stopRelayer({ appId, phalaApiToken });
+  const initialPauseHandle = await stopRelayer({ appId, phalaApiToken });
   try {
     const feeStatus = await ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requesterHash, 25);
 
-    await startRelayer({ appId, phalaApiToken, pid });
+    await startRelayer({ appId, phalaApiToken, handle: initialPauseHandle });
     const intervalPayload = JSON.stringify({
       trigger: {
         type: "interval",
@@ -280,7 +365,7 @@ async function main() {
     const automationId = trimString(registerCallback.result_json?.result?.automation_id || registerCallback.result_json?.automation_id || "");
     assertCondition(automationId, "automation register callback did not return automation_id");
 
-    const pausedRelayerPid = await stopRelayer({ appId, phalaApiToken });
+    const pausedRelayerHandle = await stopRelayer({ appId, phalaApiToken });
     try {
       await ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requesterHash, 25);
       await patchAutomationJob(automationId, {
@@ -314,7 +399,7 @@ async function main() {
       assertCondition(queuedTxHash, "queued automation run did not record queue tx hash");
       const queuedChainRequestId = await waitForRequestId(rpcClient, queuedTxHash, 90000);
 
-      await startRelayer({ appId, phalaApiToken, pid: pausedRelayerPid });
+      await startRelayer({ appId, phalaApiToken, handle: pausedRelayerHandle });
       const callback = await waitForCallback(rpcClient, consumerHash, queuedChainRequestId, 180000);
       const finalRecord = await fetchAutomationRecord(supabaseUrl, serviceRoleKey, automationId, "testnet");
 
@@ -387,10 +472,10 @@ async function main() {
         queued_chain_request_id: String(queuedChainRequestId),
       }, null, 2));
     } finally {
-      await startRelayer({ appId, phalaApiToken, pid: pausedRelayerPid }).catch(() => {});
+      await startRelayer({ appId, phalaApiToken, handle: pausedRelayerHandle }).catch(() => {});
     }
   } finally {
-    await startRelayer({ appId, phalaApiToken, pid }).catch(() => {});
+    await startRelayer({ appId, phalaApiToken, handle: initialPauseHandle }).catch(() => {});
   }
 }
 

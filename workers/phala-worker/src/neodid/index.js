@@ -138,12 +138,12 @@ function requireSupportedProvider(value) {
 }
 
 async function resolveNeoDidSalt(payload = {}) {
-  const explicit = trimString(payload.neodid_secret_salt || process.env.NEODID_SECRET_SALT || "");
+  const explicit = trimString(payload.neodid_secret_salt || env("NEODID_SECRET_SALT") || "");
   if (explicit) {
     return Buffer.from(sha256Hex(explicit), "hex");
   }
   try {
-    const configuredPath = trimString(process.env.PHALA_DSTACK_NEODID_SALT_PATH || "");
+    const configuredPath = trimString(env("PHALA_DSTACK_NEODID_SALT_PATH") || "");
     const keyPath = configuredPath || "morpheus/neodid/nullifier/v1";
     return await deriveKeyBytes(keyPath, "neodid-nullifier-salt");
   } catch {
@@ -222,7 +222,7 @@ function buildRecoveryDigestBytes(ticket) {
 }
 
 async function resolveNeoDidSignerPrivateKey(payload = {}) {
-  let privateKey = trimString(payload.private_key || payload.signing_key || process.env.NEODID_NEO_N3_PRIVATE_KEY || "");
+  let privateKey = trimString(payload.private_key || payload.signing_key || env("NEODID_NEO_N3_PRIVATE_KEY") || "");
   if (!privateKey && shouldUseDerivedKeys(payload)) {
     try {
       privateKey = await deriveNeoN3PrivateKeyHex("neodid");
@@ -231,7 +231,7 @@ async function resolveNeoDidSignerPrivateKey(payload = {}) {
     }
   }
   if (!privateKey) {
-    privateKey = trimString(process.env.PHALA_NEO_N3_PRIVATE_KEY || process.env.PHALA_NEO_N3_WIF || "");
+    privateKey = trimString(env("PHALA_NEO_N3_PRIVATE_KEY") || env("PHALA_NEO_N3_WIF") || "");
   }
   if (!privateKey) throw new Error("NeoDID signing key is not configured");
   return privateKey;
