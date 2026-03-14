@@ -26,6 +26,7 @@ const inputs = {
   morpheusBuiltins: path.join(repoRoot, "examples", "deployments", "n3-builtins-validation.testnet.latest.json"),
   morpheusAutomation: path.join(repoRoot, "examples", "deployments", "n3-automation-validation.testnet.latest.json"),
   callbackBoundary: path.join(repoRoot, "examples", "deployments", "n3-callback-boundary.testnet.latest.json"),
+  neodidRegistryBoundary: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-boundary.testnet.latest.json"),
 };
 
 const aaSuite = readJson(inputs.aaSuite);
@@ -34,6 +35,7 @@ const privacy = readJson(inputs.morpheusPrivacy);
 const builtins = readJson(inputs.morpheusBuiltins);
 const automation = readJson(inputs.morpheusAutomation);
 const callbackBoundary = readJson(inputs.callbackBoundary);
+const neodidRegistryBoundary = readJson(inputs.neodidRegistryBoundary);
 
 const aaStages = Object.fromEntries((aaSuite.stages || []).map((stage) => [stage.id, stage.summary || {}]));
 const neodidCases = Array.isArray(neodid.cases) ? neodid.cases : [];
@@ -89,6 +91,14 @@ const summary = {
       vmstate: callbackBoundary.probe?.vmstate || null,
       exception: callbackBoundary.probe?.exception || null,
     },
+    neodid_registry_boundary: {
+      report_path: rel(inputs.neodidRegistryBoundary),
+      request_txid: neodidRegistryBoundary.action_request?.txid || null,
+      registry_hash: neodidRegistryBoundary.registry_hash || null,
+      wrong_witness_exception: neodidRegistryBoundary.wrong_witness_preview?.exception || null,
+      mismatch_txid: neodidRegistryBoundary.registry_probe?.use_action_ticket_txid || null,
+      mismatch_exception: neodidRegistryBoundary.registry_probe?.exception || null,
+    },
   },
   executed_coverage: [
     "AA V3 smoke execution",
@@ -100,6 +110,7 @@ const summary = {
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
     "Callback consumer direct injection rejection",
+    "NeoDID action ticket registry boundary rejection",
   ],
   remaining_integrated_gaps: [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
@@ -128,6 +139,7 @@ const lines = [
   `- Builtins matrix: \`${summary.morpheus.builtins.report_path}\``,
   `- Automation matrix: \`${summary.morpheus.automation.report_path}\``,
   `- Callback boundary probe: \`${summary.morpheus.callback_boundary.report_path}\``,
+  `- NeoDID registry boundary probe: \`${summary.morpheus.neodid_registry_boundary.report_path}\``,
   "",
   "## AA Baseline",
   "",
@@ -142,6 +154,7 @@ const lines = [
   `- Builtins: ${summary.morpheus.builtins.total_builtins} builtin requests`,
   `- Automation: register=${summary.morpheus.automation.register_success}, queued=${summary.morpheus.automation.queued_success}, cancel=${summary.morpheus.automation.cancel_success}`,
   `- Callback boundary: vmstate=${summary.morpheus.callback_boundary.vmstate}, tx=\`${summary.morpheus.callback_boundary.txid}\``,
+  `- NeoDID registry boundary: mismatch tx=\`${summary.morpheus.neodid_registry_boundary.mismatch_txid}\``,
   "",
   "## Executed Coverage",
   "",

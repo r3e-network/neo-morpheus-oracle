@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T02:37:03.849Z",
+  "generated_at": "2026-03-14T03:08:15.928Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -155,6 +155,14 @@
       "txid": "0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d",
       "vmstate": "FAULT",
       "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
+    },
+    "neodid_registry_boundary": {
+      "report_path": "examples/deployments/n3-neodid-registry-boundary.testnet.latest.json",
+      "request_txid": "0x2da01a35c0e4b60d9abca699f1e3218fbaa1d34610a55258773447193371c853",
+      "registry_hash": "0x21e881f0654c555c489c92e9f5cff7c8a1a0971b",
+      "wrong_witness_exception": "at instruction 1958 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized",
+      "mismatch_txid": "0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8",
+      "mismatch_exception": "at instruction 1473 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"
     }
   },
   "executed_coverage": [
@@ -166,7 +174,8 @@
     "Privacy oracle encrypted parameter and custom function matrix",
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
-    "Callback consumer direct injection rejection"
+    "Callback consumer direct injection rejection",
+    "NeoDID action ticket registry boundary rejection"
   ],
   "remaining_integrated_gaps": [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
