@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T13:53:13.534Z",
+  "generated_at": "2026-03-14T14:11:02.914Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
@@ -9,7 +9,7 @@
   "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
   "probe": {
     "title": "Direct external onOracleResult call should fault",
-    "txid": "0x6a8ac766dd15797f32226c4577fff8e11d08167ea1707c22c6bf7fc0461560d1",
+    "txid": "0xf6a3001a77067b2291482c20852195bbcbd1c7f38a3ff3f54fe4be0cbc69467c",
     "request_id": "999001",
     "request_type": "oracle",
     "preview_state": "FAULT",

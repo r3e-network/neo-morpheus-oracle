@@ -1,3 +1,4 @@
+import path from "node:path";
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { env, measureSerializedSizeBytes, resolveMaxBytes, trimString } from "./core.js";
@@ -15,13 +16,18 @@ function resolveMaxResultBytes() {
   return resolveMaxBytes(env("SCRIPT_WORKER_MAX_RESULT_BYTES"), 64 * 1024, 1024);
 }
 
-function buildPermissionExecArgv() {
-  const enabled = trimString(env("SCRIPT_CHILD_ENABLE_PERMISSION_MODEL")).toLowerCase();
-  if (!["1", "true", "yes"].includes(enabled)) return [];
+function buildPermissionExecArgv(scriptPath) {
+  const enabled = trimString(env("SCRIPT_CHILD_ENABLE_PERMISSION_MODEL") || "true").toLowerCase();
+  if (["0", "false", "no"].includes(enabled)) return [];
 
-  const allowFsRead = trimString(env("SCRIPT_CHILD_ALLOW_FS_READ") || "/app,/usr,/lib,/lib64,/tmp,/dev/null");
+  const allowFsRead = new Set(
+    trimString(env("SCRIPT_CHILD_ALLOW_FS_READ") || `${path.dirname(scriptPath)},/app,/usr,/lib,/lib64,/tmp,/dev/null`)
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
   const args = ["--permission"];
-  for (const entry of allowFsRead.split(",").map((item) => item.trim()).filter(Boolean)) {
+  for (const entry of allowFsRead) {
     args.push(`--allow-fs-read=${entry}`);
   }
   if (trimString(env("SCRIPT_CHILD_ALLOW_FS_WRITE"))) {
@@ -60,7 +66,7 @@ export async function runScriptWithTimeout({ mode, script, entryPoint = "process
         `--max-old-space-size=${maxOldGenerationSizeMb}`,
         `--max-semi-space-size=${maxYoungGenerationSizeMb}`,
         `--stack-size=${stackSizeKb}`,
-        ...buildPermissionExecArgv(),
+        ...buildPermissionExecArgv(childPath),
       ],
     });
 
