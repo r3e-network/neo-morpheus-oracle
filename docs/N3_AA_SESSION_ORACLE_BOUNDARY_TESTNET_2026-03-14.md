@@ -1,6 +1,6 @@
 # N3 AA Session-Key Oracle Boundary Validation
 
-Date: 2026-03-14T05:58:17.161Z
+Date: 2026-03-14T09:31:10.694Z
 
 ## Scope
 
@@ -8,10 +8,10 @@ This probe validates that a V3 AA session key can successfully call a Morpheus-e
 
 ## Result
 
-- AA core: `0x91bdcb183cd193833a29d22ffaf1ca9e6c566de4`
-- Session verifier: `0xa624d2af2d9d5a640e472d59b82833dfe9236ceb`
-- Execute tx: `0x71ed58e6081b8345f84c551da0e3276b17d0bd22c5cf3e45d6c0cfce9c7bafe8`
-- Oracle request id: `207`
+- AA core: `0xaba5ab1d2c575fe367ab04d62df5f29af2c88819`
+- Session verifier: `0x76ac7deef358545d39a21deaa9d96f140423ab0b`
+- Execute tx: `0x1247d496714b19d6d18bed39c4e9e835184cea253234b7bbf8ed4757bc3ebcdb`
+- Oracle request id: `1052`
 - Callback success: `true`
 - Wrong target exception: `at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`
 - Wrong method exception: `at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`

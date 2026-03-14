@@ -4,7 +4,7 @@
 
 1. Client reads the Oracle public key.
 2. Client encrypts a secret locally.
-3. Contract calls `Request(requestType, payload, callbackContract, callbackMethod)` on `MorpheusOracle` or `MorpheusOracleX`.
+3. Contract calls `Request(requestType, payload, callbackContract, callbackMethod)` on `MorpheusOracle`.
 4. `OracleRequested` is emitted on-chain.
 5. Morpheus dispatcher validates the event and forwards it to the Phala worker.
 6. Phala executes fetch-only, private fetch, public compute, or private compute.
@@ -34,8 +34,7 @@ NeoDID identity flows now also fit this same path when the request type is one o
   "token_header": "Authorization",
   "script": "function process(data) { return data.age > 80; }",
   "script_base64": "ZnVuY3Rpb24gcHJvY2VzcyhkYXRhKSB7IHJldHVybiBkYXRhLmFnZSA+IDgwOyB9",
-  "target_chain": "neo_x",
-  "target_chain_id": "12227332"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -76,7 +75,8 @@ For large Web3Auth JWT payloads, use the short-reference form instead of embeddi
 - when a ref field is present, the worker loads the ciphertext from Supabase first, then decrypts the same X25519 envelope inside the TEE
 - `script` and `script_base64` are interchangeable aliases
 - `callback_contract` and `callback_method` are on-chain request arguments, not JSON payload fields
-- `target_chain` may be `neo_n3` or `neo_x`
+- `target_chain` is currently `neo_n3` in the active supported path
+- Neo X request fields remain in older examples and in-repo reference code, but they are not the active production route
 - confidential payload transport uses `X25519-HKDF-SHA256-AES-256-GCM`
 - `neodid_recovery_ticket` binds the signed ticket to `aa_contract`, `account_id`, `new_owner`, `recovery_nonce`, and `expires_at`
 
@@ -101,7 +101,7 @@ or
   "script": "function run(input) { return input.a + input.b; }",
   "entry_point": "run",
   "input": { "a": 2, "b": 3 },
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 

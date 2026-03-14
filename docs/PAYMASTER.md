@@ -8,6 +8,11 @@ Morpheus Paymaster is a policy-gated sponsorship service exposed by the Phala wo
 
 It is intended to sponsor pre-approved Neo N3 Abstract Account operations without exposing a global open faucet.
 
+Current runtime scope:
+
+- active supported chain: `neo_n3`
+- Neo X sponsorship examples are not part of the current production path
+
 ## Security Model
 
 The service does not blindly pay for arbitrary requests.
@@ -133,6 +138,11 @@ An app backend can pre-screen business policy, then delegate final sponsorship a
 The AA frontend relay request builder now forwards optional `paymaster` metadata, and the AA relay API can request Morpheus paymaster authorization before broadcasting a relay-ready meta invocation.
 
 This is currently a server-side integration path. It does not require changing the AA on-chain contract.
+
+The latest integrated Oracle + NeoDID + AA verifier regression entrypoint is:
+
+- `npm run examples:test:n3:attack-regression`
+- report: `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-14.md`
 
 ## Validated Neo N3 Testnet Flow
 

@@ -5,6 +5,11 @@ Status: baseline refreshed; integrated adversarial execution still pending
 
 This document defines the cross-system security matrix that should be executed after the standalone AA V3 plugin matrix.
 
+Automated regression entrypoint:
+
+- `examples/scripts/test-n3-integrated-attack-regression.mjs`
+- `npm run examples:test:n3:attack-regression`
+
 It covers the interaction boundary between:
 
 - `neo-abstract-account` V3 verifier / hook plugins

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T06:00:52.720Z",
+  "generated_at": "2026-03-14T09:35:15.707Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -150,50 +150,63 @@
       "queued_success": true,
       "cancel_success": true
     },
+    "automation_idempotency": {
+      "report_path": "examples/deployments/n3-automation-idempotency.testnet.latest.json",
+      "automation_id": "automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668",
+      "queued_request_key": "automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1",
+      "queued_chain_request_id": "1082",
+      "queued_callback_success": true,
+      "execution_count": 1
+    },
     "callback_boundary": {
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
-      "txid": "0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d",
+      "txid": "0x84db596d27ae69019c58966d015b227b9d083ee679dc1ed2c3e2de57a9df57b5",
       "vmstate": "FAULT",
       "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
     },
     "neodid_registry_boundary": {
       "report_path": "examples/deployments/n3-neodid-registry-boundary.testnet.latest.json",
-      "request_txid": "0x2da01a35c0e4b60d9abca699f1e3218fbaa1d34610a55258773447193371c853",
-      "registry_hash": "0x21e881f0654c555c489c92e9f5cff7c8a1a0971b",
-      "wrong_witness_exception": "at instruction 1958 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized",
-      "mismatch_txid": "0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8",
-      "mismatch_exception": "at instruction 1473 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"
+      "request_txid": "0xa98936f886c977b5b4e25d5d065e28234ba930c2a3cd9cd7eeff2e1dfc32d93e",
+      "registry_hash": "0xb44e3f5979818c7497fd978c6304fde53cc62c95",
+      "wrong_witness_exception": "at instruction 2188 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized",
+      "mismatch_txid": "0x9a66eaeb8c9dceec23da869fbcbac938acb88eada0f7204dfb951a485707b6e2",
+      "mismatch_exception": "at instruction 1703 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"
     },
     "neodid_registry_v1": {
       "report_path": "examples/deployments/n3-neodid-registry-v1.testnet.latest.json",
-      "request_txid": "0x77fc0bad1a20cea8b4c21491edbf794682417dfea2a9f02f82595a2432c2130a",
-      "registry_hash": "0x893d92aef78ddc2fe184551274139aacffd40814",
-      "consume_txid": "0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1",
+      "request_txid": "0xfaca69d9a3b92a218b4d1d65fe66663ccffe63e9066e8466bd4aec49f5760d80",
+      "registry_hash": "0xd02f8f0e82089cba3d2b69d93898f9f4d3fbd882",
+      "consume_txid": "0x7dc01a0e22adf164bcd3d42e8cc377936b3a6b1f8a32048c1a309f21121b4fcd",
       "consume_vmstate": "HALT",
-      "replay_txid": "0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc",
+      "replay_txid": "0x4b06ae010fb40a8ace188a142ce1219b83cf07d84def154e632e5cf371b91446",
       "replay_exception": "at instruction 2229 (ABORTMSG): ABORTMSG is executed. Reason: action nullifier already used"
     },
     "encrypted_ref_boundary": {
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
-      "matching_txid": "0x4b4089a334558863d14e856258e70cec09fbc9efb6cc561bc2c3c452ad487832",
-      "wrong_requester_txid": "0xb429f5c22d34197a6fc4af48f4a1b851b95a56cc422fdcdad6851dc9c7a94ee0",
+      "matching_txid": "0x7cf46f64facc98bc25fb8da67ba2456ce72fd332378d2f6fb82f43ba40d692eb",
+      "wrong_requester_txid": "0x14e6a808d21b93c1d1d4685c5fbe2ec6ab4395446852903be9e4213adccad1f9",
       "wrong_requester_error": "encrypted ref requester mismatch",
-      "wrong_callback_txid": "0x8dee66d4e2627de871d17447c4d91ad9884c688d0d292123d1e9069adc0bc6bb",
+      "wrong_callback_txid": "0x0947e3060b5ba10be3d9f575aec784fc677b4e1fab3d32e93f5572979cb787b1",
       "wrong_callback_error": "encrypted ref callback mismatch"
     },
     "fulfillment_replay": {
       "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
-      "replay_txid": "0x6dcf9ea381afae2163f9fcaa1a3fb58500c6ab76af3731bfa41e380e9fd0f4d1",
+      "replay_txid": "0xe48211e2ab841258c2f16ba48e7ac7f13279ef6bf8d948c30e270de37c3ebd83",
       "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-      "fulfill_txid": "0x94532fa7e66526c2c3d25983d3b0779896b1cef42b0a44862d91c488a74997fc",
+      "fulfill_txid": "0x8aa7d8f5c6569137c44ff539280cb8f983516958a6b32f423c7a2568b76cb182",
       "fulfill_vmstate": "HALT"
     },
     "aa_session_oracle_boundary": {
       "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
-      "execute_txid": "0x71ed58e6081b8345f84c551da0e3276b17d0bd22c5cf3e45d6c0cfce9c7bafe8",
-      "request_id": "207",
+      "execute_txid": "0x1247d496714b19d6d18bed39c4e9e835184cea253234b7bbf8ed4757bc3ebcdb",
+      "request_id": "1052",
       "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
       "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
+    },
+    "integrated_attack_regression": {
+      "report_path": "examples/deployments/n3-integrated-attack-regression.testnet.latest.json",
+      "stage_count": 8,
+      "failed_stages": []
     }
   },
   "executed_coverage": [
@@ -205,6 +218,7 @@
     "Privacy oracle encrypted parameter and custom function matrix",
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
+    "Sequential automation duplicate-queue suppression under back-to-back relayer ticks",
     "Callback consumer direct injection rejection",
     "NeoDID action ticket JSON callback boundary rejection",
     "NeoDID compact action ticket registry consumption and replay rejection",
@@ -214,6 +228,6 @@
   ],
   "remaining_integrated_gaps": [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
-    "AA-aware automation billing races and duplicate-callback protection under sponsored execution"
+    "AA-aware automation billing under sponsored execution"
   ]
 }

@@ -25,12 +25,14 @@ const inputs = {
   morpheusPrivacy: path.join(repoRoot, "examples", "deployments", "n3-privacy-validation.testnet.latest.json"),
   morpheusBuiltins: path.join(repoRoot, "examples", "deployments", "n3-builtins-validation.testnet.latest.json"),
   morpheusAutomation: path.join(repoRoot, "examples", "deployments", "n3-automation-validation.testnet.latest.json"),
+  automationIdempotency: path.join(repoRoot, "examples", "deployments", "n3-automation-idempotency.testnet.latest.json"),
   callbackBoundary: path.join(repoRoot, "examples", "deployments", "n3-callback-boundary.testnet.latest.json"),
   neodidRegistryBoundary: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-boundary.testnet.latest.json"),
   neodidRegistryV1: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-v1.testnet.latest.json"),
   encryptedRefBoundary: path.join(repoRoot, "examples", "deployments", "n3-encrypted-ref-boundary.testnet.latest.json"),
   fulfillmentReplay: path.join(repoRoot, "examples", "deployments", "n3-fulfillment-replay.testnet.latest.json"),
   aaSessionOracleBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-session-oracle-boundary.testnet.latest.json"),
+  integratedAttackRegression: path.join(repoRoot, "examples", "deployments", "n3-integrated-attack-regression.testnet.latest.json"),
 };
 
 const aaSuite = readJson(inputs.aaSuite);
@@ -38,12 +40,16 @@ const neodid = readJson(inputs.morpheusNeodid);
 const privacy = readJson(inputs.morpheusPrivacy);
 const builtins = readJson(inputs.morpheusBuiltins);
 const automation = readJson(inputs.morpheusAutomation);
+const automationIdempotency = readJson(inputs.automationIdempotency);
 const callbackBoundary = readJson(inputs.callbackBoundary);
 const neodidRegistryBoundary = readJson(inputs.neodidRegistryBoundary);
 const neodidRegistryV1 = readJson(inputs.neodidRegistryV1);
 const encryptedRefBoundary = readJson(inputs.encryptedRefBoundary);
 const fulfillmentReplay = readJson(inputs.fulfillmentReplay);
 const aaSessionOracleBoundary = readJson(inputs.aaSessionOracleBoundary);
+const integratedAttackRegression = fs.existsSync(inputs.integratedAttackRegression)
+  ? readJson(inputs.integratedAttackRegression)
+  : null;
 
 const aaStages = Object.fromEntries((aaSuite.stages || []).map((stage) => [stage.id, stage.summary || {}]));
 const neodidCases = Array.isArray(neodid.cases) ? neodid.cases : [];
@@ -93,6 +99,14 @@ const summary = {
       queued_success: automation.queued_execution?.callback?.success === true,
       cancel_success: automation.cancel?.callback?.success === true,
     },
+    automation_idempotency: {
+      report_path: rel(inputs.automationIdempotency),
+      automation_id: automationIdempotency.registration?.automation_id || null,
+      queued_request_key: automationIdempotency.queued_request_key || null,
+      queued_chain_request_id: automationIdempotency.queued_chain_request_id || null,
+      queued_callback_success: automationIdempotency.queued_callback?.success ?? null,
+      execution_count: automationIdempotency.supabase?.job?.execution_count ?? null,
+    },
     callback_boundary: {
       report_path: rel(inputs.callbackBoundary),
       txid: callbackBoundary.probe?.txid || null,
@@ -138,6 +152,13 @@ const summary = {
       wrong_target_exception: aaSessionOracleBoundary.wrong_target?.exception || null,
       wrong_method_exception: aaSessionOracleBoundary.wrong_method?.exception || null,
     },
+    integrated_attack_regression: integratedAttackRegression
+      ? {
+          report_path: rel(inputs.integratedAttackRegression),
+          stage_count: Array.isArray(integratedAttackRegression.stages) ? integratedAttackRegression.stages.length : 0,
+          failed_stages: (integratedAttackRegression.stages || []).filter((stage) => stage.status === "failed").map((stage) => stage.id),
+        }
+      : null,
   },
   executed_coverage: [
     "AA V3 smoke execution",
@@ -148,6 +169,7 @@ const summary = {
     "Privacy oracle encrypted parameter and custom function matrix",
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
+    "Sequential automation duplicate-queue suppression under back-to-back relayer ticks",
     "Callback consumer direct injection rejection",
     "NeoDID action ticket JSON callback boundary rejection",
     "NeoDID compact action ticket registry consumption and replay rejection",
@@ -157,7 +179,7 @@ const summary = {
   ],
   remaining_integrated_gaps: [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
-    "AA-aware automation billing races and duplicate-callback protection under sponsored execution",
+    "AA-aware automation billing under sponsored execution",
   ],
 };
 
@@ -178,6 +200,7 @@ const lines = [
   `- Privacy matrix: \`${summary.morpheus.privacy.report_path}\``,
   `- Builtins matrix: \`${summary.morpheus.builtins.report_path}\``,
   `- Automation matrix: \`${summary.morpheus.automation.report_path}\``,
+  `- Automation idempotency probe: \`${summary.morpheus.automation_idempotency.report_path}\``,
   `- Callback boundary probe: \`${summary.morpheus.callback_boundary.report_path}\``,
   `- NeoDID registry boundary probe: \`${summary.morpheus.neodid_registry_boundary.report_path}\``,
   `- NeoDID registry v1 probe: \`${summary.morpheus.neodid_registry_v1.report_path}\``,
@@ -197,6 +220,7 @@ const lines = [
   `- Privacy: ${summary.morpheus.privacy.passing_cases}/${summary.morpheus.privacy.total_cases} cases marked passing`,
   `- Builtins: ${summary.morpheus.builtins.total_builtins} builtin requests`,
   `- Automation: register=${summary.morpheus.automation.register_success}, queued=${summary.morpheus.automation.queued_success}, cancel=${summary.morpheus.automation.cancel_success}`,
+  `- Automation idempotency: first tick queued target request key \`${summary.morpheus.automation_idempotency.queued_request_key}\`, second tick queued \`0\`, chain request id=\`${summary.morpheus.automation_idempotency.queued_chain_request_id}\`, callback success=\`${summary.morpheus.automation_idempotency.queued_callback_success}\``,
   `- Callback boundary: vmstate=${summary.morpheus.callback_boundary.vmstate}, tx=\`${summary.morpheus.callback_boundary.txid}\``,
   `- NeoDID registry JSON boundary: mismatch tx=\`${summary.morpheus.neodid_registry_boundary.mismatch_txid}\``,
   `- NeoDID registry v1: consume tx=\`${summary.morpheus.neodid_registry_v1.consume_txid}\`, replay tx=\`${summary.morpheus.neodid_registry_v1.replay_txid}\``,

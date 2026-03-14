@@ -1,9 +1,7 @@
 import fs from "node:fs/promises";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import os from "node:os";
 import { experimental, rpc as neoRpc, sc, tx, wallet } from "@cityofzion/neon-js";
 import {
   encodeUtf8Base64,
@@ -27,6 +25,10 @@ const PHALA_SSH_RETRIES = Math.max(1, Number(process.env.PHALA_SSH_RETRIES || 3)
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
 }
 
 function parseStackItem(item) {
@@ -101,12 +103,16 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
     account,
   });
   const deficit = requiredCredit - currentCredit;
-  await gas.invoke("transfer", [
+  const txid = await gas.invoke("transfer", [
     sc.ContractParam.hash160(`0x${account.scriptHash}`),
     sc.ContractParam.hash160(oracleHash),
     sc.ContractParam.integer(deficit.toString()),
     sc.ContractParam.any(null),
   ]);
+  const appLog = await waitForApplicationLog(rpcClient, txid);
+  const execution = appLog?.executions?.[0];
+  const vmState = String(execution?.vmstate || execution?.state || "");
+  assertCondition(vmState.includes("HALT"), `request fee top-up failed: ${execution?.exception || vmState || txid}`);
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
@@ -269,17 +275,9 @@ async function insertEncryptedSecret({ supabaseUrl, serviceRoleKey, ciphertext, 
 
 async function runPhalaRemoteShell(shellScript, { phalaApiToken, appId, maxBuffer = 10 * 1024 * 1024 } = {}) {
   let lastError = null;
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "morpheus-encrypted-ref-"));
-  const localScriptPath = path.join(tempDir, "remote.sh");
-  await writeFile(localScriptPath, shellScript, { mode: 0o700 });
-
   for (let attempt = 1; attempt <= PHALA_SSH_RETRIES; attempt += 1) {
-    const remoteScriptPath = `/tmp/morpheus-encrypted-ref-${Date.now()}-${attempt}.sh`;
     try {
-      await execFileAsync("phala", ["cp", "--api-token", phalaApiToken, localScriptPath, `${appId}:${remoteScriptPath}`], { maxBuffer });
-      const result = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", "sh", remoteScriptPath], { maxBuffer });
-      await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", "rm", "-f", remoteScriptPath], { maxBuffer }).catch(() => {});
-      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      const result = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(shellScript)}`], { maxBuffer });
       return result;
     } catch (error) {
       lastError = error;
@@ -287,9 +285,47 @@ async function runPhalaRemoteShell(shellScript, { phalaApiToken, appId, maxBuffe
       await sleep(1500 * attempt);
     }
   }
-
-  await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function findRelayerLoopPid({ phalaApiToken, appId }) {
+  const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote("ps -ef | grep 'node src/cli.js loop' | grep -v grep | awk 'NR==1 {print $1}'")}`], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return trimString(stdout.split(/\r?\n/, 1)[0] || "");
+}
+
+async function waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning, timeoutMs = 30000 }) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`ps -o pid=,stat=,args= | awk '$1 == ${pid} {print $2}'`)}`], {
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    const status = trimString(stdout.split(/\r?\n/, 1)[0] || "");
+    const paused = status.includes("T");
+    const running = Boolean(status) && !paused;
+    if ((shouldBeRunning && running) || (!shouldBeRunning && paused)) return;
+    await sleep(1000);
+  }
+  throw new Error(`timed out waiting for morpheus-relayer paused=${!shouldBeRunning}`);
+}
+
+async function stopRelayer({ phalaApiToken, appId }) {
+  const pid = await findRelayerLoopPid({ phalaApiToken, appId });
+  assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
+  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s STOP ${pid}`)}`], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: false });
+  return pid;
+}
+
+async function startRelayer({ phalaApiToken, appId, pid }) {
+  if (!trimString(pid)) return;
+  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s CONT ${pid}`)}`], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: true });
 }
 
 async function buildRemoteEncryptedPatch(plaintext, { phalaApiToken, appId }) {
@@ -325,8 +361,14 @@ JS
   return parsed.ciphertext;
 }
 
-async function submitCase({ consumer, rpcClient, requestType, payload, expected, validate }) {
-  const txid = await consumer.invoke("requestRaw", [requestType, sc.ContractParam.byteArray(encodeUtf8Base64(JSON.stringify(payload)))], [new tx.Signer({ account: consumer.account.scriptHash, scopes: tx.WitnessScope.Global })]);
+async function submitCase({ consumer, rpcClient, requestType, payload, expected, validate, beforeSubmit, afterSubmit }) {
+  let txid = null;
+  try {
+    if (beforeSubmit) await beforeSubmit();
+    txid = await consumer.invoke("requestRaw", [requestType, sc.ContractParam.byteArray(encodeUtf8Base64(JSON.stringify(payload)))], [new tx.Signer({ account: consumer.account.scriptHash, scopes: tx.WitnessScope.Global })]);
+  } finally {
+    if (afterSubmit) await afterSubmit(txid).catch(() => {});
+  }
   const requestId = await waitForRequestId(rpcClient, txid);
   const callback = await waitForCallback(rpcClient, consumer.scriptHash, requestId);
   const caseResult = {
@@ -380,167 +422,192 @@ async function main() {
     consumerHash,
   });
   const requesterHash = `0x${account.scriptHash}`;
-  const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 3);
+  async function refreshRequesterCredit(requiredRequests) {
+    const pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+    try {
+      return await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
+    } finally {
+      await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+    }
+  }
 
-  const encryptedPatch = await buildRemoteEncryptedPatch(JSON.stringify({
-    provider_uid: "encrypted-ref-gh-001",
-    claim_value: "ref-bound-pass",
-  }), {
-    phalaApiToken,
-    appId: phalaAppId,
-  });
+  function creditProtectedHooks(requiredRequests) {
+    let pid = "";
+    return {
+      beforeSubmit: async () => {
+        pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+        await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
+      },
+      afterSubmit: async () => {
+        await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+      },
+    };
+  }
 
-  const matchingSecret = await insertEncryptedSecret({
-    supabaseUrl,
-    serviceRoleKey,
-    ciphertext: encryptedPatch,
-    metadata: {
-      source: "examples.test.n3.encrypted-ref-boundary",
-      bound_requester: requesterHash,
-      bound_callback_contract: resolvedConsumerHash,
-      scenario: "matching",
-    },
-    name: `encrypted-ref-match-${Date.now()}`,
-  });
-  const wrongRequesterSecret = await insertEncryptedSecret({
-    supabaseUrl,
-    serviceRoleKey,
-    ciphertext: encryptedPatch,
-    metadata: {
-      source: "examples.test.n3.encrypted-ref-boundary",
-      bound_requester: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-      bound_callback_contract: resolvedConsumerHash,
-      scenario: "wrong_requester",
-    },
-    name: `encrypted-ref-requester-${Date.now()}`,
-  });
-  const wrongCallbackSecret = await insertEncryptedSecret({
-    supabaseUrl,
-    serviceRoleKey,
-    ciphertext: encryptedPatch,
-    metadata: {
-      source: "examples.test.n3.encrypted-ref-boundary",
-      bound_requester: requesterHash,
-      bound_callback_contract: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-      scenario: "wrong_callback",
-    },
-    name: `encrypted-ref-callback-${Date.now()}`,
-  });
+  const feeStatus = await refreshRequesterCredit(20);
 
-  const consumer = new experimental.SmartContract(resolvedConsumerHash, {
-    rpcAddress: rpcUrl,
-    networkMagic,
-    account,
-  });
-  consumer.scriptHash = resolvedConsumerHash.replace(/^0x/i, "");
-  consumer.account = account;
+    const encryptedPatch = await buildRemoteEncryptedPatch(JSON.stringify({
+      provider_uid: "encrypted-ref-gh-001",
+      claim_value: "ref-bound-pass",
+    }), {
+      phalaApiToken,
+      appId: phalaAppId,
+    });
 
-  const basePayload = {
-    provider: "github",
-    vault_account: requesterHash,
-    claim_type: "Github_VerifiedUser",
-  };
+    const matchingSecret = await insertEncryptedSecret({
+      supabaseUrl,
+      serviceRoleKey,
+      ciphertext: encryptedPatch,
+      metadata: {
+        source: "examples.test.n3.encrypted-ref-boundary",
+        bound_requester: requesterHash,
+        bound_callback_contract: resolvedConsumerHash,
+        scenario: "matching",
+      },
+      name: `encrypted-ref-match-${Date.now()}`,
+    });
+    const wrongRequesterSecret = await insertEncryptedSecret({
+      supabaseUrl,
+      serviceRoleKey,
+      ciphertext: encryptedPatch,
+      metadata: {
+        source: "examples.test.n3.encrypted-ref-boundary",
+        bound_requester: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        bound_callback_contract: resolvedConsumerHash,
+        scenario: "wrong_requester",
+      },
+      name: `encrypted-ref-requester-${Date.now()}`,
+    });
+    const wrongCallbackSecret = await insertEncryptedSecret({
+      supabaseUrl,
+      serviceRoleKey,
+      ciphertext: encryptedPatch,
+      metadata: {
+        source: "examples.test.n3.encrypted-ref-boundary",
+        bound_requester: requesterHash,
+        bound_callback_contract: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        scenario: "wrong_callback",
+      },
+      name: `encrypted-ref-callback-${Date.now()}`,
+    });
 
-  const successCase = await submitCase({
-    consumer,
-    rpcClient,
-    requestType: "neodid_bind",
-    payload: {
-      ...basePayload,
-      encrypted_params_ref: matchingSecret.id,
-    },
-    expected: "encrypted_params_ref succeeds when requester and callback bindings match",
-    validate(result) {
-      assertCondition(result.callback?.success === true, "matching ref callback should succeed");
-      assertCondition(/^0x[0-9a-f]{64}$/.test(result.callback?.result_json?.result?.master_nullifier || ""), "matching ref master_nullifier missing");
-    },
-  });
+    const consumer = new experimental.SmartContract(resolvedConsumerHash, {
+      rpcAddress: rpcUrl,
+      networkMagic,
+      account,
+    });
+    consumer.scriptHash = resolvedConsumerHash.replace(/^0x/i, "");
+    consumer.account = account;
 
-  const requesterMismatchCase = await submitCase({
-    consumer,
-    rpcClient,
-    requestType: "neodid_bind",
-    payload: {
-      ...basePayload,
-      encrypted_params_ref: wrongRequesterSecret.id,
-    },
-    expected: "encrypted_params_ref fails when bound_requester does not match the relayed requester",
-    validate(result) {
-      assertCondition(result.callback?.success === false, "wrong-requester callback should fail");
-      assertCondition(/encrypted ref requester mismatch/i.test(result.callback?.error_text || ""), "wrong-requester error mismatch");
-    },
-  });
+    const basePayload = {
+      provider: "github",
+      vault_account: requesterHash,
+      claim_type: "Github_VerifiedUser",
+    };
 
-  const callbackMismatchCase = await submitCase({
-    consumer,
-    rpcClient,
-    requestType: "neodid_bind",
-    payload: {
-      ...basePayload,
-      encrypted_params_ref: wrongCallbackSecret.id,
-    },
-    expected: "encrypted_params_ref fails when bound_callback_contract does not match the relayed callback contract",
-    validate(result) {
-      assertCondition(result.callback?.success === false, "wrong-callback callback should fail");
-      assertCondition(/encrypted ref callback mismatch/i.test(result.callback?.error_text || ""), "wrong-callback error mismatch");
-    },
-  });
+    const successCase = await submitCase({
+      consumer,
+      rpcClient,
+      requestType: "neodid_bind",
+      payload: {
+        ...basePayload,
+        encrypted_params_ref: matchingSecret.id,
+      },
+      expected: "encrypted_params_ref succeeds when requester and callback bindings match",
+      validate(result) {
+        assertCondition(result.callback?.success === true, "matching ref callback should succeed");
+        assertCondition(/^0x[0-9a-f]{64}$/.test(result.callback?.result_json?.result?.master_nullifier || ""), "matching ref master_nullifier missing");
+      },
+      ...creditProtectedHooks(5),
+    });
 
-  const generatedAt = new Date().toISOString();
-  const jsonReport = {
-    generated_at: generatedAt,
-    network: "testnet",
-    rpc_url: rpcUrl,
-    network_magic: networkMagic,
-    requester_hash: requesterHash,
-    callback_consumer_hash: resolvedConsumerHash,
-    oracle_hash: oracleHash,
-    request_fee_status: feeStatus,
-    secret_refs: {
-      matching: matchingSecret.id,
-      wrong_requester: wrongRequesterSecret.id,
-      wrong_callback: wrongCallbackSecret.id,
-    },
-    cases: [successCase, requesterMismatchCase, callbackMismatchCase],
-  };
+    const requesterMismatchCase = await submitCase({
+      consumer,
+      rpcClient,
+      requestType: "neodid_bind",
+      payload: {
+        ...basePayload,
+        encrypted_params_ref: wrongRequesterSecret.id,
+      },
+      expected: "encrypted_params_ref fails when bound_requester does not match the relayed requester",
+      validate(result) {
+        assertCondition(result.callback?.success === false, "wrong-requester callback should fail");
+        assertCondition(/encrypted ref requester mismatch/i.test(result.callback?.error_text || ""), "wrong-requester error mismatch");
+      },
+      ...creditProtectedHooks(5),
+    });
 
-  const markdownReport = [
-    "# N3 Encrypted Ref Boundary Validation",
-    "",
-    `Date: ${generatedAt}`,
-    "",
-    "## Scope",
-    "",
-    "This probe validates the live testnet boundary for `encrypted_params_ref` after requester/callback binding was added to the worker resolution path.",
-    "",
-    "## Result Summary",
-    "",
-    `- Matching ref tx: \`${successCase.txid}\` request \`${successCase.request_id}\``,
-    `- Wrong requester tx: \`${requesterMismatchCase.txid}\` request \`${requesterMismatchCase.request_id}\``,
-    `- Wrong callback tx: \`${callbackMismatchCase.txid}\` request \`${callbackMismatchCase.request_id}\``,
-    "",
-    "## Conclusion",
-    "",
-    "- A ref bound to the live requester and callback contract succeeds.",
-    "- A ref bound to a different requester fails with `encrypted ref requester mismatch`.",
-    "- A ref bound to a different callback contract fails with `encrypted ref callback mismatch`.",
-    "",
-  ].join("\n");
+    const callbackMismatchCase = await submitCase({
+      consumer,
+      rpcClient,
+      requestType: "neodid_bind",
+      payload: {
+        ...basePayload,
+        encrypted_params_ref: wrongCallbackSecret.id,
+      },
+      expected: "encrypted_params_ref fails when bound_callback_contract does not match the relayed callback contract",
+      validate(result) {
+        assertCondition(result.callback?.success === false, "wrong-callback callback should fail");
+        assertCondition(/encrypted ref callback mismatch/i.test(result.callback?.error_text || ""), "wrong-callback error mismatch");
+      },
+      ...creditProtectedHooks(5),
+    });
 
-  const artifacts = await writeValidationArtifacts({
-    baseName: "n3-encrypted-ref-boundary",
-    network: "testnet",
-    generatedAt,
-    jsonReport,
-    markdownReport,
-  });
+    const generatedAt = new Date().toISOString();
+    const jsonReport = {
+      generated_at: generatedAt,
+      network: "testnet",
+      rpc_url: rpcUrl,
+      network_magic: networkMagic,
+      requester_hash: requesterHash,
+      callback_consumer_hash: resolvedConsumerHash,
+      oracle_hash: oracleHash,
+      request_fee_status: feeStatus,
+      secret_refs: {
+        matching: matchingSecret.id,
+        wrong_requester: wrongRequesterSecret.id,
+        wrong_callback: wrongCallbackSecret.id,
+      },
+      cases: [successCase, requesterMismatchCase, callbackMismatchCase],
+    };
 
-  console.log(JSON.stringify({
-    ...artifacts,
-    matching_txid: successCase.txid,
-    wrong_requester_txid: requesterMismatchCase.txid,
-    wrong_callback_txid: callbackMismatchCase.txid,
-  }, null, 2));
+    const markdownReport = [
+      "# N3 Encrypted Ref Boundary Validation",
+      "",
+      `Date: ${generatedAt}`,
+      "",
+      "## Scope",
+      "",
+      "This probe validates the live testnet boundary for `encrypted_params_ref` after requester/callback binding was added to the worker resolution path.",
+      "",
+      "## Result Summary",
+      "",
+      `- Matching ref tx: \`${successCase.txid}\` request \`${successCase.request_id}\``,
+      `- Wrong requester tx: \`${requesterMismatchCase.txid}\` request \`${requesterMismatchCase.request_id}\``,
+      `- Wrong callback tx: \`${callbackMismatchCase.txid}\` request \`${callbackMismatchCase.request_id}\``,
+      "",
+      "## Conclusion",
+      "",
+      "- A ref bound to the live requester and callback contract succeeds.",
+      "- A ref bound to a different requester fails with `encrypted ref requester mismatch`.",
+      "- A ref bound to a different callback contract fails with `encrypted ref callback mismatch`.",
+      "",
+    ].join("\n");
+
+    const artifacts = await writeValidationArtifacts({
+      baseName: "n3-encrypted-ref-boundary",
+      network: "testnet",
+      generatedAt,
+      jsonReport,
+      markdownReport,
+    });
+
+    console.log(JSON.stringify({
+      ...artifacts,
+      matching_txid: successCase.txid,
+      wrong_requester_txid: requesterMismatchCase.txid,
+      wrong_callback_txid: callbackMismatchCase.txid,
+    }, null, 2));
 }
 
 main().catch((error) => {

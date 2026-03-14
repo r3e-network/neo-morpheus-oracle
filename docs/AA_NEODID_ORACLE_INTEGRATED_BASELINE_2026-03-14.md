@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T06:00:52.720Z
+Date: 2026-03-14T09:35:15.707Z
 
 ## Purpose
 
@@ -34,10 +34,10 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy: 7/7 cases marked passing
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
-- Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:c82e9ead-b4c7-4b24-8c19-931aad9b3d0a:1`, second tick queued `0`, chain request id=`335`, callback success=`true`
-- Callback boundary: vmstate=FAULT, tx=`0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d`
-- NeoDID registry JSON boundary: mismatch tx=`0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8`
-- NeoDID registry v1: consume tx=`0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1`, replay tx=`0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc`
+- Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1`, second tick queued `0`, chain request id=`1082`, callback success=`true`
+- Callback boundary: vmstate=FAULT, tx=`0x84db596d27ae69019c58966d015b227b9d083ee679dc1ed2c3e2de57a9df57b5`
+- NeoDID registry JSON boundary: mismatch tx=`0x9a66eaeb8c9dceec23da869fbcbac938acb88eada0f7204dfb951a485707b6e2`
+- NeoDID registry v1: consume tx=`0x7dc01a0e22adf164bcd3d42e8cc377936b3a6b1f8a32048c1a309f21121b4fcd`, replay tx=`0x4b06ae010fb40a8ace188a142ce1219b83cf07d84def154e632e5cf371b91446`
 - Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
 - Fulfillment replay: replay exception=`at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, fulfill vmstate=`HALT`
 - AA session-key boundary: wrong target=`at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`, wrong method=`at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`
@@ -68,3 +68,4 @@ It does not claim that every cross-system attack has already been live-executed.
 ## Recommendation
 
 Use this baseline as the prerequisite evidence set for the next integrated adversarial run. The next executable layer should combine a live AA account, NeoDID-backed recovery or credential state, and Morpheus callback fulfillment under negative replay and cross-account misuse scenarios.
+
