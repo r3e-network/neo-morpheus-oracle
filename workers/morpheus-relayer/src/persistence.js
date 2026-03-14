@@ -229,20 +229,50 @@ export async function fetchAutomationJobById(automationId) {
   return Array.isArray(rows) ? (rows[0] || null) : null;
 }
 
-export async function fetchActiveAutomationJobs(limit = 50) {
-  return supabaseSelect("morpheus_automation_jobs", {
+export async function fetchActiveAutomationJobs(limit = 50, dueAtIso = null) {
+  const query = {
     select: "*",
     network: `eq.${resolveSupabaseNetwork()}`,
     status: "eq.active",
-    order: "updated_at.asc",
+    order: "next_run_at.asc.nullslast,updated_at.asc",
     limit,
+  };
+  if (trimString(dueAtIso)) {
+    query.or = `(next_run_at.is.null,next_run_at.lte.${trimString(dueAtIso)})`;
+  }
+  return supabaseSelect("morpheus_automation_jobs", query);
+}
+
+export async function fetchAutomationRunByQueueTxHash(txHash) {
+  const normalizedTxHash = trimString(txHash);
+  if (!normalizedTxHash) return null;
+  const rows = await supabaseSelect("morpheus_automation_runs", {
+    select: "*",
+    network: `eq.${resolveSupabaseNetwork()}`,
+    "queue_tx->>tx_hash": `eq.${normalizedTxHash}`,
+    order: "created_at.desc",
+    limit: 1,
   });
+  return Array.isArray(rows) ? (rows[0] || null) : null;
 }
 
 export async function insertAutomationRun(record) {
   return supabaseRequest("morpheus_automation_runs", "POST", {
     network: record.network || resolveSupabaseNetwork(),
     ...record,
+  });
+}
+
+export async function patchAutomationRunByQueueTxHash(txHash, fields) {
+  const normalizedTxHash = trimString(txHash);
+  if (!normalizedTxHash) return null;
+  return supabaseRequest("morpheus_automation_runs", "PATCH", {
+    ...fields,
+  }, {
+    query: {
+      network: `eq.${resolveSupabaseNetwork()}`,
+      "queue_tx->>tx_hash": `eq.${normalizedTxHash}`,
+    },
   });
 }
 

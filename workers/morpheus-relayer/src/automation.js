@@ -3,8 +3,10 @@ import { randomUUID } from "node:crypto";
 import {
   fetchActiveAutomationJobs,
   fetchAutomationJobById,
+  fetchAutomationRunByQueueTxHash,
   insertAutomationRun,
   patchAutomationJob,
+  patchAutomationRunByQueueTxHash,
   persistAutomationEncryptedFields,
   upsertAutomationJob,
 } from "./persistence.js";
@@ -205,6 +207,78 @@ function buildCancellationResult(job, automationId) {
   };
 }
 
+function buildCancelledExecutionError(automationId) {
+  return `automation cancelled before execution: ${automationId}`;
+}
+
+export async function guardQueuedAutomationExecution(event, deps = {}) {
+  const txHash = trimString(event?.txHash || "");
+  if (!txHash) return { blocked: false, run: null, job: null };
+
+  const fetchRun = deps.fetchAutomationRunByQueueTxHash || fetchAutomationRunByQueueTxHash;
+  const fetchJob = deps.fetchAutomationJobById || fetchAutomationJobById;
+  const patchRun = deps.patchAutomationRunByQueueTxHash || patchAutomationRunByQueueTxHash;
+
+  const run = await fetchRun(txHash);
+  if (!run) return { blocked: false, run: null, job: null };
+
+  const automationId = trimString(run.automation_id || "");
+  if (!automationId) {
+    await patchRun(txHash, {
+      status: "failed",
+      error: "queued automation run missing automation_id",
+    }).catch(() => undefined);
+    return {
+      blocked: true,
+      route: "automation:invalid-queued-run",
+      error: "queued automation run missing automation_id",
+      automation_id: null,
+      run,
+      job: null,
+    };
+  }
+
+  const job = await fetchJob(automationId);
+  if (!job) {
+    const error = `automation job missing before execution: ${automationId}`;
+    await patchRun(txHash, {
+      status: "failed",
+      error,
+    }).catch(() => undefined);
+    return {
+      blocked: true,
+      route: "automation:missing-before-execution",
+      error,
+      automation_id: automationId,
+      run,
+      job: null,
+    };
+  }
+
+  if (trimString(job.status || "") === "cancelled") {
+    const error = buildCancelledExecutionError(automationId);
+    await patchRun(txHash, {
+      status: "failed",
+      error,
+    }).catch(() => undefined);
+    return {
+      blocked: true,
+      route: "automation:cancelled-before-execution",
+      error,
+      automation_id: automationId,
+      run,
+      job,
+    };
+  }
+
+  return {
+    blocked: false,
+    automation_id: automationId,
+    run,
+    job,
+  };
+}
+
 export function isAutomationControlRequestType(requestType) {
   const normalized = normalizeRequestType(requestType);
   return normalized === "automation_register" || normalized === "automation_cancel";
@@ -364,7 +438,7 @@ export async function processAutomationJobs(config, logger) {
 
   let jobs;
   try {
-    jobs = await fetchActiveAutomationJobs(config.automation.batchSize);
+    jobs = await fetchActiveAutomationJobs(config.automation.batchSize, new Date().toISOString());
   } catch (error) {
     logger.warn({ error }, "Supabase automation fetch unavailable; skipping automation tick");
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
