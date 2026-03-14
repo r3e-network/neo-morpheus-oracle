@@ -1,6 +1,6 @@
 # N3 Encrypted Ref Boundary Validation
 
-Date: 2026-03-14T04:05:12.994Z
+Date: 2026-03-14T09:24:54.069Z
 
 ## Scope
 
@@ -8,9 +8,9 @@ This probe validates the live testnet boundary for `encrypted_params_ref` after 
 
 ## Result Summary
 
-- Matching ref tx: `0x4b4089a334558863d14e856258e70cec09fbc9efb6cc561bc2c3c452ad487832` request `200`
-- Wrong requester tx: `0xb429f5c22d34197a6fc4af48f4a1b851b95a56cc422fdcdad6851dc9c7a94ee0` request `201`
-- Wrong callback tx: `0x8dee66d4e2627de871d17447c4d91ad9884c688d0d292123d1e9069adc0bc6bb` request `202`
+- Matching ref tx: `0x7cf46f64facc98bc25fb8da67ba2456ce72fd332378d2f6fb82f43ba40d692eb` request `1016`
+- Wrong requester tx: `0x14e6a808d21b93c1d1d4685c5fbe2ec6ab4395446852903be9e4213adccad1f9` request `1022`
+- Wrong callback tx: `0x0947e3060b5ba10be3d9f575aec784fc677b4e1fab3d32e93f5572979cb787b1` request `1027`
 
 ## Conclusion
 

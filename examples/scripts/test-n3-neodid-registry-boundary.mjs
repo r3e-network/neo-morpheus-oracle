@@ -167,6 +167,56 @@ async function waitForApplicationLog(rpcClient, txHash, timeoutMs = 180000) {
   throw new Error(`timed out waiting for application log ${txHash}`);
 }
 
+async function ensureConsumerCredit(consumer, rpcClient, oracleHash, consumerHash, requestFee, { account, networkMagic, signers }) {
+  let callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: consumerHash }]) || "0");
+  let depositTxid = null;
+  if (callbackCredit < requestFee) {
+    let contractGasBalance = BigInt(await invokeRead(rpcClient, consumerHash, "contractGasBalance", []).catch(() => "0") || "0");
+    const deficit = requestFee - callbackCredit;
+    let fundingTxid = null;
+    if (contractGasBalance < deficit) {
+      const fundScript = sc.createScript({
+        scriptHash: GAS_HASH.replace(/^0x/i, ""),
+        operation: "transfer",
+        args: [
+          sc.ContractParam.hash160(`0x${account.scriptHash}`),
+          sc.ContractParam.hash160(consumerHash),
+          sc.ContractParam.integer(deficit.toString()),
+          sc.ContractParam.any(null),
+        ],
+      });
+      const funded = await sendInvocationTransaction({
+        rpcClient,
+        account,
+        networkMagic,
+        script: fundScript,
+        signers: [{ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry }],
+      });
+      const fundingVmState = String(funded.execution.vmstate || funded.execution.state || "");
+      assertCondition(fundingVmState.includes("HALT"), `consumer funding failed: ${funded.execution.exception || fundingVmState}`);
+      fundingTxid = funded.txid;
+      contractGasBalance = BigInt(await invokeRead(rpcClient, consumerHash, "contractGasBalance", []).catch(() => "0") || "0");
+    }
+    assertCondition(contractGasBalance >= deficit, "example callback consumer lacks enough GAS to top up Oracle credit");
+    depositTxid = await consumer.invoke("depositOracleCredits", [sc.ContractParam.integer(deficit.toString())], signers);
+    await waitForApplicationLog(rpcClient, depositTxid);
+    callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: consumerHash }]) || "0");
+    assertCondition(callbackCredit >= requestFee, "callback consumer top-up did not produce enough request fee credit");
+    return {
+      callback_credit: callbackCredit.toString(),
+      deposit_amount: deficit.toString(),
+      deposit_txid: depositTxid,
+      funding_txid: fundingTxid,
+    };
+  }
+  return {
+    callback_credit: callbackCredit.toString(),
+    deposit_amount: "0",
+    deposit_txid: depositTxid,
+    funding_txid: null,
+  };
+}
+
 async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -411,9 +461,8 @@ async function main() {
   const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
 
   const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
-  let callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: resolvedConsumerHash }]) || "0");
   const requesterCredit = String(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0");
-  let depositAmount = "0";
+  let callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: resolvedConsumerHash }]) || "0");
   console.log(jsonPretty({
     phase: "fee_probe",
     oracle_hash: oracleHash,
@@ -422,22 +471,19 @@ async function main() {
     callback_credit: callbackCredit.toString(),
     requester_credit: requesterCredit,
   }));
-  if (callbackCredit < requestFee) {
-    const consumerGasBalance = BigInt(await invokeRead(rpcClient, resolvedConsumerHash, "contractGasBalance", []).catch(() => "0") || "0");
-    if (consumerGasBalance >= (requestFee - callbackCredit)) {
-      const deficit = requestFee - callbackCredit;
-      const depositTxid = await consumer.invoke("depositOracleCredits", [sc.ContractParam.integer(deficit.toString())], signers);
-      await waitForApplicationLog(rpcClient, depositTxid);
-      callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: resolvedConsumerHash }]) || "0");
-      depositAmount = deficit.toString();
-    }
-  }
-  assertCondition(callbackCredit >= requestFee, `callback consumer credit is insufficient (${callbackCredit.toString()} < ${requestFee.toString()})`);
+  const consumerCreditStatus = await ensureConsumerCredit(consumer, rpcClient, oracleHash, resolvedConsumerHash, requestFee, {
+    account,
+    networkMagic,
+    signers,
+  });
+  callbackCredit = BigInt(consumerCreditStatus.callback_credit || "0");
   const feeStatus = {
     request_fee: requestFee.toString(),
     requester_credit: requesterCredit,
     callback_credit: callbackCredit.toString(),
-    deposit_amount: depositAmount,
+    deposit_amount: consumerCreditStatus.deposit_amount,
+    funding_txid: consumerCreditStatus.funding_txid,
+    deposit_txid: consumerCreditStatus.deposit_txid,
   };
 
   const actionPayload = {

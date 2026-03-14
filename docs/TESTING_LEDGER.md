@@ -80,6 +80,7 @@ Operational rule:
 | N3 builtin suite | `examples/scripts/test-n3-builtins.mjs` | `examples/scripts/lib-builtins.mjs` | All builtin compute families and expected outputs |
 | N3 automation | `examples/scripts/test-n3-automation.mjs` | Supabase-backed automation tables | One-shot registration, queued execution, interval registration, cancellation, Supabase persistence |
 | N3 automation idempotency | `examples/scripts/test-n3-automation-idempotency.mjs` | Supabase-backed automation tables plus live relayer loop isolation on test CVM | Deterministic queue request key, back-to-back scheduler ticks, single queued run for target automation, callback success |
+| N3 integrated attack regression | `examples/scripts/test-n3-integrated-attack-regression.mjs` | AA latest suite artifact plus live Morpheus boundary probes | Oracle / NeoDID / AA verifier integrated attack-matrix runner and consolidated regression artifact |
 | Worker runtime | `workers/phala-worker/worker.test.mjs` | worker runtime modules under `workers/phala-worker/src/` | X25519 transport, timeouts, script isolation, WASM runtime, feed batching, relayer helpers |
 | Frontend / docs consistency | `scripts/check-web-consistency.mjs` | `apps/web/`, `workers/phala-worker/src/`, `config/networks/mainnet.json` | Builtin catalog parity, feed pair parity, mainnet address parity, stale-doc regression detection |
 | Frontend production build | `npm run build:web` | `apps/web/` | Type-safe production frontend build and route generation |

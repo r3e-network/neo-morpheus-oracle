@@ -95,12 +95,15 @@ Without the off-chain publication record, you can verify chain consistency of th
 The web verifier is available at:
 
 - `/verifier`
+- `/api/attestation/lookup`
+- `/api/attestation/verify`
 
 It accepts:
 
 - full worker responses
 - compact callback envelopes
 - raw `tee_attestation` objects
+- stored attestation lookups by `attestation_hash`
 - optional expected payload JSON
 - optional expected `output_hash`
 - optional expected or on-chain `attestation_hash`

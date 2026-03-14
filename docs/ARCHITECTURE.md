@@ -7,7 +7,7 @@
         |
         | 1. encrypts optional secret with Oracle public key
         v
-[ Neo N3 / Neo X Contract ]
+[ Neo N3 Contract ]
         |
         | 2. Request(... payload, callbackContract, callbackMethod)
         v
@@ -42,7 +42,7 @@
 - plain fetch
 - private fetch with encrypted secret
 - programmable fetch + compute
-- Neo N3 + Neo X result envelopes
+- Neo N3 result envelopes
 
 ### 2. Privacy Compute
 - built-in compute registry
@@ -51,12 +51,11 @@
 
 ### 3. Datafeed
 - signed price quote APIs
-- Neo N3 and Neo X feed contract storage
+- Neo N3 feed contract storage
 - feed snapshots and telemetry stored in Supabase
 
 ### 4. Relay / Signing
 - Neo N3 message signing and tx relay
-- Neo X message signing and tx relay
 - chain-aware output envelopes for callback use
 
 ### 5. NeoDID
@@ -79,7 +78,8 @@
 - Phala returns derived results only
 - privacy oracle and privacy compute share one trusted runtime
 - NeoDID public DID resolution stays separate from private bind / ticket issuance
-- Neo N3 + Neo X are both first-class targets
+- Neo N3 is the only active supported execution target right now
+- Neo X artifacts remain in-repo as legacy/reference code, but they are not the current production path
 
 
 ## Provider Registry

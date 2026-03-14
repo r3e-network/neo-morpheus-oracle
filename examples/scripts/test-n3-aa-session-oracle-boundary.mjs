@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { experimental, rpc as neoRpc, sc, tx, u, wallet } from "@cityofzion/neon-js";
 import {
   jsonPretty,
@@ -19,9 +21,14 @@ const AA_BUILD_DIR = path.resolve(aaRepoRoot, "contracts/bin/v3");
 const EXAMPLE_BUILD_DIR = path.resolve(repoRoot, "examples/build/n3");
 
 const GAS_HASH = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
+const execFileAsync = promisify(execFile);
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
 }
 
 function normalizeHash(value = "") {
@@ -228,12 +235,16 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
     account,
   });
   const deficit = requiredCredit - currentCredit;
-  await gas.invoke("transfer", [
+  const txid = await gas.invoke("transfer", [
     sc.ContractParam.hash160(`0x${account.scriptHash}`),
     sc.ContractParam.hash160(oracleHash),
     sc.ContractParam.integer(deficit.toString()),
     sc.ContractParam.any(null),
   ]);
+  const appLog = await waitForApplicationLog(rpcClient, txid);
+  const execution = appLog?.executions?.[0];
+  const vmState = String(execution?.vmstate || execution?.state || "");
+  assertCondition(vmState.includes("HALT"), `request fee top-up failed: ${execution?.exception || vmState || txid}`);
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
@@ -249,6 +260,46 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
   }
 
   throw new Error("timed out waiting for Neo N3 request fee credit");
+}
+
+async function findRelayerLoopPid({ phalaApiToken, appId }) {
+  const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote("ps -ef | grep 'node src/cli.js loop' | grep -v grep | awk 'NR==1 {print $1}'")}`], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  return trimString(stdout.split(/\r?\n/, 1)[0] || "");
+}
+
+async function waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning, timeoutMs = 30000 }) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`ps -o pid=,stat=,args= | awk '$1 == ${pid} {print $2}'`)}`], {
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    const status = trimString(stdout.split(/\r?\n/, 1)[0] || "");
+    const paused = status.includes("T");
+    const running = Boolean(status) && !paused;
+    if ((shouldBeRunning && running) || (!shouldBeRunning && paused)) return;
+    await sleep(1000);
+  }
+  throw new Error(`timed out waiting for morpheus-relayer paused=${!shouldBeRunning}`);
+}
+
+async function stopRelayer({ phalaApiToken, appId }) {
+  const pid = await findRelayerLoopPid({ phalaApiToken, appId });
+  assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
+  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s STOP ${pid}`)}`], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: false });
+  return pid;
+}
+
+async function startRelayer({ phalaApiToken, appId, pid }) {
+  if (!trimString(pid)) return;
+  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s CONT ${pid}`)}`], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: true });
 }
 
 async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
@@ -299,6 +350,8 @@ async function main() {
   const signerWif = resolveNeoN3SignerWif("testnet");
   const oracleHash = normalizeHash160(deployment.oracle_hash || process.env.CONTRACT_MORPHEUS_ORACLE_HASH || "");
   const consumerHash = normalizeHash160(deployment.example_consumer_hash || process.env.EXAMPLE_N3_CONSUMER_HASH || "");
+  const phalaApiToken = trimString(process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || "");
+  const phalaAppId = trimString(process.env.MORPHEUS_PAYMASTER_APP_ID || "28294e89d490924b79c85cdee057ce55723b3d56");
 
   assertCondition(signerWif, "testnet signer WIF is required");
   assertCondition(oracleHash, "testnet oracle hash is required");
@@ -306,6 +359,17 @@ async function main() {
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
+  async function refreshRequesterCredit(requiredRequests) {
+    if (!phalaApiToken) {
+      return ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
+    }
+    const pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+    try {
+      return await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
+    } finally {
+      await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+    }
+  }
   const suffix = `session-oracle-${Date.now()}`;
   const globalSigners = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
 
@@ -318,7 +382,7 @@ async function main() {
   await invokePersisted(rpcClient, consumer.hash, account, rpcUrl, networkMagic, "setOracle", [
     hash160Param(oracleHash),
   ]);
-  const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 1);
+  const feeStatus = await refreshRequesterCredit(20);
 
   const accountId = Buffer.from(wallet.generatePrivateKey()).subarray(0, 20).toString("hex");
   await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, "registerAccount", [
@@ -360,18 +424,37 @@ async function main() {
   ]);
   const payload = Buffer.from(payloadStack?.value || "", "base64");
   const signature = wallet.sign(payload.toString("hex"), account.privateKey);
-
-  const success = await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, "executeUserOp", [
-    hash160Param(accountId),
-    userOpParam({
-      targetContract: consumer.hash,
-      method: "requestBuiltinProviderPriceSponsored",
-      args: [],
-      nonce,
-      deadline,
-      signatureHex: signature,
-    }),
-  ], globalSigners);
+  const success = phalaApiToken
+    ? await (async () => {
+        const pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+        try {
+          await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 5);
+          return await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, "executeUserOp", [
+            hash160Param(accountId),
+            userOpParam({
+              targetContract: consumer.hash,
+              method: "requestBuiltinProviderPriceSponsored",
+              args: [],
+              nonce,
+              deadline,
+              signatureHex: signature,
+            }),
+          ], globalSigners);
+        } finally {
+          await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+        }
+      })()
+    : await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, "executeUserOp", [
+        hash160Param(accountId),
+        userOpParam({
+          targetContract: consumer.hash,
+          method: "requestBuiltinProviderPriceSponsored",
+          args: [],
+          nonce,
+          deadline,
+          signatureHex: signature,
+        }),
+      ], globalSigners);
   const requestId = await waitForRequestId(rpcClient, success.txid);
   const callback = await waitForCallback(rpcClient, consumer.hash, requestId, 180000);
   assertCondition(callback?.success === true, "session-key downstream Oracle request should succeed");

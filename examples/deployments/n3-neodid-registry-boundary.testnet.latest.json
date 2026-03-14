@@ -1,48 +1,50 @@
 {
-  "generated_at": "2026-03-14T03:06:49.824Z",
+  "generated_at": "2026-03-14T09:19:36.440Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
-  "registry_hash": "0x21e881f0654c555c489c92e9f5cff7c8a1a0971b",
+  "registry_hash": "0xb44e3f5979818c7497fd978c6304fde53cc62c95",
   "request_fee_status": {
     "request_fee": "1000000",
     "requester_credit": "0",
-    "callback_credit": "1000000",
-    "deposit_amount": "0"
+    "callback_credit": "8000000",
+    "deposit_amount": "0",
+    "funding_txid": null,
+    "deposit_txid": null
   },
   "action_request": {
-    "txid": "0x2da01a35c0e4b60d9abca699f1e3218fbaa1d34610a55258773447193371c853",
-    "request_id": "195",
+    "txid": "0xa98936f886c977b5b4e25d5d065e28234ba930c2a3cd9cd7eeff2e1dfc32d93e",
+    "request_id": "989",
     "payload": {
       "provider": "github",
       "provider_uid": "alice-gh-registry-gap",
       "disposable_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
-      "action_id": "vote:registry-gap:1773457552923"
+      "action_id": "vote:registry-gap:1773479907281"
     }
   },
   "callback_ticket": {
     "disposable_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
-    "action_id": "vote:registry-gap:1773457552923",
-    "action_nullifier": "0x12a2fdd65b14080d4ff3745ee23b9baebda504ed7769f4bb21d18b2b88308df1",
-    "digest": "0xef6eb6b8504da3dcda0fbbe9b5ee8edfb7c1d5597b9527b5d7c9f66f05fec8b6",
-    "verification_signature": "663419924e08bfc65714db9f6cd11e62ed9407517d9a9e4dbacf561e6e03f15ce882657c437fd46b7b6e1975d658bd3fc747daabd88e31f169455cef5f36b92e",
+    "action_id": "vote:registry-gap:1773479907281",
+    "action_nullifier": "0x013b23f4ae54708728cf96a7740a53b80c37bef9444025ebbf9c1f1ac27f7ef8",
+    "digest": "0x2a8ff24fd997d82430654b2c349be56b3c7675458d95fe0ce1ab8cf9ec68d65d",
+    "verification_signature": "b05dcad3474e1f6cf8b1b7f1aa9640ff9313b930b65d0030c553862762152adaf7a26294e676e6263f4aa2f52453aa1bee6191e21edc6db379019eb2149b9989",
     "verification_public_key": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917"
   },
   "wrong_witness_preview": {
     "state": "FAULT",
-    "exception": "at instruction 1958 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized"
+    "exception": "at instruction 2188 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized"
   },
   "registry_probe": {
-    "deploy_txid": "0xef244b7b11a0acb009fc1e36daad37f422389f9478d75037d2c82e74b27ea8ff",
-    "set_verifier_txid": "0x9af171a3f69a15d65da9a96d8d7cf2b3e6193ecbeb222fe13f4ecfd4bca1b812",
-    "use_action_ticket_txid": "0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8",
+    "deploy_txid": "0xa8a3f7e655544280ca81e6389bd7fdafe876ce7a84a9d528ba042b54c8c0f303",
+    "set_verifier_txid": "0x78e1c0ad1fdf300fcc450a37e4c74c15961832c4507a27d240d86396e490b614",
+    "use_action_ticket_txid": "0x9a66eaeb8c9dceec23da869fbcbac938acb88eada0f7204dfb951a485707b6e2",
     "preview_state": "FAULT",
-    "preview_exception": "at instruction 1473 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-    "system_fee": "408747",
+    "preview_exception": "at instruction 1703 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
+    "system_fee": "576738",
     "network_fee": "39984",
     "vmstate": "FAULT",
-    "exception": "at instruction 1473 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"
+    "exception": "at instruction 1703 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"
   }
 }

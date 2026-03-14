@@ -59,6 +59,8 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: "/docs/r/TESTING_LEDGER", label: "Testing Ledger", icon: ClipboardList },
         { href: "/docs/r/AA_V3_TESTNET_VALIDATION_SUITE_2026-03-14", label: "AA V3 Validation Suite", icon: ClipboardList },
         { href: "/docs/r/AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14", label: "AA + Morpheus Baseline", icon: ClipboardList },
+        { href: "/docs/r/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-14", label: "Integrated Attack Regression", icon: CheckCircle },
+        { href: "/docs/r/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13", label: "Integrated Attack Matrix", icon: Shield },
         { href: "/docs/r/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14", label: "AA Paymaster Validation", icon: CheckCircle },
         { href: "/docs/r/ASYNC_PRIVACY_ORACLE_SPEC", label: "Async Privacy Spec", icon: Shield },
         { href: "/docs/r/NEODID_DID_METHOD", label: "NeoDID DID Method Spec", icon: Fingerprint },

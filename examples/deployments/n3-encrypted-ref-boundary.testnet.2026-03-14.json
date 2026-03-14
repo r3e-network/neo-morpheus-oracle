@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T04:05:12.994Z",
+  "generated_at": "2026-03-14T09:24:54.069Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
@@ -8,30 +8,30 @@
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "request_fee_status": {
     "request_fee": "1000000",
-    "current_credit": "3000000",
-    "deposit_amount": "0"
+    "current_credit": "20000000",
+    "deposit_amount": "20000000"
   },
   "secret_refs": {
-    "matching": "59ef5c5b-7472-4611-a1c9-d10e4fa4345b",
-    "wrong_requester": "4887a42d-d722-436d-a92f-ea66088cc990",
-    "wrong_callback": "577ccf26-dd58-4da4-9f4e-1a87cb0a7e96"
+    "matching": "0eeaf3f5-8266-4e3c-9e0a-fe2f374edfad",
+    "wrong_requester": "d3688ac8-f27a-4281-800a-ab740594fae3",
+    "wrong_callback": "48b39b16-0f8e-48be-b317-db6fcf2fedec"
   },
   "cases": [
     {
       "title": "encrypted_params_ref succeeds when requester and callback bindings match",
       "request_type": "neodid_bind",
-      "txid": "0x4b4089a334558863d14e856258e70cec09fbc9efb6cc561bc2c3c452ad487832",
-      "request_id": "200",
+      "txid": "0x7cf46f64facc98bc25fb8da67ba2456ce72fd332378d2f6fb82f43ba40d692eb",
+      "request_id": "1016",
       "payload": {
         "provider": "github",
         "vault_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
         "claim_type": "Github_VerifiedUser",
-        "encrypted_params_ref": "59ef5c5b-7472-4611-a1c9-d10e4fa4345b"
+        "encrypted_params_ref": "0eeaf3f5-8266-4e3c-9e0a-fe2f374edfad"
       },
       "callback": {
         "request_type": "neodid_bind",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"ref-bound-pass\",\"master_nullifier\":\"0x0ce6dfa07ca39a389f46bbd395ae0890f1e431e169660b4632aeb999e2c73d7f\",\"digest\":\"0x29730d66cd1856a7cfcbd8033e92807a56ea7e5c008dc0e66be66ceb0475ce52\"},\"verification\":{\"output_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"attestation_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"signature\":\"9e84b178343005853a58230a5dbcd2b0f68552281a9d6cc40df8237be060eee8576cb13d23cd461e96be69399c26b2c7e6b5a0adbc34b58dc1726ec4a9eebe81\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad620000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"1f59f3ae04408a02bc1bae40d8fce5318c80721570aacf94a0024a3a502d6fe6\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"ref-bound-pass\",\"master_nullifier\":\"0x0ce6dfa07ca39a389f46bbd395ae0890f1e431e169660b4632aeb999e2c73d7f\",\"digest\":\"0x29730d66cd1856a7cfcbd8033e92807a56ea7e5c008dc0e66be66ceb0475ce52\"},\"verification\":{\"output_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"attestation_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"signature\":\"9e84b178343005853a58230a5dbcd2b0f68552281a9d6cc40df8237be060eee8576cb13d23cd461e96be69399c26b2c7e6b5a0adbc34b58dc1726ec4a9eebe81\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad620000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"25d49e109e72b715a17faca0fd8a521bc3f2076d6fcb5bd1427ec09deec41ee3\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_bind",
@@ -53,7 +53,7 @@
               "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
               "compose_hash": "8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43",
               "report_data": "69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad620000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "1f59f3ae04408a02bc1bae40d8fce5318c80721570aacf94a0024a3a502d6fe6"
+              "quote_hash": "25d49e109e72b715a17faca0fd8a521bc3f2076d6fcb5bd1427ec09deec41ee3"
             }
           }
         },
@@ -63,13 +63,13 @@
     {
       "title": "encrypted_params_ref fails when bound_requester does not match the relayed requester",
       "request_type": "neodid_bind",
-      "txid": "0xb429f5c22d34197a6fc4af48f4a1b851b95a56cc422fdcdad6851dc9c7a94ee0",
-      "request_id": "201",
+      "txid": "0x14e6a808d21b93c1d1d4685c5fbe2ec6ab4395446852903be9e4213adccad1f9",
+      "request_id": "1022",
       "payload": {
         "provider": "github",
         "vault_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
         "claim_type": "Github_VerifiedUser",
-        "encrypted_params_ref": "4887a42d-d722-436d-a92f-ea66088cc990"
+        "encrypted_params_ref": "d3688ac8-f27a-4281-800a-ab740594fae3"
       },
       "callback": {
         "request_type": "neodid_bind",
@@ -82,13 +82,13 @@
     {
       "title": "encrypted_params_ref fails when bound_callback_contract does not match the relayed callback contract",
       "request_type": "neodid_bind",
-      "txid": "0x8dee66d4e2627de871d17447c4d91ad9884c688d0d292123d1e9069adc0bc6bb",
-      "request_id": "202",
+      "txid": "0x0947e3060b5ba10be3d9f575aec784fc677b4e1fab3d32e93f5572979cb787b1",
+      "request_id": "1027",
       "payload": {
         "provider": "github",
         "vault_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
         "claim_type": "Github_VerifiedUser",
-        "encrypted_params_ref": "577ccf26-dd58-4da4-9f4e-1a87cb0a7e96"
+        "encrypted_params_ref": "48b39b16-0f8e-48be-b317-db6fcf2fedec"
       },
       "callback": {
         "request_type": "neodid_bind",

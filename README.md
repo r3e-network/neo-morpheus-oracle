@@ -38,14 +38,14 @@ This project gives the Neo blockchain the same thing: **truth**.
 - Datafeed sync is operator-only. User contracts read the synchronized on-chain feed state directly.
 - Request fee is `0.01 GAS`-equivalent per request.
 - Neo N3 supports prepaid request credits, including contract-sponsored fee payment.
-- Neo X requires the exact request fee in `msg.value`.
+- Neo N3 is the active supported runtime path. Neo X remains in-repo as reference code only.
 
 ## Project Layout
 
 - `apps/web` — Vercel-ready Next.js frontend and API proxy layer
 - `workers/phala-worker` — Phala TEE worker runtime
-- `workers/morpheus-relayer` — async chain listener and callback relayer for Neo N3 + Neo X
-- `contracts` — Neo N3 and Neo X Morpheus oracle + callback + datafeed contracts
+- `workers/morpheus-relayer` — async chain listener and callback relayer for Neo N3
+- `contracts` — Neo N3 Morpheus oracle + callback + datafeed contracts, plus legacy Neo X reference artifacts
 - `packages/shared` — shared types and chain metadata
 - `supabase/migrations` — schema, RLS policies, and built-in compute catalog seeds
 - `docs` — architecture, async privacy Oracle spec, and deployment notes
@@ -77,6 +77,29 @@ npm --prefix workers/morpheus-relayer test
 npm --prefix apps/web run dev
 ```
 
+## Validation Commands
+
+```bash
+npm run examples:test:n3:callback-boundary
+npm run examples:test:n3:neodid-registry-boundary
+npm run examples:test:n3:neodid-registry-v1
+npm run examples:test:n3:encrypted-ref-boundary
+npm run examples:test:n3:fulfillment-replay
+npm run examples:test:n3:aa-session-oracle-boundary
+npm run examples:test:n3:attack-regression
+npm run report:aa-integrated-baseline
+```
+
+These commands are the current live Neo N3 testnet regression path for:
+
+- Oracle callback-injection rejection
+- NeoDID ticket registry mismatch and compact-ticket replay protection
+- `encrypted_params_ref` requester / callback binding enforcement
+- fulfillment-signature replay rejection
+- AA session-key downstream Oracle boundary enforcement
+- automation duplicate-queue suppression
+- consolidated AA + NeoDID + Oracle integrated attack regression
+
 ## Docs
 
 - `docs/ARCHITECTURE.md`
@@ -92,6 +115,8 @@ npm --prefix apps/web run dev
 - `docs/ENVIRONMENT.md`
 - `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 - `docs/TESTNET_RUNBOOK.md`
+- `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-14.md`
+- `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`
 - `docs/SECURITY_AUDIT.md`
 - `docs/ATTESTATION_SPEC.md`
 - `docs/HPKE_X25519_MIGRATION.md`

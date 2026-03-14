@@ -17,7 +17,8 @@ Important production rule:
 - `datafeed` sync is operator-only. User contracts read synchronized on-chain feed records directly.
 - Each request currently costs `0.01 GAS`-equivalent.
 - Neo N3 supports prepaid fee credits, including contract-sponsored payment.
-- Neo X requires the exact fee in `msg.value`.
+- Neo N3 is the only active supported runtime path right now.
+- Neo X examples remain in-repo as legacy/reference material and should not be treated as the current production integration path.
 
 ## 1. Concepts
 
@@ -107,7 +108,7 @@ Built-in examples:
     "scale_bits": 40,
     "modulus_bits": 218
   },
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -208,7 +209,7 @@ Example:
   "encrypted_params": "<base64 ciphertext with secret headers/body/provider params/script>",
   "token_header": "Authorization",
   "script": "function process(data) { return data.score > 80; }",
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -223,7 +224,7 @@ curl http://localhost:3000/api/oracle/smart-fetch \
     "encrypted_params":"<base64 ciphertext with secret headers/body/provider params/script>",
     "token_header":"Authorization",
     "script":"function process(data) { return data.score > 80; }",
-    "target_chain":"neo_x"
+    "target_chain":"neo_n3"
   }'
 ```
 
@@ -425,7 +426,7 @@ Each successful sync result contains:
 
 ### On-chain storage model
 
-For N3 and Neo X, providers are stored separately.
+For the active supported path, providers are stored and read on Neo N3.
 
 Examples:
 
@@ -449,13 +450,7 @@ This means contracts can choose:
 - `GetAllPairs()`
 - `GetAllFeedRecords()`
 
-#### Neo X
-
-- `getLatest(pair)`
-- `getPairCount()`
-- `getPairByIndex(index)`
-- `getAllPairs()`
-- `getAllFeedRecords()`
+Neo X read methods are intentionally omitted here because Neo X is not part of the current production path.
 
 ## 5. NeoDID Usage
 
