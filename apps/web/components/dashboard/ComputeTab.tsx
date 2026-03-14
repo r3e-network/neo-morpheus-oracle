@@ -18,7 +18,8 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
   const defaultCallbackHash = NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || "";
   const [selectedFunc, setSelectedFunc] = useState<string>("");
   const [computeInput, setComputeInput] = useState('{\n  "values": [1, 2, 3]\n}');
-  const [userCode, setUserCode] = useState(`function process(input, helpers) {\n  const values = Array.isArray(input.values) ? input.values : [];\n  return {\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n    generated_at: helpers.getCurrentTimestamp(),\n  };\n}`);
+  const [userCode, setUserCode] = useState(`function process(input, helpers) {\\n  const values = Array.isArray(input.values) ? input.values : [];\\n  return {\\n    total: values.reduce((sum, value) => sum + Number(value || 0), 0),\\n    generated_at: helpers.getCurrentTimestamp(),\\n  };\\n}`);
+  const [scriptRefJson, setScriptRefJson] = useState('{\\n  \"contract_hash\": \"0x1111111111111111111111111111111111111111\",\\n  \"method\": \"getScript\",\\n  \"script_name\": \"sum\"\\n}');
   const [isSimulating, setIsSimulating] = useState(false);
   const [generatedPackage, setGeneratedPackage] = useState<{
     requestType: string;
@@ -184,13 +185,23 @@ export function ComputeTab({ computeFunctions, setOutput }: any) {
       } catch {
         parsedInput = {};
       }
+      let parsedScriptRef: Record<string, unknown> | null = null;
+      try {
+        parsedScriptRef = scriptRefJson.trim() ? JSON.parse(scriptRefJson) : null;
+      } catch {
+        parsedScriptRef = null;
+      }
       payload = {
         mode: "script",
-        script: userCode,
         entry_point: "process",
         input: parsedInput,
         target_chain: "neo_n3",
       };
+      if (parsedScriptRef && typeof parsedScriptRef === "object") {
+        payload.script_ref = parsedScriptRef;
+      } else {
+        payload.script = userCode;
+      }
     }
 
     const payloadJson = JSON.stringify(payload, null, 2);
@@ -349,6 +360,17 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 onChange={(e) => setUserCode(e.target.value)}
                 style={{ minHeight: '220px', border: 'none', background: 'transparent', boxShadow: 'none', padding: '0' }}
               />
+              <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-dim)' }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', fontWeight: 800, marginBottom: '0.35rem', fontFamily: 'var(--font-mono)' }}>
+                  OPTIONAL SCRIPT_REF (OVERRIDES INLINE SCRIPT)
+                </div>
+                <textarea
+                  className="code-editor"
+                  value={scriptRefJson}
+                  onChange={(e) => setScriptRefJson(e.target.value)}
+                  style={{ minHeight: '120px', border: 'none', background: 'transparent', boxShadow: 'none', padding: '0' }}
+                />
+              </div>
             </div>
           </div>
 

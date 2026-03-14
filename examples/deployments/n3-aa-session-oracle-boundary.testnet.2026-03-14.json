@@ -1,26 +1,26 @@
 {
-  "generated_at": "2026-03-14T09:31:10.694Z",
+  "generated_at": "2026-03-14T14:03:13.000Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
-  "aa_core_hash": "0xaba5ab1d2c575fe367ab04d62df5f29af2c88819",
-  "session_verifier_hash": "0x76ac7deef358545d39a21deaa9d96f140423ab0b",
-  "oracle_consumer_hash": "0xc56c2f59532e2a23f23502f40f3279adce5e5e4d",
-  "account_id": "0x3661373261336238616135653061326333373237",
+  "aa_core_hash": "0x1a7d549a0cdfc8111900da8fab1dd157568dadb3",
+  "session_verifier_hash": "0x49d91591a7f683a413de1acbef3928b8dc0cf4e1",
+  "oracle_consumer_hash": "0x5edd7765b847dd6d1b446cf122c8b30625a0cab7",
+  "account_id": "0x6363666238373236636533353733306439346438",
   "request_fee_status": {
     "request_fee": "1000000",
     "current_credit": "20000000",
     "deposit_amount": "20000000"
   },
   "success_path": {
-    "execute_txid": "0x1247d496714b19d6d18bed39c4e9e835184cea253234b7bbf8ed4757bc3ebcdb",
-    "request_id": "1052",
+    "execute_txid": "0x11afdc5de97b935d79d4845419e698d6f4245e525b5789a042426c834d11aa43",
+    "request_id": "2976",
     "callback": {
       "request_type": "privacy_oracle",
       "success": true,
-      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.581\",\"result\":\"2.581\"},\"verification\":{\"output_hash\":\"5e0b1f77c556dbebbf7d53703a8ca38d1875174aa85248e512b55902791e6a4e\",\"attestation_hash\":\"5e0b1f77c556dbebbf7d53703a8ca38d1875174aa85248e512b55902791e6a4e\",\"signature\":\"d55b0266a85bbc0871d2a575bdfa68f00103bafeed622f7235cbf8f3fe50b35ced634bcd01487bed832d0e83d35a28d8dc8f73452d95065e29a91506c0e75c1d\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"5e0b1f77c556dbebbf7d53703a8ca38d1875174aa85248e512b55902791e6a4e0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"0b6d57e1f7f1c0ec459075a0c00b82492127079f8bb2df7feb341e2a56cd5d9a\"}}}",
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.556\",\"result\":\"2.556\"},\"verification\":{\"output_hash\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f\",\"attestation_hash\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f\",\"signature\":\"64c029f552b3d288dda1793a34caaac11975709123191199c5e76a57cbd46df1ef18aaf68998003df2417aa1d0c9fb5891879c32f58c006af156e61459ba13e6\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"ab9a0784cd73e1d10ed4ea89517d66f2b751f5b5bafc1134ce55f827ead51fb8\"}}}",
       "result_json": {
         "version": "morpheus-result/v1",
         "request_type": "privacy_oracle",
@@ -30,25 +30,25 @@
           "target_chain": "neo_n3",
           "request_source": "morpheus-relayer:neo_n3",
           "upstream_status": 200,
-          "extracted_value": "2.581",
-          "result": "2.581"
+          "extracted_value": "2.556",
+          "result": "2.556"
         },
         "verification": {
-          "output_hash": "5e0b1f77c556dbebbf7d53703a8ca38d1875174aa85248e512b55902791e6a4e",
-          "attestation_hash": "5e0b1f77c556dbebbf7d53703a8ca38d1875174aa85248e512b55902791e6a4e",
-          "signature": "d55b0266a85bbc0871d2a575bdfa68f00103bafeed622f7235cbf8f3fe50b35ced634bcd01487bed832d0e83d35a28d8dc8f73452d95065e29a91506c0e75c1d",
+          "output_hash": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f",
+          "attestation_hash": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f",
+          "signature": "64c029f552b3d288dda1793a34caaac11975709123191199c5e76a57cbd46df1ef18aaf68998003df2417aa1d0c9fb5891879c32f58c006af156e61459ba13e6",
           "public_key": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917",
           "tee_attestation": {
             "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
             "compose_hash": "8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43",
-            "report_data": "5e0b1f77c556dbebbf7d53703a8ca38d1875174aa85248e512b55902791e6a4e0000000000000000000000000000000000000000000000000000000000000000",
-            "quote_hash": "0b6d57e1f7f1c0ec459075a0c00b82492127079f8bb2df7feb341e2a56cd5d9a"
+            "report_data": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f0000000000000000000000000000000000000000000000000000000000000000",
+            "quote_hash": "ab9a0784cd73e1d10ed4ea89517d66f2b751f5b5bafc1134ce55f827ead51fb8"
           }
         }
       },
       "error_text": ""
     },
-    "result": "1052"
+    "result": "2976"
   },
   "wrong_target": {
     "state": "FAULT",

@@ -5,6 +5,7 @@ import {
   normalizeTargetChain,
   parseBodyMaybe,
   parseDurationMs,
+  resolveMaxBytes,
   trimString,
 } from "../platform/core.js";
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
@@ -79,6 +80,32 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   }
 }
 
+async function readResponseTextWithLimit(response, maxBytes, label) {
+  if (!response.body || typeof response.body.getReader !== "function") {
+    const text = await response.text();
+    if (Buffer.byteLength(text, "utf8") > maxBytes) {
+      throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = Buffer.from(value);
+    total += chunk.length;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 function buildUpstreamErrorMessage(source, status, data, rawResponse) {
   const body = typeof data === "string"
     ? data
@@ -98,6 +125,7 @@ export async function performOracleFetch(payload) {
     resolvedPayload.oracle_timeout_ms || resolvedPayload.fetch_timeout_ms || env("ORACLE_TIMEOUT"),
     20000,
   );
+  const maxBodyBytes = resolveMaxBytes(env("ORACLE_MAX_UPSTREAM_BODY_BYTES"), 256 * 1024, 4096);
 
   const providerRequest = buildProviderRequest(resolvedPayload);
   if (providerRequest) {
@@ -137,7 +165,7 @@ export async function performOracleFetch(payload) {
     body: resolvedPayload.body,
   }, timeoutMs);
 
-  const rawResponse = await response.text();
+  const rawResponse = await readResponseTextWithLimit(response, maxBodyBytes, "oracle upstream response");
   const responseHeaders = Object.fromEntries(response.headers.entries());
   const data = parseBodyMaybe(rawResponse, response.headers.get("content-type")) ?? rawResponse;
   if (!response.ok) {

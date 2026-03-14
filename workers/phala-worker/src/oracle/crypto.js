@@ -7,11 +7,12 @@ import {
   webcrypto,
 } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { assertUntrustedScriptsEnabled, env, parseDurationMs, decodeBase64, resolveScript, resolveWasmModuleBase64, trimString } from "../platform/core.js";
+import { assertUntrustedScriptsEnabled, decodeBase64, enforceSerializedSizeLimit, env, parseDurationMs, resolveMaxBytes, resolveWasmModuleBase64, trimString } from "../platform/core.js";
 import { deriveKeyBytes } from "../platform/dstack.js";
 import { runScriptWithTimeout } from "../platform/script-runner.js";
 import { runWasmWithTimeout } from "../platform/wasm-runner.js";
 import { validateUserScriptSource } from "../platform/script-policy.js";
+import { resolveScriptSource } from "../platform/script-source.js";
 
 let oracleKeyMaterialPromise;
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../..");
@@ -449,8 +450,10 @@ export async function resolveConfidentialPayload(payload = {}) {
 }
 
 export async function executeProgrammableOracle(payload, context) {
+  const maxScriptInputBytes = resolveMaxBytes(env("ORACLE_MAX_SCRIPT_INPUT_BYTES"), 128 * 1024, 1024);
   const wasmModuleBase64 = resolveWasmModuleBase64(payload);
   if (wasmModuleBase64) {
+    enforceSerializedSizeLimit({ data: context.data, context }, "oracle programmable input", maxScriptInputBytes);
     const timeoutMs = parseDurationMs(
       payload.wasm_timeout_ms
         || payload.script_timeout_ms
@@ -472,7 +475,7 @@ export async function executeProgrammableOracle(payload, context) {
     };
   }
 
-  const script = resolveScript(payload);
+  const script = await resolveScriptSource(payload);
   if (!script) {
     return {
       executed: false,
@@ -482,6 +485,7 @@ export async function executeProgrammableOracle(payload, context) {
 
   assertUntrustedScriptsEnabled();
   validateUserScriptSource(script);
+  enforceSerializedSizeLimit({ data: context.data, context }, "oracle programmable input", maxScriptInputBytes);
 
   const timeoutMs = parseDurationMs(
     payload.script_timeout_ms || payload.oracle_script_timeout_ms || env("ORACLE_SCRIPT_TIMEOUT_MS"),

@@ -1,0 +1,100 @@
+{
+  "generated_at": "2026-03-14T13:34:56.481Z",
+  "network": "testnet",
+  "rpc_url": "https://testnet1.neo.coz.io:443",
+  "network_magic": 894710606,
+  "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+  "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+  "aa_core_hash": "0x9cbbfc969f94a5056fd6a658cab090bcb3604724",
+  "recovery_verifier_hash": "0x9e08c858774b7eb2844810247b61812d44604424",
+  "requester_hash": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+  "fee_status": {
+    "request_fee": "1000000",
+    "current_credit": "24000000",
+    "deposit_amount": "0"
+  },
+  "bind_master_nullifier": "0x57e6ff7664b741579fe9d4a59ea84581cba4d6c991e4179c75c355c5fd7546f6",
+  "setup": {
+    "account_id_a": "aa-social-recovery-cross-a",
+    "account_id_b": "aa-social-recovery-cross-b",
+    "account_address_a": "0x1111111111111111111111111111111111111111",
+    "account_address_b": "0x2222222222222222222222222222222222222222",
+    "owner_hash": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+    "verifier_pubkey": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917"
+  },
+  "oracle_recovery_ticket": {
+    "txid": "0xc27a7be21eace4c01b3ba5985e71231fd44baa97ba66600f12b60ba8d54b3c6d",
+    "request_id": "2638",
+    "compact_ticket": {
+      "master_nullifier": "0x57e6ff7664b741579fe9d4a59ea84581cba4d6c991e4179c75c355c5fd7546f6",
+      "action_nullifier": "0xde3d5b6821f6b07ca20bb3ae9bf34072e968e301792a7339e6e3750fce89488a",
+      "signature": "0x1550a7365ae0396d9687db9a728e8b5b2be0929858e7b6fb47099f2e8e967551907e16426a3fbf59b132c57f9eea522c1b96e004f36e124100d16841409c5ea7"
+    }
+  },
+  "submit_a": {
+    "txid": "0x044c23c708518a50dbdbb65caf90809cd7aba2dc6caf9533432c509bd72f9270",
+    "pending_recovery": {
+      "type": "Array",
+      "value": [
+        {
+          "type": "ByteString",
+          "value": "MzMzMzMzMzMzMzMzMzMzMzMzMzM="
+        },
+        {
+          "type": "Integer",
+          "value": "0"
+        },
+        {
+          "type": "Integer",
+          "value": "1"
+        },
+        {
+          "type": "Integer",
+          "value": "1773495285309"
+        },
+        {
+          "type": "Integer",
+          "value": "1773495285309"
+        },
+        {
+          "type": "Boolean",
+          "value": true
+        }
+      ]
+    }
+  },
+  "wrong_account_testinvoke": {
+    "state": "FAULT",
+    "exception": "at instruction 5171 (ABORTMSG): ABORTMSG is executed. Reason: Invalid Morpheus recovery signature",
+    "stack": []
+  },
+  "pending_b": {
+    "type": "Array",
+    "value": [
+      {
+        "type": "ByteString",
+        "value": "AAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      },
+      {
+        "type": "Integer",
+        "value": "-1"
+      },
+      {
+        "type": "Integer",
+        "value": "0"
+      },
+      {
+        "type": "Integer",
+        "value": "0"
+      },
+      {
+        "type": "Integer",
+        "value": "0"
+      },
+      {
+        "type": "Boolean",
+        "value": false
+      }
+    ]
+  }
+}

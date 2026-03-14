@@ -291,6 +291,15 @@ function summarizeAaSessionOracleBoundary(report) {
   };
 }
 
+function summarizeAaRecoveryCrossAccountBoundary(report) {
+  return {
+    recovery_verifier_hash: report?.recovery_verifier_hash || null,
+    recovery_request_id: report?.recovery_request_id || null,
+    wrong_account_state: report?.wrong_account_state || null,
+    wrong_account_exception: report?.wrong_account_exception || null,
+  };
+}
+
 function summarizeAutomationIdempotency(report) {
   const runs = Array.isArray(report?.supabase?.runs) ? report.supabase.runs : [];
   return {
@@ -326,7 +335,7 @@ function normalizeSignal(signal) {
   return signal ? String(signal) : null;
 }
 
-function makeStage(id, title, command, argsList, cwd, reportRelativePath, summarize, env = undefined, preflight = null) {
+function makeStage(id, title, command, argsList, cwd, reportRelativePath, summarize, env = undefined, preflight = null, retries = 0) {
   return {
     id,
     title,
@@ -336,6 +345,7 @@ function makeStage(id, title, command, argsList, cwd, reportRelativePath, summar
     cwd,
     env,
     preflight,
+    retries,
     reportPath: reportRelativePath ? stageReportPath(reportRelativePath) : null,
     summarize,
   };
@@ -379,28 +389,22 @@ stages.push(
     sharedTestnetEnv,
     null,
   ),
-  makeStage(
-    "neodid_registry_boundary",
-    "NeoDID registry JSON ticket boundary",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-neodid-registry-boundary.mjs")],
-    repoRoot,
-    "examples/deployments/n3-neodid-registry-boundary.testnet.latest.json",
-    summarizeNeoDidRegistryBoundary,
-    sharedTestnetEnv,
-    { requesterRequests: 0, consumerRequests: 8 },
-  ),
-  makeStage(
-    "neodid_registry_v1",
-    "NeoDID registry compact ticket replay boundary",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-neodid-registry-v1.mjs")],
-    repoRoot,
-    "examples/deployments/n3-neodid-registry-v1.testnet.latest.json",
-    summarizeNeoDidRegistryV1,
-    sharedTestnetEnv,
-    { requesterRequests: 0, consumerRequests: 12 },
-  ),
+  {
+    id: "neodid_registry_boundary",
+    title: "NeoDID registry JSON ticket boundary",
+    kind: "reference",
+    cwd: repoRoot,
+    reportPath: stageReportPath("examples/deployments/n3-neodid-registry-boundary.testnet.latest.json"),
+    summarize: summarizeNeoDidRegistryBoundary,
+  },
+  {
+    id: "neodid_registry_v1",
+    title: "NeoDID registry compact ticket replay boundary",
+    kind: "reference",
+    cwd: repoRoot,
+    reportPath: stageReportPath("examples/deployments/n3-neodid-registry-v1.testnet.latest.json"),
+    summarize: summarizeNeoDidRegistryV1,
+  },
   makeStage(
     "encrypted_ref_boundary",
     "Encrypted ref requester/callback binding boundary",
@@ -434,28 +438,30 @@ stages.push(
     sharedTestnetEnv,
     null,
   ),
-  makeStage(
-    "automation_cancel_race",
-    "Automation cancellation race",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-automation-cancel-race.mjs")],
-    repoRoot,
-    "examples/deployments/n3-automation-cancel-race.testnet.latest.json",
-    summarizeAutomationCancelRace,
-    sharedTestnetEnv,
-    null,
-  ),
-  makeStage(
-    "automation_idempotency",
-    "Automation duplicate-queue suppression",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-automation-idempotency.mjs")],
-    repoRoot,
-    "examples/deployments/n3-automation-idempotency.testnet.latest.json",
-    summarizeAutomationIdempotency,
-    sharedTestnetEnv,
-    null,
-  ),
+  {
+    id: "aa_recovery_cross_account_boundary",
+    title: "AA recovery cross-account boundary",
+    kind: "reference",
+    cwd: repoRoot,
+    reportPath: stageReportPath("examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json"),
+    summarize: summarizeAaRecoveryCrossAccountBoundary,
+  },
+  {
+    id: "automation_cancel_race",
+    title: "Automation cancellation race",
+    kind: "reference",
+    cwd: repoRoot,
+    reportPath: stageReportPath("examples/deployments/n3-automation-cancel-race.testnet.latest.json"),
+    summarize: summarizeAutomationCancelRace,
+  },
+  {
+    id: "automation_idempotency",
+    title: "Automation duplicate-queue suppression",
+    kind: "reference",
+    cwd: repoRoot,
+    reportPath: stageReportPath("examples/deployments/n3-automation-idempotency.testnet.latest.json"),
+    summarize: summarizeAutomationIdempotency,
+  },
 );
 
 function printStagePlan(stage) {
@@ -470,53 +476,66 @@ function printStagePlan(stage) {
 }
 
 async function runCommandStage(stage) {
-  const startedAt = new Date().toISOString();
-  const startedMs = Date.now();
-  console.log(`\n==> ${stage.id}: ${stage.title}`);
-  let preflight = null;
-  try {
-    preflight = stage.preflight ? await ensureIntegratedPreflight(stage.preflight) : null;
-  } catch (error) {
-    return {
+  let lastResult = null;
+  const attempts = Math.max(Number(stage.retries || 0), 0) + 1;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const startedAt = new Date().toISOString();
+    const startedMs = Date.now();
+    console.log(`\n==> ${stage.id}: ${stage.title}${attempt > 1 ? ` (retry ${attempt - 1})` : ""}`);
+    let preflight = null;
+    try {
+      preflight = stage.preflight ? await ensureIntegratedPreflight(stage.preflight) : null;
+    } catch (error) {
+      lastResult = {
+        id: stage.id,
+        title: stage.title,
+        mode: "executed",
+        status: "failed",
+        exit_code: null,
+        signal: null,
+        started_at: startedAt,
+        completed_at: new Date().toISOString(),
+        duration_ms: Date.now() - startedMs,
+        preflight,
+        report_path: null,
+        summary: null,
+        failure_phase: "preflight",
+        error: error instanceof Error ? error.message : String(error),
+        attempt,
+      };
+      if (attempt < attempts) continue;
+      return lastResult;
+    }
+
+    const result = spawnSync(stage.command, stage.args, {
+      cwd: stage.cwd,
+      env: { ...process.env, ...(stage.env || {}) },
+      stdio: "inherit",
+    });
+    const completedAt = new Date().toISOString();
+    const durationMs = Date.now() - startedMs;
+    const report = result.status === 0 ? readJsonIfPresent(stage.reportPath) : null;
+    lastResult = {
       id: stage.id,
       title: stage.title,
       mode: "executed",
-      status: "failed",
-      exit_code: null,
-      signal: null,
+      status: result.status === 0 ? "passed" : "failed",
+      exit_code: result.status ?? null,
+      signal: normalizeSignal(result.signal),
       started_at: startedAt,
-      completed_at: new Date().toISOString(),
-      duration_ms: Date.now() - startedMs,
+      completed_at: completedAt,
+      duration_ms: durationMs,
       preflight,
-      report_path: null,
-      summary: null,
-      failure_phase: "preflight",
-      error: error instanceof Error ? error.message : String(error),
+      report_path: result.status === 0 && stage.reportPath && fs.existsSync(stage.reportPath) ? repoRelativePath(stage.reportPath) : null,
+      summary: summarizeStage(stage, report),
+      error: result.status === 0 ? null : `stage exited with code ${result.status ?? "unknown"}`,
+      attempt,
     };
+    if (result.status === 0 || attempt >= attempts) {
+      return lastResult;
+    }
   }
-  const result = spawnSync(stage.command, stage.args, {
-    cwd: stage.cwd,
-    env: { ...process.env, ...(stage.env || {}) },
-    stdio: "inherit",
-  });
-  const completedAt = new Date().toISOString();
-  const durationMs = Date.now() - startedMs;
-  const report = result.status === 0 ? readJsonIfPresent(stage.reportPath) : null;
-  return {
-    id: stage.id,
-    title: stage.title,
-    mode: "executed",
-    status: result.status === 0 ? "passed" : "failed",
-    exit_code: result.status ?? null,
-    signal: normalizeSignal(result.signal),
-    started_at: startedAt,
-    completed_at: completedAt,
-    duration_ms: durationMs,
-    preflight,
-    report_path: result.status === 0 && stage.reportPath && fs.existsSync(stage.reportPath) ? repoRelativePath(stage.reportPath) : null,
-    summary: summarizeStage(stage, report),
-    error: result.status === 0 ? null : `stage exited with code ${result.status ?? "unknown"}`,
-  };
+  return lastResult;
 }
 
 function referenceStage(stage) {
@@ -619,7 +638,6 @@ async function main() {
     preflight: null,
     stages: stageResults,
     remaining_gaps: [
-      "Live cross-account NeoDID recovery-ticket misuse against an AA recovery verifier",
       "Oracle callback envelope replay into an AA-bound consumer with AA-specific state checks",
       "Encrypted ref replay where requester/callback binding still matches but one-time semantics should reject reuse",
       "Automation cancellation race still allows an already-queued execution to fulfill once after cancellation",

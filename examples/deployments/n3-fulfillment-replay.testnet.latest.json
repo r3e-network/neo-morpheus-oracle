@@ -1,32 +1,32 @@
 {
-  "generated_at": "2026-03-14T09:27:20.116Z",
+  "generated_at": "2026-03-14T13:59:15.995Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
-  "oracle_hash": "0x3a17b412b1e130ea45aafe35401c3da4dafd8d59",
-  "callback_consumer_hash": "0xfaf3f47556a9601a2ef6d9dac6bd334c295c2ba6",
+  "oracle_hash": "0x9dfab469407465638c58184dbfc3f19180758cbe",
+  "callback_consumer_hash": "0x39f45bfd0746473f33a5525648d4c4b57fe79447",
   "request_fee_status": {
     "request_fee": "1000000",
     "current_credit": "1000000",
     "deposit_amount": "1000000"
   },
   "setup": {
-    "set_updater_txid": "0xd27789433d1ad9010f2a3aee04ca4e570857920178ff2f15f2f186a23aefdfcf",
-    "set_verifier_txid": "0xe6bf2ebf88119924f221d479b4b5f38e41985fadc450e48ddd7455d07cf2c9d1",
-    "allow_callback_txid": "0xaf1a9df5c6e35721174ee14ccf83df5498d0f70f0487636eb2978e6d65b234d8",
-    "set_oracle_txid": "0x7924333cd4755d8eb75d96be4e5fcc0c3b66209ee3dbd80a9a6ffb916d2d068e"
+    "set_updater_txid": "0x6cbe8eedc6126cdc21736a95914bada676b17e33c27073ed4443d67ef09c0f57",
+    "set_verifier_txid": "0x0566a5222230dfb68530de213d26be466aefd6ec8ed50c2ba5496d1b77367e15",
+    "allow_callback_txid": "0x7a1495c7c7c8732c9d4718f3f617cd74631091bddccb9275c1089b497374efae",
+    "set_oracle_txid": "0xae2b6be04b9de1cea2cb6e0164855bc010cb486c416d1f57f0ffb1c888b79d2b"
   },
   "replay_source": {
-    "request_id": "1016",
+    "request_id": "2926",
     "request_type": "neodid_bind",
-    "txid": "0x7cf46f64facc98bc25fb8da67ba2456ce72fd332378d2f6fb82f43ba40d692eb"
+    "txid": "0xaed59736f9f485208f670dcfe9d7355db60b211313086187fcce51b96ab1cad4"
   },
   "replay_target": {
-    "request_txid": "0x3d33a970699e4bd85bdc899946be3f1a66e070b91a420cd82854c79f9d842be4",
+    "request_txid": "0x232fe0505fc6f1965b5f5209fab8bb9a8d0ded32ccbcdf43a8900bc45f47eae3",
     "request_id": "1",
-    "replay_txid": "0xe48211e2ab841258c2f16ba48e7ac7f13279ef6bf8d948c30e270de37c3ebd83",
+    "replay_txid": "0xcee309fefcc55c90fe6f02b1eae8ba85bb6f8b0b2dc25a5b158b97b11c4f85b7",
     "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-    "fulfill_txid": "0x8aa7d8f5c6569137c44ff539280cb8f983516958a6b32f423c7a2568b76cb182",
+    "fulfill_txid": "0x37d2265d814f731a41acbbabe7427fde96c0c4836544108e4b045fcad796120a",
     "fulfill_vmstate": "HALT"
   }
 }

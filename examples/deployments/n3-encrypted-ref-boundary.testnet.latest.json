@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T09:24:54.069Z",
+  "generated_at": "2026-03-14T13:56:55.631Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
@@ -12,26 +12,26 @@
     "deposit_amount": "20000000"
   },
   "secret_refs": {
-    "matching": "0eeaf3f5-8266-4e3c-9e0a-fe2f374edfad",
-    "wrong_requester": "d3688ac8-f27a-4281-800a-ab740594fae3",
-    "wrong_callback": "48b39b16-0f8e-48be-b317-db6fcf2fedec"
+    "matching": "c182b5dc-9992-4eb5-9c92-7c10dc179e03",
+    "wrong_requester": "ac7490c8-0761-455e-a9f4-5ffa1aafe97d",
+    "wrong_callback": "be7e1494-b365-45d7-b395-3875e5f806d6"
   },
   "cases": [
     {
       "title": "encrypted_params_ref succeeds when requester and callback bindings match",
       "request_type": "neodid_bind",
-      "txid": "0x7cf46f64facc98bc25fb8da67ba2456ce72fd332378d2f6fb82f43ba40d692eb",
-      "request_id": "1016",
+      "txid": "0xaed59736f9f485208f670dcfe9d7355db60b211313086187fcce51b96ab1cad4",
+      "request_id": "2926",
       "payload": {
         "provider": "github",
         "vault_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
         "claim_type": "Github_VerifiedUser",
-        "encrypted_params_ref": "0eeaf3f5-8266-4e3c-9e0a-fe2f374edfad"
+        "encrypted_params_ref": "c182b5dc-9992-4eb5-9c92-7c10dc179e03"
       },
       "callback": {
         "request_type": "neodid_bind",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"ref-bound-pass\",\"master_nullifier\":\"0x0ce6dfa07ca39a389f46bbd395ae0890f1e431e169660b4632aeb999e2c73d7f\",\"digest\":\"0x29730d66cd1856a7cfcbd8033e92807a56ea7e5c008dc0e66be66ceb0475ce52\"},\"verification\":{\"output_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"attestation_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"signature\":\"9e84b178343005853a58230a5dbcd2b0f68552281a9d6cc40df8237be060eee8576cb13d23cd461e96be69399c26b2c7e6b5a0adbc34b58dc1726ec4a9eebe81\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad620000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"25d49e109e72b715a17faca0fd8a521bc3f2076d6fcb5bd1427ec09deec41ee3\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"ref-bound-pass\",\"master_nullifier\":\"0x0ce6dfa07ca39a389f46bbd395ae0890f1e431e169660b4632aeb999e2c73d7f\",\"digest\":\"0x29730d66cd1856a7cfcbd8033e92807a56ea7e5c008dc0e66be66ceb0475ce52\"},\"verification\":{\"output_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"attestation_hash\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad62\",\"signature\":\"9e84b178343005853a58230a5dbcd2b0f68552281a9d6cc40df8237be060eee8576cb13d23cd461e96be69399c26b2c7e6b5a0adbc34b58dc1726ec4a9eebe81\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad620000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"64444ea848ec9bf5d07c166332f55abba7df88772da91e4ba1b91bd60f47af89\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_bind",
@@ -53,7 +53,7 @@
               "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
               "compose_hash": "8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43",
               "report_data": "69bdf2980c7dfb155d82b49cc9094d0404ba66d743527e2c98b17da13c28ad620000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "25d49e109e72b715a17faca0fd8a521bc3f2076d6fcb5bd1427ec09deec41ee3"
+              "quote_hash": "64444ea848ec9bf5d07c166332f55abba7df88772da91e4ba1b91bd60f47af89"
             }
           }
         },
@@ -63,13 +63,13 @@
     {
       "title": "encrypted_params_ref fails when bound_requester does not match the relayed requester",
       "request_type": "neodid_bind",
-      "txid": "0x14e6a808d21b93c1d1d4685c5fbe2ec6ab4395446852903be9e4213adccad1f9",
-      "request_id": "1022",
+      "txid": "0x8373399c2afe53ad98616d2552483e10919ac7c4d0cc318a7d157af027b92b84",
+      "request_id": "2946",
       "payload": {
         "provider": "github",
         "vault_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
         "claim_type": "Github_VerifiedUser",
-        "encrypted_params_ref": "d3688ac8-f27a-4281-800a-ab740594fae3"
+        "encrypted_params_ref": "ac7490c8-0761-455e-a9f4-5ffa1aafe97d"
       },
       "callback": {
         "request_type": "neodid_bind",
@@ -82,13 +82,13 @@
     {
       "title": "encrypted_params_ref fails when bound_callback_contract does not match the relayed callback contract",
       "request_type": "neodid_bind",
-      "txid": "0x0947e3060b5ba10be3d9f575aec784fc677b4e1fab3d32e93f5572979cb787b1",
-      "request_id": "1027",
+      "txid": "0x6570007ff7faac6cb0e9b303741fd9f49c5e8f20ecd15e22d2c766a69e80ccd9",
+      "request_id": "2951",
       "payload": {
         "provider": "github",
         "vault_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
         "claim_type": "Github_VerifiedUser",
-        "encrypted_params_ref": "48b39b16-0f8e-48be-b317-db6fcf2fedec"
+        "encrypted_params_ref": "be7e1494-b365-45d7-b395-3875e5f806d6"
       },
       "callback": {
         "request_type": "neodid_bind",

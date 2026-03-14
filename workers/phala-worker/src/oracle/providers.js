@@ -1,4 +1,4 @@
-import { env, json, trimString } from "../platform/core.js";
+import { env, json, resolveMaxBytes, trimString } from "../platform/core.js";
 
 const PROVIDER_CONFIG_CACHE_TTL_MS = 30_000;
 const providerConfigCache = new Map();
@@ -331,7 +331,31 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
   } finally {
     clearTimeout(timer);
   }
-  const text = await response.text();
+  const maxBodyBytes = resolveMaxBytes(env("ORACLE_MAX_UPSTREAM_BODY_BYTES"), 256 * 1024, 4096);
+  const text = await (async () => {
+    if (!response.body || typeof response.body.getReader !== "function") {
+      const body = await response.text();
+      if (Buffer.byteLength(body, "utf8") > maxBodyBytes) {
+        throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
+      }
+      return body;
+    }
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = Buffer.from(value);
+      total += chunk.length;
+      if (total > maxBodyBytes) {
+        await reader.cancel().catch(() => {});
+        throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
+      }
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks).toString("utf8");
+  })();
   let data = null;
   if (text) {
     try {

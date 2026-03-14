@@ -59,16 +59,14 @@ Executed boundary evidence now available:
 
 - `docs/N3_NEODID_REGISTRY_BOUNDARY_TESTNET_2026-03-14.md`
 - `docs/N3_NEODID_REGISTRY_V1_TESTNET_2026-03-14.md`
+- `docs/N3_AA_RECOVERY_CROSS_ACCOUNT_BOUNDARY_TESTNET_2026-03-14.md`
 
 What it proves:
 
 - `NeoDIDRegistry.UseActionTicket(...)` rejects a caller that is not the declared disposable account
 - the default JSON callback output still does not expose a ticket-level signature that `NeoDIDRegistry.UseActionTicket(...)` can consume directly, so attempting to use the envelope-level verification signature faults with `invalid verification signature`
 - the compact `neo_n3_action_v1` callback path does produce a directly consumable ticket, and replay is rejected with `action nullifier already used`
-
-Still pending:
-
-- live cross-account misuse against an AA recovery verifier that already consumes NeoDID recovery tickets on-chain
+- a compact NeoDID recovery ticket bound to account A faults with `Invalid Morpheus recovery signature` when replayed against account B on a live disposable `MorpheusSocialRecoveryVerifier` deployment
 
 ### B. Oracle callback envelope mismatch
 

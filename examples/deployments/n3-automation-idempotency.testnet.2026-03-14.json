@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T09:33:52.572Z",
+  "generated_at": "2026-03-14T12:45:33.299Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
@@ -8,32 +8,32 @@
   "request_fee_status": {
     "request_fee": "1000000",
     "current_credit": "50000000",
-    "deposit_amount": "22000000"
+    "deposit_amount": "11000000"
   },
   "registration": {
-    "txid": "0x8d838a0e69320e98d34fe3ad8ab58e51dfc8699c3f486437494671319e56f0be",
-    "request_id": "1062",
-    "automation_id": "automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668"
+    "txid": "0x3cdbbea3f7f91320f368f54f532b6ff9d7bf54fff04b1531cc37d998d1d514ba",
+    "request_id": "2157",
+    "automation_id": "automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059"
   },
   "local_runs": {
     "first": {
-      "queued": 5,
-      "skipped": 51,
+      "queued": 42,
+      "skipped": 46,
       "failed": 0,
-      "inspected": 56
+      "inspected": 88
     },
     "second": {
-      "queued": 0,
-      "skipped": 56,
+      "queued": 30,
+      "skipped": 59,
       "failed": 0,
-      "inspected": 56
+      "inspected": 89
     }
   },
   "supabase": {
     "job": {
-      "id": "4c8f6171-aa18-491c-a2c2-894a1d58d358",
-      "automation_id": "automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668",
-      "registration_request_id": "1062",
+      "id": "e86ae086-0265-4efc-b1d0-216339858f84",
+      "automation_id": "automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059",
+      "registration_request_id": "2157",
       "project_id": null,
       "project_slug": "",
       "chain": "neo_n3",
@@ -49,49 +49,49 @@
       },
       "trigger_type": "interval",
       "trigger_config": {
-        "start_at": "2026-03-14T09:41:50.416Z",
+        "start_at": "2026-03-14T12:49:53.751Z",
         "interval_ms": 300000
       },
       "trigger_state": {},
       "status": "active",
-      "next_run_at": "2026-03-14T09:38:12.272+00:00",
-      "last_run_at": "2026-03-14T09:33:12.272+00:00",
+      "next_run_at": "2026-03-14T12:46:01.946+00:00",
+      "last_run_at": "2026-03-14T12:41:01.946+00:00",
       "execution_count": 1,
       "max_executions": null,
-      "last_queued_request_id": "automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1",
+      "last_queued_request_id": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
       "last_error": null,
-      "created_at": "2026-03-14T09:32:27.758+00:00",
-      "updated_at": "2026-03-14T09:33:27.392+00:00",
+      "created_at": "2026-03-14T12:40:28.18+00:00",
+      "updated_at": "2026-03-14T12:43:30.748+00:00",
       "network": "testnet"
     },
     "runs": [
       {
-        "id": "b2c231dd-0966-47c5-bfc3-41964f7a6f84",
-        "automation_id": "automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668",
-        "queued_request_id": "automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1",
+        "id": "beef6b61-471e-43e4-a989-94939d80c3b0",
+        "automation_id": "automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059",
+        "queued_request_id": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
         "chain": "neo_n3",
         "status": "queued",
         "trigger_reason": "interval",
         "observed_value": null,
         "queue_tx": {
-          "tx_hash": "0x7ef806d933de958d1eb7a8fa24f528c9d6aac9c54e916dad81260fcaf5290406",
+          "tx_hash": "0x60cbea4acb42d0819bed8ec17d2eb69ca82b85d5a461734b35d01980786db981",
           "vm_state": "HALT",
-          "request_id": "automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1",
+          "request_id": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
           "target_chain": "neo_n3"
         },
         "error": null,
-        "created_at": "2026-03-14T09:33:28.522517+00:00",
+        "created_at": "2026-03-14T12:43:31.049129+00:00",
         "network": "testnet"
       }
     ]
   },
-  "queued_request_key": "automation:neo_n3:automation:neo_n3:480844c3-2c1a-4914-92d7-ca5da89c5668:1",
-  "queued_chain_request_id": "1082",
-  "queued_tx_hash": "0x7ef806d933de958d1eb7a8fa24f528c9d6aac9c54e916dad81260fcaf5290406",
+  "queued_request_key": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
+  "queued_chain_request_id": "2221",
+  "queued_tx_hash": "0x60cbea4acb42d0819bed8ec17d2eb69ca82b85d5a461734b35d01980786db981",
   "queued_callback": {
     "request_type": "privacy_oracle",
     "success": true,
-    "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.579\",\"result\":\"2.579\"},\"verification\":{\"output_hash\":\"5f886d1c7be7d807674deed450d710b159a72c5a6781bfa543820258e29f52ad\",\"attestation_hash\":\"5f886d1c7be7d807674deed450d710b159a72c5a6781bfa543820258e29f52ad\",\"signature\":\"305bc53aa1a2f1553a59c30bc697c4f7c9b6d97cfb24dc18f3395606e926f5924f60675f0812f8d2148aae1d5ef4c4a87001867a890ea2d132c06c5ed5c1d398\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"5f886d1c7be7d807674deed450d710b159a72c5a6781bfa543820258e29f52ad0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"b651bf8901bc03da8230b05f3f5bf30f08356344a799b9531e3c9c92a0fd4caa\"}}}",
+    "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.556\",\"result\":\"2.556\"},\"verification\":{\"output_hash\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f\",\"attestation_hash\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f\",\"signature\":\"64c029f552b3d288dda1793a34caaac11975709123191199c5e76a57cbd46df1ef18aaf68998003df2417aa1d0c9fb5891879c32f58c006af156e61459ba13e6\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"18bd8466c628d9ed993ae2cc1a577b679015d041dd60dd50cc548e5f90ad4ea3\"}}}",
     "result_json": {
       "version": "morpheus-result/v1",
       "request_type": "privacy_oracle",
@@ -101,19 +101,19 @@
         "target_chain": "neo_n3",
         "request_source": "morpheus-relayer:neo_n3",
         "upstream_status": 200,
-        "extracted_value": "2.579",
-        "result": "2.579"
+        "extracted_value": "2.556",
+        "result": "2.556"
       },
       "verification": {
-        "output_hash": "5f886d1c7be7d807674deed450d710b159a72c5a6781bfa543820258e29f52ad",
-        "attestation_hash": "5f886d1c7be7d807674deed450d710b159a72c5a6781bfa543820258e29f52ad",
-        "signature": "305bc53aa1a2f1553a59c30bc697c4f7c9b6d97cfb24dc18f3395606e926f5924f60675f0812f8d2148aae1d5ef4c4a87001867a890ea2d132c06c5ed5c1d398",
+        "output_hash": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f",
+        "attestation_hash": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f",
+        "signature": "64c029f552b3d288dda1793a34caaac11975709123191199c5e76a57cbd46df1ef18aaf68998003df2417aa1d0c9fb5891879c32f58c006af156e61459ba13e6",
         "public_key": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917",
         "tee_attestation": {
           "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
           "compose_hash": "8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43",
-          "report_data": "5f886d1c7be7d807674deed450d710b159a72c5a6781bfa543820258e29f52ad0000000000000000000000000000000000000000000000000000000000000000",
-          "quote_hash": "b651bf8901bc03da8230b05f3f5bf30f08356344a799b9531e3c9c92a0fd4caa"
+          "report_data": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f0000000000000000000000000000000000000000000000000000000000000000",
+          "quote_hash": "18bd8466c628d9ed993ae2cc1a577b679015d041dd60dd50cc548e5f90ad4ea3"
         }
       }
     },
