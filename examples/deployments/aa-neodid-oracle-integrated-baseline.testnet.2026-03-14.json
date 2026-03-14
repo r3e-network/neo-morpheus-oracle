@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T09:35:15.707Z",
+  "generated_at": "2026-03-14T10:08:58.343Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -158,6 +158,12 @@
       "queued_callback_success": true,
       "execution_count": 1
     },
+    "automation_cancel_race": {
+      "report_path": "examples/deployments/n3-automation-cancel-race.testnet.latest.json",
+      "automation_id": null,
+      "queued_chain_request_id": "1212",
+      "executed_after_cancel": true
+    },
     "callback_boundary": {
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
       "txid": "0x84db596d27ae69019c58966d015b227b9d083ee679dc1ed2c3e2de57a9df57b5",
@@ -219,6 +225,7 @@
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
     "Sequential automation duplicate-queue suppression under back-to-back relayer ticks",
+    "Automation cancellation-race execution probe",
     "Callback consumer direct injection rejection",
     "NeoDID action ticket JSON callback boundary rejection",
     "NeoDID compact action ticket registry consumption and replay rejection",
@@ -228,6 +235,7 @@
   ],
   "remaining_integrated_gaps": [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
+    "Automation cancellation race still allows an already-queued execution to fulfill once after cancellation",
     "AA-aware automation billing under sponsored execution"
   ]
 }

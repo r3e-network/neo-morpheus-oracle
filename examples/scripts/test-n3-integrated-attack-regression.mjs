@@ -304,6 +304,14 @@ function summarizeAutomationIdempotency(report) {
   };
 }
 
+function summarizeAutomationCancelRace(report) {
+  return {
+    automation_id: report?.automation_id || null,
+    queued_chain_request_id: report?.queued_chain_request_id || null,
+    executed_after_cancel: report?.executed_after_cancel ?? null,
+  };
+}
+
 function readJsonIfPresent(filePath) {
   if (!filePath || !fs.existsSync(filePath)) return null;
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -423,6 +431,17 @@ stages.push(
     repoRoot,
     "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
     summarizeAaSessionOracleBoundary,
+    sharedTestnetEnv,
+    null,
+  ),
+  makeStage(
+    "automation_cancel_race",
+    "Automation cancellation race",
+    "node",
+    [path.resolve(repoRoot, "examples/scripts/test-n3-automation-cancel-race.mjs")],
+    repoRoot,
+    "examples/deployments/n3-automation-cancel-race.testnet.latest.json",
+    summarizeAutomationCancelRace,
     sharedTestnetEnv,
     null,
   ),
@@ -603,7 +622,7 @@ async function main() {
       "Live cross-account NeoDID recovery-ticket misuse against an AA recovery verifier",
       "Oracle callback envelope replay into an AA-bound consumer with AA-specific state checks",
       "Encrypted ref replay where requester/callback binding still matches but one-time semantics should reject reuse",
-      "Automation cancellation race during an already due in-flight execution",
+      "Automation cancellation race still allows an already-queued execution to fulfill once after cancellation",
       "Automation deposit-exhaustion proof under a shared requester fee-credit pool",
       "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path",
     ],
