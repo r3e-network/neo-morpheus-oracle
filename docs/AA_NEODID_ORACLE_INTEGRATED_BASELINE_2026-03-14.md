@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T12:02:48.486Z
+Date: 2026-03-14T18:26:51.096Z
 
 ## Purpose
 
@@ -36,11 +36,11 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy: 7/7 cases marked passing
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
-- Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:b68af1d0-e4e9-4606-8322-c8a84332f7f8:1`, second tick queued `0`, chain request id=`1575`, callback success=`true`
-- Automation cancel race: executed_after_cancel=`true`, queued chain request id=`1543`
-- Callback boundary: vmstate=FAULT, tx=`0xa3b4abff609bf04a2fc3aa2fa2c2b2aaac0588f20c9405d039451cd69d7aa8d9`
-- NeoDID registry JSON boundary: mismatch tx=`0x009bb282a4480634770d883ea2d0556915db7ea3ece8fa92fb68fea4baaafc76`
-- NeoDID registry v1: consume tx=`0x22dad8e300ae75f117fa6c9fed4abd16ecd8c081b66a5247a6eeb865832d697b`, replay tx=`0x17d046b479cb784e3f42569194d2c49e33a9ed21a5d06740e87ee6e102b42c7d`
+- Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1`, second tick queued `0`, chain request id=`2221`, callback success=`true`
+- Automation cancel race: executed_after_cancel=`false`, queued chain request id=`3218`
+- Callback boundary: vmstate=FAULT, tx=`0xf6a3001a77067b2291482c20852195bbcbd1c7f38a3ff3f54fe4be0cbc69467c`
+- NeoDID registry JSON boundary: mismatch tx=`0xd5e4918388059efea68b2f3c874ad14e2b19ea1e0c185891779a96cc34b22656`
+- NeoDID registry v1: consume tx=`0x8f26c9e4b56721b96cdff924bdc429e1fec6aa4dc494475387d5e17eb8bf0916`, replay tx=`0x3dcec34a6d0f83f814e7705c3b184c31ef846597404887d3dd7850bff85f61a4`
 - Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
 - Fulfillment replay: replay exception=`at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, fulfill vmstate=`HALT`
 - AA session-key boundary: wrong target=`at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`, wrong method=`at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`
@@ -68,10 +68,8 @@ It does not claim that every cross-system attack has already been live-executed.
 
 ## Remaining Integrated Gaps
 
-- Automation cancellation race still allows an already-queued execution to fulfill once after cancellation
 - AA-aware automation billing under sponsored execution
 
 ## Recommendation
 
 Use this baseline as the prerequisite evidence set for the next integrated adversarial run. The next executable layer should combine a live AA account, NeoDID-backed recovery or credential state, and Morpheus callback fulfillment under negative replay and cross-account misuse scenarios.
-
