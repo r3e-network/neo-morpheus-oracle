@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T03:08:15.928Z",
+  "generated_at": "2026-03-14T03:37:18.426Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -163,6 +163,15 @@
       "wrong_witness_exception": "at instruction 1958 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized",
       "mismatch_txid": "0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8",
       "mismatch_exception": "at instruction 1473 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"
+    },
+    "neodid_registry_v1": {
+      "report_path": "examples/deployments/n3-neodid-registry-v1.testnet.latest.json",
+      "request_txid": "0x77fc0bad1a20cea8b4c21491edbf794682417dfea2a9f02f82595a2432c2130a",
+      "registry_hash": "0x893d92aef78ddc2fe184551274139aacffd40814",
+      "consume_txid": "0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1",
+      "consume_vmstate": "HALT",
+      "replay_txid": "0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc",
+      "replay_exception": "at instruction 2229 (ABORTMSG): ABORTMSG is executed. Reason: action nullifier already used"
     }
   },
   "executed_coverage": [
@@ -175,7 +184,8 @@
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
     "Callback consumer direct injection rejection",
-    "NeoDID action ticket registry boundary rejection"
+    "NeoDID action ticket JSON callback boundary rejection",
+    "NeoDID compact action ticket registry consumption and replay rejection"
   ],
   "remaining_integrated_gaps": [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",

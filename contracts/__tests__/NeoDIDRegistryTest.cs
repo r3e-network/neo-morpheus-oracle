@@ -38,6 +38,9 @@ namespace MorpheusOracle.Contracts.Tests
             Assert.Contains("ActionTicketUsed", code);
             Assert.Contains("ComputeBindingDigest", code);
             Assert.Contains("ComputeActionDigest", code);
+            Assert.Contains("EncodeCanonicalHash160", code);
+            Assert.Contains("Helper.Concat(payload, EncodeCanonicalHash160(vaultAccount))", code);
+            Assert.Contains("Helper.Concat(payload, EncodeCanonicalHash160(disposableAccount))", code);
             Assert.Contains("[DisplayName(\"NeoDIDRegistry\")]", code);
         }
     }

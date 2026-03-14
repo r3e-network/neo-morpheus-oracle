@@ -254,7 +254,7 @@ namespace MorpheusOracle.Contracts
         private static ByteString ComputeBindingDigest(UInt160 vaultAccount, string provider, string claimType, string claimValue, ByteString masterNullifier, ByteString metadataHash)
         {
             ByteString payload = (ByteString)BINDING_DOMAIN;
-            payload = Helper.Concat(payload, (ByteString)(byte[])vaultAccount);
+            payload = Helper.Concat(payload, EncodeCanonicalHash160(vaultAccount));
             payload = Helper.Concat(payload, EncodeSegment(provider ?? ""));
             payload = Helper.Concat(payload, EncodeSegment(claimType ?? ""));
             payload = Helper.Concat(payload, EncodeSegment(claimValue ?? ""));
@@ -266,7 +266,7 @@ namespace MorpheusOracle.Contracts
         private static ByteString ComputeActionDigest(UInt160 disposableAccount, string actionId, ByteString actionNullifier)
         {
             ByteString payload = (ByteString)ACTION_DOMAIN;
-            payload = Helper.Concat(payload, (ByteString)(byte[])disposableAccount);
+            payload = Helper.Concat(payload, EncodeCanonicalHash160(disposableAccount));
             payload = Helper.Concat(payload, EncodeSegment(actionId ?? ""));
             payload = Helper.Concat(payload, actionNullifier);
             return CryptoLib.Sha256(payload);
@@ -278,6 +278,18 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(safe.Length <= 255, "segment too long");
             byte[] prefix = new byte[] { (byte)safe.Length };
             return Helper.Concat((ByteString)prefix, (ByteString)safe);
+        }
+
+        private static ByteString EncodeCanonicalHash160(UInt160 value)
+        {
+            ExecutionEngine.Assert(value != null && value.IsValid, "invalid hash160");
+            byte[] raw = (byte[])value;
+            byte[] canonical = new byte[raw.Length];
+            for (int i = 0; i < raw.Length; i++)
+            {
+                canonical[i] = raw[raw.Length - 1 - i];
+            }
+            return (ByteString)canonical;
         }
 
         private static void VerifySignature(ByteString digest, ByteString verificationSignature)
