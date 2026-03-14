@@ -30,6 +30,11 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function normalizeHash160(value) {
+  const raw = trimString(value).replace(/^0x/i, "").toLowerCase();
+  return /^[0-9a-f]{40}$/.test(raw) ? `0x${raw}` : "";
+}
+
 function mergeConfidentialValue(baseValue, patchValue) {
   if (!isPlainObject(baseValue) || !isPlainObject(patchValue)) {
     return patchValue;
@@ -201,7 +206,7 @@ function getSupabaseRestConfig() {
   };
 }
 
-async function loadEncryptedCiphertextByRef(ref) {
+async function loadEncryptedCiphertextByRef(ref, payload = {}) {
   const restConfig = getSupabaseRestConfig();
   if (!restConfig) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for encrypted ref resolution");
   const network = trimString(env("MORPHEUS_NETWORK") || env("NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet") === "mainnet"
@@ -209,7 +214,7 @@ async function loadEncryptedCiphertextByRef(ref) {
     : "testnet";
 
   const url = new URL(`${restConfig.restUrl}/morpheus_encrypted_secrets`);
-  url.searchParams.set("select", "id,ciphertext,network");
+  url.searchParams.set("select", "id,ciphertext,network,metadata");
   url.searchParams.set("id", `eq.${ref}`);
   url.searchParams.set("network", `eq.${network}`);
   url.searchParams.set("limit", "1");
@@ -230,11 +235,38 @@ async function loadEncryptedCiphertextByRef(ref) {
 
   const rows = await response.json().catch(() => []);
   const row = Array.isArray(rows) ? rows[0] : null;
+  assertEncryptedRefScope(row, payload);
   const ciphertext = trimString(row?.ciphertext || "");
   if (!ciphertext) {
     throw new Error(`encrypted ref not found: ${ref}`);
   }
   return ciphertext;
+}
+
+function assertEncryptedRefScope(row, payload = {}) {
+  const metadata = isPlainObject(row?.metadata) ? row.metadata : {};
+  const boundRequester = normalizeHash160(metadata.bound_requester || metadata.requester || "");
+  const boundCallbackContract = normalizeHash160(metadata.bound_callback_contract || metadata.callback_contract || "");
+  const expectedRequester = normalizeHash160(payload.requester || payload.requester_script_hash || "");
+  const expectedCallbackContract = normalizeHash160(payload.callback_contract || payload.callbackContract || "");
+
+  if (boundRequester) {
+    if (!expectedRequester) {
+      throw new Error("encrypted ref requester binding present but requester context is missing");
+    }
+    if (boundRequester !== expectedRequester) {
+      throw new Error("encrypted ref requester mismatch");
+    }
+  }
+
+  if (boundCallbackContract) {
+    if (!expectedCallbackContract) {
+      throw new Error("encrypted ref callback binding present but callback context is missing");
+    }
+    if (boundCallbackContract !== expectedCallbackContract) {
+      throw new Error("encrypted ref callback mismatch");
+    }
+  }
 }
 
 function parseX25519Envelope(ciphertext) {
@@ -378,7 +410,7 @@ export async function resolveConfidentialPayload(payload = {}) {
   let ciphertext = resolveEncryptedConfidentialPayload(payload);
   const encryptedRef = resolveEncryptedConfidentialRef(payload);
   if (!ciphertext && encryptedRef) {
-    ciphertext = await loadEncryptedCiphertextByRef(encryptedRef);
+    ciphertext = await loadEncryptedCiphertextByRef(encryptedRef, payload);
   }
   if (!ciphertext) return payload;
 

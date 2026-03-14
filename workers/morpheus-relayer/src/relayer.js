@@ -209,7 +209,11 @@ async function processOracleRequest(config, event) {
     };
   }
   const route = resolveWorkerRoute(event.requestType, payload);
-  const workerPayload = buildWorkerPayload(event.chain, event.requestType, payload, event.requestId);
+  const workerPayload = buildWorkerPayload(event.chain, event.requestType, payload, event.requestId, {
+    requester: event.requester,
+    callbackContract: event.callbackContract,
+    callbackMethod: event.callbackMethod,
+  });
   const workerResponse = await callPhala(config, route, workerPayload);
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
   const verification = await signFulfillmentPayload(config, event.chain, {

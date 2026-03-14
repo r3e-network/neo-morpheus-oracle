@@ -8,6 +8,11 @@ function trimString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function normalizeHash160(value: unknown) {
+  const raw = trimString(value).replace(/^0x/i, "").toLowerCase();
+  return /^[0-9a-f]{40}$/.test(raw) ? `0x${raw}` : "";
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const ciphertext = trimString(body?.ciphertext);
@@ -17,6 +22,8 @@ export async function POST(request: Request) {
   const name = trimString(body?.name || "") || `cipher-ref:${randomUUID()}`;
   const algorithm = trimString(body?.encryption_algorithm || body?.algorithm || "client-supplied-ciphertext");
   const metadata = typeof body?.metadata === "object" && body?.metadata ? body.metadata : {};
+  const boundRequester = normalizeHash160(body?.requester || body?.requester_script_hash);
+  const boundCallbackContract = normalizeHash160(body?.callback_contract || body?.callbackContract);
 
   if (!ciphertext) {
     return NextResponse.json({ error: "ciphertext is required" }, { status: 400 });
@@ -43,6 +50,8 @@ export async function POST(request: Request) {
       metadata: {
         source: "api.confidential.store",
         network,
+        ...(boundRequester ? { bound_requester: boundRequester } : {}),
+        ...(boundCallbackContract ? { bound_callback_contract: boundCallbackContract } : {}),
         ...metadata,
       },
     };
@@ -61,6 +70,8 @@ export async function POST(request: Request) {
       target_chain: data.target_chain,
       encryption_algorithm: data.encryption_algorithm,
       created_at: data.created_at,
+      ...(boundRequester ? { bound_requester: boundRequester } : {}),
+      ...(boundCallbackContract ? { bound_callback_contract: boundCallbackContract } : {}),
     };
 
     await recordOperationLog({
