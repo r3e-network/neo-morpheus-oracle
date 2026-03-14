@@ -92,6 +92,13 @@ export default function DocsIntroduction() {
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Inspect the live Neo N3 testnet validation for account registration, verifier update, paymaster authorization, and relay-backed executeUserOp.</p>
         </Link>
+        <Link href="/docs/r/AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>AA + MORPHEUS BASELINE</span>
+            <ClipboardList size={18} color="var(--neo-green)" />
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1rem', marginBottom: 0 }}>Review the unified testnet baseline across AA V3, NeoDID, privacy oracle, builtins, automation, and paymaster sponsorship before integrated attack execution.</p>
+        </Link>
         <Link href="/docs/feed-status" className="card-industrial" style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>FEED STATUS</span>

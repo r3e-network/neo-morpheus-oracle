@@ -17,6 +17,7 @@ Use this document together with:
 - `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
 - `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md`
 - `docs/AA_V3_TESTNET_VALIDATION_SUITE_2026-03-14.md`
+- `docs/AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14.md`
 - `docs/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14.md`
 - `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`
 - `examples/deployments/mainnet-privacy-validation.latest.json`
