@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-03-14T03:35:16.991Z",
+  "network": "testnet",
+  "rpc_url": "https://testnet1.neo.coz.io:443",
+  "network_magic": 894710606,
+  "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+  "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+  "registry_hash": "0x893d92aef78ddc2fe184551274139aacffd40814",
+  "request_fee_status": {
+    "request_fee": "1000000",
+    "callback_credit": "1000000",
+    "deposit_txid": "0x2c236498ceca78e9f8acf0bd1cefa8dff7833b13b865e0b97273375e6bcfef24",
+    "funding_txid": "0x633a9b02b8e5d0a52bee70c34f633eef92636f5c20f5e8e71fe7da7a605aa135"
+  },
+  "action_request": {
+    "txid": "0x77fc0bad1a20cea8b4c21491edbf794682417dfea2a9f02f82595a2432c2130a",
+    "request_id": "197",
+    "payload": {
+      "provider": "github",
+      "provider_uid": "alice-gh-registry-v1",
+      "disposable_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+      "action_id": "vote:registry-v1:1773459245371",
+      "callback_encoding": "neo_n3_action_v1"
+    }
+  },
+  "compact_ticket": {
+    "disposable_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+    "action_id": "vote:registry-v1:1773459245371",
+    "action_nullifier": "0xf7502f2d560d447f2acb165da8127a9f555b978aa582396dcb0b120e4ec4a7e7",
+    "signature": "0x23de020d1bec75fe8a0cd8adab8e55542ffe66074f7269a79ce6cce8c7ee1a0ec54413a0ff8b080df1723b1a28bd5dfbfa0bbc2dfee0a442e28d49740461a438"
+  },
+  "wrong_witness_preview": {
+    "state": "FAULT",
+    "exception": "at instruction 2188 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized"
+  },
+  "consume_probe": {
+    "set_verifier_txid": "0xf3979bfec7aeef6ed7b785675586cff587ff9c5ff2bc665982b775039856cf31",
+    "txid": "0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1",
+    "vmstate": "HALT",
+    "stack": [
+      {
+        "type": "Boolean",
+        "value": true
+      }
+    ],
+    "exception": ""
+  },
+  "replay_probe": {
+    "txid": "0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc",
+    "vmstate": "FAULT",
+    "exception": "at instruction 2229 (ABORTMSG): ABORTMSG is executed. Reason: action nullifier already used"
+  }
+}

@@ -27,6 +27,7 @@ const inputs = {
   morpheusAutomation: path.join(repoRoot, "examples", "deployments", "n3-automation-validation.testnet.latest.json"),
   callbackBoundary: path.join(repoRoot, "examples", "deployments", "n3-callback-boundary.testnet.latest.json"),
   neodidRegistryBoundary: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-boundary.testnet.latest.json"),
+  neodidRegistryV1: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-v1.testnet.latest.json"),
 };
 
 const aaSuite = readJson(inputs.aaSuite);
@@ -36,6 +37,7 @@ const builtins = readJson(inputs.morpheusBuiltins);
 const automation = readJson(inputs.morpheusAutomation);
 const callbackBoundary = readJson(inputs.callbackBoundary);
 const neodidRegistryBoundary = readJson(inputs.neodidRegistryBoundary);
+const neodidRegistryV1 = readJson(inputs.neodidRegistryV1);
 
 const aaStages = Object.fromEntries((aaSuite.stages || []).map((stage) => [stage.id, stage.summary || {}]));
 const neodidCases = Array.isArray(neodid.cases) ? neodid.cases : [];
@@ -99,6 +101,15 @@ const summary = {
       mismatch_txid: neodidRegistryBoundary.registry_probe?.use_action_ticket_txid || null,
       mismatch_exception: neodidRegistryBoundary.registry_probe?.exception || null,
     },
+    neodid_registry_v1: {
+      report_path: rel(inputs.neodidRegistryV1),
+      request_txid: neodidRegistryV1.action_request?.txid || null,
+      registry_hash: neodidRegistryV1.registry_hash || null,
+      consume_txid: neodidRegistryV1.consume_probe?.txid || null,
+      consume_vmstate: neodidRegistryV1.consume_probe?.vmstate || null,
+      replay_txid: neodidRegistryV1.replay_probe?.txid || null,
+      replay_exception: neodidRegistryV1.replay_probe?.exception || null,
+    },
   },
   executed_coverage: [
     "AA V3 smoke execution",
@@ -110,7 +121,8 @@ const summary = {
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
     "Callback consumer direct injection rejection",
-    "NeoDID action ticket registry boundary rejection",
+    "NeoDID action ticket JSON callback boundary rejection",
+    "NeoDID compact action ticket registry consumption and replay rejection",
   ],
   remaining_integrated_gaps: [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
@@ -140,6 +152,7 @@ const lines = [
   `- Automation matrix: \`${summary.morpheus.automation.report_path}\``,
   `- Callback boundary probe: \`${summary.morpheus.callback_boundary.report_path}\``,
   `- NeoDID registry boundary probe: \`${summary.morpheus.neodid_registry_boundary.report_path}\``,
+  `- NeoDID registry v1 probe: \`${summary.morpheus.neodid_registry_v1.report_path}\``,
   "",
   "## AA Baseline",
   "",
@@ -154,7 +167,8 @@ const lines = [
   `- Builtins: ${summary.morpheus.builtins.total_builtins} builtin requests`,
   `- Automation: register=${summary.morpheus.automation.register_success}, queued=${summary.morpheus.automation.queued_success}, cancel=${summary.morpheus.automation.cancel_success}`,
   `- Callback boundary: vmstate=${summary.morpheus.callback_boundary.vmstate}, tx=\`${summary.morpheus.callback_boundary.txid}\``,
-  `- NeoDID registry boundary: mismatch tx=\`${summary.morpheus.neodid_registry_boundary.mismatch_txid}\``,
+  `- NeoDID registry JSON boundary: mismatch tx=\`${summary.morpheus.neodid_registry_boundary.mismatch_txid}\``,
+  `- NeoDID registry v1: consume tx=\`${summary.morpheus.neodid_registry_v1.consume_txid}\`, replay tx=\`${summary.morpheus.neodid_registry_v1.replay_txid}\``,
   "",
   "## Executed Coverage",
   "",

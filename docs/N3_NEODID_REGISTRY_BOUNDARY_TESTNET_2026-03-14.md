@@ -4,7 +4,7 @@ Date: 2026-03-14T03:06:49.824Z
 
 ## Scope
 
-This probe verifies the current boundary between Oracle-issued NeoDID action-ticket callbacks and on-chain `NeoDIDRegistry.UseActionTicket(...)` consumption.
+This probe verifies the current boundary between the default JSON Oracle callback envelope for NeoDID action tickets and on-chain `NeoDIDRegistry.UseActionTicket(...)` consumption.
 
 ## Validated Behaviors
 
@@ -20,9 +20,13 @@ This probe verifies the current boundary between Oracle-issued NeoDID action-tic
 
 ## Conclusion
 
-The test confirms two things:
+The test confirms two things for the default JSON callback path:
 
 - `NeoDIDRegistry.UseActionTicket(...)` rejects a caller that is not the declared disposable account.
-- The current Oracle callback output does not yet expose a ticket-level verification signature that can be consumed directly by `UseActionTicket(...)`; using the envelope-level verification signature faults with `invalid verification signature`.
+- The default JSON Oracle callback output does not expose a ticket-level verification signature that can be consumed directly by `UseActionTicket(...)`; using the envelope-level verification signature faults with `invalid verification signature`.
 
-This is therefore a real integrated boundary gap rather than a purely theoretical one.
+This is therefore a real integrated boundary gap for the JSON callback path rather than a purely theoretical one.
+
+Note:
+
+- The separate compact callback path `neo_n3_action_v1` was validated later in `docs/N3_NEODID_REGISTRY_V1_TESTNET_2026-03-14.md` and does produce a directly consumable on-chain ticket.

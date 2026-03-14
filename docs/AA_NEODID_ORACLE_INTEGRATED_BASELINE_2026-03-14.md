@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T03:08:15.928Z
+Date: 2026-03-14T03:37:18.426Z
 
 ## Purpose
 
@@ -16,6 +16,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Automation matrix: `examples/deployments/n3-automation-validation.testnet.latest.json`
 - Callback boundary probe: `examples/deployments/n3-callback-boundary.testnet.latest.json`
 - NeoDID registry boundary probe: `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`
+- NeoDID registry v1 probe: `examples/deployments/n3-neodid-registry-v1.testnet.latest.json`
 
 ## AA Baseline
 
@@ -30,7 +31,8 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
 - Callback boundary: vmstate=FAULT, tx=`0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d`
-- NeoDID registry boundary: mismatch tx=`0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8`
+- NeoDID registry JSON boundary: mismatch tx=`0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8`
+- NeoDID registry v1: consume tx=`0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1`, replay tx=`0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc`
 
 ## Executed Coverage
 
@@ -43,7 +45,8 @@ It does not claim that every cross-system attack has already been live-executed.
 - Builtin compute catalog
 - Automation register / queue / cancel flow
 - Callback consumer direct injection rejection
-- NeoDID action ticket registry boundary rejection
+- NeoDID action ticket JSON callback boundary rejection
+- NeoDID compact action ticket registry consumption and replay rejection
 
 ## Remaining Integrated Gaps
 
