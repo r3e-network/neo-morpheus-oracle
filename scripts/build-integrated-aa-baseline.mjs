@@ -25,6 +25,7 @@ const inputs = {
   morpheusPrivacy: path.join(repoRoot, "examples", "deployments", "n3-privacy-validation.testnet.latest.json"),
   morpheusBuiltins: path.join(repoRoot, "examples", "deployments", "n3-builtins-validation.testnet.latest.json"),
   morpheusAutomation: path.join(repoRoot, "examples", "deployments", "n3-automation-validation.testnet.latest.json"),
+  callbackBoundary: path.join(repoRoot, "examples", "deployments", "n3-callback-boundary.testnet.latest.json"),
 };
 
 const aaSuite = readJson(inputs.aaSuite);
@@ -32,6 +33,7 @@ const neodid = readJson(inputs.morpheusNeodid);
 const privacy = readJson(inputs.morpheusPrivacy);
 const builtins = readJson(inputs.morpheusBuiltins);
 const automation = readJson(inputs.morpheusAutomation);
+const callbackBoundary = readJson(inputs.callbackBoundary);
 
 const aaStages = Object.fromEntries((aaSuite.stages || []).map((stage) => [stage.id, stage.summary || {}]));
 const neodidCases = Array.isArray(neodid.cases) ? neodid.cases : [];
@@ -81,6 +83,12 @@ const summary = {
       queued_success: automation.queued_execution?.callback?.success === true,
       cancel_success: automation.cancel?.callback?.success === true,
     },
+    callback_boundary: {
+      report_path: rel(inputs.callbackBoundary),
+      txid: callbackBoundary.probe?.txid || null,
+      vmstate: callbackBoundary.probe?.vmstate || null,
+      exception: callbackBoundary.probe?.exception || null,
+    },
   },
   executed_coverage: [
     "AA V3 smoke execution",
@@ -91,6 +99,7 @@ const summary = {
     "Privacy oracle encrypted parameter and custom function matrix",
     "Builtin compute catalog",
     "Automation register / queue / cancel flow",
+    "Callback consumer direct injection rejection",
   ],
   remaining_integrated_gaps: [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
@@ -118,6 +127,7 @@ const lines = [
   `- Privacy matrix: \`${summary.morpheus.privacy.report_path}\``,
   `- Builtins matrix: \`${summary.morpheus.builtins.report_path}\``,
   `- Automation matrix: \`${summary.morpheus.automation.report_path}\``,
+  `- Callback boundary probe: \`${summary.morpheus.callback_boundary.report_path}\``,
   "",
   "## AA Baseline",
   "",
@@ -131,6 +141,7 @@ const lines = [
   `- Privacy: ${summary.morpheus.privacy.passing_cases}/${summary.morpheus.privacy.total_cases} cases marked passing`,
   `- Builtins: ${summary.morpheus.builtins.total_builtins} builtin requests`,
   `- Automation: register=${summary.morpheus.automation.register_success}, queued=${summary.morpheus.automation.queued_success}, cancel=${summary.morpheus.automation.cancel_success}`,
+  `- Callback boundary: vmstate=${summary.morpheus.callback_boundary.vmstate}, tx=\`${summary.morpheus.callback_boundary.txid}\``,
   "",
   "## Executed Coverage",
   "",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T02:24:38.498Z",
+  "generated_at": "2026-03-14T02:37:03.849Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -149,6 +149,12 @@
       "register_success": true,
       "queued_success": true,
       "cancel_success": true
+    },
+    "callback_boundary": {
+      "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
+      "txid": "0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d",
+      "vmstate": "FAULT",
+      "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
     }
   },
   "executed_coverage": [
@@ -159,7 +165,8 @@
     "NeoDID Oracle callback binding and ticket issuance",
     "Privacy oracle encrypted parameter and custom function matrix",
     "Builtin compute catalog",
-    "Automation register / queue / cancel flow"
+    "Automation register / queue / cancel flow",
+    "Callback consumer direct injection rejection"
   ],
   "remaining_integrated_gaps": [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",

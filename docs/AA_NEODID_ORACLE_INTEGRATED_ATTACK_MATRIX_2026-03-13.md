@@ -71,6 +71,15 @@ Note:
 
 - this depends on the open Morpheus fulfillment-signature hardening item remaining in `docs/SECURITY_AUDIT.md`
 
+Executed baseline already available:
+
+- direct external callback injection into the testnet callback consumer now faults with `unauthorized caller`
+- reference artifact: `docs/N3_CALLBACK_BOUNDARY_TESTNET_2026-03-14.md`
+
+Still pending:
+
+- replay of a valid Oracle-originated callback envelope into a different AA-bound consumer context
+
 ### C. Confidential payload replay and reference abuse
 
 Goal:
