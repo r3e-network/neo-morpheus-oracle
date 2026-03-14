@@ -276,16 +276,78 @@ async function insertEncryptedSecret({ supabaseUrl, serviceRoleKey, ciphertext, 
 async function runPhalaRemoteShell(shellScript, { phalaApiToken, appId, maxBuffer = 10 * 1024 * 1024 } = {}) {
   let lastError = null;
   for (let attempt = 1; attempt <= PHALA_SSH_RETRIES; attempt += 1) {
-    try {
-      const result = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(shellScript)}`], { maxBuffer });
-      return result;
-    } catch (error) {
-      lastError = error;
-      if (attempt >= PHALA_SSH_RETRIES) break;
-      await sleep(1500 * attempt);
+    for (const args of [
+      trimString(phalaApiToken)
+        ? ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(shellScript)}`]
+        : null,
+      ["ssh", appId, "--", `sh -lc ${shellQuote(shellScript)}`],
+    ].filter(Boolean)) {
+      try {
+        const result = await execFileAsync("phala", args, { maxBuffer });
+        return result;
+      } catch (error) {
+        lastError = error;
+      }
     }
+    if (attempt >= PHALA_SSH_RETRIES) break;
+    await sleep(1500 * attempt);
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function getCvmStatus(appId) {
+  const { stdout } = await execFileAsync("phala", ["cvms", "get", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  const match = stdout.match(/│\s*Status\s*│\s*([^│\n]+)\s*│/);
+  if (!match) throw new Error(`unexpected phala cvms get output: ${stdout}`);
+  return trimString(match[1]);
+}
+
+async function waitForCvmStatus(appId, targetStatus, timeoutMs = 180000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const status = await getCvmStatus(appId);
+    if (status === targetStatus) return;
+    await sleep(3000);
+  }
+  throw new Error(`timed out waiting for CVM status=${targetStatus}`);
+}
+
+async function waitForContainersRunning(appId, timeoutMs = 300000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const { stdout } = await execFileAsync("phala", ["ps", appId], {
+        maxBuffer: 10 * 1024 * 1024,
+      });
+      const relayerRunning = /morpheus-relayer.*running/i.test(stdout);
+      const workerRunning = /phala-worker.*running/i.test(stdout);
+      if (relayerRunning && workerRunning) return;
+    } catch {}
+    await sleep(3000);
+  }
+  throw new Error("timed out waiting for Morpheus containers to become running");
+}
+
+async function stopCvm(appId) {
+  await execFileAsync("phala", ["cvms", "stop", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  }).catch((error) => {
+    const message = String(error?.stderr || error?.stdout || error?.message || error);
+    if (!/already in progress/i.test(message)) throw error;
+  });
+  await waitForCvmStatus(appId, "stopped");
+}
+
+async function startCvm(appId) {
+  await execFileAsync("phala", ["cvms", "start", appId], {
+    maxBuffer: 10 * 1024 * 1024,
+  }).catch((error) => {
+    const message = String(error?.stderr || error?.stdout || error?.message || error);
+    if (!/already in progress/i.test(message)) throw error;
+  });
+  await waitForContainersRunning(appId);
 }
 
 async function findRelayerLoopPid({ phalaApiToken, appId }) {
@@ -311,28 +373,36 @@ async function waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning,
 }
 
 async function stopRelayer({ phalaApiToken, appId }) {
-  const pid = await findRelayerLoopPid({ phalaApiToken, appId });
-  assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
-  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s STOP ${pid}`)}`], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: false });
-  return pid;
+  try {
+    const pid = await findRelayerLoopPid({ phalaApiToken, appId });
+    assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
+    await runPhalaRemoteShell(`kill -s STOP ${pid}`, { phalaApiToken, appId });
+    await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: false });
+    return { mode: "signal", pid };
+  } catch {
+    await stopCvm(appId);
+    return { mode: "cvm" };
+  }
 }
 
-async function startRelayer({ phalaApiToken, appId, pid }) {
-  if (!trimString(pid)) return;
-  await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(`kill -s CONT ${pid}`)}`], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  await waitForRelayerState({ phalaApiToken, appId, pid, shouldBeRunning: true });
+async function startRelayer({ phalaApiToken, appId, handle }) {
+  if (!handle) return;
+  if (handle.mode === "cvm") {
+    await startCvm(appId);
+    return;
+  }
+  if (!trimString(handle.pid)) return;
+  await runPhalaRemoteShell(`kill -s CONT ${handle.pid}`, { phalaApiToken, appId });
+  await waitForRelayerState({ phalaApiToken, appId, pid: handle.pid, shouldBeRunning: true });
 }
 
 async function buildRemoteEncryptedPatch(plaintext, { phalaApiToken, appId }) {
   const plaintextBase64 = Buffer.from(String(plaintext), "utf8").toString("base64");
   const shellScript = `
 set -e
-docker exec -i morpheus-phala-worker node --input-type=module - <<'JS'
+WORKER_CONTAINER="$(docker ps --format '{{.Names}}' | grep 'phala-worker' | head -n1)"
+test -n "$WORKER_CONTAINER"
+docker exec -i "$WORKER_CONTAINER" node --input-type=module - <<'JS'
 import { webcrypto } from 'node:crypto';
 const token = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET;
 const plaintext = Buffer.from('${plaintextBase64}', 'base64').toString('utf8');
@@ -423,23 +493,23 @@ async function main() {
   });
   const requesterHash = `0x${account.scriptHash}`;
   async function refreshRequesterCredit(requiredRequests) {
-    const pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+    const handle = await stopRelayer({ phalaApiToken, appId: phalaAppId });
     try {
       return await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
     } finally {
-      await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+      await startRelayer({ phalaApiToken, appId: phalaAppId, handle }).catch(() => {});
     }
   }
 
   function creditProtectedHooks(requiredRequests) {
-    let pid = "";
+    let handle = null;
     return {
       beforeSubmit: async () => {
-        pid = await stopRelayer({ phalaApiToken, appId: phalaAppId });
+        handle = await stopRelayer({ phalaApiToken, appId: phalaAppId });
         await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
       },
       afterSubmit: async () => {
-        await startRelayer({ phalaApiToken, appId: phalaAppId, pid }).catch(() => {});
+        await startRelayer({ phalaApiToken, appId: phalaAppId, handle }).catch(() => {});
       },
     };
   }
