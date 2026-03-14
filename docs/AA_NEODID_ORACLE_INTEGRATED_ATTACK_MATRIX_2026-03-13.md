@@ -1,7 +1,7 @@
 # AA + NeoDID + Oracle Integrated Attack Matrix
 
 Date: 2026-03-13
-Status: planned next-stage validation
+Status: baseline refreshed; integrated adversarial execution still pending
 
 This document defines the cross-system security matrix that should be executed after the standalone AA V3 plugin matrix.
 
@@ -18,6 +18,8 @@ The standalone AA V3 baseline was already validated separately on Neo N3 testnet
 Reference:
 
 - `../neo-abstract-account/docs/reports/2026-03-14-v3-testnet-validation-suite.md`
+- `docs/AA_V3_TESTNET_VALIDATION_SUITE_2026-03-14.md`
+- `docs/AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14.md`
 
 That report establishes the baseline behavior of:
 
