@@ -8,8 +8,8 @@ import {
 import { CONTRACT_EXAMPLES, AUTOMATION_PATTERNS, BUILTIN_FUNCTIONS, SECURITY_CONCEPTS } from "@/lib/docs-data";
 
 export function DeveloperHub() {
-  const [activeLang, setActiveLang] = useState<"neo_x" | "neo_n3">("neo_n3");
   const [copied, setCopied] = useState<string | null>(null);
+  const contractExample = CONTRACT_EXAMPLES.neo_n3;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -48,26 +48,17 @@ export function DeveloperHub() {
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Integration Examples</h3>
         </div>
         <div className="card-industrial" style={{ padding: '0', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-dim)' }}>
-            <button 
-              onClick={() => setActiveLang("neo_x")}
-              style={{ padding: '1rem 2rem', background: activeLang === "neo_x" ? 'rgba(59, 130, 246, 0.1)' : 'transparent', border: 'none', color: activeLang === "neo_x" ? '#fff' : 'var(--text-secondary)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.3s', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}
-            >
-              Neo X (Solidity)
-            </button>
-            <button 
-              onClick={() => setActiveLang("neo_n3")}
-              style={{ padding: '1rem 2rem', background: activeLang === "neo_n3" ? 'rgba(0, 255, 163, 0.05)' : 'transparent', border: 'none', color: activeLang === "neo_n3" ? '#fff' : 'var(--text-secondary)', fontWeight: 700, cursor: 'pointer', transition: 'all 0.3s', fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}
-            >
+          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid var(--border-dim)', padding: '1rem 2rem' }}>
+            <span style={{ color: '#fff', fontWeight: 700, fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>
               Neo N3 (C#)
-            </button>
+            </span>
           </div>
           <div style={{ position: 'relative' }}>
             <pre className="code-editor" style={{ borderRadius: 0, border: 'none', minHeight: '320px', fontSize: '0.85rem', background: 'transparent', boxShadow: 'none' }}>
-              {CONTRACT_EXAMPLES[activeLang]}
+              {contractExample}
             </pre>
-            <button onClick={() => handleCopy(CONTRACT_EXAMPLES[activeLang])} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'var(--bg-panel)', border: '1px solid var(--border-highlight)', borderRadius: '4px', padding: '8px', cursor: 'pointer' }}>
-              {copied === CONTRACT_EXAMPLES[activeLang] ? <Check size={14} className="text-neo" /> : <Copy size={14} className="text-muted" />}
+            <button onClick={() => handleCopy(contractExample)} style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'var(--bg-panel)', border: '1px solid var(--border-highlight)', borderRadius: '4px', padding: '8px', cursor: 'pointer' }}>
+              {copied === contractExample ? <Check size={14} className="text-neo" /> : <Copy size={14} className="text-muted" />}
             </button>
           </div>
         </div>

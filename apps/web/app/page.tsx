@@ -40,7 +40,7 @@ export default function HomePage() {
             </h1>
             
             <p style={{ maxWidth: '680px', margin: '0 auto 3.5rem', fontSize: '1.2rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              The decentralized prover network for confidential oracle callbacks, sealed compute, and high-integrity pricefeeds on Neo N3, with reference interfaces prepared for Neo X.
+              The decentralized prover network for confidential oracle callbacks, sealed compute, and high-integrity pricefeeds on Neo N3.
             </p>
             
             <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
@@ -111,7 +111,7 @@ export default function HomePage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '3rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <CheckCircle2 size={18} color="var(--text-primary)" />
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>Native C# & Solidity Interfaces</span>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', fontWeight: 500 }}>Native Neo N3 C# contract integration</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     <CheckCircle2 size={18} color="var(--text-primary)" />

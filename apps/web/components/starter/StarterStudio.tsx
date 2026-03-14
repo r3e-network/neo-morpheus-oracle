@@ -362,7 +362,6 @@ BigInteger requestId = (BigInteger)Contract.Call(
               <div style={{ marginBottom: "0.35rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>Target Chain</div>
               <select className="neo-select" value={targetChain} onChange={(event) => setTargetChain(event.target.value)}>
                 <option value="neo_n3">Neo N3</option>
-                <option value="neo_x">Neo X</option>
               </select>
             </label>
 

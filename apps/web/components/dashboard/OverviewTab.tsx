@@ -131,7 +131,7 @@ export function OverviewTab({ setOutput }: any) {
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <div className="badge-outline" style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}>Neo N3: Live</div>
-          <div className="badge-outline" style={{ color: 'var(--text-muted)' }}>Neo X: Reference Only</div>
+          <div className="badge-outline" style={{ color: 'var(--text-muted)' }}>Current Scope: N3 Only</div>
         </div>
       </div>
 

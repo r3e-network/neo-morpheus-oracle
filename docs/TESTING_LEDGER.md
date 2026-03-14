@@ -14,7 +14,7 @@ It answers four questions:
 Use this document together with:
 
 - `docs/ACCEPTANCE_REPORT_2026-03-10.md`
-- `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
+- `docs/MAINNET_PRIVACY_VALIDATION_2026-03-13.md`
 - `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md`
 - `docs/AA_V3_TESTNET_VALIDATION_SUITE_2026-03-14.md`
 - `docs/AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14.md`
@@ -62,7 +62,7 @@ Operational rule:
   - `public_key_format = raw`
   - `key_source = dstack-sealed`
 - Current validated compose hash from the latest mainnet privacy matrix:
-  - `0529396fc1e09cbb7b0078ef960a0d26d2cf4a04550378057702026de7423615`
+  - `9b0b3446bda62c4a4770b62d6025761787cf8207ece784cfe0dad83f38ec2984`
 - Current validated NeoDID Web3Auth runtime state after the 2026-03-12 production rollout:
   - `audience_configured = true`
   - `derives_provider_uid_in_tee = true`
@@ -108,12 +108,12 @@ What is now covered upstream before Morpheus-side integrated testing:
 
 | Artifact | Kind | Network | Notes |
 | --- | --- | --- | --- |
-| `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md` | Human report | Neo N3 mainnet | Full 7-case confidential Oracle / compute matrix |
+| `docs/MAINNET_PRIVACY_VALIDATION_2026-03-13.md` | Human report | Neo N3 mainnet | Full 7-case confidential Oracle / compute matrix |
 | `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md` | Human report | NeoDID Web3Auth runtime | Production rollout, backup, direct live Web3Auth validation, encrypted validation, and Oracle callback validation via `encrypted_params_ref` |
 | `examples/deployments/mainnet-privacy-validation.latest.json` | Machine-readable report | Neo N3 mainnet | Same matrix as JSON |
 | `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md` | Human report | Neo N3 mainnet | Latest mainnet example-consumer provider / compute / sponsored / custom URL / feed read run |
 | `examples/deployments/n3-examples-validation.mainnet.latest.json` | Machine-readable report | Neo N3 mainnet | Same latest example-consumer run as JSON |
-| `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-11.md` | Human report | TwelveData source validation | Verifies current canonical feed catalog mappings against the live source API |
+| `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-14.md` | Human report | TwelveData source validation | Verifies current canonical feed catalog mappings against the live source API |
 | `examples/deployments/feed-source-validation.mainnet.latest.json` | Machine-readable report | TwelveData source validation | Same source-validation run as JSON |
 | `docs/N3_CALLBACK_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Direct external callback injection probe against the callback consumer |
 | `examples/deployments/n3-callback-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same callback-boundary probe as JSON |
@@ -135,7 +135,7 @@ What is now covered upstream before Morpheus-side integrated testing:
 | `examples/deployments/n3-automation-cancel-race.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same automation cancellation-race probe as JSON |
 | `docs/ACCEPTANCE_REPORT_2026-03-10.md` | Acceptance report | Neo N3 mainnet | Smoke, example consumer, builtins, automation, feed sync, operational fixes |
 | `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
-| `examples/deployments/test-neox.latest.json` | Partial log only | Neo X testnet | Not a canonical structured validation artifact |
+| `examples/deployments/test-neox.latest.json` | Partial log only | Archived reference | Not a canonical structured validation artifact and not part of the supported path |
 
 Current report generator outputs after the latest script upgrade:
 
@@ -168,23 +168,23 @@ Source:
 
 - Script: `examples/scripts/test-n3-privacy-matrix.mjs`
 - JSON: `examples/deployments/mainnet-privacy-validation.latest.json`
-- Markdown: `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
+- Markdown: `docs/MAINNET_PRIVACY_VALIDATION_2026-03-13.md`
 
 | Case id | Request type | Code path | Txid | Request id | Result | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| `provider_plain` | `privacy_oracle` | builtin provider, public params | `0x4fb49cff2356fa7b0bb378c294aa0eeac1ddc07b5791ebe7b4c36bd4223bc984` | `108` | `"2.503"` | pass |
-| `provider_encrypted_params` | `privacy_oracle` | builtin provider, encrypted `json_path` | `0xb23f818efa9a792ecda0e5ee7c6fdea6cbbe2b63a8d2e0462e8227e900dde9cc` | `109` | `"2.503"` | pass |
-| `compute_builtin_encrypted` | `compute` | encrypted builtin payload | `0x6785367384bba7f398a9cdcf3170c702df7cb5b67dbac8d781397bd773d10f85` | `110` | `{"value":"4"}` | pass |
-| `compute_custom_script_encrypted` | `compute` | encrypted custom JS compute | `0xb4ba994236103643d7610ca7b9b7366ee134c65d87fc09fe0ad89603bff0ad14` | `111` | `42` | pass |
-| `oracle_custom_url_encrypted_params` | `oracle` | custom URL + encrypted params | `0x731f9061e56509a795082f4575cf1636bb1c902d628b75186ff6d7e12feed956` | `112` | `"neo-morpheus"` | pass |
-| `oracle_custom_url_encrypted_script` | `oracle` | custom URL + encrypted params + custom JS | `0x57b9618406863a1ed15c6e660900228c40ed695d3dff8de9807b2894171c2d7e` | `113` | `"neo-morpheus-script"` | pass |
-| `provider_encrypted_script` | `privacy_oracle` | builtin provider + encrypted custom JS | `0x4393b903844d51822f28192937652bcc0eb63d400824f3b9bfb34a9e24045d83` | `114` | `true` | pass |
+| `provider_plain` | `privacy_oracle` | builtin provider, public params | `0xfb222e5547f9771c5c88aaa418f6b39dc1216ada66e47807149608d36e73734b` | `148` | `"2.656"` | pass |
+| `provider_encrypted_params` | `privacy_oracle` | builtin provider, encrypted `json_path` | `0xad6e347a5e85071b6c9d56536584eb8328b4d1c3317b771c96ceb5aa0d757975` | `151` | `"2.656"` | pass |
+| `compute_builtin_encrypted` | `compute` | encrypted builtin payload | `0x6a511dc43eccc18ee61c75e24c3aed880b58e832f73b86689b9b04cef8458e82` | `153` | `{"value":"4"}` | pass |
+| `compute_custom_script_encrypted` | `compute` | encrypted custom JS compute | `0x22f3c64dbae89f81bc29f32c9ae038514b8c976e607aeb2e4a0c431f4f29f255` | `157` | `42` | pass |
+| `oracle_custom_url_encrypted_params` | `oracle` | custom URL + encrypted params | `0x1908d06e6186fe2c04129e15a07d0dcaa966ecc4c05c799172d30f5a208e2b07` | `159` | `"neo-morpheus"` | pass |
+| `oracle_custom_url_encrypted_script` | `oracle` | custom URL + encrypted params + custom JS | `0x7b851e70df4f258a563959945d0dbdb7a6413a18090a1dbdb575c0ed8dd63311` | `160` | `"neo-morpheus-script"` | pass |
+| `provider_encrypted_script` | `privacy_oracle` | builtin provider + encrypted custom JS | `0x9785e659758d53cac73bcb3ea903ac9d52f53e254cb19daa78eae4c09c327eb8` | `163` | `true` | pass |
 
 Operational notes from the same run:
 
 - `request_fee = 1000000`
-- `request_credit_deposited = 7000000`
-- `request_credit_remaining = 0`
+- `request_credit_deposited = 1000000`
+- `request_credit_remaining = 7000000`
 - All 7 requests produced successful callback envelopes with verification metadata.
 
 ### 4.2 Mainnet Smoke And Example Consumer
@@ -351,10 +351,8 @@ Latest reader confirmation recorded in acceptance:
 Latest post-expansion confirmation:
 
 - runtime config inside the live relayer container now includes all 34 configured canonical pairs
-- the chain still returns one historical legacy key, `TWELVEDATA:FLM-USD`, in addition to the new canonical set
-- integration guidance is therefore:
-  - deprecated: `TWELVEDATA:FLM-USD`
-  - canonical replacement: `TWELVEDATA:1000FLM-USD`
+- the supported canonical low-price keys remain direct names, including `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD`
+- historical basket-style aliases such as `TWELVEDATA:1000FLM-USD` and `TWELVEDATA:1000JPY-USD` should be treated only as stale historical reference material, not as current canonical keys
 - live relayer logs after redeploy continued to show feed sync loops completing roughly every 15 to 17 seconds:
   - `2026-03-11T09:19:18.945Z`
   - `2026-03-11T09:19:36.007Z`
@@ -389,7 +387,7 @@ Recorded testnet feed snapshot:
 
 ## 6. Neo X Artifact Status
 
-`examples/deployments/test-neox.latest.json` is currently only a partial log:
+`examples/deployments/test-neox.latest.json` is currently only a partial archived log:
 
 - `Testing Neo X provider callback flow...`
 - `Testing Neo X encrypted compute flow...`
@@ -400,9 +398,9 @@ It is **not** a canonical structured validation artifact and should not be treat
 
 Current repo position:
 
-- Neo X contracts, interfaces, and example consumers exist in source.
-- Neo X frontend documentation is reference-only.
 - Canonical production acceptance today is Neo N3 mainnet.
+- Current public docs, frontend workflows, and validation gates track Neo N3 only.
+- Any Neo X code still present in the repository is archived reference material.
 
 ## 7. Local Quality Gates
 
@@ -419,7 +417,7 @@ The following repository-level checks were run after the latest frontend / docum
 Source:
 
 - `examples/scripts/validate-feed-source-mappings.mjs`
-- `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-11.md`
+- `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-14.md`
 - `examples/deployments/feed-source-validation.mainnet.latest.json`
 
 Result:
@@ -439,14 +437,14 @@ Representative validated mappings:
 - `WHEAT-USD` -> `W_1`
 - `CORN-USD` -> `C_1`
 - `SOY-USD` -> `S_1`
-- `1000JPY-USD` -> `USD/JPY` with inverse transform and `1000 JPY` unit scaling
-- `1000FLM-USD` -> `FLM/USD` with `1000 FLM` unit scaling
+- `JPY-USD` -> `USD/JPY` with inverse transform
+- `FLM-USD` -> `FLM/USD`
 
 ## 9. What To Read Next
 
 If you need the raw case-by-case payloads and callback verification blobs, read:
 
-- `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
+- `docs/MAINNET_PRIVACY_VALIDATION_2026-03-13.md`
 - `examples/deployments/mainnet-privacy-validation.latest.json`
 
 If you need the operational narrative and the historical recovery steps, read:
@@ -458,4 +456,3 @@ If you need the exact example payload combinations and consumer contract pattern
 - `docs/EXAMPLES.md`
 - `examples/contracts/n3/UserConsumerN3.cs`
 - `examples/contracts/n3/FeedReaderN3.cs`
-- `examples/contracts/neox/UserConsumerX.sol`

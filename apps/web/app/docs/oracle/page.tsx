@@ -110,12 +110,11 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
         Now, place the encrypted blob into the JSON payload that your contract submits on-chain. The relayer delivers it to the TEE, which decrypts the blob using the sealed transport key, executes the request, and returns the callback envelope.
       </p>
       
-      <div className="grid grid-2" style={{ gap: '1.5rem', margin: '2.5rem 0' }}>
-        <div>
-          <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo N3 (C#)</h3>
-          <CodeBlock
-            language="csharp"
-            code={`public static BigInteger RequestData(ByteString encryptedParams) {
+      <div style={{ margin: '2.5rem 0' }}>
+        <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo N3 (C#)</h3>
+        <CodeBlock
+          language="csharp"
+          code={`public static BigInteger RequestData(ByteString encryptedParams) {
     string payloadJson =
         "{\"symbol\":\"TWELVEDATA:NEO-USD\",\"encrypted_params\":\""
         + (string)encryptedParams
@@ -131,29 +130,11 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
         "onOracleResult"
     );
 }`}
-          />
-        </div>
-        <div>
-          <h3 style={{ fontSize: '1rem', marginTop: 0 }}>Neo X (Reference Solidity Interface)</h3>
-          <CodeBlock
-            language="solidity"
-            code={`function requestData(string calldata encryptedParams) public payable {
-    uint256 fee = oracle.requestFee();
-    require(msg.value == fee, "incorrect request fee");
-    bytes memory payload = abi.encodePacked(
-        '{"symbol":"TWELVEDATA:NEO-USD","encrypted_params":"',
-        encryptedParams,
-        '","json_path":"price","target_chain":"neo_x"}'
-    );
-
-    oracle.request{value: fee}(
-        "privacy_oracle",
-        payload,
-        address(this),
-        "onOracleResult"
-    );
-}`}
-          />
+        />
+        <div className="card-industrial" style={{ marginTop: '1.5rem', padding: '1.25rem 1.5rem', borderLeft: '4px solid var(--accent-blue)' }}>
+          <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+            Public integration guidance is intentionally limited to Neo N3. Neo X reference snippets are no longer shown in the main docs because they are not part of the currently supported route.
+          </p>
         </div>
       </div>
 

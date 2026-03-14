@@ -18,7 +18,7 @@ export default function DocsArchitecture() {
       <div style={{ margin: '3rem 0', padding: '2rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px', textAlign: 'center' }}>
         <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 800, marginBottom: '2rem', fontFamily: 'var(--font-mono)' }}>LOGICAL DATA FLOW</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ padding: '1rem', border: '1px solid var(--neo-green)', borderRadius: '4px', fontSize: '0.8rem', width: '120px' }}>Neo N3/X Contracts</div>
+          <div style={{ padding: '1rem', border: '1px solid var(--neo-green)', borderRadius: '4px', fontSize: '0.8rem', width: '120px' }}>Neo N3 Contracts</div>
           <ArrowRight size={16} color="var(--text-muted)" />
           <div style={{ padding: '1rem', border: '1px solid var(--accent-purple)', borderRadius: '4px', fontSize: '0.8rem', width: '120px' }}>Async Relayer</div>
           <ArrowRight size={16} color="var(--text-muted)" />
@@ -35,7 +35,7 @@ export default function DocsArchitecture() {
       </p>
       <ul>
         <li><strong>N3 Implementation:</strong> C# contracts with native <code>Oracle</code> service integration.</li>
-        <li><strong>Neo X Implementation:</strong> Solidity reference interfaces and contracts prepared for publication.</li>
+        <li><strong>Current support stance:</strong> Neo N3 is the active integration path. Any Neo X artifacts in-repo are archived reference code, not the current production route.</li>
       </ul>
 
       <h3>2. Asynchronous Relayer Plane</h3>

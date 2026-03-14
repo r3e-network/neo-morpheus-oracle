@@ -14,7 +14,7 @@ export default function DocsIntroduction() {
       <h1>Infrastructure for Machine-Verified Truth</h1>
       
       <p className="lead" style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '2.5rem' }}>
-        Neo Morpheus Oracle is a decentralized privacy-preserving prover network. It uses hardware-backed Trusted Execution Environments to bridge sensitive off-chain data into Neo N3 callback flows, while exposing reference interfaces for Neo X.
+        Neo Morpheus Oracle is a decentralized privacy-preserving prover network. It uses hardware-backed Trusted Execution Environments to bridge sensitive off-chain data into Neo N3 callback flows.
       </p>
 
       <div className="grid grid-2" style={{ gap: '1.5rem', marginBottom: '4rem' }}>

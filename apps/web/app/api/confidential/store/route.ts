@@ -28,8 +28,8 @@ export async function POST(request: Request) {
   if (!ciphertext) {
     return NextResponse.json({ error: "ciphertext is required" }, { status: 400 });
   }
-  if (targetChain !== "neo_n3" && targetChain !== "neo_x") {
-    return NextResponse.json({ error: "target_chain must be neo_n3 or neo_x" }, { status: 400 });
+  if (targetChain !== "neo_n3") {
+    return NextResponse.json({ error: "target_chain must be neo_n3" }, { status: 400 });
   }
 
   const supabase = getServerSupabaseClient();

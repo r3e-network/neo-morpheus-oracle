@@ -9,7 +9,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 
 - **Privacy Oracle** — fetches private or public external data inside Phala TEE
 - **Privacy Compute** — runs built-in high-cost compute functions and programmable scripts
-- **Datafeed** — operator-synchronized on-chain market data stored as integer cents
+- **Datafeed** — operator-synchronized on-chain market data stored with the global `1 USD = 1,000,000` integer scale
 - **Paymaster** — policy-gated sponsorship authorization for AA / relayer / bundler integrations
 - **Relay + Signing** — currently productionized for **Neo N3**
 
@@ -108,7 +108,7 @@ These commands are the current live Neo N3 testnet regression path for:
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/PAYMASTER.md`
 - `docs/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14.md` — live Neo N3 testnet validation for the AA relay + Morpheus paymaster path
-- `docs/EXAMPLES.md` — bilingual end-to-end calling patterns for Oracle, Compute, encrypted params, WASM, and pricefeeds
+- `docs/EXAMPLES.md` — bilingual end-to-end calling patterns for Oracle, Compute, encrypted params, WASM, and pricefeeds, with Neo N3 as the current supported path
 - `docs/PROVIDERS.md`
 - `docs/RELAYER.md`
 - `docs/DEPLOYMENT.md`

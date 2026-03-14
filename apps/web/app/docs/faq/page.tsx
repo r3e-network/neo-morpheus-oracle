@@ -10,7 +10,7 @@ export default function DocsFAQ() {
     },
     {
       q: "Which networks are currently supported?",
-      a: "Neo N3 mainnet is the live production environment, and Neo N3 testnet is tracked separately with its own CVM, contract registry, and generated env files. Neo X interfaces and examples are available in the repository, but live Neo X mainnet contract publication is still pending."
+      a: "Neo N3 mainnet is the live production environment, and Neo N3 testnet is tracked separately with its own CVM, contract registry, and generated env files. Public support is currently Neo N3 only."
     },
     {
       q: "Do I need to run my own relayer?",
@@ -31,7 +31,7 @@ export default function DocsFAQ() {
     {
       code: "0x02",
       name: "INSUFFICIENT_FEE",
-      desc: "The request fee was not prepaid correctly. On Neo N3, deposit or sponsor 0.01 GAS fee credit first. On Neo X, match the live requestFee() value."
+      desc: "The request fee was not prepaid correctly. On Neo N3, deposit or sponsor 0.01 GAS fee credit first."
     },
     {
       code: "0x03",

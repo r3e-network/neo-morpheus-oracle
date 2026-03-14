@@ -42,7 +42,20 @@ export async function GET(request: Request) {
   const routeUrl = new URL(request.url);
   const symbols = parseFeedSymbols(process.env.MORPHEUS_FEED_SYMBOLS);
   const explicitTargetChain = (routeUrl.searchParams.get("target_chain") || "").trim();
-  const targetChains = explicitTargetChain ? [explicitTargetChain] : ["neo_n3", "neo_x"];
+  if (explicitTargetChain && explicitTargetChain !== "neo_n3") {
+    const body = { error: "target_chain must be neo_n3" };
+    await recordOperationLog({
+      route: "/api/cron/feed",
+      method: "GET",
+      category: "feed",
+      requestPayload: Object.fromEntries(routeUrl.searchParams.entries()),
+      responsePayload: body,
+      httpStatus: 400,
+      error: body.error,
+    });
+    return Response.json(body, { status: 400 });
+  }
+  const targetChains = ["neo_n3"];
   const configuredProjectSlug = (routeUrl.searchParams.get("project_slug") || process.env.MORPHEUS_FEED_PROJECT_SLUG || "").trim();
   const configuredProvider = (routeUrl.searchParams.get("provider") || process.env.MORPHEUS_FEED_PROVIDER || "").trim();
   const configuredProviders = parseFeedProviders(routeUrl.searchParams.get("providers") || process.env.MORPHEUS_FEED_PROVIDERS || "");

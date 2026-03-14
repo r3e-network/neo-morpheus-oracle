@@ -147,11 +147,10 @@ export default function DocsNetworks() {
         </p>
       </div>
 
-      <h2>Neo X Mainnet</h2>
       <div className="card-industrial" style={{ padding: '2rem', borderLeft: '4px solid var(--accent-blue)', marginBottom: '2rem' }}>
-        <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', marginBottom: '0.5rem' }}>Reference Contracts Ready, Live Publication Pending</h4>
+        <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff', marginBottom: '0.5rem' }}>Current Support Scope</h4>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          The repository includes Neo X contract code, examples, and interfaces, but live mainnet contract hashes have not been published in the registry yet.
+          Public registry, frontend, and runbooks currently track Neo N3 only. Any Neo X code still present in the repository is archived reference material and is not part of the supported deployment surface.
         </p>
       </div>
       
