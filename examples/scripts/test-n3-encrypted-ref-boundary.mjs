@@ -1,0 +1,543 @@
+import fs from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import os from "node:os";
+import { experimental, rpc as neoRpc, sc, tx, wallet } from "@cityofzion/neon-js";
+import {
+  encodeUtf8Base64,
+  jsonPretty,
+  loadExampleEnv,
+  normalizeHash160,
+  readDeploymentRegistry,
+  repoRoot,
+  resolveNeoN3SignerWif,
+  sleep,
+  trimString,
+  tryParseJson,
+  writeValidationArtifacts,
+} from "./common.mjs";
+
+const GAS_HASH = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
+const EXAMPLE_BUILD_DIR = path.resolve(repoRoot, "examples/build/n3");
+const EXAMPLE_CONSUMER_ARTIFACT = "UserConsumerN3OracleExample";
+const execFileAsync = promisify(execFile);
+const PHALA_SSH_RETRIES = Math.max(1, Number(process.env.PHALA_SSH_RETRIES || 3));
+
+function assertCondition(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+function parseStackItem(item) {
+  if (!item || typeof item !== "object") return null;
+  const type = trimString(item.type).toLowerCase();
+  switch (type) {
+    case "array":
+    case "struct":
+      return Array.isArray(item.value) ? item.value.map((entry) => parseStackItem(entry)) : [];
+    case "hash160":
+    case "hash256":
+    case "string":
+      return String(item.value ?? "");
+    case "integer":
+      return String(item.value ?? "0");
+    case "boolean":
+      return Boolean(item.value);
+    case "bytestring":
+    case "bytearray": {
+      const raw = trimString(item.value);
+      if (!raw) return "";
+      const bytes = Buffer.from(raw, "base64");
+      if (bytes.length === 20) {
+        return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+      }
+      const text = bytes.toString("utf8");
+      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString("hex")}`;
+    }
+    default:
+      return item.value ?? null;
+  }
+}
+
+function decodeCallbackArray(item) {
+  if (!item || item.type !== "Array" || !Array.isArray(item.value) || item.value.length < 4) return null;
+  const [requestTypeItem, successItem, resultItem, errorItem] = item.value;
+  const requestType = Buffer.from(trimString(requestTypeItem?.value || ""), "base64").toString("utf8");
+  const resultText = Buffer.from(trimString(resultItem?.value || ""), "base64").toString("utf8");
+  const errorText = Buffer.from(trimString(errorItem?.value || ""), "base64").toString("utf8");
+  return {
+    request_type: requestType,
+    success: Boolean(successItem?.value),
+    result_text: resultText,
+    result_json: tryParseJson(resultText),
+    error_text: errorText,
+  };
+}
+
+async function invokeRead(rpcClient, contractHash, method, params = []) {
+  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  if (String(response.state || "").toUpperCase() === "FAULT") {
+    throw new Error(`${method} faulted: ${response.exception || "unknown error"}`);
+  }
+  return parseStackItem(response.stack?.[0]);
+}
+
+async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests) {
+  const currentCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0");
+  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
+  const requiredCredit = requestFee * BigInt(requiredRequests);
+  if (requestFee <= 0n || currentCredit >= requiredCredit) {
+    return {
+      request_fee: requestFee.toString(),
+      current_credit: currentCredit.toString(),
+      deposit_amount: "0",
+    };
+  }
+
+  const gas = new experimental.SmartContract(GAS_HASH, {
+    rpcAddress: rpcUrl,
+    networkMagic,
+    account,
+  });
+  const deficit = requiredCredit - currentCredit;
+  await gas.invoke("transfer", [
+    sc.ContractParam.hash160(`0x${account.scriptHash}`),
+    sc.ContractParam.hash160(oracleHash),
+    sc.ContractParam.integer(deficit.toString()),
+    sc.ContractParam.any(null),
+  ]);
+
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    const updatedCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0");
+    if (updatedCredit >= requiredCredit) {
+      return {
+        request_fee: requestFee.toString(),
+        current_credit: updatedCredit.toString(),
+        deposit_amount: deficit.toString(),
+      };
+    }
+    await sleep(2000);
+  }
+
+  throw new Error("timed out waiting for Neo N3 request fee credit");
+}
+
+async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const appLog = await rpcClient.getApplicationLog(txid);
+      const notification = appLog.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "OracleRequested");
+      const requestId = notification?.state?.value?.[0]?.value ?? null;
+      if (requestId) return requestId;
+    } catch {}
+    await sleep(2000);
+  }
+  throw new Error(`timed out waiting for request id from tx ${txid}`);
+}
+
+async function waitForApplicationLog(rpcClient, txHash, timeoutMs = 180000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      return await rpcClient.getApplicationLog(txHash);
+    } catch {}
+    await sleep(2000);
+  }
+  throw new Error(`timed out waiting for application log ${txHash}`);
+}
+
+async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const response = await rpcClient.invokeFunction(consumerHash, "getCallback", [{ type: "Integer", value: String(requestId) }]);
+    const decoded = decodeCallbackArray(response.stack?.[0]);
+    if (decoded && (decoded.request_type || decoded.result_text || decoded.error_text)) {
+      return decoded;
+    }
+    await sleep(2000);
+  }
+  throw new Error(`timed out waiting for callback ${requestId}`);
+}
+
+function decodeDeployHash(appLog) {
+  const notification = appLog?.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "Deploy");
+  const value = notification?.state?.value?.[0]?.value || "";
+  const bytes = Buffer.from(value, "base64");
+  if (bytes.length !== 20) throw new Error("failed to decode deployed Neo N3 contract hash");
+  return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+}
+
+async function contractExists(rpcClient, hash) {
+  if (!hash) return false;
+  try {
+    await rpcClient.getContractState(hash);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function loadContractArtifacts(baseName, buildDir = EXAMPLE_BUILD_DIR) {
+  const nefPath = path.join(buildDir, `${baseName}.nef`);
+  const manifestPath = path.join(buildDir, `${baseName}.manifest.json`);
+  const [nefBytes, manifestRaw] = await Promise.all([
+    fs.readFile(nefPath),
+    fs.readFile(manifestPath, "utf8"),
+  ]);
+  const manifestJson = JSON.parse(manifestRaw);
+  return {
+    nef: sc.NEF.fromBuffer(nefBytes),
+    manifestJson,
+    manifest: sc.ContractManifest.fromJson(manifestJson),
+  };
+}
+
+async function ensureExampleConsumer({ rpcClient, account, rpcUrl, networkMagic, oracleHash, consumerHash }) {
+  const { nef, manifestJson } = await loadContractArtifacts(EXAMPLE_CONSUMER_ARTIFACT, EXAMPLE_BUILD_DIR);
+  let resolvedHash = normalizeHash160(consumerHash);
+
+  if (!(await contractExists(rpcClient, resolvedHash))) {
+    const uniqueManifest = sc.ContractManifest.fromJson({
+      ...manifestJson,
+      name: `${manifestJson.name}-${Date.now()}`,
+    });
+    const txid = await experimental.deployContract(nef, uniqueManifest, {
+      account,
+      rpcAddress: rpcUrl,
+      networkMagic,
+      blocksTillExpiry: 200,
+    });
+    const appLog = await waitForApplicationLog(rpcClient, txid);
+    resolvedHash = decodeDeployHash(appLog);
+  }
+
+  const currentOracle = normalizeHash160(await invokeRead(rpcClient, resolvedHash, "oracle").catch(() => ""));
+  const oracleAllowed = Boolean(await invokeRead(rpcClient, oracleHash, "isAllowedCallback", [{ type: "Hash160", value: resolvedHash }]).catch(() => false));
+  const consumer = new experimental.SmartContract(resolvedHash, {
+    rpcAddress: rpcUrl,
+    networkMagic,
+    account,
+  });
+  const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
+
+  if (!oracleAllowed) {
+    const oracle = new experimental.SmartContract(oracleHash, {
+      rpcAddress: rpcUrl,
+      networkMagic,
+      account,
+    });
+    const txid = await oracle.invoke("addAllowedCallback", [sc.ContractParam.hash160(resolvedHash)]);
+    await waitForApplicationLog(rpcClient, txid);
+  }
+
+  if (currentOracle !== oracleHash) {
+    const txid = await consumer.invoke("setOracle", [sc.ContractParam.hash160(oracleHash)], signers);
+    await waitForApplicationLog(rpcClient, txid);
+  }
+
+  return resolvedHash;
+}
+
+async function insertEncryptedSecret({ supabaseUrl, serviceRoleKey, ciphertext, metadata, targetChain = "neo_n3", network = "testnet", name }) {
+  const response = await fetch(`${supabaseUrl.replace(/\/$/, "")}/rest/v1/morpheus_encrypted_secrets`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      apikey: serviceRoleKey,
+      authorization: `Bearer ${serviceRoleKey}`,
+      prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      name,
+      network,
+      target_chain: targetChain,
+      encryption_algorithm: "X25519-HKDF-SHA256-AES-256-GCM",
+      key_version: 1,
+      ciphertext,
+      metadata,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`supabase insert failed: ${response.status} ${await response.text()}`);
+  }
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows[0] : rows;
+}
+
+async function runPhalaRemoteShell(shellScript, { phalaApiToken, appId, maxBuffer = 10 * 1024 * 1024 } = {}) {
+  let lastError = null;
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "morpheus-encrypted-ref-"));
+  const localScriptPath = path.join(tempDir, "remote.sh");
+  await writeFile(localScriptPath, shellScript, { mode: 0o700 });
+
+  for (let attempt = 1; attempt <= PHALA_SSH_RETRIES; attempt += 1) {
+    const remoteScriptPath = `/tmp/morpheus-encrypted-ref-${Date.now()}-${attempt}.sh`;
+    try {
+      await execFileAsync("phala", ["cp", "--api-token", phalaApiToken, localScriptPath, `${appId}:${remoteScriptPath}`], { maxBuffer });
+      const result = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", "sh", remoteScriptPath], { maxBuffer });
+      await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", "rm", "-f", remoteScriptPath], { maxBuffer }).catch(() => {});
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      return result;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= PHALA_SSH_RETRIES) break;
+      await sleep(1500 * attempt);
+    }
+  }
+
+  await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function buildRemoteEncryptedPatch(plaintext, { phalaApiToken, appId }) {
+  const plaintextBase64 = Buffer.from(String(plaintext), "utf8").toString("base64");
+  const shellScript = `
+set -e
+docker exec -i morpheus-phala-worker node --input-type=module - <<'JS'
+import { webcrypto } from 'node:crypto';
+const token = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET;
+const plaintext = Buffer.from('${plaintextBase64}', 'base64').toString('utf8');
+const keyRes = await fetch('http://127.0.0.1:8080/oracle/public-key', { headers: { authorization: 'Bearer ' + token } });
+const keyBody = await keyRes.json();
+const recipientPublicKeyBytes = Buffer.from(keyBody.public_key, 'base64');
+const recipientKey = await webcrypto.subtle.importKey('raw', recipientPublicKeyBytes, { name: 'X25519' }, false, []);
+const ephemeralKeyPair = await webcrypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+const ephemeralPublicKeyBytes = new Uint8Array(await webcrypto.subtle.exportKey('raw', ephemeralKeyPair.publicKey));
+const sharedSecret = new Uint8Array(await webcrypto.subtle.deriveBits({ name: 'X25519', public: recipientKey }, ephemeralKeyPair.privateKey, 256));
+const keyMaterial = await webcrypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveKey']);
+const info = new Uint8Array([ ...new TextEncoder().encode('morpheus-confidential-payload-v2'), ...ephemeralPublicKeyBytes, ...recipientPublicKeyBytes ]);
+const aesKey = await webcrypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: recipientPublicKeyBytes, info }, keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+const iv = webcrypto.getRandomValues(new Uint8Array(12));
+const encryptedBytes = new Uint8Array(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(plaintext)));
+const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);
+const tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
+const ciphertext = Buffer.from(JSON.stringify({ v: 2, alg: 'X25519-HKDF-SHA256-AES-256-GCM', epk: Buffer.from(ephemeralPublicKeyBytes).toString('base64'), iv: Buffer.from(iv).toString('base64'), ct: Buffer.from(ciphertextBytes).toString('base64'), tag: Buffer.from(tagBytes).toString('base64') })).toString('base64');
+console.log(JSON.stringify({ ciphertext }));
+JS
+`;
+  const { stdout } = await runPhalaRemoteShell(shellScript, { phalaApiToken, appId, maxBuffer: 10 * 1024 * 1024 });
+  const jsonLine = stdout.trim().split("\n").find((line) => line.trim().startsWith("{"));
+  const parsed = jsonLine ? JSON.parse(jsonLine) : {};
+  if (!parsed.ciphertext) throw new Error(`failed to generate remote ciphertext: ${stdout.trim()}`);
+  return parsed.ciphertext;
+}
+
+async function submitCase({ consumer, rpcClient, requestType, payload, expected, validate }) {
+  const txid = await consumer.invoke("requestRaw", [requestType, sc.ContractParam.byteArray(encodeUtf8Base64(JSON.stringify(payload)))], [new tx.Signer({ account: consumer.account.scriptHash, scopes: tx.WitnessScope.Global })]);
+  const requestId = await waitForRequestId(rpcClient, txid);
+  const callback = await waitForCallback(rpcClient, consumer.scriptHash, requestId);
+  const caseResult = {
+    title: expected,
+    request_type: requestType,
+    txid,
+    request_id: String(requestId),
+    payload,
+    callback,
+  };
+  console.log(jsonPretty(caseResult));
+  if (validate) await validate(caseResult);
+  return caseResult;
+}
+
+async function main() {
+  await loadExampleEnv();
+  const network = trimString(process.env.MORPHEUS_NETWORK || "testnet").toLowerCase();
+  const deployment = (await readDeploymentRegistry("testnet")).neo_n3 || {};
+  const rpcUrl = trimString(network === "testnet" ? (deployment.rpc_url || process.env.NEO_RPC_URL || "https://testnet1.neo.coz.io:443") : (process.env.NEO_RPC_URL || deployment.rpc_url || "https://testnet1.neo.coz.io:443"));
+  const networkMagic = Number(network === "testnet" ? (deployment.network_magic || process.env.NEO_NETWORK_MAGIC || 894710606) : (process.env.NEO_NETWORK_MAGIC || deployment.network_magic || 894710606));
+  const signerWif = resolveNeoN3SignerWif(network);
+  const oracleHash = normalizeHash160(network === "testnet" ? (deployment.oracle_hash || process.env.CONTRACT_MORPHEUS_ORACLE_HASH || "") : (process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || ""));
+  const consumerHash = normalizeHash160(network === "testnet" ? (deployment.example_consumer_hash || process.env.EXAMPLE_N3_CONSUMER_HASH || "") : (process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || ""));
+  const supabaseUrl = trimString(process.env.SUPABASE_URL || process.env.morpheus_SUPABASE_URL || "");
+  const serviceRoleKey = trimString(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY || "");
+  const phalaApiToken = trimString(process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || "");
+  const phalaAppId = trimString(process.env.MORPHEUS_PAYMASTER_APP_ID || "28294e89d490924b79c85cdee057ce55723b3d56");
+
+  assertCondition(network === "testnet", "this probe is intended for testnet");
+  assertCondition(signerWif, "testnet signer WIF is required");
+  assertCondition(oracleHash, "testnet oracle hash is required");
+  assertCondition(consumerHash, "testnet example consumer hash is required");
+  assertCondition(supabaseUrl && serviceRoleKey, "Supabase service-role env is required");
+  assertCondition(phalaApiToken, "PHALA_API_TOKEN or PHALA_SHARED_SECRET is required");
+
+  const account = new wallet.Account(signerWif);
+  const rpcClient = new neoRpc.RPCClient(rpcUrl);
+  const resolvedConsumerHash = await ensureExampleConsumer({
+    rpcClient,
+    account,
+    rpcUrl,
+    networkMagic,
+    oracleHash,
+    consumerHash,
+  });
+  const requesterHash = `0x${account.scriptHash}`;
+  const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 3);
+
+  const encryptedPatch = await buildRemoteEncryptedPatch(JSON.stringify({
+    provider_uid: "encrypted-ref-gh-001",
+    claim_value: "ref-bound-pass",
+  }), {
+    phalaApiToken,
+    appId: phalaAppId,
+  });
+
+  const matchingSecret = await insertEncryptedSecret({
+    supabaseUrl,
+    serviceRoleKey,
+    ciphertext: encryptedPatch,
+    metadata: {
+      source: "examples.test.n3.encrypted-ref-boundary",
+      bound_requester: requesterHash,
+      bound_callback_contract: resolvedConsumerHash,
+      scenario: "matching",
+    },
+    name: `encrypted-ref-match-${Date.now()}`,
+  });
+  const wrongRequesterSecret = await insertEncryptedSecret({
+    supabaseUrl,
+    serviceRoleKey,
+    ciphertext: encryptedPatch,
+    metadata: {
+      source: "examples.test.n3.encrypted-ref-boundary",
+      bound_requester: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      bound_callback_contract: resolvedConsumerHash,
+      scenario: "wrong_requester",
+    },
+    name: `encrypted-ref-requester-${Date.now()}`,
+  });
+  const wrongCallbackSecret = await insertEncryptedSecret({
+    supabaseUrl,
+    serviceRoleKey,
+    ciphertext: encryptedPatch,
+    metadata: {
+      source: "examples.test.n3.encrypted-ref-boundary",
+      bound_requester: requesterHash,
+      bound_callback_contract: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      scenario: "wrong_callback",
+    },
+    name: `encrypted-ref-callback-${Date.now()}`,
+  });
+
+  const consumer = new experimental.SmartContract(resolvedConsumerHash, {
+    rpcAddress: rpcUrl,
+    networkMagic,
+    account,
+  });
+  consumer.scriptHash = resolvedConsumerHash.replace(/^0x/i, "");
+  consumer.account = account;
+
+  const basePayload = {
+    provider: "github",
+    vault_account: requesterHash,
+    claim_type: "Github_VerifiedUser",
+  };
+
+  const successCase = await submitCase({
+    consumer,
+    rpcClient,
+    requestType: "neodid_bind",
+    payload: {
+      ...basePayload,
+      encrypted_params_ref: matchingSecret.id,
+    },
+    expected: "encrypted_params_ref succeeds when requester and callback bindings match",
+    validate(result) {
+      assertCondition(result.callback?.success === true, "matching ref callback should succeed");
+      assertCondition(/^0x[0-9a-f]{64}$/.test(result.callback?.result_json?.result?.master_nullifier || ""), "matching ref master_nullifier missing");
+    },
+  });
+
+  const requesterMismatchCase = await submitCase({
+    consumer,
+    rpcClient,
+    requestType: "neodid_bind",
+    payload: {
+      ...basePayload,
+      encrypted_params_ref: wrongRequesterSecret.id,
+    },
+    expected: "encrypted_params_ref fails when bound_requester does not match the relayed requester",
+    validate(result) {
+      assertCondition(result.callback?.success === false, "wrong-requester callback should fail");
+      assertCondition(/encrypted ref requester mismatch/i.test(result.callback?.error_text || ""), "wrong-requester error mismatch");
+    },
+  });
+
+  const callbackMismatchCase = await submitCase({
+    consumer,
+    rpcClient,
+    requestType: "neodid_bind",
+    payload: {
+      ...basePayload,
+      encrypted_params_ref: wrongCallbackSecret.id,
+    },
+    expected: "encrypted_params_ref fails when bound_callback_contract does not match the relayed callback contract",
+    validate(result) {
+      assertCondition(result.callback?.success === false, "wrong-callback callback should fail");
+      assertCondition(/encrypted ref callback mismatch/i.test(result.callback?.error_text || ""), "wrong-callback error mismatch");
+    },
+  });
+
+  const generatedAt = new Date().toISOString();
+  const jsonReport = {
+    generated_at: generatedAt,
+    network: "testnet",
+    rpc_url: rpcUrl,
+    network_magic: networkMagic,
+    requester_hash: requesterHash,
+    callback_consumer_hash: resolvedConsumerHash,
+    oracle_hash: oracleHash,
+    request_fee_status: feeStatus,
+    secret_refs: {
+      matching: matchingSecret.id,
+      wrong_requester: wrongRequesterSecret.id,
+      wrong_callback: wrongCallbackSecret.id,
+    },
+    cases: [successCase, requesterMismatchCase, callbackMismatchCase],
+  };
+
+  const markdownReport = [
+    "# N3 Encrypted Ref Boundary Validation",
+    "",
+    `Date: ${generatedAt}`,
+    "",
+    "## Scope",
+    "",
+    "This probe validates the live testnet boundary for `encrypted_params_ref` after requester/callback binding was added to the worker resolution path.",
+    "",
+    "## Result Summary",
+    "",
+    `- Matching ref tx: \`${successCase.txid}\` request \`${successCase.request_id}\``,
+    `- Wrong requester tx: \`${requesterMismatchCase.txid}\` request \`${requesterMismatchCase.request_id}\``,
+    `- Wrong callback tx: \`${callbackMismatchCase.txid}\` request \`${callbackMismatchCase.request_id}\``,
+    "",
+    "## Conclusion",
+    "",
+    "- A ref bound to the live requester and callback contract succeeds.",
+    "- A ref bound to a different requester fails with `encrypted ref requester mismatch`.",
+    "- A ref bound to a different callback contract fails with `encrypted ref callback mismatch`.",
+    "",
+  ].join("\n");
+
+  const artifacts = await writeValidationArtifacts({
+    baseName: "n3-encrypted-ref-boundary",
+    network: "testnet",
+    generatedAt,
+    jsonReport,
+    markdownReport,
+  });
+
+  console.log(JSON.stringify({
+    ...artifacts,
+    matching_txid: successCase.txid,
+    wrong_requester_txid: requesterMismatchCase.txid,
+    wrong_callback_txid: callbackMismatchCase.txid,
+  }, null, 2));
+}
+
+main().catch((error) => {
+  console.error(error?.stack || error?.message || String(error));
+  process.exit(1);
+});

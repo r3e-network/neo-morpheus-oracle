@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T03:37:18.426Z
+Date: 2026-03-14T04:06:37.303Z
 
 ## Purpose
 
@@ -17,6 +17,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Callback boundary probe: `examples/deployments/n3-callback-boundary.testnet.latest.json`
 - NeoDID registry boundary probe: `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`
 - NeoDID registry v1 probe: `examples/deployments/n3-neodid-registry-v1.testnet.latest.json`
+- Encrypted ref boundary probe: `examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json`
 
 ## AA Baseline
 
@@ -33,6 +34,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Callback boundary: vmstate=FAULT, tx=`0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d`
 - NeoDID registry JSON boundary: mismatch tx=`0x9aee1bed7b59913284021e3f7f8dd698c0473eddf8a81fa64514cafddc38f7c8`
 - NeoDID registry v1: consume tx=`0x30733c4e7b3479550f027e2ae3f5b1d1f188022c36ffb70674531fcb567c31f1`, replay tx=`0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc`
+- Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
 
 ## Executed Coverage
 
@@ -47,12 +49,12 @@ It does not claim that every cross-system attack has already been live-executed.
 - Callback consumer direct injection rejection
 - NeoDID action ticket JSON callback boundary rejection
 - NeoDID compact action ticket registry consumption and replay rejection
+- encrypted_params_ref requester and callback binding enforcement
 
 ## Remaining Integrated Gaps
 
 - Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier
 - Replay of a valid Morpheus callback envelope into a different AA-bound consumer context
-- encrypted_params_ref ownership and replay abuse across AA-triggered Morpheus actions
 - AA session-key restrictions combined with downstream Morpheus Oracle or Compute calls
 - AA-aware automation billing races and duplicate-callback protection under sponsored execution
 
