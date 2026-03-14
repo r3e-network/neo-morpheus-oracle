@@ -285,14 +285,14 @@ async function main() {
       await ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requesterHash, 25);
       await patchAutomationJob(automationId, {
         status: "active",
-        next_run_at: new Date(Date.now() - 1000).toISOString(),
+        next_run_at: new Date(0).toISOString(),
         execution_count: 0,
         last_error: null,
       });
 
       process.env.MORPHEUS_NETWORK = "testnet";
-      process.env.MORPHEUS_AUTOMATION_BATCH_SIZE = "200";
-      process.env.MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK = "200";
+      process.env.MORPHEUS_AUTOMATION_BATCH_SIZE = "2000";
+      process.env.MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK = "2000";
       process.env.NEO_RPC_URL = rpcUrl;
       process.env.NEO_NETWORK_MAGIC = String(networkMagic);
       process.env.CONTRACT_MORPHEUS_ORACLE_HASH = oracleHash;

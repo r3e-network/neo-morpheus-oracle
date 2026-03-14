@@ -1,6 +1,6 @@
 import { createRelayerConfig } from "./config.js";
 import { createLogger } from "./logger.js";
-import { handleAutomationControlRequest, isAutomationControlRequestType, processAutomationJobs } from "./automation.js";
+import { guardQueuedAutomationExecution, handleAutomationControlRequest, isAutomationControlRequestType, processAutomationJobs } from "./automation.js";
 import { callPhala } from "./phala.js";
 import { buildFulfillmentDigestBytes, buildWorkerPayload, decodePayloadText, encodeFulfillmentResult, isOperatorOnlyRequestType, resolveWorkerRoute } from "./router.js";
 import {
@@ -182,6 +182,43 @@ async function processOracleRequest(config, event) {
       route: automationResponse.route,
       worker_response: automationResponse.body,
       worker_status: automationResponse.status,
+      fulfill_tx: fulfillTx,
+      verification_signature: verification.signature,
+    };
+  }
+  const automationGuard = await guardQueuedAutomationExecution(event);
+  if (automationGuard.blocked) {
+    const guardResponse = {
+      ok: false,
+      status: 409,
+      body: {
+        mode: "automation",
+        action: "execute",
+        automation_id: automationGuard.automation_id,
+        status: automationGuard.job?.status || "cancelled",
+        chain: event.chain,
+        error: automationGuard.error,
+      },
+    };
+    const fulfillment = encodeFulfillmentResult(event.requestType, guardResponse);
+    const verification = await signFulfillmentPayload(config, event.chain, {
+      requestId: event.requestId,
+      requestType: event.requestType,
+      success: fulfillment.success,
+      result: fulfillment.result || "",
+      result_bytes_base64: fulfillment.result_bytes_base64 || "",
+      error: fulfillment.error || "",
+    });
+
+    const fulfillTx = event.chain === "neo_n3"
+      ? await fulfillNeoN3Request(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature, fulfillment.result_bytes_base64)
+      : await fulfillNeoXRequest(config, event.requestId, fulfillment.success, fulfillment.result, fulfillment.error, verification.signature, fulfillment.result_bytes_base64);
+
+    return {
+      ...fulfillment,
+      route: automationGuard.route,
+      worker_response: guardResponse.body,
+      worker_status: guardResponse.status,
       fulfill_tx: fulfillTx,
       verification_signature: verification.signature,
     };

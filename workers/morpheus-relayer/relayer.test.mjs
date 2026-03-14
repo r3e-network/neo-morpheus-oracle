@@ -14,7 +14,7 @@ import {
   normalizeRequestType,
   resolveWorkerRoute,
 } from "./src/router.js";
-import { isAutomationControlRequestType } from "./src/automation.js";
+import { guardQueuedAutomationExecution, isAutomationControlRequestType } from "./src/automation.js";
 import { getFeedSyncDelayMs, resolveChainFromBlock } from "./src/relayer.js";
 import {
   buildEventKey,
@@ -66,6 +66,61 @@ test("isAutomationControlRequestType detects automation registration flows", () 
   assert.equal(isAutomationControlRequestType("automation_register"), true);
   assert.equal(isAutomationControlRequestType("automation-cancel"), true);
   assert.equal(isAutomationControlRequestType("privacy_oracle"), false);
+});
+
+test("guardQueuedAutomationExecution blocks cancelled queued automation requests", async () => {
+  const patchedRuns = [];
+  const result = await guardQueuedAutomationExecution(
+    { txHash: "0xqueue" },
+    {
+      fetchAutomationRunByQueueTxHash: async (txHash) => ({
+        automation_id: "automation:neo_n3:test-cancelled",
+        queue_tx: { tx_hash: txHash },
+      }),
+      fetchAutomationJobById: async () => ({
+        automation_id: "automation:neo_n3:test-cancelled",
+        status: "cancelled",
+        chain: "neo_n3",
+      }),
+      patchAutomationRunByQueueTxHash: async (txHash, fields) => {
+        patchedRuns.push({ txHash, fields });
+      },
+    },
+  );
+
+  assert.equal(result.blocked, true);
+  assert.equal(result.route, "automation:cancelled-before-execution");
+  assert.match(result.error, /automation cancelled before execution/i);
+  assert.deepEqual(patchedRuns, [{
+    txHash: "0xqueue",
+    fields: {
+      status: "failed",
+      error: "automation cancelled before execution: automation:neo_n3:test-cancelled",
+    },
+  }]);
+});
+
+test("guardQueuedAutomationExecution allows non-cancelled queued automation requests", async () => {
+  const result = await guardQueuedAutomationExecution(
+    { txHash: "0xqueue" },
+    {
+      fetchAutomationRunByQueueTxHash: async () => ({
+        automation_id: "automation:neo_n3:test-ok",
+      }),
+      fetchAutomationJobById: async () => ({
+        automation_id: "automation:neo_n3:test-ok",
+        status: "completed",
+        chain: "neo_n3",
+      }),
+      patchAutomationRunByQueueTxHash: async () => {
+        throw new Error("should not patch run when not blocked");
+      },
+    },
+  );
+
+  assert.equal(result.blocked, false);
+  assert.equal(result.automation_id, "automation:neo_n3:test-ok");
+  assert.equal(result.job.status, "completed");
 });
 
 test("decodePayloadText parses JSON and preserves raw strings", () => {
