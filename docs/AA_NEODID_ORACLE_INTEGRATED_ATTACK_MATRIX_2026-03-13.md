@@ -90,10 +90,12 @@ Executed baseline already available:
 
 - direct external callback injection into the testnet callback consumer now faults with `unauthorized caller`
 - reference artifact: `docs/N3_CALLBACK_BOUNDARY_TESTNET_2026-03-14.md`
+- isolated request-id replay against a temporary Oracle now faults with `invalid verification signature`
+- reference artifact: `docs/N3_FULFILLMENT_REPLAY_TESTNET_2026-03-14.md`
 
 Still pending:
 
-- replay of a valid Oracle-originated callback envelope into a different AA-bound consumer context
+- replay of a valid Oracle-originated callback envelope into a different AA-bound consumer context where the target consumer also enforces additional AA-specific state
 
 ### C. Confidential payload replay and reference abuse
 

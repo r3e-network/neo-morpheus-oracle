@@ -1,0 +1,32 @@
+{
+  "generated_at": "2026-03-14T04:59:37.970Z",
+  "network": "testnet",
+  "rpc_url": "https://testnet1.neo.coz.io:443",
+  "network_magic": 894710606,
+  "oracle_hash": "0x0f8639836f175bf70a9cd47db1ffe8abaa276a53",
+  "callback_consumer_hash": "0xb43effaa572dec7b21352f74f2e20bc124f9da83",
+  "request_fee_status": {
+    "request_fee": "1000000",
+    "current_credit": "1000000",
+    "deposit_amount": "1000000"
+  },
+  "setup": {
+    "set_updater_txid": "0x2edc83234ace959a83467ae42f6d2abadbb5fae9a385e41f3737f377bb58d06a",
+    "set_verifier_txid": "0xcebcfe5b17d18a29d5b567b66ab545b3efd9f45ca117cc3607b8cbe2127af617",
+    "allow_callback_txid": "0xbada6c81bea2a363c0102cfa378fc7f3b31ace60a1a00ef1c8887c878f67450b",
+    "set_oracle_txid": "0xac51fa3619fef31a8c5b9fa29af58ea42b1d1ea2874b95bae41a67648a8670ce"
+  },
+  "replay_source": {
+    "request_id": "200",
+    "request_type": "neodid_bind",
+    "txid": "0x4b4089a334558863d14e856258e70cec09fbc9efb6cc561bc2c3c452ad487832"
+  },
+  "replay_target": {
+    "request_txid": "0xce1b37d881c2ba71f73606b77b23bdd11fd57059c0e4a387e63c50bcde00289c",
+    "request_id": "1",
+    "replay_txid": "0x6dcf9ea381afae2163f9fcaa1a3fb58500c6ab76af3731bfa41e380e9fd0f4d1",
+    "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
+    "fulfill_txid": "0x94532fa7e66526c2c3d25983d3b0779896b1cef42b0a44862d91c488a74997fc",
+    "fulfill_vmstate": "HALT"
+  }
+}
