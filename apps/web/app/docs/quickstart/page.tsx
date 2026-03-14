@@ -20,6 +20,24 @@ export default function DocsQuickstart() {
         Integrate the Morpheus Privacy Oracle into your Neo smart contracts in under 5 minutes. This guide covers the end-to-end flow from encrypting secrets to reading the TEE-verified result on-chain.
       </p>
 
+      <div className="card-industrial" style={{ padding: '1.5rem', marginBottom: '2rem', borderLeft: '4px solid var(--neo-green)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.75rem' }}>
+          <Terminal size={18} color="var(--neo-green)" />
+          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--neo-green)', textTransform: 'uppercase', letterSpacing: '0.12em', fontFamily: 'var(--font-mono)' }}>
+            Live Neo N3 Testnet Validation
+          </span>
+        </div>
+        <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.85rem' }}>
+          The Morpheus paymaster-backed AA relay path has already been validated end-to-end on Neo N3 testnet, including account registration, verifier update, paymaster approval, relay submission, and on-chain <code>executeUserOp</code> success.
+        </p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem', fontFamily: 'var(--font-mono)' }}>
+          Latest full-path relay tx: 0x057d4a581efbe815fad0148a3766284da2a33335e72fb50e54d476078d8f40d4
+        </p>
+        <Link href="/docs/r/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14" className="btn btn-secondary btn-sm" style={{ textDecoration: 'none' }}>
+          View Validation Report <ArrowRight size={14} />
+        </Link>
+      </div>
+
       <h2>Step 1: Understand the Data Flow</h2>
       <p>
         The Morpheus network requires an asynchronous request-callback pattern. You must implement a callback function in your contract to receive the response.
