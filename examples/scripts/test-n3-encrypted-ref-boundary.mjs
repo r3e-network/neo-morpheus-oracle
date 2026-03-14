@@ -352,7 +352,13 @@ async function main() {
   const oracleHash = normalizeHash160(network === "testnet" ? (deployment.oracle_hash || process.env.CONTRACT_MORPHEUS_ORACLE_HASH || "") : (process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || ""));
   const consumerHash = normalizeHash160(network === "testnet" ? (deployment.example_consumer_hash || process.env.EXAMPLE_N3_CONSUMER_HASH || "") : (process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || ""));
   const supabaseUrl = trimString(process.env.SUPABASE_URL || process.env.morpheus_SUPABASE_URL || "");
-  const serviceRoleKey = trimString(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY || "");
+  const serviceRoleKey = trimString(
+    process.env.SUPABASE_SECRET_KEY
+      || process.env.morpheus_SUPABASE_SECRET_KEY
+      || process.env.SUPABASE_SERVICE_ROLE_KEY
+      || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY
+      || "",
+  );
   const phalaApiToken = trimString(process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || "");
   const phalaAppId = trimString(process.env.MORPHEUS_PAYMASTER_APP_ID || "28294e89d490924b79c85cdee057ce55723b3d56");
 
@@ -360,7 +366,7 @@ async function main() {
   assertCondition(signerWif, "testnet signer WIF is required");
   assertCondition(oracleHash, "testnet oracle hash is required");
   assertCondition(consumerHash, "testnet example consumer hash is required");
-  assertCondition(supabaseUrl && serviceRoleKey, "Supabase service-role env is required");
+  assertCondition(supabaseUrl && serviceRoleKey, "Supabase secret or service-role env is required");
   assertCondition(phalaApiToken, "PHALA_API_TOKEN or PHALA_SHARED_SECRET is required");
 
   const account = new wallet.Account(signerWif);

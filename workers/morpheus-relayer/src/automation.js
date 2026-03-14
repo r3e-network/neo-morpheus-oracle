@@ -327,8 +327,14 @@ function computeNextIntervalRun(job, nowMs) {
   return new Date(nowMs + intervalMs).toISOString();
 }
 
+function buildAutomationQueueRequestId(job) {
+  const nextExecutionCount = Number(job.execution_count || 0) + 1;
+  return `automation:${job.chain}:${job.automation_id}:${nextExecutionCount}`;
+}
+
 async function queueAutomationExecution(config, job) {
   const payloadText = stringifyExecutionPayload(job.execution_payload || {});
+  const requestId = buildAutomationQueueRequestId(job);
   if (job.chain === "neo_x") {
     return queueNeoXAutomationRequest(
       config,
@@ -337,6 +343,7 @@ async function queueAutomationExecution(config, job) {
       payloadText,
       job.callback_contract,
       job.callback_method,
+      requestId,
     );
   }
   return queueNeoN3AutomationRequest(
@@ -346,6 +353,7 @@ async function queueAutomationExecution(config, job) {
     payloadText,
     job.callback_contract,
     job.callback_method,
+    requestId,
   );
 }
 
@@ -381,9 +389,13 @@ export async function processAutomationJobs(config, logger) {
       }
 
       const queuedTx = await queueAutomationExecution(config, job);
+      if (queuedTx?.duplicate) {
+        skipped += 1;
+        continue;
+      }
       await insertAutomationRun({
         automation_id: job.automation_id,
-        queued_request_id: null,
+        queued_request_id: queuedTx?.request_id || null,
         chain: job.chain,
         status: "queued",
         trigger_reason: evaluation.triggerReason || job.trigger_type,
@@ -412,6 +424,7 @@ export async function processAutomationJobs(config, logger) {
         ...evaluation.patch,
         execution_count: nextExecutionCount,
         last_run_at: new Date(nowMs).toISOString(),
+        last_queued_request_id: queuedTx?.request_id || null,
         next_run_at: nextRunAt,
         status: nextStatus,
         last_error: null,

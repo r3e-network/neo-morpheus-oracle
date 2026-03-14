@@ -79,6 +79,7 @@ Operational rule:
 | Mainnet privacy matrix | `examples/scripts/test-n3-privacy-matrix.mjs` | `examples/scripts/common.mjs` | Public params, encrypted params, encrypted payloads, custom URL, custom JS, callback verification envelope |
 | N3 builtin suite | `examples/scripts/test-n3-builtins.mjs` | `examples/scripts/lib-builtins.mjs` | All builtin compute families and expected outputs |
 | N3 automation | `examples/scripts/test-n3-automation.mjs` | Supabase-backed automation tables | One-shot registration, queued execution, interval registration, cancellation, Supabase persistence |
+| N3 automation idempotency | `examples/scripts/test-n3-automation-idempotency.mjs` | Supabase-backed automation tables plus live relayer loop isolation on test CVM | Deterministic queue request key, back-to-back scheduler ticks, single queued run for target automation, callback success |
 | Worker runtime | `workers/phala-worker/worker.test.mjs` | worker runtime modules under `workers/phala-worker/src/` | X25519 transport, timeouts, script isolation, WASM runtime, feed batching, relayer helpers |
 | Frontend / docs consistency | `scripts/check-web-consistency.mjs` | `apps/web/`, `workers/phala-worker/src/`, `config/networks/mainnet.json` | Builtin catalog parity, feed pair parity, mainnet address parity, stale-doc regression detection |
 | Frontend production build | `npm run build:web` | `apps/web/` | Type-safe production frontend build and route generation |
@@ -123,6 +124,8 @@ What is now covered upstream before Morpheus-side integrated testing:
 | `examples/deployments/n3-fulfillment-replay.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same fulfillment-replay probe as JSON |
 | `docs/N3_AA_SESSION_ORACLE_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | AA session-key scope probe against a downstream Morpheus Oracle call path |
 | `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same AA session-key Oracle boundary probe as JSON |
+| `docs/N3_AUTOMATION_IDEMPOTENCY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Back-to-back relayer tick probe proving a target automation job queues once and fulfills once under deterministic request-keying |
+| `examples/deployments/n3-automation-idempotency.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same automation idempotency probe as JSON |
 | `docs/ACCEPTANCE_REPORT_2026-03-10.md` | Acceptance report | Neo N3 mainnet | Smoke, example consumer, builtins, automation, feed sync, operational fixes |
 | `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
 | `examples/deployments/test-neox.latest.json` | Partial log only | Neo X testnet | Not a canonical structured validation artifact |
@@ -138,6 +141,9 @@ Current report generator outputs after the latest script upgrade:
 - `examples/scripts/test-n3-automation.mjs`
   - JSON latest: `examples/deployments/n3-automation-validation.<network>.latest.json`
   - Markdown: `docs/N3_AUTOMATION_VALIDATION_<NETWORK>_<DATE>.md`
+- `examples/scripts/test-n3-automation-idempotency.mjs`
+  - JSON latest: `examples/deployments/n3-automation-idempotency.<network>.latest.json`
+  - Markdown: `docs/N3_AUTOMATION_IDEMPOTENCY_<NETWORK>_<DATE>.md`
 
 Catalog note:
 

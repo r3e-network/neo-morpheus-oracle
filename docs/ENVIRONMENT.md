@@ -37,9 +37,9 @@ If one of these is wrong, the system usually stops working.
   English: Supabase project URL for server-side reads/writes.
   中文：Supabase 项目地址，后端和 relayer 写数据时会用到。
 
-- `SUPABASE_SERVICE_ROLE_KEY`
-  English: High-privilege Supabase key for server routes and relayer persistence.
-  中文：Supabase 高权限 key，后端接口和 relayer 写运行记录时会用到。
+- `SUPABASE_SECRET_KEY` preferred, or legacy `SUPABASE_SERVICE_ROLE_KEY`
+  English: High-privilege Supabase server key for server routes and relayer persistence. Prefer the modern `sb_secret_...` secret key when both are present.
+  中文：Supabase 高权限服务端 key，后端接口和 relayer 写运行记录时会用到。若同时存在，优先使用新版 `sb_secret_...` secret key。
 
   English: It is also used for web operation logging and encrypted-ciphertext persistence.
   中文：它也用于 web 操作日志写入和加密密文持久化。

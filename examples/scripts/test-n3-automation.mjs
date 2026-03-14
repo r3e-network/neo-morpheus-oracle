@@ -217,10 +217,10 @@ async function waitForQueuedExecution(rpcClient, oracleHash, startRequestIdExclu
 async function fetchAutomationRecord(automationId) {
   const baseUrl = trimString(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.morpheus_SUPABASE_URL || "");
   const apiKey = trimString(
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-      || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY
-      || process.env.SUPABASE_SECRET_KEY
+    process.env.SUPABASE_SECRET_KEY
       || process.env.morpheus_SUPABASE_SECRET_KEY
+      || process.env.SUPABASE_SERVICE_ROLE_KEY
+      || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY
       || "",
   );
   if (!baseUrl || !apiKey) return null;

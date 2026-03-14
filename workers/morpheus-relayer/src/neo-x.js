@@ -85,10 +85,11 @@ export async function fulfillNeoXRequest(config, requestId, success, result, err
   return { tx_hash: tx.hash, target_chain: "neo_x" };
 }
 
-export async function queueNeoXAutomationRequest(config, requester, requestType, payloadText, callbackContract, callbackMethod) {
+export async function queueNeoXAutomationRequest(config, requester, requestType, payloadText, callbackContract, callbackMethod, requestIdOverride = "") {
   const provider = new JsonRpcProvider(config.neo_x.rpcUrl);
   const privateKey = await resolveNeoXUpdaterPrivateKey(config);
   const wallet = new Wallet(privateKey, provider);
+  const requestId = trimString(requestIdOverride) || `automation:neox:${Date.now()}`;
   const data = morpheusOracleXInterface.encodeFunctionData("queueAutomationRequest", [
     requester,
     requestType,
@@ -101,7 +102,7 @@ export async function queueNeoXAutomationRequest(config, requester, requestType,
     data,
     chainId: config.neo_x.chainId,
   });
-  return { tx_hash: tx.hash, target_chain: "neo_x" };
+  return { tx_hash: tx.hash, request_id: requestId, target_chain: "neo_x" };
 }
 
 export async function fetchNeoXFeedRecord(config, pair) {

@@ -79,11 +79,11 @@ function resolveSupabaseNetwork(value) {
 function getSupabaseRestConfig() {
   const baseUrl = trimString(env("SUPABASE_URL") || env("NEXT_PUBLIC_SUPABASE_URL") || env("morpheus_SUPABASE_URL") || "");
   const apiKey = trimString(
-    env("SUPABASE_SERVICE_ROLE_KEY")
+    env("SUPABASE_SECRET_KEY")
+      || env("morpheus_SUPABASE_SECRET_KEY")
+      || env("SUPABASE_SERVICE_ROLE_KEY")
       || env("morpheus_SUPABASE_SERVICE_ROLE_KEY")
       || env("SUPABASE_SERVICE_KEY")
-      || env("SUPABASE_SECRET_KEY")
-      || env("morpheus_SUPABASE_SECRET_KEY")
       || "",
   );
   if (!baseUrl || !apiKey) return null;
