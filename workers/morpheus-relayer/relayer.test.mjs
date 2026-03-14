@@ -74,11 +74,18 @@ test("decodePayloadText parses JSON and preserves raw strings", () => {
 });
 
 test("buildWorkerPayload injects relayer metadata", () => {
-  assert.deepEqual(buildWorkerPayload("neo_n3", "privacy_oracle", { provider: "twelvedata" }, 42), {
+  assert.deepEqual(buildWorkerPayload("neo_n3", "privacy_oracle", { provider: "twelvedata" }, 42, {
+    requester: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    callbackContract: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    callbackMethod: "onOracleResult",
+  }), {
     provider: "twelvedata",
     request_id: "42",
     request_source: "morpheus-relayer:neo_n3",
     target_chain: "neo_n3",
+    requester: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    callback_contract: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    callback_method: "onOracleResult",
   });
 });
 

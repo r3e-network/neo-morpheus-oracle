@@ -147,12 +147,15 @@ export function resolveWorkerRoute(requestType, payload) {
   return "/oracle/smart-fetch";
 }
 
-export function buildWorkerPayload(chain, requestType, payload, requestId) {
+export function buildWorkerPayload(chain, requestType, payload, requestId, context = {}) {
   return {
     ...payload,
     request_id: String(requestId),
     request_source: `morpheus-relayer:${chain}`,
     target_chain: payload.target_chain || chain,
+    requester: context.requester || payload.requester || "",
+    callback_contract: context.callbackContract || payload.callback_contract || "",
+    callback_method: context.callbackMethod || payload.callback_method || "",
   };
 }
 
