@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T02:24:38.498Z
+Date: 2026-03-14T02:37:03.849Z
 
 ## Purpose
 
@@ -14,6 +14,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy matrix: `examples/deployments/n3-privacy-validation.testnet.latest.json`
 - Builtins matrix: `examples/deployments/n3-builtins-validation.testnet.latest.json`
 - Automation matrix: `examples/deployments/n3-automation-validation.testnet.latest.json`
+- Callback boundary probe: `examples/deployments/n3-callback-boundary.testnet.latest.json`
 
 ## AA Baseline
 
@@ -27,6 +28,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy: 7/7 cases marked passing
 - Builtins: 18 builtin requests
 - Automation: register=true, queued=true, cancel=true
+- Callback boundary: vmstate=FAULT, tx=`0xbf7fc0deae1e4d026f3e12c73baeb706cb88ca8769419d42cce544412ba5559d`
 
 ## Executed Coverage
 
@@ -38,6 +40,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Privacy oracle encrypted parameter and custom function matrix
 - Builtin compute catalog
 - Automation register / queue / cancel flow
+- Callback consumer direct injection rejection
 
 ## Remaining Integrated Gaps
 
