@@ -114,6 +114,21 @@ Expected:
 - secret reference ownership checks
 - no plaintext leakage into logs or callback data
 
+Executed boundary evidence now available:
+
+- `docs/N3_ENCRYPTED_REF_BOUNDARY_TESTNET_2026-03-14.md`
+
+What it proves:
+
+- a ref bound to the live requester and callback contract succeeds
+- a ref bound to a different requester fails with `encrypted ref requester mismatch`
+- a ref bound to a different callback contract fails with `encrypted ref callback mismatch`
+
+Still pending:
+
+- replay of one valid ref across multiple accepted requests when the binding still matches
+- ownership scoping beyond requester / callback contract, for example project-level policy or one-time-use semantics
+
 ### D. Session-key + Oracle escalation
 
 Goal:

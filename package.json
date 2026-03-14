@@ -41,6 +41,7 @@
     "examples:test:n3:callback-boundary": "node examples/scripts/test-n3-callback-boundary.mjs",
     "examples:test:n3:neodid-registry-boundary": "node examples/scripts/test-n3-neodid-registry-boundary.mjs",
     "examples:test:n3:neodid-registry-v1": "node examples/scripts/test-n3-neodid-registry-v1.mjs",
+    "examples:test:n3:encrypted-ref-boundary": "node examples/scripts/test-n3-encrypted-ref-boundary.mjs",
     "examples:test:feed-source": "node examples/scripts/validate-feed-source-mappings.mjs",
     "examples:test:all": "node examples/scripts/test-all-examples.mjs",
     "examples:live": "node examples/scripts/deploy-and-test-all.mjs",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T03:37:18.426Z",
+  "generated_at": "2026-03-14T04:06:37.303Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -172,6 +172,14 @@
       "consume_vmstate": "HALT",
       "replay_txid": "0x81d3a3d07b3e335cc3cf23d8f0fa6eea92cf40b8350239ef17a7857a0a6910bc",
       "replay_exception": "at instruction 2229 (ABORTMSG): ABORTMSG is executed. Reason: action nullifier already used"
+    },
+    "encrypted_ref_boundary": {
+      "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
+      "matching_txid": "0x4b4089a334558863d14e856258e70cec09fbc9efb6cc561bc2c3c452ad487832",
+      "wrong_requester_txid": "0xb429f5c22d34197a6fc4af48f4a1b851b95a56cc422fdcdad6851dc9c7a94ee0",
+      "wrong_requester_error": "encrypted ref requester mismatch",
+      "wrong_callback_txid": "0x8dee66d4e2627de871d17447c4d91ad9884c688d0d292123d1e9069adc0bc6bb",
+      "wrong_callback_error": "encrypted ref callback mismatch"
     }
   },
   "executed_coverage": [
@@ -185,12 +193,12 @@
     "Automation register / queue / cancel flow",
     "Callback consumer direct injection rejection",
     "NeoDID action ticket JSON callback boundary rejection",
-    "NeoDID compact action ticket registry consumption and replay rejection"
+    "NeoDID compact action ticket registry consumption and replay rejection",
+    "encrypted_params_ref requester and callback binding enforcement"
   ],
   "remaining_integrated_gaps": [
     "Cross-account NeoDID recovery ticket misuse against a live AA recovery verifier",
     "Replay of a valid Morpheus callback envelope into a different AA-bound consumer context",
-    "encrypted_params_ref ownership and replay abuse across AA-triggered Morpheus actions",
     "AA session-key restrictions combined with downstream Morpheus Oracle or Compute calls",
     "AA-aware automation billing races and duplicate-callback protection under sponsored execution"
   ]
