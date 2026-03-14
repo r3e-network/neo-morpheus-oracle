@@ -133,3 +133,46 @@ An app backend can pre-screen business policy, then delegate final sponsorship a
 The AA frontend relay request builder now forwards optional `paymaster` metadata, and the AA relay API can request Morpheus paymaster authorization before broadcasting a relay-ready meta invocation.
 
 This is currently a server-side integration path. It does not require changing the AA on-chain contract.
+
+## Validated Neo N3 Testnet Flow
+
+The AA relay + Morpheus paymaster path has been validated live on Neo N3 testnet.
+
+Validated service-side facts:
+
+- network: `testnet`
+- policy id: `testnet-aa`
+- target chain: `neo_n3`
+- allowed AA target contract: `0x9cbbfc969f94a5056fd6a658cab090bcb3604724`
+- allowed method: `executeUserOp`
+- CVM app id: `28294e89d490924b79c85cdee057ce55723b3d56`
+
+Validated end-to-end flow:
+
+1. register a V3 AA account
+2. update the verifier key
+3. update the paymaster allowlist on the CVM
+4. simulate the AA invocation
+5. request Morpheus paymaster authorization
+6. relay the sponsored `executeUserOp`
+7. confirm on-chain `HALT`
+
+Successful live full-path validation example:
+
+- account id: `0x531a5f4d3a916dffbba3ea372317623fdbbb853c`
+- register txid: `0xf79d6a1d3012e9edc64c1a7e40abc932253c7f737873698055ad8f3df8a1869e`
+- update verifier txid: `0xed9c97801a757fb0e3d72d641d75a6659c1242c084134234b5e7cd1a81e903d8`
+- relay txid: `0x057d4a581efbe815fad0148a3766284da2a33335e72fb50e54d476078d8f40d4`
+- paymaster approval digest: `04111a96d6356231c45fdb033ddc91818856c1dc0ac0ce09677ecdb033cae92f`
+- paymaster attestation hash: `73849ae405db210d51c28ff63033bc4bb5f2f0886e1a7478c2557e1ac9c39886`
+
+A successful replay path using an already allowlisted account was also validated:
+
+- account id: `0x1111222233334444555566667777888899990000`
+- relay txid: `0x1d79429b9e8af4115845d7858ddaefcc575dafff2b14a37a000caaea58a0f0bb`
+
+Operational note:
+
+- The worker service itself remains protected and is not intended to be left as a public open endpoint.
+- For the live validation harness, the most stable CVM access pattern was `phala cp` to upload a helper script, followed by `phala ssh` to execute it on the CVM.
+- This replaced an earlier stdin-piped `phala ssh` bridge that was intermittently failing with transport error `255`.
