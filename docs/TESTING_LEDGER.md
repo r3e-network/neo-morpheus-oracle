@@ -1,6 +1,6 @@
 # Testing Ledger
 
-Last updated: 2026-03-13
+Last updated: 2026-03-14
 
 This document is the canonical test ledger for the current Neo Morpheus Oracle repository state.
 
@@ -16,6 +16,8 @@ Use this document together with:
 - `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 - `docs/MAINNET_PRIVACY_VALIDATION_2026-03-11.md`
 - `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md`
+- `docs/AA_V3_TESTNET_VALIDATION_SUITE_2026-03-14.md`
+- `docs/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14.md`
 - `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`
 - `examples/deployments/mainnet-privacy-validation.latest.json`
 
@@ -79,7 +81,22 @@ Operational rule:
 | Worker runtime | `workers/phala-worker/worker.test.mjs` | worker runtime modules under `workers/phala-worker/src/` | X25519 transport, timeouts, script isolation, WASM runtime, feed batching, relayer helpers |
 | Frontend / docs consistency | `scripts/check-web-consistency.mjs` | `apps/web/`, `workers/phala-worker/src/`, `config/networks/mainnet.json` | Builtin catalog parity, feed pair parity, mainnet address parity, stale-doc regression detection |
 | Frontend production build | `npm run build:web` | `apps/web/` | Type-safe production frontend build and route generation |
-| AA V3 plugin baseline | external AA testnet matrix | `../neo-abstract-account/docs/reports/2026-03-13-v3-testnet-plugin-matrix.md` | Verifier / hook primitive behavior before cross-system NeoDID + Oracle integration |
+| AA V3 validation baseline | external AA testnet suite | `../neo-abstract-account/docs/reports/2026-03-14-v3-testnet-validation-suite.md` | Smoke, verifier / hook primitives, paymaster policy abuse checks, and sponsored relay execution before cross-system NeoDID + Oracle integration |
+
+### AA V3 Testnet Baseline
+
+The standalone AA V3 baseline was refreshed on 2026-03-14 and now covers more than the earlier plugin-only matrix.
+
+Reference:
+
+- `docs/AA_V3_TESTNET_VALIDATION_SUITE_2026-03-14.md`
+
+What is now covered upstream before Morpheus-side integrated testing:
+
+- V3 smoke execution
+- verifier / hook primitive matrix
+- paymaster policy deny-path matrix
+- paymaster-sponsored relay success path
 
 ## 3. Artifact Index
 
