@@ -131,6 +131,7 @@ For the current `deploy/phala/docker-compose.ui.yml`, the Phala UI only needs th
 
 - `MORPHEUS_PHALA_WORKER_IMAGE`
 - `MORPHEUS_RELAYER_IMAGE`
+- `MORPHEUS_PUBLIC_PORT`
 - `PHALA_WORKER_PORT`
 - `PHALA_SHARED_SECRET`
 - `PHALA_API_TOKEN`
@@ -141,6 +142,8 @@ For the current `deploy/phala/docker-compose.ui.yml`, the Phala UI only needs th
 - `MORPHEUS_RUNTIME_CONFIG_JSON`
 
 Everything else now lives inside `MORPHEUS_RUNTIME_CONFIG_JSON`.
+
+`MORPHEUS_PUBLIC_PORT` should stay aligned with the exposed dstack app URL. The default public mapping is `3000 -> caddy:80`.
 
 Recommended flow:
 
