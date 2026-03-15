@@ -533,9 +533,19 @@ export async function resolveConfidentialPayload(payload = {}) {
 
 export async function executeProgrammableOracle(payload, context) {
   const maxScriptInputBytes = resolveMaxBytes(env("ORACLE_MAX_SCRIPT_INPUT_BYTES"), 128 * 1024, 1024);
+  const programmableContext = {
+    target_chain: context.target_chain,
+    target_chain_id: context.target_chain_id,
+    request_source: context.request_source,
+    upstream_status: context.upstream_status,
+    provider: context.provider ?? null,
+    provider_pair: context.provider_pair ?? null,
+    selected_value: context.selected_value ?? null,
+    encrypted_token_present: Boolean(context.encrypted_token_present),
+  };
   const wasmModuleBase64 = resolveWasmModuleBase64(payload);
   if (wasmModuleBase64) {
-    enforceSerializedSizeLimit({ data: context.data, context }, "oracle programmable input", maxScriptInputBytes);
+    enforceSerializedSizeLimit({ data: context.data, context: programmableContext }, "oracle programmable input", maxScriptInputBytes);
     const timeoutMs = parseDurationMs(
       payload.wasm_timeout_ms
         || payload.script_timeout_ms
@@ -551,7 +561,7 @@ export async function executeProgrammableOracle(payload, context) {
         mode: "oracle",
         moduleBase64: wasmModuleBase64,
         entryPoint: trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || "run") || "run",
-        input: { data: context.data, context },
+        input: { data: context.data, context: programmableContext },
         timeoutMs,
       }),
     };
@@ -567,7 +577,7 @@ export async function executeProgrammableOracle(payload, context) {
 
   assertUntrustedScriptsEnabled();
   validateUserScriptSource(script);
-  enforceSerializedSizeLimit({ data: context.data, context }, "oracle programmable input", maxScriptInputBytes);
+  enforceSerializedSizeLimit({ data: context.data, context: programmableContext }, "oracle programmable input", maxScriptInputBytes);
 
   const timeoutMs = parseDurationMs(
     payload.script_timeout_ms || payload.oracle_script_timeout_ms || env("ORACLE_SCRIPT_TIMEOUT_MS"),
@@ -581,7 +591,7 @@ export async function executeProgrammableOracle(payload, context) {
       mode: "oracle",
       script,
       data: context.data,
-      context,
+      context: programmableContext,
       timeoutMs,
     }),
   };
