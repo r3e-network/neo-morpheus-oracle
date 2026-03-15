@@ -14,7 +14,7 @@ import {
   normalizeRequestType,
   resolveWorkerRoute,
 } from "./src/router.js";
-import { guardQueuedAutomationExecution, isAutomationControlRequestType } from "./src/automation.js";
+import { guardQueuedAutomationExecution, isAutomationControlRequestType, processAutomationJobs } from "./src/automation.js";
 import { getFeedSyncDelayMs, resolveChainFromBlock } from "./src/relayer.js";
 import {
   buildEventKey,
@@ -121,6 +121,114 @@ test("guardQueuedAutomationExecution allows non-cancelled queued automation requ
   assert.equal(result.blocked, false);
   assert.equal(result.automation_id, "automation:neo_n3:test-ok");
   assert.equal(result.job.status, "completed");
+});
+
+test("processAutomationJobs fail-closes automation jobs on request fee exhaustion", async () => {
+  const patchedJobs = [];
+  const insertedRuns = [];
+  const result = await processAutomationJobs(
+    {
+      automation: {
+        enabled: true,
+        batchSize: 10,
+        maxQueuedPerTick: 10,
+        defaultPriceCooldownMs: 60000,
+      },
+    },
+    { info() {}, warn() {} },
+    {
+      fetchActiveAutomationJobs: async () => ([{
+        automation_id: "automation:neo_n3:exhausted",
+        status: "active",
+        chain: "neo_n3",
+        requester: "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+        callback_contract: "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+        callback_method: "onOracleResult",
+        execution_request_type: "privacy_oracle",
+        execution_payload: { provider: "twelvedata" },
+        trigger_type: "one_shot",
+        trigger_config: { execute_at: new Date(0).toISOString() },
+        next_run_at: new Date(0).toISOString(),
+        execution_count: 0,
+        max_executions: 1,
+      }]),
+      queueNeoN3AutomationRequest: async () => {
+        throw new Error("at instruction 2827 (ABORTMSG): ABORTMSG is executed. Reason: request fee not paid");
+      },
+      patchAutomationJob: async (automationId, fields) => {
+        patchedJobs.push({ automationId, fields });
+      },
+      insertAutomationRun: async (record) => {
+        insertedRuns.push(record);
+      },
+    },
+  );
+
+  assert.deepEqual(result, { queued: 0, skipped: 0, failed: 1, inspected: 1 });
+  assert.deepEqual(patchedJobs, [{
+    automationId: "automation:neo_n3:exhausted",
+    fields: {
+      status: "error",
+      next_run_at: null,
+      last_error: "at instruction 2827 (ABORTMSG): ABORTMSG is executed. Reason: request fee not paid",
+    },
+  }]);
+  assert.equal(insertedRuns.length, 1);
+  assert.equal(insertedRuns[0].status, "failed");
+  assert.match(insertedRuns[0].error, /request fee not paid/i);
+});
+
+test("processAutomationJobs preserves retry semantics for transient automation queue errors", async () => {
+  const patchedJobs = [];
+  const insertedRuns = [];
+  const result = await processAutomationJobs(
+    {
+      automation: {
+        enabled: true,
+        batchSize: 10,
+        maxQueuedPerTick: 10,
+        defaultPriceCooldownMs: 60000,
+      },
+    },
+    { info() {}, warn() {} },
+    {
+      fetchActiveAutomationJobs: async () => ([{
+        automation_id: "automation:neo_n3:transient",
+        status: "active",
+        chain: "neo_n3",
+        requester: "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+        callback_contract: "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+        callback_method: "onOracleResult",
+        execution_request_type: "privacy_oracle",
+        execution_payload: { provider: "twelvedata" },
+        trigger_type: "one_shot",
+        trigger_config: { execute_at: new Date(0).toISOString() },
+        next_run_at: new Date(0).toISOString(),
+        execution_count: 0,
+        max_executions: 1,
+      }]),
+      queueNeoN3AutomationRequest: async () => {
+        throw new Error("rpc timeout");
+      },
+      patchAutomationJob: async (automationId, fields) => {
+        patchedJobs.push({ automationId, fields });
+      },
+      insertAutomationRun: async (record) => {
+        insertedRuns.push(record);
+      },
+    },
+  );
+
+  assert.deepEqual(result, { queued: 0, skipped: 0, failed: 1, inspected: 1 });
+  assert.deepEqual(patchedJobs, [{
+    automationId: "automation:neo_n3:transient",
+    fields: {
+      last_error: "rpc timeout",
+    },
+  }]);
+  assert.equal(insertedRuns.length, 1);
+  assert.equal(insertedRuns[0].status, "failed");
+  assert.equal(insertedRuns[0].error, "rpc timeout");
 });
 
 test("decodePayloadText parses JSON and preserves raw strings", () => {
