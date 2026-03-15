@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T01:44:03.170Z",
+  "generated_at": "2026-03-15T02:19:47.974Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -174,7 +174,7 @@
     },
     "callback_boundary": {
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
-      "txid": "0xe129a4044d3fd738bd18cbb623d5b3b333f107ef2065ce4dd85635a791247a23",
+      "txid": "0x619766a1d9629975d80703bb52cb1d29baaa90a20199ed21cce37c8ca61066f3",
       "vmstate": "FAULT",
       "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
     },
@@ -197,25 +197,32 @@
     },
     "encrypted_ref_boundary": {
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
-      "matching_txid": "0xec206081dc0398ad95f1e32fd8192abc48ee09b050b2a3d131b16ea535f3c119",
-      "wrong_requester_txid": "0xd06a7b836277362d87b4b6913335b2e54b94283babda80e2643fc03068fb1679",
+      "matching_txid": "0x320c38dd99228be7014eabbfb93296728462c5b350e746a751c5ee4f51013f12",
+      "wrong_requester_txid": "0x620e0f7300e32e0c76b8d34737081c782d52301109f12ae6531735f02af03d38",
       "wrong_requester_error": "encrypted ref requester mismatch",
-      "wrong_callback_txid": "0x9b5ce2ece91238bd2bfeff8bad635a1e14c5dc7b22bff7c31c055a9c0198a36f",
+      "wrong_callback_txid": "0x5bacfb5121041489764d2925a867da5e5b49c100331504be6253290c09b4ca83",
       "wrong_callback_error": "encrypted ref callback mismatch"
     },
     "fulfillment_replay": {
       "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
-      "replay_txid": "0x0468b8fa9ef36b6c566ebbfd89360eb7d6c08b9c90c41fef179f69a076a7b532",
+      "replay_txid": "0x2bada4a6defa14e5a4a7a8983f6fb772b3995e13e313864e803772cda679d1a6",
       "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-      "fulfill_txid": "0x461400ffa7c7aeabe759cee8999b20a12d6f587ba20db5ba1f2fe8f61657c451",
+      "fulfill_txid": "0x7ed9ef1b5a8cd6a8f4750e2266a163df4148d449ad822c3ca7e51b945d830bec",
       "fulfill_vmstate": "HALT"
     },
     "aa_session_oracle_boundary": {
       "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
-      "execute_txid": "0xf72fa358b0c4a2f8377cd43a57cd01a54df56c560b6d073c32727a571d341e63",
-      "request_id": "3593",
+      "execute_txid": "0x045d55fce8f1efe2f0fe6d2833d33d9bad1e5262c5b92a668ea84043c97300cf",
+      "request_id": "3674",
       "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
       "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
+    },
+    "aa_callback_replay_boundary": {
+      "report_path": "examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json",
+      "replay_txid": "0xe0011eacc573754f163100e9b399602eadff7b7c5dd941d5dbfe319891ef6b8b",
+      "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
+      "unlocked_a": true,
+      "unlocked_b": false
     },
     "aa_recovery_cross_account_boundary": {
       "report_path": "examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json",
@@ -226,7 +233,7 @@
     },
     "integrated_attack_regression": {
       "report_path": "examples/deployments/n3-integrated-attack-regression.testnet.latest.json",
-      "stage_count": 10,
+      "stage_count": 11,
       "failed_stages": []
     }
   },
@@ -248,6 +255,7 @@
     "encrypted_params_ref requester and callback binding enforcement",
     "fulfillment signature request-id replay rejection",
     "AA session-key downstream Morpheus Oracle boundary enforcement",
+    "AA-bound callback replay rejection with account-scoped pending context",
     "AA recovery ticket cross-account replay rejection"
   ],
   "remaining_integrated_gaps": [

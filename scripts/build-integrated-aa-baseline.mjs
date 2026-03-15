@@ -34,6 +34,7 @@ const inputs = {
   encryptedRefBoundary: path.join(repoRoot, "examples", "deployments", "n3-encrypted-ref-boundary.testnet.latest.json"),
   fulfillmentReplay: path.join(repoRoot, "examples", "deployments", "n3-fulfillment-replay.testnet.latest.json"),
   aaSessionOracleBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-session-oracle-boundary.testnet.latest.json"),
+  aaCallbackReplayBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-callback-replay-boundary.testnet.latest.json"),
   aaRecoveryCrossAccountBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-recovery-cross-account-boundary.testnet.latest.json"),
   integratedAttackRegression: path.join(repoRoot, "examples", "deployments", "n3-integrated-attack-regression.testnet.latest.json"),
 };
@@ -52,6 +53,7 @@ const neodidRegistryV1 = readJson(inputs.neodidRegistryV1);
 const encryptedRefBoundary = readJson(inputs.encryptedRefBoundary);
 const fulfillmentReplay = readJson(inputs.fulfillmentReplay);
 const aaSessionOracleBoundary = readJson(inputs.aaSessionOracleBoundary);
+const aaCallbackReplayBoundary = readJson(inputs.aaCallbackReplayBoundary);
 const aaRecoveryCrossAccountBoundary = readJson(inputs.aaRecoveryCrossAccountBoundary);
 const integratedAttackRegression = fs.existsSync(inputs.integratedAttackRegression)
   ? readJson(inputs.integratedAttackRegression)
@@ -172,6 +174,13 @@ const summary = {
       wrong_target_exception: aaSessionOracleBoundary.wrong_target?.exception || null,
       wrong_method_exception: aaSessionOracleBoundary.wrong_method?.exception || null,
     },
+    aa_callback_replay_boundary: {
+      report_path: rel(inputs.aaCallbackReplayBoundary),
+      replay_txid: aaCallbackReplayBoundary.replay_attempt?.txid || aaCallbackReplayBoundary.replay_txid || null,
+      replay_exception: aaCallbackReplayBoundary.replay_attempt?.exception || aaCallbackReplayBoundary.replay_exception || null,
+      unlocked_a: aaCallbackReplayBoundary.state_after_replay?.unlocked_a ?? aaCallbackReplayBoundary.unlocked_a ?? null,
+      unlocked_b: aaCallbackReplayBoundary.state_after_replay?.unlocked_b ?? aaCallbackReplayBoundary.unlocked_b ?? null,
+    },
     aa_recovery_cross_account_boundary: {
       report_path: rel(inputs.aaRecoveryCrossAccountBoundary),
       recovery_verifier_hash: aaRecoveryCrossAccountBoundary.recovery_verifier_hash || null,
@@ -205,6 +214,7 @@ const summary = {
     "encrypted_params_ref requester and callback binding enforcement",
     "fulfillment signature request-id replay rejection",
     "AA session-key downstream Morpheus Oracle boundary enforcement",
+    "AA-bound callback replay rejection with account-scoped pending context",
     "AA recovery ticket cross-account replay rejection",
   ],
   remaining_integrated_gaps: [
@@ -238,6 +248,7 @@ const lines = [
   `- Encrypted ref boundary probe: \`${summary.morpheus.encrypted_ref_boundary.report_path}\``,
   `- Fulfillment replay probe: \`${summary.morpheus.fulfillment_replay.report_path}\``,
   `- AA session-key Oracle boundary probe: \`${summary.morpheus.aa_session_oracle_boundary.report_path}\``,
+  `- AA callback replay boundary probe: \`${summary.morpheus.aa_callback_replay_boundary.report_path}\``,
   `- AA recovery cross-account boundary probe: \`${summary.morpheus.aa_recovery_cross_account_boundary.report_path}\``,
   "",
   "## AA Baseline",
@@ -261,6 +272,7 @@ const lines = [
   `- Encrypted ref boundary: requester mismatch=\`${summary.morpheus.encrypted_ref_boundary.wrong_requester_error}\`, callback mismatch=\`${summary.morpheus.encrypted_ref_boundary.wrong_callback_error}\``,
   `- Fulfillment replay: replay exception=\`${summary.morpheus.fulfillment_replay.replay_exception}\`, fulfill vmstate=\`${summary.morpheus.fulfillment_replay.fulfill_vmstate}\``,
   `- AA session-key boundary: wrong target=\`${summary.morpheus.aa_session_oracle_boundary.wrong_target_exception}\`, wrong method=\`${summary.morpheus.aa_session_oracle_boundary.wrong_method_exception}\``,
+  `- AA callback replay boundary: replay exception=\`${summary.morpheus.aa_callback_replay_boundary.replay_exception}\`, unlocked_a=\`${summary.morpheus.aa_callback_replay_boundary.unlocked_a}\`, unlocked_b=\`${summary.morpheus.aa_callback_replay_boundary.unlocked_b}\``,
   `- AA recovery cross-account boundary: wrong account state=\`${summary.morpheus.aa_recovery_cross_account_boundary.wrong_account_state}\`, wrong account exception=\`${summary.morpheus.aa_recovery_cross_account_boundary.wrong_account_exception}\``,
   "",
   "## Executed Coverage",
