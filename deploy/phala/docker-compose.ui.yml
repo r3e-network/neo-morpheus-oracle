@@ -28,7 +28,7 @@ services:
       phala-worker:
         condition: service_healthy
     ports:
-      - "80:80"
+      - "${MORPHEUS_PUBLIC_PORT:-3000}:80"
     volumes:
       - /tmp/data:/data
       - /tmp/config:/config
