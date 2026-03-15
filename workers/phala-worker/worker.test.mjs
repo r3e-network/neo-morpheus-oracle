@@ -734,6 +734,123 @@ test('encrypted_params_ref enforces requester and callback scope when metadata b
   assert.match(deniedCallbackBody.error, /encrypted ref callback mismatch/i);
 });
 
+test('encrypted_params_ref is idempotent for the same request_id but rejects replay across request ids', async () => {
+  __resetNeoDidStateForTests();
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+  const fixture = await buildWeb3AuthFixture({
+    claims: {
+      aggregateVerifier: 'google-oauth',
+      aggregateVerifierId: 'alice@example.com',
+    },
+    clientId: 'worker-test-web3auth-client-ref-replay',
+    jwksUrl: 'https://jwks.test/web3auth-ref-replay.json',
+    kid: 'worker-test-web3auth-ref-replay',
+  });
+
+  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  assert.equal(keyRes.status, 200);
+  const keyMeta = await keyRes.json();
+  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
+    id_token: fixture.token,
+    web3auth_client_id: fixture.clientId,
+    web3auth_jwks_url: fixture.jwksUrl,
+  }));
+
+  const secretRow = {
+    id: '33333333-3333-3333-3333-333333333333',
+    ciphertext: encryptedParams,
+    metadata: {
+      bound_requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      bound_callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    },
+  };
+
+  global.fetch = async (url, init = {}) => {
+    const value = String(url);
+    if (value === fixture.jwksUrl) {
+      return new Response(JSON.stringify(fixture.jwks), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_encrypted_secrets')) {
+      const method = String(init?.method || 'GET').toUpperCase();
+      if (method === 'GET') {
+        return new Response(JSON.stringify([secretRow]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (method === 'PATCH') {
+        const parsedUrl = new URL(value);
+        const requestBody = JSON.parse(String(init.body || '{}'));
+        const claimedRequestId = requestBody?.metadata?._consumed_request_id || null;
+        const requiredNullClaim = parsedUrl.searchParams.get('metadata->>_consumed_request_id') === 'is.null';
+        if (requiredNullClaim && secretRow.metadata._consumed_request_id !== undefined) {
+          return new Response(JSON.stringify([]), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        secretRow.metadata = {
+          ...secretRow.metadata,
+          _consumed_request_id: claimedRequestId,
+          _consumed_at: '2026-03-15T00:00:00.000Z',
+        };
+        return new Response(JSON.stringify([secretRow]), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const baseBody = {
+    vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+    provider: 'web3auth',
+    encrypted_params_ref: '33333333-3333-3333-3333-333333333333',
+    claim_type: 'Web3Auth_PrimaryIdentity',
+    claim_value: 'ref-replay',
+    requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+  };
+
+  const first = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...baseBody,
+      request_id: 'oracle-request-1',
+    }),
+  }));
+  assert.equal(first.status, 200);
+
+  const retrySameRequest = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...baseBody,
+      request_id: 'oracle-request-1',
+    }),
+  }));
+  assert.equal(retrySameRequest.status, 200);
+
+  const replayDifferentRequest = await handler(new Request('http://local/neodid/bind', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      ...baseBody,
+      request_id: 'oracle-request-2',
+    }),
+  }));
+  assert.equal(replayDifferentRequest.status, 400);
+  const replayBody = await replayDifferentRequest.json();
+  assert.match(replayBody.error, /encrypted ref already consumed by another request/i);
+});
+
 test.after(() => {
   global.fetch = originalFetch;
   process.env.PHALA_SHARED_SECRET = originalPhalaToken;
