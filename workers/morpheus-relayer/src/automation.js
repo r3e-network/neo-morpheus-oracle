@@ -356,7 +356,7 @@ function evaluatePriceThreshold(job, record, nowMs, defaultCooldownMs) {
   };
 }
 
-async function evaluateAutomationJob(config, job, nowMs) {
+async function evaluateAutomationJob(config, job, nowMs, deps = {}) {
   if (job.status !== "active") return { due: false, patch: null, reason: "inactive" };
 
   if (job.max_executions !== null && job.max_executions !== undefined && Number(job.execution_count || 0) >= Number(job.max_executions)) {
@@ -385,9 +385,11 @@ async function evaluateAutomationJob(config, job, nowMs) {
     if (job.next_run_at && parseTimestamp(job.next_run_at)?.getTime() > nowMs) {
       return { due: false, patch: null, reason: "cooldown" };
     }
+    const loadNeoXFeedRecord = deps.fetchNeoXFeedRecord || fetchNeoXFeedRecord;
+    const loadNeoN3FeedRecord = deps.fetchNeoN3FeedRecord || fetchNeoN3FeedRecord;
     const record = feedChain === "neo_x"
-      ? await fetchNeoXFeedRecord(config, pair)
-      : await fetchNeoN3FeedRecord(config, pair);
+      ? await loadNeoXFeedRecord(config, pair)
+      : await loadNeoN3FeedRecord(config, pair);
     return evaluatePriceThreshold(job, record, nowMs, config.automation.defaultPriceCooldownMs);
   }
 
@@ -401,16 +403,43 @@ function computeNextIntervalRun(job, nowMs) {
   return new Date(nowMs + intervalMs).toISOString();
 }
 
+function classifyAutomationExecutionFailure(error) {
+  const message = trimString(error instanceof Error ? error.message : String(error));
+  const normalized = message.toLowerCase();
+
+  // These failures are terminal for the current job state and should stop
+  // scheduler retries until an operator/user explicitly reactivates the job.
+  if (normalized.includes("request fee not paid")) {
+    return {
+      terminal: true,
+      patch: {
+        status: "error",
+        next_run_at: null,
+        last_error: message,
+      },
+    };
+  }
+
+  return {
+    terminal: false,
+    patch: {
+      last_error: message,
+    },
+  };
+}
+
 function buildAutomationQueueRequestId(job) {
   const nextExecutionCount = Number(job.execution_count || 0) + 1;
   return `automation:${job.chain}:${job.automation_id}:${nextExecutionCount}`;
 }
 
-async function queueAutomationExecution(config, job) {
+async function queueAutomationExecution(config, job, deps = {}) {
   const payloadText = stringifyExecutionPayload(job.execution_payload || {});
   const requestId = buildAutomationQueueRequestId(job);
+  const queueNeoX = deps.queueNeoXAutomationRequest || queueNeoXAutomationRequest;
+  const queueNeoN3 = deps.queueNeoN3AutomationRequest || queueNeoN3AutomationRequest;
   if (job.chain === "neo_x") {
-    return queueNeoXAutomationRequest(
+    return queueNeoX(
       config,
       job.requester,
       job.execution_request_type,
@@ -420,7 +449,7 @@ async function queueAutomationExecution(config, job) {
       requestId,
     );
   }
-  return queueNeoN3AutomationRequest(
+  return queueNeoN3(
     config,
     job.requester,
     job.execution_request_type,
@@ -431,14 +460,17 @@ async function queueAutomationExecution(config, job) {
   );
 }
 
-export async function processAutomationJobs(config, logger) {
+export async function processAutomationJobs(config, logger, deps = {}) {
   if (!config.automation.enabled) {
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
   }
 
+  const fetchJobs = deps.fetchActiveAutomationJobs || fetchActiveAutomationJobs;
+  const patchJob = deps.patchAutomationJob || patchAutomationJob;
+  const recordRun = deps.insertAutomationRun || insertAutomationRun;
   let jobs;
   try {
-    jobs = await fetchActiveAutomationJobs(config.automation.batchSize, new Date().toISOString());
+    jobs = await fetchJobs(config.automation.batchSize, new Date().toISOString());
   } catch (error) {
     logger.warn({ error }, "Supabase automation fetch unavailable; skipping automation tick");
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
@@ -453,21 +485,21 @@ export async function processAutomationJobs(config, logger) {
     if (queued >= config.automation.maxQueuedPerTick) break;
 
     try {
-      const evaluation = await evaluateAutomationJob(config, job, nowMs);
+      const evaluation = await evaluateAutomationJob(config, job, nowMs, deps);
       if (evaluation.patch) {
-        await patchAutomationJob(job.automation_id, evaluation.patch);
+        await patchJob(job.automation_id, evaluation.patch);
       }
       if (!evaluation.due) {
         skipped += 1;
         continue;
       }
 
-      const queuedTx = await queueAutomationExecution(config, job);
+      const queuedTx = await queueAutomationExecution(config, job, deps);
       if (queuedTx?.duplicate) {
         skipped += 1;
         continue;
       }
-      await insertAutomationRun({
+      await recordRun({
         automation_id: job.automation_id,
         queued_request_id: queuedTx?.request_id || null,
         chain: job.chain,
@@ -494,7 +526,7 @@ export async function processAutomationJobs(config, logger) {
         nextRunAt = null;
       }
 
-      await patchAutomationJob(job.automation_id, {
+      await patchJob(job.automation_id, {
         ...evaluation.patch,
         execution_count: nextExecutionCount,
         last_run_at: new Date(nowMs).toISOString(),
@@ -506,10 +538,9 @@ export async function processAutomationJobs(config, logger) {
       queued += 1;
     } catch (error) {
       failed += 1;
-      await patchAutomationJob(job.automation_id, {
-        last_error: error instanceof Error ? error.message : String(error),
-      }).catch(() => undefined);
-      await insertAutomationRun({
+      const failure = classifyAutomationExecutionFailure(error);
+      await patchJob(job.automation_id, failure.patch).catch(() => undefined);
+      await recordRun({
         automation_id: job.automation_id,
         queued_request_id: null,
         chain: job.chain,
