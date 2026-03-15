@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T05:49:48.151Z",
+  "generated_at": "2026-03-15T06:40:57.039Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -174,7 +174,7 @@
     },
     "callback_boundary": {
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
-      "txid": "0x20218931cd9eaaf0ebf94086ee3973e436d5e3efc7cd6f1e3d76ad7d3ac870db",
+      "txid": "0x21b997ca6a2c635fb92843c2062a7f0525a0e923d5b7f062b9a7b64767e18cd2",
       "vmstate": "FAULT",
       "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
     },
@@ -197,23 +197,23 @@
     },
     "encrypted_ref_boundary": {
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
-      "matching_txid": "0xb99dfa3da0a3adfbe2375ef30af1a5216ec43c4d25632f60480d291da76c37ce",
-      "wrong_requester_txid": "0x76288f1eb355516b6d6f7390416440b49ed9b802ced89be2253525259a28b90a",
+      "matching_txid": "0x74b0911cdc413226095fab5e360d5b1f320c4cb9f78f9b71fa065c7e76731ddf",
+      "wrong_requester_txid": "0x670a08b8ac154d632afcb3f92745c7e76b64ad429ddfd0da9e1e2ea55bd62764",
       "wrong_requester_error": "encrypted ref requester mismatch",
-      "wrong_callback_txid": "0x274643a5745d393f57d06e9342d1416a0aacbc1b2d9d24a57f16094f4d8444bf",
+      "wrong_callback_txid": "0x375b4d8c15d424ec3d11458ab8f5b1e0ef5c10e6a20afee5b0d67801837c7d44",
       "wrong_callback_error": "encrypted ref callback mismatch"
     },
     "fulfillment_replay": {
       "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
-      "replay_txid": "0x20b8d0660ec37882178ba2afd909114670f0b45ec19c36595eeae5a9737decf9",
+      "replay_txid": "0x757139d31139175acea3f0d7953123103039440bac9d5e8028355bdb3c7b7d0c",
       "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-      "fulfill_txid": "0x792514cd275eb7401f9e58ef572cbfc7497b12e333b8a7d084cc538465f28848",
+      "fulfill_txid": "0x7dc0ef65a5c30472dde942da1f3475202e49cfc4b6c8fba38c8f6e15a985bcab",
       "fulfill_vmstate": "HALT"
     },
     "aa_session_oracle_boundary": {
       "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
-      "execute_txid": "0x6d66a38baf45ee4ffdcbdd0806c1a073641433c62e18b9a9022fafd4378f9f30",
-      "request_id": "3816",
+      "execute_txid": "0x9dce58dbe9d1bee86ffe51e71498e3dbe6106987cab53712b456c5d2593b1666",
+      "request_id": "3847",
       "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
       "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
     },
@@ -234,9 +234,9 @@
     "aa_paymaster_automation_oracle": {
       "report_path": "examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json",
       "paymaster_policy_id": "testnet-aa",
-      "relay_txid": "0xdda966fe0a8ebee06fad1eafebc48fd90232dad5ab6162d0579c92df8725cb63",
-      "automation_id": "automation:neo_n3:693452ca-f507-4722-bff1-00cedcbdb65e",
-      "queued_request_id": "3824",
+      "relay_txid": "0xbb14baeb7a7ce4e1560c941234b039410d757fc0eff97d2043a8b2bedc05a7ed",
+      "automation_id": "automation:neo_n3:2cac765c-3b65-4d9d-944e-c4cca5523350",
+      "queued_request_id": "3849",
       "queued_mode": "scheduler",
       "queued_callback_success": true
     },

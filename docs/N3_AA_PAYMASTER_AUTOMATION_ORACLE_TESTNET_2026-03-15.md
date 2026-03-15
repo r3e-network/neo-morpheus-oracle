@@ -1,6 +1,6 @@
 # N3 AA Paymaster Automation Oracle Validation
 
-Date: 2026-03-15T06:03:24.377Z
+Date: 2026-03-15T06:40:39.336Z
 
 ## Scope
 
@@ -10,14 +10,14 @@ This probe validates the final integrated path where Morpheus paymaster pre-auth
 
 - AA core: `0x9cbbfc969f94a5056fd6a658cab090bcb3604724`
 - Account id: `0x37298bb6bbb4580fdca24903d67b385ef2268e25`
-- Consumer: `0x9aef005765e2e11dbdb2bb6e0f061124a3950f18`
-- Relay tx: `0xd63292a33274795b4c625fe97dd008db9f1b4bfb29f334903271a44908ee6c5c`
+- Consumer: `0xea598996618585fdd5d7a75ad1c77eadc9870e8c`
+- Relay tx: `0xbb14baeb7a7ce4e1560c941234b039410d757fc0eff97d2043a8b2bedc05a7ed`
 - Paymaster policy id: `testnet-aa`
-- Paymaster approval digest: `b6e80df459ac42a19f591f86aff1c3191a687fb981bd896bed369379504a39f1`
-- Automation id: `automation:neo_n3:ab95f187-d500-435b-bae3-8dabd2e406d2`
-- Automation register request id: `3837`
+- Paymaster approval digest: `cc22a41f087d810cdaca6ea65b44c2f748664ae6b34dd3581703a1e185f15ddd`
+- Automation id: `automation:neo_n3:2cac765c-3b65-4d9d-944e-c4cca5523350`
+- Automation register request id: `3848`
 - Queued automation execution mode: `scheduler`
-- Queued automation chain request id: `3838`
+- Queued automation chain request id: `3849`
 - Queued automation callback success: `true`
 
 ## Conclusion
