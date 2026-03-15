@@ -20,6 +20,34 @@ Important production rule:
 - Neo N3 is the only active supported runtime path right now.
 - Neo X examples remain in-repo as legacy/reference material and should not be treated as the current production integration path.
 
+## Canonical Network Registry
+
+Always treat these files as the source of truth before copying an address into a frontend, contract, or runbook:
+
+- `config/networks/mainnet.json`
+- `config/networks/testnet.json`
+
+Current Neo N3 anchors:
+
+| Item | Mainnet | Testnet |
+| --- | --- | --- |
+| Public API | `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network` | `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network` |
+| MorpheusOracle | `0x017520f068fd602082fe5572596185e62a4ad991` | `0x4b882e94ed766807c4fd728768f972e13008ad52` |
+| OracleCallbackConsumer | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844` | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe` |
+| MorpheusDataFeed | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064` |
+| AbstractAccount | `0x0466fa7e8fe548480d7978d2652625d4a22589a6` | `0x9cbbfc969f94a5056fd6a658cab090bcb3604724` |
+| NeoDIDRegistry | `0x6a51671fd45d61b9536791390f275eb31d07954a` | unpublished |
+| Oracle NNS | `oracle.morpheus.neo` | unassigned |
+| DataFeed NNS | `pricefeed.morpheus.neo` | unassigned |
+| AA NNS | `aa.morpheus.neo` | unassigned |
+| NeoDID NNS | `neodid.morpheus.neo` | unassigned |
+
+Operational notes:
+
+- the canonical testnet callback contract for shared infra is `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`
+- the testnet example consumer used by live validation probes is `0x8c506f224d82e67200f20d9d5361f767f0756e3b`
+- testnet NeoDID registry remains unpublished in the shared registry until a stable shared deployment is intentionally promoted
+
 ## 1. Concepts
 
 ### Privacy Compute
