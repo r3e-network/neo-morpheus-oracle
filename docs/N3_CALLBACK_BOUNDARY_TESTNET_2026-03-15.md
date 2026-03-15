@@ -1,6 +1,6 @@
 # N3 Callback Boundary Validation
 
-Date: 2026-03-15T02:20:01.981Z
+Date: 2026-03-15T05:01:14.844Z
 
 ## Scope
 
@@ -15,7 +15,7 @@ This probe validates that a normal external Neo N3 account cannot directly injec
 
 ## Result
 
-- Probe txid: `0xf4326e5f9b7b79f2a43a212d4546a82027c0d6a7269e01d821f9392c4dce0e52`
+- Probe txid: `0x20218931cd9eaaf0ebf94086ee3973e436d5e3efc7cd6f1e3d76ad7d3ac870db`
 - Preview state: `FAULT`
 - Preview exception: `at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller`
 - Persisted vmstate: `FAULT`

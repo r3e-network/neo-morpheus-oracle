@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T02:19:47.974Z",
+  "generated_at": "2026-03-15T05:00:57.112Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -174,7 +174,7 @@
     },
     "callback_boundary": {
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
-      "txid": "0x619766a1d9629975d80703bb52cb1d29baaa90a20199ed21cce37c8ca61066f3",
+      "txid": "0xf4326e5f9b7b79f2a43a212d4546a82027c0d6a7269e01d821f9392c4dce0e52",
       "vmstate": "FAULT",
       "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
     },
@@ -197,23 +197,23 @@
     },
     "encrypted_ref_boundary": {
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
-      "matching_txid": "0x320c38dd99228be7014eabbfb93296728462c5b350e746a751c5ee4f51013f12",
-      "wrong_requester_txid": "0x620e0f7300e32e0c76b8d34737081c782d52301109f12ae6531735f02af03d38",
+      "matching_txid": "0x76265bde8c72de5da1b119f849f60b80332ce1275d466ed578f278001f98f623",
+      "wrong_requester_txid": "0xf62a8291f726bcba56f43491d8756bb161639210b822a24aa87cfad15bc5e734",
       "wrong_requester_error": "encrypted ref requester mismatch",
-      "wrong_callback_txid": "0x5bacfb5121041489764d2925a867da5e5b49c100331504be6253290c09b4ca83",
+      "wrong_callback_txid": "0xfd49174cd7d5b1a0e8eb4904b2ce80f54069a7893ecfff49faadcb806e1d4b58",
       "wrong_callback_error": "encrypted ref callback mismatch"
     },
     "fulfillment_replay": {
       "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
-      "replay_txid": "0x2bada4a6defa14e5a4a7a8983f6fb772b3995e13e313864e803772cda679d1a6",
+      "replay_txid": "0x82ab1ad1ba6846bb46b2c124da6193fbb29dac8b238092c98ab7ef923bf79bed",
       "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-      "fulfill_txid": "0x7ed9ef1b5a8cd6a8f4750e2266a163df4148d449ad822c3ca7e51b945d830bec",
+      "fulfill_txid": "0xdcf9e08793ff2ff47f152e5bccbd74e39ef19fd3fdfdcd9706e7fa348d5c0eb1",
       "fulfill_vmstate": "HALT"
     },
     "aa_session_oracle_boundary": {
       "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
-      "execute_txid": "0x045d55fce8f1efe2f0fe6d2833d33d9bad1e5262c5b92a668ea84043c97300cf",
-      "request_id": "3674",
+      "execute_txid": "0x9f8ae5ae7c9bf16be1f992356bd5b55aec984b046108de51266619a24276034d",
+      "request_id": "3739",
       "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
       "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
     },
@@ -231,9 +231,18 @@
       "wrong_account_state": null,
       "wrong_account_exception": null
     },
+    "aa_paymaster_automation_oracle": {
+      "report_path": "examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json",
+      "paymaster_policy_id": "testnet-aa",
+      "relay_txid": "0x02d237edf8d0fc84732119f94ac42873ebe8bff2f4596e1a1ede8ca9eff371d4",
+      "automation_id": "automation:neo_n3:164c31e5-8107-4fb1-b4d3-86fcd8a32372",
+      "queued_request_id": "3755",
+      "queued_mode": "manual_direct_queue",
+      "queued_callback_success": true
+    },
     "integrated_attack_regression": {
       "report_path": "examples/deployments/n3-integrated-attack-regression.testnet.latest.json",
-      "stage_count": 11,
+      "stage_count": 12,
       "failed_stages": []
     }
   },
@@ -256,9 +265,8 @@
     "fulfillment signature request-id replay rejection",
     "AA session-key downstream Morpheus Oracle boundary enforcement",
     "AA-bound callback replay rejection with account-scoped pending context",
-    "AA recovery ticket cross-account replay rejection"
+    "AA recovery ticket cross-account replay rejection",
+    "AA paymaster-sponsored automation registration with downstream Oracle execution proof"
   ],
-  "remaining_integrated_gaps": [
-    "AA-aware automation billing under sponsored execution"
-  ]
+  "remaining_integrated_gaps": []
 }
