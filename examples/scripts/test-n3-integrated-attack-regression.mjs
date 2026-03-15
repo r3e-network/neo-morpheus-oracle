@@ -271,6 +271,7 @@ function summarizeEncryptedRefBoundary(report) {
     matching_success: cases[0]?.callback?.success ?? null,
     wrong_requester_error: cases[1]?.callback?.error_text || null,
     wrong_callback_error: cases[2]?.callback?.error_text || null,
+    replay_error: cases[4]?.callback?.error_text || null,
   };
 }
 

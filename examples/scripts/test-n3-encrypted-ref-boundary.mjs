@@ -560,6 +560,18 @@ async function main() {
       },
       name: `encrypted-ref-callback-${Date.now()}`,
     });
+    const replaySecret = await insertEncryptedSecret({
+      supabaseUrl,
+      serviceRoleKey,
+      ciphertext: encryptedPatch,
+      metadata: {
+        source: "examples.test.n3.encrypted-ref-boundary",
+        bound_requester: requesterHash,
+        bound_callback_contract: resolvedConsumerHash,
+        scenario: "replay_same_binding",
+      },
+      name: `encrypted-ref-replay-${Date.now()}`,
+    });
 
     const consumer = new experimental.SmartContract(resolvedConsumerHash, {
       rpcAddress: rpcUrl,
@@ -623,6 +635,37 @@ async function main() {
       ...creditProtectedHooks(5),
     });
 
+    const replayFirstUseCase = await submitCase({
+      consumer,
+      rpcClient,
+      requestType: "neodid_bind",
+      payload: {
+        ...basePayload,
+        encrypted_params_ref: replaySecret.id,
+      },
+      expected: "encrypted_params_ref first use succeeds when the binding matches",
+      validate(result) {
+        assertCondition(result.callback?.success === true, "first-use replay ref callback should succeed");
+      },
+      ...creditProtectedHooks(5),
+    });
+
+    const replaySecondUseCase = await submitCase({
+      consumer,
+      rpcClient,
+      requestType: "neodid_bind",
+      payload: {
+        ...basePayload,
+        encrypted_params_ref: replaySecret.id,
+      },
+      expected: "encrypted_params_ref replay fails when the same ref is reused by a different request",
+      validate(result) {
+        assertCondition(result.callback?.success === false, "replayed ref callback should fail");
+        assertCondition(/encrypted ref already consumed by another request/i.test(result.callback?.error_text || ""), "replayed ref error mismatch");
+      },
+      ...creditProtectedHooks(5),
+    });
+
     const generatedAt = new Date().toISOString();
     const jsonReport = {
       generated_at: generatedAt,
@@ -637,8 +680,9 @@ async function main() {
         matching: matchingSecret.id,
         wrong_requester: wrongRequesterSecret.id,
         wrong_callback: wrongCallbackSecret.id,
+        replay: replaySecret.id,
       },
-      cases: [successCase, requesterMismatchCase, callbackMismatchCase],
+      cases: [successCase, requesterMismatchCase, callbackMismatchCase, replayFirstUseCase, replaySecondUseCase],
     };
 
     const markdownReport = [
@@ -655,12 +699,15 @@ async function main() {
       `- Matching ref tx: \`${successCase.txid}\` request \`${successCase.request_id}\``,
       `- Wrong requester tx: \`${requesterMismatchCase.txid}\` request \`${requesterMismatchCase.request_id}\``,
       `- Wrong callback tx: \`${callbackMismatchCase.txid}\` request \`${callbackMismatchCase.request_id}\``,
+      `- Replay first-use tx: \`${replayFirstUseCase.txid}\` request \`${replayFirstUseCase.request_id}\``,
+      `- Replay second-use tx: \`${replaySecondUseCase.txid}\` request \`${replaySecondUseCase.request_id}\``,
       "",
       "## Conclusion",
       "",
       "- A ref bound to the live requester and callback contract succeeds.",
       "- A ref bound to a different requester fails with `encrypted ref requester mismatch`.",
       "- A ref bound to a different callback contract fails with `encrypted ref callback mismatch`.",
+      "- Reusing the same encrypted ref from a different request now fails with `encrypted ref already consumed by another request`.",
       "",
     ].join("\n");
 
@@ -677,6 +724,8 @@ async function main() {
       matching_txid: successCase.txid,
       wrong_requester_txid: requesterMismatchCase.txid,
       wrong_callback_txid: callbackMismatchCase.txid,
+      replay_first_use_txid: replayFirstUseCase.txid,
+      replay_second_use_txid: replaySecondUseCase.txid,
     }, null, 2));
 }
 

@@ -237,7 +237,9 @@ async function loadEncryptedCiphertextByRef(ref, payload = {}) {
   const rows = await response.json().catch(() => []);
   const row = Array.isArray(rows) ? rows[0] : null;
   assertEncryptedRefScope(row, payload);
-  const ciphertext = trimString(row?.ciphertext || "");
+  const claimedRow = await claimEncryptedRef(row, payload, restConfig, network);
+  const effectiveRow = claimedRow || row;
+  const ciphertext = trimString(effectiveRow?.ciphertext || "");
   if (!ciphertext) {
     throw new Error(`encrypted ref not found: ${ref}`);
   }
@@ -268,6 +270,86 @@ function assertEncryptedRefScope(row, payload = {}) {
       throw new Error("encrypted ref callback mismatch");
     }
   }
+}
+
+function resolveEncryptedRefRequestId(payload = {}) {
+  return trimString(payload.request_id || payload.requestId || "");
+}
+
+function readEncryptedRefConsumedRequestId(row) {
+  const metadata = isPlainObject(row?.metadata) ? row.metadata : {};
+  return trimString(row?.consumed_request_id || metadata._consumed_request_id || "");
+}
+
+function buildEncryptedRefClaimUrl(restUrl, ref, network, payload = {}) {
+  const url = new URL(`${restUrl}/morpheus_encrypted_secrets`);
+  url.searchParams.set("select", "id,ciphertext,metadata");
+  url.searchParams.set("id", `eq.${ref}`);
+  url.searchParams.set("network", `eq.${network}`);
+  url.searchParams.set("metadata->>_consumed_request_id", "is.null");
+
+  const metadata = isPlainObject(payload?.metadata) ? payload.metadata : {};
+  const boundRequester = normalizeHash160(metadata.bound_requester || payload.requester || payload.requester_script_hash || "");
+  const boundCallbackContract = normalizeHash160(metadata.bound_callback_contract || payload.callback_contract || payload.callbackContract || "");
+  if (boundRequester) {
+    url.searchParams.set("metadata->>bound_requester", `eq.${boundRequester}`);
+  }
+  if (boundCallbackContract) {
+    url.searchParams.set("metadata->>bound_callback_contract", `eq.${boundCallbackContract}`);
+  }
+  return url;
+}
+
+async function claimEncryptedRef(row, payload = {}, restConfig, network) {
+  if (!row || typeof row !== "object") return row;
+
+  const requestId = resolveEncryptedRefRequestId(payload);
+  const consumedRequestId = readEncryptedRefConsumedRequestId(row);
+  if (!requestId) {
+    if (consumedRequestId) {
+      throw new Error("encrypted ref already consumed by another request");
+    }
+    return row;
+  }
+  if (consumedRequestId) {
+    if (consumedRequestId === requestId) return row;
+    throw new Error("encrypted ref already consumed by another request");
+  }
+
+  const ref = trimString(row.id || "");
+  if (!ref) return row;
+  const claimUrl = buildEncryptedRefClaimUrl(restConfig.restUrl, ref, network, payload);
+  const metadata = isPlainObject(row.metadata) ? row.metadata : {};
+  const claimResponse = await fetch(claimUrl.toString(), {
+    method: "PATCH",
+    headers: {
+      apikey: restConfig.apiKey,
+      authorization: `Bearer ${restConfig.apiKey}`,
+      accept: "application/json",
+      "content-type": "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      metadata: {
+        ...metadata,
+        _consumed_request_id: requestId,
+        _consumed_at: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  if (!claimResponse.ok) {
+    const text = await claimResponse.text().catch(() => "");
+    throw new Error(`encrypted ref claim failed: ${claimResponse.status} ${text}`.trim());
+  }
+
+  const claimedRows = await claimResponse.json().catch(() => []);
+  const claimedRow = Array.isArray(claimedRows) ? claimedRows[0] : null;
+  if (!claimedRow) {
+    throw new Error("encrypted ref already consumed by another request");
+  }
+  return claimedRow;
 }
 
 function parseX25519Envelope(ciphertext) {
