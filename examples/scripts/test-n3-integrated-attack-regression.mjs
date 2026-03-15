@@ -292,6 +292,15 @@ function summarizeAaSessionOracleBoundary(report) {
   };
 }
 
+function summarizeAaCallbackReplayBoundary(report) {
+  return {
+    replay_txid: report?.replay_attempt?.txid || report?.replay_txid || null,
+    replay_exception: report?.replay_attempt?.exception || report?.replay_exception || null,
+    unlocked_a: report?.state_after_replay?.unlocked_a ?? report?.unlocked_a ?? null,
+    unlocked_b: report?.state_after_replay?.unlocked_b ?? report?.unlocked_b ?? null,
+  };
+}
+
 function summarizeAaRecoveryCrossAccountBoundary(report) {
   return {
     recovery_verifier_hash: report?.recovery_verifier_hash || null,
@@ -449,6 +458,14 @@ stages.push(
     sharedTestnetEnv,
     null,
   ),
+  {
+    id: "aa_callback_replay_boundary",
+    title: "AA-bound callback replay boundary",
+    kind: "reference",
+    cwd: repoRoot,
+    reportPath: stageReportPath("examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json"),
+    summarize: summarizeAaCallbackReplayBoundary,
+  },
   {
     id: "aa_recovery_cross_account_boundary",
     title: "AA recovery cross-account boundary",
@@ -657,7 +674,6 @@ async function main() {
     preflight: null,
     stages: stageResults,
     remaining_gaps: [
-      "Oracle callback envelope replay into an AA-bound consumer with AA-specific state checks",
       "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path",
     ],
   };

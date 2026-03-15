@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T01:56:59.629Z",
+  "generated_at": "2026-03-15T02:33:06.108Z",
   "network": "testnet",
   "dry_run": false,
   "continue_on_failure": true,
@@ -44,13 +44,13 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "started_at": "2026-03-15T01:44:03.578Z",
-      "completed_at": "2026-03-15T01:44:21.095Z",
-      "duration_ms": 17516,
+      "started_at": "2026-03-15T02:19:48.372Z",
+      "completed_at": "2026-03-15T02:20:01.989Z",
+      "duration_ms": 13616,
       "preflight": null,
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
       "summary": {
-        "txid": "0x619766a1d9629975d80703bb52cb1d29baaa90a20199ed21cce37c8ca61066f3",
+        "txid": "0xf4326e5f9b7b79f2a43a212d4546a82027c0d6a7269e01d821f9392c4dce0e52",
         "vmstate": "FAULT",
         "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
       },
@@ -98,9 +98,9 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "started_at": "2026-03-15T01:44:21.097Z",
-      "completed_at": "2026-03-15T01:50:20.145Z",
-      "duration_ms": 359048,
+      "started_at": "2026-03-15T02:20:01.992Z",
+      "completed_at": "2026-03-15T02:26:14.508Z",
+      "duration_ms": 372516,
       "preflight": null,
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
       "summary": {
@@ -119,15 +119,15 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "started_at": "2026-03-15T01:50:20.146Z",
-      "completed_at": "2026-03-15T01:52:49.054Z",
-      "duration_ms": 148908,
+      "started_at": "2026-03-15T02:26:14.508Z",
+      "completed_at": "2026-03-15T02:28:42.649Z",
+      "duration_ms": 148141,
       "preflight": null,
       "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
       "summary": {
         "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
         "fulfill_vmstate": "HALT",
-        "fulfill_txid": "0x7ed9ef1b5a8cd6a8f4750e2266a163df4148d449ad822c3ca7e51b945d830bec"
+        "fulfill_txid": "0xdcf9e08793ff2ff47f152e5bccbd74e39ef19fd3fdfdcd9706e7fa348d5c0eb1"
       },
       "error": null,
       "attempt": 1
@@ -139,19 +139,37 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "started_at": "2026-03-15T01:52:49.054Z",
-      "completed_at": "2026-03-15T01:56:59.627Z",
-      "duration_ms": 250573,
+      "started_at": "2026-03-15T02:28:42.649Z",
+      "completed_at": "2026-03-15T02:33:06.106Z",
+      "duration_ms": 263457,
       "preflight": null,
       "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
       "summary": {
-        "execute_txid": "0x045d55fce8f1efe2f0fe6d2833d33d9bad1e5262c5b92a668ea84043c97300cf",
-        "request_id": "3674",
+        "execute_txid": "0x9f8ae5ae7c9bf16be1f992356bd5b55aec984b046108de51266619a24276034d",
+        "request_id": "3739",
         "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
         "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
       },
       "error": null,
       "attempt": 1
+    },
+    {
+      "id": "aa_callback_replay_boundary",
+      "title": "AA-bound callback replay boundary",
+      "mode": "reference_latest",
+      "status": "referenced_latest",
+      "exit_code": null,
+      "signal": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_ms": 0,
+      "report_path": "examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json",
+      "summary": {
+        "replay_txid": "0xe0011eacc573754f163100e9b399602eadff7b7c5dd941d5dbfe319891ef6b8b",
+        "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
+        "unlocked_a": true,
+        "unlocked_b": false
+      }
     },
     {
       "id": "aa_recovery_cross_account_boundary",
@@ -230,7 +248,6 @@
     }
   ],
   "remaining_gaps": [
-    "Oracle callback envelope replay into an AA-bound consumer with AA-specific state checks",
     "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path"
   ]
 }
