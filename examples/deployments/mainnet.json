@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-10T05:38:43.340Z",
+  "updated_at": "2026-03-15T06:23:34.000Z",
   "neo_n3": {
     "deployed_at": "2026-03-10T05:38:43.340Z",
     "rpc_url": "https://mainnet1.neo.coz.io:443",
@@ -13,6 +13,8 @@
     "allowlisted": true,
     "consumer_oracle": "0x017520f068fd602082fe5572596185e62a4ad991",
     "transactions": {
+      "oracle_update": "0xed5fcf25c036cd2e0aff5c447f2ba1cba100b37102f8123adce407b07589f624",
+      "datafeed_update": "0x7a0fc672247077985ddea52fdd0ccf2b62725d4cbd21127b3791406a2d3cbcdf",
       "consumer_deploy": "0x572b38fb211dff47d909124002deba5c9697315c367e5cb53419ab0f549573b0",
       "feed_reader_deploy": "0xa565e89aa20ddeba81a68c08bc83311ab3a82c82b0dcfa7df62c7f4d535923d2",
       "allow_callback": null,
