@@ -27,7 +27,7 @@ import {
   scheduleRetry,
   snapshotMetrics,
 } from "./src/state.js";
-import { decodeNeoItem, encodeUtf8ByteArrayParamValue, hasNeoN3RelayerConfig } from "./src/neo-n3.js";
+import { buildNeoN3RelayRequestId, decodeNeoItem, encodeUtf8ByteArrayParamValue, hasNeoN3RelayerConfig } from "./src/neo-n3.js";
 import { hasNeoXRelayerConfig } from "./src/neo-x.js";
 import { sanitizeForPostgres } from "./src/persistence.js";
 import { createRelayerConfig } from "./src/config.js";
@@ -506,6 +506,14 @@ test("decodeNeoItem converts 20-byte base64 notifications into hash160", () => {
     value: littleEndianHashBytes.toString("base64"),
   });
   assert.equal(decoded, "0x6d0656f6dd91469db1c90cc1e574380613f43738");
+});
+
+test("buildNeoN3RelayRequestId keeps the chain request id while making relay attempts unique", () => {
+  const a = buildNeoN3RelayRequestId("fulfill", "3836");
+  const b = buildNeoN3RelayRequestId("fulfill", "3836");
+  assert.match(a, /^relayer:n3:fulfill:3836:/);
+  assert.match(b, /^relayer:n3:fulfill:3836:/);
+  assert.notEqual(a, b);
 });
 
 test("decodeNeoItem keeps printable 20-byte byte strings as text", () => {

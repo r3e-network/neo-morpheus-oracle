@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { relayNeoN3Invocation } from "../../phala-worker/src/chain/index.js";
 import { deriveRelayerNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "./dstack.js";
 
@@ -127,6 +128,11 @@ export async function getNeoN3LatestRequestId(config) {
     throw new Error(result?.exception || "Neo N3 getTotalRequests faulted");
   }
   return Number(decodeNeoItem(result?.stack?.[0]) || "0");
+}
+
+export function buildNeoN3RelayRequestId(scope, requestId) {
+  const normalizedScope = trimString(scope) || "invoke";
+  return `relayer:n3:${normalizedScope}:${requestId}:${randomUUID()}`;
 }
 
 export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
@@ -307,7 +313,7 @@ export async function fulfillNeoN3Request(config, requestId, success, result, er
   const signerPayload = await resolveNeoN3UpdaterPayload(config);
   const byteArrayValue = trimString(resultBytesBase64) || encodeUtf8ByteArrayParamValue(result || "");
   const invoke = await relayNeoN3Invocation({
-    request_id: `relayer:n3:${requestId}`,
+    request_id: buildNeoN3RelayRequestId("fulfill", requestId),
     contract_hash: config.neo_n3.oracleContract,
     method: "fulfillRequest",
     params: [
