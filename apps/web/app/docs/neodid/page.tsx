@@ -267,7 +267,7 @@ public class NeoDIDRegistry : SmartContract
         code={`{
   "provider": "web3auth",
   "network": "neo_n3",
-  "aa_contract": "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
+  "aa_contract": "${networkRegistry.mainnet.neo_n3.contracts.abstract_account}",
   "verifier_contract": "${networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}",
   "account_id": "aa-social-recovery-demo",
   "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",

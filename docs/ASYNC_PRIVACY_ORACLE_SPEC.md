@@ -15,9 +15,9 @@ Current Neo N3 anchors:
 | `MorpheusOracle` | `0x017520f068fd602082fe5572596185e62a4ad991` via `oracle.morpheus.neo` | `0x4b882e94ed766807c4fd728768f972e13008ad52` |
 | `OracleCallbackConsumer` | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844` | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe` |
 | `MorpheusDataFeed` | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo` | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064` |
-| `AbstractAccount` | `0x0466fa7e8fe548480d7978d2652625d4a22589a6` via `aa.morpheus.neo` | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38` |
-| `AA Web3AuthVerifier` | `0x4696e7a68d5d6c6cf9c19c38cd0fdc9c0bcc3e0a` | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d` |
-| `AA RecoveryVerifier` | `0x975483c2d0928c1ed6da568190b5137463431422` | deployment-specific |
+| `AbstractAccount` | `0x9742b4ed62a84a886f404d36149da6147528ee33` via `smartwallet.neo` | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38` |
+| `AA Web3AuthVerifier` | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a` | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d` |
+| `AA RecoveryVerifier` | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3` | deployment-specific |
 | `NeoDIDRegistry` | `0x6a51671fd45d61b9536791390f275eb31d07954a` via `neodid.morpheus.neo` | unpublished in the shared registry |
 
 Interpretation rules:
@@ -76,8 +76,8 @@ For `neodid_recovery_ticket`, a typical on-chain payload is:
 {
   "provider": "github",
   "network": "neo_n3",
-  "aa_contract": "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
-  "verifier_contract": "0x975483c2d0928c1ed6da568190b5137463431422",
+  "aa_contract": "0x9742b4ed62a84a886f404d36149da6147528ee33",
+  "verifier_contract": "0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3",
   "account_id": "aa-social-recovery-demo",
   "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
   "recovery_nonce": "7",

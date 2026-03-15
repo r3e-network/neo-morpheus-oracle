@@ -225,7 +225,7 @@ Published Neo N3 service anchors are tracked in `config/networks/mainnet.json`, 
 - `oracle.morpheus.neo`
 - `pricefeed.morpheus.neo`
 - `neodid.morpheus.neo`
-- `aa.morpheus.neo`
+- `smartwallet.neo`
 
 Provider control-plane notes:
 

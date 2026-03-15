@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-15T11:18:04Z",
+  "updated_at": "2026-03-15T12:35:00Z",
   "neo_n3": {
     "deployed_at": "2026-03-10T05:38:43.340Z",
     "rpc_url": "https://mainnet1.neo.coz.io:443",
@@ -8,24 +8,99 @@
     "deployer_script_hash": "6d0656f6dd91469db1c90cc1e574380613f43738",
     "oracle_hash": "0x017520f068fd602082fe5572596185e62a4ad991",
     "datafeed_hash": "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
-    "abstract_account_hash": "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
-    "aa_web3auth_verifier_hash": "0x4696e7a68d5d6c6cf9c19c38cd0fdc9c0bcc3e0a",
-    "aa_recovery_verifier_hash": "0x975483c2d0928c1ed6da568190b5137463431422",
+    "abstract_account_hash": "0x9742b4ed62a84a886f404d36149da6147528ee33",
+    "aa_web3auth_verifier_hash": "0xb4107cb2cb4bace0ebe15bc4842890734abe133a",
+    "aa_recovery_verifier_hash": "0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3",
     "neodid_registry_hash": "0x6a51671fd45d61b9536791390f275eb31d07954a",
     "example_consumer_hash": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "example_feed_reader_hash": "0x11e454261c21a32f1c9262472ca72a3156f9051f",
     "allowlisted": true,
     "consumer_oracle": "0x017520f068fd602082fe5572596185e62a4ad991",
+    "aa_domain": "smartwallet.neo",
+    "aa_address": "NQeYx3qhVboVNU4Yk2NZPXQtudTeCNmjFq",
+    "aa_subdomains": {
+      "core.smartwallet.neo": {
+        "contract_hash": "0x9742b4ed62a84a886f404d36149da6147528ee33",
+        "address": "NQeYx3qhVboVNU4Yk2NZPXQtudTeCNmjFq",
+        "txid": "0xe1099bec9b76fea8ca925cf63c162a9597137815a8798a9df00f30816c8c3e1a"
+      },
+      "web3auth.smartwallet.neo": {
+        "contract_hash": "0xb4107cb2cb4bace0ebe15bc4842890734abe133a",
+        "address": "NRD42fwpB3oXMZ5ATLphmpASHAeryf8M3W",
+        "txid": "0xed984ae097686e617a9dffbeaaddff084e8d9dc5db6eb7971b1ede14dd4f6f23"
+      },
+      "recovery.smartwallet.neo": {
+        "contract_hash": "0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3",
+        "address": "NdkVpdqggcWvSVUWLmNxpZvjtQzP7nfB2n",
+        "txid": "0xba715157a645f372357169c8c7b97e93296dd08c321a46242d3d17546bf5915d"
+      },
+      "teeverifier.smartwallet.neo": {
+        "contract_hash": "0xcde2d9e92951cad84712d45e3643ab6d3bc30ba3",
+        "address": "Nan5RJhAefuYKF8YEPo2xTtLR1iVk1W4Uy",
+        "txid": "0xa0edbe47ada1e6966af49f6c6df2b69df3ecf116648b1d85a4702b6f0dac8993"
+      },
+      "sessionkey.smartwallet.neo": {
+        "contract_hash": "0xe82b9d056c011819ff3652427682224daad0cd1f",
+        "address": "NNp8gzAemjMs4G5ZhGa4148s56i872S1cR",
+        "txid": "0xe7230d9fcb905b824cc683a02b022af5e18bc9e17466e0bf66269cf8e5c48eaf"
+      },
+      "webauthn.smartwallet.neo": {
+        "contract_hash": "0x504326693cb367c506250c5068ff7ad7989e885a",
+        "address": "NUAffWcNGH5nBmQrZXMRkh5U6Krg8a9a7Y",
+        "txid": "0x80cb315587ed2648ad214c13e558e208544067b7518027846fbe852df549b879"
+      },
+      "multisig.smartwallet.neo": {
+        "contract_hash": "0xd21bf2d11c776746aaf27402c73ff9955005b55e",
+        "address": "NUYjZL9eyy15FfRGHHJ49cNHfSq8SrydTE",
+        "txid": "0xb1bb06b5d72ac9f73f6d498e715cf824edda62dd8971443ffdb6adacccc7c941"
+      },
+      "subscription.smartwallet.neo": {
+        "contract_hash": "0x2044c63705bb299acabd1a88d1f281d5b540dfef",
+        "address": "NhnJ8UgiJJash1rb78NCqB2Tyx9uWsaAT6",
+        "txid": "0x969c0683a18126f03d3149053e9776283c15b8a7655a69bfd915e652bfe97839"
+      },
+      "credential.smartwallet.neo": {
+        "contract_hash": "0x306cf86ca17d79a3d3e17deeca43769eb6737089",
+        "address": "NYSgULcivkBzxA3oB9466S73Qw5v7Wn8Eu",
+        "txid": "0x8bf1de186600f2b223ace38099e85f4de785c1a70226968a2525e1c048d36e4e"
+      },
+      "whitelist.smartwallet.neo": {
+        "contract_hash": "0x42e77d3abeab9c24231a868370dc1ccd870afec3",
+        "address": "NdnHHFUUSjdivDVeKezrEmUXrAN2ToiCWm",
+        "txid": "0x86610846eedaa7e6ecb8b7a7c4cb3d36d59bf84809fa17dbde1e29db09248f64"
+      },
+      "dailylimit.smartwallet.neo": {
+        "contract_hash": "0x06be3e9eeeca5a26340c088e68ba1023e72ad6f7",
+        "address": "NiWQemD9Xq8om2nZVnBnJCEgCs9qrWryjD",
+        "txid": "0x115a8d82ebc55e600445779206e5d882b91bdd12095bc13ad8eb9e207c37020f"
+      },
+      "tokenhook.smartwallet.neo": {
+        "contract_hash": "0x7fdec8ec3085f17b0b136532d43d0d862c1092c7",
+        "address": "Ne7CdaU4BPuJ1hAPVRgynMTS1X2fr76v1C",
+        "txid": "0x2aecd6e28790627fc4c3aba710368b243bcb969aae5c360685363eb8e33f0ff8"
+      },
+      "multihook.smartwallet.neo": {
+        "contract_hash": "0xdedf0fd213249aba62c41285117cfe8b31d43d66",
+        "address": "NVEaBGXtasvQGUog12PK1QixJ8VBDbAwnY",
+        "txid": "0x5975c3b3191b2db76f3473285a8f495a6b037715516e174f8f59daeb0d9ef59f"
+      }
+    },
     "aa_runtime": {
       "abi_generation": "v3",
-      "onchain_manifest_name": "UnifiedSmartWalletV2-1773294968429",
-      "updatecounter": 1
+      "onchain_manifest_name": "UnifiedSmartWalletV3",
+      "updatecounter": 0,
+      "legacy_hash": "0x0466fa7e8fe548480d7978d2652625d4a22589a6"
     },
     "transactions": {
       "oracle_update": "0xed5fcf25c036cd2e0aff5c447f2ba1cba100b37102f8123adce407b07589f624",
       "datafeed_update": "0x7a0fc672247077985ddea52fdd0ccf2b62725d4cbd21127b3791406a2d3cbcdf",
-      "abstract_account_update": "0xb0e163734ffd0641b44c6091f373f0b09acdde03c693f465c97e6659f2dda035",
-      "aa_web3auth_verifier_deploy": "0x8a47340c5127fcf3d53cdfdce5a6b4555734c8db206ce5a5dfddd56199cfc3d3",
+      "legacy_abstract_account_update": "0xb0e163734ffd0641b44c6091f373f0b09acdde03c693f465c97e6659f2dda035",
+      "abstract_account_deploy": "0x94d7a6d45196ed59a0eeb604450b305949e31650d1077ba2a824a90591644b3b",
+      "aa_web3auth_verifier_deploy": "0xa96407df4ffc8496a5cd5f129b9f9881164b28c843265467d5f886e3435af6a4",
+      "aa_recovery_verifier_deploy": "0xadfc405bf40d21ab2d56bacc9ced028de1f5ccbc00803f122f93676ad3388855",
+      "aa_domain_register": "0x7a452ddf727fb8155b0a736b5b3bdfd1e7b8a244c8d1e56ac8393e209617cae8",
+      "aa_domain_set_admin": "0xff5535aab82de9b1bdd998449eb019cb3fb230de68cff9fbf202f5bb42d6bc95",
+      "aa_domain_set_record": "0x3755360a7a304be613abb735d3d798234e93fc5482d55f1792a7f05f7c869e17",
       "neodid_registry_deploy": "0x2dd001477b853fdbd5464a4b4d5eb2ac20b7bc780351369fa8c4fabae8d95f0c",
       "neodid_registry_set_verifier": "0xd900a9cf65ad16a0b216cdce32f08023b5cc399cdf36c216e86447dc50032652",
       "consumer_deploy": "0x572b38fb211dff47d909124002deba5c9697315c367e5cb53419ab0f549573b0",

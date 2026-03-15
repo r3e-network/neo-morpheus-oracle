@@ -110,6 +110,36 @@ export default function DocsNetworks() {
         testnet: normalizeValue(testnet.neo_n3?.domains?.morpheus_aa, "unassigned"),
       },
       {
+        label: "AA Core NNS",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_subdomains?.core, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_subdomains?.core, "unassigned"),
+      },
+      {
+        label: "AA Web3Auth NNS",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_subdomains?.web3auth, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_subdomains?.web3auth, "unassigned"),
+      },
+      {
+        label: "AA Recovery NNS",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_subdomains?.recovery, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_subdomains?.recovery, "unassigned"),
+      },
+      {
+        label: "AA Tee NNS",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_subdomains?.tee, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_subdomains?.tee, "unassigned"),
+      },
+      {
+        label: "AA Session NNS",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_subdomains?.session, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_subdomains?.session, "unassigned"),
+      },
+      {
+        label: "AA MultiSig NNS",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_subdomains?.multisig, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_subdomains?.multisig, "unassigned"),
+      },
+      {
         label: "NeoDID NNS",
         mainnet: normalizeValue(mainnet.neo_n3?.domains?.morpheus_neodid, "unassigned"),
         testnet: normalizeValue(testnet.neo_n3?.domains?.morpheus_neodid, "unassigned"),
@@ -210,6 +240,7 @@ export default function DocsNetworks() {
           <li><code>OracleCallbackConsumer</code> is the production callback sink contract configured in the network registry.</li>
           <li><code>Example consumer</code> and <code>Feed reader example</code> are validation/demo contracts used by the published live probes.</li>
           <li><code>AA runtime label</code> is the canonical product name; raw manifest-name suffixes stay in low-level deployment logs only.</li>
+          <li>Mainnet AA ecosystem contracts are now also published under <code>smartwallet.neo</code> subdomains for direct verifier / hook discovery.</li>
           <li>Testnet AA currently has a published core hash but no NNS alias.</li>
           <li>Testnet NeoDIDRegistry remains unpublished in the canonical registry until a stable shared deployment is intentionally promoted.</li>
         </ul>
