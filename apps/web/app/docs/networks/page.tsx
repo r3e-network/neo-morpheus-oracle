@@ -110,6 +110,11 @@ export default function DocsNetworks() {
         testnet: normalizeValue(testnet.neo_n3?.domains?.morpheus_aa, "unassigned"),
       },
       {
+        label: "AA Alias NNS",
+        mainnet: normalizeValue(mainnet.neo_n3?.domains?.morpheus_aa_alias, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.domains?.morpheus_aa_alias, "unassigned"),
+      },
+      {
         label: "AA Core NNS",
         mainnet: normalizeValue(mainnet.neo_n3?.aa_subdomains?.core, "unassigned"),
         testnet: normalizeValue(testnet.neo_n3?.aa_subdomains?.core, "unassigned"),
@@ -241,6 +246,7 @@ export default function DocsNetworks() {
           <li><code>Example consumer</code> and <code>Feed reader example</code> are validation/demo contracts used by the published live probes.</li>
           <li><code>AA runtime label</code> is the canonical product name; raw manifest-name suffixes stay in low-level deployment logs only.</li>
           <li>Mainnet AA ecosystem contracts are now also published under <code>smartwallet.neo</code> subdomains for direct verifier / hook discovery.</li>
+          <li><code>aa.morpheus.neo</code> is kept as a compatibility alias; <code>smartwallet.neo</code> remains the primary AA public domain.</li>
           <li>Testnet AA currently has a published core hash but no NNS alias.</li>
           <li>Testnet NeoDIDRegistry remains unpublished in the canonical registry until a stable shared deployment is intentionally promoted.</li>
         </ul>

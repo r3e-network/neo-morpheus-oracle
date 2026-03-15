@@ -11,6 +11,7 @@
       "morpheus_oracle": "oracle.morpheus.neo",
       "morpheus_datafeed": "pricefeed.morpheus.neo",
       "morpheus_aa": "smartwallet.neo",
+      "morpheus_aa_alias": "aa.morpheus.neo",
       "morpheus_neodid": "neodid.morpheus.neo"
     },
     "aa_subdomains": {
