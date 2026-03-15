@@ -29,6 +29,15 @@ namespace MorpheusOracle.Contracts
     public delegate void RequestFeeDepositedHandler(UInt160 from, BigInteger amount, BigInteger creditBalance);
     public delegate void AccruedFeesWithdrawnHandler(UInt160 to, BigInteger amount);
 
+    /// <summary>
+    /// Canonical on-chain gateway for asynchronous Morpheus Oracle requests on Neo N3.
+    /// </summary>
+    /// <remarks>
+    /// User or application contracts call <c>Request</c> to queue a typed request and nominate a
+    /// callback consumer. Morpheus off-chain workers execute the job, sign the result, and the
+    /// relayer finishes the flow through <c>FulfillRequest</c>. This contract also owns callback
+    /// allowlisting, worker verification keys, and prepaid fee-credit accounting.
+    /// </remarks>
     [DisplayName("MorpheusOracle")]
     [ManifestExtra("Author", "Morpheus Oracle")]
     [ManifestExtra("Version", "1.0.0")]
@@ -214,6 +223,9 @@ namespace MorpheusOracle.Contracts
             OnUpdaterChanged(oldUpdater, updater);
         }
 
+        /// <summary>
+        /// Publishes the public encryption key clients use to seal confidential request payloads.
+        /// </summary>
         public static void SetOracleEncryptionKey(string algorithm, string publicKey)
         {
             ValidateAdmin();
@@ -229,6 +241,9 @@ namespace MorpheusOracle.Contracts
             OnOracleEncryptionKeyUpdated(version, algorithm, publicKey);
         }
 
+        /// <summary>
+        /// Publishes the public key used to verify worker fulfillment signatures.
+        /// </summary>
         public static void SetOracleVerificationPublicKey(ECPoint publicKey)
         {
             ValidateAdmin();
@@ -281,6 +296,9 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(IsAllowedCallback(callbackContract), "callback contract not allowed");
         }
 
+        /// <summary>
+        /// Adds a callback consumer contract to the allowlist.
+        /// </summary>
         public static void AddAllowedCallback(UInt160 contractHash)
         {
             ValidateAdmin();
@@ -289,6 +307,9 @@ namespace MorpheusOracle.Contracts
             OnCallbackAdded(contractHash);
         }
 
+        /// <summary>
+        /// Removes a callback consumer contract from the allowlist.
+        /// </summary>
         public static void RemoveAllowedCallback(UInt160 contractHash)
         {
             ValidateAdmin();
@@ -421,6 +442,9 @@ namespace MorpheusOracle.Contracts
             return requestId;
         }
 
+        /// <summary>
+        /// Public entrypoint for a fee-paying Oracle request.
+        /// </summary>
         public static BigInteger Request(string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
         {
             UInt160 requester = Runtime.Transaction.Sender;
@@ -488,6 +512,9 @@ namespace MorpheusOracle.Contracts
             return CryptoLib.Sha256((ByteString)payload);
         }
 
+        /// <summary>
+        /// Verifies a worker-signed result, marks the request terminal, and executes the callback.
+        /// </summary>
         public static void FulfillRequest(BigInteger requestId, bool success, ByteString result, string error, ByteString verificationSignature)
         {
             ValidateUpdater();
