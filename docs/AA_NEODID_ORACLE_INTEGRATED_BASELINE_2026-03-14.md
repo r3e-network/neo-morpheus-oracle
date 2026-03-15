@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-14T18:26:51.096Z
+Date: 2026-03-15T01:44:03.170Z
 
 ## Purpose
 
@@ -16,6 +16,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Automation matrix: `examples/deployments/n3-automation-validation.testnet.latest.json`
 - Automation idempotency probe: `examples/deployments/n3-automation-idempotency.testnet.latest.json`
 - Automation cancellation-race probe: `examples/deployments/n3-automation-cancel-race.testnet.latest.json`
+- Automation deposit-exhaustion probe: `examples/deployments/n3-automation-deposit-exhaustion.testnet.latest.json`
 - Callback boundary probe: `examples/deployments/n3-callback-boundary.testnet.latest.json`
 - NeoDID registry boundary probe: `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`
 - NeoDID registry v1 probe: `examples/deployments/n3-neodid-registry-v1.testnet.latest.json`
@@ -38,7 +39,8 @@ It does not claim that every cross-system attack has already been live-executed.
 - Automation: register=true, queued=true, cancel=true
 - Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1`, second tick queued `0`, chain request id=`2221`, callback success=`true`
 - Automation cancel race: executed_after_cancel=`false`, queued chain request id=`3218`
-- Callback boundary: vmstate=FAULT, tx=`0xf6a3001a77067b2291482c20852195bbcbd1c7f38a3ff3f54fe4be0cbc69467c`
+- Automation deposit exhaustion: queued runs=`1`, failed runs=`1`, error=`at instruction 2827 (ABORTMSG): ABORTMSG is executed. Reason: request fee not paid`
+- Callback boundary: vmstate=FAULT, tx=`0xe129a4044d3fd738bd18cbb623d5b3b333f107ef2065ce4dd85635a791247a23`
 - NeoDID registry JSON boundary: mismatch tx=`0xd5e4918388059efea68b2f3c874ad14e2b19ea1e0c185891779a96cc34b22656`
 - NeoDID registry v1: consume tx=`0x8f26c9e4b56721b96cdff924bdc429e1fec6aa4dc494475387d5e17eb8bf0916`, replay tx=`0x3dcec34a6d0f83f814e7705c3b184c31ef846597404887d3dd7850bff85f61a4`
 - Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
@@ -58,6 +60,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Automation register / queue / cancel flow
 - Sequential automation duplicate-queue suppression under back-to-back relayer ticks
 - Automation cancellation-race execution probe
+- Automation shared-credit deposit exhaustion fail-closed probe
 - Callback consumer direct injection rejection
 - NeoDID action ticket JSON callback boundary rejection
 - NeoDID compact action ticket registry consumption and replay rejection
@@ -73,3 +76,4 @@ It does not claim that every cross-system attack has already been live-executed.
 ## Recommendation
 
 Use this baseline as the prerequisite evidence set for the next integrated adversarial run. The next executable layer should combine a live AA account, NeoDID-backed recovery or credential state, and Morpheus callback fulfillment under negative replay and cross-account misuse scenarios.
+

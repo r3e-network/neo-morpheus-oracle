@@ -27,6 +27,7 @@ const inputs = {
   morpheusAutomation: path.join(repoRoot, "examples", "deployments", "n3-automation-validation.testnet.latest.json"),
   automationIdempotency: path.join(repoRoot, "examples", "deployments", "n3-automation-idempotency.testnet.latest.json"),
   automationCancelRace: path.join(repoRoot, "examples", "deployments", "n3-automation-cancel-race.testnet.latest.json"),
+  automationDepositExhaustion: path.join(repoRoot, "examples", "deployments", "n3-automation-deposit-exhaustion.testnet.latest.json"),
   callbackBoundary: path.join(repoRoot, "examples", "deployments", "n3-callback-boundary.testnet.latest.json"),
   neodidRegistryBoundary: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-boundary.testnet.latest.json"),
   neodidRegistryV1: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-v1.testnet.latest.json"),
@@ -44,6 +45,7 @@ const builtins = readJson(inputs.morpheusBuiltins);
 const automation = readJson(inputs.morpheusAutomation);
 const automationIdempotency = readJson(inputs.automationIdempotency);
 const automationCancelRace = readJson(inputs.automationCancelRace);
+const automationDepositExhaustion = readJson(inputs.automationDepositExhaustion);
 const callbackBoundary = readJson(inputs.callbackBoundary);
 const neodidRegistryBoundary = readJson(inputs.neodidRegistryBoundary);
 const neodidRegistryV1 = readJson(inputs.neodidRegistryV1);
@@ -117,6 +119,14 @@ const summary = {
       queued_chain_request_id: automationCancelRace.queued_chain_request_id || null,
       executed_after_cancel: automationCancelRace.executed_after_cancel ?? null,
     },
+    automation_deposit_exhaustion: {
+      report_path: rel(inputs.automationDepositExhaustion),
+      shared_requester_hash: automationDepositExhaustion.shared_requester_hash || null,
+      queued_runs: automationDepositExhaustion.queued_runs?.length ?? automationDepositExhaustion.queued_runs ?? null,
+      failed_runs: automationDepositExhaustion.failed_runs?.length ?? automationDepositExhaustion.failed_runs ?? null,
+      queued_chain_request_id: automationDepositExhaustion.queued_chain_request_id || null,
+      failed_error: automationDepositExhaustion.failed_runs?.[0]?.error || automationDepositExhaustion.failed_error || null,
+    },
     callback_boundary: {
       report_path: rel(inputs.callbackBoundary),
       txid: callbackBoundary.probe?.txid || null,
@@ -188,6 +198,7 @@ const summary = {
     "Automation register / queue / cancel flow",
     "Sequential automation duplicate-queue suppression under back-to-back relayer ticks",
     "Automation cancellation-race execution probe",
+    "Automation shared-credit deposit exhaustion fail-closed probe",
     "Callback consumer direct injection rejection",
     "NeoDID action ticket JSON callback boundary rejection",
     "NeoDID compact action ticket registry consumption and replay rejection",
@@ -197,7 +208,6 @@ const summary = {
     "AA recovery ticket cross-account replay rejection",
   ],
   remaining_integrated_gaps: [
-    "Automation cancellation race still allows an already-queued execution to fulfill once after cancellation",
     "AA-aware automation billing under sponsored execution",
   ],
 };
@@ -221,6 +231,7 @@ const lines = [
   `- Automation matrix: \`${summary.morpheus.automation.report_path}\``,
   `- Automation idempotency probe: \`${summary.morpheus.automation_idempotency.report_path}\``,
   `- Automation cancellation-race probe: \`${summary.morpheus.automation_cancel_race.report_path}\``,
+  `- Automation deposit-exhaustion probe: \`${summary.morpheus.automation_deposit_exhaustion.report_path}\``,
   `- Callback boundary probe: \`${summary.morpheus.callback_boundary.report_path}\``,
   `- NeoDID registry boundary probe: \`${summary.morpheus.neodid_registry_boundary.report_path}\``,
   `- NeoDID registry v1 probe: \`${summary.morpheus.neodid_registry_v1.report_path}\``,
@@ -243,6 +254,7 @@ const lines = [
   `- Automation: register=${summary.morpheus.automation.register_success}, queued=${summary.morpheus.automation.queued_success}, cancel=${summary.morpheus.automation.cancel_success}`,
   `- Automation idempotency: first tick queued target request key \`${summary.morpheus.automation_idempotency.queued_request_key}\`, second tick queued \`0\`, chain request id=\`${summary.morpheus.automation_idempotency.queued_chain_request_id}\`, callback success=\`${summary.morpheus.automation_idempotency.queued_callback_success}\``,
   `- Automation cancel race: executed_after_cancel=\`${summary.morpheus.automation_cancel_race.executed_after_cancel}\`, queued chain request id=\`${summary.morpheus.automation_cancel_race.queued_chain_request_id}\``,
+  `- Automation deposit exhaustion: queued runs=\`${summary.morpheus.automation_deposit_exhaustion.queued_runs}\`, failed runs=\`${summary.morpheus.automation_deposit_exhaustion.failed_runs}\`, error=\`${summary.morpheus.automation_deposit_exhaustion.failed_error}\``,
   `- Callback boundary: vmstate=${summary.morpheus.callback_boundary.vmstate}, tx=\`${summary.morpheus.callback_boundary.txid}\``,
   `- NeoDID registry JSON boundary: mismatch tx=\`${summary.morpheus.neodid_registry_boundary.mismatch_txid}\``,
   `- NeoDID registry v1: consume tx=\`${summary.morpheus.neodid_registry_v1.consume_txid}\`, replay tx=\`${summary.morpheus.neodid_registry_v1.replay_txid}\``,

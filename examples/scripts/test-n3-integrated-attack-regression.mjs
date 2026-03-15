@@ -322,6 +322,16 @@ function summarizeAutomationCancelRace(report) {
   };
 }
 
+function summarizeAutomationDepositExhaustion(report) {
+  return {
+    shared_requester_hash: report?.shared_requester_hash || null,
+    queued_runs: Array.isArray(report?.queued_runs) ? report.queued_runs.length : (report?.queued_runs ?? null),
+    failed_runs: Array.isArray(report?.failed_runs) ? report.failed_runs.length : (report?.failed_runs ?? null),
+    queued_chain_request_id: report?.queued_chain_request_id || null,
+    failed_error: report?.failed_runs?.[0]?.error || report?.failed_error || null,
+  };
+}
+
 function readJsonIfPresent(filePath) {
   if (!filePath || !fs.existsSync(filePath)) return null;
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -454,6 +464,14 @@ stages.push(
     cwd: repoRoot,
     reportPath: stageReportPath("examples/deployments/n3-automation-cancel-race.testnet.latest.json"),
     summarize: summarizeAutomationCancelRace,
+  },
+  {
+    id: "automation_deposit_exhaustion",
+    title: "Automation shared-credit deposit exhaustion",
+    kind: "reference",
+    cwd: repoRoot,
+    reportPath: stageReportPath("examples/deployments/n3-automation-deposit-exhaustion.testnet.latest.json"),
+    summarize: summarizeAutomationDepositExhaustion,
   },
   {
     id: "automation_idempotency",
@@ -640,9 +658,6 @@ async function main() {
     stages: stageResults,
     remaining_gaps: [
       "Oracle callback envelope replay into an AA-bound consumer with AA-specific state checks",
-      "Encrypted ref replay where requester/callback binding still matches but one-time semantics should reject reuse",
-      "Automation cancellation race still allows an already-queued execution to fulfill once after cancellation",
-      "Automation deposit-exhaustion proof under a shared requester fee-credit pool",
       "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path",
     ],
   };

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T18:26:51.096Z",
+  "generated_at": "2026-03-15T01:44:03.170Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -164,9 +164,17 @@
       "queued_chain_request_id": "3218",
       "executed_after_cancel": false
     },
+    "automation_deposit_exhaustion": {
+      "report_path": "examples/deployments/n3-automation-deposit-exhaustion.testnet.latest.json",
+      "shared_requester_hash": "0xa13e179ceef45703b25b3ed71fa039ccb0318e58",
+      "queued_runs": 1,
+      "failed_runs": 1,
+      "queued_chain_request_id": "3613",
+      "failed_error": "at instruction 2827 (ABORTMSG): ABORTMSG is executed. Reason: request fee not paid"
+    },
     "callback_boundary": {
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
-      "txid": "0xf6a3001a77067b2291482c20852195bbcbd1c7f38a3ff3f54fe4be0cbc69467c",
+      "txid": "0xe129a4044d3fd738bd18cbb623d5b3b333f107ef2065ce4dd85635a791247a23",
       "vmstate": "FAULT",
       "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
     },
@@ -189,23 +197,23 @@
     },
     "encrypted_ref_boundary": {
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
-      "matching_txid": "0x4d01aa27645fd67651247a11831cb910bd24d16aacf2437fc4a33c9e9a8730a6",
-      "wrong_requester_txid": "0x8d513fd21bfba6eb8c9119a971763bbbe276e8a66fddd94a21caca20543bdc1c",
+      "matching_txid": "0xec206081dc0398ad95f1e32fd8192abc48ee09b050b2a3d131b16ea535f3c119",
+      "wrong_requester_txid": "0xd06a7b836277362d87b4b6913335b2e54b94283babda80e2643fc03068fb1679",
       "wrong_requester_error": "encrypted ref requester mismatch",
-      "wrong_callback_txid": "0x8af9ba4c46031af2fc41c4e6a5f68276fd7ca3565d8a352b202d8c4109337d59",
+      "wrong_callback_txid": "0x9b5ce2ece91238bd2bfeff8bad635a1e14c5dc7b22bff7c31c055a9c0198a36f",
       "wrong_callback_error": "encrypted ref callback mismatch"
     },
     "fulfillment_replay": {
       "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
-      "replay_txid": "0x97c5d9889dd1fb69d554889961985d875e5ca13c73057ea2b61d2172cbf6510c",
+      "replay_txid": "0x0468b8fa9ef36b6c566ebbfd89360eb7d6c08b9c90c41fef179f69a076a7b532",
       "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-      "fulfill_txid": "0xd7dc6547fdbcad3fef60a93abcce2412b89657a2b44020c7fb8ac35190a49e3b",
+      "fulfill_txid": "0x461400ffa7c7aeabe759cee8999b20a12d6f587ba20db5ba1f2fe8f61657c451",
       "fulfill_vmstate": "HALT"
     },
     "aa_session_oracle_boundary": {
       "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
-      "execute_txid": "0x06a687a6ac43bfcaed3feb40b965477d5d448ee967402d004020ad5d84054a99",
-      "request_id": "3031",
+      "execute_txid": "0xf72fa358b0c4a2f8377cd43a57cd01a54df56c560b6d073c32727a571d341e63",
+      "request_id": "3593",
       "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
       "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
     },
@@ -233,6 +241,7 @@
     "Automation register / queue / cancel flow",
     "Sequential automation duplicate-queue suppression under back-to-back relayer ticks",
     "Automation cancellation-race execution probe",
+    "Automation shared-credit deposit exhaustion fail-closed probe",
     "Callback consumer direct injection rejection",
     "NeoDID action ticket JSON callback boundary rejection",
     "NeoDID compact action ticket registry consumption and replay rejection",
@@ -242,7 +251,6 @@
     "AA recovery ticket cross-account replay rejection"
   ],
   "remaining_integrated_gaps": [
-    "Automation cancellation race still allows an already-queued execution to fulfill once after cancellation",
     "AA-aware automation billing under sponsored execution"
   ]
 }
