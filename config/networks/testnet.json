@@ -17,7 +17,7 @@
       "morpheus_oracle": "0x4b882e94ed766807c4fd728768f972e13008ad52",
       "oracle_callback_consumer": "0x6af95dac2c55d4af01f657c86b83583b6dd2fabe",
       "morpheus_datafeed": "0x9bea75cf702f6afc09125aa6d22f082bfd2ee064",
-      "abstract_account": "",
+      "abstract_account": "0x9cbbfc969f94a5056fd6a658cab090bcb3604724",
       "morpheus_neodid": ""
     },
     "examples": {

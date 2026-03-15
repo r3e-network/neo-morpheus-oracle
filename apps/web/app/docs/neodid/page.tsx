@@ -9,6 +9,7 @@ import {
   DEFAULT_NEODID_VAULT_DID,
 } from "@/lib/neodid-did-common";
 import { NETWORKS } from "@/lib/onchain-data";
+import { networkRegistry } from "@/lib/networks";
 
 export default function DocsNeoDidPage() {
   return (
@@ -50,6 +51,20 @@ export default function DocsNeoDidPage() {
         <li><strong>NeoDIDRegistry:</strong> <code>{NETWORKS.neo_n3.neodid}</code> via <code>{NETWORKS.neo_n3.domains.neodid}</code></li>
         <li><strong>AbstractAccount:</strong> <code>{NETWORKS.neo_n3.aa}</code> via <code>{NETWORKS.neo_n3.domains.aa}</code></li>
       </ul>
+
+      <div className="card-industrial" style={{ padding: "1.5rem", borderLeft: "4px solid var(--accent-blue)", marginBottom: "2rem" }}>
+        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+          Network anchors are intentionally explicit:
+        </p>
+        <ul style={{ marginTop: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.8 }}>
+          <li><strong>Mainnet Oracle:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_oracle}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_oracle}</code></li>
+          <li><strong>Mainnet NeoDIDRegistry:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_neodid}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_neodid}</code></li>
+          <li><strong>Mainnet AA:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.abstract_account}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_aa}</code></li>
+          <li><strong>Testnet Oracle:</strong> <code>{networkRegistry.testnet.neo_n3.contracts.morpheus_oracle}</code></li>
+          <li><strong>Testnet AA:</strong> <code>{networkRegistry.testnet.neo_n3.contracts.abstract_account}</code></li>
+          <li><strong>Testnet NeoDIDRegistry:</strong> unpublished in the canonical shared registry right now</li>
+        </ul>
+      </div>
 
       <h2>W3C DID Method</h2>
       <p>
