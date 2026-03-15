@@ -1,6 +1,6 @@
 # N3 Encrypted Ref Boundary Validation
 
-Date: 2026-03-15T05:54:45.724Z
+Date: 2026-03-15T06:31:37.695Z
 
 ## Scope
 
@@ -8,11 +8,11 @@ This probe validates the live testnet boundary for `encrypted_params_ref` after 
 
 ## Result Summary
 
-- Matching ref tx: `0x5e8c7eec4886792c2fe55c1c4f5d52b8de4d49dd70ce04d1c46470a58049988b` request `3830`
-- Wrong requester tx: `0x2cc4948af9e3c1848e32516ff78fb376addbb183ef2eef19306613a0832a3e78` request `3831`
-- Wrong callback tx: `0x30f97a559c88fccc023d408be8a702e96933726ab16eaf09eeb274e32b21fb36` request `3833`
-- Replay first-use tx: `0x3208339ab019db55c097f41f9f498f16c6dedfcf6bec5c2c113c3e397b6a225b` request `3834`
-- Replay second-use tx: `0xe31332d34c2f91d83484fec80490930b07068492b17ce3a56f49b6c8717328e2` request `3835`
+- Matching ref tx: `0x74b0911cdc413226095fab5e360d5b1f320c4cb9f78f9b71fa065c7e76731ddf` request `3842`
+- Wrong requester tx: `0x670a08b8ac154d632afcb3f92745c7e76b64ad429ddfd0da9e1e2ea55bd62764` request `3843`
+- Wrong callback tx: `0x375b4d8c15d424ec3d11458ab8f5b1e0ef5c10e6a20afee5b0d67801837c7d44` request `3844`
+- Replay first-use tx: `0xc9f43c0c1575c4b9f46e56ee0cf98d0a6be20a47fccc2ff6fb108a349a3d1ba0` request `3845`
+- Replay second-use tx: `0xd7efccd3790cb542ef5f82c0571ebeeae073b12ae7873d423952b19a008478df` request `3846`
 
 ## Conclusion
 

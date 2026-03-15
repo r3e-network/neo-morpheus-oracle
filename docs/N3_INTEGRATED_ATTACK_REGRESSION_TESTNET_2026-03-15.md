@@ -1,6 +1,6 @@
 # N3 Integrated Attack Regression
 
-Date: 2026-03-15T06:03:24.388Z
+Date: 2026-03-15T06:40:39.347Z
 
 ## Scope
 
@@ -20,7 +20,7 @@ This runner tracks the currently executable Neo N3 integrated attack regression 
   summary: `{"stage_ids":["smoke","plugin_matrix","paymaster_policy","paymaster"],"paymaster_policy_denied_cases":["missingOperationHash","wrongDappId","wrongAccountId","wrongTargetContract","wrongMethod","gasTooHigh","wrongTargetChain"],"paymaster_txid":"0xb55e8c4c02243cc3769074c89d2b0dfc16ffa6c7dfbec1a62da9cb89df86c856","paymaster_approval_digest":"775bf2ff09499b96c33546317416f1ba052a777f0bda9ed6e8a99b1df06a62cb"}`
 - callback_boundary: `passed`
   report: `examples/deployments/n3-callback-boundary.testnet.latest.json`
-  summary: `{"txid":"0xef0f9c8f96969603c936cfb2bc44312d39de97cb19fc7700149290ca67d20293","vmstate":"FAULT","exception":"at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"}`
+  summary: `{"txid":"0x21b997ca6a2c635fb92843c2062a7f0525a0e923d5b7f062b9a7b64767e18cd2","vmstate":"FAULT","exception":"at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"}`
 - neodid_registry_boundary: `referenced_latest`
   report: `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`
   summary: `{"registry_hash":"0x848d71cae70fdcb98b380bbeb74ec56584a5a536","wrong_witness_exception":"at instruction 2188 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized","mismatch_exception":"at instruction 1703 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"}`
@@ -32,10 +32,10 @@ This runner tracks the currently executable Neo N3 integrated attack regression 
   summary: `{"matching_success":true,"wrong_requester_error":"encrypted ref requester mismatch","wrong_callback_error":"encrypted ref callback mismatch","replay_error":"encrypted ref already consumed by another request"}`
 - fulfillment_replay: `passed`
   report: `examples/deployments/n3-fulfillment-replay.testnet.latest.json`
-  summary: `{"replay_exception":"at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature","fulfill_vmstate":"HALT","fulfill_txid":"0xec5a36e4f2db0b7ec81abf3cbde110fbe50ded79b65d698aa1e3bdbce122078a"}`
+  summary: `{"replay_exception":"at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature","fulfill_vmstate":"HALT","fulfill_txid":"0x7dc0ef65a5c30472dde942da1f3475202e49cfc4b6c8fba38c8f6e15a985bcab"}`
 - aa_session_oracle_boundary: `passed`
   report: `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json`
-  summary: `{"execute_txid":"0xb549188fafe9abf50fdfe254135b98b5d9591bb36185d4378391c2a019a95c98","request_id":"3836","wrong_target_exception":"at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted","wrong_method_exception":"at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"}`
+  summary: `{"execute_txid":"0x9dce58dbe9d1bee86ffe51e71498e3dbe6106987cab53712b456c5d2593b1666","request_id":"3847","wrong_target_exception":"at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted","wrong_method_exception":"at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"}`
 - aa_callback_replay_boundary: `referenced_latest`
   report: `examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json`
   summary: `{"replay_txid":"0xe0011eacc573754f163100e9b399602eadff7b7c5dd941d5dbfe319891ef6b8b","replay_exception":"at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature","unlocked_a":true,"unlocked_b":false}`
@@ -44,7 +44,7 @@ This runner tracks the currently executable Neo N3 integrated attack regression 
   summary: `{"recovery_verifier_hash":"0x9e08c858774b7eb2844810247b61812d44604424","recovery_request_id":null,"wrong_account_state":null,"wrong_account_exception":null}`
 - aa_paymaster_automation_oracle: `passed`
   report: `examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json`
-  summary: `{"paymaster_policy_id":"testnet-aa","paymaster_approved":true,"relay_txid":"0xd63292a33274795b4c625fe97dd008db9f1b4bfb29f334903271a44908ee6c5c","automation_id":"automation:neo_n3:ab95f187-d500-435b-bae3-8dabd2e406d2","queued_mode":"scheduler","queued_chain_request_id":"3838","queued_callback_success":true}`
+  summary: `{"paymaster_policy_id":"testnet-aa","paymaster_approved":true,"relay_txid":"0xbb14baeb7a7ce4e1560c941234b039410d757fc0eff97d2043a8b2bedc05a7ed","automation_id":"automation:neo_n3:2cac765c-3b65-4d9d-944e-c4cca5523350","queued_mode":"scheduler","queued_chain_request_id":"3849","queued_callback_success":true}`
 - automation_cancel_race: `referenced_latest`
   report: `examples/deployments/n3-automation-cancel-race.testnet.latest.json`
   summary: `{"automation_id":null,"queued_chain_request_id":"3218","executed_after_cancel":false}`
