@@ -13,6 +13,14 @@ namespace MorpheusOracle.Contracts
     public delegate void AdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
     public delegate void UpdaterChangedHandler(UInt160 oldUpdater, UInt160 newUpdater);
 
+    /// <summary>
+    /// On-chain synchronized storage for Morpheus price and data feed records.
+    /// </summary>
+    /// <remarks>
+    /// Operators write normalized feed values here after off-chain collection and verification.
+    /// Application contracts should read from this contract directly instead of querying external
+    /// APIs at runtime.
+    /// </remarks>
     [DisplayName("MorpheusDataFeed")]
     [ManifestExtra("Author", "Morpheus Oracle")]
     [ManifestExtra("Version", "1.0.0")]
@@ -154,12 +162,18 @@ namespace MorpheusOracle.Contracts
             return pairs;
         }
 
+        /// <summary>
+        /// Writes or overwrites a single feed record.
+        /// </summary>
         public static void UpdateFeed(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
         {
             ValidateUpdater();
             UpdateFeedInternal(pair, roundId, price, timestamp, attestationHash, sourceSetId);
         }
 
+        /// <summary>
+        /// Batch writes multiple feed records in one transaction.
+        /// </summary>
         public static void UpdateFeeds(string[] pairs, BigInteger[] roundIds, BigInteger[] prices, BigInteger[] timestamps, ByteString[] attestationHashes, BigInteger[] sourceSetIds)
         {
             ValidateUpdater();

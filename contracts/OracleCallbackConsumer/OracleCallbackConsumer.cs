@@ -12,6 +12,14 @@ namespace MorpheusOracle.Contracts
     public delegate void AdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
     public delegate void OracleChangedHandler(UInt160 oldOracle, UInt160 newOracle);
 
+    /// <summary>
+    /// Minimal callback sink used to receive and persist Morpheus Oracle results.
+    /// </summary>
+    /// <remarks>
+    /// This example contract demonstrates the expected callback pattern: set a trusted Oracle
+    /// contract, accept only that caller, and store callback payloads by request id for later read
+    /// access or downstream processing.
+    /// </remarks>
     [DisplayName("OracleCallbackConsumer")]
     [ManifestExtra("Author", "Morpheus Oracle")]
     [ManifestExtra("Version", "1.0.0")]
@@ -59,6 +67,9 @@ namespace MorpheusOracle.Contracts
             OnAdminChanged(oldAdmin, newAdmin);
         }
 
+        /// <summary>
+        /// Sets the Oracle contract allowed to call <c>OnOracleResult</c>.
+        /// </summary>
         public static void SetOracle(UInt160 oracle)
         {
             ValidateAdmin();
@@ -68,6 +79,9 @@ namespace MorpheusOracle.Contracts
             OnOracleChanged(oldOracle, oracle);
         }
 
+        /// <summary>
+        /// Receives a callback from the configured Oracle contract and stores it under the request id.
+        /// </summary>
         public static void OnOracleResult(BigInteger requestId, string requestType, bool success, ByteString result, string error)
         {
             ValidateOracle();

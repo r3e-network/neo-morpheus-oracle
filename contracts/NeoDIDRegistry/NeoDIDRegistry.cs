@@ -15,6 +15,15 @@ namespace MorpheusOracle.Contracts
     public delegate void NeoDidAdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
     public delegate void NeoDidVerifierChangedHandler(ECPoint oldVerifier, ECPoint newVerifier);
 
+    /// <summary>
+    /// Independent on-chain registry for NeoDID bindings and single-use action tickets.
+    /// </summary>
+    /// <remarks>
+    /// Morpheus or NeoDID off-chain flows produce signed binding and action-ticket payloads; this
+    /// contract verifies those signatures, records master nullifiers, and enforces one-time action
+    /// nullifier consumption. It intentionally stays separate from both the Oracle gateway and the
+    /// AA core.
+    /// </remarks>
     [DisplayName("NeoDIDRegistry")]
     [ManifestExtra("Author", "Morpheus Oracle")]
     [ManifestExtra("Version", "1.0.0")]
@@ -92,6 +101,9 @@ namespace MorpheusOracle.Contracts
             OnAdminChanged(oldAdmin, newAdmin);
         }
 
+        /// <summary>
+        /// Sets the public verifier key used to authenticate NeoDID signatures.
+        /// </summary>
         public static void SetVerifier(ECPoint publicKey)
         {
             ValidateAdmin();
@@ -101,6 +113,9 @@ namespace MorpheusOracle.Contracts
             OnVerifierChanged(oldVerifier, publicKey);
         }
 
+        /// <summary>
+        /// Registers a new identity binding after verifying the signed binding digest.
+        /// </summary>
         public static void RegisterBinding(
             UInt160 vaultAccount,
             string provider,
@@ -189,6 +204,9 @@ namespace MorpheusOracle.Contracts
             return ActionNullifierMap().Get((byte[])actionNullifier) != null;
         }
 
+        /// <summary>
+        /// Consumes a one-time action ticket and records its action nullifier.
+        /// </summary>
         public static bool UseActionTicket(UInt160 disposableAccount, string actionId, ByteString actionNullifier, ByteString verificationSignature)
         {
             ExecutionEngine.Assert(disposableAccount != null && disposableAccount.IsValid, "invalid disposable account");
