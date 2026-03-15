@@ -82,7 +82,7 @@ This makes the response portable across:
   "target_chain": "neo_n3",
   "account_id": "0x37298bb6bbb4580fdca24903d67b385ef2268e25",
   "dapp_id": "demo-dapp",
-  "target_contract": "0x9cbbfc969f94a5056fd6a658cab090bcb3604724",
+  "target_contract": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
   "method": "executeUserOp",
   "estimated_gas_units": 120000,
   "operation_hash": "0x4444444444444444444444444444444444444444444444444444444444444444"
@@ -153,7 +153,7 @@ Validated service-side facts:
 - network: `testnet`
 - policy id: `testnet-aa`
 - target chain: `neo_n3`
-- allowed AA target contract: `0x9cbbfc969f94a5056fd6a658cab090bcb3604724`
+- allowed AA target contract: `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`
 - allowed method: `executeUserOp`
 - CVM app id: `28294e89d490924b79c85cdee057ce55723b3d56`
 

@@ -2,6 +2,12 @@
 
 Date: 2026-03-15T06:40:39.336Z
 
+Refresh note:
+
+- the canonical shared testnet AA core now points to `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`
+- the canonical shared testnet `Web3AuthVerifier` now points to `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`
+- the result below remains the historical record of the earlier integrated run
+
 ## Scope
 
 This probe validates the final integrated path where Morpheus paymaster pre-authorizes an AA `executeUserOp`, the AA account calls a downstream consumer to register automation, and the later automation execution triggers a Morpheus privacy_oracle callback successfully.

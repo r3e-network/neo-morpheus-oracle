@@ -17,16 +17,17 @@
       "morpheus_oracle": "0x4b882e94ed766807c4fd728768f972e13008ad52",
       "oracle_callback_consumer": "0x6af95dac2c55d4af01f657c86b83583b6dd2fabe",
       "morpheus_datafeed": "0x9bea75cf702f6afc09125aa6d22f082bfd2ee064",
-      "abstract_account": "0x9cbbfc969f94a5056fd6a658cab090bcb3604724",
+      "abstract_account": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
       "morpheus_neodid": ""
     },
     "aa_runtime": {
       "display_name": "UnifiedSmartWalletV3",
       "abi_generation": "v3",
+      "core_deploy_tx": "0xbcee817781bb57e66d7373c25c1b951bbe7bce9ebc355fb38f7d23b21cc515c0",
       "core_update_tx": ""
     },
     "aa_verifiers": {
-      "web3auth": "",
+      "web3auth": "0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d",
       "social_recovery": ""
     },
     "examples": {

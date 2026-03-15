@@ -385,7 +385,7 @@ async function main() {
   const signerWif = resolveNeoN3SignerWif("testnet");
   const oracleHash = normalizeHash160(deployment.oracle_hash || "");
   const consumerHash = normalizeHash160(deployment.example_consumer_hash || "");
-  const aaCoreHash = trimString(process.env.AA_CORE_HASH_TESTNET || "0x9cbbfc969f94a5056fd6a658cab090bcb3604724");
+  const aaCoreHash = trimString(process.env.AA_CORE_HASH_TESTNET || "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38");
   const phalaApiToken = trimString(process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || "");
   const phalaAppId = trimString(process.env.MORPHEUS_PAYMASTER_APP_ID || "28294e89d490924b79c85cdee057ce55723b3d56");
   const verifierPubkey = JSON.parse(await fs.readFile(path.resolve(repoRoot, "examples/deployments/n3-neodid-oracle-matrix.testnet.latest.json"), "utf8")).cases
