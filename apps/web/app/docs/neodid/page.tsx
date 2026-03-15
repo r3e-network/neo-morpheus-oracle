@@ -60,10 +60,15 @@ export default function DocsNeoDidPage() {
           <li><strong>Mainnet Oracle:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_oracle}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_oracle}</code></li>
           <li><strong>Mainnet NeoDIDRegistry:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_neodid}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_neodid}</code></li>
           <li><strong>Mainnet AA:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.abstract_account}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_aa}</code></li>
+          <li><strong>Mainnet AA Web3AuthVerifier:</strong> <code>{networkRegistry.mainnet.neo_n3.aa_verifiers.web3auth}</code></li>
+          <li><strong>Mainnet AA RecoveryVerifier:</strong> <code>{networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}</code></li>
           <li><strong>Testnet Oracle:</strong> <code>{networkRegistry.testnet.neo_n3.contracts.morpheus_oracle}</code></li>
           <li><strong>Testnet AA:</strong> <code>{networkRegistry.testnet.neo_n3.contracts.abstract_account}</code></li>
           <li><strong>Testnet NeoDIDRegistry:</strong> unpublished in the canonical shared registry right now</li>
         </ul>
+        <p style={{ marginTop: "0.85rem", marginBottom: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+          Public docs use the stable runtime label <code>UnifiedSmartWalletV3</code>. Historical or deployment-specific manifest-name suffixes are implementation details, not the canonical AA product name.
+        </p>
       </div>
 
       <h2>W3C DID Method</h2>
@@ -263,7 +268,7 @@ public class NeoDIDRegistry : SmartContract
   "provider": "web3auth",
   "network": "neo_n3",
   "aa_contract": "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
-  "verifier_contract": "0x1111111111111111111111111111111111111111",
+  "verifier_contract": "${networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}",
   "account_id": "aa-social-recovery-demo",
   "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
   "recovery_nonce": "7",

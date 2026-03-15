@@ -70,6 +70,26 @@ export default function DocsNetworks() {
         testnet: normalizeValue(testnet.neo_n3?.contracts?.abstract_account, "unassigned"),
       },
       {
+        label: "AA runtime label",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_runtime?.display_name, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_runtime?.display_name, "unassigned"),
+      },
+      {
+        label: "AA ABI generation",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_runtime?.abi_generation, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_runtime?.abi_generation, "unassigned"),
+      },
+      {
+        label: "AA Web3AuthVerifier",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_verifiers?.web3auth, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_verifiers?.web3auth, "deployment-specific"),
+      },
+      {
+        label: "AA RecoveryVerifier",
+        mainnet: normalizeValue(mainnet.neo_n3?.aa_verifiers?.social_recovery, "unassigned"),
+        testnet: normalizeValue(testnet.neo_n3?.aa_verifiers?.social_recovery, "deployment-specific"),
+      },
+      {
         label: "NeoDIDRegistry",
         mainnet: normalizeValue(mainnet.neo_n3?.contracts?.morpheus_neodid, "unassigned"),
         testnet: normalizeValue(testnet.neo_n3?.contracts?.morpheus_neodid, "unpublished"),
@@ -138,6 +158,7 @@ export default function DocsNetworks() {
       <p className="lead" style={{ fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "2.5rem", lineHeight: 1.7 }}>
         Canonical mainnet and testnet publication status for Morpheus Oracle, DataFeed, NeoDID, and AA integration anchors.
         The selected runtime is <code>{selectedKey}</code>, but this page shows both networks side-by-side so addresses and domains do not get mixed.
+        User-facing AA naming stays stable as <code>UnifiedSmartWalletV3</code>; raw deployment manifest strings are treated as low-level audit metadata instead of product labels.
       </p>
 
       <div className="card-industrial" style={{ padding: "1.5rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2rem" }}>
@@ -188,6 +209,7 @@ export default function DocsNetworks() {
         <ul style={{ marginTop: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.8 }}>
           <li><code>OracleCallbackConsumer</code> is the production callback sink contract configured in the network registry.</li>
           <li><code>Example consumer</code> and <code>Feed reader example</code> are validation/demo contracts used by the published live probes.</li>
+          <li><code>AA runtime label</code> is the canonical product name; raw manifest-name suffixes stay in low-level deployment logs only.</li>
           <li>Testnet AA currently has a published core hash but no NNS alias.</li>
           <li>Testnet NeoDIDRegistry remains unpublished in the canonical registry until a stable shared deployment is intentionally promoted.</li>
         </ul>

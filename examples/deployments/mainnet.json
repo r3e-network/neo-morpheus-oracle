@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-15T06:34:52.000Z",
+  "updated_at": "2026-03-15T11:18:04Z",
   "neo_n3": {
     "deployed_at": "2026-03-10T05:38:43.340Z",
     "rpc_url": "https://mainnet1.neo.coz.io:443",
@@ -8,14 +8,24 @@
     "deployer_script_hash": "6d0656f6dd91469db1c90cc1e574380613f43738",
     "oracle_hash": "0x017520f068fd602082fe5572596185e62a4ad991",
     "datafeed_hash": "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
+    "abstract_account_hash": "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
+    "aa_web3auth_verifier_hash": "0x4696e7a68d5d6c6cf9c19c38cd0fdc9c0bcc3e0a",
+    "aa_recovery_verifier_hash": "0x975483c2d0928c1ed6da568190b5137463431422",
     "neodid_registry_hash": "0x6a51671fd45d61b9536791390f275eb31d07954a",
     "example_consumer_hash": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "example_feed_reader_hash": "0x11e454261c21a32f1c9262472ca72a3156f9051f",
     "allowlisted": true,
     "consumer_oracle": "0x017520f068fd602082fe5572596185e62a4ad991",
+    "aa_runtime": {
+      "abi_generation": "v3",
+      "onchain_manifest_name": "UnifiedSmartWalletV2-1773294968429",
+      "updatecounter": 1
+    },
     "transactions": {
       "oracle_update": "0xed5fcf25c036cd2e0aff5c447f2ba1cba100b37102f8123adce407b07589f624",
       "datafeed_update": "0x7a0fc672247077985ddea52fdd0ccf2b62725d4cbd21127b3791406a2d3cbcdf",
+      "abstract_account_update": "0xb0e163734ffd0641b44c6091f373f0b09acdde03c693f465c97e6659f2dda035",
+      "aa_web3auth_verifier_deploy": "0x8a47340c5127fcf3d53cdfdce5a6b4555734c8db206ce5a5dfddd56199cfc3d3",
       "neodid_registry_deploy": "0x2dd001477b853fdbd5464a4b4d5eb2ac20b7bc780351369fa8c4fabae8d95f0c",
       "neodid_registry_set_verifier": "0xd900a9cf65ad16a0b216cdce32f08023b5cc399cdf36c216e86447dc50032652",
       "consumer_deploy": "0x572b38fb211dff47d909124002deba5c9697315c367e5cb53419ab0f549573b0",

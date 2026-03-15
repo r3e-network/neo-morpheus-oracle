@@ -36,6 +36,8 @@ Current Neo N3 anchors:
 | OracleCallbackConsumer | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844` | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe` |
 | MorpheusDataFeed | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064` |
 | AbstractAccount | `0x0466fa7e8fe548480d7978d2652625d4a22589a6` | `0x9cbbfc969f94a5056fd6a658cab090bcb3604724` |
+| AA Web3AuthVerifier | `0x4696e7a68d5d6c6cf9c19c38cd0fdc9c0bcc3e0a` | deployment-specific |
+| AA RecoveryVerifier | `0x975483c2d0928c1ed6da568190b5137463431422` | deployment-specific |
 | NeoDIDRegistry | `0x6a51671fd45d61b9536791390f275eb31d07954a` | unpublished |
 | Oracle NNS | `oracle.morpheus.neo` | unassigned |
 | DataFeed NNS | `pricefeed.morpheus.neo` | unassigned |
@@ -47,6 +49,7 @@ Operational notes:
 - the canonical testnet callback contract for shared infra is `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`
 - the testnet example consumer used by live validation probes is `0x8c506f224d82e67200f20d9d5361f767f0756e3b`
 - testnet NeoDID registry remains unpublished in the shared registry until a stable shared deployment is intentionally promoted
+- `UnifiedSmartWalletV3` is the stable AA runtime name; raw deployment manifest suffixes are internal deployment metadata rather than user-facing contract names
 
 ## 1. Concepts
 
@@ -611,7 +614,7 @@ curl http://localhost:3000/api/neodid/recovery-ticket \
     "provider":"web3auth",
     "network":"neo_n3",
     "aa_contract":"0x0466fa7e8fe548480d7978d2652625d4a22589a6",
-    "verifier_contract":"0x1111111111111111111111111111111111111111",
+    "verifier_contract":"0x975483c2d0928c1ed6da568190b5137463431422",
     "account_id":"aa-social-recovery-demo",
     "new_owner":"0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "recovery_nonce":"7",

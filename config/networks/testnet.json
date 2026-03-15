@@ -20,6 +20,15 @@
       "abstract_account": "0x9cbbfc969f94a5056fd6a658cab090bcb3604724",
       "morpheus_neodid": ""
     },
+    "aa_runtime": {
+      "display_name": "UnifiedSmartWalletV3",
+      "abi_generation": "v3",
+      "core_update_tx": ""
+    },
+    "aa_verifiers": {
+      "web3auth": "",
+      "social_recovery": ""
+    },
     "examples": {
       "oracle_callback_consumer": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
       "feed_reader": "0xae9c17da3d8d1cc45b2a95f77ddce391b9bdcad4"
