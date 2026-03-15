@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-15T12:35:00Z",
+  "updated_at": "2026-03-15T12:55:00Z",
   "neo_n3": {
     "deployed_at": "2026-03-10T05:38:43.340Z",
     "rpc_url": "https://mainnet1.neo.coz.io:443",
@@ -11,7 +11,7 @@
     "abstract_account_hash": "0x9742b4ed62a84a886f404d36149da6147528ee33",
     "aa_web3auth_verifier_hash": "0xb4107cb2cb4bace0ebe15bc4842890734abe133a",
     "aa_recovery_verifier_hash": "0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3",
-    "neodid_registry_hash": "0x6a51671fd45d61b9536791390f275eb31d07954a",
+    "neodid_registry_hash": "0xb81f31ea81e279793b30411b82c2e82078b63105",
     "example_consumer_hash": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "example_feed_reader_hash": "0x11e454261c21a32f1c9262472ca72a3156f9051f",
     "allowlisted": true,
@@ -114,6 +114,12 @@
       "updatecounter": 0,
       "legacy_hash": "0x0466fa7e8fe548480d7978d2652625d4a22589a6"
     },
+    "neodid_runtime": {
+      "display_name": "NeoDIDRegistry",
+      "onchain_manifest_name": "NeoDIDRegistry",
+      "updatecounter": 0,
+      "legacy_hash": "0x6a51671fd45d61b9536791390f275eb31d07954a"
+    },
     "transactions": {
       "oracle_update": "0xed5fcf25c036cd2e0aff5c447f2ba1cba100b37102f8123adce407b07589f624",
       "datafeed_update": "0x7a0fc672247077985ddea52fdd0ccf2b62725d4cbd21127b3791406a2d3cbcdf",
@@ -128,8 +134,10 @@
       "pricefeed_domain_set_record": "0xc120f08897b937bd6664af6f0c3b6fde0b216b99f139cbae792c858412cc5368",
       "neodid_domain_set_record": "0x6dc8dca8165ee8c2cd9bdc6e6e289554e454986b515f971045c0ca42d2609a8a",
       "aa_alias_domain_set_record": "0x1b54515b02b1c7eea53cfd4c20233a58c52e8bd57b1255790b1d031a96ef8350",
-      "neodid_registry_deploy": "0x2dd001477b853fdbd5464a4b4d5eb2ac20b7bc780351369fa8c4fabae8d95f0c",
-      "neodid_registry_set_verifier": "0xd900a9cf65ad16a0b216cdce32f08023b5cc399cdf36c216e86447dc50032652",
+      "legacy_neodid_registry_deploy": "0x2dd001477b853fdbd5464a4b4d5eb2ac20b7bc780351369fa8c4fabae8d95f0c",
+      "legacy_neodid_registry_set_verifier": "0xd900a9cf65ad16a0b216cdce32f08023b5cc399cdf36c216e86447dc50032652",
+      "neodid_registry_deploy": "0x16d92015cc4f729f7c3786ab4f6670ca3f90ce30e707d285ca72f08a06c19fdf",
+      "neodid_registry_set_verifier": "0xc365b385869199e901060da478380da202de19151dfa0aad37aacaf35b4481a9",
       "consumer_deploy": "0x572b38fb211dff47d909124002deba5c9697315c367e5cb53419ab0f549573b0",
       "feed_reader_deploy": "0xa565e89aa20ddeba81a68c08bc83311ab3a82c82b0dcfa7df62c7f4d535923d2",
       "allow_callback": null,

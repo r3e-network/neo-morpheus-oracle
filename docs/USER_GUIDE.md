@@ -38,7 +38,7 @@ Current Neo N3 anchors:
 | AbstractAccount | `0x9742b4ed62a84a886f404d36149da6147528ee33` | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38` |
 | AA Web3AuthVerifier | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a` | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d` |
 | AA RecoveryVerifier | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3` | deployment-specific |
-| NeoDIDRegistry | `0x6a51671fd45d61b9536791390f275eb31d07954a` | unpublished |
+| NeoDIDRegistry | `0xb81f31ea81e279793b30411b82c2e82078b63105` | unpublished |
 | Oracle NNS | `oracle.morpheus.neo` | unassigned |
 | DataFeed NNS | `pricefeed.morpheus.neo` | unassigned |
 | AA NNS | `smartwallet.neo` | unassigned |
