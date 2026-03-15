@@ -10,24 +10,40 @@
     "domains": {
       "morpheus_oracle": "oracle.morpheus.neo",
       "morpheus_datafeed": "pricefeed.morpheus.neo",
-      "morpheus_aa": "aa.morpheus.neo",
+      "morpheus_aa": "smartwallet.neo",
       "morpheus_neodid": "neodid.morpheus.neo"
+    },
+    "aa_subdomains": {
+      "core": "core.smartwallet.neo",
+      "web3auth": "web3auth.smartwallet.neo",
+      "recovery": "recovery.smartwallet.neo",
+      "tee": "teeverifier.smartwallet.neo",
+      "session": "sessionkey.smartwallet.neo",
+      "webauthn": "webauthn.smartwallet.neo",
+      "multisig": "multisig.smartwallet.neo",
+      "subscription": "subscription.smartwallet.neo",
+      "credential_hook": "credential.smartwallet.neo",
+      "whitelist_hook": "whitelist.smartwallet.neo",
+      "daily_limit_hook": "dailylimit.smartwallet.neo",
+      "token_hook": "tokenhook.smartwallet.neo",
+      "multi_hook": "multihook.smartwallet.neo"
     },
     "contracts": {
       "morpheus_oracle": "0x017520f068fd602082fe5572596185e62a4ad991",
       "oracle_callback_consumer": "0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844",
       "morpheus_datafeed": "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
-      "abstract_account": "0x0466fa7e8fe548480d7978d2652625d4a22589a6",
+      "abstract_account": "0x9742b4ed62a84a886f404d36149da6147528ee33",
       "morpheus_neodid": "0x6a51671fd45d61b9536791390f275eb31d07954a"
     },
     "aa_runtime": {
       "display_name": "UnifiedSmartWalletV3",
       "abi_generation": "v3",
+      "core_deploy_tx": "0x94d7a6d45196ed59a0eeb604450b305949e31650d1077ba2a824a90591644b3b",
       "core_update_tx": "0xb0e163734ffd0641b44c6091f373f0b09acdde03c693f465c97e6659f2dda035"
     },
     "aa_verifiers": {
-      "web3auth": "0x4696e7a68d5d6c6cf9c19c38cd0fdc9c0bcc3e0a",
-      "social_recovery": "0x975483c2d0928c1ed6da568190b5137463431422"
+      "web3auth": "0xb4107cb2cb4bace0ebe15bc4842890734abe133a",
+      "social_recovery": "0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3"
     },
     "examples": {
       "oracle_callback_consumer": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
