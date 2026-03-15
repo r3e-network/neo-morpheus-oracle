@@ -1830,6 +1830,35 @@ test('oracle smart fetch resolves script_ref from a Neo N3 contract getter', asy
   }
 });
 
+test('oracle smart fetch uses compact programmable context for large custom URL payloads', async () => {
+  const previousMax = process.env.ORACLE_MAX_SCRIPT_INPUT_BYTES;
+  process.env.ORACLE_MAX_SCRIPT_INPUT_BYTES = '1024';
+  global.fetch = async () => new Response(JSON.stringify({
+    args: { probe: 'neo-morpheus' },
+    noise: 'x'.repeat(700),
+  }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+  try {
+    const res = await handler(new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/compact-context',
+        script: 'function process(data) { return data.args.probe + \"-script\"; }',
+        target_chain: 'neo_n3',
+      }),
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.result, 'neo-morpheus-script');
+  } finally {
+    if (previousMax === undefined) delete process.env.ORACLE_MAX_SCRIPT_INPUT_BYTES;
+    else process.env.ORACLE_MAX_SCRIPT_INPUT_BYTES = previousMax;
+  }
+});
+
 test('sign-payload supports neo_n3 and neo_x', async () => {
   global.fetch = originalFetch;
 
