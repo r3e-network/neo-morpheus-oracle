@@ -17,7 +17,30 @@
     "allowlisted": true,
     "consumer_oracle": "0x017520f068fd602082fe5572596185e62a4ad991",
     "aa_domain": "smartwallet.neo",
+    "aa_alias_domain": "aa.morpheus.neo",
     "aa_address": "NQeYx3qhVboVNU4Yk2NZPXQtudTeCNmjFq",
+    "morpheus_project_domains": {
+      "oracle.morpheus.neo": {
+        "contract_hash": "0x017520f068fd602082fe5572596185e62a4ad991",
+        "address": "NZD9U8EiZdTKf7mK7zAX9jEHRSNz6yvLWX",
+        "txid": "0x940227a17122cc4a451c650b8159705ab27e4af60df23d7f84e0a7a7496cd31e"
+      },
+      "pricefeed.morpheus.neo": {
+        "contract_hash": "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
+        "address": "NbaMiHPMftU9Y7LFJHPtW1jC6e81cHPLnV",
+        "txid": "0xc120f08897b937bd6664af6f0c3b6fde0b216b99f139cbae792c858412cc5368"
+      },
+      "neodid.morpheus.neo": {
+        "contract_hash": "0xb81f31ea81e279793b30411b82c2e82078b63105",
+        "address": "NLPS7pTD6HDpcFWzkRCzZZvrvXPoo3mxmF",
+        "txid": "0x6dc8dca8165ee8c2cd9bdc6e6e289554e454986b515f971045c0ca42d2609a8a"
+      },
+      "aa.morpheus.neo": {
+        "contract_hash": "0x9742b4ed62a84a886f404d36149da6147528ee33",
+        "address": "NQeYx3qhVboVNU4Yk2NZPXQtudTeCNmjFq",
+        "txid": "0x1b54515b02b1c7eea53cfd4c20233a58c52e8bd57b1255790b1d031a96ef8350"
+      }
+    },
     "aa_subdomains": {
       "core.smartwallet.neo": {
         "contract_hash": "0x9742b4ed62a84a886f404d36149da6147528ee33",
@@ -101,6 +124,10 @@
       "aa_domain_register": "0x7a452ddf727fb8155b0a736b5b3bdfd1e7b8a244c8d1e56ac8393e209617cae8",
       "aa_domain_set_admin": "0xff5535aab82de9b1bdd998449eb019cb3fb230de68cff9fbf202f5bb42d6bc95",
       "aa_domain_set_record": "0x3755360a7a304be613abb735d3d798234e93fc5482d55f1792a7f05f7c869e17",
+      "oracle_domain_set_record": "0x940227a17122cc4a451c650b8159705ab27e4af60df23d7f84e0a7a7496cd31e",
+      "pricefeed_domain_set_record": "0xc120f08897b937bd6664af6f0c3b6fde0b216b99f139cbae792c858412cc5368",
+      "neodid_domain_set_record": "0x6dc8dca8165ee8c2cd9bdc6e6e289554e454986b515f971045c0ca42d2609a8a",
+      "aa_alias_domain_set_record": "0x1b54515b02b1c7eea53cfd4c20233a58c52e8bd57b1255790b1d031a96ef8350",
       "neodid_registry_deploy": "0x2dd001477b853fdbd5464a4b4d5eb2ac20b7bc780351369fa8c4fabae8d95f0c",
       "neodid_registry_set_verifier": "0xd900a9cf65ad16a0b216cdce32f08023b5cc399cdf36c216e86447dc50032652",
       "consumer_deploy": "0x572b38fb211dff47d909124002deba5c9697315c367e5cb53419ab0f549573b0",

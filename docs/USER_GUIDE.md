@@ -42,6 +42,7 @@ Current Neo N3 anchors:
 | Oracle NNS | `oracle.morpheus.neo` | unassigned |
 | DataFeed NNS | `pricefeed.morpheus.neo` | unassigned |
 | AA NNS | `smartwallet.neo` | unassigned |
+| AA alias NNS | `aa.morpheus.neo` | unassigned |
 | NeoDID NNS | `neodid.morpheus.neo` | unassigned |
 
 Operational notes:
@@ -51,6 +52,7 @@ Operational notes:
 - testnet NeoDID registry remains unpublished in the shared registry until a stable shared deployment is intentionally promoted
 - `UnifiedSmartWalletV3` is the stable AA runtime name; raw deployment manifest suffixes are internal deployment metadata rather than user-facing contract names
 - mainnet AA ecosystem contracts are also published under `smartwallet.neo` subdomains such as `core.smartwallet.neo`, `web3auth.smartwallet.neo`, and `recovery.smartwallet.neo`
+- `aa.morpheus.neo` now resolves to the same canonical mainnet AA address as `smartwallet.neo`; treat it as a compatibility alias, not the primary public name
 
 ## 1. Concepts
 

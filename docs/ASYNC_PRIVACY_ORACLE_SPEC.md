@@ -25,6 +25,7 @@ Interpretation rules:
 - testnet example/demo contracts are not the same as the canonical production callback consumer
 - blank / unpublished registry fields mean there is no shared stable publication yet, not that a temporary internal deployment never existed
 - `UnifiedSmartWalletV3` is the canonical AA product/runtime label even if a raw deployed manifest string carries a historical or deployment-specific suffix
+- `smartwallet.neo` is the canonical AA mainnet domain, while `aa.morpheus.neo` is maintained as a compatibility alias to the same clean AA address
 - AA verifier plugin addresses are deployment-specific and should not be inferred from the core AA contract hash
 
 ## Canonical Request Path
