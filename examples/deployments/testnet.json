@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-03-13T11:19:31.203Z",
+  "updated_at": "2026-03-15T12:04:00Z",
   "neo_x": {
     "deployed_at": "2026-03-10T04:18:24.219Z",
     "rpc_url": "https://neoxt4seed1.ngd.network",
@@ -24,11 +24,20 @@
     "deployer_script_hash": "0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
     "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
     "datafeed_hash": "0x9bea75cf702f6afc09125aa6d22f082bfd2ee064",
+    "abstract_account_hash": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
+    "aa_web3auth_verifier_hash": "0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d",
     "example_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
     "example_feed_reader_hash": "0xae9c17da3d8d1cc45b2a95f77ddce391b9bdcad4",
     "allowlisted": true,
     "consumer_oracle": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+    "aa_runtime": {
+      "display_name": "UnifiedSmartWalletV3",
+      "testnet_manifest_name": "UnifiedSmartWalletV3Testnet",
+      "updatecounter": 0
+    },
     "transactions": {
+      "abstract_account_deploy": "0xbcee817781bb57e66d7373c25c1b951bbe7bce9ebc355fb38f7d23b21cc515c0",
+      "aa_web3auth_verifier_deploy": "0xfacf85fa95105da2e3d0dac1ae9723754289142a8249cf94a0b15fcf066ed2a5",
       "consumer_deploy": null,
       "feed_reader_deploy": null,
       "allow_callback": null,

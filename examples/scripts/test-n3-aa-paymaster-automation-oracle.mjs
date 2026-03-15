@@ -34,8 +34,8 @@ const relayModule = await import("/Users/jinghuiliao/git/neo-abstract-account/fr
 const relayHandler = relayModule.default;
 
 const GAS_HASH = CONST.NATIVE_CONTRACT_HASH.GasToken;
-const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || "0x9cbbfc969f94a5056fd6a658cab090bcb3604724";
-const WEB3AUTH_VERIFIER_HASH = process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || "0xcd2e4589debfd80449ba9190548c5a7d539ce062";
+const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38";
+const WEB3AUTH_VERIFIER_HASH = process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || "0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d";
 const PAYMASTER_ACCOUNT_ID = process.env.PAYMASTER_ACCOUNT_ID || "0x37298bb6bbb4580fdca24903d67b385ef2268e25";
 const PAYMASTER_DAPP_ID = process.env.MORPHEUS_PAYMASTER_DAPP_ID || "demo-dapp";
 const PAYMASTER_APP_ID = process.env.MORPHEUS_PAYMASTER_APP_ID || "28294e89d490924b79c85cdee057ce55723b3d56";

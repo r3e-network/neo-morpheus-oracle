@@ -3,6 +3,12 @@
 Date: 2026-03-14
 Network: Neo N3 Testnet
 
+Refresh note on 2026-03-15:
+
+- the canonical shared testnet AA core is now `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`
+- the canonical shared testnet `Web3AuthVerifier` is now `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`
+- this report remains the historical record of the original 2026-03-14 validation run
+
 ## Scope
 
 This report records the live validation of the Morpheus paymaster service when used by the Neo Abstract Account relay flow on testnet.
