@@ -11,6 +11,7 @@
       "morpheus_oracle": "",
       "morpheus_datafeed": "",
       "morpheus_aa": "",
+      "morpheus_aa_alias": "",
       "morpheus_neodid": ""
     },
     "contracts": {
@@ -25,6 +26,21 @@
       "abi_generation": "v3",
       "core_deploy_tx": "0xbcee817781bb57e66d7373c25c1b951bbe7bce9ebc355fb38f7d23b21cc515c0",
       "core_update_tx": ""
+    },
+    "aa_subdomains": {
+      "core": "",
+      "web3auth": "",
+      "recovery": "",
+      "tee": "",
+      "session": "",
+      "webauthn": "",
+      "multisig": "",
+      "subscription": "",
+      "credential_hook": "",
+      "whitelist_hook": "",
+      "daily_limit_hook": "",
+      "token_hook": "",
+      "multi_hook": ""
     },
     "aa_verifiers": {
       "web3auth": "0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d",
