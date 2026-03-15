@@ -36,6 +36,7 @@ const inputs = {
   aaSessionOracleBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-session-oracle-boundary.testnet.latest.json"),
   aaCallbackReplayBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-callback-replay-boundary.testnet.latest.json"),
   aaRecoveryCrossAccountBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-recovery-cross-account-boundary.testnet.latest.json"),
+  aaPaymasterAutomationOracle: path.join(repoRoot, "examples", "deployments", "n3-aa-paymaster-automation-oracle.testnet.latest.json"),
   integratedAttackRegression: path.join(repoRoot, "examples", "deployments", "n3-integrated-attack-regression.testnet.latest.json"),
 };
 
@@ -55,6 +56,7 @@ const fulfillmentReplay = readJson(inputs.fulfillmentReplay);
 const aaSessionOracleBoundary = readJson(inputs.aaSessionOracleBoundary);
 const aaCallbackReplayBoundary = readJson(inputs.aaCallbackReplayBoundary);
 const aaRecoveryCrossAccountBoundary = readJson(inputs.aaRecoveryCrossAccountBoundary);
+const aaPaymasterAutomationOracle = readJson(inputs.aaPaymasterAutomationOracle);
 const integratedAttackRegression = fs.existsSync(inputs.integratedAttackRegression)
   ? readJson(inputs.integratedAttackRegression)
   : null;
@@ -188,6 +190,15 @@ const summary = {
       wrong_account_state: aaRecoveryCrossAccountBoundary.wrong_account_state || null,
       wrong_account_exception: aaRecoveryCrossAccountBoundary.wrong_account_exception || null,
     },
+    aa_paymaster_automation_oracle: {
+      report_path: rel(inputs.aaPaymasterAutomationOracle),
+      paymaster_policy_id: aaPaymasterAutomationOracle.paymaster?.policy_id || null,
+      relay_txid: aaPaymasterAutomationOracle.relay?.txid || null,
+      automation_id: aaPaymasterAutomationOracle.automation_register?.automation_id || null,
+      queued_request_id: aaPaymasterAutomationOracle.queued_execution?.request_id || null,
+      queued_mode: aaPaymasterAutomationOracle.queued_execution?.mode || "scheduler",
+      queued_callback_success: aaPaymasterAutomationOracle.queued_execution?.callback?.success ?? null,
+    },
     integrated_attack_regression: integratedAttackRegression
       ? {
           report_path: rel(inputs.integratedAttackRegression),
@@ -216,10 +227,13 @@ const summary = {
     "AA session-key downstream Morpheus Oracle boundary enforcement",
     "AA-bound callback replay rejection with account-scoped pending context",
     "AA recovery ticket cross-account replay rejection",
+    "AA paymaster-sponsored automation registration with downstream Oracle execution proof",
   ],
-  remaining_integrated_gaps: [
-    "AA-aware automation billing under sponsored execution",
-  ],
+  remaining_integrated_gaps: aaPaymasterAutomationOracle?.queued_execution?.callback?.success === true
+    ? []
+    : [
+        "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path",
+      ],
 };
 
 const lines = [
@@ -250,6 +264,7 @@ const lines = [
   `- AA session-key Oracle boundary probe: \`${summary.morpheus.aa_session_oracle_boundary.report_path}\``,
   `- AA callback replay boundary probe: \`${summary.morpheus.aa_callback_replay_boundary.report_path}\``,
   `- AA recovery cross-account boundary probe: \`${summary.morpheus.aa_recovery_cross_account_boundary.report_path}\``,
+  `- AA paymaster automation Oracle probe: \`${summary.morpheus.aa_paymaster_automation_oracle.report_path}\``,
   "",
   "## AA Baseline",
   "",
@@ -274,6 +289,7 @@ const lines = [
   `- AA session-key boundary: wrong target=\`${summary.morpheus.aa_session_oracle_boundary.wrong_target_exception}\`, wrong method=\`${summary.morpheus.aa_session_oracle_boundary.wrong_method_exception}\``,
   `- AA callback replay boundary: replay exception=\`${summary.morpheus.aa_callback_replay_boundary.replay_exception}\`, unlocked_a=\`${summary.morpheus.aa_callback_replay_boundary.unlocked_a}\`, unlocked_b=\`${summary.morpheus.aa_callback_replay_boundary.unlocked_b}\``,
   `- AA recovery cross-account boundary: wrong account state=\`${summary.morpheus.aa_recovery_cross_account_boundary.wrong_account_state}\`, wrong account exception=\`${summary.morpheus.aa_recovery_cross_account_boundary.wrong_account_exception}\``,
+  `- AA paymaster automation Oracle: policy=\`${summary.morpheus.aa_paymaster_automation_oracle.paymaster_policy_id}\`, queued mode=\`${summary.morpheus.aa_paymaster_automation_oracle.queued_mode}\`, queued request id=\`${summary.morpheus.aa_paymaster_automation_oracle.queued_request_id}\`, callback success=\`${summary.morpheus.aa_paymaster_automation_oracle.queued_callback_success}\``,
   "",
   "## Executed Coverage",
   "",
@@ -281,7 +297,7 @@ const lines = [
   "",
   "## Remaining Integrated Gaps",
   "",
-  ...summary.remaining_integrated_gaps.map((item) => `- ${item}`),
+  ...(summary.remaining_integrated_gaps.length > 0 ? summary.remaining_integrated_gaps.map((item) => `- ${item}`) : ["- none"]),
   "",
   "## Recommendation",
   "",

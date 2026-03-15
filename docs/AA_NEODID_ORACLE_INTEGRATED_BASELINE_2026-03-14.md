@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-15T02:19:47.974Z
+Date: 2026-03-15T05:00:57.112Z
 
 ## Purpose
 
@@ -25,6 +25,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - AA session-key Oracle boundary probe: `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json`
 - AA callback replay boundary probe: `examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json`
 - AA recovery cross-account boundary probe: `examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json`
+- AA paymaster automation Oracle probe: `examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json`
 
 ## AA Baseline
 
@@ -41,7 +42,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1`, second tick queued `0`, chain request id=`2221`, callback success=`true`
 - Automation cancel race: executed_after_cancel=`false`, queued chain request id=`3218`
 - Automation deposit exhaustion: queued runs=`1`, failed runs=`1`, error=`at instruction 2827 (ABORTMSG): ABORTMSG is executed. Reason: request fee not paid`
-- Callback boundary: vmstate=FAULT, tx=`0x619766a1d9629975d80703bb52cb1d29baaa90a20199ed21cce37c8ca61066f3`
+- Callback boundary: vmstate=FAULT, tx=`0xf4326e5f9b7b79f2a43a212d4546a82027c0d6a7269e01d821f9392c4dce0e52`
 - NeoDID registry JSON boundary: mismatch tx=`0xd5e4918388059efea68b2f3c874ad14e2b19ea1e0c185891779a96cc34b22656`
 - NeoDID registry v1: consume tx=`0x8f26c9e4b56721b96cdff924bdc429e1fec6aa4dc494475387d5e17eb8bf0916`, replay tx=`0x3dcec34a6d0f83f814e7705c3b184c31ef846597404887d3dd7850bff85f61a4`
 - Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
@@ -49,6 +50,7 @@ It does not claim that every cross-system attack has already been live-executed.
 - AA session-key boundary: wrong target=`at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`, wrong method=`at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`
 - AA callback replay boundary: replay exception=`at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, unlocked_a=`true`, unlocked_b=`false`
 - AA recovery cross-account boundary: wrong account state=`null`, wrong account exception=`null`
+- AA paymaster automation Oracle: policy=`testnet-aa`, queued mode=`manual_direct_queue`, queued request id=`3755`, callback success=`true`
 
 ## Executed Coverage
 
@@ -71,10 +73,11 @@ It does not claim that every cross-system attack has already been live-executed.
 - AA session-key downstream Morpheus Oracle boundary enforcement
 - AA-bound callback replay rejection with account-scoped pending context
 - AA recovery ticket cross-account replay rejection
+- AA paymaster-sponsored automation registration with downstream Oracle execution proof
 
 ## Remaining Integrated Gaps
 
-- AA-aware automation billing under sponsored execution
+- none
 
 ## Recommendation
 

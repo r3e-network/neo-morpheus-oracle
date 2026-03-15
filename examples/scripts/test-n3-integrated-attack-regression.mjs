@@ -310,6 +310,18 @@ function summarizeAaRecoveryCrossAccountBoundary(report) {
   };
 }
 
+function summarizeAaPaymasterAutomationOracle(report) {
+  return {
+    paymaster_policy_id: report?.paymaster?.policy_id || null,
+    paymaster_approved: report?.paymaster?.approved ?? null,
+    relay_txid: report?.relay?.txid || null,
+    automation_id: report?.automation_register?.automation_id || null,
+    queued_mode: report?.queued_execution?.mode || "scheduler",
+    queued_chain_request_id: report?.queued_execution?.request_id || null,
+    queued_callback_success: report?.queued_execution?.callback?.success ?? null,
+  };
+}
+
 function summarizeAutomationIdempotency(report) {
   const runs = Array.isArray(report?.supabase?.runs) ? report.supabase.runs : [];
   return {
@@ -474,6 +486,17 @@ stages.push(
     reportPath: stageReportPath("examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json"),
     summarize: summarizeAaRecoveryCrossAccountBoundary,
   },
+  makeStage(
+    "aa_paymaster_automation_oracle",
+    "AA paymaster automation Oracle proof",
+    "node",
+    [path.resolve(repoRoot, "examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs")],
+    repoRoot,
+    "examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json",
+    summarizeAaPaymasterAutomationOracle,
+    sharedTestnetEnv,
+    null,
+  ),
   {
     id: "automation_cancel_race",
     title: "Automation cancellation race",
@@ -623,7 +646,7 @@ function buildMarkdownReport(report) {
     "",
     "## Remaining Integrated Gaps",
     "",
-    ...report.remaining_gaps.map((item) => `- ${item}`),
+    ...(report.remaining_gaps.length > 0 ? report.remaining_gaps.map((item) => `- ${item}`) : ["- none"]),
     "",
   );
 
@@ -673,10 +696,18 @@ async function main() {
     aa_suite_mode: aaSuiteMode,
     preflight: null,
     stages: stageResults,
-    remaining_gaps: [
-      "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path",
-    ],
+    remaining_gaps: [],
   };
+
+  const paymasterAutomationStage = stageResults.find((stage) => stage.id === "aa_paymaster_automation_oracle");
+  const paymasterAutomationPassed = Boolean(
+    paymasterAutomationStage
+      && !["failed", "missing_latest"].includes(paymasterAutomationStage.status)
+      && paymasterAutomationStage.summary?.queued_callback_success === true,
+  );
+  if (!paymasterAutomationPassed) {
+    report.remaining_gaps.push("AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path");
+  }
 
   const markdownReport = buildMarkdownReport(report);
   const artifacts = await writeValidationArtifacts({
