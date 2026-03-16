@@ -26,7 +26,7 @@ export async function loadDotEnv(envPath = path.resolve(process.cwd(), '.env'), 
   try {
     const raw = await fs.readFile(envPath, 'utf8');
     const parsed = parseDotEnv(raw);
-    const override = options.override ?? true;
+    const override = options.override ?? false;
     for (const [key, value] of Object.entries(parsed)) {
       if (override || !trimString(process.env[key])) {
         process.env[key] = value;
