@@ -8,6 +8,7 @@
 - `npm run publish:oracle-key`
 - `npm run write:addresses`
 - `npm run verify:n3`
+- `npm run set:updater:n3`
 - `npm run smoke:n3`
 - `node scripts/upgrade-morpheus-oracle.mjs`
 - `npm run render:phala-env`
@@ -32,6 +33,7 @@
 - `npm --prefix workers/morpheus-relayer run once`
 - `npm --prefix workers/morpheus-relayer run start`
 - `npm --prefix workers/morpheus-relayer run metrics`
+- `npm run start:testnet-rng-local`
 - `workers/morpheus-relayer/Dockerfile`
 - `workers/phala-worker/Dockerfile`
 - `deploy/systemd/morpheus-relayer.service`
@@ -57,3 +59,17 @@ Notes:
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS`
 - `CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS`
 - optional `MORPHEUS_UPDATER_HASH`
+
+### Local testnet RNG isolation
+
+Use these when you need a known-good local `rng` fulfillment loop on Neo N3
+testnet:
+
+- `npm run set:updater:n3`
+- `npm run start:testnet-rng-local`
+
+Expected env:
+
+- `TESTNET_WIF` or `NEO_TESTNET_WIF`
+- `UPDATER_WIF` or `MORPHEUS_RELAYER_NEO_N3_WIF`
+- `MORPHEUS_UPDATER_HASH` when switching the Oracle updater
