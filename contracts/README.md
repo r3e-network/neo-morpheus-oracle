@@ -17,12 +17,17 @@ This directory contains the standalone on-chain contracts for `neo-morpheus-orac
 ## Key Oracle Methods
 
 - `Request(requestType, payload, callbackContract, callbackMethod)`
+- `RequestFromCallback(requester, requestType, payload, callbackContract, callbackMethod)`
 - `FulfillRequest(requestId, success, result, error)`
 - `SetUpdater(...)`
 - `SetOracleEncryptionKey(...)`
 - `OracleEncryptionAlgorithm()`
 - `OracleEncryptionPublicKey()`
 - `OracleEncryptionKeyVersion()`
+
+`Request(...)` is the direct user path. `RequestFromCallback(...)` is the
+callback-contract path for N3 app contracts that validate their own user or AA
+context and then sponsor the Oracle fee from the callback contract credit.
 
 ## Build
 
