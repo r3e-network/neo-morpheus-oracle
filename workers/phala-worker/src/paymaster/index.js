@@ -15,6 +15,16 @@ function parseCsv(value) {
   return raw.split(",").map((entry) => trimString(entry)).filter(Boolean);
 }
 
+function normalizeHexHash(value) {
+  const raw = trimString(value).toLowerCase().replace(/^0x/, "");
+  if (!/^[0-9a-f]{40}$/.test(raw)) return "";
+  return `0x${raw}`;
+}
+
+function normalizeMethod(value) {
+  return trimString(value).toLowerCase();
+}
+
 function resolvePaymasterNetwork(payload = {}) {
   const requested = trimString(payload.network || payload.morpheus_network || env("MORPHEUS_NETWORK") || "testnet").toLowerCase();
   return requested === "mainnet" ? "mainnet" : "testnet";
@@ -32,6 +42,10 @@ function resolvePaymasterPolicy(network) {
     allowAccounts: parseCsv(env(`MORPHEUS_PAYMASTER_${upper}_ALLOW_ACCOUNTS`)).map((entry) => entry.toLowerCase()),
     blockAccounts: parseCsv(env(`MORPHEUS_PAYMASTER_${upper}_BLOCK_ACCOUNTS`)).map((entry) => entry.toLowerCase()),
     allowDapps: parseCsv(env(`MORPHEUS_PAYMASTER_${upper}_ALLOW_DAPPS`)).map((entry) => entry.toLowerCase()),
+    aaCoreHash: normalizeHexHash(env(`MORPHEUS_PAYMASTER_${upper}_AA_CORE_HASH`) || env("AA_CORE_HASH_TESTNET") || env("AA_CORE_HASH_MAINNET")),
+    whitelistHookHash: normalizeHexHash(env(`MORPHEUS_PAYMASTER_${upper}_WHITELIST_HOOK_HASH`)),
+    multiHookHash: normalizeHexHash(env(`MORPHEUS_PAYMASTER_${upper}_MULTI_HOOK_HASH`)),
+    neoRpcUrl: trimString(env(`MORPHEUS_PAYMASTER_${upper}_NEO_RPC_URL`) || env("NEO_RPC_URL")),
     ttlMs: parseDurationMs(env(`MORPHEUS_PAYMASTER_${upper}_TTL_MS`) || "15m", 15 * 60_000),
   };
 }
@@ -42,6 +56,8 @@ function normalizeVerdictPayload(payload = {}) {
     dapp_id: trimString(payload.dapp_id || payload.dappId || ""),
     target_contract: trimString(payload.target_contract || payload.targetContract || ""),
     method: trimString(payload.method || payload.target_method || payload.targetMethod || ""),
+    userop_target_contract: trimString(payload.userop_target_contract || payload.userOpTargetContract || ""),
+    userop_method: trimString(payload.userop_method || payload.userOpMethod || ""),
     estimated_gas_units: Number(payload.estimated_gas_units ?? payload.estimatedGasUnits ?? 0),
     operation_hash: trimString(payload.operation_hash || payload.operationHash || ""),
     target_chain: normalizeTargetChain(payload.target_chain || "neo_n3"),
@@ -59,6 +75,8 @@ function buildDeniedVerdict(policy, normalized, reason) {
     dapp_id: normalized.dapp_id,
     target_contract: normalized.target_contract,
     method: normalized.method,
+    userop_target_contract: normalized.userop_target_contract,
+    userop_method: normalized.userop_method,
     estimated_gas_units: normalized.estimated_gas_units,
     operation_hash: normalized.operation_hash,
     policy: {
@@ -70,6 +88,91 @@ function buildDeniedVerdict(policy, normalized, reason) {
       block_accounts: policy.blockAccounts,
       allow_dapps: policy.allowDapps,
     },
+  };
+}
+
+async function invokeNeoRead(rpcUrl, contractHash, method, args = []) {
+  const response = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "invokefunction",
+      params: [contractHash, method, args],
+    }),
+  });
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error.message || `invokefunction ${method} failed`);
+  }
+  return data.result;
+}
+
+function stackItemToValue(item) {
+  if (!item || typeof item !== "object") return null;
+  if (item.type === "Boolean") return Boolean(item.value);
+  if (item.type === "ByteString") {
+    try {
+      return Buffer.from(String(item.value || ""), "base64").toString("hex");
+    } catch {
+      return String(item.value || "");
+    }
+  }
+  if (item.type === "Hash160") {
+    return normalizeHexHash(item.value || "");
+  }
+  if (item.type === "Array" || item.type === "Struct") {
+    return Array.isArray(item.value) ? item.value.map(stackItemToValue) : [];
+  }
+  return item.value ?? null;
+}
+
+function hash160Arg(value) {
+  return { type: "Hash160", value: normalizeHexHash(value) };
+}
+
+async function evaluateOnChainAAPolicy(policy, normalized) {
+  if (!policy.neoRpcUrl || !policy.aaCoreHash || !normalized.account_id || !normalized.userop_target_contract) {
+    return { checked: false, approved: null, reason: "aa on-chain policy not configured" };
+  }
+
+  const hookResult = await invokeNeoRead(policy.neoRpcUrl, policy.aaCoreHash, "getHook", [hash160Arg(normalized.account_id)]);
+  const hookHashRaw = stackItemToValue(hookResult?.stack?.[0]);
+  const hookHash = normalizeHexHash(hookHashRaw);
+  if (!hookHash) {
+    return { checked: false, approved: null, reason: "aa account has no hook configured" };
+  }
+
+  let whitelistHook = "";
+  if (policy.whitelistHookHash && hookHash === policy.whitelistHookHash) {
+    whitelistHook = hookHash;
+  } else if (policy.multiHookHash && hookHash === policy.multiHookHash && policy.whitelistHookHash) {
+    const hooksResult = await invokeNeoRead(policy.neoRpcUrl, hookHash, "getHooks", [hash160Arg(normalized.account_id)]);
+    const hooks = Array.isArray(hooksResult?.stack?.[0]?.value)
+      ? hooksResult.stack[0].value.map((entry) => normalizeHexHash(stackItemToValue(entry)))
+      : [];
+    if (hooks.includes(policy.whitelistHookHash)) {
+      whitelistHook = policy.whitelistHookHash;
+    }
+  }
+
+  if (!whitelistHook) {
+    return { checked: false, approved: null, reason: "aa whitelist hook not active for account" };
+  }
+
+  const verdictResult = await invokeNeoRead(
+    policy.neoRpcUrl,
+    whitelistHook,
+    "isWhitelisted",
+    [hash160Arg(normalized.account_id), hash160Arg(normalized.userop_target_contract)],
+  );
+  const approved = Boolean(verdictResult?.stack?.[0]?.value);
+  return {
+    checked: true,
+    approved,
+    reason: approved ? "" : "userop_target_contract is not allowlisted by AA hook",
+    hook: whitelistHook,
   };
 }
 
@@ -122,6 +225,11 @@ async function evaluatePaymasterAuthorization(payload = {}) {
     return buildDeniedVerdict(policy, normalized, "method is not allowlisted");
   }
 
+  const onChainPolicy = await evaluateOnChainAAPolicy(policy, normalized);
+  if (onChainPolicy.checked && !onChainPolicy.approved) {
+    return buildDeniedVerdict(policy, normalized, onChainPolicy.reason || "AA hook policy denied sponsorship");
+  }
+
   return {
     mode: "paymaster_authorize",
     approved: true,
@@ -133,6 +241,8 @@ async function evaluatePaymasterAuthorization(payload = {}) {
     dapp_id: normalized.dapp_id,
     target_contract: normalized.target_contract,
     method: normalized.method,
+    userop_target_contract: normalized.userop_target_contract,
+    userop_method: normalized.userop_method,
     estimated_gas_units: normalized.estimated_gas_units,
     operation_hash: normalized.operation_hash,
     approval_digest: sha256Hex({
@@ -150,6 +260,12 @@ async function evaluatePaymasterAuthorization(payload = {}) {
       policy_id: policy.policyId,
       max_gas_units: policy.maxGasUnits,
     },
+    onchain_policy: onChainPolicy.checked
+      ? {
+          source: "aa_hook",
+          hook: onChainPolicy.hook || null,
+        }
+      : null,
   };
 }
 
