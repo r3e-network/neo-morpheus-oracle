@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
-import { rpc as neoRpc } from '@cityofzion/neon-js';
+import { rpc as neoRpc, wallet as neoWallet } from '@cityofzion/neon-js';
 import { Interface, Transaction } from 'ethers';
 import { exportJWK, SignJWT } from 'jose';
 
@@ -927,14 +927,15 @@ test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
   const previousWorkerPrivateKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
   const previousWorkerWif = process.env.PHALA_NEO_N3_WIF;
   const previousNeoN3Wif = process.env.NEO_N3_WIF;
+  const generatedAccount = new neoWallet.Account();
   delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
   delete process.env.PHALA_NEO_N3_WIF;
   delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
   delete process.env.NEO_N3_WIF;
-  process.env.MORPHEUS_RELAYER_NEO_N3_WIF = 'Kzopomhb6ufUbYigzTjjy7t34AE1k2sNn3suXrRGePVoPRVP6rsn';
+  process.env.MORPHEUS_RELAYER_NEO_N3_WIF = generatedAccount.WIF;
 
   const context = loadNeoN3Context({}, { required: true, requireRpc: false });
-  assert.equal(context.account.address, 'NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32');
+  assert.equal(context.account.address, generatedAccount.address);
 
   process.env.MORPHEUS_RELAYER_NEO_N3_WIF = previousRelayerWif;
   process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY = previousRelayerPrivateKey;
