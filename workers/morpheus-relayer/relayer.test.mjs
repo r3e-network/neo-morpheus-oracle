@@ -48,6 +48,7 @@ test("normalizeRequestType normalizes separators and casing", () => {
 test("resolveWorkerRoute routes compute, feed, vrf, and oracle payloads", () => {
   assert.equal(resolveWorkerRoute("compute", {}), "/compute/execute");
   assert.equal(resolveWorkerRoute("datafeed", {}), "/oracle/feed");
+  assert.equal(resolveWorkerRoute("rng", {}), "/vrf/random");
   assert.equal(resolveWorkerRoute("vrf", {}), "/vrf/random");
   assert.equal(resolveWorkerRoute("neodid_bind", {}), "/neodid/bind");
   assert.equal(resolveWorkerRoute("neodid_action_ticket", {}), "/neodid/action-ticket");
@@ -313,6 +314,21 @@ test("encodeFulfillmentResult emits compact bytes for neodid recovery ticket cal
   assert.equal(fulfilled.result, "");
   assert.equal(typeof fulfilled.result_bytes_base64, "string");
   assert.ok(Buffer.from(fulfilled.result_bytes_base64, "base64").length > 100);
+});
+
+test("encodeFulfillmentResult emits raw randomness bytes for rng callbacks", () => {
+  const fulfilled = encodeFulfillmentResult("rng", {
+    ok: true,
+    status: 200,
+    body: {
+      randomness: "11".repeat(32),
+    },
+  });
+
+  assert.equal(fulfilled.success, true);
+  assert.equal(fulfilled.result, "");
+  assert.equal(fulfilled.error, "");
+  assert.equal(Buffer.from(fulfilled.result_bytes_base64, "base64").toString("hex"), "11".repeat(32));
 });
 
 test("buildFulfillmentDigestBytes can bind raw callback bytes instead of utf8 JSON", () => {

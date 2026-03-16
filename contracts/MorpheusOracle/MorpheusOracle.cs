@@ -449,8 +449,28 @@ namespace MorpheusOracle.Contracts
         {
             UInt160 requester = Runtime.Transaction.Sender;
             ExecutionEngine.Assert(requester != null && requester.IsValid, "requester required");
+            ValidateRequestInputs(requestType, payload, callbackContract, callbackMethod);
             ExecutionEngine.Assert(Runtime.CheckWitness(requester), "unauthorized requester");
             ConsumeRequestFee(requester, callbackContract);
+            return QueueRequestInternal(requester, requestType, payload, callbackContract, callbackMethod);
+        }
+
+        /// <summary>
+        /// Callback-contract mediated request path for app contracts that validate the user
+        /// themselves and then request Oracle work on the user's behalf.
+        ///
+        /// SECURITY:
+        /// - Only the nominated callback contract can call this entrypoint.
+        /// - The callback contract must already be allowlisted.
+        /// - Request fees are always paid from the callback contract's fee-credit balance, so a
+        ///   callback consumer cannot drain an end user's personal Oracle credit.
+        /// </summary>
+        public static BigInteger RequestFromCallback(UInt160 requester, string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
+        {
+            ExecutionEngine.Assert(requester != null && requester.IsValid, "requester required");
+            ValidateRequestInputs(requestType, payload, callbackContract, callbackMethod);
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == callbackContract, "only callback contract");
+            ConsumeRequestFeeFromPayer(callbackContract);
             return QueueRequestInternal(requester, requestType, payload, callbackContract, callbackMethod);
         }
 
@@ -458,6 +478,7 @@ namespace MorpheusOracle.Contracts
         {
             ValidateUpdater();
             ExecutionEngine.Assert(requester != null && requester.IsValid, "requester required");
+            ValidateRequestInputs(requestType, payload, callbackContract, callbackMethod);
             ConsumeRequestFee(requester, callbackContract);
             return QueueRequestInternal(requester, requestType, payload, callbackContract, callbackMethod);
         }
@@ -468,9 +489,10 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(from != null && from.IsValid, "invalid sender");
             ExecutionEngine.Assert(amount > 0, "invalid amount");
 
-            BigInteger nextCredit = FeeCreditOf(from) + amount;
-            RequestCreditMap().Put((byte[])from, nextCredit);
-            OnRequestFeeDeposited(from, amount, nextCredit);
+            UInt160 beneficiary = ResolveCreditBeneficiary(from, data);
+            BigInteger nextCredit = FeeCreditOf(beneficiary) + amount;
+            RequestCreditMap().Put((byte[])beneficiary, nextCredit);
+            OnRequestFeeDeposited(beneficiary, amount, nextCredit);
         }
 
         private static ByteString ComputeResultHash(ByteString result)
@@ -573,6 +595,25 @@ namespace MorpheusOracle.Contracts
             if (fee <= 0) return;
 
             UInt160 feePayer = ResolveFeePayer(requester, callbackContract, fee);
+            ConsumeRequestFeeFromPayer(feePayer);
+        }
+
+        private static UInt160 ResolveCreditBeneficiary(UInt160 from, object data)
+        {
+            if (data is ByteString byteString && byteString != null && byteString.Length == 20)
+            {
+                return (UInt160)(byte[])byteString;
+            }
+
+            return from;
+        }
+
+        private static void ConsumeRequestFeeFromPayer(UInt160 feePayer)
+        {
+            ExecutionEngine.Assert(feePayer != null && feePayer.IsValid, "fee payer required");
+            BigInteger fee = RequestFee();
+            if (fee <= 0) return;
+
             BigInteger credit = FeeCreditOf(feePayer);
             ExecutionEngine.Assert(credit >= fee, "request fee not paid");
             RequestCreditMap().Put((byte[])feePayer, credit - fee);

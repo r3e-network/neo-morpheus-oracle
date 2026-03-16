@@ -91,6 +91,12 @@ function resolveCompactCallbackBytes(requestType, workerResponse) {
   const workerBody = workerResponse?.body && typeof workerResponse.body === "object"
     ? workerResponse.body
     : null;
+  if (workerBody && (normalized === "rng" || normalized.includes("vrf") || normalized.includes("random"))) {
+    const randomness = strip0x(workerBody.randomness || "");
+    if (/^[0-9a-f]{64}$/i.test(randomness)) {
+      return Buffer.from(randomness, "hex");
+    }
+  }
   const callbackEncoding = normalizeRequestType(workerBody?.callback_encoding || "");
   if (!workerBody || !callbackEncoding) return null;
 
@@ -138,7 +144,7 @@ export function resolveWorkerRoute(requestType, payload) {
   if (normalized.includes("paymaster")) return "/paymaster/authorize";
   if (normalized.includes("compute")) return "/compute/execute";
   if (normalized.includes("feed")) return "/oracle/feed";
-  if (normalized.includes("vrf") || normalized.includes("random")) return "/vrf/random";
+  if (normalized === "rng" || normalized.includes("vrf") || normalized.includes("random")) return "/vrf/random";
   if (normalized.startsWith("neodid")) {
     if (normalized.includes("recovery")) return "/neodid/recovery-ticket";
     if (normalized.includes("action")) return "/neodid/action-ticket";
