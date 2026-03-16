@@ -1451,6 +1451,131 @@ test('paymaster authorize enforces network-specific policy', async () => {
   }
 });
 
+test('paymaster authorize can consult AA hook allowlist state', async () => {
+  const snapshot = {
+    testnetEnabled: process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED,
+    testnetPolicyId: process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID,
+    testnetMaxGas: process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS,
+    testnetAllowTargets: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS,
+    testnetAllowMethods: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS,
+    testnetAllowAccounts: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS,
+    testnetBlockAccounts: process.env.MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS,
+    testnetAllowDapps: process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS,
+    testnetAaCoreHash: process.env.MORPHEUS_PAYMASTER_TESTNET_AA_CORE_HASH,
+    testnetWhitelistHookHash: process.env.MORPHEUS_PAYMASTER_TESTNET_WHITELIST_HOOK_HASH,
+    testnetMultiHookHash: process.env.MORPHEUS_PAYMASTER_TESTNET_MULTI_HOOK_HASH,
+    testnetNeoRpcUrl: process.env.MORPHEUS_PAYMASTER_TESTNET_NEO_RPC_URL,
+  };
+
+  const aaCoreHash = `0x${'aa'.repeat(20)}`;
+  const whitelistHookHash = `0x${'bb'.repeat(20)}`;
+  const downstreamAllowed = `0x${'11'.repeat(20)}`;
+  const downstreamDenied = `0x${'22'.repeat(20)}`;
+
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED = 'true';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID = 'testnet-aa';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = '500000';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = aaCoreHash;
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = 'executeUserOp';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS = '';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS = '';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS = 'demo-dapp';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_AA_CORE_HASH = aaCoreHash;
+  process.env.MORPHEUS_PAYMASTER_TESTNET_WHITELIST_HOOK_HASH = whitelistHookHash;
+  process.env.MORPHEUS_PAYMASTER_TESTNET_MULTI_HOOK_HASH = '';
+  process.env.MORPHEUS_PAYMASTER_TESTNET_NEO_RPC_URL = 'https://neo-rpc.test';
+
+  global.fetch = async (_url, options = {}) => {
+    const body = JSON.parse(String(options.body || '{}'));
+    if (body.method !== 'invokefunction') {
+      throw new Error(`unexpected rpc method ${body.method}`);
+    }
+    const [, operation, args] = body.params;
+    if (operation === 'getHook') {
+      return new Response(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        result: {
+          state: 'HALT',
+          stack: [{ type: 'Hash160', value: whitelistHookHash }],
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    if (operation === 'isWhitelisted') {
+      const targetHash = args?.[1]?.value;
+      return new Response(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        result: {
+          state: 'HALT',
+          stack: [{ type: 'Boolean', value: String(targetHash).toLowerCase() === downstreamAllowed.toLowerCase() }],
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    throw new Error(`unexpected operation ${operation}`);
+  };
+
+  try {
+    const approved = await handler(new Request('http://local/paymaster/authorize', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        network: 'testnet',
+        target_chain: 'neo_n3',
+        account_id: 'aa-test-account',
+        dapp_id: 'demo-dapp',
+        target_contract: aaCoreHash,
+        method: 'executeUserOp',
+        userop_target_contract: downstreamAllowed,
+        userop_method: 'claimRewards',
+        estimated_gas_units: 120000,
+        operation_hash: `0x${'44'.repeat(32)}`,
+      }),
+    }));
+    assert.equal(approved.status, 200);
+    const approvedBody = await approved.json();
+    assert.equal(approvedBody.approved, true);
+    assert.equal(approvedBody.onchain_policy.source, 'aa_hook');
+    assert.equal(approvedBody.userop_target_contract, downstreamAllowed);
+    assert.equal(approvedBody.userop_method, 'claimRewards');
+
+    const denied = await handler(new Request('http://local/paymaster/authorize', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        network: 'testnet',
+        target_chain: 'neo_n3',
+        account_id: 'aa-test-account',
+        dapp_id: 'demo-dapp',
+        target_contract: aaCoreHash,
+        method: 'executeUserOp',
+        userop_target_contract: downstreamDenied,
+        userop_method: 'claimRewards',
+        estimated_gas_units: 120000,
+        operation_hash: `0x${'55'.repeat(32)}`,
+      }),
+    }));
+    assert.equal(denied.status, 200);
+    const deniedBody = await denied.json();
+    assert.equal(deniedBody.approved, false);
+    assert.match(deniedBody.reason, /userop_target_contract is not allowlisted/i);
+  } finally {
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED = snapshot.testnetEnabled;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID = snapshot.testnetPolicyId;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = snapshot.testnetMaxGas;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = snapshot.testnetAllowTargets;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS = snapshot.testnetAllowMethods;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS = snapshot.testnetAllowAccounts;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS = snapshot.testnetBlockAccounts;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS = snapshot.testnetAllowDapps;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_AA_CORE_HASH = snapshot.testnetAaCoreHash;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_WHITELIST_HOOK_HASH = snapshot.testnetWhitelistHookHash;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_MULTI_HOOK_HASH = snapshot.testnetMultiHookHash;
+    process.env.MORPHEUS_PAYMASTER_TESTNET_NEO_RPC_URL = snapshot.testnetNeoRpcUrl;
+    global.fetch = originalFetch;
+  }
+});
+
 test('compute execute supports encrypted confidential payload patches', async () => {
   const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
   const keyBody = await keyRes.json();
