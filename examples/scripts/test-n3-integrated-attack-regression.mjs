@@ -27,9 +27,13 @@ const aaRepoRoot = path.resolve(repoRoot, "..", "neo-abstract-account");
 const aaSdkRoot = path.resolve(aaRepoRoot, "sdk/js");
 const aaSuiteLatestPath = path.resolve(aaRepoRoot, "sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json");
 const overrideTestWif = trimString(process.env.TEST_WIF || "");
+const testnetRpcUrl = trimString(process.env.TESTNET_RPC_URL || process.env.NEO_TESTNET_RPC_URL || "https://testnet1.neo.coz.io:443");
 const sharedTestnetEnv = {
   MORPHEUS_NETWORK: network,
   NEXT_PUBLIC_MORPHEUS_NETWORK: network,
+  TESTNET_RPC_URL: testnetRpcUrl,
+  NEO_RPC_URL: testnetRpcUrl,
+  PAYMASTER_ACCOUNT_ID: trimString(process.env.PAYMASTER_ACCOUNT_ID || "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56"),
   ...(overrideTestWif
     ? {
         NEO_TESTNET_WIF: overrideTestWif,
