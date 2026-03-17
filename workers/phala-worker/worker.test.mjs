@@ -2121,6 +2121,101 @@ test('sign-payload can use the oracle_verifier signing role when configured', as
   }
 });
 
+test('sign-payload falls back to the worker derived key when oracle_verifier derivation is unavailable', async () => {
+  global.fetch = originalFetch;
+  const previousUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
+  const previousWorkerKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  const previousOracleVerifierKey = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+  const requestedPaths = [];
+
+  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+
+  __setDstackClientFactoryForTests(async () => ({
+    getKey: async (keyPath) => {
+      requestedPaths.push(String(keyPath));
+      if (String(keyPath).endsWith('/oracle_verifier/signing/v1')) {
+        throw new Error('oracle_verifier path missing');
+      }
+      if (String(keyPath).endsWith('/worker/signing/v1')) {
+        return { key: Uint8Array.from(Buffer.from('22'.repeat(32), 'hex')) };
+      }
+      throw new Error(`unexpected key path ${keyPath}`);
+    },
+    info: async () => ({ app_id: 'app', instance_id: 'inst', compose_hash: 'compose', app_name: 'Morpheus', device_id: 'device', key_provider_info: 'mock', tcb_info: null }),
+    getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
+  }));
+
+  try {
+    const res = await handler(new Request('http://local/sign/payload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ target_chain: 'neo_n3', key_role: 'oracle_verifier', message: 'oracle verifier fallback path' }),
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(body.signature);
+    assert.ok(body.public_key);
+    assert.ok(body.address);
+    assert.ok(requestedPaths.some((value) => value.endsWith('/oracle_verifier/signing/v1')));
+    assert.ok(requestedPaths.some((value) => value.endsWith('/worker/signing/v1')));
+  } finally {
+    if (previousUseDerivedKeys === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
+    else process.env.PHALA_USE_DERIVED_KEYS = previousUseDerivedKeys;
+
+    if (previousWorkerKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
+    else process.env.PHALA_NEO_N3_PRIVATE_KEY = previousWorkerKey;
+
+    if (previousOracleVerifierKey === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+    else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = previousOracleVerifierKey;
+
+    __resetDstackClientStateForTests();
+  }
+});
+
+test('sign-payload prefers an explicit oracle_verifier key over derived signing paths', async () => {
+  global.fetch = originalFetch;
+  const previousUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
+  const previousOracleVerifierKey = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+  const requestedPaths = [];
+  const explicitOracleVerifierKey = '68e15083a6fd187b6f5f6136bada4eb00f096e5e21d82c74edf6f086e80539ba';
+  const explicitAccount = new neoWallet.Account(explicitOracleVerifierKey);
+
+  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+  process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = explicitOracleVerifierKey;
+
+  __setDstackClientFactoryForTests(async () => ({
+    getKey: async (keyPath) => {
+      requestedPaths.push(String(keyPath));
+      return { key: Uint8Array.from(Buffer.from('33'.repeat(32), 'hex')) };
+    },
+    info: async () => ({ app_id: 'app', instance_id: 'inst', compose_hash: 'compose', app_name: 'Morpheus', device_id: 'device', key_provider_info: 'mock', tcb_info: null }),
+    getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
+  }));
+
+  try {
+    const res = await handler(new Request('http://local/sign/payload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ target_chain: 'neo_n3', key_role: 'oracle_verifier', message: 'oracle verifier explicit key path' }),
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.public_key, explicitAccount.publicKey);
+    assert.equal(body.address, explicitAccount.address);
+    assert.deepEqual(requestedPaths, []);
+  } finally {
+    if (previousUseDerivedKeys === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
+    else process.env.PHALA_USE_DERIVED_KEYS = previousUseDerivedKeys;
+
+    if (previousOracleVerifierKey === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+    else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = previousOracleVerifierKey;
+
+    __resetDstackClientStateForTests();
+  }
+});
+
 
 
 test('oracle feed supports neo_x contract relay mode', async () => {

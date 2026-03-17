@@ -96,6 +96,14 @@ If one of these is wrong, the system usually stops working.
   English: Worker-side Neo N3 signing material.
   中文：worker 使用的 Neo N3 签名私钥。
 
+- `MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY` or `MORPHEUS_ORACLE_VERIFIER_WIF`
+  English: Preferred dedicated Neo N3 signer for async Oracle fulfillment signatures.
+  中文：异步 Oracle fulfill 签名优先使用的独立 Neo N3 signer。
+
+- `PHALA_ORACLE_VERIFIER_PRIVATE_KEY` or `PHALA_ORACLE_VERIFIER_WIF`
+  English: Legacy alias for the same async Oracle fulfillment signer.
+  中文：同一组异步 Oracle fulfill signer 的旧别名变量。
+
 - `NEO_N3_WIF`
   English: Preferred generic Neo N3 operator WIF for local scripts and deploy helpers.
   中文：本地脚本和部署辅助工具优先使用的通用 Neo N3 WIF。
@@ -103,6 +111,12 @@ If one of these is wrong, the system usually stops working.
 - `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY` or `MORPHEUS_RELAYER_NEO_N3_WIF`
   English: Relayer/updater Neo N3 signing material.
   中文：relayer / updater 使用的 Neo N3 签名私钥。
+
+  English: If the dedicated `oracle_verifier` role is unset and the dedicated dstack path is unavailable, the worker can fall back to its general Neo N3 signing material.
+  中文：如果没有单独设置 `oracle_verifier` signer，且对应的 dstack 派生路径也不可用，worker 会回退到通用的 Neo N3 签名材料。
+
+  English: The generated testnet Phala env now disables derived signing by default when it injects an explicit verifier signer, so the published testnet verifier key is not accidentally shadowed by a dstack-derived role key.
+  中文：现在生成的 testnet Phala env 在注入显式 verifier signer 时会默认关闭派生签名覆盖，避免已发布到链上的 testnet verifier key 被 dstack 派生角色密钥意外替换。
 
 ### Neo X / Neo X
 
