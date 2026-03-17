@@ -1354,6 +1354,33 @@ test('compute execute supports zerc20 single-withdraw verification preflight', a
   assert.equal(body.result.checks.withdraw_value.ok, true);
 });
 
+test('compute execute rejects oversized zkp verification payloads before snarkjs verify runs', async () => {
+  const previous = process.env.COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES;
+  process.env.COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES = '4096';
+  try {
+    const res = await handler(new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'builtin',
+        function: 'zkp.groth16.verify',
+        input: {
+          verifying_key: { huge: 'x'.repeat(7000) },
+          public_signals: ['1'],
+          proof: { pi_a: ['1', '2'], pi_b: [['1', '2'], ['3', '4']], pi_c: ['5', '6'] },
+        },
+        target_chain: 'neo_n3',
+      }),
+    }));
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /zkp verification input exceeds max size/i);
+  } finally {
+    if (previous === undefined) delete process.env.COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES;
+    else process.env.COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES = previous;
+  }
+});
+
 test('paymaster authorize enforces network-specific policy', async () => {
   const snapshot = {
     testnetEnabled: process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED,
