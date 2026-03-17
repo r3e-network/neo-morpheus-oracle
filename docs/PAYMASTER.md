@@ -80,7 +80,7 @@ This makes the response portable across:
 {
   "network": "testnet",
   "target_chain": "neo_n3",
-  "account_id": "0x37298bb6bbb4580fdca24903d67b385ef2268e25",
+  "account_id": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
   "dapp_id": "demo-dapp",
   "target_contract": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
   "method": "executeUserOp",
@@ -142,7 +142,7 @@ This is currently a server-side integration path. It does not require changing t
 The latest integrated Oracle + NeoDID + AA verifier regression entrypoint is:
 
 - `npm run examples:test:n3:attack-regression`
-- report: `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-14.md`
+- report: `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-17.md`
 
 ## Validated Neo N3 Testnet Flow
 
@@ -178,8 +178,8 @@ Successful live full-path validation example:
 
 A successful replay path using an already allowlisted account was also validated:
 
-- account id: `0x1111222233334444555566667777888899990000`
-- relay txid: `0x1d79429b9e8af4115845d7858ddaefcc575dafff2b14a37a000caaea58a0f0bb`
+- account id: `0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56`
+- relay txid: `0x0481a3ca7b2af77f762ec50f19f0c81c973885d93d1d24b6f0fbb42cfe56cf04`
 
 Operational note:
 

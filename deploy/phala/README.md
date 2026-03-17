@@ -78,6 +78,8 @@ Recommended first deployment in the UI:
 - Public service: `caddy` on port `80`
 - Paste `deploy/phala/docker-compose.ui.yml`
 
+When updating an existing Phala CVM with `phala deploy`, keep using `deploy/phala/docker-compose.ui.yml` together with `-e deploy/phala/morpheus.<network>.env`. That path injects the env values directly as encrypted secrets. The file-based `deploy/phala/docker-compose.yml` expects a real env file inside the CVM (`./morpheus.<network>.env`) and will fail on restart if you only pass the env file to `phala deploy` without copying it into the guest filesystem.
+
 ### Option B — file-based compose in a dev/debug CVM
 
 1. Build and push both images

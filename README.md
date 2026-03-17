@@ -117,7 +117,7 @@ These commands are the current live Neo N3 testnet regression path for:
 - `docs/ENVIRONMENT.md`
 - `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 - `docs/TESTNET_RUNBOOK.md`
-- `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-14.md`
+- `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-17.md`
 - `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`
 - `docs/SECURITY_AUDIT.md`
 - `docs/ATTESTATION_SPEC.md`

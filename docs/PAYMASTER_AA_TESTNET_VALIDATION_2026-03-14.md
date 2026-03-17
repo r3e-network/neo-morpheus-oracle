@@ -9,6 +9,11 @@ Refresh note on 2026-03-15:
 - the canonical shared testnet `Web3AuthVerifier` is now `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`
 - this report remains the historical record of the original 2026-03-14 validation run
 
+Refresh note on 2026-03-17:
+
+- the live testnet paymaster allowlist now reuses `0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56`
+- the current live replay against that allowlisted account succeeded again after the CVM paymaster policy refresh
+
 ## Scope
 
 This report records the live validation of the Morpheus paymaster service when used by the Neo Abstract Account relay flow on testnet.
@@ -17,8 +22,8 @@ Validated components:
 
 - Morpheus test CVM app id: `28294e89d490924b79c85cdee057ce55723b3d56`
 - Morpheus paymaster policy id: `testnet-aa`
-- Neo N3 AA core contract: `0x9cbbfc969f94a5056fd6a658cab090bcb3604724`
-- Neo N3 Web3Auth verifier: `0xcd2e4589debfd80449ba9190548c5a7d539ce062`
+- Neo N3 AA core contract: `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`
+- Neo N3 Web3Auth verifier: `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`
 - relay method: `executeUserOp`
 
 ## Bug Fixed Before Validation
@@ -56,10 +61,10 @@ Confirmed separately on the AA side:
 
 ### 3. Full end-to-end path using an existing allowlisted account
 
-- account id: `0x1111222233334444555566667777888899990000`
-- relay txid: `0x1d79429b9e8af4115845d7858ddaefcc575dafff2b14a37a000caaea58a0f0bb`
-- paymaster approval digest: `bb40b23016f702b3e7e084a977bcba02e595a3054095053294618cf65d630a3c`
-- paymaster attestation hash: `e352300442435c80478e09f27328150cdd50dd97e052865f39a410b5cfc5133f`
+- account id: `0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56`
+- relay txid: `0x0481a3ca7b2af77f762ec50f19f0c81c973885d93d1d24b6f0fbb42cfe56cf04`
+- paymaster approval digest: `d91e70de430c436aeb87f3eb2603b3937ad036b942bac87b7d66e8ca176bd4ee`
+- paymaster attestation hash: `8825b6719dcf24820cfa12d83292e25d4b33f0cc7185d60c60dff0f082005e5c`
 - execution vmstate: `HALT`
 - execution return stack: `GAS`
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-15T06:40:57.039Z",
+  "generated_at": "2026-03-17T15:28:47.676Z",
   "network": "testnet",
   "aa_suite": {
     "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
@@ -23,22 +23,22 @@
     ],
     "smoke": {
       "address": "NTmHjwiadq4g3VHpJ5FQigQcD4fF5m8TyX",
-      "coreHash": "0x911e205fed6efff4ce95b8bbff259846be1fede8",
-      "web3AuthHash": "0xdd09c7b9f01054b6e930e054f35bc13015c98733",
-      "whitelistHash": "0xf0152384aa2577e353ab67db31f4edf647048374",
-      "accountId": "0x4b3e568501f5eab60e8089b7138739c8ca19b712",
-      "virtualAddress": "NWuVZB5bWAZ3THo5H9i4qntybTPPnfunrK",
+      "coreHash": "0x9dea21b70f9b26b9e1e121a8a7d0a5d8e531fa32",
+      "web3AuthHash": "0xda11e67c71ff7c3cf107f1d53b5d8c3132480f3c",
+      "whitelistHash": "0x569519499ebf9a620bc3a907b2c074f4a25f1252",
+      "accountId": "0x9792e1be4c5fcee54421e63268fe6b2481165f84",
+      "virtualAddress": "NPHCKBEVHET6uGUxLsZL6yvebX7cJdh9qs",
       "txids": {
-        "registerAccount": "0xa041c2c3ac501dd07030f707df4fac8f96d34ede49701958f6953cf7d3503475",
-        "nativeExecute": "0xb06a3776504a169077a8968e42a3a42a739549d29c8e0b3ce3e36d9d0e0681c9",
-        "hookExecute": "0x359fc9e212b0f0efd80ef8ae81bd00f042966ed0059e67408a8f8b70d6730c52",
-        "evmExecute": "0xe731e7fbd9b691a2b8c851f34ceb55b2b298820e51f945e163abe1f63b72d150"
+        "registerAccount": "0x0a0da79651849fdfd81e94ed22d9378eb77f083f8d40ee05fab564706d28a1d1",
+        "nativeExecute": "0xb7f69521e55a5e41540f29c4e2a7f44b0d58aae58b0eea85b4f383aa7f341a59",
+        "hookExecute": "0xb8234523eea22b995dff6813ebfd45186b279920c9ecb18b972e87d3a69efe4f",
+        "evmExecute": "0x663c489eabb5422e5f08c2d70de0def4288bc24f4c578c2276e2a751b6a3e118"
       }
     },
     "plugin_matrix": {
-      "reportPath": "sdk/docs/reports/2026-03-13-v3-testnet-plugin-matrix.1773454185382.json",
-      "core": "0xdf10f6605eb076395ec579538ba8e8594e6b31f1",
-      "mockTarget": "0x1fb4b4ed39354baf2ae45b198ef6bed037e27592",
+      "reportPath": "sdk/docs/reports/2026-03-13-v3-testnet-plugin-matrix.1773760991823.json",
+      "core": "0x1e3767bde710932db1e66ffbebf452e24e664584",
+      "mockTarget": "0xdb161689a758489bb848079e428fc6ffaa73a633",
       "scenarios": [
         "directConfigGuards",
         "web3Auth",
@@ -56,11 +56,11 @@
       ]
     },
     "paymaster_policy": {
-      "reportPath": "sdk/docs/reports/2026-03-14-v3-testnet-paymaster-policy.1773454365197.json",
+      "reportPath": "sdk/docs/reports/2026-03-14-v3-testnet-paymaster-policy.1773761210768.json",
       "policyId": "testnet-aa",
-      "accountId": "0x1111222233334444555566667777888899990000",
-      "approvalDigest": "d50eceff250a5a909a290dcfbf8fd794e6139276a63cb117922719c8c3fd6769",
-      "attestationHash": "f0e3b0ac78e0d27f3d93d21652fe62a50ddd5df0a1dfb3cb409988fa83c330fb",
+      "accountId": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+      "approvalDigest": "4e6f87401838f21de14798e50a6eee0182c5a0877fd8461a306cb686254c1d49",
+      "attestationHash": "edfb69425055f7201d3c471c1c2b908ddaeec9f41c13f9ec5b4a9ebe4fe72a5f",
       "deniedCases": [
         "missingOperationHash",
         "wrongDappId",
@@ -72,11 +72,11 @@
       ]
     },
     "paymaster_relay": {
-      "txid": "0xb55e8c4c02243cc3769074c89d2b0dfc16ffa6c7dfbec1a62da9cb89df86c856",
-      "accountId": "0x5d65b8721cfa293d869abdeb474b0f33736f2e8f",
+      "txid": "0xa04a52e2cc2c1ded62902e3766768b14c610c5cd4e56b333c89e1fc6a31b85c4",
+      "accountId": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
       "policyId": "testnet-aa",
-      "approvalDigest": "775bf2ff09499b96c33546317416f1ba052a777f0bda9ed6e8a99b1df06a62cb",
-      "attestationHash": "b697e13b497201bbefbeb933269d878997e0c7cc274176ad5656e62372f61bbe",
+      "approvalDigest": "1f2f0ffe978ababa1488a3b329fb7331aa14b8c87a12c4277977a8c160e29276",
+      "attestationHash": "f7ab98517618ab5cb9acf2e3455dc4236cb6186e077159051cb10b32199bc090",
       "appId": "28294e89d490924b79c85cdee057ce55723b3d56",
       "vmstate": "HALT",
       "stack": [
@@ -174,7 +174,7 @@
     },
     "callback_boundary": {
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
-      "txid": "0x21b997ca6a2c635fb92843c2062a7f0525a0e923d5b7f062b9a7b64767e18cd2",
+      "txid": "0x534ab2df0a94b01a4c52ded24c1a39635b6f7db2e394d7015713bd2b2598f227",
       "vmstate": "FAULT",
       "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
     },
@@ -197,25 +197,25 @@
     },
     "encrypted_ref_boundary": {
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
-      "matching_txid": "0x74b0911cdc413226095fab5e360d5b1f320c4cb9f78f9b71fa065c7e76731ddf",
-      "wrong_requester_txid": "0x670a08b8ac154d632afcb3f92745c7e76b64ad429ddfd0da9e1e2ea55bd62764",
+      "matching_txid": "0xd96ca87ffe62c5bdfc7530e95f8a09393d30a199b5eae05d82f8d4c2db98532a",
+      "wrong_requester_txid": "0xa5efceb1f7f928953a4b1d662a13aa9bd7892d4ab4ec97d8a9d2c88419339143",
       "wrong_requester_error": "encrypted ref requester mismatch",
-      "wrong_callback_txid": "0x375b4d8c15d424ec3d11458ab8f5b1e0ef5c10e6a20afee5b0d67801837c7d44",
+      "wrong_callback_txid": "0x342285c841711d072a2093568c7940bc00a9a40903b58a70c5932ae1af35e2cf",
       "wrong_callback_error": "encrypted ref callback mismatch"
     },
     "fulfillment_replay": {
       "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
-      "replay_txid": "0x757139d31139175acea3f0d7953123103039440bac9d5e8028355bdb3c7b7d0c",
-      "replay_exception": "at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
-      "fulfill_txid": "0x7dc0ef65a5c30472dde942da1f3475202e49cfc4b6c8fba38c8f6e15a985bcab",
+      "replay_txid": "0x6cdfe638dfc3fbaf26f4436b4dd695095a55bfa4e5e47ffde12b4c05b1d35ccd",
+      "replay_exception": "at instruction 4105 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
+      "fulfill_txid": "0x571bda18695762a745b16a635caf794cfcf36aa2235f5bc615ffe10e18c55362",
       "fulfill_vmstate": "HALT"
     },
     "aa_session_oracle_boundary": {
       "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
-      "execute_txid": "0x9dce58dbe9d1bee86ffe51e71498e3dbe6106987cab53712b456c5d2593b1666",
-      "request_id": "3847",
-      "wrong_target_exception": "at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
-      "wrong_method_exception": "at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
+      "execute_txid": "0x5805fbe908d57f1d6933dbc0d0d939fd079a7d46ee663f9d56a204e4c8900199",
+      "request_id": "3948",
+      "wrong_target_exception": "at instruction 525 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted",
+      "wrong_method_exception": "at instruction 566 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted"
     },
     "aa_callback_replay_boundary": {
       "report_path": "examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json",
@@ -234,9 +234,9 @@
     "aa_paymaster_automation_oracle": {
       "report_path": "examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json",
       "paymaster_policy_id": "testnet-aa",
-      "relay_txid": "0xbb14baeb7a7ce4e1560c941234b039410d757fc0eff97d2043a8b2bedc05a7ed",
-      "automation_id": "automation:neo_n3:2cac765c-3b65-4d9d-944e-c4cca5523350",
-      "queued_request_id": "3849",
+      "relay_txid": "0xaccf0567ffeeb56c1beabba4779caca4d8cdde982351aab95f084154eefdf53b",
+      "automation_id": "automation:neo_n3:08aa0748-1f0d-4f1c-b34a-e2e6f0e1db10",
+      "queued_request_id": "3950",
       "queued_mode": "scheduler",
       "queued_callback_success": true
     },
