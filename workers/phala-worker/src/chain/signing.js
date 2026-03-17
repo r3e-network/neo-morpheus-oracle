@@ -2,6 +2,35 @@ import { REPLAY_WINDOW_MS, env, sha256Hex, stableStringify, strip0x, trimString 
 import { wallet as neoWallet } from "@cityofzion/neon-js";
 import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "../platform/dstack.js";
 
+function resolveOracleVerifierRole(payload = {}) {
+  const explicit = trimString(payload.dstack_key_role || payload.key_role || "");
+  return explicit.toLowerCase() === "oracle_verifier";
+}
+
+function resolveNeoN3OracleVerifierKey() {
+  const network = trimString(env("MORPHEUS_NETWORK", "NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet").toLowerCase();
+  if (network === "mainnet") {
+    return trimString(
+      env(
+        "MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY",
+        "MORPHEUS_ORACLE_VERIFIER_WIF",
+        "PHALA_ORACLE_VERIFIER_PRIVATE_KEY",
+        "PHALA_ORACLE_VERIFIER_WIF",
+      )
+      || "",
+    );
+  }
+  return trimString(
+    env(
+      "MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY",
+      "MORPHEUS_ORACLE_VERIFIER_WIF",
+      "PHALA_ORACLE_VERIFIER_PRIVATE_KEY",
+      "PHALA_ORACLE_VERIFIER_WIF",
+    )
+    || "",
+  );
+}
+
 function resolveNeoN3WorkerKey() {
   const network = trimString(env("MORPHEUS_NETWORK", "NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet").toLowerCase();
   if (network === "mainnet") {
@@ -70,9 +99,11 @@ export function resolveSigningBytes(payload) {
 }
 
 export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
+  const useOracleVerifierRole = resolveOracleVerifierRole(payload);
   let privateKey = trimString(payload.private_key)
     || trimString(payload.signing_key)
     || trimString(payload.wif)
+    || (useOracleVerifierRole ? resolveNeoN3OracleVerifierKey() : "")
     || resolveNeoN3WorkerKey();
   if (shouldUseDerivedKeys(payload)) {
     try {

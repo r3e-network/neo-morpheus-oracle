@@ -337,6 +337,7 @@ async function signFulfillmentPayload(config, chain, fulfillment) {
   );
   const response = await callPhala(config, "/sign/payload", {
     target_chain: chain,
+    key_role: "oracle_verifier",
     data_hex: digestBytes.toString("hex"),
   });
   if (!response.ok || typeof response.body?.signature !== "string" || !response.body.signature) {
