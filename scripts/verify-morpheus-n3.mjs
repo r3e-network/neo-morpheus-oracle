@@ -61,6 +61,16 @@ async function loadRegistry(network) {
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
 }
 
+async function loadDeploymentRegistry(network) {
+  const filePath = path.resolve('examples', 'deployments', `${network}.json`);
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return {};
+    throw error;
+  }
+}
+
 async function invokeRead(rpcClient, contractHash, method, params = []) {
   const result = await rpcClient.invokeFunction(contractHash, method, params);
   if (String(result.state || '').toUpperCase() === 'FAULT') {
@@ -76,9 +86,11 @@ function resolveExpectedUpdater() {
   const key = trimString(
     network === 'testnet'
       ? (
-        process.env.MORPHEUS_RELAYER_NEO_N3_WIF
+        process.env.NEO_TESTNET_WIF
+        || process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET
+        || process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET
+        || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
         || process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY
-        || process.env.NEO_TESTNET_WIF
         || process.env.PHALA_NEO_N3_WIF
         || process.env.PHALA_NEO_N3_PRIVATE_KEY
         || process.env.NEO_N3_WIF
@@ -98,16 +110,46 @@ function resolveExpectedUpdater() {
 }
 
 function resolveExpectedVerifierPublicKey() {
-  return trimString(process.env.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY || process.env.PHALA_ORACLE_VERIFIER_PUBLIC_KEY || '');
+  const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
+  return trimString(
+    network === 'testnet'
+      ? (
+        process.env.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET
+        || process.env.PHALA_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET
+        || ''
+      )
+      : (
+        process.env.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY
+        || process.env.PHALA_ORACLE_VERIFIER_PUBLIC_KEY
+        || ''
+      )
+  );
 }
 
 await loadDotEnv();
 
 const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 const registry = await loadRegistry(network);
+const deployments = await loadDeploymentRegistry(network);
 const rpcUrl = trimString(process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || '');
-const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || registry.neo_n3?.contracts?.morpheus_oracle || '');
-const callbackHash = normalizeHash160(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || registry.neo_n3?.contracts?.oracle_callback_consumer || '');
+const mainnetRegistry = await loadRegistry('mainnet').catch(() => ({}));
+const registryOracleHash = deployments?.neo_n3?.oracle_hash || registry.neo_n3?.contracts?.morpheus_oracle || '';
+const registryCallbackHash = deployments?.neo_n3?.example_consumer_hash || registry.neo_n3?.contracts?.oracle_callback_consumer || '';
+const candidateOracleHash = trimString(
+  network === 'testnet'
+    ? (process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET || registryOracleHash || process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '')
+    : (process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET || process.env.CONTRACT_MORPHEUS_ORACLE_HASH || registryOracleHash || '')
+);
+const oracleHash = normalizeHash160(
+  network === 'testnet' && trimString(candidateOracleHash) === trimString(mainnetRegistry?.neo_n3?.contracts?.morpheus_oracle || '')
+    ? registryOracleHash
+    : candidateOracleHash
+);
+const callbackHash = normalizeHash160(
+  network === 'testnet'
+    ? (process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET || registryCallbackHash || process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || '')
+    : (process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET || process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || registryCallbackHash || '')
+);
 const expectedUpdater = resolveExpectedUpdater();
 const expectedVerifierPublicKey = resolveExpectedVerifierPublicKey();
 

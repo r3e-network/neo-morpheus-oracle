@@ -1,6 +1,8 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 
@@ -43,9 +45,20 @@ function tryParseJson(value) {
   }
 }
 
+async function loadJsonIfExists(filePath) {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
+  } catch (error) {
+    if (error?.code === 'ENOENT') return {};
+    throw error;
+  }
+}
+
 await loadDotEnv();
 
 const network = trimString(process.env.MORPHEUS_NETWORK || "testnet").toLowerCase();
+const networkConfig = await loadJsonIfExists(path.resolve('config', 'networks', `${network}.json`));
+const deploymentRegistry = await loadJsonIfExists(path.resolve('examples', 'deployments', `${network}.json`));
 const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
 const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
 
@@ -196,11 +209,55 @@ async function fulfillRequestLocally(rpcClient, oracleHash, account, rpcUrl, net
   throw new Error(`timed out waiting for local fulfill ${requestId}`);
 }
 
-const rpcUrl = trimString(process.env.NEO_RPC_URL || defaultRpcUrl);
-const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || defaultNetworkMagic);
+const registryOracleHash = trimString(
+  deploymentRegistry?.neo_n3?.oracle_hash
+  || networkConfig?.neo_n3?.contracts?.morpheus_oracle
+  || ''
+);
+const registryCallbackHash = trimString(
+  deploymentRegistry?.neo_n3?.example_consumer_hash
+  || networkConfig?.neo_n3?.contracts?.oracle_callback_consumer
+  || ''
+);
+const mainnetOracleHash = trimString((await loadJsonIfExists(path.resolve('config', 'networks', 'mainnet.json')))?.neo_n3?.contracts?.morpheus_oracle || '');
+const rawOracleHash = trimString(
+  network === 'testnet'
+    ? (
+      process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET
+      || registryOracleHash
+      || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
+      || ''
+    )
+    : (
+      process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET
+      || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
+      || registryOracleHash
+      || ''
+    )
+);
+const rawCallbackHash = trimString(
+  network === 'testnet'
+    ? (
+      process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET
+      || registryCallbackHash
+      || process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH
+      || ''
+    )
+    : (
+      process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET
+      || process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH
+      || registryCallbackHash
+      || ''
+    )
+);
+
+const rpcUrl = trimString(process.env.NEO_RPC_URL || networkConfig?.neo_n3?.rpc_url || defaultRpcUrl);
+const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || networkConfig?.neo_n3?.network_magic || defaultNetworkMagic);
 const wif = resolveNeoN3SignerWif(network);
-const oracleHash = trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
-const callbackHash = trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH || '');
+const oracleHash = network === 'testnet' && rawOracleHash === mainnetOracleHash && registryOracleHash
+  ? registryOracleHash
+  : rawOracleHash;
+const callbackHash = rawCallbackHash;
 const provider = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'twelvedata') || 'twelvedata';
 const symbol = trimString(process.env.MORPHEUS_SMOKE_SYMBOL || 'NEO-USD') || 'NEO-USD';
 const requestType = trimString(process.env.MORPHEUS_SMOKE_REQUEST_TYPE || 'privacy_oracle') || 'privacy_oracle';
@@ -231,10 +288,10 @@ const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rp
 console.error(`Neo N3 smoke fee credit ready: request_fee=${feeStatus.request_fee} current_credit=${feeStatus.current_credit}`);
 
 const txid = await oracle.invoke('request', [
-  requestType,
+  sc.ContractParam.string(requestType),
   sc.ContractParam.byteArray(Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')),
   sc.ContractParam.hash160(callbackHash),
-  'onOracleResult',
+  sc.ContractParam.string('onOracleResult'),
 ]);
 console.error(`Neo N3 smoke request txid: ${txid}`);
 
