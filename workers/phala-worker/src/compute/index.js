@@ -1,4 +1,9 @@
 import { createVerify, randomBytes } from "node:crypto";
+import { execFile as execFileCallback } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import { keccak256, toUtf8Bytes } from "ethers";
 import { assertUntrustedScriptsEnabled, enforceSerializedSizeLimit, env, json, normalizeTargetChain, parseDurationMs, resolveMaxBytes, resolveWasmModuleBase64, sha256Hex, stableStringify, trimString } from "../platform/core.js";
 import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
@@ -10,6 +15,8 @@ import { runWasmWithTimeout } from "../platform/wasm-runner.js";
 import { resolveScriptSource } from "../platform/script-source.js";
 
 const DEFAULT_ZKP_VERIFY_MAX_INPUT_BYTES = 128 * 1024;
+const DEFAULT_ZKP_VERIFY_TIMEOUT_MS = 15000;
+const execFile = promisify(execFileCallback);
 
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
@@ -153,12 +160,6 @@ function normalizePublicSignals(value) {
   throw new Error("public_signals must be an array");
 }
 
-async function verifyGroth16Proof(verifyingKey, publicSignals, proof) {
-  enforceZkpVerificationSizeLimit({ verifying_key: verifyingKey, public_signals: publicSignals, proof });
-  const snarkjs = await import("snarkjs");
-  return Boolean(await snarkjs.groth16.verify(verifyingKey, publicSignals, proof));
-}
-
 function resolveZkpVerifyMaxInputBytes() {
   return resolveMaxBytes(
     env("COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES", "MORPHEUS_MAX_ZKP_VERIFY_INPUT_BYTES"),
@@ -173,6 +174,59 @@ function enforceZkpVerificationSizeLimit(payload) {
     "zkp verification input",
     resolveZkpVerifyMaxInputBytes(),
   );
+}
+
+function resolveZkpVerificationRuntime() {
+  return trimString(env("MORPHEUS_ZKP_VERIFY_RUNTIME", "COMPUTE_ZKP_VERIFY_RUNTIME")).toLowerCase() || "disabled";
+}
+
+function resolveZkpVerifyTimeoutMs() {
+  return parseDurationMs(
+    env("MORPHEUS_ZKP_VERIFY_TIMEOUT_MS", "COMPUTE_ZKP_VERIFY_TIMEOUT_MS"),
+    DEFAULT_ZKP_VERIFY_TIMEOUT_MS,
+  );
+}
+
+function resolveSnarkjsCommand() {
+  return trimString(env("MORPHEUS_SNARKJS_BIN", "COMPUTE_SNARKJS_BIN")) || "snarkjs";
+}
+
+async function verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof) {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "morpheus-groth16-"));
+  try {
+    const verifyingKeyPath = path.join(tempDir, "verifying-key.json");
+    const publicSignalsPath = path.join(tempDir, "public-signals.json");
+    const proofPath = path.join(tempDir, "proof.json");
+    await Promise.all([
+      writeFile(verifyingKeyPath, JSON.stringify(verifyingKey)),
+      writeFile(publicSignalsPath, JSON.stringify(publicSignals)),
+      writeFile(proofPath, JSON.stringify(proof)),
+    ]);
+
+    try {
+      await execFile(
+        resolveSnarkjsCommand(),
+        ["groth16", "verify", verifyingKeyPath, publicSignalsPath, proofPath],
+        { timeout: resolveZkpVerifyTimeoutMs(), maxBuffer: 1024 * 1024 },
+      );
+      return true;
+    } catch (error) {
+      const code = Number(error?.code);
+      if (Number.isFinite(code)) return false;
+      throw new Error(`groth16 verifier runtime failed: ${error?.message || error}`);
+    }
+  } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+async function verifyGroth16Proof(verifyingKey, publicSignals, proof) {
+  enforceZkpVerificationSizeLimit({ verifying_key: verifyingKey, public_signals: publicSignals, proof });
+  const runtime = resolveZkpVerificationRuntime();
+  if (runtime !== "cli") {
+    throw new Error("groth16 verification runtime disabled; set MORPHEUS_ZKP_VERIFY_RUNTIME=cli to enable explicit external verification");
+  }
+  return verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof);
 }
 
 function normalizeZerc20SingleWithdrawStatement(input = {}) {
