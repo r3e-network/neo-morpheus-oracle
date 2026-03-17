@@ -196,6 +196,75 @@ function resolveSignerForNetwork(role = 'worker') {
   return resolveNetworkScoped('MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_UPDATER_NEO_N3_WIF', 'NEO_N3_WIF');
 }
 
+function resolveNeoN3PrivateKeyForNetwork(role = 'worker') {
+  if (network === 'testnet') {
+    return role === 'worker'
+      ? resolveNetworkScoped('PHALA_NEO_N3_PRIVATE_KEY_TESTNET', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET')
+      : resolveNetworkScoped('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET', 'PHALA_NEO_N3_PRIVATE_KEY_TESTNET');
+  }
+  return role === 'worker'
+    ? get('PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY')
+    : get('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_PRIVATE_KEY');
+}
+
+function resolveOracleVerifierSignerForNetwork() {
+  if (network === 'testnet') {
+    const scopedTestnet = resolveNetworkScoped(
+      'MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET',
+      'PHALA_ORACLE_VERIFIER_WIF_TESTNET',
+    );
+    return scopedTestnet || resolveSignerForNetwork('worker');
+  }
+  return resolveNetworkScoped(
+    'MORPHEUS_ORACLE_VERIFIER_WIF',
+    'PHALA_ORACLE_VERIFIER_WIF',
+  );
+}
+
+function resolveOracleVerifierPrivateKeyForNetwork() {
+  if (network === 'testnet') {
+    return resolveNetworkScoped(
+      'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET',
+      'PHALA_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET',
+    );
+  }
+  return resolveNetworkScoped(
+    'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
+    'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
+  );
+}
+
+function resolveUseDerivedKeysDefault() {
+  const explicit = get('PHALA_USE_DERIVED_KEYS');
+  if (explicit) return explicit;
+
+  const hasExplicitTestnetVerifier = network === 'testnet'
+    && Boolean(resolveOracleVerifierSignerForNetwork() || resolveOracleVerifierPrivateKeyForNetwork());
+  return hasExplicitTestnetVerifier ? 'false' : 'true';
+}
+
+function resolveNeoN3ScanModeDefault() {
+  const explicit = get('MORPHEUS_RELAYER_NEO_N3_SCAN_MODE');
+  if (explicit) return explicit;
+  return network === 'testnet' ? 'request_cursor' : '';
+}
+
+function mergeCsvList(primary, additions = []) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of [primary, ...additions]) {
+    for (const item of String(raw || '').split(',')) {
+      const normalized = trimString(item);
+      if (!normalized) continue;
+      const dedupeKey = normalized.toLowerCase();
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      out.push(normalized);
+    }
+  }
+  return out.join(',');
+}
+
 const runtimeConfig = {
   TWELVEDATA_API_KEY: get('TWELVEDATA_API_KEY'),
   WEB3AUTH_CLIENT_ID: get('WEB3AUTH_CLIENT_ID', 'NEXT_PUBLIC_WEB3AUTH_CLIENT_ID'),
@@ -212,9 +281,13 @@ const runtimeConfig = {
   CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH: resolveRegistryBackedValue(registry.neo_n3?.contracts?.oracle_callback_consumer || '', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH'),
   CONTRACT_MORPHEUS_DATAFEED_HASH: resolveRegistryBackedValue(registry.neo_n3?.contracts?.morpheus_datafeed || '', 'CONTRACT_MORPHEUS_DATAFEED_HASH'),
   PHALA_NEO_N3_WIF: resolveSignerForNetwork('worker'),
-  PHALA_NEO_N3_PRIVATE_KEY: get('PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'),
+  PHALA_NEO_N3_PRIVATE_KEY: resolveNeoN3PrivateKeyForNetwork('worker'),
+  MORPHEUS_ORACLE_VERIFIER_WIF: resolveOracleVerifierSignerForNetwork(),
+  MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY: resolveOracleVerifierPrivateKeyForNetwork(),
+  PHALA_ORACLE_VERIFIER_WIF: resolveOracleVerifierSignerForNetwork(),
+  PHALA_ORACLE_VERIFIER_PRIVATE_KEY: resolveOracleVerifierPrivateKeyForNetwork(),
   MORPHEUS_RELAYER_NEO_N3_WIF: resolveSignerForNetwork('relayer'),
-  MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: get('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_PRIVATE_KEY'),
+  MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: resolveNeoN3PrivateKeyForNetwork('relayer'),
   NEOX_RPC_URL: resolveRegistryBackedValue(registry.neo_x?.rpc_url || 'https://neoxt4seed1.ngd.network', 'NEOX_RPC_URL', 'NEO_X_RPC_URL'),
   NEOX_CHAIN_ID: resolveRegistryBackedValue(String(registry.neo_x?.chain_id || 12227332), 'NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID'),
   CONTRACT_MORPHEUS_ORACLE_X_ADDRESS: resolveRegistryBackedValue(registry.neo_x?.contracts?.morpheus_oracle_x || '', 'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS'),
@@ -238,6 +311,8 @@ const runtimeConfig = {
   MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS: get('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || '300000',
   MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE: get('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || '5000',
   MORPHEUS_RELAYER_DEAD_LETTER_LIMIT: get('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || '500',
+  MORPHEUS_RELAYER_NEO_N3_SCAN_MODE: resolveNeoN3ScanModeDefault(),
+  MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID: get('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID') || '',
   MORPHEUS_AUTOMATION_ENABLED: get('MORPHEUS_AUTOMATION_ENABLED') || 'true',
   MORPHEUS_AUTOMATION_BATCH_SIZE: get('MORPHEUS_AUTOMATION_BATCH_SIZE') || '50',
   MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK: get('MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK') || '10',
@@ -260,7 +335,7 @@ const runtimeConfig = {
   COMPUTE_WASM_TIMEOUT_MS: get('COMPUTE_WASM_TIMEOUT_MS') || get('MORPHEUS_WASM_TIMEOUT_MS') || '30000',
   MORPHEUS_WASM_TIMEOUT_MS: get('MORPHEUS_WASM_TIMEOUT_MS') || '30000',
   MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS: get('MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS'),
-  PHALA_USE_DERIVED_KEYS: get('PHALA_USE_DERIVED_KEYS') || 'true',
+  PHALA_USE_DERIVED_KEYS: resolveUseDerivedKeysDefault(),
   PHALA_EMIT_ATTESTATION: get('PHALA_EMIT_ATTESTATION') || 'true',
   PHALA_DSTACK_ENDPOINT: get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock',
   PHALA_DSTACK_NEO_N3_KEY_PATH: get('PHALA_DSTACK_NEO_N3_KEY_PATH'),
@@ -272,8 +347,14 @@ const runtimeConfig = {
   MORPHEUS_PAYMASTER_TESTNET_ENABLED: get('MORPHEUS_PAYMASTER_TESTNET_ENABLED'),
   MORPHEUS_PAYMASTER_TESTNET_POLICY_ID: get('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID'),
   MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS: get('MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS'),
-  MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS: get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS'),
-  MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS: get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS'),
+  MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS: mergeCsvList(
+    get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS'),
+    [trimString(registry.neo_n3?.contracts?.abstract_account || '')],
+  ),
+  MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS: mergeCsvList(
+    get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS'),
+    ['executeUserOp', 'executeUnifiedByAddress'],
+  ),
   MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS: get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS'),
   MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS: get('MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS'),
   MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS: get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS'),
@@ -319,9 +400,13 @@ const lines = [
   line('CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH', runtimeConfig.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH),
   line('CONTRACT_MORPHEUS_DATAFEED_HASH', runtimeConfig.CONTRACT_MORPHEUS_DATAFEED_HASH),
   line('PHALA_NEO_N3_WIF', runtimeConfig.PHALA_NEO_N3_WIF),
-  line('PHALA_NEO_N3_PRIVATE_KEY', get('PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY')),
+  line('PHALA_NEO_N3_PRIVATE_KEY', runtimeConfig.PHALA_NEO_N3_PRIVATE_KEY),
+  line('MORPHEUS_ORACLE_VERIFIER_WIF', runtimeConfig.MORPHEUS_ORACLE_VERIFIER_WIF),
+  line('MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY', runtimeConfig.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY),
+  line('PHALA_ORACLE_VERIFIER_WIF', runtimeConfig.PHALA_ORACLE_VERIFIER_WIF),
+  line('PHALA_ORACLE_VERIFIER_PRIVATE_KEY', runtimeConfig.PHALA_ORACLE_VERIFIER_PRIVATE_KEY),
   line('MORPHEUS_RELAYER_NEO_N3_WIF', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_WIF),
-  line('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', get('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_PRIVATE_KEY')),
+  line('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY),
   '',
   line('NEOX_RPC_URL', runtimeConfig.NEOX_RPC_URL),
   line('NEOX_CHAIN_ID', runtimeConfig.NEOX_CHAIN_ID),
@@ -348,6 +433,8 @@ const lines = [
   line('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS', get('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || '300000'),
   line('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE', get('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || '5000'),
   line('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT', get('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || '500'),
+  line('MORPHEUS_RELAYER_NEO_N3_SCAN_MODE', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_SCAN_MODE),
+  line('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID),
   line('MORPHEUS_AUTOMATION_ENABLED', get('MORPHEUS_AUTOMATION_ENABLED') || 'true'),
   line('MORPHEUS_AUTOMATION_BATCH_SIZE', get('MORPHEUS_AUTOMATION_BATCH_SIZE') || '50'),
   line('MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK', get('MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK') || '10'),
@@ -364,7 +451,7 @@ const lines = [
   line('COMPUTE_WASM_TIMEOUT_MS', get('COMPUTE_WASM_TIMEOUT_MS') || get('MORPHEUS_WASM_TIMEOUT_MS') || '30000'),
   line('MORPHEUS_WASM_TIMEOUT_MS', get('MORPHEUS_WASM_TIMEOUT_MS') || '30000'),
   line('MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS', get('MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS')),
-  line('PHALA_USE_DERIVED_KEYS', get('PHALA_USE_DERIVED_KEYS') || 'true'),
+  line('PHALA_USE_DERIVED_KEYS', resolveUseDerivedKeysDefault()),
   line('PHALA_EMIT_ATTESTATION', get('PHALA_EMIT_ATTESTATION') || 'true'),
   line('PHALA_DSTACK_ENDPOINT', get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock'),
   line('PHALA_DSTACK_NEO_N3_KEY_PATH', get('PHALA_DSTACK_NEO_N3_KEY_PATH')),
@@ -376,9 +463,9 @@ const lines = [
   line('MORPHEUS_PAYMASTER_TESTNET_ENABLED', get('MORPHEUS_PAYMASTER_TESTNET_ENABLED')),
   line('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID', get('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID')),
   line('MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS', get('MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS')),
-  line('MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS', get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS')),
-  line('MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS', get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS')),
-  line('MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS', get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS')),
+  line('MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS', runtimeConfig.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS),
+  line('MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS', runtimeConfig.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS),
+  line('MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS', runtimeConfig.MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS),
   line('MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS', get('MORPHEUS_PAYMASTER_TESTNET_BLOCK_ACCOUNTS')),
   line('MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS', get('MORPHEUS_PAYMASTER_TESTNET_ALLOW_DAPPS')),
   line('MORPHEUS_PAYMASTER_TESTNET_TTL_MS', get('MORPHEUS_PAYMASTER_TESTNET_TTL_MS')),

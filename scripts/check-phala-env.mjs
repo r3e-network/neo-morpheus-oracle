@@ -96,8 +96,24 @@ const report = {
   missing_required: missing,
   missing_either_of: missingEither,
   missing_neox_required: missingNeoX,
+  optional_recommendations: {
+    oracle_verifier: [],
+  },
   ok: missing.length === 0 && missingEither.length === 0 && missingNeoX.length === 0,
 };
+
+const explicitOracleVerifierKeys = [
+  'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
+  'MORPHEUS_ORACLE_VERIFIER_WIF',
+  'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
+  'PHALA_ORACLE_VERIFIER_WIF',
+];
+
+if (!explicitOracleVerifierKeys.some((key) => getValue(env, runtimeConfig, key))) {
+  report.optional_recommendations.oracle_verifier.push(
+    explicitOracleVerifierKeys.join(' | '),
+  );
+}
 
 console.log(JSON.stringify(report, null, 2));
 if (!report.ok) process.exitCode = 1;

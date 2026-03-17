@@ -39,6 +39,8 @@ This project gives the Neo blockchain the same thing: **truth**.
 - Request fee is `0.01 GAS`-equivalent per request.
 - Neo N3 supports prepaid request credits, including contract-sponsored fee payment.
 - Neo N3 is the active supported runtime path. Neo X remains in-repo as reference code only.
+- Async Oracle fulfillment signatures are produced by the worker `oracle_verifier` role. On testnet, the generated Phala env reuses `NEO_TESTNET_WIF` and disables derived-signing override by default; on mainnet, a dedicated verifier signer is recommended.
+- Testnet relayer deployments should prefer `MORPHEUS_RELAYER_NEO_N3_SCAN_MODE=request_cursor` instead of relying on the public `n3index_notifications` feed.
 
 ## Project Layout
 

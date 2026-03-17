@@ -7,6 +7,11 @@ function resolveOracleVerifierRole(payload = {}) {
   return explicit.toLowerCase() === "oracle_verifier";
 }
 
+function resolveRequestedNeoN3DerivedRole(payload = {}) {
+  const explicit = trimString(payload.dstack_key_role || payload.key_role || "");
+  return explicit || "worker";
+}
+
 function resolveNeoN3OracleVerifierKey() {
   const network = trimString(env("MORPHEUS_NETWORK", "NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet").toLowerCase();
   if (network === "mainnet") {
@@ -100,16 +105,28 @@ export function resolveSigningBytes(payload) {
 
 export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   const useOracleVerifierRole = resolveOracleVerifierRole(payload);
-  let privateKey = trimString(payload.private_key)
+  const requestScopedKey = trimString(payload.private_key)
     || trimString(payload.signing_key)
-    || trimString(payload.wif)
-    || (useOracleVerifierRole ? resolveNeoN3OracleVerifierKey() : "")
+    || trimString(payload.wif);
+  const configuredOracleVerifierKey = useOracleVerifierRole ? resolveNeoN3OracleVerifierKey() : "";
+  let privateKey = requestScopedKey
+    || configuredOracleVerifierKey
     || resolveNeoN3WorkerKey();
-  if (shouldUseDerivedKeys(payload)) {
+
+  const allowDerivedOverride = !requestScopedKey && (!useOracleVerifierRole || !configuredOracleVerifierKey);
+  if (shouldUseDerivedKeys(payload) && allowDerivedOverride) {
+    const requestedRole = resolveRequestedNeoN3DerivedRole(payload);
     try {
-      privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");
+      privateKey = await deriveNeoN3PrivateKeyHex(requestedRole);
     } catch {
-      // fall back to explicit/env key material if available
+      // If the dedicated oracle_verifier path is absent, reuse the worker role.
+      if (useOracleVerifierRole && requestedRole !== "worker") {
+        try {
+          privateKey = await deriveNeoN3PrivateKeyHex("worker");
+        } catch {
+          // fall back to explicit/env key material if available
+        }
+      }
     }
   }
   if (!privateKey) return null;

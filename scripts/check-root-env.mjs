@@ -105,6 +105,10 @@ report.optional_recommendations.feed_sync = [
   ['MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS'],
 ].filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
 
+report.optional_recommendations.oracle_verifier = [
+  ['MORPHEUS_ORACLE_VERIFIER_WIF', 'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY', 'PHALA_ORACLE_VERIFIER_WIF', 'PHALA_ORACLE_VERIFIER_PRIVATE_KEY'],
+].filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
+
 report.ok = Object.values(report.missing).every((items) => items.length === 0);
 
 console.log(JSON.stringify(report, null, 2));

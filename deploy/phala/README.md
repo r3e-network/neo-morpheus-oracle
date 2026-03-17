@@ -96,6 +96,9 @@ Notes:
 - testnet should use `deploy/phala/morpheus.testnet.env`
 - mainnet should use `deploy/phala/morpheus.mainnet.env`
 - relayer state is now split by network and start block as `/data/.morpheus-relayer-state.<network>.<start-block>.json`
+- the async Oracle callback path asks the worker to sign fulfillment digests as `oracle_verifier`; renderers now include `MORPHEUS_ORACLE_VERIFIER_*` / `PHALA_ORACLE_VERIFIER_*` in the packed runtime config
+- testnet renderers default the verifier signer to `NEO_TESTNET_WIF` unless you explicitly set a dedicated verifier key, and they default `PHALA_USE_DERIVED_KEYS=false` so the explicit testnet signer is not shadowed by a dstack-derived key
+- testnet renderers also default `MORPHEUS_RELAYER_NEO_N3_SCAN_MODE=request_cursor` because the public testnet `n3index_notifications` feed can lag far behind the current tip
 
 3. Copy `docker-compose.yml`, the selected generated env file (`morpheus.mainnet.env` or `morpheus.testnet.env`), and optionally `Caddyfile` into the CVM
 4. Fill or review the selected env file against `morpheus.env.example`
@@ -166,6 +169,7 @@ Then copy only the direct keys above into Phala Dashboard Encrypted Secrets.
 - `PHALA_EMIT_ATTESTATION=true` enables optional quote attachment in worker responses when requested
 - `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` controls the derived wrapping key path for the stable Oracle X25519 transport key
 - `PHALA_ORACLE_KEYSTORE_PATH` controls where the sealed Oracle transport key is stored inside the CVM volume
+- `MORPHEUS_ORACLE_VERIFIER_WIF` / `MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY` (or the `PHALA_*` aliases) define the Neo N3 signer used for async Oracle fulfillment signatures when you do not want to rely on the worker-signing fallback
 - `WEB3AUTH_CLIENT_ID` and `WEB3AUTH_JWKS_URL` should be included in `MORPHEUS_RUNTIME_CONFIG_JSON` if NeoDID uses `provider = "web3auth"` and verifies JWTs inside the TEE
 - mount `/var/run/dstack.sock` so the dstack SDK can fetch info, quotes, and derived keys
 - file-based compose should be launched with both `MORPHEUS_LOCAL_ENV_FILE=...` and `--env-file ...` so the selected generated env file is used for container env injection and Compose interpolation
