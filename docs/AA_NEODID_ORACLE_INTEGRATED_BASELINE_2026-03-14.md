@@ -1,6 +1,6 @@
 # AA + NeoDID + Oracle Integrated Baseline
 
-Date: 2026-03-15T06:40:57.039Z
+Date: 2026-03-17T15:28:47.676Z
 
 ## Purpose
 
@@ -30,7 +30,7 @@ It does not claim that every cross-system attack has already been live-executed.
 ## AA Baseline
 
 - Stages: smoke, plugin_matrix, paymaster_policy, paymaster
-- Paymaster relay tx: `0xb55e8c4c02243cc3769074c89d2b0dfc16ffa6c7dfbec1a62da9cb89df86c856`
+- Paymaster relay tx: `0xa04a52e2cc2c1ded62902e3766768b14c610c5cd4e56b333c89e1fc6a31b85c4`
 - Paymaster policy denied cases: `missingOperationHash, wrongDappId, wrongAccountId, wrongTargetContract, wrongMethod, gasTooHigh, wrongTargetChain`
 
 ## Morpheus Baseline
@@ -42,15 +42,15 @@ It does not claim that every cross-system attack has already been live-executed.
 - Automation idempotency: first tick queued target request key `automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1`, second tick queued `0`, chain request id=`2221`, callback success=`true`
 - Automation cancel race: executed_after_cancel=`false`, queued chain request id=`3218`
 - Automation deposit exhaustion: queued runs=`1`, failed runs=`1`, error=`at instruction 2827 (ABORTMSG): ABORTMSG is executed. Reason: request fee not paid`
-- Callback boundary: vmstate=FAULT, tx=`0x21b997ca6a2c635fb92843c2062a7f0525a0e923d5b7f062b9a7b64767e18cd2`
+- Callback boundary: vmstate=FAULT, tx=`0x534ab2df0a94b01a4c52ded24c1a39635b6f7db2e394d7015713bd2b2598f227`
 - NeoDID registry JSON boundary: mismatch tx=`0xd5e4918388059efea68b2f3c874ad14e2b19ea1e0c185891779a96cc34b22656`
 - NeoDID registry v1: consume tx=`0x8f26c9e4b56721b96cdff924bdc429e1fec6aa4dc494475387d5e17eb8bf0916`, replay tx=`0x3dcec34a6d0f83f814e7705c3b184c31ef846597404887d3dd7850bff85f61a4`
 - Encrypted ref boundary: requester mismatch=`encrypted ref requester mismatch`, callback mismatch=`encrypted ref callback mismatch`
-- Fulfillment replay: replay exception=`at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, fulfill vmstate=`HALT`
-- AA session-key boundary: wrong target=`at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`, wrong method=`at instruction 556 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`
+- Fulfillment replay: replay exception=`at instruction 4105 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, fulfill vmstate=`HALT`
+- AA session-key boundary: wrong target=`at instruction 525 (ABORTMSG): ABORTMSG is executed. Reason: Target contract not permitted`, wrong method=`at instruction 566 (ABORTMSG): ABORTMSG is executed. Reason: Method not permitted`
 - AA callback replay boundary: replay exception=`at instruction 3841 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature`, unlocked_a=`true`, unlocked_b=`false`
 - AA recovery cross-account boundary: wrong account state=`null`, wrong account exception=`null`
-- AA paymaster automation Oracle: policy=`testnet-aa`, queued mode=`scheduler`, queued request id=`3849`, callback success=`true`
+- AA paymaster automation Oracle: policy=`testnet-aa`, queued mode=`scheduler`, queued request id=`3950`, callback success=`true`
 
 ## Executed Coverage
 
