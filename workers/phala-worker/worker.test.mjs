@@ -2011,6 +2011,27 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
   assert.equal(neoX.mode, 'message');
 });
 
+test('sign-payload can use the oracle_verifier signing role when configured', async () => {
+  global.fetch = originalFetch;
+  const previous = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+  process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = '68e15083a6fd187b6f5f6136bada4eb00f096e5e21d82c74edf6f086e80539ba';
+  try {
+    const res = await handler(new Request('http://local/sign/payload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ target_chain: 'neo_n3', key_role: 'oracle_verifier', message: 'oracle verifier path' }),
+    }));
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(body.signature);
+    assert.ok(body.public_key);
+    assert.ok(body.address);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+    else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = previous;
+  }
+});
+
 
 
 test('oracle feed supports neo_x contract relay mode', async () => {

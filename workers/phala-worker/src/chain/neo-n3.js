@@ -121,11 +121,15 @@ export async function relayNeoN3Invocation(payload) {
       networkMagic: context.networkMagic,
       account: context.account,
     });
-    const signers = getNeoSigners(context.account, payload.signer_scope || payload.scope || "CalledByEntry");
-    const simulation = await contract.testInvoke(method, params, signers);
-    if (String(simulation?.state || "") === "FAULT") {
-      forgetRequestId(requestId);
-      return { status: 400, body: { request_id: requestId, error: simulation?.exception || "Neo invocation simulation failed", vm_state: simulation?.state || "FAULT" } };
+    const shouldSkipSimulation = payload.skip_simulation === true || trimString(payload.skip_simulation).toLowerCase() === "true";
+    let simulation = null;
+    if (!shouldSkipSimulation) {
+      const signers = getNeoSigners(context.account, payload.signer_scope || payload.scope || "CalledByEntry");
+      simulation = await contract.testInvoke(method, params, signers);
+      if (String(simulation?.state || "") === "FAULT") {
+        forgetRequestId(requestId);
+        return { status: 400, body: { request_id: requestId, error: simulation?.exception || "Neo invocation simulation failed", vm_state: simulation?.state || "FAULT" } };
+      }
     }
 
     const txHashRaw = await contract.invoke(method, params);

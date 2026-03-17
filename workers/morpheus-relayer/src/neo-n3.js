@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { relayNeoN3Invocation } from "../../phala-worker/src/chain/index.js";
+import { experimental, rpc as neonRpc, sc, u, wallet as neonWallet } from "@cityofzion/neon-js";
 import { deriveRelayerNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "./dstack.js";
 
 function trimString(value) {
@@ -290,6 +291,12 @@ export function encodeUtf8ByteArrayParamValue(value) {
   return Buffer.from(raw, "utf8").toString("base64");
 }
 
+function base64ToHex(value) {
+  const raw = trimString(value);
+  if (!raw) return "";
+  return Buffer.from(raw, "base64").toString("hex");
+}
+
 function encodeHexByteArrayParamValue(value) {
   const raw = trimString(value).replace(/^0x/i, "");
   if (!raw) return "";
@@ -311,28 +318,38 @@ async function resolveNeoN3UpdaterPayload(config) {
 
 export async function fulfillNeoN3Request(config, requestId, success, result, error, verificationSignature, resultBytesBase64 = "") {
   const signerPayload = await resolveNeoN3UpdaterPayload(config);
-  const byteArrayValue = trimString(resultBytesBase64) || encodeUtf8ByteArrayParamValue(result || "");
-  const invoke = await relayNeoN3Invocation({
-    request_id: buildNeoN3RelayRequestId("fulfill", requestId),
-    contract_hash: config.neo_n3.oracleContract,
-    method: "fulfillRequest",
-    params: [
-      { type: "Integer", value: String(requestId) },
-      { type: "Boolean", value: Boolean(success) },
-      { type: "ByteArray", value: byteArrayValue },
-      { type: "String", value: error || "" },
-      { type: "ByteArray", value: encodeHexByteArrayParamValue(verificationSignature || "") },
-    ],
-    wait: false,
-    rpc_url: config.neo_n3.rpcUrl,
-    network_magic: config.neo_n3.networkMagic,
-    ...signerPayload,
+  const signerAccount = signerPayload.wif
+    ? new neonWallet.Account(signerPayload.wif)
+    : new neonWallet.Account(signerPayload.private_key);
+  const contract = new experimental.SmartContract(config.neo_n3.oracleContract, {
+    rpcAddress: config.neo_n3.rpcUrl,
+    networkMagic: config.neo_n3.networkMagic,
+    account: signerAccount,
   });
-
-  if (invoke.status >= 400) {
-    throw new Error(invoke.body?.error || `Neo N3 fulfill failed for request ${requestId}`);
+  const rpcClient = new neonRpc.RPCClient(config.neo_n3.rpcUrl);
+  const resultHex = trimString(resultBytesBase64) ? base64ToHex(resultBytesBase64) : Buffer.from(String(result || ""), "utf8").toString("hex");
+  const txHashRaw = await contract.invoke("fulfillRequest", [
+    sc.ContractParam.integer(String(requestId)),
+    sc.ContractParam.boolean(Boolean(success)),
+    sc.ContractParam.byteArray(u.HexString.fromHex(resultHex, true)),
+    sc.ContractParam.string(error || ""),
+    sc.ContractParam.byteArray(u.HexString.fromHex(trimString(verificationSignature || "").replace(/^0x/i, ""), true)),
+  ]);
+  const txHash = trimString(txHashRaw).startsWith("0x") ? trimString(txHashRaw) : `0x${trimString(txHashRaw)}`;
+  let vmState = "HALT";
+  let exception;
+  try {
+    const appLog = await neoRpcCall(config.neo_n3.rpcUrl, "getapplicationlog", [txHash]);
+    const execution = appLog?.executions?.[0];
+    if (execution?.vmstate) vmState = execution.vmstate;
+    if (execution?.exception) exception = execution.exception;
+  } catch {
+    const appLog = await rpcClient.getApplicationLog(txHash).catch(() => null);
+    const execution = appLog?.executions?.[0];
+    if (execution?.vmstate) vmState = execution.vmstate;
+    if (execution?.exception) exception = execution.exception;
   }
-  return { ...invoke.body, target_chain: "neo_n3" };
+  return { request_id: buildNeoN3RelayRequestId("fulfill", requestId), tx_hash: txHash, vm_state: vmState, exception, target_chain: "neo_n3" };
 }
 
 export async function queueNeoN3AutomationRequest(config, requester, requestType, payloadText, callbackContract, callbackMethod, requestIdOverride = "") {
