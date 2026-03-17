@@ -9,6 +9,8 @@ import { validateUserScriptSource } from "../platform/script-policy.js";
 import { runWasmWithTimeout } from "../platform/wasm-runner.js";
 import { resolveScriptSource } from "../platform/script-source.js";
 
+const DEFAULT_ZKP_VERIFY_MAX_INPUT_BYTES = 128 * 1024;
+
 function bigintPowMod(base, exponent, modulus) {
   let result = 1n;
   let b = BigInt(base) % BigInt(modulus);
@@ -152,8 +154,25 @@ function normalizePublicSignals(value) {
 }
 
 async function verifyGroth16Proof(verifyingKey, publicSignals, proof) {
+  enforceZkpVerificationSizeLimit({ verifying_key: verifyingKey, public_signals: publicSignals, proof });
   const snarkjs = await import("snarkjs");
   return Boolean(await snarkjs.groth16.verify(verifyingKey, publicSignals, proof));
+}
+
+function resolveZkpVerifyMaxInputBytes() {
+  return resolveMaxBytes(
+    env("COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES", "MORPHEUS_MAX_ZKP_VERIFY_INPUT_BYTES"),
+    DEFAULT_ZKP_VERIFY_MAX_INPUT_BYTES,
+    4096,
+  );
+}
+
+function enforceZkpVerificationSizeLimit(payload) {
+  enforceSerializedSizeLimit(
+    payload,
+    "zkp verification input",
+    resolveZkpVerifyMaxInputBytes(),
+  );
 }
 
 function normalizeZerc20SingleWithdrawStatement(input = {}) {
@@ -214,6 +233,11 @@ async function verifyZerc20SingleWithdraw(input = {}) {
     if (!proof || typeof proof !== "object") {
       throw new Error("proof object is required when verifying_key is supplied");
     }
+    enforceZkpVerificationSizeLimit({
+      verifying_key: input.verifying_key ?? input.verifyingKey,
+      public_signals: publicSignals,
+      proof,
+    });
     proofVerified = await verifyGroth16Proof(
       input.verifying_key ?? input.verifyingKey,
       publicSignals,
@@ -288,6 +312,11 @@ export async function executeBuiltinCompute(payload) {
     case "zkp.witness_digest":
       return { function: fn, result: { digest: sha256Hex(stableStringify({ witness: input.witness || input, circuit_id: input.circuit_id || null })) } };
     case "zkp.groth16.verify":
+      enforceZkpVerificationSizeLimit({
+        verifying_key: input.verifying_key ?? input.verifyingKey,
+        public_signals: normalizePublicSignals(input.public_signals ?? input.publicSignals),
+        proof: input.proof,
+      });
       return { function: fn, result: { is_valid: await verifyGroth16Proof(input.verifying_key ?? input.verifyingKey, normalizePublicSignals(input.public_signals ?? input.publicSignals), input.proof) } };
     case "zkp.groth16.prove.plan": {
       const constraints = Number(input.constraints || 0);
