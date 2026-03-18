@@ -7,28 +7,35 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function resolveNeoN3SignerWif(network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()) {
+function resolveNeoN3SignerWif(
+  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
+) {
   if (network === 'testnet') {
     return trimString(
-      process.env.NEO_TESTNET_WIF
-      || process.env.NEO_N3_WIF
-      || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-      || '',
+      process.env.NEO_TESTNET_WIF ||
+        process.env.NEO_N3_WIF ||
+        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+        ''
     );
   }
   return trimString(
-    process.env.NEO_N3_WIF
-    || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-    || process.env.NEO_TESTNET_WIF
-    || '',
+    process.env.NEO_N3_WIF ||
+      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+      process.env.NEO_TESTNET_WIF ||
+      ''
   );
 }
 
 await loadDotEnv();
 
 const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
-const rpcAddress = trimString(process.env.NEO_RPC_URL || (network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443'));
-const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606));
+const rpcAddress = trimString(
+  process.env.NEO_RPC_URL ||
+    (network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443')
+);
+const networkMagic = Number(
+  process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606)
+);
 const wif = resolveNeoN3SignerWif(network);
 const contractHash = trimString(process.env.CONTRACT_MORPHEUS_DATAFEED_HASH || '');
 
@@ -48,12 +55,18 @@ const contract = new experimental.SmartContract(contractHash, {
   account,
 });
 
-console.log(JSON.stringify({
-  datafeed_hash: contractHash,
-  admin_address: account.address,
-  admin_script_hash: `0x${account.scriptHash}`,
-  rpc: rpcAddress,
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      datafeed_hash: contractHash,
+      admin_address: account.address,
+      admin_script_hash: `0x${account.scriptHash}`,
+      rpc: rpcAddress,
+    },
+    null,
+    2
+  )
+);
 
 const txid = await contract.invoke('update', [
   sc.ContractParam.byteArray(u.HexString.fromHex(nefBytes.toString('hex'), true)),

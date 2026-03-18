@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
 type RelayerRun = {
   id: string;
@@ -28,10 +28,10 @@ type RelayerJob = {
   next_retry_at?: string | null;
 };
 
-async function callJSON(path: string, adminApiKey: string, method = "GET", body?: unknown) {
+async function callJSON(path: string, adminApiKey: string, method = 'GET', body?: unknown) {
   const headers = new Headers();
-  if (adminApiKey) headers.set("x-admin-api-key", adminApiKey);
-  if (body !== undefined) headers.set("content-type", "application/json");
+  if (adminApiKey) headers.set('x-admin-api-key', adminApiKey);
+  if (body !== undefined) headers.set('content-type', 'application/json');
   const response = await fetch(path, {
     method,
     headers,
@@ -46,26 +46,28 @@ async function callJSON(path: string, adminApiKey: string, method = "GET", body?
 }
 
 export function RelayerOpsPanel() {
-  const [adminApiKey, setAdminApiKey] = useState("");
+  const [adminApiKey, setAdminApiKey] = useState('');
   const [latestRun, setLatestRun] = useState<RelayerRun | null>(null);
   const [recentJobs, setRecentJobs] = useState<RelayerJob[]>([]);
   const [deadLetters, setDeadLetters] = useState<RelayerJob[]>([]);
-  const [selectedEventKey, setSelectedEventKey] = useState("");
-  const [message, setMessage] = useState("");
+  const [selectedEventKey, setSelectedEventKey] = useState('');
+  const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   async function refresh(currentKey = adminApiKey) {
     setIsLoading(true);
     try {
       const [metricsBody, jobsBody, deadLettersBody] = await Promise.all([
-        callJSON("/api/relayer/metrics?limit=5", currentKey),
-        callJSON("/api/relayer/jobs?limit=10", currentKey),
-        callJSON("/api/relayer/dead-letters?limit=10", currentKey),
+        callJSON('/api/relayer/metrics?limit=5', currentKey),
+        callJSON('/api/relayer/jobs?limit=10', currentKey),
+        callJSON('/api/relayer/dead-letters?limit=10', currentKey),
       ]);
 
       setLatestRun(metricsBody.latest || null);
       setRecentJobs(Array.isArray(jobsBody.jobs) ? jobsBody.jobs : []);
-      setDeadLetters(Array.isArray(deadLettersBody.dead_letters) ? deadLettersBody.dead_letters : []);
+      setDeadLetters(
+        Array.isArray(deadLettersBody.dead_letters) ? deadLettersBody.dead_letters : []
+      );
 
       const error = metricsBody.error || jobsBody.error || deadLettersBody.error;
       if (error) setMessage(JSON.stringify({ error }, null, 2));
@@ -75,7 +77,7 @@ export function RelayerOpsPanel() {
   }
 
   async function runAction(path: string, eventKey: string) {
-    const body = await callJSON(path, adminApiKey, "POST", { event_key: eventKey });
+    const body = await callJSON(path, adminApiKey, 'POST', { event_key: eventKey });
     setMessage(JSON.stringify(body, null, 2));
     if (!body.error) {
       setSelectedEventKey(eventKey);
@@ -84,27 +86,29 @@ export function RelayerOpsPanel() {
   }
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const savedKey = window.sessionStorage.getItem("morpheus.relayerAdminApiKey") || "";
+    if (typeof window === 'undefined') return;
+    const savedKey = window.sessionStorage.getItem('morpheus.relayerAdminApiKey') || '';
     setAdminApiKey(savedKey);
     refresh(savedKey).catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     if (adminApiKey) {
-      window.sessionStorage.setItem("morpheus.relayerAdminApiKey", adminApiKey);
+      window.sessionStorage.setItem('morpheus.relayerAdminApiKey', adminApiKey);
     } else {
-      window.sessionStorage.removeItem("morpheus.relayerAdminApiKey");
+      window.sessionStorage.removeItem('morpheus.relayerAdminApiKey');
     }
   }, [adminApiKey]);
 
   return (
     <div className="card">
       <h3 className="card-title">Relayer Operations</h3>
-      <p className="card-description">Monitor relayer health, inspect recent execution jobs, and manage dead-letter queues.</p>
-      
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      <p className="card-description">
+        Monitor relayer health, inspect recent execution jobs, and manage dead-letter queues.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <div className="grid grid-2">
           <div className="form-group">
             <label className="form-label">Relayer Admin Key</label>
@@ -116,23 +120,29 @@ export function RelayerOpsPanel() {
             />
           </div>
           <div className="form-group" style={{ justifyContent: 'flex-end', display: 'flex' }}>
-            <button 
-              className="btn btn-primary btn-sm" 
+            <button
+              className="btn btn-primary btn-sm"
               disabled={isLoading}
-              onClick={() => refresh().catch((error) => setMessage(JSON.stringify({ error: String(error) }, null, 2)))}
+              onClick={() =>
+                refresh().catch((error) =>
+                  setMessage(JSON.stringify({ error: String(error) }, null, 2))
+                )
+              }
             >
-              {isLoading ? "Refreshing..." : "Sync Relayer State"}
+              {isLoading ? 'Refreshing...' : 'Sync Relayer State'}
             </button>
           </div>
         </div>
 
         <div className="grid grid-3" style={{ alignItems: 'stretch' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-muted">Latest Snapshot</h4>
+            <h4 className="text-sm font-bold uppercase tracking-wider text-muted">
+              Latest Snapshot
+            </h4>
             <div className="terminal-panel" style={{ height: '100%', margin: 0 }}>
               <div className="terminal-body" style={{ maxHeight: '300px' }}>
                 <pre className="terminal-pre" style={{ fontSize: '0.75rem' }}>
-                  {latestRun ? JSON.stringify(latestRun, null, 2) : "No run snapshot yet."}
+                  {latestRun ? JSON.stringify(latestRun, null, 2) : 'No run snapshot yet.'}
                 </pre>
               </div>
             </div>
@@ -140,18 +150,56 @@ export function RelayerOpsPanel() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h4 className="text-sm font-bold uppercase tracking-wider text-muted">Recent Jobs</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '400px', overflowY: 'auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                maxHeight: '400px',
+                overflowY: 'auto',
+              }}
+            >
               {recentJobs.length === 0 && <p className="text-xs text-dim">No recent jobs found.</p>}
               {recentJobs.map((job) => (
-                <div key={job.id} className="card" style={{ padding: '1rem', background: 'var(--bg-surface)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <div
+                  key={job.id}
+                  className="card"
+                  style={{ padding: '1rem', background: 'var(--bg-surface)' }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
                     <span className="badge badge-success text-xs">{job.status}</span>
                     <span className="text-xs text-muted">{job.chain}</span>
                   </div>
-                  <div className="text-xs font-mono" style={{ marginBottom: '0.5rem', wordBreak: 'break-all' }}>{job.event_key}</div>
+                  <div
+                    className="text-xs font-mono"
+                    style={{ marginBottom: '0.5rem', wordBreak: 'break-all' }}
+                  >
+                    {job.event_key}
+                  </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-outline btn-xs" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={() => runAction("/api/relayer/jobs/retry", job.event_key)}>Retry</button>
-                    <button className="btn btn-ghost btn-xs" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={() => { setSelectedEventKey(job.event_key); setMessage(JSON.stringify(job, null, 2)); }}>Details</button>
+                    <button
+                      className="btn btn-outline btn-xs"
+                      style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      onClick={() => runAction('/api/relayer/jobs/retry', job.event_key)}
+                    >
+                      Retry
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      onClick={() => {
+                        setSelectedEventKey(job.event_key);
+                        setMessage(JSON.stringify(job, null, 2));
+                      }}
+                    >
+                      Details
+                    </button>
                   </div>
                 </div>
               ))}
@@ -160,18 +208,60 @@ export function RelayerOpsPanel() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <h4 className="text-sm font-bold uppercase tracking-wider text-muted">Dead Letters</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '400px', overflowY: 'auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                maxHeight: '400px',
+                overflowY: 'auto',
+              }}
+            >
               {deadLetters.length === 0 && <p className="text-xs text-dim">Queue is empty.</p>}
               {deadLetters.map((job) => (
-                <div key={job.id} className="card" style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.05)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <div
+                  key={job.id}
+                  className="card"
+                  style={{
+                    padding: '1rem',
+                    background: 'rgba(239, 68, 68, 0.05)',
+                    borderColor: 'rgba(239, 68, 68, 0.2)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
                     <span className="badge badge-error text-xs">FAILED</span>
                     <span className="text-xs text-muted">{job.chain}</span>
                   </div>
-                  <div className="text-xs font-mono" style={{ marginBottom: '0.5rem', wordBreak: 'break-all' }}>{job.event_key}</div>
+                  <div
+                    className="text-xs font-mono"
+                    style={{ marginBottom: '0.5rem', wordBreak: 'break-all' }}
+                  >
+                    {job.event_key}
+                  </div>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button className="btn btn-primary btn-xs" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={() => runAction("/api/relayer/jobs/replay", job.event_key)}>Replay</button>
-                    <button className="btn btn-ghost btn-xs" style={{ padding: '2px 8px', fontSize: '0.7rem' }} onClick={() => { setSelectedEventKey(job.event_key); setMessage(JSON.stringify(job, null, 2)); }}>Details</button>
+                    <button
+                      className="btn btn-primary btn-xs"
+                      style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      onClick={() => runAction('/api/relayer/jobs/replay', job.event_key)}
+                    >
+                      Replay
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      onClick={() => {
+                        setSelectedEventKey(job.event_key);
+                        setMessage(JSON.stringify(job, null, 2));
+                      }}
+                    >
+                      Details
+                    </button>
                   </div>
                 </div>
               ))}
@@ -184,7 +274,7 @@ export function RelayerOpsPanel() {
             <div className="terminal-title">Relayer Command Output</div>
           </div>
           <div className="terminal-body">
-            <pre className="terminal-pre">{message || "Awaiting action..."}</pre>
+            <pre className="terminal-pre">{message || 'Awaiting action...'}</pre>
           </div>
         </div>
 
@@ -199,8 +289,18 @@ export function RelayerOpsPanel() {
                 placeholder="0x..."
               />
             </div>
-            <button className="btn btn-outline" onClick={() => runAction("/api/relayer/jobs/retry", selectedEventKey)}>Retry Job</button>
-            <button className="btn btn-outline" onClick={() => runAction("/api/relayer/jobs/replay", selectedEventKey)}>Replay DL</button>
+            <button
+              className="btn btn-outline"
+              onClick={() => runAction('/api/relayer/jobs/retry', selectedEventKey)}
+            >
+              Retry Job
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => runAction('/api/relayer/jobs/replay', selectedEventKey)}
+            >
+              Replay DL
+            </button>
           </div>
         </div>
       </div>

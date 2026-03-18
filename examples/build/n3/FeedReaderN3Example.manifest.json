@@ -1,1 +1,28 @@
-{"name":"FeedReaderN3Example","groups":[],"features":{},"supportedstandards":[],"abi":{"methods":[{"name":"getNeoUsd","parameters":[{"name":"dataFeedHash","type":"Hash160"}],"returntype":"Array","offset":0,"safe":true},{"name":"getAllPairs","parameters":[{"name":"dataFeedHash","type":"Hash160"}],"returntype":"Array","offset":52,"safe":true}],"events":[]},"permissions":[{"contract":"*","methods":["getAllPairs","getLatest"]}],"trusts":[],"extra":{"nef":{"optimization":"Basic"}}}
+{
+  "name": "FeedReaderN3Example",
+  "groups": [],
+  "features": {},
+  "supportedstandards": [],
+  "abi": {
+    "methods": [
+      {
+        "name": "getNeoUsd",
+        "parameters": [{ "name": "dataFeedHash", "type": "Hash160" }],
+        "returntype": "Array",
+        "offset": 0,
+        "safe": true
+      },
+      {
+        "name": "getAllPairs",
+        "parameters": [{ "name": "dataFeedHash", "type": "Hash160" }],
+        "returntype": "Array",
+        "offset": 52,
+        "safe": true
+      }
+    ],
+    "events": []
+  },
+  "permissions": [{ "contract": "*", "methods": ["getAllPairs", "getLatest"] }],
+  "trusts": [],
+  "extra": { "nef": { "optimization": "Basic" } }
+}

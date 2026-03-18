@@ -1,10 +1,10 @@
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { createHash } from "node:crypto";
-import { experimental, rpc as neoRpc, sc, tx, u, wallet } from "@cityofzion/neon-js";
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { createHash } from 'node:crypto';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import {
   encodeUtf8Base64,
   jsonPretty,
@@ -16,43 +16,43 @@ import {
   sleep,
   trimString,
   writeValidationArtifacts,
-} from "./common.mjs";
+} from './common.mjs';
 
 const execFileAsync = promisify(execFile);
-const GAS_HASH = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
-const EXAMPLE_BUILD_DIR = path.resolve(repoRoot, "examples/build/n3");
-const EXAMPLE_CONSUMER_ARTIFACT = "UserConsumerN3OracleExample";
-const AA_REPO_ROOT = path.resolve(repoRoot, "..", "neo-abstract-account");
-const RECOVERY_SOURCE_REF = "9cb7cca:contracts/recovery/MorpheusSocialRecoveryVerifier.Fixed.cs";
-const RECOVERY_CSPROJ_REF = "9cb7cca:contracts/recovery/MorpheusSocialRecoveryVerifier.csproj";
+const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const EXAMPLE_BUILD_DIR = path.resolve(repoRoot, 'examples/build/n3');
+const EXAMPLE_CONSUMER_ARTIFACT = 'UserConsumerN3OracleExample';
+const AA_REPO_ROOT = path.resolve(repoRoot, '..', 'neo-abstract-account');
+const RECOVERY_SOURCE_REF = '9cb7cca:contracts/recovery/MorpheusSocialRecoveryVerifier.Fixed.cs';
+const RECOVERY_CSPROJ_REF = '9cb7cca:contracts/recovery/MorpheusSocialRecoveryVerifier.csproj';
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
 }
 
 function parseStackItem(item) {
-  if (!item || typeof item !== "object") return null;
+  if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
   switch (type) {
-    case "array":
-    case "struct":
+    case 'array':
+    case 'struct':
       return Array.isArray(item.value) ? item.value.map((entry) => parseStackItem(entry)) : [];
-    case "hash160":
-    case "hash256":
-    case "string":
-      return String(item.value ?? "");
-    case "integer":
-      return String(item.value ?? "0");
-    case "boolean":
+    case 'hash160':
+    case 'hash256':
+    case 'string':
+      return String(item.value ?? '');
+    case 'integer':
+      return String(item.value ?? '0');
+    case 'boolean':
       return Boolean(item.value);
-    case "bytestring":
-    case "bytearray": {
+    case 'bytestring':
+    case 'bytearray': {
       const raw = trimString(item.value);
-      if (!raw) return "";
-      const bytes = Buffer.from(raw, "base64");
-      if (bytes.length === 20) return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
-      const text = bytes.toString("utf8");
-      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString("hex")}`;
+      if (!raw) return '';
+      const bytes = Buffer.from(raw, 'base64');
+      if (bytes.length === 20) return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
+      const text = bytes.toString('utf8');
+      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString('hex')}`;
     }
     default:
       return item.value ?? null;
@@ -60,32 +60,41 @@ function parseStackItem(item) {
 }
 
 function decodeCallbackArray(item) {
-  if (!item || item.type !== "Array" || !Array.isArray(item.value) || item.value.length < 4) return null;
+  if (!item || item.type !== 'Array' || !Array.isArray(item.value) || item.value.length < 4)
+    return null;
   const [requestTypeItem, successItem, resultItem, errorItem] = item.value;
-  const requestType = Buffer.from(trimString(requestTypeItem?.value || ""), "base64").toString("utf8");
-  const resultText = Buffer.from(trimString(resultItem?.value || ""), "base64").toString("utf8");
-  const errorText = Buffer.from(trimString(errorItem?.value || ""), "base64").toString("utf8");
+  const requestType = Buffer.from(trimString(requestTypeItem?.value || ''), 'base64').toString(
+    'utf8'
+  );
+  const resultText = Buffer.from(trimString(resultItem?.value || ''), 'base64').toString('utf8');
+  const errorText = Buffer.from(trimString(errorItem?.value || ''), 'base64').toString('utf8');
   return {
     request_type: requestType,
     success: Boolean(successItem?.value),
     result_text: resultText,
-    result_json: (() => { try { return JSON.parse(resultText); } catch { return null; } })(),
+    result_json: (() => {
+      try {
+        return JSON.parse(resultText);
+      } catch {
+        return null;
+      }
+    })(),
     error_text: errorText,
   };
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
   const response = await rpcClient.invokeFunction(contractHash, method, params);
-  if (String(response.state || "").toUpperCase() === "FAULT") {
-    throw new Error(`${method} faulted: ${response.exception || "unknown error"}`);
+  if (String(response.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return parseStackItem(response.stack?.[0]);
 }
 
 async function invokeReadRaw(rpcClient, contractHash, method, params = []) {
   const response = await rpcClient.invokeFunction(contractHash, method, params);
-  if (String(response.state || "").toUpperCase() === "FAULT") {
-    throw new Error(`${method} faulted: ${response.exception || "unknown error"}`);
+  if (String(response.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return response.stack?.[0] || null;
 }
@@ -103,19 +112,21 @@ async function waitForApplicationLog(rpcClient, txHash, timeoutMs = 180000) {
 
 function assertHalt(appLog, label) {
   const execution = appLog?.executions?.[0];
-  const vmState = String(execution?.vmstate || execution?.state || "");
-  if (!vmState.includes("HALT")) {
-    throw new Error(`${label} did not HALT: ${vmState} ${execution?.exception || ""}`.trim());
+  const vmState = String(execution?.vmstate || execution?.state || '');
+  if (!vmState.includes('HALT')) {
+    throw new Error(`${label} did not HALT: ${vmState} ${execution?.exception || ''}`.trim());
   }
   return execution;
 }
 
 function decodeDeployHash(appLog) {
-  const notification = appLog?.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "Deploy");
-  const value = notification?.state?.value?.[0]?.value || "";
-  const bytes = Buffer.from(value, "base64");
-  if (bytes.length !== 20) throw new Error("failed to decode deployed Neo N3 contract hash");
-  return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+  const notification = appLog?.executions
+    ?.flatMap((execution) => execution.notifications || [])
+    .find((entry) => entry.eventname === 'Deploy');
+  const value = notification?.state?.value?.[0]?.value || '';
+  const bytes = Buffer.from(value, 'base64');
+  if (bytes.length !== 20) throw new Error('failed to decode deployed Neo N3 contract hash');
+  return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
 }
 
 async function loadContractArtifacts(baseName, buildDir) {
@@ -123,7 +134,7 @@ async function loadContractArtifacts(baseName, buildDir) {
   const manifestPath = path.join(buildDir, `${baseName}.manifest.json`);
   const [nefBytes, manifestRaw] = await Promise.all([
     fs.readFile(nefPath),
-    fs.readFile(manifestPath, "utf8"),
+    fs.readFile(manifestPath, 'utf8'),
   ]);
   return {
     nef: sc.NEF.fromBuffer(nefBytes),
@@ -131,7 +142,15 @@ async function loadContractArtifacts(baseName, buildDir) {
   };
 }
 
-async function deployContract(rpcClient, account, rpcUrl, networkMagic, baseName, suffix, buildDir) {
+async function deployContract(
+  rpcClient,
+  account,
+  rpcUrl,
+  networkMagic,
+  baseName,
+  suffix,
+  buildDir
+) {
   const { nef, manifestJson } = await loadContractArtifacts(baseName, buildDir);
   const uniqueManifest = sc.ContractManifest.fromJson({
     ...manifestJson,
@@ -152,25 +171,55 @@ async function deployContract(rpcClient, account, rpcUrl, networkMagic, baseName
 }
 
 async function compileRecoveryVerifier() {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "morpheus-recovery-verifier-"));
-  const outDir = path.join(tempDir, "out");
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-recovery-verifier-'));
+  const outDir = path.join(tempDir, 'out');
   await fs.mkdir(outDir, { recursive: true });
-  const source = await execFileAsync("git", ["-C", AA_REPO_ROOT, "show", RECOVERY_SOURCE_REF], { maxBuffer: 10 * 1024 * 1024 });
-  const csproj = await execFileAsync("git", ["-C", AA_REPO_ROOT, "show", RECOVERY_CSPROJ_REF], { maxBuffer: 10 * 1024 * 1024 });
-  await fs.writeFile(path.join(tempDir, "MorpheusSocialRecoveryVerifier.Fixed.cs"), source.stdout);
-  await fs.writeFile(path.join(tempDir, "MorpheusSocialRecoveryVerifier.csproj"), csproj.stdout);
-  await execFileAsync(path.join(process.env.HOME || "~", ".dotnet/tools/nccs"), [path.join(tempDir, "MorpheusSocialRecoveryVerifier.csproj"), "-o", outDir, "--base-name", "MorpheusSocialRecoveryVerifier", "--assembly"], {
+  const source = await execFileAsync('git', ['-C', AA_REPO_ROOT, 'show', RECOVERY_SOURCE_REF], {
     maxBuffer: 10 * 1024 * 1024,
   });
+  const csproj = await execFileAsync('git', ['-C', AA_REPO_ROOT, 'show', RECOVERY_CSPROJ_REF], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+  await fs.writeFile(path.join(tempDir, 'MorpheusSocialRecoveryVerifier.Fixed.cs'), source.stdout);
+  await fs.writeFile(path.join(tempDir, 'MorpheusSocialRecoveryVerifier.csproj'), csproj.stdout);
+  await execFileAsync(
+    path.join(process.env.HOME || '~', '.dotnet/tools/nccs'),
+    [
+      path.join(tempDir, 'MorpheusSocialRecoveryVerifier.csproj'),
+      '-o',
+      outDir,
+      '--base-name',
+      'MorpheusSocialRecoveryVerifier',
+      '--assembly',
+    ],
+    {
+      maxBuffer: 10 * 1024 * 1024,
+    }
+  );
   return { tempDir, outDir };
 }
 
-async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests) {
-  const currentCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0");
-  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
+async function ensureRequestFeeCredit(
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  requiredRequests
+) {
+  const currentCredit = BigInt(
+    (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+      { type: 'Hash160', value: `0x${account.scriptHash}` },
+    ])) || '0'
+  );
+  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
   const requiredCredit = requestFee * BigInt(requiredRequests);
   if (requestFee <= 0n || currentCredit >= requiredCredit) {
-    return { request_fee: requestFee.toString(), current_credit: currentCredit.toString(), deposit_amount: "0" };
+    return {
+      request_fee: requestFee.toString(),
+      current_credit: currentCredit.toString(),
+      deposit_amount: '0',
+    };
   }
   const gas = new experimental.SmartContract(GAS_HASH, {
     rpcAddress: rpcUrl,
@@ -178,7 +227,7 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
     account,
   });
   const deficit = requiredCredit - currentCredit;
-  const txid = await gas.invoke("transfer", [
+  const txid = await gas.invoke('transfer', [
     sc.ContractParam.hash160(`0x${account.scriptHash}`),
     sc.ContractParam.hash160(oracleHash),
     sc.ContractParam.integer(deficit.toString()),
@@ -187,7 +236,11 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
   await waitForApplicationLog(rpcClient, txid);
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
-    const updatedCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0");
+    const updatedCredit = BigInt(
+      (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+        { type: 'Hash160', value: `0x${account.scriptHash}` },
+      ])) || '0'
+    );
     if (updatedCredit >= requiredCredit) {
       return {
         request_fee: requestFee.toString(),
@@ -197,7 +250,7 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
     }
     await sleep(2000);
   }
-  throw new Error("timed out waiting for Neo N3 request fee credit");
+  throw new Error('timed out waiting for Neo N3 request fee credit');
 }
 
 function shellQuote(value) {
@@ -205,23 +258,39 @@ function shellQuote(value) {
 }
 
 async function runRemoteCommand(command, { appId, phalaApiToken }) {
-  const { stdout } = await execFileAsync("phala", ["ssh", "--api-token", phalaApiToken, appId, "--", `sh -lc ${shellQuote(command)}`], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  const { stdout } = await execFileAsync(
+    'phala',
+    ['ssh', '--api-token', phalaApiToken, appId, '--', `sh -lc ${shellQuote(command)}`],
+    {
+      maxBuffer: 10 * 1024 * 1024,
+    }
+  );
   return stdout;
 }
 
 async function findRelayerLoopPid({ appId, phalaApiToken }) {
-  const stdout = await runRemoteCommand("ps -ef | grep 'node src/cli.js loop' | grep -v grep | awk 'NR==1 {print $1}'", { appId, phalaApiToken });
-  return trimString(stdout.split(/\r?\n/, 1)[0] || "");
+  const stdout = await runRemoteCommand(
+    "ps -ef | grep 'node src/cli.js loop' | grep -v grep | awk 'NR==1 {print $1}'",
+    { appId, phalaApiToken }
+  );
+  return trimString(stdout.split(/\r?\n/, 1)[0] || '');
 }
 
-async function waitForRelayerState({ appId, phalaApiToken, pid, shouldBeRunning, timeoutMs = 30000 }) {
+async function waitForRelayerState({
+  appId,
+  phalaApiToken,
+  pid,
+  shouldBeRunning,
+  timeoutMs = 30000,
+}) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const stdout = await runRemoteCommand(`ps -o pid=,stat=,args= | awk '$1 == ${pid} {print $2}'`, { appId, phalaApiToken });
-    const status = trimString(stdout.split(/\r?\n/, 1)[0] || "");
-    const paused = status.includes("T");
+    const stdout = await runRemoteCommand(
+      `ps -o pid=,stat=,args= | awk '$1 == ${pid} {print $2}'`,
+      { appId, phalaApiToken }
+    );
+    const status = trimString(stdout.split(/\r?\n/, 1)[0] || '');
+    const paused = status.includes('T');
     const running = Boolean(status) && !paused;
     if ((shouldBeRunning && running) || (!shouldBeRunning && paused)) return;
     await sleep(1000);
@@ -231,7 +300,7 @@ async function waitForRelayerState({ appId, phalaApiToken, pid, shouldBeRunning,
 
 async function stopRelayer({ appId, phalaApiToken }) {
   const pid = await findRelayerLoopPid({ appId, phalaApiToken });
-  assertCondition(pid, "morpheus relayer loop pid not found on testnet CVM");
+  assertCondition(pid, 'morpheus relayer loop pid not found on testnet CVM');
   await runRemoteCommand(`kill -s STOP ${pid}`, { appId, phalaApiToken });
   await waitForRelayerState({ appId, phalaApiToken, pid, shouldBeRunning: false });
   return pid;
@@ -248,7 +317,9 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
   while (Date.now() - startedAt < timeoutMs) {
     try {
       const appLog = await rpcClient.getApplicationLog(txid);
-      const notification = appLog.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "OracleRequested");
+      const notification = appLog.executions
+        ?.flatMap((execution) => execution.notifications || [])
+        .find((entry) => entry.eventname === 'OracleRequested');
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -260,7 +331,9 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
 async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await rpcClient.invokeFunction(consumerHash, "getCallback", [{ type: "Integer", value: String(requestId) }]);
+    const response = await rpcClient.invokeFunction(consumerHash, 'getCallback', [
+      { type: 'Integer', value: String(requestId) },
+    ]);
     const decoded = decodeCallbackArray(response.stack?.[0]);
     if (decoded && (decoded.request_type || decoded.result_text || decoded.error_text)) {
       return decoded;
@@ -273,14 +346,18 @@ async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 1
 async function fetchRawCallbackResult(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await rpcClient.invokeFunction(consumerHash, "getCallback", [{ type: "Integer", value: String(requestId) }]);
+    const response = await rpcClient.invokeFunction(consumerHash, 'getCallback', [
+      { type: 'Integer', value: String(requestId) },
+    ]);
     const item = response.stack?.[0];
-    if (item?.type === "Array" && Array.isArray(item.value) && item.value.length >= 4) {
+    if (item?.type === 'Array' && Array.isArray(item.value) && item.value.length >= 4) {
       const [requestTypeItem, successItem, resultItem, errorItem] = item.value;
-      const requestType = Buffer.from(trimString(requestTypeItem?.value || ""), "base64").toString("utf8");
+      const requestType = Buffer.from(trimString(requestTypeItem?.value || ''), 'base64').toString(
+        'utf8'
+      );
       const success = Boolean(successItem?.value);
-      const resultBytes = Buffer.from(trimString(resultItem?.value || ""), "base64");
-      const errorText = Buffer.from(trimString(errorItem?.value || ""), "base64").toString("utf8");
+      const resultBytes = Buffer.from(trimString(resultItem?.value || ''), 'base64');
+      const errorText = Buffer.from(trimString(errorItem?.value || ''), 'base64').toString('utf8');
       if (requestType || resultBytes.length > 0 || errorText) {
         return { requestType, success, resultBytes, errorText };
       }
@@ -291,58 +368,78 @@ async function fetchRawCallbackResult(rpcClient, consumerHash, requestId, timeou
 }
 
 function decodeRecoveryTicketV3(resultBytes) {
-  const segments = resultBytes.toString("utf8").split("|");
-  assertCondition(segments.length === 4, "invalid recovery v3 compact payload");
-  assertCondition(segments[0] === "3", "unexpected recovery ticket version");
+  const segments = resultBytes.toString('utf8').split('|');
+  assertCondition(segments.length === 4, 'invalid recovery v3 compact payload');
+  assertCondition(segments[0] === '3', 'unexpected recovery ticket version');
   return {
-    master_nullifier: `0x${Buffer.from(segments[1], "base64").toString("hex")}`,
-    action_nullifier: `0x${Buffer.from(segments[2], "base64").toString("hex")}`,
-    signature: `0x${Buffer.from(segments[3], "base64").toString("hex")}`,
+    master_nullifier: `0x${Buffer.from(segments[1], 'base64').toString('hex')}`,
+    action_nullifier: `0x${Buffer.from(segments[2], 'base64').toString('hex')}`,
+    signature: `0x${Buffer.from(segments[3], 'base64').toString('hex')}`,
   };
 }
 
 function decodeBindResult(callbackItem) {
-  const decoded = typeof callbackItem?.request_type === "string" ? callbackItem : decodeCallbackArray(callbackItem);
+  const decoded =
+    typeof callbackItem?.request_type === 'string'
+      ? callbackItem
+      : decodeCallbackArray(callbackItem);
   return decoded?.result_json?.result || {};
 }
 
 function utf8ByteArrayParam(value) {
-  return sc.ContractParam.byteArray(u.HexString.fromHex(Buffer.from(String(value ?? ""), "utf8").toString("hex"), true));
+  return sc.ContractParam.byteArray(
+    u.HexString.fromHex(Buffer.from(String(value ?? ''), 'utf8').toString('hex'), true)
+  );
 }
 
 function hexByteArrayParam(hexValue) {
-  return sc.ContractParam.byteArray(u.HexString.fromHex(String(hexValue || "").replace(/^0x/i, ""), true));
+  return sc.ContractParam.byteArray(
+    u.HexString.fromHex(String(hexValue || '').replace(/^0x/i, ''), true)
+  );
 }
 
 function toNeoInternalHex(hashValue) {
-  const hex = String(hashValue || "").replace(/^0x/i, "").toLowerCase();
+  const hex = String(hashValue || '')
+    .replace(/^0x/i, '')
+    .toLowerCase();
   assertCondition(/^[0-9a-f]{40}$/.test(hex), `invalid hash160: ${hashValue}`);
-  return `0x${Buffer.from(hex, "hex").reverse().toString("hex")}`;
+  return `0x${Buffer.from(hex, 'hex').reverse().toString('hex')}`;
 }
 
-async function fetchBindMasterNullifier({ consumer, rpcClient, providerUid, requesterHash, beforeSubmit, afterSubmit }) {
+async function fetchBindMasterNullifier({
+  consumer,
+  rpcClient,
+  providerUid,
+  requesterHash,
+  beforeSubmit,
+  afterSubmit,
+}) {
   const payload = {
-    provider: "github",
+    provider: 'github',
     provider_uid: providerUid,
     vault_account: requesterHash,
-    claim_type: "Github_VerifiedUser",
-    claim_value: "true",
+    claim_type: 'Github_VerifiedUser',
+    claim_value: 'true',
   };
   let txid = null;
   try {
     if (beforeSubmit) await beforeSubmit();
-    txid = await consumer.invoke("requestRaw", [
-      "neodid_bind",
-      sc.ContractParam.byteArray(encodeUtf8Base64(JSON.stringify(payload))),
-    ], [new tx.Signer({ account: consumer.account.scriptHash, scopes: tx.WitnessScope.Global })]);
+    txid = await consumer.invoke(
+      'requestRaw',
+      ['neodid_bind', sc.ContractParam.byteArray(encodeUtf8Base64(JSON.stringify(payload)))],
+      [new tx.Signer({ account: consumer.account.scriptHash, scopes: tx.WitnessScope.Global })]
+    );
   } finally {
     if (afterSubmit) await afterSubmit(txid).catch(() => {});
   }
   const requestId = await waitForRequestId(rpcClient, txid);
   const callback = await waitForCallback(rpcClient, consumer.scriptHash, requestId);
-  assertCondition(callback?.success === true, "neodid_bind callback should succeed");
+  assertCondition(callback?.success === true, 'neodid_bind callback should succeed');
   const result = decodeBindResult(callback);
-  assertCondition(/^0x[0-9a-f]{64}$/i.test(result.master_nullifier || ""), "master_nullifier missing from bind callback");
+  assertCondition(
+    /^0x[0-9a-f]{64}$/i.test(result.master_nullifier || ''),
+    'master_nullifier missing from bind callback'
+  );
   return {
     txid,
     request_id: String(requestId),
@@ -351,12 +448,28 @@ async function fetchBindMasterNullifier({ consumer, rpcClient, providerUid, requ
   };
 }
 
-function creditProtectedHooks({ account, rpcUrl, networkMagic, rpcClient, oracleHash, phalaApiToken, appId, requiredRequests }) {
-  let pid = "";
+function creditProtectedHooks({
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  phalaApiToken,
+  appId,
+  requiredRequests,
+}) {
+  let pid = '';
   return {
     beforeSubmit: async () => {
       pid = await stopRelayer({ phalaApiToken, appId });
-      await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests);
+      await ensureRequestFeeCredit(
+        account,
+        rpcUrl,
+        networkMagic,
+        rpcClient,
+        oracleHash,
+        requiredRequests
+      );
     },
     afterSubmit: async () => {
       await startRelayer({ phalaApiToken, appId, pid }).catch(() => {});
@@ -364,38 +477,49 @@ function creditProtectedHooks({ account, rpcUrl, networkMagic, rpcClient, oracle
   };
 }
 
-function computeRecoveryActionId({ network, aaContract, accountIdText, newOwner, recoveryNonceText }) {
-  const digest = createHash("sha256")
-    .update([
-      network,
-      aaContract,
-      accountIdText,
-      newOwner,
-      recoveryNonceText,
-    ].join("\u001f"))
-    .digest("hex");
+function computeRecoveryActionId({
+  network,
+  aaContract,
+  accountIdText,
+  newOwner,
+  recoveryNonceText,
+}) {
+  const digest = createHash('sha256')
+    .update([network, aaContract, accountIdText, newOwner, recoveryNonceText].join('\u001f'))
+    .digest('hex');
   return `aa_recovery:${digest}`;
 }
 
 async function main() {
   await loadExampleEnv();
-  const deployment = (await readDeploymentRegistry("testnet")).neo_n3 || {};
-  const rpcUrl = trimString(deployment.rpc_url || "https://testnet1.neo.coz.io:443");
+  const deployment = (await readDeploymentRegistry('testnet')).neo_n3 || {};
+  const rpcUrl = trimString(deployment.rpc_url || 'https://testnet1.neo.coz.io:443');
   const networkMagic = Number(deployment.network_magic || 894710606);
-  const signerWif = resolveNeoN3SignerWif("testnet");
-  const oracleHash = normalizeHash160(deployment.oracle_hash || "");
-  const consumerHash = normalizeHash160(deployment.example_consumer_hash || "");
-  const aaCoreHash = trimString(process.env.AA_CORE_HASH_TESTNET || "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38");
-  const phalaApiToken = trimString(process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || "");
-  const phalaAppId = trimString(process.env.MORPHEUS_PAYMASTER_APP_ID || "28294e89d490924b79c85cdee057ce55723b3d56");
-  const verifierPubkey = JSON.parse(await fs.readFile(path.resolve(repoRoot, "examples/deployments/n3-neodid-oracle-matrix.testnet.latest.json"), "utf8")).cases
-    ?.find((item) => item.request_type === "neodid_recovery_ticket")
-    ?.callback?.result_json?.verification?.public_key || "";
+  const signerWif = resolveNeoN3SignerWif('testnet');
+  const oracleHash = normalizeHash160(deployment.oracle_hash || '');
+  const consumerHash = normalizeHash160(deployment.example_consumer_hash || '');
+  const aaCoreHash = trimString(
+    process.env.AA_CORE_HASH_TESTNET || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38'
+  );
+  const phalaApiToken = trimString(
+    process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''
+  );
+  const phalaAppId = trimString(
+    process.env.MORPHEUS_PAYMASTER_APP_ID || '28294e89d490924b79c85cdee057ce55723b3d56'
+  );
+  const verifierPubkey =
+    JSON.parse(
+      await fs.readFile(
+        path.resolve(repoRoot, 'examples/deployments/n3-neodid-oracle-matrix.testnet.latest.json'),
+        'utf8'
+      )
+    ).cases?.find((item) => item.request_type === 'neodid_recovery_ticket')?.callback?.result_json
+      ?.verification?.public_key || '';
 
-  assertCondition(signerWif, "testnet signer WIF is required");
-  assertCondition(oracleHash, "testnet oracle hash is required");
-  assertCondition(consumerHash, "testnet example consumer hash is required");
-  assertCondition(trimString(verifierPubkey), "NeoDID verifier public key is required");
+  assertCondition(signerWif, 'testnet signer WIF is required');
+  assertCondition(oracleHash, 'testnet oracle hash is required');
+  assertCondition(consumerHash, 'testnet example consumer hash is required');
+  assertCondition(trimString(verifierPubkey), 'NeoDID verifier public key is required');
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
@@ -406,7 +530,7 @@ async function main() {
     networkMagic,
     account,
   });
-  consumer.scriptHash = consumerHash.replace(/^0x/i, "");
+  consumer.scriptHash = consumerHash.replace(/^0x/i, '');
   consumer.account = account;
 
   const feeHooks = creditProtectedHooks({
@@ -422,7 +546,9 @@ async function main() {
   const feeStatus = await (async () => {
     await feeHooks.beforeSubmit();
     await feeHooks.afterSubmit();
-    return ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 12).catch(() => ({ request_fee: "0", current_credit: "0", deposit_amount: "0" }));
+    return ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, 12).catch(
+      () => ({ request_fee: '0', current_credit: '0', deposit_amount: '0' })
+    );
   })();
   const bind = await fetchBindMasterNullifier({
     consumer,
@@ -435,34 +561,44 @@ async function main() {
 
   const compiled = await compileRecoveryVerifier();
   try {
-    const verifier = await deployContract(rpcClient, account, rpcUrl, networkMagic, "MorpheusSocialRecoveryVerifier", `recovery-boundary-${Date.now()}`, compiled.outDir);
+    const verifier = await deployContract(
+      rpcClient,
+      account,
+      rpcUrl,
+      networkMagic,
+      'MorpheusSocialRecoveryVerifier',
+      `recovery-boundary-${Date.now()}`,
+      compiled.outDir
+    );
     const ownerHash = requesterHash;
-    const accountIdA = "aa-social-recovery-cross-a";
-    const accountIdB = "aa-social-recovery-cross-b";
-    const accountAddressA = "0x1111111111111111111111111111111111111111";
-    const accountAddressB = "0x2222222222222222222222222222222222222222";
-    const newOwnerA = "0x3333333333333333333333333333333333333333";
-    const newOwnerB = "0x4444444444444444444444444444444444444444";
+    const accountIdA = 'aa-social-recovery-cross-a';
+    const accountIdB = 'aa-social-recovery-cross-b';
+    const accountAddressA = '0x1111111111111111111111111111111111111111';
+    const accountAddressB = '0x2222222222222222222222222222222222222222';
+    const newOwnerA = '0x3333333333333333333333333333333333333333';
+    const newOwnerB = '0x4444444444444444444444444444444444444444';
     const aaCoreHashInternal = toNeoInternalHex(aaCoreHash);
     const verifierHashInternal = toNeoInternalHex(verifier.hash);
     const accountAddressAInternal = toNeoInternalHex(accountAddressA);
     const accountAddressBInternal = toNeoInternalHex(accountAddressB);
     const newOwnerAInternal = toNeoInternalHex(newOwnerA);
     const newOwnerBInternal = toNeoInternalHex(newOwnerB);
-    const recoveryNonceText = "0";
-    const expiresAtText = String(Date.now() + (24 * 60 * 60 * 1000));
+    const recoveryNonceText = '0';
+    const expiresAtText = String(Date.now() + 24 * 60 * 60 * 1000);
 
     const verifierContract = new experimental.SmartContract(verifier.hash, {
       rpcAddress: rpcUrl,
       networkMagic,
       account,
     });
-    const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
+    const signers = [
+      new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global }),
+    ];
 
     const setupParams = (accountIdText, accountAddress) => [
       utf8ByteArrayParam(accountIdText),
       sc.ContractParam.string(accountIdText),
-      sc.ContractParam.string("neo_n3"),
+      sc.ContractParam.string('neo_n3'),
       sc.ContractParam.hash160(ownerHash),
       sc.ContractParam.hash160(aaCoreHash),
       sc.ContractParam.hash160(accountAddress),
@@ -473,13 +609,21 @@ async function main() {
       sc.ContractParam.publicKey(verifierPubkey),
     ];
 
-    const setupATx = await verifierContract.invoke("setupRecovery", setupParams(accountIdA, accountAddressA), signers);
-    const setupBTx = await verifierContract.invoke("setupRecovery", setupParams(accountIdB, accountAddressB), signers);
+    const setupATx = await verifierContract.invoke(
+      'setupRecovery',
+      setupParams(accountIdA, accountAddressA),
+      signers
+    );
+    const setupBTx = await verifierContract.invoke(
+      'setupRecovery',
+      setupParams(accountIdB, accountAddressB),
+      signers
+    );
     await waitForApplicationLog(rpcClient, setupATx);
     await waitForApplicationLog(rpcClient, setupBTx);
 
     const recoveryActionIdA = computeRecoveryActionId({
-      network: "neo_n3",
+      network: 'neo_n3',
       aaContract: aaCoreHashInternal,
       accountIdText: accountIdA,
       newOwner: newOwnerAInternal,
@@ -487,9 +631,9 @@ async function main() {
     });
 
     const recoveryPayloadA = {
-      provider: "github",
+      provider: 'github',
       provider_uid: providerUid,
-      network: "neo_n3",
+      network: 'neo_n3',
       aa_contract: aaCoreHashInternal,
       verifier_contract: verifierHashInternal,
       account_address: accountAddressAInternal,
@@ -498,55 +642,75 @@ async function main() {
       recovery_nonce: recoveryNonceText,
       expires_at: expiresAtText,
       action_id: recoveryActionIdA,
-      callback_encoding: "neo_n3_recovery_v3",
+      callback_encoding: 'neo_n3_recovery_v3',
     };
 
     let recoveryTx = null;
     try {
       await feeHooks.beforeSubmit();
-      recoveryTx = await consumer.invoke("requestRaw", [
-        "neodid_recovery_ticket",
-        sc.ContractParam.byteArray(encodeUtf8Base64(JSON.stringify(recoveryPayloadA))),
-      ], signers);
+      recoveryTx = await consumer.invoke(
+        'requestRaw',
+        [
+          'neodid_recovery_ticket',
+          sc.ContractParam.byteArray(encodeUtf8Base64(JSON.stringify(recoveryPayloadA))),
+        ],
+        signers
+      );
     } finally {
       await feeHooks.afterSubmit(recoveryTx).catch(() => {});
     }
     const recoveryRequestId = await waitForRequestId(rpcClient, recoveryTx);
-    const recoveryCallback = await fetchRawCallbackResult(rpcClient, consumerHash, recoveryRequestId);
-    assertCondition(recoveryCallback.success === true, "recovery ticket callback should succeed");
+    const recoveryCallback = await fetchRawCallbackResult(
+      rpcClient,
+      consumerHash,
+      recoveryRequestId
+    );
+    assertCondition(recoveryCallback.success === true, 'recovery ticket callback should succeed');
     const compact = decodeRecoveryTicketV3(recoveryCallback.resultBytes);
 
-    const submitATx = await verifierContract.invoke("submitRecoveryTicket", [
-      utf8ByteArrayParam(accountIdA),
-      sc.ContractParam.hash160(newOwnerA),
-      sc.ContractParam.string(recoveryNonceText),
-      sc.ContractParam.string(expiresAtText),
-      sc.ContractParam.string(recoveryActionIdA),
-      hexByteArrayParam(compact.master_nullifier),
-      hexByteArrayParam(compact.action_nullifier),
-      hexByteArrayParam(compact.signature),
-    ], signers);
+    const submitATx = await verifierContract.invoke(
+      'submitRecoveryTicket',
+      [
+        utf8ByteArrayParam(accountIdA),
+        sc.ContractParam.hash160(newOwnerA),
+        sc.ContractParam.string(recoveryNonceText),
+        sc.ContractParam.string(expiresAtText),
+        sc.ContractParam.string(recoveryActionIdA),
+        hexByteArrayParam(compact.master_nullifier),
+        hexByteArrayParam(compact.action_nullifier),
+        hexByteArrayParam(compact.signature),
+      ],
+      signers
+    );
     const submitALog = await waitForApplicationLog(rpcClient, submitATx);
-    assertHalt(submitALog, "submitRecoveryTicket A");
+    assertHalt(submitALog, 'submitRecoveryTicket A');
 
-    const wrongAccountTest = await verifierContract.testInvoke("submitRecoveryTicket", [
-      utf8ByteArrayParam(accountIdB),
-      sc.ContractParam.hash160(newOwnerA),
-      sc.ContractParam.string(recoveryNonceText),
-      sc.ContractParam.string(expiresAtText),
-      sc.ContractParam.string(recoveryActionIdA),
-      hexByteArrayParam(compact.master_nullifier),
-      hexByteArrayParam(compact.action_nullifier),
-      hexByteArrayParam(compact.signature),
-    ], signers);
+    const wrongAccountTest = await verifierContract.testInvoke(
+      'submitRecoveryTicket',
+      [
+        utf8ByteArrayParam(accountIdB),
+        sc.ContractParam.hash160(newOwnerA),
+        sc.ContractParam.string(recoveryNonceText),
+        sc.ContractParam.string(expiresAtText),
+        sc.ContractParam.string(recoveryActionIdA),
+        hexByteArrayParam(compact.master_nullifier),
+        hexByteArrayParam(compact.action_nullifier),
+        hexByteArrayParam(compact.signature),
+      ],
+      signers
+    );
 
-    const pendingA = await invokeReadRaw(rpcClient, verifier.hash, "getPendingRecovery", [{ type: "ByteArray", value: Buffer.from(accountIdA, "utf8").toString("base64") }]);
-    const pendingB = await invokeReadRaw(rpcClient, verifier.hash, "getPendingRecovery", [{ type: "ByteArray", value: Buffer.from(accountIdB, "utf8").toString("base64") }]);
+    const pendingA = await invokeReadRaw(rpcClient, verifier.hash, 'getPendingRecovery', [
+      { type: 'ByteArray', value: Buffer.from(accountIdA, 'utf8').toString('base64') },
+    ]);
+    const pendingB = await invokeReadRaw(rpcClient, verifier.hash, 'getPendingRecovery', [
+      { type: 'ByteArray', value: Buffer.from(accountIdB, 'utf8').toString('base64') },
+    ]);
 
     const generatedAt = new Date().toISOString();
     const jsonReport = {
       generated_at: generatedAt,
-      network: "testnet",
+      network: 'testnet',
       rpc_url: rpcUrl,
       network_magic: networkMagic,
       oracle_hash: oracleHash,
@@ -582,43 +746,53 @@ async function main() {
     };
 
     const markdownReport = [
-      "# N3 AA Recovery Cross-Account Boundary",
-      "",
+      '# N3 AA Recovery Cross-Account Boundary',
+      '',
       `Date: ${generatedAt}`,
-      "",
-      "## Scope",
-      "",
-      "This probe deploys a disposable MorpheusSocialRecoveryVerifier on Neo N3 testnet, requests a compact NeoDID recovery ticket for account A, submits it successfully to account A, and then attempts to replay the same ticket against account B.",
-      "",
-      "## Result",
-      "",
+      '',
+      '## Scope',
+      '',
+      'This probe deploys a disposable MorpheusSocialRecoveryVerifier on Neo N3 testnet, requests a compact NeoDID recovery ticket for account A, submits it successfully to account A, and then attempts to replay the same ticket against account B.',
+      '',
+      '## Result',
+      '',
       `- Recovery verifier hash: \`${verifier.hash}\``,
       `- Oracle recovery request id: \`${recoveryRequestId}\``,
       `- Submit A tx: \`${submitATx}\``,
       `- Wrong-account testInvoke state: \`${wrongAccountTest.state}\``,
-      wrongAccountTest.exception ? `- Wrong-account exception: \`${wrongAccountTest.exception}\`` : null,
-      "",
-      "## Conclusion",
-      "",
-      "The ticket bound to account A cannot be replayed against account B if the verifier preserves account-specific digest binding.",
-      "",
-    ].filter(Boolean).join("\n");
+      wrongAccountTest.exception
+        ? `- Wrong-account exception: \`${wrongAccountTest.exception}\``
+        : null,
+      '',
+      '## Conclusion',
+      '',
+      'The ticket bound to account A cannot be replayed against account B if the verifier preserves account-specific digest binding.',
+      '',
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     const artifacts = await writeValidationArtifacts({
-      baseName: "n3-aa-recovery-cross-account-boundary",
-      network: "testnet",
+      baseName: 'n3-aa-recovery-cross-account-boundary',
+      network: 'testnet',
       generatedAt,
       jsonReport,
       markdownReport,
     });
 
-    console.log(JSON.stringify({
-      ...artifacts,
-      recovery_verifier_hash: verifier.hash,
-      recovery_request_id: String(recoveryRequestId),
-      wrong_account_state: wrongAccountTest.state,
-      wrong_account_exception: wrongAccountTest.exception || null,
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          ...artifacts,
+          recovery_verifier_hash: verifier.hash,
+          recovery_request_id: String(recoveryRequestId),
+          wrong_account_state: wrongAccountTest.state,
+          wrong_account_exception: wrongAccountTest.exception || null,
+        },
+        null,
+        2
+      )
+    );
   } finally {
     await fs.rm(compiled.tempDir, { recursive: true, force: true }).catch(() => {});
   }

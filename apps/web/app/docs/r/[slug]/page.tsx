@@ -1,9 +1,9 @@
-import { notFound } from "next/navigation";
-import { getDocBySlug } from "@/lib/mdx";
-import { MarkdownRenderer } from "@/components/ui/MarkdownRenderer";
-import { TableOfContents, TocItem } from "@/components/ui/TableOfContents";
-import { BookOpen } from "lucide-react";
-import GithubSlugger from "github-slugger";
+import { notFound } from 'next/navigation';
+import { getDocBySlug } from '@/lib/mdx';
+import { MarkdownRenderer } from '@/components/ui/MarkdownRenderer';
+import { TableOfContents, TocItem } from '@/components/ui/TableOfContents';
+import { BookOpen } from 'lucide-react';
+import GithubSlugger from 'github-slugger';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -14,8 +14,8 @@ function extractToc(content: string): TocItem[] {
   const headings = content.match(/^(#{2,4})\s+(.+)$/gm) || [];
   return headings.map((heading) => {
     const level = heading.match(/^(#+)/)![1].length;
-    let text = heading.replace(/^(#+)\s+/, "");
-    text = text.replace(/\[(.*?)\]\(.*?\)/g, "$1");
+    let text = heading.replace(/^(#+)\s+/, '');
+    text = text.replace(/\[(.*?)\]\(.*?\)/g, '$1');
     return {
       id: slugger.slug(text),
       text,
@@ -35,11 +35,22 @@ export default async function MarkdownDocPage({ params }: PageProps) {
   const tocItems = extractToc(doc.content);
 
   return (
-    <div style={{ display: "flex", alignItems: "flex-start", minWidth: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: 0 }}>
       <div className="fade-in" style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
           <BookOpen size={14} color="var(--neo-green)" />
-          <span style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', fontFamily: 'var(--font-mono)' }}>EXTENDED DOCUMENTATION</span>
+          <span
+            style={{
+              fontSize: '0.7rem',
+              fontWeight: 800,
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            EXTENDED DOCUMENTATION
+          </span>
         </div>
         <MarkdownRenderer content={doc.content} />
       </div>

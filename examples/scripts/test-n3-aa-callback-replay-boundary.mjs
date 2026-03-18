@@ -1,10 +1,10 @@
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { experimental, rpc as neoRpc, sc, tx, u, wallet } from "@cityofzion/neon-js";
-import { buildFulfillmentDigestBytes } from "../../workers/morpheus-relayer/src/router.js";
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
+import { buildFulfillmentDigestBytes } from '../../workers/morpheus-relayer/src/router.js';
 import {
   jsonPretty,
   loadExampleEnv,
@@ -16,12 +16,15 @@ import {
   trimString,
   tryParseJson,
   writeValidationArtifacts,
-} from "./common.mjs";
+} from './common.mjs';
 
-const GAS_HASH = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
-const CONTRACT_BUILD_DIR = path.resolve(repoRoot, "contracts/build");
-const AA_BUILD_DIR = path.resolve(repoRoot, "../neo-abstract-account/contracts/bin/v3");
-const SOURCE_CALLBACK_REPORT = path.resolve(repoRoot, "examples/deployments/n3-automation-validation.testnet.latest.json");
+const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const CONTRACT_BUILD_DIR = path.resolve(repoRoot, 'contracts/build');
+const AA_BUILD_DIR = path.resolve(repoRoot, '../neo-abstract-account/contracts/bin/v3');
+const SOURCE_CALLBACK_REPORT = path.resolve(
+  repoRoot,
+  'examples/deployments/n3-automation-validation.testnet.latest.json'
+);
 const execFileAsync = promisify(execFile);
 
 function assertCondition(condition, message) {
@@ -29,28 +32,28 @@ function assertCondition(condition, message) {
 }
 
 function parseStackItem(item) {
-  if (!item || typeof item !== "object") return null;
+  if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
   switch (type) {
-    case "array":
-    case "struct":
+    case 'array':
+    case 'struct':
       return Array.isArray(item.value) ? item.value.map((entry) => parseStackItem(entry)) : [];
-    case "hash160":
-    case "hash256":
-    case "string":
-      return String(item.value ?? "");
-    case "integer":
-      return String(item.value ?? "0");
-    case "boolean":
+    case 'hash160':
+    case 'hash256':
+    case 'string':
+      return String(item.value ?? '');
+    case 'integer':
+      return String(item.value ?? '0');
+    case 'boolean':
       return Boolean(item.value);
-    case "bytestring":
-    case "bytearray": {
+    case 'bytestring':
+    case 'bytearray': {
       const raw = trimString(item.value);
-      if (!raw) return "";
-      const bytes = Buffer.from(raw, "base64");
-      if (bytes.length === 20) return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
-      const text = bytes.toString("utf8");
-      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString("hex")}`;
+      if (!raw) return '';
+      const bytes = Buffer.from(raw, 'base64');
+      if (bytes.length === 20) return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
+      const text = bytes.toString('utf8');
+      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString('hex')}`;
     }
     default:
       return item.value ?? null;
@@ -58,11 +61,14 @@ function parseStackItem(item) {
 }
 
 function decodeCallbackArray(item) {
-  if (!item || item.type !== "Array" || !Array.isArray(item.value) || item.value.length < 4) return null;
+  if (!item || item.type !== 'Array' || !Array.isArray(item.value) || item.value.length < 4)
+    return null;
   const [requestTypeItem, successItem, resultItem, errorItem] = item.value;
-  const requestType = Buffer.from(trimString(requestTypeItem?.value || ""), "base64").toString("utf8");
-  const resultText = Buffer.from(trimString(resultItem?.value || ""), "base64").toString("utf8");
-  const errorText = Buffer.from(trimString(errorItem?.value || ""), "base64").toString("utf8");
+  const requestType = Buffer.from(trimString(requestTypeItem?.value || ''), 'base64').toString(
+    'utf8'
+  );
+  const resultText = Buffer.from(trimString(resultItem?.value || ''), 'base64').toString('utf8');
+  const errorText = Buffer.from(trimString(errorItem?.value || ''), 'base64').toString('utf8');
   return {
     request_type: requestType,
     success: Boolean(successItem?.value),
@@ -73,13 +79,15 @@ function decodeCallbackArray(item) {
 }
 
 function byteArrayParam(hexValue) {
-  return sc.ContractParam.byteArray(u.HexString.fromHex(String(hexValue || "").replace(/^0x/i, ""), true));
+  return sc.ContractParam.byteArray(
+    u.HexString.fromHex(String(hexValue || '').replace(/^0x/i, ''), true)
+  );
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
   const response = await rpcClient.invokeFunction(contractHash, method, params);
-  if (String(response.state || "").toUpperCase() === "FAULT") {
-    throw new Error(`${method} faulted: ${response.exception || "unknown error"}`);
+  if (String(response.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return parseStackItem(response.stack?.[0]);
 }
@@ -97,19 +105,21 @@ async function waitForApplicationLog(rpcClient, txHash, timeoutMs = 180000) {
 
 function assertHalt(appLog, label) {
   const execution = appLog?.executions?.[0];
-  const vmState = String(execution?.vmstate || execution?.state || "");
-  if (!vmState.includes("HALT")) {
-    throw new Error(`${label} did not HALT: ${vmState} ${execution?.exception || ""}`.trim());
+  const vmState = String(execution?.vmstate || execution?.state || '');
+  if (!vmState.includes('HALT')) {
+    throw new Error(`${label} did not HALT: ${vmState} ${execution?.exception || ''}`.trim());
   }
   return execution;
 }
 
 function decodeDeployHash(appLog) {
-  const notification = appLog?.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "Deploy");
-  const value = notification?.state?.value?.[0]?.value || "";
-  const bytes = Buffer.from(value, "base64");
-  if (bytes.length !== 20) throw new Error("failed to decode deployed Neo N3 contract hash");
-  return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+  const notification = appLog?.executions
+    ?.flatMap((execution) => execution.notifications || [])
+    .find((entry) => entry.eventname === 'Deploy');
+  const value = notification?.state?.value?.[0]?.value || '';
+  const bytes = Buffer.from(value, 'base64');
+  if (bytes.length !== 20) throw new Error('failed to decode deployed Neo N3 contract hash');
+  return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
 }
 
 async function loadContractArtifacts(baseName, buildDir) {
@@ -117,7 +127,7 @@ async function loadContractArtifacts(baseName, buildDir) {
   const manifestPath = path.join(buildDir, `${baseName}.manifest.json`);
   const [nefBytes, manifestRaw] = await Promise.all([
     fs.readFile(nefPath),
-    fs.readFile(manifestPath, "utf8"),
+    fs.readFile(manifestPath, 'utf8'),
   ]);
   const manifestJson = JSON.parse(manifestRaw);
   return {
@@ -126,7 +136,15 @@ async function loadContractArtifacts(baseName, buildDir) {
   };
 }
 
-async function deployContract(rpcClient, account, rpcUrl, networkMagic, baseName, buildDir, suffix) {
+async function deployContract(
+  rpcClient,
+  account,
+  rpcUrl,
+  networkMagic,
+  baseName,
+  buildDir,
+  suffix
+) {
   const { nef, manifestJson } = await loadContractArtifacts(baseName, buildDir);
   const uniqueManifest = sc.ContractManifest.fromJson({
     ...manifestJson,
@@ -147,8 +165,8 @@ async function deployContract(rpcClient, account, rpcUrl, networkMagic, baseName
 }
 
 async function compileReplayHarness() {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "aa-bound-replay-harness-"));
-  const outDir = path.join(tempDir, "out");
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'aa-bound-replay-harness-'));
+  const outDir = path.join(tempDir, 'out');
   await fs.mkdir(outDir, { recursive: true });
 
   const source = `using System.ComponentModel;
@@ -297,23 +315,45 @@ public class AABoundOracleReplayHarness : SmartContract
 </Project>
 `;
 
-  await fs.writeFile(path.join(tempDir, "AABoundOracleReplayHarness.cs"), source);
-  await fs.writeFile(path.join(tempDir, "AABoundOracleReplayHarness.csproj"), csproj);
-  await execFileAsync(path.join(process.env.HOME || "~", ".dotnet/tools/nccs"), [path.join(tempDir, "AABoundOracleReplayHarness.csproj"), "-o", outDir, "--base-name", "AABoundOracleReplayHarness", "--assembly"], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  await fs.writeFile(path.join(tempDir, 'AABoundOracleReplayHarness.cs'), source);
+  await fs.writeFile(path.join(tempDir, 'AABoundOracleReplayHarness.csproj'), csproj);
+  await execFileAsync(
+    path.join(process.env.HOME || '~', '.dotnet/tools/nccs'),
+    [
+      path.join(tempDir, 'AABoundOracleReplayHarness.csproj'),
+      '-o',
+      outDir,
+      '--base-name',
+      'AABoundOracleReplayHarness',
+      '--assembly',
+    ],
+    {
+      maxBuffer: 10 * 1024 * 1024,
+    }
+  );
   return { tempDir, outDir };
 }
 
-async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests) {
-  const currentCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0");
-  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
+async function ensureRequestFeeCredit(
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  requiredRequests
+) {
+  const currentCredit = BigInt(
+    (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+      { type: 'Hash160', value: `0x${account.scriptHash}` },
+    ])) || '0'
+  );
+  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
   const requiredCredit = requestFee * BigInt(requiredRequests);
   if (requestFee <= 0n || currentCredit >= requiredCredit) {
     return {
       request_fee: requestFee.toString(),
       current_credit: currentCredit.toString(),
-      deposit_amount: "0",
+      deposit_amount: '0',
     };
   }
 
@@ -323,7 +363,7 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
     account,
   });
   const deficit = requiredCredit - currentCredit;
-  await gas.invoke("transfer", [
+  await gas.invoke('transfer', [
     sc.ContractParam.hash160(`0x${account.scriptHash}`),
     sc.ContractParam.hash160(oracleHash),
     sc.ContractParam.integer(deficit.toString()),
@@ -332,7 +372,11 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
-    const updatedCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: `0x${account.scriptHash}` }]) || "0");
+    const updatedCredit = BigInt(
+      (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+        { type: 'Hash160', value: `0x${account.scriptHash}` },
+      ])) || '0'
+    );
     if (updatedCredit >= requiredCredit) {
       return {
         request_fee: requestFee.toString(),
@@ -343,7 +387,7 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
     await sleep(2000);
   }
 
-  throw new Error("timed out waiting for request fee credit");
+  throw new Error('timed out waiting for request fee credit');
 }
 
 async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
@@ -351,7 +395,9 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
   while (Date.now() - startedAt < timeoutMs) {
     try {
       const appLog = await rpcClient.getApplicationLog(txid);
-      const notification = appLog.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "OracleRequested");
+      const notification = appLog.executions
+        ?.flatMap((execution) => execution.notifications || [])
+        .find((entry) => entry.eventname === 'OracleRequested');
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -363,7 +409,9 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
 async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await rpcClient.invokeFunction(consumerHash, "getCallback", [{ type: "Integer", value: String(requestId) }]);
+    const response = await rpcClient.invokeFunction(consumerHash, 'getCallback', [
+      { type: 'Integer', value: String(requestId) },
+    ]);
     const decoded = decodeCallbackArray(response.stack?.[0]);
     if (decoded && (decoded.request_type || decoded.result_text || decoded.error_text)) {
       return decoded;
@@ -380,7 +428,7 @@ async function sendInvocationTransaction({ rpcClient, account, networkMagic, scr
     signers,
     validUntilBlock,
     script,
-    systemFee: preview?.gasconsumed || "1000000",
+    systemFee: preview?.gasconsumed || '1000000',
   };
 
   let transaction = new tx.Transaction(basePayload);
@@ -399,28 +447,64 @@ async function sendInvocationTransaction({ rpcClient, account, networkMagic, scr
     txid,
     preview,
     networkFee: String(networkFee),
-    systemFee: preview?.gasconsumed || "0",
+    systemFee: preview?.gasconsumed || '0',
     execution: appLog?.executions?.[0] || {},
   };
 }
 
 async function main() {
   await loadExampleEnv();
-  const deployment = (await readDeploymentRegistry("testnet")).neo_n3 || {};
-  const rpcUrl = trimString(deployment.rpc_url || process.env.NEO_RPC_URL || "https://testnet1.neo.coz.io:443");
-  const networkMagic = Number(deployment.network_magic || process.env.NEO_NETWORK_MAGIC || 894710606);
-  const signerWif = resolveNeoN3SignerWif("testnet");
-  assertCondition(signerWif, "testnet signer WIF is required");
+  const deployment = (await readDeploymentRegistry('testnet')).neo_n3 || {};
+  const rpcUrl = trimString(
+    deployment.rpc_url || process.env.NEO_RPC_URL || 'https://testnet1.neo.coz.io:443'
+  );
+  const networkMagic = Number(
+    deployment.network_magic || process.env.NEO_NETWORK_MAGIC || 894710606
+  );
+  const signerWif = resolveNeoN3SignerWif('testnet');
+  assertCondition(signerWif, 'testnet signer WIF is required');
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
   const suffix = `aa-callback-replay-${Date.now()}`;
 
-  const oracle = await deployContract(rpcClient, account, rpcUrl, networkMagic, "MorpheusOracle", CONTRACT_BUILD_DIR, suffix);
-  const aaCore = await deployContract(rpcClient, account, rpcUrl, networkMagic, "UnifiedSmartWalletV3", AA_BUILD_DIR, suffix);
-  const sessionVerifier = await deployContract(rpcClient, account, rpcUrl, networkMagic, "SessionKeyVerifier", AA_BUILD_DIR, suffix);
+  const oracle = await deployContract(
+    rpcClient,
+    account,
+    rpcUrl,
+    networkMagic,
+    'MorpheusOracle',
+    CONTRACT_BUILD_DIR,
+    suffix
+  );
+  const aaCore = await deployContract(
+    rpcClient,
+    account,
+    rpcUrl,
+    networkMagic,
+    'UnifiedSmartWalletV3',
+    AA_BUILD_DIR,
+    suffix
+  );
+  const sessionVerifier = await deployContract(
+    rpcClient,
+    account,
+    rpcUrl,
+    networkMagic,
+    'SessionKeyVerifier',
+    AA_BUILD_DIR,
+    suffix
+  );
   const harnessBuild = await compileReplayHarness();
-  const harness = await deployContract(rpcClient, account, rpcUrl, networkMagic, "AABoundOracleReplayHarness", harnessBuild.outDir, suffix);
+  const harness = await deployContract(
+    rpcClient,
+    account,
+    rpcUrl,
+    networkMagic,
+    'AABoundOracleReplayHarness',
+    harnessBuild.outDir,
+    suffix
+  );
 
   const oracleContract = new experimental.SmartContract(oracle.hash, {
     rpcAddress: rpcUrl,
@@ -439,58 +523,97 @@ async function main() {
   });
   const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
 
-  const setUpdaterTxid = await oracleContract.invoke("setUpdater", [sc.ContractParam.hash160(`0x${account.scriptHash}`)], signers);
-  assertHalt(await waitForApplicationLog(rpcClient, setUpdaterTxid), "setUpdater");
-  const setVerifierTxid = await oracleContract.invoke("setOracleVerificationPublicKey", [sc.ContractParam.publicKey(account.publicKey)], signers);
-  assertHalt(await waitForApplicationLog(rpcClient, setVerifierTxid), "setOracleVerificationPublicKey");
-  const allowCallbackTxid = await oracleContract.invoke("addAllowedCallback", [sc.ContractParam.hash160(harness.hash)], signers);
-  assertHalt(await waitForApplicationLog(rpcClient, allowCallbackTxid), "addAllowedCallback");
-  const setOracleTxid = await harnessContract.invoke("setOracle", [sc.ContractParam.hash160(oracle.hash)], signers);
-  assertHalt(await waitForApplicationLog(rpcClient, setOracleTxid), "setOracle");
-  const setAaCoreTxid = await harnessContract.invoke("setAaCore", [sc.ContractParam.hash160(aaCore.hash)], signers);
-  assertHalt(await waitForApplicationLog(rpcClient, setAaCoreTxid), "setAaCore");
+  const setUpdaterTxid = await oracleContract.invoke(
+    'setUpdater',
+    [sc.ContractParam.hash160(`0x${account.scriptHash}`)],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, setUpdaterTxid), 'setUpdater');
+  const setVerifierTxid = await oracleContract.invoke(
+    'setOracleVerificationPublicKey',
+    [sc.ContractParam.publicKey(account.publicKey)],
+    signers
+  );
+  assertHalt(
+    await waitForApplicationLog(rpcClient, setVerifierTxid),
+    'setOracleVerificationPublicKey'
+  );
+  const allowCallbackTxid = await oracleContract.invoke(
+    'addAllowedCallback',
+    [sc.ContractParam.hash160(harness.hash)],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, allowCallbackTxid), 'addAllowedCallback');
+  const setOracleTxid = await harnessContract.invoke(
+    'setOracle',
+    [sc.ContractParam.hash160(oracle.hash)],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, setOracleTxid), 'setOracle');
+  const setAaCoreTxid = await harnessContract.invoke(
+    'setAaCore',
+    [sc.ContractParam.hash160(aaCore.hash)],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, setAaCoreTxid), 'setAaCore');
 
-  const accountIdA = "0x1111111111111111111111111111111111111111";
-  const accountIdB = "0x2222222222222222222222222222222222222222";
+  const accountIdA = '0x1111111111111111111111111111111111111111';
+  const accountIdB = '0x2222222222222222222222222222222222222222';
   for (const accountId of [accountIdA, accountIdB]) {
-    const txid = await coreContract.invoke("registerAccount", [
-      sc.ContractParam.hash160(accountId),
-      sc.ContractParam.hash160(sessionVerifier.hash),
-      byteArrayParam(""),
-      sc.ContractParam.hash160("0".repeat(40)),
-      sc.ContractParam.hash160(`0x${account.scriptHash}`),
-      sc.ContractParam.integer("1"),
-    ], signers);
+    const txid = await coreContract.invoke(
+      'registerAccount',
+      [
+        sc.ContractParam.hash160(accountId),
+        sc.ContractParam.hash160(sessionVerifier.hash),
+        byteArrayParam(''),
+        sc.ContractParam.hash160('0'.repeat(40)),
+        sc.ContractParam.hash160(`0x${account.scriptHash}`),
+        sc.ContractParam.integer('1'),
+      ],
+      signers
+    );
     assertHalt(await waitForApplicationLog(rpcClient, txid), `registerAccount:${accountId}`);
   }
 
-  const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracle.hash, 2);
+  const feeStatus = await ensureRequestFeeCredit(
+    account,
+    rpcUrl,
+    networkMagic,
+    rpcClient,
+    oracle.hash,
+    2
+  );
 
-  const sourceReport = JSON.parse(await fs.readFile(SOURCE_CALLBACK_REPORT, "utf8"));
+  const sourceReport = JSON.parse(await fs.readFile(SOURCE_CALLBACK_REPORT, 'utf8'));
   const sourceCase = sourceReport.queued_execution;
-  assertCondition(sourceCase?.callback?.result_text, "failed to load a source privacy_oracle callback result");
-  const oldSignature = sourceCase.callback.result_json?.verification?.signature || "";
-  assertCondition(trimString(oldSignature), "source callback verification signature missing");
+  assertCondition(
+    sourceCase?.callback?.result_text,
+    'failed to load a source privacy_oracle callback result'
+  );
+  const oldSignature = sourceCase.callback.result_json?.verification?.signature || '';
+  assertCondition(trimString(oldSignature), 'source callback verification signature missing');
 
-  const requestATxid = await harnessContract.invoke("beginBoundRequest", [
-    sc.ContractParam.hash160(accountIdA),
-    sc.ContractParam.string("aa-bound-a"),
-  ], signers);
+  const requestATxid = await harnessContract.invoke(
+    'beginBoundRequest',
+    [sc.ContractParam.hash160(accountIdA), sc.ContractParam.string('aa-bound-a')],
+    signers
+  );
   const requestAId = await waitForRequestId(rpcClient, requestATxid);
-  const requestBTxid = await harnessContract.invoke("beginBoundRequest", [
-    sc.ContractParam.hash160(accountIdB),
-    sc.ContractParam.string("aa-bound-b"),
-  ], signers);
+  const requestBTxid = await harnessContract.invoke(
+    'beginBoundRequest',
+    [sc.ContractParam.hash160(accountIdB), sc.ContractParam.string('aa-bound-b')],
+    signers
+  );
   const requestBId = await waitForRequestId(rpcClient, requestBTxid);
 
   const replayScript = sc.createScript({
-    scriptHash: oracle.hash.replace(/^0x/i, ""),
-    operation: "fulfillRequest",
+    scriptHash: oracle.hash.replace(/^0x/i, ''),
+    operation: 'fulfillRequest',
     args: [
       sc.ContractParam.integer(String(requestBId)),
       sc.ContractParam.boolean(true),
-      byteArrayParam(Buffer.from(sourceCase.callback.result_text, "utf8").toString("hex")),
-      sc.ContractParam.string(""),
+      byteArrayParam(Buffer.from(sourceCase.callback.result_text, 'utf8').toString('hex')),
+      sc.ContractParam.string(''),
       byteArrayParam(oldSignature),
     ],
   });
@@ -501,23 +624,35 @@ async function main() {
     script: replayScript,
     signers: [{ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry }],
   });
-  const replayVmState = String(replayAttempt.execution.vmstate || replayAttempt.execution.state || "");
-  const replayException = String(replayAttempt.execution.exception || "");
-  assertCondition(replayVmState.includes("FAULT"), "AA-bound replay attempt should fault");
-  assertCondition(/invalid verification signature/i.test(replayException), "AA-bound replay should fail with invalid verification signature");
+  const replayVmState = String(
+    replayAttempt.execution.vmstate || replayAttempt.execution.state || ''
+  );
+  const replayException = String(replayAttempt.execution.exception || '');
+  assertCondition(replayVmState.includes('FAULT'), 'AA-bound replay attempt should fault');
+  assertCondition(
+    /invalid verification signature/i.test(replayException),
+    'AA-bound replay should fail with invalid verification signature'
+  );
 
   const correctSignature = wallet.sign(
-    buildFulfillmentDigestBytes(requestAId, "privacy_oracle", true, sourceCase.callback.result_text, "", "").toString("hex"),
-    account.privateKey,
+    buildFulfillmentDigestBytes(
+      requestAId,
+      'privacy_oracle',
+      true,
+      sourceCase.callback.result_text,
+      '',
+      ''
+    ).toString('hex'),
+    account.privateKey
   );
   const fulfillAScript = sc.createScript({
-    scriptHash: oracle.hash.replace(/^0x/i, ""),
-    operation: "fulfillRequest",
+    scriptHash: oracle.hash.replace(/^0x/i, ''),
+    operation: 'fulfillRequest',
     args: [
       sc.ContractParam.integer(String(requestAId)),
       sc.ContractParam.boolean(true),
-      byteArrayParam(Buffer.from(sourceCase.callback.result_text, "utf8").toString("hex")),
-      sc.ContractParam.string(""),
+      byteArrayParam(Buffer.from(sourceCase.callback.result_text, 'utf8').toString('hex')),
+      sc.ContractParam.string(''),
       byteArrayParam(correctSignature),
     ],
   });
@@ -528,22 +663,43 @@ async function main() {
     script: fulfillAScript,
     signers: [{ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry }],
   });
-  const fulfillAVmState = String(fulfillA.execution.vmstate || fulfillA.execution.state || "");
-  assertCondition(fulfillAVmState.includes("HALT"), `correct fulfill for account A should HALT, got ${fulfillAVmState} ${fulfillA.execution.exception || ""}`);
+  const fulfillAVmState = String(fulfillA.execution.vmstate || fulfillA.execution.state || '');
+  assertCondition(
+    fulfillAVmState.includes('HALT'),
+    `correct fulfill for account A should HALT, got ${fulfillAVmState} ${fulfillA.execution.exception || ''}`
+  );
 
   const callbackA = await waitForCallback(rpcClient, harness.hash, requestAId, 180000);
-  assertCondition(callbackA?.success === true, "AA-bound request A should fulfill successfully");
-  const unlockedA = Boolean(await invokeRead(rpcClient, harness.hash, "isUnlocked", [{ type: "Hash160", value: accountIdA }]));
-  const unlockedB = Boolean(await invokeRead(rpcClient, harness.hash, "isUnlocked", [{ type: "Hash160", value: accountIdB }]));
-  const pendingB = normalizeHash160(await invokeRead(rpcClient, harness.hash, "getPendingAccount", [{ type: "Integer", value: String(requestBId) }]) || "");
-  assertCondition(unlockedA === true, "account A should unlock after its valid callback");
-  assertCondition(unlockedB === false, "account B must remain locked after replay attempt against its pending request");
-  assertCondition(pendingB === accountIdB, `account B pending request should remain bound, got ${pendingB}`);
+  assertCondition(callbackA?.success === true, 'AA-bound request A should fulfill successfully');
+  const unlockedA = Boolean(
+    await invokeRead(rpcClient, harness.hash, 'isUnlocked', [
+      { type: 'Hash160', value: accountIdA },
+    ])
+  );
+  const unlockedB = Boolean(
+    await invokeRead(rpcClient, harness.hash, 'isUnlocked', [
+      { type: 'Hash160', value: accountIdB },
+    ])
+  );
+  const pendingB = normalizeHash160(
+    (await invokeRead(rpcClient, harness.hash, 'getPendingAccount', [
+      { type: 'Integer', value: String(requestBId) },
+    ])) || ''
+  );
+  assertCondition(unlockedA === true, 'account A should unlock after its valid callback');
+  assertCondition(
+    unlockedB === false,
+    'account B must remain locked after replay attempt against its pending request'
+  );
+  assertCondition(
+    pendingB === accountIdB,
+    `account B pending request should remain bound, got ${pendingB}`
+  );
 
   const generatedAt = new Date().toISOString();
   const jsonReport = {
     generated_at: generatedAt,
-    network: "testnet",
+    network: 'testnet',
     rpc_url: rpcUrl,
     network_magic: networkMagic,
     oracle_hash: oracle.hash,
@@ -586,16 +742,16 @@ async function main() {
   };
 
   const markdownReport = [
-    "# N3 AA-Bound Callback Replay Boundary Validation",
-    "",
+    '# N3 AA-Bound Callback Replay Boundary Validation',
+    '',
     `Date: ${generatedAt}`,
-    "",
-    "## Scope",
-    "",
-    "This probe deploys a temporary Oracle, a temporary AA core, and an AA-bound callback harness that records pending request -> accountId bindings. It then attempts to replay a valid Oracle-originated fulfillment signature into a different pending request bound to another AA account context.",
-    "",
-    "## Result",
-    "",
+    '',
+    '## Scope',
+    '',
+    'This probe deploys a temporary Oracle, a temporary AA core, and an AA-bound callback harness that records pending request -> accountId bindings. It then attempts to replay a valid Oracle-originated fulfillment signature into a different pending request bound to another AA account context.',
+    '',
+    '## Result',
+    '',
     `- Temporary Oracle: \`${oracle.hash}\``,
     `- Temporary AA core: \`${aaCore.hash}\``,
     `- AA-bound harness: \`${harness.hash}\``,
@@ -607,28 +763,34 @@ async function main() {
     `- Account A unlocked: \`${unlockedA}\``,
     `- Account B unlocked: \`${unlockedB}\``,
     `- Account B pending binding: \`${pendingB}\``,
-    "",
-    "## Conclusion",
-    "",
-    "A valid fulfillment signature cannot be replayed into a different pending request even when both requests terminate at the same AA-bound consumer. The replay attempt faults at the Oracle verification layer, account A unlocks only through its own valid request, and account B remains locked and still bound to its pending request.",
-    "",
-  ].join("\n");
+    '',
+    '## Conclusion',
+    '',
+    'A valid fulfillment signature cannot be replayed into a different pending request even when both requests terminate at the same AA-bound consumer. The replay attempt faults at the Oracle verification layer, account A unlocks only through its own valid request, and account B remains locked and still bound to its pending request.',
+    '',
+  ].join('\n');
 
   const artifacts = await writeValidationArtifacts({
-    baseName: "n3-aa-callback-replay-boundary",
-    network: "testnet",
+    baseName: 'n3-aa-callback-replay-boundary',
+    network: 'testnet',
     generatedAt,
     jsonReport,
     markdownReport,
   });
 
-  console.log(JSON.stringify({
-    ...artifacts,
-    replay_txid: replayAttempt.txid,
-    replay_exception: replayException,
-    unlocked_a: unlockedA,
-    unlocked_b: unlockedB,
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        ...artifacts,
+        replay_txid: replayAttempt.txid,
+        replay_exception: replayException,
+        unlocked_a: unlockedA,
+        unlocked_b: unlockedB,
+      },
+      null,
+      2
+    )
+  );
 }
 
 main().catch((error) => {

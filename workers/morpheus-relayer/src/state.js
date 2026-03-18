@@ -1,5 +1,5 @@
-import fs from "fs";
-import path from "path";
+import fs from 'fs';
+import path from 'path';
 
 function defaultChainState() {
   return {
@@ -52,9 +52,12 @@ export function createEmptyRelayerState() {
 function normalizeChainState(raw) {
   return {
     ...defaultChainState(),
-    ...(raw && typeof raw === "object" ? raw : {}),
+    ...(raw && typeof raw === 'object' ? raw : {}),
     last_request_id: raw?.last_request_id ?? null,
-    processed_records: raw?.processed_records && typeof raw.processed_records === "object" ? raw.processed_records : {},
+    processed_records:
+      raw?.processed_records && typeof raw.processed_records === 'object'
+        ? raw.processed_records
+        : {},
     processed_order: Array.isArray(raw?.processed_order) ? raw.processed_order : [],
     retry_queue: Array.isArray(raw?.retry_queue) ? raw.retry_queue : [],
     dead_letters: Array.isArray(raw?.dead_letters) ? raw.dead_letters : [],
@@ -63,7 +66,7 @@ function normalizeChainState(raw) {
 
 export function loadRelayerState(filePath) {
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     return {
       version: parsed?.version || 2,
       updated_at: parsed?.updated_at || null,
@@ -71,7 +74,7 @@ export function loadRelayerState(filePath) {
       neo_x: normalizeChainState(parsed?.neo_x),
       metrics: {
         ...defaultMetrics(),
-        ...(parsed?.metrics && typeof parsed.metrics === "object" ? parsed.metrics : {}),
+        ...(parsed?.metrics && typeof parsed.metrics === 'object' ? parsed.metrics : {}),
       },
     };
   } catch {
@@ -82,17 +85,17 @@ export function loadRelayerState(filePath) {
 export function saveRelayerState(filePath, state) {
   state.updated_at = new Date().toISOString();
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+  fs.writeFileSync(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 }
 
 export function buildEventKey(event) {
   return [
-    event?.chain || "unknown",
-    event?.requestId || "0",
-    event?.txHash || "",
-    event?.logIndex ?? "",
-    event?.blockNumber ?? "",
-  ].join(":");
+    event?.chain || 'unknown',
+    event?.requestId || '0',
+    event?.txHash || '',
+    event?.logIndex ?? '',
+    event?.blockNumber ?? '',
+  ].join(':');
 }
 
 function pruneProcessedRecords(chainState, limit) {
@@ -110,7 +113,7 @@ function pruneDeadLetters(chainState, limit) {
 }
 
 export function incrementMetric(state, metricName, delta = 1) {
-  if (typeof state.metrics[metricName] !== "number") {
+  if (typeof state.metrics[metricName] !== 'number') {
     state.metrics[metricName] = 0;
   }
   state.metrics[metricName] += delta;
@@ -139,28 +142,28 @@ export function snapshotMetrics(state) {
 }
 
 export function hasProcessedEvent(state, chain, eventOrKey) {
-  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
   return Boolean(state?.[chain]?.processed_records?.[key]);
 }
 
 export function getProcessedEventRecord(state, chain, eventOrKey) {
-  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
   return state?.[chain]?.processed_records?.[key] || null;
 }
 
 export function isEventQueuedForRetry(state, chain, eventOrKey) {
-  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
   return state?.[chain]?.retry_queue?.some((item) => item.key === key) || false;
 }
 
 export function removeProcessedEvent(state, chain, eventOrKey) {
-  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
   delete state[chain].processed_records[key];
   state[chain].processed_order = state[chain].processed_order.filter((entry) => entry !== key);
 }
 
 export function removeDeadLetter(state, chain, eventOrKey) {
-  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
   state[chain].dead_letters = state[chain].dead_letters.filter((entry) => entry.key !== key);
 }
 
@@ -197,19 +200,19 @@ export function recordProcessedEvent(state, chain, event, status, meta = {}, lim
   chainState.processed_records[key] = {
     key,
     status,
-    request_id: String(event.requestId || "0"),
-    request_type: String(event.requestType || ""),
-    tx_hash: String(event.txHash || ""),
+    request_id: String(event.requestId || '0'),
+    request_type: String(event.requestType || ''),
+    tx_hash: String(event.txHash || ''),
     block_number: Number(event.blockNumber ?? 0),
     completed_at: new Date().toISOString(),
     ...meta,
   };
   chainState.retry_queue = chainState.retry_queue.filter((item) => item.key !== key);
-  if (status === "exhausted") {
+  if (status === 'exhausted') {
     chainState.dead_letters.push({
       key,
-      request_id: String(event.requestId || "0"),
-      request_type: String(event.requestType || ""),
+      request_id: String(event.requestId || '0'),
+      request_type: String(event.requestType || ''),
       chain,
       event,
       exhausted_at: new Date().toISOString(),
@@ -230,7 +233,7 @@ export function scheduleRetry(state, chain, event, errorMessage, config) {
   if (attempts > config.maxRetries) {
     chainState.retry_queue = chainState.retry_queue.filter((item) => item.key !== key);
     return {
-      status: "exhausted",
+      status: 'exhausted',
       key,
       attempts,
       error: errorMessage,
@@ -238,8 +241,8 @@ export function scheduleRetry(state, chain, event, errorMessage, config) {
   }
 
   const delayMs = Math.min(
-    config.retryBaseDelayMs * (2 ** Math.max(attempts - 1, 0)),
-    config.retryMaxDelayMs,
+    config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0),
+    config.retryMaxDelayMs
   );
   const item = {
     key,
@@ -258,7 +261,7 @@ export function scheduleRetry(state, chain, event, errorMessage, config) {
     chainState.retry_queue.push(item);
   }
 
-  return { status: "scheduled", key, item };
+  return { status: 'scheduled', key, item };
 }
 
 export function getDueRetryItems(state, chain, now = Date.now()) {
@@ -269,6 +272,6 @@ export function getDueRetryItems(state, chain, now = Date.now()) {
 }
 
 export function clearRetryItem(state, chain, eventOrKey) {
-  const key = typeof eventOrKey === "string" ? eventOrKey : buildEventKey(eventOrKey);
+  const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
   state[chain].retry_queue = state[chain].retry_queue.filter((item) => item.key !== key);
 }

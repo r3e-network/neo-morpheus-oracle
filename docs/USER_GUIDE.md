@@ -29,21 +29,21 @@ Always treat these files as the source of truth before copying an address into a
 
 Current Neo N3 anchors:
 
-| Item | Mainnet | Testnet |
-| --- | --- | --- |
-| Public API | `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network` | `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network` |
-| MorpheusOracle | `0x017520f068fd602082fe5572596185e62a4ad991` | `0x4b882e94ed766807c4fd728768f972e13008ad52` |
-| OracleCallbackConsumer | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844` | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe` |
-| MorpheusDataFeed | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064` |
-| AbstractAccount | `0x9742b4ed62a84a886f404d36149da6147528ee33` | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38` |
-| AA Web3AuthVerifier | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a` | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d` |
-| AA RecoveryVerifier | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3` | deployment-specific |
-| NeoDIDRegistry | `0xb81f31ea81e279793b30411b82c2e82078b63105` | unpublished |
-| Oracle NNS | `oracle.morpheus.neo` | unassigned |
-| DataFeed NNS | `pricefeed.morpheus.neo` | unassigned |
-| AA NNS | `smartwallet.neo` | unassigned |
-| AA alias NNS | `aa.morpheus.neo` | unassigned |
-| NeoDID NNS | `neodid.morpheus.neo` | unassigned |
+| Item                   | Mainnet                                                                              | Testnet                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| Public API             | `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network` | `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network` |
+| MorpheusOracle         | `0x017520f068fd602082fe5572596185e62a4ad991`                                         | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                           |
+| OracleCallbackConsumer | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                         | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`                                           |
+| MorpheusDataFeed       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                         | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                           |
+| AbstractAccount        | `0x9742b4ed62a84a886f404d36149da6147528ee33`                                         | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                           |
+| AA Web3AuthVerifier    | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                         | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                           |
+| AA RecoveryVerifier    | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                         | deployment-specific                                                                    |
+| NeoDIDRegistry         | `0xb81f31ea81e279793b30411b82c2e82078b63105`                                         | unpublished                                                                            |
+| Oracle NNS             | `oracle.morpheus.neo`                                                                | unassigned                                                                             |
+| DataFeed NNS           | `pricefeed.morpheus.neo`                                                             | unassigned                                                                             |
+| AA NNS                 | `smartwallet.neo`                                                                    | unassigned                                                                             |
+| AA alias NNS           | `aa.morpheus.neo`                                                                    | unassigned                                                                             |
+| NeoDID NNS             | `neodid.morpheus.neo`                                                                | unassigned                                                                             |
 
 Operational notes:
 
@@ -57,6 +57,7 @@ Operational notes:
 ## 1. Concepts
 
 ### Privacy Compute
+
 Use Morpheus as an off-chain trusted coprocessor for expensive logic that is not practical on-chain.
 
 Typical cases:
@@ -67,6 +68,7 @@ Typical cases:
 - custom script execution in the TEE
 
 ### Privacy Oracle
+
 Use Morpheus when you need to fetch external data and optionally process it inside the TEE before returning a derived result.
 
 Typical cases:
@@ -76,6 +78,7 @@ Typical cases:
 - return only a boolean / score / filtered result on-chain
 
 ### PriceFeed / DataFeed
+
 Use Morpheus datafeeds as operator-synchronized on-chain price storage that user contracts read directly.
 
 Important properties:
@@ -90,6 +93,7 @@ Important properties:
   - `BINANCE-SPOT:NEO-USD`
 
 ### NeoDID
+
 Use NeoDID when you need privacy-preserving identity binding, unlinkable action authorization, or AA social recovery.
 
 Important properties:

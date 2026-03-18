@@ -1,38 +1,43 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import { webcrypto } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
-import { Contract, JsonRpcProvider } from "ethers";
-import { rpc as neoRpc, wallet } from "@cityofzion/neon-js";
-import { loadDotEnv } from "../../scripts/lib-env.mjs";
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { webcrypto } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import { Contract, JsonRpcProvider } from 'ethers';
+import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
+import { loadDotEnv } from '../../scripts/lib-env.mjs';
 
-export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-export const deploymentsDir = path.resolve(repoRoot, "examples/deployments");
-export const docsDir = path.resolve(repoRoot, "docs");
-const relayerStateFile = path.resolve(process.env.TMPDIR || "/tmp", `morpheus-relayer-examples-${process.pid}.json`);
+export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+export const deploymentsDir = path.resolve(repoRoot, 'examples/deployments');
+export const docsDir = path.resolve(repoRoot, 'docs');
+const relayerStateFile = path.resolve(
+  process.env.TMPDIR || '/tmp',
+  `morpheus-relayer-examples-${process.pid}.json`
+);
 
 export function trimString(value) {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === 'string' ? value.trim() : '';
 }
 
-export function resolveNeoN3SignerWif(network = trimString(process.env.MORPHEUS_NETWORK || "testnet").toLowerCase()) {
-  if (network === "testnet") {
+export function resolveNeoN3SignerWif(
+  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
+) {
+  if (network === 'testnet') {
     return trimString(
-      process.env.NEO_TESTNET_WIF
-      || process.env.NEO_N3_WIF
-      || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-      || process.env.PHALA_NEO_N3_WIF
-      || "",
+      process.env.NEO_TESTNET_WIF ||
+        process.env.NEO_N3_WIF ||
+        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+        process.env.PHALA_NEO_N3_WIF ||
+        ''
     );
   }
   return trimString(
-    process.env.NEO_N3_WIF
-    || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-    || process.env.PHALA_NEO_N3_WIF
-    || process.env.NEO_TESTNET_WIF
-    || "",
+    process.env.NEO_N3_WIF ||
+      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+      process.env.PHALA_NEO_N3_WIF ||
+      process.env.NEO_TESTNET_WIF ||
+      ''
   );
 }
 
@@ -49,21 +54,23 @@ export function tryParseJson(value) {
 }
 
 export function jsonPretty(value) {
-  return `${JSON.stringify(value, (_key, current) => (
-    typeof current === "bigint" ? current.toString() : current
-  ), 2)}\n`;
+  return `${JSON.stringify(
+    value,
+    (_key, current) => (typeof current === 'bigint' ? current.toString() : current),
+    2
+  )}\n`;
 }
 
 export async function loadExampleEnv() {
-  await loadDotEnv(path.resolve(repoRoot, ".env"), { override: false });
+  await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 }
 
-export async function readDeploymentRegistry(network = "testnet") {
+export async function readDeploymentRegistry(network = 'testnet') {
   const filePath = path.resolve(deploymentsDir, `${network}.json`);
   try {
-    return JSON.parse(await fs.readFile(filePath, "utf8"));
+    return JSON.parse(await fs.readFile(filePath, 'utf8'));
   } catch (error) {
-    if (error?.code === "ENOENT") return {};
+    if (error?.code === 'ENOENT') return {};
     throw error;
   }
 }
@@ -79,7 +86,7 @@ export function reportDateStamp(isoString = new Date().toISOString()) {
 }
 
 export function repoRelativePath(absolutePath) {
-  return path.relative(repoRoot, absolutePath).replace(/\\/g, "/");
+  return path.relative(repoRoot, absolutePath).replace(/\\/g, '/');
 }
 
 export function markdownJson(value) {
@@ -95,19 +102,34 @@ export async function writeValidationArtifacts({
   legacyJsonFileNames = [],
 }) {
   const date = reportDateStamp(generatedAt);
-  const normalizedBase = trimString(baseName).replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase();
-  const normalizedNetwork = trimString(network).toLowerCase() || "unknown";
-  const docBase = normalizedBase.replace(/-/g, "_").toUpperCase();
+  const normalizedBase = trimString(baseName)
+    .replace(/[^a-z0-9-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+  const normalizedNetwork = trimString(network).toLowerCase() || 'unknown';
+  const docBase = normalizedBase.replace(/-/g, '_').toUpperCase();
 
-  const datedJsonPath = path.resolve(deploymentsDir, `${normalizedBase}.${normalizedNetwork}.${date}.json`);
-  const latestJsonPath = path.resolve(deploymentsDir, `${normalizedBase}.${normalizedNetwork}.latest.json`);
-  const markdownPath = path.resolve(docsDir, `${docBase}_${normalizedNetwork.toUpperCase()}_${date}.md`);
+  const datedJsonPath = path.resolve(
+    deploymentsDir,
+    `${normalizedBase}.${normalizedNetwork}.${date}.json`
+  );
+  const latestJsonPath = path.resolve(
+    deploymentsDir,
+    `${normalizedBase}.${normalizedNetwork}.latest.json`
+  );
+  const markdownPath = path.resolve(
+    docsDir,
+    `${docBase}_${normalizedNetwork.toUpperCase()}_${date}.md`
+  );
 
   await fs.mkdir(deploymentsDir, { recursive: true });
   await fs.mkdir(docsDir, { recursive: true });
   await fs.writeFile(datedJsonPath, jsonPretty(jsonReport));
   await fs.writeFile(latestJsonPath, jsonPretty(jsonReport));
-  await fs.writeFile(markdownPath, markdownReport.endsWith("\n") ? markdownReport : `${markdownReport}\n`);
+  await fs.writeFile(
+    markdownPath,
+    markdownReport.endsWith('\n') ? markdownReport : `${markdownReport}\n`
+  );
 
   for (const legacyFileName of legacyJsonFileNames) {
     const legacyPath = path.resolve(deploymentsDir, legacyFileName);
@@ -119,206 +141,207 @@ export async function writeValidationArtifacts({
     json_report: repoRelativePath(datedJsonPath),
     json_latest: repoRelativePath(latestJsonPath),
     markdown_report: repoRelativePath(markdownPath),
-    legacy_json_reports: legacyJsonFileNames.map((fileName) => repoRelativePath(path.resolve(deploymentsDir, fileName))),
+    legacy_json_reports: legacyJsonFileNames.map((fileName) =>
+      repoRelativePath(path.resolve(deploymentsDir, fileName))
+    ),
   };
 }
 
 export function normalizeAddress(value) {
   const raw = trimString(value);
-  if (!/^0x[0-9a-fA-F]{40}$/.test(raw)) return "";
+  if (!/^0x[0-9a-fA-F]{40}$/.test(raw)) return '';
   return raw;
 }
 
 export function normalizeHash160(value) {
   const raw = trimString(value);
-  if (!raw) return "";
+  if (!raw) return '';
   if (wallet.isAddress(raw)) {
     return `0x${wallet.getScriptHashFromAddress(raw).toLowerCase()}`;
   }
-  const hex = raw.replace(/^0x/i, "").toLowerCase();
-  return /^[0-9a-f]{40}$/.test(hex) ? `0x${hex}` : "";
+  const hex = raw.replace(/^0x/i, '').toLowerCase();
+  return /^[0-9a-f]{40}$/.test(hex) ? `0x${hex}` : '';
 }
 
 export function decodeHexUtf8(bytesLike) {
-  const raw = trimString(bytesLike || "0x");
-  if (!raw || raw === "0x") return "";
-  return Buffer.from(raw.replace(/^0x/i, ""), "hex").toString("utf8");
+  const raw = trimString(bytesLike || '0x');
+  if (!raw || raw === '0x') return '';
+  return Buffer.from(raw.replace(/^0x/i, ''), 'hex').toString('utf8');
 }
 
 export function decodeBase64Utf8(raw) {
   const text = trimString(raw);
-  if (!text) return "";
-  return Buffer.from(text, "base64").toString("utf8");
+  if (!text) return '';
+  return Buffer.from(text, 'base64').toString('utf8');
 }
 
 export function encodeUtf8Hex(value) {
-  return `0x${Buffer.from(String(value ?? ""), "utf8").toString("hex")}`;
+  return `0x${Buffer.from(String(value ?? ''), 'utf8').toString('hex')}`;
 }
 
 export function encodeUtf8Base64(value) {
-  return Buffer.from(String(value ?? ""), "utf8").toString("base64");
+  return Buffer.from(String(value ?? ''), 'utf8').toString('base64');
 }
 
-export function resolveNeoN3RpcUrl(network = "testnet", deployment = {}) {
-  const normalized = trimString(network).toLowerCase() || "testnet";
-  const defaultRpcUrl = normalized === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
+export function resolveNeoN3RpcUrl(network = 'testnet', deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || 'testnet';
+  const defaultRpcUrl =
+    normalized === 'mainnet'
+      ? 'https://mainnet1.neo.coz.io:443'
+      : 'https://testnet1.neo.coz.io:443';
   return trimString(
-    normalized === "testnet"
-      ? (process.env.NEO_TESTNET_RPC_URL || deployment.rpc_url || process.env.NEO_RPC_URL || defaultRpcUrl)
-      : (process.env.NEO_MAINNET_RPC_URL || process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl),
+    normalized === 'testnet'
+      ? process.env.NEO_TESTNET_RPC_URL ||
+          deployment.rpc_url ||
+          process.env.NEO_RPC_URL ||
+          defaultRpcUrl
+      : process.env.NEO_MAINNET_RPC_URL ||
+          process.env.NEO_RPC_URL ||
+          deployment.rpc_url ||
+          defaultRpcUrl
   );
 }
 
-export function resolveNeoN3NetworkMagic(network = "testnet", deployment = {}) {
-  const normalized = trimString(network).toLowerCase() || "testnet";
-  const defaultNetworkMagic = normalized === "mainnet" ? 860833102 : 894710606;
-  const raw = normalized === "testnet"
-    ? (
-      process.env.NEO_TESTNET_NETWORK_MAGIC
-      || deployment.network_magic
-      || process.env.NEO_NETWORK_MAGIC
-      || defaultNetworkMagic
-    )
-    : (
-      process.env.NEO_MAINNET_NETWORK_MAGIC
-      || process.env.NEO_NETWORK_MAGIC
-      || deployment.network_magic
-      || defaultNetworkMagic
-    );
+export function resolveNeoN3NetworkMagic(network = 'testnet', deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || 'testnet';
+  const defaultNetworkMagic = normalized === 'mainnet' ? 860833102 : 894710606;
+  const raw =
+    normalized === 'testnet'
+      ? process.env.NEO_TESTNET_NETWORK_MAGIC ||
+        deployment.network_magic ||
+        process.env.NEO_NETWORK_MAGIC ||
+        defaultNetworkMagic
+      : process.env.NEO_MAINNET_NETWORK_MAGIC ||
+        process.env.NEO_NETWORK_MAGIC ||
+        deployment.network_magic ||
+        defaultNetworkMagic;
   return Number(raw);
 }
 
-export function resolveNeoN3OracleHash(network = "testnet", deployment = {}) {
-  const normalized = trimString(network).toLowerCase() || "testnet";
+export function resolveNeoN3OracleHash(network = 'testnet', deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || 'testnet';
   return normalizeHash160(
-    normalized === "testnet"
-      ? (
-        process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET
-        || deployment.oracle_hash
-        || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
-        || ""
-      )
-      : (
-        process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET
-        || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
-        || deployment.oracle_hash
-        || ""
-      ),
+    normalized === 'testnet'
+      ? process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET ||
+          deployment.oracle_hash ||
+          process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
+          ''
+      : process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET ||
+          process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
+          deployment.oracle_hash ||
+          ''
   );
 }
 
-export function resolveNeoN3ConsumerHash(network = "testnet", deployment = {}) {
-  const normalized = trimString(network).toLowerCase() || "testnet";
+export function resolveNeoN3ConsumerHash(network = 'testnet', deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || 'testnet';
   return normalizeHash160(
-    normalized === "testnet"
-      ? (
-        process.env.EXAMPLE_N3_CONSUMER_HASH_TESTNET
-        || deployment.example_consumer_hash
-        || process.env.EXAMPLE_N3_CONSUMER_HASH
-        || ""
-      )
-      : (
-        process.env.EXAMPLE_N3_CONSUMER_HASH_MAINNET
-        || process.env.EXAMPLE_N3_CONSUMER_HASH
-        || deployment.example_consumer_hash
-        || ""
-      ),
+    normalized === 'testnet'
+      ? process.env.EXAMPLE_N3_CONSUMER_HASH_TESTNET ||
+          deployment.example_consumer_hash ||
+          process.env.EXAMPLE_N3_CONSUMER_HASH ||
+          ''
+      : process.env.EXAMPLE_N3_CONSUMER_HASH_MAINNET ||
+          process.env.EXAMPLE_N3_CONSUMER_HASH ||
+          deployment.example_consumer_hash ||
+          ''
   );
 }
 
-export function resolveNeoN3FeedReaderHash(network = "testnet", deployment = {}) {
-  const normalized = trimString(network).toLowerCase() || "testnet";
+export function resolveNeoN3FeedReaderHash(network = 'testnet', deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || 'testnet';
   return normalizeHash160(
-    normalized === "testnet"
-      ? (
-        process.env.EXAMPLE_N3_FEED_READER_HASH_TESTNET
-        || deployment.example_feed_reader_hash
-        || process.env.EXAMPLE_N3_FEED_READER_HASH
-        || ""
-      )
-      : (
-        process.env.EXAMPLE_N3_FEED_READER_HASH_MAINNET
-        || process.env.EXAMPLE_N3_FEED_READER_HASH
-        || deployment.example_feed_reader_hash
-        || ""
-      ),
+    normalized === 'testnet'
+      ? process.env.EXAMPLE_N3_FEED_READER_HASH_TESTNET ||
+          deployment.example_feed_reader_hash ||
+          process.env.EXAMPLE_N3_FEED_READER_HASH ||
+          ''
+      : process.env.EXAMPLE_N3_FEED_READER_HASH_MAINNET ||
+          process.env.EXAMPLE_N3_FEED_READER_HASH ||
+          deployment.example_feed_reader_hash ||
+          ''
   );
 }
 
-export function resolveNeoN3DatafeedHash(network = "testnet", deployment = {}) {
-  const normalized = trimString(network).toLowerCase() || "testnet";
+export function resolveNeoN3DatafeedHash(network = 'testnet', deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || 'testnet';
   return normalizeHash160(
-    normalized === "testnet"
-      ? (
-        process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_TESTNET
-        || deployment.datafeed_hash
-        || process.env.CONTRACT_MORPHEUS_DATAFEED_HASH
-        || ""
-      )
-      : (
-        process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_MAINNET
-        || process.env.CONTRACT_MORPHEUS_DATAFEED_HASH
-        || deployment.datafeed_hash
-        || ""
-      ),
+    normalized === 'testnet'
+      ? process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_TESTNET ||
+          deployment.datafeed_hash ||
+          process.env.CONTRACT_MORPHEUS_DATAFEED_HASH ||
+          ''
+      : process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_MAINNET ||
+          process.env.CONTRACT_MORPHEUS_DATAFEED_HASH ||
+          deployment.datafeed_hash ||
+          ''
   );
 }
 
-const ORACLE_ENCRYPTION_ALGORITHM = "X25519-HKDF-SHA256-AES-256-GCM";
-const ORACLE_ENCRYPTION_INFO = "morpheus-confidential-payload-v2";
+const ORACLE_ENCRYPTION_ALGORITHM = 'X25519-HKDF-SHA256-AES-256-GCM';
+const ORACLE_ENCRYPTION_INFO = 'morpheus-confidential-payload-v2';
 const AES_GCM_TAG_LENGTH_BYTES = 16;
 
 function parseNeoRpcString(response) {
   const item = response?.stack?.[0];
   const type = trimString(item?.type).toLowerCase();
-  if (type === "string") return trimString(item?.value || "");
-  if (type === "bytestring" || type === "bytearray") return decodeBase64Utf8(item?.value || "");
-  return "";
+  if (type === 'string') return trimString(item?.value || '');
+  if (type === 'bytestring' || type === 'bytearray') return decodeBase64Utf8(item?.value || '');
+  return '';
 }
 
 export async function fetchOnchainOraclePublicKey(targetChain) {
   const chain = trimString(targetChain).toLowerCase();
-  if (!chain) throw new Error("targetChain is required");
+  if (!chain) throw new Error('targetChain is required');
 
-  if (chain === "neo_x") {
-    const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || "");
-    const oracleAddress = normalizeAddress(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS || "");
-    if (!rpcUrl) throw new Error("NEOX_RPC_URL is required");
-    if (!oracleAddress) throw new Error("CONTRACT_MORPHEUS_ORACLE_X_ADDRESS is required");
+  if (chain === 'neo_x') {
+    const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || '');
+    const oracleAddress = normalizeAddress(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS || '');
+    if (!rpcUrl) throw new Error('NEOX_RPC_URL is required');
+    if (!oracleAddress) throw new Error('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS is required');
 
     const provider = new JsonRpcProvider(rpcUrl);
-    const oracle = new Contract(oracleAddress, [
-      "function oracleEncryptionAlgorithm() view returns (string)",
-      "function oracleEncryptionPublicKey() view returns (string)",
-    ], provider);
+    const oracle = new Contract(
+      oracleAddress,
+      [
+        'function oracleEncryptionAlgorithm() view returns (string)',
+        'function oracleEncryptionPublicKey() view returns (string)',
+      ],
+      provider
+    );
     const [algorithm, publicKey] = await Promise.all([
       oracle.oracleEncryptionAlgorithm().catch(() => ORACLE_ENCRYPTION_ALGORITHM),
       oracle.oracleEncryptionPublicKey(),
     ]);
-    if (!trimString(publicKey)) throw new Error("Neo X oracle encryption public key is empty");
+    if (!trimString(publicKey)) throw new Error('Neo X oracle encryption public key is empty');
     return {
-      source: "neo_x_contract",
-      algorithm: trimString(algorithm || "") || ORACLE_ENCRYPTION_ALGORITHM,
+      source: 'neo_x_contract',
+      algorithm: trimString(algorithm || '') || ORACLE_ENCRYPTION_ALGORITHM,
       public_key: publicKey,
     };
   }
 
-  if (chain === "neo_n3") {
-    const network = trimString(process.env.MORPHEUS_NETWORK || "testnet").toLowerCase();
-    const rpcUrl = trimString(process.env.NEO_RPC_URL || (network === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443"));
-    const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || "");
-    if (!oracleHash) throw new Error("CONTRACT_MORPHEUS_ORACLE_HASH is required");
+  if (chain === 'neo_n3') {
+    const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
+    const rpcUrl = trimString(
+      process.env.NEO_RPC_URL ||
+        (network === 'mainnet'
+          ? 'https://mainnet1.neo.coz.io:443'
+          : 'https://testnet1.neo.coz.io:443')
+    );
+    const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
+    if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
 
     const rpcClient = new neoRpc.RPCClient(rpcUrl);
     const [algorithmResponse, publicKeyResponse] = await Promise.all([
-      rpcClient.invokeFunction(oracleHash, "oracleEncryptionAlgorithm", []).catch(() => null),
-      rpcClient.invokeFunction(oracleHash, "oracleEncryptionPublicKey", []),
+      rpcClient.invokeFunction(oracleHash, 'oracleEncryptionAlgorithm', []).catch(() => null),
+      rpcClient.invokeFunction(oracleHash, 'oracleEncryptionPublicKey', []),
     ]);
     const algorithm = parseNeoRpcString(algorithmResponse) || ORACLE_ENCRYPTION_ALGORITHM;
     const publicKey = parseNeoRpcString(publicKeyResponse);
-    if (!publicKey) throw new Error("Neo N3 oracle encryption public key is empty");
+    if (!publicKey) throw new Error('Neo N3 oracle encryption public key is empty');
     return {
-      source: "neo_n3_contract",
+      source: 'neo_n3_contract',
       algorithm,
       public_key: publicKey,
     };
@@ -327,39 +350,35 @@ export async function fetchOnchainOraclePublicKey(targetChain) {
   throw new Error(`unsupported target chain for oracle key lookup: ${targetChain}`);
 }
 
-export async function fetchOraclePublicKey(targetChain = "neo_n3") {
+export async function fetchOraclePublicKey(targetChain = 'neo_n3') {
   return fetchOnchainOraclePublicKey(targetChain);
 }
 
 export async function encryptWithOracleKey(publicKeyBase64, plaintext) {
-  const recipientPublicKeyBytes = Buffer.from(publicKeyBase64, "base64");
+  const recipientPublicKeyBytes = Buffer.from(publicKeyBase64, 'base64');
   const recipientKey = await webcrypto.subtle.importKey(
-    "raw",
+    'raw',
     recipientPublicKeyBytes,
-    { name: "X25519" },
+    { name: 'X25519' },
     false,
-    [],
+    []
   );
-  const ephemeralKeyPair = await webcrypto.subtle.generateKey(
-    { name: "X25519" },
-    true,
-    ["deriveBits"],
+  const ephemeralKeyPair = await webcrypto.subtle.generateKey({ name: 'X25519' }, true, [
+    'deriveBits',
+  ]);
+  const ephemeralPublicKeyBytes = new Uint8Array(
+    await webcrypto.subtle.exportKey('raw', ephemeralKeyPair.publicKey)
   );
-  const ephemeralPublicKeyBytes = new Uint8Array(await webcrypto.subtle.exportKey("raw", ephemeralKeyPair.publicKey));
   const sharedSecret = new Uint8Array(
     await webcrypto.subtle.deriveBits(
-      { name: "X25519", public: recipientKey },
+      { name: 'X25519', public: recipientKey },
       ephemeralKeyPair.privateKey,
-      256,
-    ),
+      256
+    )
   );
-  const keyMaterial = await webcrypto.subtle.importKey(
-    "raw",
-    sharedSecret,
-    "HKDF",
-    false,
-    ["deriveKey"],
-  );
+  const keyMaterial = await webcrypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, [
+    'deriveKey',
+  ]);
   const info = new Uint8Array([
     ...new TextEncoder().encode(ORACLE_ENCRYPTION_INFO),
     ...ephemeralPublicKeyBytes,
@@ -367,32 +386,36 @@ export async function encryptWithOracleKey(publicKeyBase64, plaintext) {
   ]);
   const aesKey = await webcrypto.subtle.deriveKey(
     {
-      name: "HKDF",
-      hash: "SHA-256",
+      name: 'HKDF',
+      hash: 'SHA-256',
       salt: recipientPublicKeyBytes,
       info,
     },
     keyMaterial,
-    { name: "AES-GCM", length: 256 },
+    { name: 'AES-GCM', length: 256 },
     false,
-    ["encrypt"],
+    ['encrypt']
   );
   const iv = webcrypto.getRandomValues(new Uint8Array(12));
-  const encryptedBytes = new Uint8Array(await webcrypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    aesKey,
-    new TextEncoder().encode(plaintext),
-  ));
+  const encryptedBytes = new Uint8Array(
+    await webcrypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      aesKey,
+      new TextEncoder().encode(plaintext)
+    )
+  );
   const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
   const tagBytes = encryptedBytes.slice(encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
-  return Buffer.from(JSON.stringify({
-    v: 2,
-    alg: ORACLE_ENCRYPTION_ALGORITHM,
-    epk: Buffer.from(ephemeralPublicKeyBytes).toString("base64"),
-    iv: Buffer.from(iv).toString("base64"),
-    ct: Buffer.from(ciphertextBytes).toString("base64"),
-    tag: Buffer.from(tagBytes).toString("base64"),
-  })).toString("base64");
+  return Buffer.from(
+    JSON.stringify({
+      v: 2,
+      alg: ORACLE_ENCRYPTION_ALGORITHM,
+      epk: Buffer.from(ephemeralPublicKeyBytes).toString('base64'),
+      iv: Buffer.from(iv).toString('base64'),
+      ct: Buffer.from(ciphertextBytes).toString('base64'),
+      tag: Buffer.from(tagBytes).toString('base64'),
+    })
+  ).toString('base64');
 }
 
 export async function buildEncryptedBuiltinComputePayload(targetChain) {
@@ -400,36 +423,36 @@ export async function buildEncryptedBuiltinComputePayload(targetChain) {
   return encryptWithOracleKey(
     oracleKey.public_key,
     JSON.stringify({
-      function: "math.modexp",
+      function: 'math.modexp',
       input: {
-        base: "2",
-        exponent: "10",
-        modulus: "17",
+        base: '2',
+        exponent: '10',
+        modulus: '17',
       },
       target_chain: targetChain,
-    }),
+    })
   );
 }
 
 export async function buildEncryptedJsonPatch(targetChainOrValue, value = undefined) {
-  const hasExplicitTargetChain = typeof targetChainOrValue === "string";
+  const hasExplicitTargetChain = typeof targetChainOrValue === 'string';
   const oracleKey = hasExplicitTargetChain
     ? await fetchOnchainOraclePublicKey(targetChainOrValue)
     : await fetchOraclePublicKey();
   return encryptWithOracleKey(
     oracleKey.public_key,
-    JSON.stringify(hasExplicitTargetChain ? value : targetChainOrValue),
+    JSON.stringify(hasExplicitTargetChain ? value : targetChainOrValue)
   );
 }
 
 export async function compileSolidityExample(relativePath, contractName) {
   const require = createRequire(import.meta.url);
-  const solc = require(path.resolve(repoRoot, "contracts/neox/node_modules/solc"));
+  const solc = require(path.resolve(repoRoot, 'contracts/neox/node_modules/solc'));
   const absolutePath = path.resolve(repoRoot, relativePath);
   const sourceName = path.basename(relativePath);
-  const source = await fs.readFile(absolutePath, "utf8");
+  const source = await fs.readFile(absolutePath, 'utf8');
   const input = {
-    language: "Solidity",
+    language: 'Solidity',
     sources: {
       [sourceName]: { content: source },
     },
@@ -439,8 +462,8 @@ export async function compileSolidityExample(relativePath, contractName) {
         runs: 200,
       },
       outputSelection: {
-        "*": {
-          "*": ["abi", "evm.bytecode.object"],
+        '*': {
+          '*': ['abi', 'evm.bytecode.object'],
         },
       },
     },
@@ -448,11 +471,11 @@ export async function compileSolidityExample(relativePath, contractName) {
 
   const output = JSON.parse(solc.compile(JSON.stringify(input)));
   const diagnostics = Array.isArray(output.errors) ? output.errors : [];
-  const failures = diagnostics.filter((entry) => entry.severity === "error");
+  const failures = diagnostics.filter((entry) => entry.severity === 'error');
   if (failures.length > 0) {
-    throw new Error(failures.map((entry) => entry.formattedMessage || entry.message).join("\n\n"));
+    throw new Error(failures.map((entry) => entry.formattedMessage || entry.message).join('\n\n'));
   }
-  for (const warning of diagnostics.filter((entry) => entry.severity === "warning")) {
+  for (const warning of diagnostics.filter((entry) => entry.severity === 'warning')) {
     console.warn(warning.formattedMessage || warning.message);
   }
 
@@ -471,8 +494,8 @@ export function runLocalRelayerOnce({ neoXStartBlock = null, neoN3StartBlock = n
   const env = {
     ...process.env,
     MORPHEUS_RELAYER_STATE_FILE: relayerStateFile,
-    MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS: "0",
-    MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS: "0",
+    MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS: '0',
+    MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS: '0',
   };
   if (neoXStartBlock !== null && neoXStartBlock !== undefined) {
     env.MORPHEUS_RELAYER_NEO_X_START_BLOCK = String(Math.max(Number(neoXStartBlock), 0));
@@ -481,13 +504,13 @@ export function runLocalRelayerOnce({ neoXStartBlock = null, neoN3StartBlock = n
     env.MORPHEUS_RELAYER_NEO_N3_START_BLOCK = String(Math.max(Number(neoN3StartBlock), 0));
   }
 
-  const result = spawnSync("npm", ["run", "once:relayer"], {
+  const result = spawnSync('npm', ['run', 'once:relayer'], {
     cwd: repoRoot,
     env,
-    encoding: "utf8",
+    encoding: 'utf8',
   });
   if ((result.status ?? 1) !== 0) {
-    throw new Error(result.stderr || result.stdout || "local relayer once failed");
+    throw new Error(result.stderr || result.stdout || 'local relayer once failed');
   }
   return result.stdout;
 }

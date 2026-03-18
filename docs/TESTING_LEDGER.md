@@ -73,20 +73,20 @@ Operational rule:
 
 ## 2. Code Under Test
 
-| Area | Primary code | Supporting code | What it validates |
-| --- | --- | --- | --- |
-| N3 Oracle callback example | `examples/scripts/test-n3-examples.mjs` | `examples/contracts/n3/UserConsumerN3.cs`, `examples/contracts/n3/FeedReaderN3.cs` | Provider callback, encrypted compute callback, sponsored callback, custom URL callback, on-chain feed read |
-| Mainnet privacy matrix | `examples/scripts/test-n3-privacy-matrix.mjs` | `examples/scripts/common.mjs` | Public params, encrypted params, encrypted payloads, custom URL, custom JS, callback verification envelope |
-| N3 builtin suite | `examples/scripts/test-n3-builtins.mjs` | `examples/scripts/lib-builtins.mjs` | All builtin compute families and expected outputs |
-| N3 automation | `examples/scripts/test-n3-automation.mjs` | Supabase-backed automation tables | One-shot registration, queued execution, interval registration, cancellation, Supabase persistence |
-| N3 automation idempotency | `examples/scripts/test-n3-automation-idempotency.mjs` | Supabase-backed automation tables plus live relayer loop isolation on test CVM | Deterministic queue request key, back-to-back scheduler ticks, single queued run for target automation, callback success |
-| N3 automation cancel race | `examples/scripts/test-n3-automation-cancel-race.mjs` | Supabase-backed automation tables plus live relayer loop isolation on test CVM | Marks a queued interval automation cancelled before relayer resume and records whether the already-queued request still fulfills |
-| N3 AA recovery cross-account boundary | `examples/scripts/test-n3-aa-recovery-cross-account-boundary.mjs` | Disposable MorpheusSocialRecoveryVerifier deployment plus live NeoDID recovery-ticket callback | Proves a recovery ticket bound to account A cannot be replayed against account B |
-| N3 integrated attack regression | `examples/scripts/test-n3-integrated-attack-regression.mjs` | AA latest suite artifact plus live Morpheus boundary probes | Oracle / NeoDID / AA verifier integrated attack-matrix runner and consolidated regression artifact |
-| Worker runtime | `workers/phala-worker/worker.test.mjs` | worker runtime modules under `workers/phala-worker/src/` | X25519 transport, timeouts, script isolation, WASM runtime, feed batching, relayer helpers |
-| Frontend / docs consistency | `scripts/check-web-consistency.mjs` | `apps/web/`, `workers/phala-worker/src/`, `config/networks/mainnet.json` | Builtin catalog parity, feed pair parity, mainnet address parity, stale-doc regression detection |
-| Frontend production build | `npm run build:web` | `apps/web/` | Type-safe production frontend build and route generation |
-| AA V3 validation baseline | external AA testnet suite | `../neo-abstract-account/docs/reports/2026-03-14-v3-testnet-validation-suite.md` | Smoke, verifier / hook primitives, paymaster policy abuse checks, and sponsored relay execution before cross-system NeoDID + Oracle integration |
+| Area                                  | Primary code                                                      | Supporting code                                                                                | What it validates                                                                                                                               |
+| ------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| N3 Oracle callback example            | `examples/scripts/test-n3-examples.mjs`                           | `examples/contracts/n3/UserConsumerN3.cs`, `examples/contracts/n3/FeedReaderN3.cs`             | Provider callback, encrypted compute callback, sponsored callback, custom URL callback, on-chain feed read                                      |
+| Mainnet privacy matrix                | `examples/scripts/test-n3-privacy-matrix.mjs`                     | `examples/scripts/common.mjs`                                                                  | Public params, encrypted params, encrypted payloads, custom URL, custom JS, callback verification envelope                                      |
+| N3 builtin suite                      | `examples/scripts/test-n3-builtins.mjs`                           | `examples/scripts/lib-builtins.mjs`                                                            | All builtin compute families and expected outputs                                                                                               |
+| N3 automation                         | `examples/scripts/test-n3-automation.mjs`                         | Supabase-backed automation tables                                                              | One-shot registration, queued execution, interval registration, cancellation, Supabase persistence                                              |
+| N3 automation idempotency             | `examples/scripts/test-n3-automation-idempotency.mjs`             | Supabase-backed automation tables plus live relayer loop isolation on test CVM                 | Deterministic queue request key, back-to-back scheduler ticks, single queued run for target automation, callback success                        |
+| N3 automation cancel race             | `examples/scripts/test-n3-automation-cancel-race.mjs`             | Supabase-backed automation tables plus live relayer loop isolation on test CVM                 | Marks a queued interval automation cancelled before relayer resume and records whether the already-queued request still fulfills                |
+| N3 AA recovery cross-account boundary | `examples/scripts/test-n3-aa-recovery-cross-account-boundary.mjs` | Disposable MorpheusSocialRecoveryVerifier deployment plus live NeoDID recovery-ticket callback | Proves a recovery ticket bound to account A cannot be replayed against account B                                                                |
+| N3 integrated attack regression       | `examples/scripts/test-n3-integrated-attack-regression.mjs`       | AA latest suite artifact plus live Morpheus boundary probes                                    | Oracle / NeoDID / AA verifier integrated attack-matrix runner and consolidated regression artifact                                              |
+| Worker runtime                        | `workers/phala-worker/worker.test.mjs`                            | worker runtime modules under `workers/phala-worker/src/`                                       | X25519 transport, timeouts, script isolation, WASM runtime, feed batching, relayer helpers                                                      |
+| Frontend / docs consistency           | `scripts/check-web-consistency.mjs`                               | `apps/web/`, `workers/phala-worker/src/`, `config/networks/mainnet.json`                       | Builtin catalog parity, feed pair parity, mainnet address parity, stale-doc regression detection                                                |
+| Frontend production build             | `npm run build:web`                                               | `apps/web/`                                                                                    | Type-safe production frontend build and route generation                                                                                        |
+| AA V3 validation baseline             | external AA testnet suite                                         | `../neo-abstract-account/docs/reports/2026-03-14-v3-testnet-validation-suite.md`               | Smoke, verifier / hook primitives, paymaster policy abuse checks, and sponsored relay execution before cross-system NeoDID + Oracle integration |
 
 ### AA V3 Testnet Baseline
 
@@ -106,36 +106,36 @@ What is now covered upstream before Morpheus-side integrated testing:
 
 ## 3. Artifact Index
 
-| Artifact | Kind | Network | Notes |
-| --- | --- | --- | --- |
-| `docs/MAINNET_PRIVACY_VALIDATION_2026-03-13.md` | Human report | Neo N3 mainnet | Full 7-case confidential Oracle / compute matrix |
-| `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md` | Human report | NeoDID Web3Auth runtime | Production rollout, backup, direct live Web3Auth validation, encrypted validation, and Oracle callback validation via `encrypted_params_ref` |
-| `examples/deployments/mainnet-privacy-validation.latest.json` | Machine-readable report | Neo N3 mainnet | Same matrix as JSON |
-| `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md` | Human report | Neo N3 mainnet | Latest mainnet example-consumer provider / compute / sponsored / custom URL / feed read run |
-| `examples/deployments/n3-examples-validation.mainnet.latest.json` | Machine-readable report | Neo N3 mainnet | Same latest example-consumer run as JSON |
-| `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-14.md` | Human report | TwelveData source validation | Verifies current canonical feed catalog mappings against the live source API |
-| `examples/deployments/feed-source-validation.mainnet.latest.json` | Machine-readable report | TwelveData source validation | Same source-validation run as JSON |
-| `docs/N3_CALLBACK_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Direct external callback injection probe against the callback consumer |
-| `examples/deployments/n3-callback-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same callback-boundary probe as JSON |
-| `docs/N3_NEODID_REGISTRY_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | NeoDID action-ticket consumption boundary probe against `NeoDIDRegistry` |
-| `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same NeoDID registry-boundary probe as JSON |
-| `docs/N3_NEODID_REGISTRY_V1_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Compact `neo_n3_action_v1` ticket consumption and replay probe against `NeoDIDRegistry` |
-| `examples/deployments/n3-neodid-registry-v1.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same compact NeoDID registry probe as JSON |
-| `docs/N3_ENCRYPTED_REF_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | `encrypted_params_ref` binding probe for requester and callback contract scope |
-| `examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same encrypted-ref boundary probe as JSON |
-| `docs/N3_FULFILLMENT_REPLAY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Isolated request-id replay probe for Oracle fulfillment signatures |
-| `examples/deployments/n3-fulfillment-replay.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same fulfillment-replay probe as JSON |
-| `docs/N3_AA_SESSION_ORACLE_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | AA session-key scope probe against a downstream Morpheus Oracle call path |
-| `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same AA session-key Oracle boundary probe as JSON |
-| `docs/N3_AA_RECOVERY_CROSS_ACCOUNT_BOUNDARY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Disposable MorpheusSocialRecoveryVerifier probe proving cross-account recovery ticket replay is rejected |
-| `examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same AA recovery cross-account boundary probe as JSON |
-| `docs/N3_AUTOMATION_IDEMPOTENCY_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Back-to-back relayer tick probe proving a target automation job queues once and fulfills once under deterministic request-keying |
-| `examples/deployments/n3-automation-idempotency.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same automation idempotency probe as JSON |
-| `docs/N3_AUTOMATION_CANCEL_RACE_TESTNET_2026-03-14.md` | Human report | Neo N3 testnet | Cancellation-race probe showing whether an already queued automation request still fulfills after cancellation |
-| `examples/deployments/n3-automation-cancel-race.testnet.latest.json` | Machine-readable report | Neo N3 testnet | Same automation cancellation-race probe as JSON |
-| `docs/ACCEPTANCE_REPORT_2026-03-10.md` | Acceptance report | Neo N3 mainnet | Smoke, example consumer, builtins, automation, feed sync, operational fixes |
-| `examples/deployments/test-n3.latest.json` | Machine-readable sample report | Neo N3 testnet | Provider / compute / custom URL / on-chain feed read |
-| `examples/deployments/test-neox.latest.json` | Partial log only | Archived reference | Not a canonical structured validation artifact and not part of the supported path |
+| Artifact                                                                         | Kind                           | Network                      | Notes                                                                                                                                        |
+| -------------------------------------------------------------------------------- | ------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `docs/MAINNET_PRIVACY_VALIDATION_2026-03-13.md`                                  | Human report                   | Neo N3 mainnet               | Full 7-case confidential Oracle / compute matrix                                                                                             |
+| `docs/NEODID_WEB3AUTH_RUNTIME_MAINNET_2026-03-12.md`                             | Human report                   | NeoDID Web3Auth runtime      | Production rollout, backup, direct live Web3Auth validation, encrypted validation, and Oracle callback validation via `encrypted_params_ref` |
+| `examples/deployments/mainnet-privacy-validation.latest.json`                    | Machine-readable report        | Neo N3 mainnet               | Same matrix as JSON                                                                                                                          |
+| `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md`                              | Human report                   | Neo N3 mainnet               | Latest mainnet example-consumer provider / compute / sponsored / custom URL / feed read run                                                  |
+| `examples/deployments/n3-examples-validation.mainnet.latest.json`                | Machine-readable report        | Neo N3 mainnet               | Same latest example-consumer run as JSON                                                                                                     |
+| `docs/FEED_SOURCE_VALIDATION_MAINNET_2026-03-14.md`                              | Human report                   | TwelveData source validation | Verifies current canonical feed catalog mappings against the live source API                                                                 |
+| `examples/deployments/feed-source-validation.mainnet.latest.json`                | Machine-readable report        | TwelveData source validation | Same source-validation run as JSON                                                                                                           |
+| `docs/N3_CALLBACK_BOUNDARY_TESTNET_2026-03-14.md`                                | Human report                   | Neo N3 testnet               | Direct external callback injection probe against the callback consumer                                                                       |
+| `examples/deployments/n3-callback-boundary.testnet.latest.json`                  | Machine-readable report        | Neo N3 testnet               | Same callback-boundary probe as JSON                                                                                                         |
+| `docs/N3_NEODID_REGISTRY_BOUNDARY_TESTNET_2026-03-14.md`                         | Human report                   | Neo N3 testnet               | NeoDID action-ticket consumption boundary probe against `NeoDIDRegistry`                                                                     |
+| `examples/deployments/n3-neodid-registry-boundary.testnet.latest.json`           | Machine-readable report        | Neo N3 testnet               | Same NeoDID registry-boundary probe as JSON                                                                                                  |
+| `docs/N3_NEODID_REGISTRY_V1_TESTNET_2026-03-14.md`                               | Human report                   | Neo N3 testnet               | Compact `neo_n3_action_v1` ticket consumption and replay probe against `NeoDIDRegistry`                                                      |
+| `examples/deployments/n3-neodid-registry-v1.testnet.latest.json`                 | Machine-readable report        | Neo N3 testnet               | Same compact NeoDID registry probe as JSON                                                                                                   |
+| `docs/N3_ENCRYPTED_REF_BOUNDARY_TESTNET_2026-03-14.md`                           | Human report                   | Neo N3 testnet               | `encrypted_params_ref` binding probe for requester and callback contract scope                                                               |
+| `examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json`             | Machine-readable report        | Neo N3 testnet               | Same encrypted-ref boundary probe as JSON                                                                                                    |
+| `docs/N3_FULFILLMENT_REPLAY_TESTNET_2026-03-14.md`                               | Human report                   | Neo N3 testnet               | Isolated request-id replay probe for Oracle fulfillment signatures                                                                           |
+| `examples/deployments/n3-fulfillment-replay.testnet.latest.json`                 | Machine-readable report        | Neo N3 testnet               | Same fulfillment-replay probe as JSON                                                                                                        |
+| `docs/N3_AA_SESSION_ORACLE_BOUNDARY_TESTNET_2026-03-14.md`                       | Human report                   | Neo N3 testnet               | AA session-key scope probe against a downstream Morpheus Oracle call path                                                                    |
+| `examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json`         | Machine-readable report        | Neo N3 testnet               | Same AA session-key Oracle boundary probe as JSON                                                                                            |
+| `docs/N3_AA_RECOVERY_CROSS_ACCOUNT_BOUNDARY_TESTNET_2026-03-14.md`               | Human report                   | Neo N3 testnet               | Disposable MorpheusSocialRecoveryVerifier probe proving cross-account recovery ticket replay is rejected                                     |
+| `examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json` | Machine-readable report        | Neo N3 testnet               | Same AA recovery cross-account boundary probe as JSON                                                                                        |
+| `docs/N3_AUTOMATION_IDEMPOTENCY_TESTNET_2026-03-14.md`                           | Human report                   | Neo N3 testnet               | Back-to-back relayer tick probe proving a target automation job queues once and fulfills once under deterministic request-keying             |
+| `examples/deployments/n3-automation-idempotency.testnet.latest.json`             | Machine-readable report        | Neo N3 testnet               | Same automation idempotency probe as JSON                                                                                                    |
+| `docs/N3_AUTOMATION_CANCEL_RACE_TESTNET_2026-03-14.md`                           | Human report                   | Neo N3 testnet               | Cancellation-race probe showing whether an already queued automation request still fulfills after cancellation                               |
+| `examples/deployments/n3-automation-cancel-race.testnet.latest.json`             | Machine-readable report        | Neo N3 testnet               | Same automation cancellation-race probe as JSON                                                                                              |
+| `docs/ACCEPTANCE_REPORT_2026-03-10.md`                                           | Acceptance report              | Neo N3 mainnet               | Smoke, example consumer, builtins, automation, feed sync, operational fixes                                                                  |
+| `examples/deployments/test-n3.latest.json`                                       | Machine-readable sample report | Neo N3 testnet               | Provider / compute / custom URL / on-chain feed read                                                                                         |
+| `examples/deployments/test-neox.latest.json`                                     | Partial log only               | Archived reference           | Not a canonical structured validation artifact and not part of the supported path                                                            |
 
 Current report generator outputs after the latest script upgrade:
 
@@ -170,15 +170,15 @@ Source:
 - JSON: `examples/deployments/mainnet-privacy-validation.latest.json`
 - Markdown: `docs/MAINNET_PRIVACY_VALIDATION_2026-03-13.md`
 
-| Case id | Request type | Code path | Txid | Request id | Result | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| `provider_plain` | `privacy_oracle` | builtin provider, public params | `0xfb222e5547f9771c5c88aaa418f6b39dc1216ada66e47807149608d36e73734b` | `148` | `"2.656"` | pass |
-| `provider_encrypted_params` | `privacy_oracle` | builtin provider, encrypted `json_path` | `0xad6e347a5e85071b6c9d56536584eb8328b4d1c3317b771c96ceb5aa0d757975` | `151` | `"2.656"` | pass |
-| `compute_builtin_encrypted` | `compute` | encrypted builtin payload | `0x6a511dc43eccc18ee61c75e24c3aed880b58e832f73b86689b9b04cef8458e82` | `153` | `{"value":"4"}` | pass |
-| `compute_custom_script_encrypted` | `compute` | encrypted custom JS compute | `0x22f3c64dbae89f81bc29f32c9ae038514b8c976e607aeb2e4a0c431f4f29f255` | `157` | `42` | pass |
-| `oracle_custom_url_encrypted_params` | `oracle` | custom URL + encrypted params | `0x1908d06e6186fe2c04129e15a07d0dcaa966ecc4c05c799172d30f5a208e2b07` | `159` | `"neo-morpheus"` | pass |
-| `oracle_custom_url_encrypted_script` | `oracle` | custom URL + encrypted params + custom JS | `0x7b851e70df4f258a563959945d0dbdb7a6413a18090a1dbdb575c0ed8dd63311` | `160` | `"neo-morpheus-script"` | pass |
-| `provider_encrypted_script` | `privacy_oracle` | builtin provider + encrypted custom JS | `0x9785e659758d53cac73bcb3ea903ac9d52f53e254cb19daa78eae4c09c327eb8` | `163` | `true` | pass |
+| Case id                              | Request type     | Code path                                 | Txid                                                                 | Request id | Result                  | Status |
+| ------------------------------------ | ---------------- | ----------------------------------------- | -------------------------------------------------------------------- | ---------- | ----------------------- | ------ |
+| `provider_plain`                     | `privacy_oracle` | builtin provider, public params           | `0xfb222e5547f9771c5c88aaa418f6b39dc1216ada66e47807149608d36e73734b` | `148`      | `"2.656"`               | pass   |
+| `provider_encrypted_params`          | `privacy_oracle` | builtin provider, encrypted `json_path`   | `0xad6e347a5e85071b6c9d56536584eb8328b4d1c3317b771c96ceb5aa0d757975` | `151`      | `"2.656"`               | pass   |
+| `compute_builtin_encrypted`          | `compute`        | encrypted builtin payload                 | `0x6a511dc43eccc18ee61c75e24c3aed880b58e832f73b86689b9b04cef8458e82` | `153`      | `{"value":"4"}`         | pass   |
+| `compute_custom_script_encrypted`    | `compute`        | encrypted custom JS compute               | `0x22f3c64dbae89f81bc29f32c9ae038514b8c976e607aeb2e4a0c431f4f29f255` | `157`      | `42`                    | pass   |
+| `oracle_custom_url_encrypted_params` | `oracle`         | custom URL + encrypted params             | `0x1908d06e6186fe2c04129e15a07d0dcaa966ecc4c05c799172d30f5a208e2b07` | `159`      | `"neo-morpheus"`        | pass   |
+| `oracle_custom_url_encrypted_script` | `oracle`         | custom URL + encrypted params + custom JS | `0x7b851e70df4f258a563959945d0dbdb7a6413a18090a1dbdb575c0ed8dd63311` | `160`      | `"neo-morpheus-script"` | pass   |
+| `provider_encrypted_script`          | `privacy_oracle` | builtin provider + encrypted custom JS    | `0x9785e659758d53cac73bcb3ea903ac9d52f53e254cb19daa78eae4c09c327eb8` | `163`      | `true`                  | pass   |
 
 Operational notes from the same run:
 
@@ -196,19 +196,19 @@ Source:
 
 #### Initial live mainnet smoke
 
-| Case | Txid | Request id | Result |
-| --- | --- | --- | --- |
-| Fresh smoke request | `0xa7552a5f315caca6ecb1739e9213733cbd0087297173301350123ddacf958759` | `32` | `privacy_oracle`, callback success, extracted value `2.509` |
+| Case                | Txid                                                                 | Request id | Result                                                      |
+| ------------------- | -------------------------------------------------------------------- | ---------- | ----------------------------------------------------------- |
+| Fresh smoke request | `0xa7552a5f315caca6ecb1739e9213733cbd0087297173301350123ddacf958759` | `32`       | `privacy_oracle`, callback success, extracted value `2.509` |
 
 #### Mainnet example consumer cases
 
-| Case | Txid | Request id | Result |
-| --- | --- | --- | --- |
-| Provider callback | `0x3aacbf7e12e87c73a9d983bf9d2d44fe0de2d2b5df8507df3ee3b825c88bfe8f` | `8` | success |
-| Hybrid encrypted compute callback | `0x8c08206a10bbfe35eb5cf2319adc4294f32b0266dd4cd727047dd464fe746702` | `9` | success |
-| Sponsored provider callback | `0x04e3050db92046b623d8d7634a876b81f28b1b967a4eff75311e443437097e87` | `10` | success |
-| Custom URL oracle callback | `0x16ef1e5be1bea2c6c325ceede7aec0397f5b01eb0f7eab35db4f3d94e3da8a1b` | `11` | success |
-| On-chain feed read | N/A | N/A | `TWELVEDATA:NEO-USD`, stored integer price `252`, display `2.52` |
+| Case                              | Txid                                                                 | Request id | Result                                                           |
+| --------------------------------- | -------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------- |
+| Provider callback                 | `0x3aacbf7e12e87c73a9d983bf9d2d44fe0de2d2b5df8507df3ee3b825c88bfe8f` | `8`        | success                                                          |
+| Hybrid encrypted compute callback | `0x8c08206a10bbfe35eb5cf2319adc4294f32b0266dd4cd727047dd464fe746702` | `9`        | success                                                          |
+| Sponsored provider callback       | `0x04e3050db92046b623d8d7634a876b81f28b1b967a4eff75311e443437097e87` | `10`       | success                                                          |
+| Custom URL oracle callback        | `0x16ef1e5be1bea2c6c325ceede7aec0397f5b01eb0f7eab35db4f3d94e3da8a1b` | `11`       | success                                                          |
+| On-chain feed read                | N/A                                                                  | N/A        | `TWELVEDATA:NEO-USD`, stored integer price `252`, display `2.52` |
 
 #### Latest regenerated mainnet example consumer run
 
@@ -217,24 +217,24 @@ Source:
 - `docs/N3_EXAMPLES_VALIDATION_MAINNET_2026-03-11.md`
 - `examples/deployments/n3-examples-validation.mainnet.latest.json`
 
-| Case | Txid | Request id | Result |
-| --- | --- | --- | --- |
-| Provider callback | `0x44041c38781f89abbf8ccbaceb6289c00ce23e858272b330fe72be1c6592ba5f` | `115` | extracted value `2.517` |
-| Encrypted compute callback | `0xb39d14fd8b6fbc4f1adfd9c06de57f7ed83859c58e563088bb5f5081b5375e78` | `116` | builtin result `4` |
-| Sponsored provider callback | `0x7a9ad19ef845787e4039d25f445fde8773f0b0ce96575bf3d20e81a4adcbfce6` | `117` | extracted value `2.51` |
-| Custom URL oracle callback | `0x138715d83bf16ecddc3fc94a30c15ee09652f9f8e6fd579a239c72121e195e76` | `118` | result `neo-morpheus` |
-| On-chain feed read | N/A | N/A | reader observed 14 currently synced pairs at report time |
+| Case                        | Txid                                                                 | Request id | Result                                                   |
+| --------------------------- | -------------------------------------------------------------------- | ---------- | -------------------------------------------------------- |
+| Provider callback           | `0x44041c38781f89abbf8ccbaceb6289c00ce23e858272b330fe72be1c6592ba5f` | `115`      | extracted value `2.517`                                  |
+| Encrypted compute callback  | `0xb39d14fd8b6fbc4f1adfd9c06de57f7ed83859c58e563088bb5f5081b5375e78` | `116`      | builtin result `4`                                       |
+| Sponsored provider callback | `0x7a9ad19ef845787e4039d25f445fde8773f0b0ce96575bf3d20e81a4adcbfce6` | `117`      | extracted value `2.51`                                   |
+| Custom URL oracle callback  | `0x138715d83bf16ecddc3fc94a30c15ee09652f9f8e6fd579a239c72121e195e76` | `118`      | result `neo-morpheus`                                    |
+| On-chain feed read          | N/A                                                                  | N/A        | reader observed 14 currently synced pairs at report time |
 
 #### Additional mainnet Oracle validation after live hot patch
 
-| Case | Txid | Request id | Result |
-| --- | --- | --- | --- |
-| Smoke request | `0xc58a40a1c0153678b6f11d738bb954d11465a2c695fadd5ccd871eceea731b26` | `59` | success |
-| Provider callback | `0xee45e7769dbd148ae461ce7a5441d7a3a8805a9d976878d84ab60a3bb3227994` | `62` | success |
-| Hybrid encrypted compute callback | `0xc82ad15daee3a3a9311b7c675c242856ae2bd121b915bb8f60268bc7742509a0` | `63` | success |
-| Sponsored provider callback | `0x3ef5fd24800e7fb66baffe249c3c217057d31828c0b5f346211f707b35640a07` | `64` | success |
-| Custom URL + encrypted params | `0x070858b7a8802daa4ded16fc85dfde429a6efdb799c27d412fbd3fa0b5c1b1d5` | `65` | extracted value `neo-morpheus` |
-| Custom URL + encrypted params + custom JS | `0xbd90265c6d881856d16184359afc5cc3aedc93f03ba213e33a5d90834a303289` | `68` | final result `neo-morpheus-script` |
+| Case                                      | Txid                                                                 | Request id | Result                             |
+| ----------------------------------------- | -------------------------------------------------------------------- | ---------- | ---------------------------------- |
+| Smoke request                             | `0xc58a40a1c0153678b6f11d738bb954d11465a2c695fadd5ccd871eceea731b26` | `59`       | success                            |
+| Provider callback                         | `0xee45e7769dbd148ae461ce7a5441d7a3a8805a9d976878d84ab60a3bb3227994` | `62`       | success                            |
+| Hybrid encrypted compute callback         | `0xc82ad15daee3a3a9311b7c675c242856ae2bd121b915bb8f60268bc7742509a0` | `63`       | success                            |
+| Sponsored provider callback               | `0x3ef5fd24800e7fb66baffe249c3c217057d31828c0b5f346211f707b35640a07` | `64`       | success                            |
+| Custom URL + encrypted params             | `0x070858b7a8802daa4ded16fc85dfde429a6efdb799c27d412fbd3fa0b5c1b1d5` | `65`       | extracted value `neo-morpheus`     |
+| Custom URL + encrypted params + custom JS | `0xbd90265c6d881856d16184359afc5cc3aedc93f03ba213e33a5d90834a303289` | `68`       | final result `neo-morpheus-script` |
 
 ### 4.3 Mainnet Builtin Compute Suite
 
@@ -279,12 +279,12 @@ Source:
 - `examples/scripts/test-n3-automation.mjs`
 - `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 
-| Case | Txid | Request id | Additional result |
-| --- | --- | --- | --- |
-| One-shot register callback | `0x63c4758212bbe78433180d4c3ee0e486b4fece7129c93b061ee7a547f0602563` | `51` | `automation_id = automation:neo_n3:1a0ffc4e-7b9d-4599-91f1-45e214b0176f` |
-| One-shot queued execution | N/A (queued by scheduler) | `52` | `request_type = privacy_oracle`, extracted value `2.52`, Supabase status `completed` |
-| Interval register callback | `0x66d08cb3a8a022d3cbe826c8a6697b8b215b9ced889eff332df0f4c3f03140eb` | `53` | `automation_id = automation:neo_n3:683de849-3bd8-4b90-b0de-956777cf1bfa` |
-| Automation cancel callback | `0xea2494c59ee6408475e7b89a60ddf09e80a2c000cab8a28bd87e44086271e62d` | `54` | Supabase status `cancelled` |
+| Case                       | Txid                                                                 | Request id | Additional result                                                                    |
+| -------------------------- | -------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------------------------ |
+| One-shot register callback | `0x63c4758212bbe78433180d4c3ee0e486b4fece7129c93b061ee7a547f0602563` | `51`       | `automation_id = automation:neo_n3:1a0ffc4e-7b9d-4599-91f1-45e214b0176f`             |
+| One-shot queued execution  | N/A (queued by scheduler)                                            | `52`       | `request_type = privacy_oracle`, extracted value `2.52`, Supabase status `completed` |
+| Interval register callback | `0x66d08cb3a8a022d3cbe826c8a6697b8b215b9ced889eff332df0f4c3f03140eb` | `53`       | `automation_id = automation:neo_n3:683de849-3bd8-4b90-b0de-956777cf1bfa`             |
+| Automation cancel callback | `0xea2494c59ee6408475e7b89a60ddf09e80a2c000cab8a28bd87e44086271e62d` | `54`       | Supabase status `cancelled`                                                          |
 
 What this validated:
 
@@ -335,10 +335,10 @@ Precision migration verification on 2026-03-11:
 
 Recorded transactions:
 
-| Validation step | Txid | Result |
-| --- | --- | --- |
-| Forced full-batch feed sync | `0xa34fe7c5bfff65d1ead1d9e6be12458dfdcf76253e5694dc24c4b30b42fd1204` | single `updateFeeds` transaction containing all 14 pairs |
-| Direct operator-triggered single-symbol publish | `0x39c1a67e5d5ca47728bda6798b17191adfee862a660ac4f317f8f40e492d800c` | updated `TWELVEDATA:NEO-USD`, round `1773053364`, integer price `251` |
+| Validation step                                                      | Txid                                                                 | Result                                                                                                                                          |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Forced full-batch feed sync                                          | `0xa34fe7c5bfff65d1ead1d9e6be12458dfdcf76253e5694dc24c4b30b42fd1204` | single `updateFeeds` transaction containing all 14 pairs                                                                                        |
+| Direct operator-triggered single-symbol publish                      | `0x39c1a67e5d5ca47728bda6798b17191adfee862a660ac4f317f8f40e492d800c` | updated `TWELVEDATA:NEO-USD`, round `1773053364`, integer price `251`                                                                           |
 | Forced full-batch sync after catalog expansion to 34 canonical pairs | `0x8a1da3325466bc54839dd0e52016192752ceeec9df827ba79e920a0abc58ebfa` | single `updateFeeds` transaction containing all 34 configured pairs including equities, ETFs, commodities, FX, `1000FLM-USD`, and `1000JPY-USD` |
 
 Latest reader confirmation recorded in acceptance:
@@ -371,11 +371,11 @@ Source:
 
 This is a structured sample artifact for the same example-consumer flow on testnet.
 
-| Case | Txid | Request id | Result |
-| --- | --- | --- | --- |
-| Provider callback | `0x24bd11e908a20deaa028c4711daa0d81f14ac66fa6cadae051f21ad6baa0041a` | `72` | extracted value `2.49` |
-| Encrypted compute callback | `0x17733321509c69527e760394b96153fb872f08d041c83334de4c8d93c572a2b4` | `73` | builtin result `4` |
-| Custom URL oracle callback | `0x17b760fc02dd8b70065d745c4ffd63f4c353fbec18a7b3622fd21e94d5dcb52e` | `74` | result `neo-morpheus` |
+| Case                       | Txid                                                                 | Request id | Result                 |
+| -------------------------- | -------------------------------------------------------------------- | ---------- | ---------------------- |
+| Provider callback          | `0x24bd11e908a20deaa028c4711daa0d81f14ac66fa6cadae051f21ad6baa0041a` | `72`       | extracted value `2.49` |
+| Encrypted compute callback | `0x17733321509c69527e760394b96153fb872f08d041c83334de4c8d93c572a2b4` | `73`       | builtin result `4`     |
+| Custom URL oracle callback | `0x17b760fc02dd8b70065d745c4ffd63f4c353fbec18a7b3622fd21e94d5dcb52e` | `74`       | result `neo-morpheus`  |
 
 Recorded testnet feed snapshot:
 
@@ -406,11 +406,11 @@ Current repo position:
 
 The following repository-level checks were run after the latest frontend / documentation alignment work:
 
-| Command | Result | What it covers |
-| --- | --- | --- |
-| `npm run check:web-content` | pass | Frontend builtin parity, feed parity, mainnet address parity, stale-doc regression checks |
-| `npm run build:web` | pass | Production frontend build, route generation, type checks |
-| `npm run test:worker` | pass | 38 worker runtime tests including X25519 transport, timeouts, WASM, feed batching, and signing |
+| Command                     | Result | What it covers                                                                                 |
+| --------------------------- | ------ | ---------------------------------------------------------------------------------------------- |
+| `npm run check:web-content` | pass   | Frontend builtin parity, feed parity, mainnet address parity, stale-doc regression checks      |
+| `npm run build:web`         | pass   | Production frontend build, route generation, type checks                                       |
+| `npm run test:worker`       | pass   | 38 worker runtime tests including X25519 transport, timeouts, WASM, feed batching, and signing |
 
 ## 8. Source Reachability Validation
 

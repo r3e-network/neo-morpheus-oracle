@@ -1,7 +1,9 @@
-import http from "http";
-import handler from "./worker.js";
+import http from 'http';
+import handler from './worker.js';
 
-const port = Number(process.env.PORT || process.env.PHALA_WORKER_PORT || process.env.NITROCORE_PORT || 8080);
+const port = Number(
+  process.env.PORT || process.env.PHALA_WORKER_PORT || process.env.NITROCORE_PORT || 8080
+);
 const maxBodyBytes = Math.max(Number(process.env.WORKER_MAX_BODY_BYTES || 262144), 1024);
 
 async function toRequest(req) {
@@ -15,17 +17,19 @@ async function toRequest(req) {
     chunks.push(chunk);
   }
   const bodyBuffer = Buffer.concat(chunks);
-  const protocol = req.headers["x-forwarded-proto"] || "http";
+  const protocol = req.headers['x-forwarded-proto'] || 'http';
   const host = req.headers.host || `0.0.0.0:${port}`;
-  const url = `${protocol}://${host}${req.url || "/"}`;
+  const url = `${protocol}://${host}${req.url || '/'}`;
 
   return new Request(url, {
     method: req.method,
-    headers: new Headers(Object.entries(req.headers).flatMap(([key, value]) => {
-      if (Array.isArray(value)) return value.map((item) => [key, item]);
-      return value ? [[key, value]] : [];
-    })),
-    body: req.method === "GET" || req.method === "HEAD" ? undefined : bodyBuffer,
+    headers: new Headers(
+      Object.entries(req.headers).flatMap(([key, value]) => {
+        if (Array.isArray(value)) return value.map((item) => [key, item]);
+        return value ? [[key, value]] : [];
+      })
+    ),
+    body: req.method === 'GET' || req.method === 'HEAD' ? undefined : bodyBuffer,
   });
 }
 
@@ -46,11 +50,11 @@ const server = http.createServer(async (req, res) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     res.statusCode = 500;
-    res.setHeader("content-type", "application/json");
+    res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify({ error: message }));
   }
 });
 
 server.listen(port, () => {
-  console.log(JSON.stringify({ level: "info", msg: "phala-worker server listening", port }));
+  console.log(JSON.stringify({ level: 'info', msg: 'phala-worker server listening', port }));
 });

@@ -41,7 +41,9 @@ function isTrue(value) {
 }
 
 function resolveEnvPath() {
-  const network = trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet') || 'mainnet';
+  const network =
+    trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet') ||
+    'mainnet';
   const configuredPath = trimString(process.env.PHALA_ENV_FILE || '');
   return configuredPath
     ? path.resolve(process.cwd(), configuredPath)
@@ -88,7 +90,9 @@ const neoXEnabled = anyPresent(env, runtimeConfig, [
   'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS',
   'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
 ]);
-const missingNeoX = neoXEnabled ? neoXFields.filter((key) => !getValue(env, runtimeConfig, key)) : [];
+const missingNeoX = neoXEnabled
+  ? neoXFields.filter((key) => !getValue(env, runtimeConfig, key))
+  : [];
 
 const report = {
   env_path: envPath,
@@ -110,9 +114,7 @@ const explicitOracleVerifierKeys = [
 ];
 
 if (!explicitOracleVerifierKeys.some((key) => getValue(env, runtimeConfig, key))) {
-  report.optional_recommendations.oracle_verifier.push(
-    explicitOracleVerifierKeys.join(' | '),
-  );
+  report.optional_recommendations.oracle_verifier.push(explicitOracleVerifierKeys.join(' | '));
 }
 
 console.log(JSON.stringify(report, null, 2));

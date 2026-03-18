@@ -192,7 +192,14 @@ function deepMerge(base, override) {
   if (!override || typeof override !== 'object' || Array.isArray(override)) return base;
   const output = { ...base };
   for (const [key, value] of Object.entries(override)) {
-    if (value && typeof value === 'object' && !Array.isArray(value) && output[key] && typeof output[key] === 'object' && !Array.isArray(output[key])) {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      output[key] &&
+      typeof output[key] === 'object' &&
+      !Array.isArray(output[key])
+    ) {
       output[key] = deepMerge(output[key], value);
     } else {
       output[key] = value;
@@ -230,7 +237,10 @@ export function getFeedPairConfig(pair) {
 }
 
 export function getFeedDisplaySymbol(pair) {
-  return trimString(getFeedPairConfig(pair)?.display_symbol || '') || getFeedStoragePair('twelvedata', pair);
+  return (
+    trimString(getFeedPairConfig(pair)?.display_symbol || '') ||
+    getFeedStoragePair('twelvedata', pair)
+  );
 }
 
 export function getFeedUnitLabel(pair) {
@@ -249,7 +259,9 @@ export function getFeedPriceTransform(pair) {
 export function getFeedProvidersForPair(pair) {
   const config = getFeedPairConfig(pair);
   if (!config?.providers || typeof config.providers !== 'object') return [];
-  return Object.keys(config.providers).map((provider) => normalizeProviderId(provider)).filter(Boolean);
+  return Object.keys(config.providers)
+    .map((provider) => normalizeProviderId(provider))
+    .filter(Boolean);
 }
 
 export function getDefaultFeedSymbols() {
@@ -260,16 +272,19 @@ export function applyFeedProviderDefaults(pair, providerId, payload = {}) {
   const normalizedPair = normalizeFeedPairSymbol(pair);
   const config = getFeedPairConfig(pair);
   const provider = normalizeProviderId(providerId);
-  const providerDefaults = config?.providers?.[provider] && typeof config.providers[provider] === 'object'
-    ? config.providers[provider]
-    : {};
+  const providerDefaults =
+    config?.providers?.[provider] && typeof config.providers[provider] === 'object'
+      ? config.providers[provider]
+      : {};
   return {
     ...payload,
     symbol: trimString(payload.symbol || normalizedPair).toUpperCase(),
     provider,
     provider_params: {
       ...(providerDefaults || {}),
-      ...(payload.provider_params && typeof payload.provider_params === 'object' ? payload.provider_params : {}),
+      ...(payload.provider_params && typeof payload.provider_params === 'object'
+        ? payload.provider_params
+        : {}),
     },
   };
 }

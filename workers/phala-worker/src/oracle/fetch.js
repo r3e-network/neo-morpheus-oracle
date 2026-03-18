@@ -7,41 +7,44 @@ import {
   parseDurationMs,
   resolveMaxBytes,
   trimString,
-} from "../platform/core.js";
-import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from "./providers.js";
-import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
+} from '../platform/core.js';
+import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from './providers.js';
+import { buildSignedResultEnvelope, buildVerificationEnvelope } from '../chain/index.js';
 import {
   decryptEncryptedToken,
   executeProgrammableOracle,
   resolveConfidentialPayload,
   resolveEncryptedPayload,
-} from "./crypto.js";
-import { maybeBuildDstackAttestation } from "../platform/dstack.js";
+} from './crypto.js';
+import { maybeBuildDstackAttestation } from '../platform/dstack.js';
 
 export function normalizeOracleUrl(rawUrl) {
   const parsedUrl = new URL(trimString(rawUrl));
-  if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-    throw new Error("url must use http or https");
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error('url must use http or https');
   }
   const host = parsedUrl.hostname.toLowerCase();
   if (
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host === "[::1]" ||
-    host === "0.0.0.0" ||
-    host.endsWith(".local") ||
-    host === "169.254.169.254" ||
-    host.startsWith("10.") ||
-    host.startsWith("192.168.") ||
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    host === '0.0.0.0' ||
+    host.endsWith('.local') ||
+    host === '169.254.169.254' ||
+    host.startsWith('10.') ||
+    host.startsWith('192.168.') ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(host)
   ) {
-    throw new Error("private/internal URLs not allowed");
+    throw new Error('private/internal URLs not allowed');
   }
 
-  const rawAllowlist = env("ORACLE_HTTP_ALLOWLIST");
+  const rawAllowlist = env('ORACLE_HTTP_ALLOWLIST');
   if (rawAllowlist) {
-    const allowlist = rawAllowlist.split(",").map((entry) => trimString(entry)).filter(Boolean);
+    const allowlist = rawAllowlist
+      .split(',')
+      .map((entry) => trimString(entry))
+      .filter(Boolean);
     if (allowlist.length > 0) {
       const allowed = allowlist.some((entry) => {
         let allowedUrl;
@@ -51,11 +54,13 @@ export function normalizeOracleUrl(rawUrl) {
           return false;
         }
         if (allowedUrl.origin !== parsedUrl.origin) return false;
-        const allowedPath = allowedUrl.pathname.replace(/\/+$/, "");
-        if (!allowedPath || allowedPath === "/") return true;
-        return parsedUrl.pathname === allowedPath || parsedUrl.pathname.startsWith(`${allowedPath}/`);
+        const allowedPath = allowedUrl.pathname.replace(/\/+$/, '');
+        if (!allowedPath || allowedPath === '/') return true;
+        return (
+          parsedUrl.pathname === allowedPath || parsedUrl.pathname.startsWith(`${allowedPath}/`)
+        );
       });
-      if (!allowed) throw new Error("url is not in ORACLE_HTTP_ALLOWLIST");
+      if (!allowed) throw new Error('url is not in ORACLE_HTTP_ALLOWLIST');
     }
   }
 
@@ -64,7 +69,10 @@ export function normalizeOracleUrl(rawUrl) {
 
 async function fetchWithTimeout(url, init, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error(`oracle fetch timed out after ${timeoutMs}ms`)), timeoutMs);
+  const timer = setTimeout(
+    () => controller.abort(new Error(`oracle fetch timed out after ${timeoutMs}ms`)),
+    timeoutMs
+  );
   try {
     return await fetch(url, {
       ...init,
@@ -81,9 +89,9 @@ async function fetchWithTimeout(url, init, timeoutMs) {
 }
 
 async function readResponseTextWithLimit(response, maxBytes, label) {
-  if (!response.body || typeof response.body.getReader !== "function") {
+  if (!response.body || typeof response.body.getReader !== 'function') {
     const text = await response.text();
-    if (Buffer.byteLength(text, "utf8") > maxBytes) {
+    if (Buffer.byteLength(text, 'utf8') > maxBytes) {
       throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
     }
     return text;
@@ -103,36 +111,39 @@ async function readResponseTextWithLimit(response, maxBytes, label) {
     }
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 function buildUpstreamErrorMessage(source, status, data, rawResponse) {
-  const body = typeof data === "string"
-    ? data
-    : data && typeof data === "object"
-      ? JSON.stringify(data)
-      : rawResponse || "";
-  const compact = trimString(body).replace(/\s+/g, " ");
-  const detail = compact ? `: ${compact.slice(0, 180)}` : "";
+  const body =
+    typeof data === 'string'
+      ? data
+      : data && typeof data === 'object'
+        ? JSON.stringify(data)
+        : rawResponse || '';
+  const compact = trimString(body).replace(/\s+/g, ' ');
+  const detail = compact ? `: ${compact.slice(0, 180)}` : '';
   return `${source} upstream returned HTTP ${status}${detail}`;
 }
 
 export async function performOracleFetch(payload) {
   const { payload: resolvedPayload } = await resolveProviderPayload(payload, {
-    fallbackProviderId: !payload.url && payload.symbol ? "twelvedata" : undefined,
+    fallbackProviderId: !payload.url && payload.symbol ? 'twelvedata' : undefined,
   });
   const timeoutMs = parseDurationMs(
-    resolvedPayload.oracle_timeout_ms || resolvedPayload.fetch_timeout_ms || env("ORACLE_TIMEOUT"),
-    20000,
+    resolvedPayload.oracle_timeout_ms || resolvedPayload.fetch_timeout_ms || env('ORACLE_TIMEOUT'),
+    20000
   );
-  const maxBodyBytes = resolveMaxBytes(env("ORACLE_MAX_UPSTREAM_BODY_BYTES"), 256 * 1024, 4096);
+  const maxBodyBytes = resolveMaxBytes(env('ORACLE_MAX_UPSTREAM_BODY_BYTES'), 256 * 1024, 4096);
 
   const providerRequest = buildProviderRequest(resolvedPayload);
   if (providerRequest) {
     const response = await fetchProviderJSON(providerRequest, timeoutMs);
     const data = response.data ?? response.text;
     if (!response.ok) {
-      throw new Error(buildUpstreamErrorMessage(providerRequest.provider, response.status, data, response.text));
+      throw new Error(
+        buildUpstreamErrorMessage(providerRequest.provider, response.status, data, response.text)
+      );
     }
     const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
     return {
@@ -147,27 +158,40 @@ export async function performOracleFetch(payload) {
   }
 
   const url = normalizeOracleUrl(resolvedPayload.url);
-  const decryptedToken = await decryptEncryptedToken(resolveEncryptedPayload(resolvedPayload), resolvedPayload);
+  const decryptedToken = await decryptEncryptedToken(
+    resolveEncryptedPayload(resolvedPayload),
+    resolvedPayload
+  );
   const headers = normalizeHeaders(resolvedPayload.headers);
-  const tokenHeader = trimString(resolvedPayload.token_header || "Authorization") || "Authorization";
+  const tokenHeader =
+    trimString(resolvedPayload.token_header || 'Authorization') || 'Authorization';
   if (decryptedToken) {
-    const tokenPrefix = resolvedPayload.token_prefix !== undefined
-      ? String(resolvedPayload.token_prefix)
-      : tokenHeader.toLowerCase() === "authorization"
-        ? "Bearer "
-        : "";
+    const tokenPrefix =
+      resolvedPayload.token_prefix !== undefined
+        ? String(resolvedPayload.token_prefix)
+        : tokenHeader.toLowerCase() === 'authorization'
+          ? 'Bearer '
+          : '';
     headers.set(tokenHeader, `${tokenPrefix}${decryptedToken}`);
   }
 
-  const response = await fetchWithTimeout(url, {
-    method: resolvedPayload.method || "GET",
-    headers,
-    body: resolvedPayload.body,
-  }, timeoutMs);
+  const response = await fetchWithTimeout(
+    url,
+    {
+      method: resolvedPayload.method || 'GET',
+      headers,
+      body: resolvedPayload.body,
+    },
+    timeoutMs
+  );
 
-  const rawResponse = await readResponseTextWithLimit(response, maxBodyBytes, "oracle upstream response");
+  const rawResponse = await readResponseTextWithLimit(
+    response,
+    maxBodyBytes,
+    'oracle upstream response'
+  );
   const responseHeaders = Object.fromEntries(response.headers.entries());
-  const data = parseBodyMaybe(rawResponse, response.headers.get("content-type")) ?? rawResponse;
+  const data = parseBodyMaybe(rawResponse, response.headers.get('content-type')) ?? rawResponse;
   if (!response.ok) {
     throw new Error(buildUpstreamErrorMessage(url, response.status, data, rawResponse));
   }
@@ -191,8 +215,11 @@ export async function buildOracleResponse(payload, mode) {
   const context = {
     ...fetchResult,
     target_chain: targetChain,
-    target_chain_id: resolvedPayload.target_chain_id ? String(resolvedPayload.target_chain_id) : null,
-    request_source: trimString(resolvedPayload.request_source || "chain-dispatcher") || "chain-dispatcher",
+    target_chain_id: resolvedPayload.target_chain_id
+      ? String(resolvedPayload.target_chain_id)
+      : null,
+    request_source:
+      trimString(resolvedPayload.request_source || 'chain-dispatcher') || 'chain-dispatcher',
     encrypted_token_present: Boolean(resolveEncryptedPayload(resolvedPayload)),
   };
   const executed = await executeProgrammableOracle(resolvedPayload, context);
@@ -207,17 +234,17 @@ export async function buildOracleResponse(payload, mode) {
   };
   const signed = await buildSignedResultEnvelope(derived, resolvedPayload);
 
-  if (mode === "query") {
+  if (mode === 'query') {
     const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, derived);
     return {
-      mode: executed.executed ? "fetch+compute" : "fetch",
+      mode: executed.executed ? 'fetch+compute' : 'fetch',
       request_source: context.request_source,
       target_chain: context.target_chain,
       target_chain_id: context.target_chain_id,
       status_code: fetchResult.upstream_status,
       headers: fetchResult.upstream_headers,
       body: fetchResult.raw_response,
-      body_json: typeof fetchResult.data === "string" ? null : fetchResult.data,
+      body_json: typeof fetchResult.data === 'string' ? null : fetchResult.data,
       extracted_value: fetchResult.selected_value ?? null,
       result: executed.result,
       output_hash: signed.output_hash,
@@ -231,7 +258,7 @@ export async function buildOracleResponse(payload, mode) {
 
   const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, derived);
   return {
-    mode: executed.executed ? "fetch+compute" : "fetch",
+    mode: executed.executed ? 'fetch+compute' : 'fetch',
     request_source: context.request_source,
     target_chain: context.target_chain,
     target_chain_id: context.target_chain_id,

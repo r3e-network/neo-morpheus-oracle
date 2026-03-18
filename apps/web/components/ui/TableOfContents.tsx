@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 
 export interface TocItem {
   id: string;
@@ -13,7 +13,7 @@ interface TableOfContentsProps {
 }
 
 export function TableOfContents({ items }: TableOfContentsProps) {
-  const [activeId, setActiveId] = useState<string>("");
+  const [activeId, setActiveId] = useState<string>('');
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -24,7 +24,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
           }
         });
       },
-      { rootMargin: "0% 0% -80% 0%" }
+      { rootMargin: '0% 0% -80% 0%' }
     );
 
     items.forEach((item) => {
@@ -38,28 +38,33 @@ export function TableOfContents({ items }: TableOfContentsProps) {
   if (!items.length) return null;
 
   return (
-    <div className="toc-container" style={{
-      position: 'sticky',
-      top: '100px',
-      maxHeight: 'calc(100vh - 120px)',
-      overflowY: 'auto',
-      marginLeft: '2rem',
-      paddingLeft: '1.5rem',
-      borderLeft: '1px solid var(--border-dim)',
-      width: '250px',
-      display: 'none',
-      flexShrink: 0
-    }}>
-      <span style={{ 
-        display: 'block', 
-        fontSize: '0.65rem', 
-        fontWeight: 800, 
-        color: 'var(--text-muted)', 
-        textTransform: 'uppercase', 
-        letterSpacing: '0.15em', 
-        marginBottom: '1rem',
-        fontFamily: 'var(--font-mono)'
-      }}>
+    <div
+      className="toc-container"
+      style={{
+        position: 'sticky',
+        top: '100px',
+        maxHeight: 'calc(100vh - 120px)',
+        overflowY: 'auto',
+        marginLeft: '2rem',
+        paddingLeft: '1.5rem',
+        borderLeft: '1px solid var(--border-dim)',
+        width: '250px',
+        display: 'none',
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          display: 'block',
+          fontSize: '0.65rem',
+          fontWeight: 800,
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.15em',
+          marginBottom: '1rem',
+          fontFamily: 'var(--font-mono)',
+        }}
+      >
         On this page
       </span>
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

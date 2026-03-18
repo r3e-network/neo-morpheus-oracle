@@ -12,7 +12,12 @@ import {
   relayNeoN3Invocation,
   relayNeoXTransaction,
 } from '../chain/index.js';
-import { buildProviderRequest, fetchProviderJSON, inferProviderIdFromPairSymbol, resolveProviderPayload } from './providers.js';
+import {
+  buildProviderRequest,
+  fetchProviderJSON,
+  inferProviderIdFromPairSymbol,
+  resolveProviderPayload,
+} from './providers.js';
 import {
   applyFeedProviderDefaults,
   getDefaultFeedSymbols,
@@ -69,7 +74,7 @@ export function decimalToIntegerString(value, decimals = FEED_PRICE_DECIMALS) {
   const fraction = (fractionPart + '0'.repeat(decimals)).slice(0, decimals);
   const fractionValue = BigInt(fraction || '0');
   const scale = 10n ** BigInt(decimals);
-  return ((whole * scale) + fractionValue) * sign + '';
+  return (whole * scale + fractionValue) * sign + '';
 }
 
 export function integerToDecimalString(value, decimals = FEED_PRICE_DECIMALS) {
@@ -99,7 +104,8 @@ export function multiplyDecimalString(value, multiplier = 1) {
   const scaled = base * BigInt(Math.trunc(factor));
   const digits = scaled.toString().padStart(fractionPart.length + 1, '0');
   const whole = fractionPart.length > 0 ? digits.slice(0, -fractionPart.length) : digits;
-  const fraction = fractionPart.length > 0 ? digits.slice(-fractionPart.length).replace(/0+$/, '') : '';
+  const fraction =
+    fractionPart.length > 0 ? digits.slice(-fractionPart.length).replace(/0+$/, '') : '';
   return `${sign}${fraction ? `${whole}.${fraction}` : whole}`;
 }
 
@@ -157,7 +163,10 @@ function parseProviderList(value, fallback = []) {
   }
   const raw = trimString(value);
   if (!raw) return fallback;
-  return raw.split(',').map((entry) => trimString(entry).toLowerCase()).filter(Boolean);
+  return raw
+    .split(',')
+    .map((entry) => trimString(entry).toLowerCase())
+    .filter(Boolean);
 }
 
 function resolveRequestedProviders(symbol, options = {}) {
@@ -179,18 +188,28 @@ function resolveRequestedProviders(symbol, options = {}) {
 }
 
 function extractQuotePrice(response) {
-  return response.data?.price ?? response.data?.value ?? response.data?.close ?? response.data?.data?.amount ?? null;
+  return (
+    response.data?.price ??
+    response.data?.value ??
+    response.data?.close ??
+    response.data?.data?.amount ??
+    null
+  );
 }
 
 function buildSyncPolicy(targetChain, payload = {}) {
-  const thresholdCandidate = payload.feed_change_threshold_bps ?? env('MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
-  const intervalCandidate = payload.feed_min_update_interval_ms ?? env('MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
-  const thresholdSource = thresholdCandidate === "" || thresholdCandidate === undefined || thresholdCandidate === null
-    ? `${MAINNET_FEED_CHANGE_THRESHOLD_BPS}`
-    : thresholdCandidate;
-  const intervalSource = intervalCandidate === "" || intervalCandidate === undefined || intervalCandidate === null
-    ? `${MAINNET_FEED_MIN_UPDATE_INTERVAL_MS}ms`
-    : intervalCandidate;
+  const thresholdCandidate =
+    payload.feed_change_threshold_bps ?? env('MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
+  const intervalCandidate =
+    payload.feed_min_update_interval_ms ?? env('MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
+  const thresholdSource =
+    thresholdCandidate === '' || thresholdCandidate === undefined || thresholdCandidate === null
+      ? `${MAINNET_FEED_CHANGE_THRESHOLD_BPS}`
+      : thresholdCandidate;
+  const intervalSource =
+    intervalCandidate === '' || intervalCandidate === undefined || intervalCandidate === null
+      ? `${MAINNET_FEED_MIN_UPDATE_INTERVAL_MS}ms`
+      : intervalCandidate;
   const thresholdBps = Number(thresholdSource || 0);
   const minUpdateIntervalMs = parseDurationMs(intervalSource, MAINNET_FEED_MIN_UPDATE_INTERVAL_MS);
   return {
@@ -202,7 +221,8 @@ function buildSyncPolicy(targetChain, payload = {}) {
 function computeChangeBps(previousPrice, nextPrice) {
   const previous = Number(previousPrice);
   const next = Number(nextPrice);
-  if (!Number.isFinite(previous) || !Number.isFinite(next) || previous <= 0) return Number.POSITIVE_INFINITY;
+  if (!Number.isFinite(previous) || !Number.isFinite(next) || previous <= 0)
+    return Number.POSITIVE_INFINITY;
   return Math.abs((next - previous) / previous) * 10_000;
 }
 
@@ -214,7 +234,10 @@ function decodeNeoByteString(bytes) {
   const text = bytes.toString('utf8');
   const reversedText = Buffer.from(bytes).reverse().toString('utf8');
   const knownPairPrefixes = ['TWELVEDATA:', 'BINANCE-SPOT:', 'COINBASE-SPOT:'];
-  if (isPrintableAscii(reversedText) && knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))) {
+  if (
+    isPrintableAscii(reversedText) &&
+    knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))
+  ) {
     return reversedText;
   }
   if (isPrintableAscii(text)) return text;
@@ -263,7 +286,11 @@ async function fetchJsonRpc(url, body) {
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(trimString(payload?.error?.message) || trimString(payload?.message) || `rpc request failed with status ${response.status}`);
+    throw new Error(
+      trimString(payload?.error?.message) ||
+        trimString(payload?.message) ||
+        `rpc request failed with status ${response.status}`
+    );
   }
   if (payload?.error?.message) {
     throw new Error(payload.error.message);
@@ -289,10 +316,14 @@ async function fetchNeoN3FeedRecords(rpcUrl, contractHash) {
       .filter((entry) => Array.isArray(entry) && entry.length >= 6)
       .map((entry) => {
         const storagePair = trimString(entry[0]);
-          const priceUnits = String(entry[2] ?? '0');
-          return [storagePair, {
+        const priceUnits = String(entry[2] ?? '0');
+        return [
+          storagePair,
+          {
             storage_pair: storagePair,
-            pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
+            pair: storagePair.includes(':')
+              ? storagePair.split(':').slice(1).join(':')
+              : storagePair,
             round_id: String(entry[1] ?? '0'),
             price_units: priceUnits,
             price: integerToDecimalString(priceUnits, FEED_PRICE_DECIMALS),
@@ -300,8 +331,9 @@ async function fetchNeoN3FeedRecords(rpcUrl, contractHash) {
             attestation_hash: trimString(entry[4]),
             source_set_id: String(entry[5] ?? '0'),
             price_scale_decimals: FEED_PRICE_DECIMALS,
-          }];
-      }),
+          },
+        ];
+      })
   );
 }
 
@@ -319,28 +351,38 @@ async function fetchNeoXFeedRecords(rpcUrl, contractAddress) {
     Array.from(records || []).map((entry) => {
       const storagePair = String(entry.pair ?? '');
       const priceUnits = entry.price?.toString?.() ?? String(entry.price ?? '0');
-      return [storagePair, {
-        storage_pair: storagePair,
-        pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
-        round_id: entry.roundId?.toString?.() ?? String(entry.roundId ?? '0'),
-        price_units: priceUnits,
-        price: integerToDecimalString(priceUnits, FEED_PRICE_DECIMALS),
-        timestamp: entry.timestamp?.toString?.() ?? String(entry.timestamp ?? '0'),
-        attestation_hash: entry.attestationHash?.toString?.() ?? String(entry.attestationHash ?? ''),
-        source_set_id: entry.sourceSetId?.toString?.() ?? String(entry.sourceSetId ?? '0'),
-        price_scale_decimals: FEED_PRICE_DECIMALS,
-      }];
-    }),
+      return [
+        storagePair,
+        {
+          storage_pair: storagePair,
+          pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
+          round_id: entry.roundId?.toString?.() ?? String(entry.roundId ?? '0'),
+          price_units: priceUnits,
+          price: integerToDecimalString(priceUnits, FEED_PRICE_DECIMALS),
+          timestamp: entry.timestamp?.toString?.() ?? String(entry.timestamp ?? '0'),
+          attestation_hash:
+            entry.attestationHash?.toString?.() ?? String(entry.attestationHash ?? ''),
+          source_set_id: entry.sourceSetId?.toString?.() ?? String(entry.sourceSetId ?? '0'),
+          price_scale_decimals: FEED_PRICE_DECIMALS,
+        },
+      ];
+    })
   );
 }
 
-async function loadOnchainFeedRecords(targetChain, { neoContext = null, neoXRpcUrl = null, dataFeedHash = null, dataFeedAddress = null } = {}) {
+async function loadOnchainFeedRecords(
+  targetChain,
+  { neoContext = null, neoXRpcUrl = null, dataFeedHash = null, dataFeedAddress = null } = {}
+) {
   try {
     if (targetChain === 'neo_n3') {
       return await fetchNeoN3FeedRecords(neoContext?.rpcUrl, dataFeedHash);
     }
     if (targetChain === 'neo_x') {
-      return await fetchNeoXFeedRecords(trimString(neoXRpcUrl) || trimString(env('NEO_X_RPC_URL', 'NEOX_RPC_URL', 'EVM_RPC_URL')), dataFeedAddress);
+      return await fetchNeoXFeedRecords(
+        trimString(neoXRpcUrl) || trimString(env('NEO_X_RPC_URL', 'NEOX_RPC_URL', 'EVM_RPC_URL')),
+        dataFeedAddress
+      );
     }
   } catch {
     // best effort; local state remains a valid fallback
@@ -354,14 +396,18 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
 
   const now = Date.now();
   const lastSubmittedAt = Number(previousRecord.last_submitted_at_ms || 0);
-  if (policy.minUpdateIntervalMs > 0 && lastSubmittedAt > 0 && (now - lastSubmittedAt) < policy.minUpdateIntervalMs) {
+  if (
+    policy.minUpdateIntervalMs > 0 &&
+    lastSubmittedAt > 0 &&
+    now - lastSubmittedAt < policy.minUpdateIntervalMs
+  ) {
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
   const previousPriceUnits = String(
-    previousRecord.price_units
-    ?? previousRecord.price_cents
-    ?? decimalToIntegerString(previousRecord.price ?? '0', quote.decimals),
+    previousRecord.price_units ??
+      previousRecord.price_cents ??
+      decimalToIntegerString(previousRecord.price ?? '0', quote.decimals)
   );
   const nextPriceUnits = decimalToIntegerString(quote.price, quote.decimals);
   const changeBps = computeChangeBps(previousPriceUnits, nextPriceUnits);
@@ -401,14 +447,18 @@ async function resolveQuoteForProvider(symbol, options, provider) {
   });
   const providerRequest = buildProviderRequest(resolvedPayload);
   if (!providerRequest) throw new Error('provider request could not be built');
-  const response = await fetchProviderJSON(providerRequest, parseDurationMs(resolvedPayload.oracle_timeout_ms || env('ORACLE_TIMEOUT'), 20_000));
+  const response = await fetchProviderJSON(
+    providerRequest,
+    parseDurationMs(resolvedPayload.oracle_timeout_ms || env('ORACLE_TIMEOUT'), 20_000)
+  );
   if (!response.ok) {
     throw new Error(response.provider_error?.message || `${provider} fetch failed`);
   }
   const pair = providerRequest.pair || normalizePairSymbol(symbol);
   const storagePair = getFeedStoragePair(provider, pair);
   const rawPrice = extractQuotePrice(response);
-  if (rawPrice === null || rawPrice === undefined || rawPrice === '') throw new Error(`${provider} response missing price`);
+  if (rawPrice === null || rawPrice === undefined || rawPrice === '')
+    throw new Error(`${provider} response missing price`);
   const displaySymbol = getFeedDisplaySymbol(storagePair);
   const unitLabel = getFeedUnitLabel(storagePair) || null;
   const priceMultiplier = getFeedPriceMultiplier(storagePair);
@@ -468,7 +518,8 @@ export async function fetchPriceQuotes(symbol, options = {}) {
   }
 
   return {
-    pair: providers.length === 1 ? getFeedStoragePair(providers[0], normalizedPair) : normalizedPair,
+    pair:
+      providers.length === 1 ? getFeedStoragePair(providers[0], normalizedPair) : normalizedPair,
     providers_requested: providers,
     quotes,
     errors,
@@ -502,7 +553,15 @@ function buildNeoN3RelaySigningPayload(payload = {}) {
   };
 }
 
-async function submitQuoteToN3(dataFeedHash, neoContext, payload, quote, storagePair, roundId, sourceSetId) {
+async function submitQuoteToN3(
+  dataFeedHash,
+  neoContext,
+  payload,
+  quote,
+  storagePair,
+  roundId,
+  sourceSetId
+) {
   const invokeResult = await relayNeoN3Invocation({
     request_id: trimString(payload.request_id) || `pricefeed:${storagePair}:${Date.now()}`,
     contract_hash: dataFeedHash,
@@ -532,12 +591,30 @@ async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
     contract_hash: dataFeedHash,
     method: 'updateFeeds',
     params: [
-      { type: 'Array', value: updates.map((entry) => ({ type: 'String', value: entry.storagePair })) },
+      {
+        type: 'Array',
+        value: updates.map((entry) => ({ type: 'String', value: entry.storagePair })),
+      },
       { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: entry.roundId })) },
-      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: decimalToIntegerString(entry.quote.price, entry.quote.decimals) })) },
-      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: String(entry.timestampSec) })) },
-      { type: 'Array', value: updates.map((entry) => ({ type: 'ByteArray', value: entry.quote.attestation_hash })) },
-      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: String(entry.sourceSetId) })) },
+      {
+        type: 'Array',
+        value: updates.map((entry) => ({
+          type: 'Integer',
+          value: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
+        })),
+      },
+      {
+        type: 'Array',
+        value: updates.map((entry) => ({ type: 'Integer', value: String(entry.timestampSec) })),
+      },
+      {
+        type: 'Array',
+        value: updates.map((entry) => ({ type: 'ByteArray', value: entry.quote.attestation_hash })),
+      },
+      {
+        type: 'Array',
+        value: updates.map((entry) => ({ type: 'Integer', value: String(entry.sourceSetId) })),
+      },
     ],
     wait: Boolean(payload.wait ?? true),
     rpc_url: neoContext.rpcUrl,
@@ -572,7 +649,7 @@ async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, u
         entry.quote,
         entry.storagePair,
         entry.roundId,
-        entry.sourceSetId,
+        entry.sourceSetId
       );
       txs.push({
         storage_pair: entry.storagePair,
@@ -588,7 +665,14 @@ async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, u
   }
 }
 
-async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, roundId, sourceSetId) {
+async function submitQuoteToNeoX(
+  dataFeedAddress,
+  payload,
+  quote,
+  storagePair,
+  roundId,
+  sourceSetId
+) {
   const feedInterface = new Interface([
     'function updateFeed(string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)',
   ]);
@@ -600,7 +684,9 @@ async function submitQuoteToNeoX(dataFeedAddress, payload, quote, storagePair, r
     `0x${strip0x(quote.attestation_hash || '0')}`.padEnd(66, '0'),
     BigInt(sourceSetId),
   ]);
-  const updaterPrivateKey = trimString(payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY'));
+  const updaterPrivateKey = trimString(
+    payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
+  );
   return relayNeoXTransaction({
     ...payload,
     target_chain: 'neo_x',
@@ -625,7 +711,9 @@ async function submitQuotesToNeoX(dataFeedAddress, payload, updates) {
     updates.map((entry) => `0x${strip0x(entry.quote.attestation_hash || '0')}`.padEnd(66, '0')),
     updates.map((entry) => BigInt(entry.sourceSetId)),
   ]);
-  const updaterPrivateKey = trimString(payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY'));
+  const updaterPrivateKey = trimString(
+    payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
+  );
   return relayNeoXTransaction({
     ...payload,
     target_chain: 'neo_x',
@@ -659,15 +747,16 @@ export async function handleOracleFeed(payload) {
   const batchUpdates = [];
   const errors = [];
 
-  const dataFeedHash = targetChain === 'neo_n3'
-    ? normalizeNeoHash160(env('CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'))
-    : null;
-  const neoContext = targetChain === 'neo_n3'
-    ? loadNeoN3Context(payload, { required: false, requireRpc: false })
-    : null;
-  const dataFeedAddress = targetChain === 'neo_x'
-    ? trimString(env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
-    : null;
+  const dataFeedHash =
+    targetChain === 'neo_n3'
+      ? normalizeNeoHash160(env('CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'))
+      : null;
+  const neoContext =
+    targetChain === 'neo_n3'
+      ? loadNeoN3Context(payload, { required: false, requireRpc: false })
+      : null;
+  const dataFeedAddress =
+    targetChain === 'neo_x' ? trimString(env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS')) : null;
   const onchainRecords = await loadOnchainFeedRecords(targetChain, {
     neoContext,
     neoXRpcUrl: trimString(payload.rpc_url),
@@ -678,7 +767,11 @@ export async function handleOracleFeed(payload) {
   for (const symbol of symbols) {
     const quoteSet = await fetchPriceQuotes(symbol, payload);
     if (quoteSet.quotes.length === 0) {
-      errors.push({ symbol, providers_requested: quoteSet.providers_requested, errors: quoteSet.errors });
+      errors.push({
+        symbol,
+        providers_requested: quoteSet.providers_requested,
+        errors: quoteSet.errors,
+      });
       continue;
     }
     for (const quote of quoteSet.quotes) {
@@ -688,9 +781,18 @@ export async function handleOracleFeed(payload) {
         ...(onchainRecords[storagePair] || {}),
       };
       const hasPreviousRecord = Object.keys(previousRecord).length > 0;
-      const decision = shouldSubmitFeed(storagePair, quote, hasPreviousRecord ? previousRecord : null, policy, Boolean(payload.force));
-      const roundId = trimString(payload.round_id) || buildRoundId(hasPreviousRecord ? previousRecord : null);
-      const sourceSetId = Number(payload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0));
+      const decision = shouldSubmitFeed(
+        storagePair,
+        quote,
+        hasPreviousRecord ? previousRecord : null,
+        policy,
+        Boolean(payload.force)
+      );
+      const roundId =
+        trimString(payload.round_id) || buildRoundId(hasPreviousRecord ? previousRecord : null);
+      const sourceSetId = Number(
+        payload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0)
+      );
       const timestampSec = Math.floor(Date.now() / 1000);
       const observedAtMs = Date.now();
 
@@ -740,7 +842,12 @@ export async function handleOracleFeed(payload) {
 
   let batchTx = null;
   if (batchUpdates.length > 0) {
-    if (targetChain === 'neo_n3' && dataFeedHash && isConfiguredHash160(dataFeedHash) && neoContext) {
+    if (
+      targetChain === 'neo_n3' &&
+      dataFeedHash &&
+      isConfiguredHash160(dataFeedHash) &&
+      neoContext
+    ) {
       batchTx = await submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, batchUpdates);
     } else if (targetChain === 'neo_x' && dataFeedAddress) {
       batchTx = await submitQuotesToNeoX(dataFeedAddress, payload, batchUpdates);

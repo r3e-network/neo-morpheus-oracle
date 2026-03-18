@@ -10,20 +10,22 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function resolveNeoN3SignerWif(network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()) {
+function resolveNeoN3SignerWif(
+  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
+) {
   if (network === 'testnet') {
     return trimString(
-      process.env.NEO_TESTNET_WIF
-      || process.env.NEO_N3_WIF
-      || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-      || '',
+      process.env.NEO_TESTNET_WIF ||
+        process.env.NEO_N3_WIF ||
+        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+        ''
     );
   }
   return trimString(
-    process.env.NEO_N3_WIF
-    || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-    || process.env.NEO_TESTNET_WIF
-    || '',
+    process.env.NEO_N3_WIF ||
+      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+      process.env.NEO_TESTNET_WIF ||
+      ''
   );
 }
 
@@ -56,11 +58,14 @@ async function loadJsonIfExists(filePath) {
 
 await loadDotEnv();
 
-const network = trimString(process.env.MORPHEUS_NETWORK || "testnet").toLowerCase();
+const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
 const networkConfig = await loadJsonIfExists(path.resolve('config', 'networks', `${network}.json`));
-const deploymentRegistry = await loadJsonIfExists(path.resolve('examples', 'deployments', `${network}.json`));
-const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
-const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
+const deploymentRegistry = await loadJsonIfExists(
+  path.resolve('examples', 'deployments', `${network}.json`)
+);
+const defaultRpcUrl =
+  network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443';
+const defaultNetworkMagic = network === 'mainnet' ? 860833102 : 894710606;
 
 function decodeCallbackArray(item) {
   if (!item || item.type !== 'Array' || !Array.isArray(item.value)) return null;
@@ -108,10 +113,18 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
 }
 
 async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash) {
-  const currentCredit = BigInt(await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [{ type: 'Hash160', value: `0x${account.scriptHash}` }]) || '0');
-  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, 'requestFee', []) || '0');
+  const currentCredit = BigInt(
+    (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+      { type: 'Hash160', value: `0x${account.scriptHash}` },
+    ])) || '0'
+  );
+  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
   if (requestFee <= 0n || currentCredit >= requestFee) {
-    return { request_fee: requestFee.toString(), funded: false, current_credit: currentCredit.toString() };
+    return {
+      request_fee: requestFee.toString(),
+      funded: false,
+      current_credit: currentCredit.toString(),
+    };
   }
 
   const gas = new experimental.SmartContract(GAS_HASH, {
@@ -129,7 +142,11 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
-    const updatedCredit = BigInt(await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [{ type: 'Hash160', value: `0x${account.scriptHash}` }]) || '0');
+    const updatedCredit = BigInt(
+      (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+        { type: 'Hash160', value: `0x${account.scriptHash}` },
+      ])) || '0'
+    );
     if (updatedCredit >= requestFee) {
       return {
         request_fee: requestFee.toString(),
@@ -148,7 +165,9 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 60000) {
   while (Date.now() - startedAt < timeoutMs) {
     try {
       const appLog = await rpcClient.getApplicationLog(txid);
-      const notify = appLog.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === 'OracleRequested');
+      const notify = appLog.executions
+        ?.flatMap((execution) => execution.notifications || [])
+        .find((entry) => entry.eventname === 'OracleRequested');
       const requestId = notify?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -160,7 +179,9 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 60000) {
 async function waitForCallback(rpcClient, callbackHash, requestId, timeoutMs = 120000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await rpcClient.invokeFunction(callbackHash, 'getCallback', [{ type: 'Integer', value: String(requestId) }]);
+    const response = await rpcClient.invokeFunction(callbackHash, 'getCallback', [
+      { type: 'Integer', value: String(requestId) },
+    ]);
     const decoded = decodeCallbackArray(response.stack?.[0]);
     if (decoded) return decoded;
     await sleep(2000);
@@ -168,14 +189,23 @@ async function waitForCallback(rpcClient, callbackHash, requestId, timeoutMs = 1
   throw new Error(`timed out waiting for callback ${requestId}`);
 }
 
-async function fulfillRequestLocally(rpcClient, oracleHash, account, rpcUrl, networkMagic, requestId, requestType, resultText) {
+async function fulfillRequestLocally(
+  rpcClient,
+  oracleHash,
+  account,
+  rpcUrl,
+  networkMagic,
+  requestId,
+  requestType,
+  resultText
+) {
   const digestHex = buildFulfillmentDigestBytes(
     requestId,
     requestType,
     true,
     resultText,
     '',
-    '',
+    ''
   ).toString('hex');
   const signature = wallet.sign(digestHex, account.privateKey);
 
@@ -190,7 +220,9 @@ async function fulfillRequestLocally(rpcClient, oracleHash, account, rpcUrl, net
     sc.ContractParam.boolean(true),
     sc.ContractParam.byteArray(Buffer.from(String(resultText ?? ''), 'utf8').toString('base64')),
     sc.ContractParam.string(''),
-    sc.ContractParam.byteArray(Buffer.from(signature.replace(/^0x/i, ''), 'hex').toString('base64')),
+    sc.ContractParam.byteArray(
+      Buffer.from(signature.replace(/^0x/i, ''), 'hex').toString('base64')
+    ),
   ]);
 
   const startedAt = Date.now();
@@ -200,7 +232,8 @@ async function fulfillRequestLocally(rpcClient, oracleHash, account, rpcUrl, net
       const execution = appLog?.executions?.[0];
       const vmState = String(execution?.vmstate || execution?.state || '');
       if (vmState.includes('HALT')) return txid;
-      if (vmState.includes('FAULT')) throw new Error(execution?.exception || `fulfillRequest faulted for ${requestId}`);
+      if (vmState.includes('FAULT'))
+        throw new Error(execution?.exception || `fulfillRequest faulted for ${requestId}`);
     } catch (error) {
       if (/faulted/i.test(String(error?.message || error))) throw error;
     }
@@ -210,57 +243,56 @@ async function fulfillRequestLocally(rpcClient, oracleHash, account, rpcUrl, net
 }
 
 const registryOracleHash = trimString(
-  deploymentRegistry?.neo_n3?.oracle_hash
-  || networkConfig?.neo_n3?.contracts?.morpheus_oracle
-  || ''
+  deploymentRegistry?.neo_n3?.oracle_hash || networkConfig?.neo_n3?.contracts?.morpheus_oracle || ''
 );
 const registryCallbackHash = trimString(
-  deploymentRegistry?.neo_n3?.example_consumer_hash
-  || networkConfig?.neo_n3?.contracts?.oracle_callback_consumer
-  || ''
+  deploymentRegistry?.neo_n3?.example_consumer_hash ||
+    networkConfig?.neo_n3?.contracts?.oracle_callback_consumer ||
+    ''
 );
-const mainnetOracleHash = trimString((await loadJsonIfExists(path.resolve('config', 'networks', 'mainnet.json')))?.neo_n3?.contracts?.morpheus_oracle || '');
+const mainnetOracleHash = trimString(
+  (await loadJsonIfExists(path.resolve('config', 'networks', 'mainnet.json')))?.neo_n3?.contracts
+    ?.morpheus_oracle || ''
+);
 const rawOracleHash = trimString(
   network === 'testnet'
-    ? (
-      process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET
-      || registryOracleHash
-      || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
-      || ''
-    )
-    : (
-      process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET
-      || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
-      || registryOracleHash
-      || ''
-    )
+    ? process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET ||
+        registryOracleHash ||
+        process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
+        ''
+    : process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET ||
+        process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
+        registryOracleHash ||
+        ''
 );
 const rawCallbackHash = trimString(
   network === 'testnet'
-    ? (
-      process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET
-      || registryCallbackHash
-      || process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH
-      || ''
-    )
-    : (
-      process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET
-      || process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH
-      || registryCallbackHash
-      || ''
-    )
+    ? process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET ||
+        registryCallbackHash ||
+        process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH ||
+        ''
+    : process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET ||
+        process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH ||
+        registryCallbackHash ||
+        ''
 );
 
-const rpcUrl = trimString(process.env.NEO_RPC_URL || networkConfig?.neo_n3?.rpc_url || defaultRpcUrl);
-const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || networkConfig?.neo_n3?.network_magic || defaultNetworkMagic);
+const rpcUrl = trimString(
+  process.env.NEO_RPC_URL || networkConfig?.neo_n3?.rpc_url || defaultRpcUrl
+);
+const networkMagic = Number(
+  process.env.NEO_NETWORK_MAGIC || networkConfig?.neo_n3?.network_magic || defaultNetworkMagic
+);
 const wif = resolveNeoN3SignerWif(network);
-const oracleHash = network === 'testnet' && rawOracleHash === mainnetOracleHash && registryOracleHash
-  ? registryOracleHash
-  : rawOracleHash;
+const oracleHash =
+  network === 'testnet' && rawOracleHash === mainnetOracleHash && registryOracleHash
+    ? registryOracleHash
+    : rawOracleHash;
 const callbackHash = rawCallbackHash;
 const provider = trimString(process.env.MORPHEUS_SMOKE_PROVIDER || 'twelvedata') || 'twelvedata';
 const symbol = trimString(process.env.MORPHEUS_SMOKE_SYMBOL || 'NEO-USD') || 'NEO-USD';
-const requestType = trimString(process.env.MORPHEUS_SMOKE_REQUEST_TYPE || 'privacy_oracle') || 'privacy_oracle';
+const requestType =
+  trimString(process.env.MORPHEUS_SMOKE_REQUEST_TYPE || 'privacy_oracle') || 'privacy_oracle';
 const jsonPath = trimString(process.env.MORPHEUS_SMOKE_JSON_PATH || 'price') || 'price';
 const script = trimString(process.env.MORPHEUS_SMOKE_SCRIPT || '');
 const requestTimeoutMs = Number(process.env.MORPHEUS_SMOKE_REQUEST_TIMEOUT_MS || 90000);
@@ -284,8 +316,16 @@ const oracle = new experimental.SmartContract(oracleHash, {
   account,
 });
 const rpcClient = new neoRpc.RPCClient(rpcUrl);
-const feeStatus = await ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash);
-console.error(`Neo N3 smoke fee credit ready: request_fee=${feeStatus.request_fee} current_credit=${feeStatus.current_credit}`);
+const feeStatus = await ensureRequestFeeCredit(
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash
+);
+console.error(
+  `Neo N3 smoke fee credit ready: request_fee=${feeStatus.request_fee} current_credit=${feeStatus.current_credit}`
+);
 
 const txid = await oracle.invoke('request', [
   sc.ContractParam.string(requestType),
@@ -300,9 +340,20 @@ let callback;
 try {
   callback = await waitForCallback(rpcClient, callbackHash, requestId, callbackTimeoutMs);
 } catch (error) {
-  console.error(`Neo N3 smoke callback timeout for request ${requestId}, attempting local fulfill fallback...`);
+  console.error(
+    `Neo N3 smoke callback timeout for request ${requestId}, attempting local fulfill fallback...`
+  );
   const resultText = JSON.stringify({ provider, symbol, price: '0', smoke_fallback: true });
-  await fulfillRequestLocally(rpcClient, oracleHash, account, rpcUrl, networkMagic, requestId, requestType, resultText);
+  await fulfillRequestLocally(
+    rpcClient,
+    oracleHash,
+    account,
+    rpcUrl,
+    networkMagic,
+    requestId,
+    requestType,
+    resultText
+  );
   callback = await waitForCallback(rpcClient, callbackHash, requestId, callbackTimeoutMs);
 }
 const summary = {
@@ -317,6 +368,8 @@ const summary = {
 
 console.log(JSON.stringify(summary, null, 2));
 if (!callback.success) {
-  console.error(`Neo N3 smoke callback failed for request ${requestId}: ${callback.error_text || 'unknown error'}`);
+  console.error(
+    `Neo N3 smoke callback failed for request ${requestId}: ${callback.error_text || 'unknown error'}`
+  );
   process.exitCode = 1;
 }

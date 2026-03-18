@@ -16,7 +16,10 @@ function parseDotEnv(raw) {
     if (index < 0) continue;
     const key = trimmed.slice(0, index).trim();
     let value = trimmed.slice(index + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     out[key] = value;
@@ -49,7 +52,12 @@ const required = {
   ],
   web_server: [
     ['SUPABASE_URL', 'morpheus_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'],
-    ['SUPABASE_SECRET_KEY', 'morpheus_SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'morpheus_SUPABASE_SERVICE_ROLE_KEY'],
+    [
+      'SUPABASE_SECRET_KEY',
+      'morpheus_SUPABASE_SECRET_KEY',
+      'SUPABASE_SERVICE_ROLE_KEY',
+      'morpheus_SUPABASE_SERVICE_ROLE_KEY',
+    ],
     ['PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
     ['MORPHEUS_NETWORK'],
     ['NEO_RPC_URL'],
@@ -64,7 +72,14 @@ const required = {
     ['MORPHEUS_FEED_SYMBOLS'],
   ],
   n3_scripts: [
-    ['NEO_N3_WIF', 'NEO_TESTNET_WIF', 'PHALA_NEO_N3_WIF', 'PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'],
+    [
+      'NEO_N3_WIF',
+      'NEO_TESTNET_WIF',
+      'PHALA_NEO_N3_WIF',
+      'PHALA_NEO_N3_PRIVATE_KEY',
+      'MORPHEUS_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+    ],
   ],
 };
 
@@ -73,13 +88,21 @@ const report = {
   missing: {},
   optional_recommendations: {},
   mode: {
-    neo_n3_enabled: Boolean(getValue(env, ['CONTRACT_MORPHEUS_ORACLE_HASH', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH'])),
-    neo_x_enabled: hasAny(env, ['CONTRACT_MORPHEUS_ORACLE_X_ADDRESS', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS', 'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS']),
+    neo_n3_enabled: Boolean(
+      getValue(env, ['CONTRACT_MORPHEUS_ORACLE_HASH', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH'])
+    ),
+    neo_x_enabled: hasAny(env, [
+      'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS',
+      'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS',
+      'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
+    ]),
   },
 };
 
 for (const [section, groups] of Object.entries(required)) {
-  report.missing[section] = groups.filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
+  report.missing[section] = groups
+    .filter((keys) => !getValue(env, keys))
+    .map((keys) => keys.join(' | '));
 }
 
 if (report.mode.neo_x_enabled) {
@@ -90,7 +113,9 @@ if (report.mode.neo_x_enabled) {
     ['CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS'],
     ['NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY'],
   ];
-  report.missing.neo_x = neoxRequired.filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
+  report.missing.neo_x = neoxRequired
+    .filter((keys) => !getValue(env, keys))
+    .map((keys) => keys.join(' | '));
 } else {
   report.missing.neo_x = [];
 }
@@ -103,11 +128,20 @@ report.optional_recommendations.feed_sync = [
   ['MORPHEUS_FEED_PROVIDERS'],
   ['MORPHEUS_FEED_CHANGE_THRESHOLD_BPS'],
   ['MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS'],
-].filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
+]
+  .filter((keys) => !getValue(env, keys))
+  .map((keys) => keys.join(' | '));
 
 report.optional_recommendations.oracle_verifier = [
-  ['MORPHEUS_ORACLE_VERIFIER_WIF', 'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY', 'PHALA_ORACLE_VERIFIER_WIF', 'PHALA_ORACLE_VERIFIER_PRIVATE_KEY'],
-].filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
+  [
+    'MORPHEUS_ORACLE_VERIFIER_WIF',
+    'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
+    'PHALA_ORACLE_VERIFIER_WIF',
+    'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
+  ],
+]
+  .filter((keys) => !getValue(env, keys))
+  .map((keys) => keys.join(' | '));
 
 report.ok = Object.values(report.missing).every((items) => items.length === 0);
 

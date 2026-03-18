@@ -14,15 +14,15 @@ Generated: 2026-03-13T16:47:40.387Z
 
 ## Case Matrix
 
-| Case | Request Type | Tx | Request ID | Result | Pass |
-| --- | --- | --- | --- | --- | --- |
-| provider_plain | privacy_oracle | `0xdcc35852d183056eac15a5cbef6460906b197cffba2dca3286e6ebf43b498f2b` | `151` | `"2.665"` | yes |
-| provider_encrypted_params | privacy_oracle | `0x33b45e0cbecbd6d2c7e1df262a4b91a91dac60a7b38c45986f44d60aa7e49399` | `152` | `"2.664"` | yes |
-| compute_builtin_encrypted | compute | `0xb9ded8380f345ea81c81500f68636e48b4bfbf0c1a9bb05e3f9bf0f6ddcff307` | `153` | `{"value":"4"}` | yes |
-| compute_custom_script_encrypted | compute | `0x223a924542df6a42c9ead2e40a7204033cfb16a1be8de92af7d1821e225a50e1` | `154` | `42` | yes |
-| oracle_custom_url_encrypted_params | oracle | `0xd6249d1a66a31a0451a98bba315d03fbbd2ba043bb68e15852390d072a037990` | `155` | `"neo-morpheus"` | yes |
-| oracle_custom_url_encrypted_script | oracle | `0x1eb8aad5ea6511152617d404fb1f0b591fbf5b21756b88713b7018568464c0cf` | `156` | `"neo-morpheus-script"` | yes |
-| provider_encrypted_script | privacy_oracle | `0x2f6f588e04b67255263f477557882ebd38867dd53b2386ec224115dd302a4916` | `157` | `true` | yes |
+| Case                               | Request Type   | Tx                                                                   | Request ID | Result                  | Pass |
+| ---------------------------------- | -------------- | -------------------------------------------------------------------- | ---------- | ----------------------- | ---- |
+| provider_plain                     | privacy_oracle | `0xdcc35852d183056eac15a5cbef6460906b197cffba2dca3286e6ebf43b498f2b` | `151`      | `"2.665"`               | yes  |
+| provider_encrypted_params          | privacy_oracle | `0x33b45e0cbecbd6d2c7e1df262a4b91a91dac60a7b38c45986f44d60aa7e49399` | `152`      | `"2.664"`               | yes  |
+| compute_builtin_encrypted          | compute        | `0xb9ded8380f345ea81c81500f68636e48b4bfbf0c1a9bb05e3f9bf0f6ddcff307` | `153`      | `{"value":"4"}`         | yes  |
+| compute_custom_script_encrypted    | compute        | `0x223a924542df6a42c9ead2e40a7204033cfb16a1be8de92af7d1821e225a50e1` | `154`      | `42`                    | yes  |
+| oracle_custom_url_encrypted_params | oracle         | `0xd6249d1a66a31a0451a98bba315d03fbbd2ba043bb68e15852390d072a037990` | `155`      | `"neo-morpheus"`        | yes  |
+| oracle_custom_url_encrypted_script | oracle         | `0x1eb8aad5ea6511152617d404fb1f0b591fbf5b21756b88713b7018568464c0cf` | `156`      | `"neo-morpheus-script"` | yes  |
+| provider_encrypted_script          | privacy_oracle | `0x2f6f588e04b67255263f477557882ebd38867dd53b2386ec224115dd302a4916` | `157`      | `true`                  | yes  |
 
 ## Detailed Results
 
@@ -36,6 +36,7 @@ Generated: 2026-03-13T16:47:40.387Z
 - Actual: `"2.665"`
 
 Public payload:
+
 ```json
 {
   "provider": "twelvedata",
@@ -46,11 +47,13 @@ Public payload:
 ```
 
 Confidential payload summary:
+
 ```json
 null
 ```
 
 On-chain request summary:
+
 ```json
 {
   "request_type": "privacy_oracle",
@@ -64,6 +67,7 @@ On-chain request summary:
 ```
 
 Callback result:
+
 ```json
 {
   "version": "morpheus-result/v1",
@@ -93,6 +97,7 @@ Callback result:
 ```
 
 Verification summary:
+
 ```json
 {
   "output_hash": "f7a543ff054731fb00e3ffa142478cd30b4ac74c55a5fed8f5ec287fadceaff6",
@@ -113,6 +118,7 @@ Verification summary:
 - Actual: `"2.664"`
 
 Public payload:
+
 ```json
 {
   "provider": "twelvedata",
@@ -123,6 +129,7 @@ Public payload:
 ```
 
 Confidential payload summary:
+
 ```json
 {
   "plaintext_patch": {
@@ -134,6 +141,7 @@ Confidential payload summary:
 ```
 
 On-chain request summary:
+
 ```json
 {
   "request_type": "privacy_oracle",
@@ -147,6 +155,7 @@ On-chain request summary:
 ```
 
 Callback result:
+
 ```json
 {
   "version": "morpheus-result/v1",
@@ -176,6 +185,7 @@ Callback result:
 ```
 
 Verification summary:
+
 ```json
 {
   "output_hash": "0c401b7c8e5958d3586ed49779827196b7840dbd451c8174b301b1e5a90b568d",
@@ -196,6 +206,7 @@ Verification summary:
 - Actual: `{"value":"4"}`
 
 Public payload:
+
 ```json
 {
   "encrypted_payload": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJ2V2d3b0hoQW84ZUpGdktSeEhGUEFrYXpMQklKcS9RNVVFdFRPOVlDZ3hBPSIsIml2IjoiZFkzZzB2ZmlyZ3NkcEdHZCIsImN0IjoieTV2bEpFTDNES2wvTlMrb0Z3NXR2ckxDYW5mekRrQXQ3dmZwSGpZK0xCeHM0cmdsbDFabzl1VCtueUdDMVprcDlXZGdsNFMwektzZVBNUStjMDNKNGR2WTZ1M29pS281N2lLWWZDRXNiREhBUXFKckgwK0xpa1h3TE01dlFkcksrOUtOSG1McVpNSEFCSEIxejJHU2pVeFhBU0RieFNrPSIsInRhZyI6IjJ5SGtYa0s2K09uVWdUdEdWOWx2ZFE9PSJ9"
@@ -203,6 +214,7 @@ Public payload:
 ```
 
 Confidential payload summary:
+
 ```json
 {
   "plaintext_payload": {
@@ -221,6 +233,7 @@ Confidential payload summary:
 ```
 
 On-chain request summary:
+
 ```json
 {
   "request_type": "compute",
@@ -234,6 +247,7 @@ On-chain request summary:
 ```
 
 Callback result:
+
 ```json
 {
   "version": "morpheus-result/v1",
@@ -263,6 +277,7 @@ Callback result:
 ```
 
 Verification summary:
+
 ```json
 {
   "output_hash": "b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d",
@@ -283,6 +298,7 @@ Verification summary:
 - Actual: `42`
 
 Public payload:
+
 ```json
 {
   "encrypted_payload": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJPalFhTDhiM1BISUZVdUN2STJFVTNkYWtCZmVGMkFvTUVnWHFrY1pYeFhZPSIsIml2Ijoid1gxWVpsMmpER2g0TFErKyIsImN0IjoiWVNVNlI2VzlnRm5hS2NQYy92K3RrOUllK0hCeFh1dEloUnVmbXc1dEFFeWk0RmpaT2ovWFBZT1ArSFFEYkZPNXQ1NFJqUWk3c0hvaVdLU2dTaW1SdklYQ3J0YW16SEhNQXoyWVZ4U2R4REhpRzJWeGFseHMrT1U3MmVwQXBQeFBibFdQdVF5S0huakF1VVlSeWNtSlhCY1UrQnZOa25rZko0aXhrMEdic0NOUGNsTW1HZUJHbjBWb3dqQXJvamFtNVFaL1d1c1VyQjlScEZkeURzSVpsUT09IiwidGFnIjoiWjN2YndPODFSSWNZK2FvV0dWZWFBZz09In0="
@@ -290,6 +306,7 @@ Public payload:
 ```
 
 Confidential payload summary:
+
 ```json
 {
   "plaintext_payload": {
@@ -309,6 +326,7 @@ Confidential payload summary:
 ```
 
 On-chain request summary:
+
 ```json
 {
   "request_type": "compute",
@@ -322,6 +340,7 @@ On-chain request summary:
 ```
 
 Callback result:
+
 ```json
 {
   "version": "morpheus-result/v1",
@@ -349,6 +368,7 @@ Callback result:
 ```
 
 Verification summary:
+
 ```json
 {
   "output_hash": "b0f4393fd875178eef7c76663f79aaa92c960088a999036c310cb10915df920e",
@@ -369,6 +389,7 @@ Verification summary:
 - Actual: `"neo-morpheus"`
 
 Public payload:
+
 ```json
 {
   "url": "https://postman-echo.com/get?probe=neo-morpheus",
@@ -378,6 +399,7 @@ Public payload:
 ```
 
 Confidential payload summary:
+
 ```json
 {
   "plaintext_patch": {
@@ -389,6 +411,7 @@ Confidential payload summary:
 ```
 
 On-chain request summary:
+
 ```json
 {
   "request_type": "oracle",
@@ -402,6 +425,7 @@ On-chain request summary:
 ```
 
 Callback result:
+
 ```json
 {
   "version": "morpheus-result/v1",
@@ -431,6 +455,7 @@ Callback result:
 ```
 
 Verification summary:
+
 ```json
 {
   "output_hash": "88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae",
@@ -451,6 +476,7 @@ Verification summary:
 - Actual: `"neo-morpheus-script"`
 
 Public payload:
+
 ```json
 {
   "url": "https://postman-echo.com/get?probe=neo-morpheus",
@@ -460,6 +486,7 @@ Public payload:
 ```
 
 Confidential payload summary:
+
 ```json
 {
   "plaintext_patch": {
@@ -473,6 +500,7 @@ Confidential payload summary:
 ```
 
 On-chain request summary:
+
 ```json
 {
   "request_type": "oracle",
@@ -486,6 +514,7 @@ On-chain request summary:
 ```
 
 Callback result:
+
 ```json
 {
   "version": "morpheus-result/v1",
@@ -515,6 +544,7 @@ Callback result:
 ```
 
 Verification summary:
+
 ```json
 {
   "output_hash": "1678f84181e65b1c817365ae843eeaa81fc2e6282a7aad54546d6830e2658727",
@@ -535,6 +565,7 @@ Verification summary:
 - Actual: `true`
 
 Public payload:
+
 ```json
 {
   "provider": "twelvedata",
@@ -545,6 +576,7 @@ Public payload:
 ```
 
 Confidential payload summary:
+
 ```json
 {
   "plaintext_patch": {
@@ -558,6 +590,7 @@ Confidential payload summary:
 ```
 
 On-chain request summary:
+
 ```json
 {
   "request_type": "privacy_oracle",
@@ -571,6 +604,7 @@ On-chain request summary:
 ```
 
 Callback result:
+
 ```json
 {
   "version": "morpheus-result/v1",
@@ -600,6 +634,7 @@ Callback result:
 ```
 
 Verification summary:
+
 ```json
 {
   "output_hash": "9a8d151e8c0b1b6ec9190fc05e13d9943780329198cf428f090a3ea3dd8c8b07",

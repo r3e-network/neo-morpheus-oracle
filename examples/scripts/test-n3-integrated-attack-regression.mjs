@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
-import path from "node:path";
-import { spawnSync } from "node:child_process";
-import { experimental, rpc as neoRpc, sc, tx, wallet } from "@cityofzion/neon-js";
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
 import {
   loadExampleEnv,
   normalizeHash160,
@@ -14,26 +14,36 @@ import {
   sleep,
   trimString,
   writeValidationArtifacts,
-} from "./common.mjs";
+} from './common.mjs';
 
-const network = "testnet";
-const GAS_HASH = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
+const network = 'testnet';
+const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const args = new Set(process.argv.slice(2));
-const dryRun = args.has("--dry-run");
-const continueOnFailure = args.has("--continue-on-failure") || process.env.CONTINUE_ON_FAILURE === "1";
-const runAaSuite = args.has("--run-aa") || process.env.RUN_AA_V3_SUITE === "1";
-const skipAaSuite = args.has("--skip-aa");
-const aaRepoRoot = path.resolve(repoRoot, "..", "neo-abstract-account");
-const aaSdkRoot = path.resolve(aaRepoRoot, "sdk/js");
-const aaSuiteLatestPath = path.resolve(aaRepoRoot, "sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json");
-const overrideTestWif = trimString(process.env.TEST_WIF || "");
-const testnetRpcUrl = trimString(process.env.TESTNET_RPC_URL || process.env.NEO_TESTNET_RPC_URL || "https://testnet1.neo.coz.io:443");
+const dryRun = args.has('--dry-run');
+const continueOnFailure =
+  args.has('--continue-on-failure') || process.env.CONTINUE_ON_FAILURE === '1';
+const runAaSuite = args.has('--run-aa') || process.env.RUN_AA_V3_SUITE === '1';
+const skipAaSuite = args.has('--skip-aa');
+const aaRepoRoot = path.resolve(repoRoot, '..', 'neo-abstract-account');
+const aaSdkRoot = path.resolve(aaRepoRoot, 'sdk/js');
+const aaSuiteLatestPath = path.resolve(
+  aaRepoRoot,
+  'sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json'
+);
+const overrideTestWif = trimString(process.env.TEST_WIF || '');
+const testnetRpcUrl = trimString(
+  process.env.TESTNET_RPC_URL ||
+    process.env.NEO_TESTNET_RPC_URL ||
+    'https://testnet1.neo.coz.io:443'
+);
 const sharedTestnetEnv = {
   MORPHEUS_NETWORK: network,
   NEXT_PUBLIC_MORPHEUS_NETWORK: network,
   TESTNET_RPC_URL: testnetRpcUrl,
   NEO_RPC_URL: testnetRpcUrl,
-  PAYMASTER_ACCOUNT_ID: trimString(process.env.PAYMASTER_ACCOUNT_ID || "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56"),
+  PAYMASTER_ACCOUNT_ID: trimString(
+    process.env.PAYMASTER_ACCOUNT_ID || '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56'
+  ),
   ...(overrideTestWif
     ? {
         NEO_TESTNET_WIF: overrideTestWif,
@@ -48,8 +58,9 @@ function stageReportPath(relativePath) {
 
 function summarizeAaSuite(report) {
   const stageSummaries = Array.isArray(report?.stages) ? report.stages : [];
-  const paymasterPolicy = stageSummaries.find((stage) => stage?.id === "paymaster_policy")?.summary || {};
-  const paymaster = stageSummaries.find((stage) => stage?.id === "paymaster")?.summary || {};
+  const paymasterPolicy =
+    stageSummaries.find((stage) => stage?.id === 'paymaster_policy')?.summary || {};
+  const paymaster = stageSummaries.find((stage) => stage?.id === 'paymaster')?.summary || {};
   return {
     stage_ids: stageSummaries.map((stage) => stage.id),
     paymaster_policy_denied_cases: paymasterPolicy.deniedCases || [],
@@ -63,25 +74,36 @@ function assertCondition(condition, message) {
 }
 
 function parseStackItem(item) {
-  if (!item || typeof item !== "object") return null;
+  if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
-  if (type === "integer" || type === "string" || type === "hash160") return String(item.value ?? "");
-  if (type === "boolean") return Boolean(item.value);
+  if (type === 'integer' || type === 'string' || type === 'hash160')
+    return String(item.value ?? '');
+  if (type === 'boolean') return Boolean(item.value);
   return item.value ?? null;
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
   const response = await rpcClient.invokeFunction(contractHash, method, params);
-  if (String(response.state || "").toUpperCase() === "FAULT") {
-    throw new Error(`${method} faulted: ${response.exception || "unknown error"}`);
+  if (String(response.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return parseStackItem(response.stack?.[0]);
 }
 
-async function waitForCredit(rpcClient, oracleHash, beneficiary, requiredCredit, timeoutMs = 60000) {
+async function waitForCredit(
+  rpcClient,
+  oracleHash,
+  beneficiary,
+  requiredCredit,
+  timeoutMs = 60000
+) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const updatedCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: beneficiary }]) || "0");
+    const updatedCredit = BigInt(
+      (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+        { type: 'Hash160', value: beneficiary },
+      ])) || '0'
+    );
     if (updatedCredit >= requiredCredit) return updatedCredit;
     await sleep(2000);
   }
@@ -99,16 +121,27 @@ async function waitForApplicationLog(rpcClient, txHash, timeoutMs = 180000) {
   throw new Error(`timed out waiting for application log ${txHash}`);
 }
 
-async function ensureRequesterCredit({ account, rpcUrl, networkMagic, rpcClient, oracleHash, requiredRequests }) {
+async function ensureRequesterCredit({
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  requiredRequests,
+}) {
   const requesterHash = `0x${account.scriptHash}`;
-  const currentCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: requesterHash }]) || "0");
-  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
+  const currentCredit = BigInt(
+    (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+      { type: 'Hash160', value: requesterHash },
+    ])) || '0'
+  );
+  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
   const requiredCredit = requestFee * BigInt(requiredRequests);
   if (requestFee <= 0n || currentCredit >= requiredCredit) {
     return {
       request_fee: requestFee.toString(),
       requester_credit: currentCredit.toString(),
-      deposit_amount: "0",
+      deposit_amount: '0',
       txid: null,
     };
   }
@@ -119,7 +152,7 @@ async function ensureRequesterCredit({ account, rpcUrl, networkMagic, rpcClient,
     networkMagic,
     account,
   });
-  const txid = await gas.invoke("transfer", [
+  const txid = await gas.invoke('transfer', [
     sc.ContractParam.hash160(requesterHash),
     sc.ContractParam.hash160(oracleHash),
     sc.ContractParam.integer(deficit.toString()),
@@ -135,24 +168,36 @@ async function ensureRequesterCredit({ account, rpcUrl, networkMagic, rpcClient,
   };
 }
 
-async function ensureExampleConsumerCredit({ account, rpcUrl, networkMagic, rpcClient, oracleHash, consumerHash, requiredRequests }) {
+async function ensureExampleConsumerCredit({
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  consumerHash,
+  requiredRequests,
+}) {
   if (!consumerHash) {
     return {
-      request_fee: "0",
-      callback_credit: "0",
-      deposit_amount: "0",
+      request_fee: '0',
+      callback_credit: '0',
+      deposit_amount: '0',
       funding_txid: null,
       deposit_txid: null,
     };
   }
-  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
-  let callbackCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: consumerHash }]) || "0");
+  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
+  let callbackCredit = BigInt(
+    (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+      { type: 'Hash160', value: consumerHash },
+    ])) || '0'
+  );
   const requiredCredit = requestFee * BigInt(requiredRequests);
   if (requestFee <= 0n || callbackCredit >= requiredCredit) {
     return {
       request_fee: requestFee.toString(),
       callback_credit: callbackCredit.toString(),
-      deposit_amount: "0",
+      deposit_amount: '0',
       funding_txid: null,
       deposit_txid: null,
     };
@@ -164,23 +209,34 @@ async function ensureExampleConsumerCredit({ account, rpcUrl, networkMagic, rpcC
     networkMagic,
     account,
   });
-  const fundingSigners = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry })];
-  const fundingTxid = await gas.invoke("transfer", [
-    sc.ContractParam.hash160(`0x${account.scriptHash}`),
-    sc.ContractParam.hash160(consumerHash),
-    sc.ContractParam.integer(deficit.toString()),
-    sc.ContractParam.any(null),
-  ], fundingSigners);
+  const fundingSigners = [
+    new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry }),
+  ];
+  const fundingTxid = await gas.invoke(
+    'transfer',
+    [
+      sc.ContractParam.hash160(`0x${account.scriptHash}`),
+      sc.ContractParam.hash160(consumerHash),
+      sc.ContractParam.integer(deficit.toString()),
+      sc.ContractParam.any(null),
+    ],
+    fundingSigners
+  );
   await waitForApplicationLog(rpcClient, fundingTxid);
 
   let contractGasBalance = 0n;
   const balanceDeadline = Date.now() + 60000;
   while (Date.now() < balanceDeadline) {
-    contractGasBalance = BigInt(await invokeRead(rpcClient, consumerHash, "contractGasBalance", []).catch(() => "0") || "0");
+    contractGasBalance = BigInt(
+      (await invokeRead(rpcClient, consumerHash, 'contractGasBalance', []).catch(() => '0')) || '0'
+    );
     if (contractGasBalance >= deficit) break;
     await sleep(2000);
   }
-  assertCondition(contractGasBalance >= deficit, "example callback consumer lacks enough GAS to top up Oracle credit");
+  assertCondition(
+    contractGasBalance >= deficit,
+    'example callback consumer lacks enough GAS to top up Oracle credit'
+  );
 
   const consumer = new experimental.SmartContract(consumerHash, {
     rpcAddress: rpcUrl,
@@ -188,7 +244,11 @@ async function ensureExampleConsumerCredit({ account, rpcUrl, networkMagic, rpcC
     account,
   });
   const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
-  const depositTxid = await consumer.invoke("depositOracleCredits", [sc.ContractParam.integer(deficit.toString())], signers);
+  const depositTxid = await consumer.invoke(
+    'depositOracleCredits',
+    [sc.ContractParam.integer(deficit.toString())],
+    signers
+  );
   await waitForApplicationLog(rpcClient, depositTxid);
   callbackCredit = await waitForCredit(rpcClient, oracleHash, consumerHash, requiredCredit);
   return {
@@ -202,38 +262,40 @@ async function ensureExampleConsumerCredit({ account, rpcUrl, networkMagic, rpcC
 
 async function ensureIntegratedPreflight({ requesterRequests = 0, consumerRequests = 0 } = {}) {
   const deployment = (await readDeploymentRegistry(network)).neo_n3 || {};
-  const rpcUrl = trimString(deployment.rpc_url || "https://testnet1.neo.coz.io:443");
+  const rpcUrl = trimString(deployment.rpc_url || 'https://testnet1.neo.coz.io:443');
   const networkMagic = Number(deployment.network_magic || 894710606);
-  const oracleHash = normalizeHash160(deployment.oracle_hash || "");
-  const consumerHash = normalizeHash160(deployment.example_consumer_hash || "");
+  const oracleHash = normalizeHash160(deployment.oracle_hash || '');
+  const consumerHash = normalizeHash160(deployment.example_consumer_hash || '');
   const signerWif = overrideTestWif || resolveNeoN3SignerWif(network);
-  assertCondition(signerWif, "testnet signer WIF is required for integrated preflight");
-  assertCondition(oracleHash, "testnet oracle hash is required for integrated preflight");
+  assertCondition(signerWif, 'testnet signer WIF is required for integrated preflight');
+  assertCondition(oracleHash, 'testnet oracle hash is required for integrated preflight');
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
 
-  const requester = requesterRequests > 0
-    ? await ensureRequesterCredit({
-        account,
-        rpcUrl,
-        networkMagic,
-        rpcClient,
-        oracleHash,
-        requiredRequests: requesterRequests,
-      })
-    : null;
+  const requester =
+    requesterRequests > 0
+      ? await ensureRequesterCredit({
+          account,
+          rpcUrl,
+          networkMagic,
+          rpcClient,
+          oracleHash,
+          requiredRequests: requesterRequests,
+        })
+      : null;
 
-  const consumer = consumerRequests > 0
-    ? await ensureExampleConsumerCredit({
-        account,
-        rpcUrl,
-        networkMagic,
-        rpcClient,
-        oracleHash,
-        consumerHash,
-        requiredRequests: consumerRequests,
-      })
-    : null;
+  const consumer =
+    consumerRequests > 0
+      ? await ensureExampleConsumerCredit({
+          account,
+          rpcUrl,
+          networkMagic,
+          rpcClient,
+          oracleHash,
+          consumerHash,
+          requiredRequests: consumerRequests,
+        })
+      : null;
 
   return {
     rpc_url: rpcUrl,
@@ -320,7 +382,7 @@ function summarizeAaPaymasterAutomationOracle(report) {
     paymaster_approved: report?.paymaster?.approved ?? null,
     relay_txid: report?.relay?.txid || null,
     automation_id: report?.automation_register?.automation_id || null,
-    queued_mode: report?.queued_execution?.mode || "scheduler",
+    queued_mode: report?.queued_execution?.mode || 'scheduler',
     queued_chain_request_id: report?.queued_execution?.request_id || null,
     queued_callback_success: report?.queued_execution?.callback?.success ?? null,
   };
@@ -334,8 +396,8 @@ function summarizeAutomationIdempotency(report) {
     queued_chain_request_id: report?.queued_chain_request_id || null,
     queued_callback_success: report?.queued_callback?.success ?? null,
     execution_count: report?.supabase?.job?.execution_count ?? null,
-    queued_runs: runs.filter((row) => row?.status === "queued").length,
-    failed_runs: runs.filter((row) => row?.status === "failed").length,
+    queued_runs: runs.filter((row) => row?.status === 'queued').length,
+    failed_runs: runs.filter((row) => row?.status === 'failed').length,
   };
 }
 
@@ -350,8 +412,12 @@ function summarizeAutomationCancelRace(report) {
 function summarizeAutomationDepositExhaustion(report) {
   return {
     shared_requester_hash: report?.shared_requester_hash || null,
-    queued_runs: Array.isArray(report?.queued_runs) ? report.queued_runs.length : (report?.queued_runs ?? null),
-    failed_runs: Array.isArray(report?.failed_runs) ? report.failed_runs.length : (report?.failed_runs ?? null),
+    queued_runs: Array.isArray(report?.queued_runs)
+      ? report.queued_runs.length
+      : (report?.queued_runs ?? null),
+    failed_runs: Array.isArray(report?.failed_runs)
+      ? report.failed_runs.length
+      : (report?.failed_runs ?? null),
     queued_chain_request_id: report?.queued_chain_request_id || null,
     failed_error: report?.failed_runs?.[0]?.error || report?.failed_error || null,
   };
@@ -359,11 +425,11 @@ function summarizeAutomationDepositExhaustion(report) {
 
 function readJsonIfPresent(filePath) {
   if (!filePath || !fs.existsSync(filePath)) return null;
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
 function summarizeStage(stage, report) {
-  if (!report || typeof stage.summarize !== "function") return null;
+  if (!report || typeof stage.summarize !== 'function') return null;
   return stage.summarize(report);
 }
 
@@ -371,11 +437,22 @@ function normalizeSignal(signal) {
   return signal ? String(signal) : null;
 }
 
-function makeStage(id, title, command, argsList, cwd, reportRelativePath, summarize, env = undefined, preflight = null, retries = 0) {
+function makeStage(
+  id,
+  title,
+  command,
+  argsList,
+  cwd,
+  reportRelativePath,
+  summarize,
+  env = undefined,
+  preflight = null,
+  retries = 0
+) {
   return {
     id,
     title,
-    kind: "command",
+    kind: 'command',
     command,
     args: argsList,
     cwd,
@@ -392,20 +469,20 @@ const stages = [];
 if (!skipAaSuite) {
   if (runAaSuite) {
     stages.push({
-      id: "aa_v3_suite",
-      title: "AA V3 testnet validation suite",
-      kind: "command",
-      command: "npm",
-      args: ["run", "testnet:validate"],
+      id: 'aa_v3_suite',
+      title: 'AA V3 testnet validation suite',
+      kind: 'command',
+      command: 'npm',
+      args: ['run', 'testnet:validate'],
       cwd: aaSdkRoot,
       reportPath: aaSuiteLatestPath,
       summarize: summarizeAaSuite,
     });
   } else {
     stages.push({
-      id: "aa_v3_suite",
-      title: "AA V3 testnet validation suite",
-      kind: "reference",
+      id: 'aa_v3_suite',
+      title: 'AA V3 testnet validation suite',
+      kind: 'reference',
       cwd: aaSdkRoot,
       reportPath: aaSuiteLatestPath,
       summarize: summarizeAaSuite,
@@ -415,127 +492,141 @@ if (!skipAaSuite) {
 
 stages.push(
   makeStage(
-    "callback_boundary",
-    "Oracle callback injection boundary",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-callback-boundary.mjs")],
+    'callback_boundary',
+    'Oracle callback injection boundary',
+    'node',
+    [path.resolve(repoRoot, 'examples/scripts/test-n3-callback-boundary.mjs')],
     repoRoot,
-    "examples/deployments/n3-callback-boundary.testnet.latest.json",
+    'examples/deployments/n3-callback-boundary.testnet.latest.json',
     summarizeCallbackBoundary,
     sharedTestnetEnv,
-    null,
+    null
   ),
   {
-    id: "neodid_registry_boundary",
-    title: "NeoDID registry JSON ticket boundary",
-    kind: "reference",
+    id: 'neodid_registry_boundary',
+    title: 'NeoDID registry JSON ticket boundary',
+    kind: 'reference',
     cwd: repoRoot,
-    reportPath: stageReportPath("examples/deployments/n3-neodid-registry-boundary.testnet.latest.json"),
+    reportPath: stageReportPath(
+      'examples/deployments/n3-neodid-registry-boundary.testnet.latest.json'
+    ),
     summarize: summarizeNeoDidRegistryBoundary,
   },
   {
-    id: "neodid_registry_v1",
-    title: "NeoDID registry compact ticket replay boundary",
-    kind: "reference",
+    id: 'neodid_registry_v1',
+    title: 'NeoDID registry compact ticket replay boundary',
+    kind: 'reference',
     cwd: repoRoot,
-    reportPath: stageReportPath("examples/deployments/n3-neodid-registry-v1.testnet.latest.json"),
+    reportPath: stageReportPath('examples/deployments/n3-neodid-registry-v1.testnet.latest.json'),
     summarize: summarizeNeoDidRegistryV1,
   },
   makeStage(
-    "encrypted_ref_boundary",
-    "Encrypted ref requester/callback binding boundary",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-encrypted-ref-boundary.mjs")],
+    'encrypted_ref_boundary',
+    'Encrypted ref requester/callback binding boundary',
+    'node',
+    [path.resolve(repoRoot, 'examples/scripts/test-n3-encrypted-ref-boundary.mjs')],
     repoRoot,
-    "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
+    'examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json',
     summarizeEncryptedRefBoundary,
     sharedTestnetEnv,
-    null,
+    null
   ),
   makeStage(
-    "fulfillment_replay",
-    "Fulfillment replay boundary",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-fulfillment-replay-isolated.mjs")],
+    'fulfillment_replay',
+    'Fulfillment replay boundary',
+    'node',
+    [path.resolve(repoRoot, 'examples/scripts/test-n3-fulfillment-replay-isolated.mjs')],
     repoRoot,
-    "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
+    'examples/deployments/n3-fulfillment-replay.testnet.latest.json',
     summarizeFulfillmentReplay,
     sharedTestnetEnv,
-    null,
+    null
   ),
   makeStage(
-    "aa_session_oracle_boundary",
-    "AA session-key downstream Oracle boundary",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-aa-session-oracle-boundary.mjs")],
+    'aa_session_oracle_boundary',
+    'AA session-key downstream Oracle boundary',
+    'node',
+    [path.resolve(repoRoot, 'examples/scripts/test-n3-aa-session-oracle-boundary.mjs')],
     repoRoot,
-    "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
+    'examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json',
     summarizeAaSessionOracleBoundary,
     sharedTestnetEnv,
-    null,
+    null
   ),
   {
-    id: "aa_callback_replay_boundary",
-    title: "AA-bound callback replay boundary",
-    kind: "reference",
+    id: 'aa_callback_replay_boundary',
+    title: 'AA-bound callback replay boundary',
+    kind: 'reference',
     cwd: repoRoot,
-    reportPath: stageReportPath("examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json"),
+    reportPath: stageReportPath(
+      'examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json'
+    ),
     summarize: summarizeAaCallbackReplayBoundary,
   },
   {
-    id: "aa_recovery_cross_account_boundary",
-    title: "AA recovery cross-account boundary",
-    kind: "reference",
+    id: 'aa_recovery_cross_account_boundary',
+    title: 'AA recovery cross-account boundary',
+    kind: 'reference',
     cwd: repoRoot,
-    reportPath: stageReportPath("examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json"),
+    reportPath: stageReportPath(
+      'examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json'
+    ),
     summarize: summarizeAaRecoveryCrossAccountBoundary,
   },
   makeStage(
-    "aa_paymaster_automation_oracle",
-    "AA paymaster automation Oracle proof",
-    "node",
-    [path.resolve(repoRoot, "examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs")],
+    'aa_paymaster_automation_oracle',
+    'AA paymaster automation Oracle proof',
+    'node',
+    [path.resolve(repoRoot, 'examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs')],
     repoRoot,
-    "examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json",
+    'examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json',
     summarizeAaPaymasterAutomationOracle,
     sharedTestnetEnv,
-    null,
+    null
   ),
   {
-    id: "automation_cancel_race",
-    title: "Automation cancellation race",
-    kind: "reference",
+    id: 'automation_cancel_race',
+    title: 'Automation cancellation race',
+    kind: 'reference',
     cwd: repoRoot,
-    reportPath: stageReportPath("examples/deployments/n3-automation-cancel-race.testnet.latest.json"),
+    reportPath: stageReportPath(
+      'examples/deployments/n3-automation-cancel-race.testnet.latest.json'
+    ),
     summarize: summarizeAutomationCancelRace,
   },
   {
-    id: "automation_deposit_exhaustion",
-    title: "Automation shared-credit deposit exhaustion",
-    kind: "reference",
+    id: 'automation_deposit_exhaustion',
+    title: 'Automation shared-credit deposit exhaustion',
+    kind: 'reference',
     cwd: repoRoot,
-    reportPath: stageReportPath("examples/deployments/n3-automation-deposit-exhaustion.testnet.latest.json"),
+    reportPath: stageReportPath(
+      'examples/deployments/n3-automation-deposit-exhaustion.testnet.latest.json'
+    ),
     summarize: summarizeAutomationDepositExhaustion,
   },
   {
-    id: "automation_idempotency",
-    title: "Automation duplicate-queue suppression",
-    kind: "reference",
+    id: 'automation_idempotency',
+    title: 'Automation duplicate-queue suppression',
+    kind: 'reference',
     cwd: repoRoot,
-    reportPath: stageReportPath("examples/deployments/n3-automation-idempotency.testnet.latest.json"),
+    reportPath: stageReportPath(
+      'examples/deployments/n3-automation-idempotency.testnet.latest.json'
+    ),
     summarize: summarizeAutomationIdempotency,
-  },
+  }
 );
 
 function printStagePlan(stage) {
-  if (stage.kind === "reference") {
+  if (stage.kind === 'reference') {
     console.log(`- ${stage.id}: reference latest artifact ${repoRelativePath(stage.reportPath)}`);
     return;
   }
-  const relArgs = stage.args.map((value) => (
+  const relArgs = stage.args.map((value) =>
     value.startsWith(repoRoot) ? repoRelativePath(value) : value
-  ));
-  console.log(`- ${stage.id}: ${[stage.command, ...relArgs].join(" ")} (${repoRelativePath(stage.cwd) || "."})`);
+  );
+  console.log(
+    `- ${stage.id}: ${[stage.command, ...relArgs].join(' ')} (${repoRelativePath(stage.cwd) || '.'})`
+  );
 }
 
 async function runCommandStage(stage) {
@@ -544,7 +635,7 @@ async function runCommandStage(stage) {
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const startedAt = new Date().toISOString();
     const startedMs = Date.now();
-    console.log(`\n==> ${stage.id}: ${stage.title}${attempt > 1 ? ` (retry ${attempt - 1})` : ""}`);
+    console.log(`\n==> ${stage.id}: ${stage.title}${attempt > 1 ? ` (retry ${attempt - 1})` : ''}`);
     let preflight = null;
     try {
       preflight = stage.preflight ? await ensureIntegratedPreflight(stage.preflight) : null;
@@ -552,8 +643,8 @@ async function runCommandStage(stage) {
       lastResult = {
         id: stage.id,
         title: stage.title,
-        mode: "executed",
-        status: "failed",
+        mode: 'executed',
+        status: 'failed',
         exit_code: null,
         signal: null,
         started_at: startedAt,
@@ -562,7 +653,7 @@ async function runCommandStage(stage) {
         preflight,
         report_path: null,
         summary: null,
-        failure_phase: "preflight",
+        failure_phase: 'preflight',
         error: error instanceof Error ? error.message : String(error),
         attempt,
       };
@@ -573,7 +664,7 @@ async function runCommandStage(stage) {
     const result = spawnSync(stage.command, stage.args, {
       cwd: stage.cwd,
       env: { ...process.env, ...(stage.env || {}) },
-      stdio: "inherit",
+      stdio: 'inherit',
     });
     const completedAt = new Date().toISOString();
     const durationMs = Date.now() - startedMs;
@@ -581,17 +672,20 @@ async function runCommandStage(stage) {
     lastResult = {
       id: stage.id,
       title: stage.title,
-      mode: "executed",
-      status: result.status === 0 ? "passed" : "failed",
+      mode: 'executed',
+      status: result.status === 0 ? 'passed' : 'failed',
       exit_code: result.status ?? null,
       signal: normalizeSignal(result.signal),
       started_at: startedAt,
       completed_at: completedAt,
       duration_ms: durationMs,
       preflight,
-      report_path: result.status === 0 && stage.reportPath && fs.existsSync(stage.reportPath) ? repoRelativePath(stage.reportPath) : null,
+      report_path:
+        result.status === 0 && stage.reportPath && fs.existsSync(stage.reportPath)
+          ? repoRelativePath(stage.reportPath)
+          : null,
       summary: summarizeStage(stage, report),
-      error: result.status === 0 ? null : `stage exited with code ${result.status ?? "unknown"}`,
+      error: result.status === 0 ? null : `stage exited with code ${result.status ?? 'unknown'}`,
       attempt,
     };
     if (result.status === 0 || attempt >= attempts) {
@@ -606,8 +700,8 @@ function referenceStage(stage) {
   return {
     id: stage.id,
     title: stage.title,
-    mode: "reference_latest",
-    status: report ? "referenced_latest" : "missing_latest",
+    mode: 'reference_latest',
+    status: report ? 'referenced_latest' : 'missing_latest',
     exit_code: null,
     signal: null,
     started_at: null,
@@ -620,23 +714,23 @@ function referenceStage(stage) {
 
 function buildMarkdownReport(report) {
   const lines = [
-    "# N3 Integrated Attack Regression",
-    "",
+    '# N3 Integrated Attack Regression',
+    '',
     `Date: ${report.generated_at}`,
-    "",
-    "## Scope",
-    "",
-    "This runner tracks the currently executable Neo N3 integrated attack regression set across Morpheus Oracle, NeoDID, and the AA verifier baseline.",
-    "",
-    "## Configuration",
-    "",
+    '',
+    '## Scope',
+    '',
+    'This runner tracks the currently executable Neo N3 integrated attack regression set across Morpheus Oracle, NeoDID, and the AA verifier baseline.',
+    '',
+    '## Configuration',
+    '',
     `- network: \`${report.network}\``,
     `- dry_run: \`${report.dry_run}\``,
     `- continue_on_failure: \`${report.continue_on_failure}\``,
     `- AA suite mode: \`${report.aa_suite_mode}\``,
-    "",
-    "## Stage Results",
-    "",
+    '',
+    '## Stage Results',
+    '',
   ];
 
   for (const stage of report.stages) {
@@ -647,47 +741,61 @@ function buildMarkdownReport(report) {
   }
 
   lines.push(
-    "",
-    "## Remaining Integrated Gaps",
-    "",
-    ...(report.remaining_gaps.length > 0 ? report.remaining_gaps.map((item) => `- ${item}`) : ["- none"]),
-    "",
+    '',
+    '## Remaining Integrated Gaps',
+    '',
+    ...(report.remaining_gaps.length > 0
+      ? report.remaining_gaps.map((item) => `- ${item}`)
+      : ['- none']),
+    ''
   );
 
-  return `${lines.join("\n")}\n`;
+  return `${lines.join('\n')}\n`;
 }
 
 async function main() {
   await loadExampleEnv();
 
-  const aaSuiteMode = skipAaSuite ? "skipped" : (runAaSuite ? "executed" : "referenced_latest");
+  const aaSuiteMode = skipAaSuite ? 'skipped' : runAaSuite ? 'executed' : 'referenced_latest';
 
-  console.log("==> integrated attack regression plan");
+  console.log('==> integrated attack regression plan');
   for (const stage of stages) printStagePlan(stage);
 
   if (dryRun) {
-    console.log(JSON.stringify({
-      network,
-      dry_run: true,
-      continue_on_failure: continueOnFailure,
-      aa_suite_mode: aaSuiteMode,
-      preflight: null,
-      stages: stages.map((stage) => ({
-        id: stage.id,
-        title: stage.title,
-        kind: stage.kind,
-        cwd: stage.cwd.startsWith(repoRoot) ? repoRelativePath(stage.cwd) : stage.cwd,
-        report_path: stage.reportPath && fs.existsSync(stage.reportPath) ? repoRelativePath(stage.reportPath) : (stage.reportPath ? repoRelativePath(stage.reportPath) : null),
-      })),
-    }, null, 2));
+    console.log(
+      JSON.stringify(
+        {
+          network,
+          dry_run: true,
+          continue_on_failure: continueOnFailure,
+          aa_suite_mode: aaSuiteMode,
+          preflight: null,
+          stages: stages.map((stage) => ({
+            id: stage.id,
+            title: stage.title,
+            kind: stage.kind,
+            cwd: stage.cwd.startsWith(repoRoot) ? repoRelativePath(stage.cwd) : stage.cwd,
+            report_path:
+              stage.reportPath && fs.existsSync(stage.reportPath)
+                ? repoRelativePath(stage.reportPath)
+                : stage.reportPath
+                  ? repoRelativePath(stage.reportPath)
+                  : null,
+          })),
+        },
+        null,
+        2
+      )
+    );
     return;
   }
 
   const stageResults = [];
   for (const stage of stages) {
-    const result = stage.kind === "reference" ? referenceStage(stage) : await runCommandStage(stage);
+    const result =
+      stage.kind === 'reference' ? referenceStage(stage) : await runCommandStage(stage);
     stageResults.push(result);
-    if (result.status === "failed" && !continueOnFailure) {
+    if (result.status === 'failed' && !continueOnFailure) {
       break;
     }
   }
@@ -703,31 +811,47 @@ async function main() {
     remaining_gaps: [],
   };
 
-  const paymasterAutomationStage = stageResults.find((stage) => stage.id === "aa_paymaster_automation_oracle");
+  const paymasterAutomationStage = stageResults.find(
+    (stage) => stage.id === 'aa_paymaster_automation_oracle'
+  );
   const paymasterAutomationPassed = Boolean(
-    paymasterAutomationStage
-      && !["failed", "missing_latest"].includes(paymasterAutomationStage.status)
-      && paymasterAutomationStage.summary?.queued_callback_success === true,
+    paymasterAutomationStage &&
+    !['failed', 'missing_latest'].includes(paymasterAutomationStage.status) &&
+    paymasterAutomationStage.summary?.queued_callback_success === true
   );
   if (!paymasterAutomationPassed) {
-    report.remaining_gaps.push("AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path");
+    report.remaining_gaps.push(
+      'AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path'
+    );
   }
 
   const markdownReport = buildMarkdownReport(report);
   const artifacts = await writeValidationArtifacts({
-    baseName: "n3-integrated-attack-regression",
+    baseName: 'n3-integrated-attack-regression',
     network,
     jsonReport: report,
     markdownReport,
   });
 
-  console.log(JSON.stringify({
-    ...artifacts,
-    failed_stages: stageResults.filter((stage) => stage.status === "failed").map((stage) => stage.id),
-    referenced_stages: stageResults.filter((stage) => stage.status === "referenced_latest").map((stage) => stage.id),
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        ...artifacts,
+        failed_stages: stageResults
+          .filter((stage) => stage.status === 'failed')
+          .map((stage) => stage.id),
+        referenced_stages: stageResults
+          .filter((stage) => stage.status === 'referenced_latest')
+          .map((stage) => stage.id),
+      },
+      null,
+      2
+    )
+  );
 
-  const hasFailure = stageResults.some((stage) => stage.status === "failed" || stage.status === "missing_latest");
+  const hasFailure = stageResults.some(
+    (stage) => stage.status === 'failed' || stage.status === 'missing_latest'
+  );
   if (hasFailure) {
     process.exitCode = 1;
   }

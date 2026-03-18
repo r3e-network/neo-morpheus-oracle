@@ -82,4 +82,3 @@ It does not claim that every cross-system attack has already been live-executed.
 ## Recommendation
 
 Use this baseline as the prerequisite evidence set for the next integrated adversarial run. The next executable layer should combine a live AA account, NeoDID-backed recovery or credential state, and Morpheus callback fulfillment under negative replay and cross-account misuse scenarios.
-

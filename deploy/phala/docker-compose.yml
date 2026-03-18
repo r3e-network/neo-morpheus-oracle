@@ -8,12 +8,18 @@ services:
     environment:
       PORT: ${PHALA_WORKER_PORT:-8080}
     expose:
-      - "${PHALA_WORKER_PORT:-8080}"
+      - '${PHALA_WORKER_PORT:-8080}'
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-data:/data
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -26,10 +32,10 @@ services:
     depends_on:
       phala-worker:
         condition: service_healthy
-    profiles: ["edge"]
+    profiles: ['edge']
     ports:
-      - "${MORPHEUS_PUBLIC_PORT:-3000}:80"
-      - "443:443"
+      - '${MORPHEUS_PUBLIC_PORT:-3000}:80'
+      - '443:443'
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
@@ -50,6 +56,18 @@ services:
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const http=require('http');const req=http.request({hostname:'phala-worker',port:process.env.PORT||8080,path:'/health',method:'GET'},res=>process.exit(res.statusCode===200?0:1));req.on('error',()=>process.exit(1));req.end()",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
 volumes:
   morpheus-data:

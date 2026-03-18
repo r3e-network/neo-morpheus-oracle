@@ -39,26 +39,31 @@
 ## Modules
 
 ### 1. Privacy Oracle
+
 - plain fetch
 - private fetch with encrypted secret
 - programmable fetch + compute
 - Neo N3 result envelopes
 
 ### 2. Privacy Compute
+
 - built-in compute registry
 - script execution for custom workloads
 - intended extension point for ZKP and FHE backends
 
 ### 3. Datafeed
+
 - signed price quote APIs
 - Neo N3 feed contract storage
 - feed snapshots and telemetry stored in Supabase
 
 ### 4. Relay / Signing
+
 - Neo N3 message signing and tx relay
 - chain-aware output envelopes for callback use
 
 ### 5. NeoDID
+
 - independent `NeoDIDRegistry` contract on Neo N3
 - Oracle-routed request types: `neodid_bind`, `neodid_action_ticket`, `neodid_recovery_ticket`
 - Web3Auth JWT verification happens inside the TEE
@@ -80,7 +85,6 @@
 - NeoDID public DID resolution stays separate from private bind / ticket issuance
 - Neo N3 is the only active supported execution target right now
 - Neo X artifacts remain in-repo as legacy/reference code, but they are not the current production path
-
 
 ## Provider Registry
 

@@ -93,29 +93,13 @@
       "total_cases": 7,
       "successful_cases": 6,
       "expected_failure_cases": 1,
-      "request_ids": [
-        "159",
-        "161",
-        "162",
-        "165",
-        "167",
-        "170",
-        "171"
-      ]
+      "request_ids": ["159", "161", "162", "165", "167", "170", "171"]
     },
     "privacy": {
       "report_path": "examples/deployments/n3-privacy-validation.testnet.latest.json",
       "total_cases": 7,
       "passing_cases": 7,
-      "request_ids": [
-        "151",
-        "152",
-        "153",
-        "154",
-        "155",
-        "156",
-        "157"
-      ]
+      "request_ids": ["151", "152", "153", "154", "155", "156", "157"]
     },
     "builtins": {
       "report_path": "examples/deployments/n3-builtins-validation.testnet.latest.json",

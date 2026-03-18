@@ -1,15 +1,15 @@
-import { sc, u, wallet as neoWallet } from "@cityofzion/neon-js";
-import { env, isHexString, strip0x, trimString } from "./core.js";
+import { sc, u, wallet as neoWallet } from '@cityofzion/neon-js';
+import { env, isHexString, strip0x, trimString } from './core.js';
 
 export function normalizeNeoHash160(value) {
   const raw = trimString(value);
-  if (!raw) return "";
+  if (!raw) return '';
   if (neoWallet.isAddress(raw)) {
     return `0x${neoWallet.getScriptHashFromAddress(raw).toLowerCase()}`;
   }
   const hex = strip0x(raw).toLowerCase();
   if (/^[0-9a-f]{40}$/.test(hex)) return `0x${hex}`;
-  return "";
+  return '';
 }
 
 export function isConfiguredHash160(value) {
@@ -24,24 +24,26 @@ export function normalizeContractHash(value) {
 
 export function canonicalizeMethodName(method) {
   const trimmed = trimString(method);
-  if (!trimmed) return "";
+  if (!trimmed) return '';
   return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
 }
 
 export function createByteArrayParam(value) {
   if (Buffer.isBuffer(value) || value instanceof Uint8Array || value instanceof ArrayBuffer) {
-    return sc.ContractParam.byteArray(u.HexString.fromHex(Buffer.from(value).toString("hex"), true));
+    return sc.ContractParam.byteArray(
+      u.HexString.fromHex(Buffer.from(value).toString('hex'), true)
+    );
   }
   const raw = trimString(value);
-  if (!raw) return sc.ContractParam.byteArray(u.HexString.fromHex(""));
+  if (!raw) return sc.ContractParam.byteArray(u.HexString.fromHex(''));
   if (isHexString(raw)) {
     return sc.ContractParam.byteArray(u.HexString.fromHex(strip0x(raw), true));
   }
   if (/^[A-Za-z0-9+/]+={0,2}$/.test(raw) && raw.length % 4 === 0) {
     try {
-      const decoded = Buffer.from(raw, "base64");
-      if (decoded.length > 0 && decoded.toString("base64") === raw) {
-        return sc.ContractParam.byteArray(u.HexString.fromHex(decoded.toString("hex"), true));
+      const decoded = Buffer.from(raw, 'base64');
+      if (decoded.length > 0 && decoded.toString('base64') === raw) {
+        return sc.ContractParam.byteArray(u.HexString.fromHex(decoded.toString('hex'), true));
       }
     } catch {
       // fall through to utf-8 string byte array handling
@@ -51,28 +53,30 @@ export function createByteArrayParam(value) {
 }
 
 export function toNeoContractParam(param) {
-  if (!param || typeof param !== "object") throw new Error("invalid Neo contract param");
+  if (!param || typeof param !== 'object') throw new Error('invalid Neo contract param');
   const type = trimString(param.type).toLowerCase();
   switch (type) {
-    case "string":
-      return sc.ContractParam.string(String(param.value ?? ""));
-    case "integer":
-      return sc.ContractParam.integer(String(param.value ?? "0"));
-    case "boolean":
+    case 'string':
+      return sc.ContractParam.string(String(param.value ?? ''));
+    case 'integer':
+      return sc.ContractParam.integer(String(param.value ?? '0'));
+    case 'boolean':
       return sc.ContractParam.boolean(Boolean(param.value));
-    case "bytearray":
+    case 'bytearray':
       return createByteArrayParam(param.value);
-    case "hash160":
-      return sc.ContractParam.hash160(String(param.value ?? ""));
-    case "hash256":
-      return sc.ContractParam.hash256(String(param.value ?? ""));
-    case "publickey":
-      return sc.ContractParam.publicKey(String(param.value ?? ""));
-    case "any":
+    case 'hash160':
+      return sc.ContractParam.hash160(String(param.value ?? ''));
+    case 'hash256':
+      return sc.ContractParam.hash256(String(param.value ?? ''));
+    case 'publickey':
+      return sc.ContractParam.publicKey(String(param.value ?? ''));
+    case 'any':
       return sc.ContractParam.any(param.value ?? null);
-    case "array": {
-      if (!Array.isArray(param.value)) throw new Error("Array param requires array value");
-      return sc.ContractParam.array(...param.value.map((item) => toNeoContractParam(item).toJson()));
+    case 'array': {
+      if (!Array.isArray(param.value)) throw new Error('Array param requires array value');
+      return sc.ContractParam.array(
+        ...param.value.map((item) => toNeoContractParam(item).toJson())
+      );
     }
     default:
       throw new Error(`unsupported Neo contract param type: ${param.type}`);
@@ -84,8 +88,8 @@ export function parseTxProxyAllowlist(raw) {
   const text = trimString(raw);
   if (!text) return out;
   const parsed = JSON.parse(text);
-  const contracts = parsed && typeof parsed === "object" ? parsed.contracts : null;
-  if (!contracts || typeof contracts !== "object") return out;
+  const contracts = parsed && typeof parsed === 'object' ? parsed.contracts : null;
+  if (!contracts || typeof contracts !== 'object') return out;
   for (const [contract, methods] of Object.entries(contracts)) {
     const normalized = normalizeNeoHash160(contract);
     if (!normalized) continue;
@@ -94,7 +98,7 @@ export function parseTxProxyAllowlist(raw) {
       for (const method of methods) {
         const canonical = trimString(method);
         if (!canonical) continue;
-        if (canonical === "*") {
+        if (canonical === '*') {
           entry.allowAll = true;
           continue;
         }
@@ -113,7 +117,7 @@ export function addAllow(allowlist, contractHash, ...methods) {
   for (const method of methods) {
     const canonical = trimString(method);
     if (!canonical) continue;
-    if (canonical === "*") {
+    if (canonical === '*') {
       current.allowAll = true;
       continue;
     }
@@ -123,14 +127,29 @@ export function addAllow(allowlist, contractHash, ...methods) {
 }
 
 export function buildTxProxyAllowlist() {
-  const allowlist = parseTxProxyAllowlist(env("TXPROXY_ALLOWLIST"));
-  addAllow(allowlist, env("CONTRACT_MORPHEUS_DATAFEED_HASH", "CONTRACT_PRICEFEED_HASH"), "updateFeed", "updateFeeds", "update");
-  addAllow(allowlist, env("CONTRACT_RANDOMNESSLOG_HASH"), "record");
-  addAllow(allowlist, env("CONTRACT_AUTOMATIONANCHOR_HASH"), "markExecuted");
-  addAllow(allowlist, env("CONTRACT_MORPHEUS_ORACLE_HASH"), "fulfillRequest", "queueAutomationRequest");
-  addAllow(allowlist, env("CONTRACT_PAYMENTHUB_HASH"), "pay");
-  addAllow(allowlist, env("CONTRACT_GOVERNANCE_HASH"), "stake", "unstake", "vote");
-  addAllow(allowlist, env("CONTRACT_GAS_HASH") || "0xd2a4cff31913016155e38e474a2c06d08be276cf", "transfer");
+  const allowlist = parseTxProxyAllowlist(env('TXPROXY_ALLOWLIST'));
+  addAllow(
+    allowlist,
+    env('CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'),
+    'updateFeed',
+    'updateFeeds',
+    'update'
+  );
+  addAllow(allowlist, env('CONTRACT_RANDOMNESSLOG_HASH'), 'record');
+  addAllow(allowlist, env('CONTRACT_AUTOMATIONANCHOR_HASH'), 'markExecuted');
+  addAllow(
+    allowlist,
+    env('CONTRACT_MORPHEUS_ORACLE_HASH'),
+    'fulfillRequest',
+    'queueAutomationRequest'
+  );
+  addAllow(allowlist, env('CONTRACT_PAYMENTHUB_HASH'), 'pay');
+  addAllow(allowlist, env('CONTRACT_GOVERNANCE_HASH'), 'stake', 'unstake', 'vote');
+  addAllow(
+    allowlist,
+    env('CONTRACT_GAS_HASH') || '0xd2a4cff31913016155e38e474a2c06d08be276cf',
+    'transfer'
+  );
   return allowlist;
 }
 
@@ -145,7 +164,7 @@ export function allowlistAllows(contractHash, method) {
 export function transferTargetsPaymentHub(params, paymentHubHash) {
   if (!Array.isArray(params) || params.length < 2) return false;
   const target = params[1];
-  if (!target || trimString(target.type).toLowerCase() !== "hash160") return false;
+  if (!target || trimString(target.type).toLowerCase() !== 'hash160') return false;
   return normalizeNeoHash160(target.value) === normalizeNeoHash160(paymentHubHash);
 }
 
@@ -155,25 +174,34 @@ export function checkNeoIntentPolicy(payload) {
 
   const contractHash = normalizeContractHash(payload.contract_hash);
   const method = canonicalizeMethodName(payload.method);
-  const gasHash = normalizeNeoHash160(env("CONTRACT_GAS_HASH") || "0xd2a4cff31913016155e38e474a2c06d08be276cf");
-  const paymentHubHash = normalizeNeoHash160(env("CONTRACT_PAYMENTHUB_HASH"));
-  const governanceHash = normalizeNeoHash160(env("CONTRACT_GOVERNANCE_HASH"));
+  const gasHash = normalizeNeoHash160(
+    env('CONTRACT_GAS_HASH') || '0xd2a4cff31913016155e38e474a2c06d08be276cf'
+  );
+  const paymentHubHash = normalizeNeoHash160(env('CONTRACT_PAYMENTHUB_HASH'));
+  const governanceHash = normalizeNeoHash160(env('CONTRACT_GOVERNANCE_HASH'));
 
   switch (intent) {
-    case "gas-sponsor":
-    case "gas_sponsor":
-      if (contractHash !== gasHash || method !== "transfer") return { status: 403, error: "gas-sponsor intent only allows GAS transfer" };
+    case 'gas-sponsor':
+    case 'gas_sponsor':
+      if (contractHash !== gasHash || method !== 'transfer')
+        return { status: 403, error: 'gas-sponsor intent only allows GAS transfer' };
       return null;
-    case "payments":
-    case "payment":
-      if (contractHash !== gasHash || method !== "transfer") return { status: 403, error: "payments intent only allows GAS transfer" };
-      if (!paymentHubHash) return { status: 503, error: "payments intent requires CONTRACT_PAYMENTHUB_HASH" };
-      if (!transferTargetsPaymentHub(payload.params, paymentHubHash)) return { status: 403, error: "payments intent only allows GAS transfer to PaymentHub" };
+    case 'payments':
+    case 'payment':
+      if (contractHash !== gasHash || method !== 'transfer')
+        return { status: 403, error: 'payments intent only allows GAS transfer' };
+      if (!paymentHubHash)
+        return { status: 503, error: 'payments intent requires CONTRACT_PAYMENTHUB_HASH' };
+      if (!transferTargetsPaymentHub(payload.params, paymentHubHash))
+        return { status: 403, error: 'payments intent only allows GAS transfer to PaymentHub' };
       return null;
-    case "governance":
-      if (!governanceHash) return { status: 503, error: "governance intent requires CONTRACT_GOVERNANCE_HASH" };
-      if (contractHash !== governanceHash) return { status: 403, error: "governance intent requires Governance contract" };
-      if (!["stake", "unstake", "vote"].includes(method)) return { status: 403, error: "governance intent only allows stake/unstake/vote" };
+    case 'governance':
+      if (!governanceHash)
+        return { status: 503, error: 'governance intent requires CONTRACT_GOVERNANCE_HASH' };
+      if (contractHash !== governanceHash)
+        return { status: 403, error: 'governance intent requires Governance contract' };
+      if (!['stake', 'unstake', 'vote'].includes(method))
+        return { status: 403, error: 'governance intent only allows stake/unstake/vote' };
       return null;
     default:
       return { status: 400, error: `unknown intent: ${payload.intent}` };

@@ -4,7 +4,7 @@ const nextConfig = {
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
-      "@react-native-async-storage/async-storage": false,
+      '@react-native-async-storage/async-storage': false,
     };
     return config;
   },

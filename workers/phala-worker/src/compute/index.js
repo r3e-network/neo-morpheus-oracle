@@ -1,18 +1,30 @@
-import { createVerify, randomBytes } from "node:crypto";
-import { execFile as execFileCallback } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { promisify } from "node:util";
-import { keccak256, toUtf8Bytes } from "ethers";
-import { assertUntrustedScriptsEnabled, enforceSerializedSizeLimit, env, json, normalizeTargetChain, parseDurationMs, resolveMaxBytes, resolveWasmModuleBase64, sha256Hex, stableStringify, trimString } from "../platform/core.js";
-import { buildSignedResultEnvelope, buildVerificationEnvelope } from "../chain/index.js";
-import { runScriptWithTimeout } from "../platform/script-runner.js";
-import { maybeBuildDstackAttestation } from "../platform/dstack.js";
-import { resolveConfidentialPayload } from "../oracle/crypto.js";
-import { validateUserScriptSource } from "../platform/script-policy.js";
-import { runWasmWithTimeout } from "../platform/wasm-runner.js";
-import { resolveScriptSource } from "../platform/script-source.js";
+import { createVerify, randomBytes } from 'node:crypto';
+import { execFile as execFileCallback } from 'node:child_process';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
+import { keccak256, toUtf8Bytes } from 'ethers';
+import {
+  assertUntrustedScriptsEnabled,
+  enforceSerializedSizeLimit,
+  env,
+  json,
+  normalizeTargetChain,
+  parseDurationMs,
+  resolveMaxBytes,
+  resolveWasmModuleBase64,
+  sha256Hex,
+  stableStringify,
+  trimString,
+} from '../platform/core.js';
+import { buildSignedResultEnvelope, buildVerificationEnvelope } from '../chain/index.js';
+import { runScriptWithTimeout } from '../platform/script-runner.js';
+import { maybeBuildDstackAttestation } from '../platform/dstack.js';
+import { resolveConfidentialPayload } from '../oracle/crypto.js';
+import { validateUserScriptSource } from '../platform/script-policy.js';
+import { runWasmWithTimeout } from '../platform/wasm-runner.js';
+import { resolveScriptSource } from '../platform/script-source.js';
 
 const DEFAULT_ZKP_VERIFY_MAX_INPUT_BYTES = 128 * 1024;
 const DEFAULT_ZKP_VERIFY_TIMEOUT_MS = 15000;
@@ -33,14 +45,16 @@ function bigintPowMod(base, exponent, modulus) {
 
 function multiplyMatrices(left, right) {
   if (!Array.isArray(left) || !Array.isArray(right) || !left.length || !right.length) {
-    throw new Error("matrix.multiply requires non-empty left/right matrices");
+    throw new Error('matrix.multiply requires non-empty left/right matrices');
   }
   const rows = left.length;
   const shared = left[0].length;
   const cols = right[0].length;
-  if (!left.every((row) => Array.isArray(row) && row.length === shared)) throw new Error("invalid left matrix");
-  if (!right.every((row) => Array.isArray(row) && row.length === cols)) throw new Error("invalid right matrix");
-  if (right.length !== shared) throw new Error("matrix dimensions do not align");
+  if (!left.every((row) => Array.isArray(row) && row.length === shared))
+    throw new Error('invalid left matrix');
+  if (!right.every((row) => Array.isArray(row) && row.length === cols))
+    throw new Error('invalid right matrix');
+  if (right.length !== shared) throw new Error('matrix dimensions do not align');
   const out = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
   for (let i = 0; i < rows; i += 1) {
     for (let j = 0; j < cols; j += 1) {
@@ -53,8 +67,13 @@ function multiplyMatrices(left, right) {
 }
 
 function cosineSimilarity(left, right) {
-  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length || left.length === 0) {
-    throw new Error("vector.cosine_similarity requires equal-length non-empty vectors");
+  if (
+    !Array.isArray(left) ||
+    !Array.isArray(right) ||
+    left.length !== right.length ||
+    left.length === 0
+  ) {
+    throw new Error('vector.cosine_similarity requires equal-length non-empty vectors');
   }
   let dot = 0;
   let leftNorm = 0;
@@ -66,22 +85,27 @@ function cosineSimilarity(left, right) {
     leftNorm += a * a;
     rightNorm += b * b;
   }
-  if (leftNorm === 0 || rightNorm === 0) throw new Error("cosine similarity undefined for zero vector");
+  if (leftNorm === 0 || rightNorm === 0)
+    throw new Error('cosine similarity undefined for zero vector');
   return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
 }
 
 function asLeafHash(value) {
   const raw = trimString(value);
-  if (/^(0x)?[0-9a-fA-F]+$/.test(raw) && raw.replace(/^0x/i, "").length % 2 === 0) {
-    return Buffer.from(raw.replace(/^0x/i, ""), "hex");
+  if (/^(0x)?[0-9a-fA-F]+$/.test(raw) && raw.replace(/^0x/i, '').length % 2 === 0) {
+    return Buffer.from(raw.replace(/^0x/i, ''), 'hex');
   }
-  return Buffer.from(raw, "utf8");
+  return Buffer.from(raw, 'utf8');
 }
 
 function maskString(value, unmaskedLeft = 2, unmaskedRight = 2) {
-  const str = String(value || "");
-  if (str.length <= unmaskedLeft + unmaskedRight) return "*".repeat(Math.max(str.length, 4));
-  return str.slice(0, unmaskedLeft) + "*".repeat(str.length - unmaskedLeft - unmaskedRight) + str.slice(-unmaskedRight);
+  const str = String(value || '');
+  if (str.length <= unmaskedLeft + unmaskedRight) return '*'.repeat(Math.max(str.length, 4));
+  return (
+    str.slice(0, unmaskedLeft) +
+    '*'.repeat(str.length - unmaskedLeft - unmaskedRight) +
+    str.slice(-unmaskedRight)
+  );
 }
 
 function cryptoRandomUnit() {
@@ -95,28 +119,29 @@ function addLaplaceNoise(value, scale = 1.0) {
 }
 
 function merkleRoot(leaves) {
-  if (!Array.isArray(leaves) || leaves.length === 0) throw new Error("merkle.root requires at least one leaf");
-  let level = leaves.map((leaf) => Buffer.from(sha256Hex(asLeafHash(leaf)), "hex"));
+  if (!Array.isArray(leaves) || leaves.length === 0)
+    throw new Error('merkle.root requires at least one leaf');
+  let level = leaves.map((leaf) => Buffer.from(sha256Hex(asLeafHash(leaf)), 'hex'));
   while (level.length > 1) {
     const next = [];
     for (let index = 0; index < level.length; index += 2) {
       const left = level[index];
       const right = level[index + 1] || left;
-      next.push(Buffer.from(sha256Hex(Buffer.concat([left, right])), "hex"));
+      next.push(Buffer.from(sha256Hex(Buffer.concat([left, right])), 'hex'));
     }
     level = next;
   }
-  return level[0].toString("hex");
+  return level[0].toString('hex');
 }
 
 function evaluatePolynomial(coefficients, x_value, modulus = null) {
   if (!Array.isArray(coefficients) || coefficients.length === 0) {
-    throw new Error("math.polynomial requires at least one coefficient");
+    throw new Error('math.polynomial requires at least one coefficient');
   }
   let result = 0n;
   const x = BigInt(Math.floor(Number(x_value)));
   const m = modulus ? BigInt(modulus) : null;
-  
+
   for (const coefficient of coefficients) {
     const c = BigInt(Math.floor(Number(coefficient)));
     result = result * x + c;
@@ -129,10 +154,10 @@ function evaluatePolynomial(coefficients, x_value, modulus = null) {
 
 function verifyRSASignature(publicKeyPem, signatureHex, payloadString) {
   try {
-    const verify = createVerify("RSA-SHA256");
+    const verify = createVerify('RSA-SHA256');
     verify.update(payloadString);
     verify.end();
-    return verify.verify(publicKeyPem, Buffer.from(signatureHex, "hex"));
+    return verify.verify(publicKeyPem, Buffer.from(signatureHex, 'hex'));
   } catch (error) {
     return false;
   }
@@ -141,7 +166,7 @@ function verifyRSASignature(publicKeyPem, signatureHex, payloadString) {
 function normalizeHexString(value, fieldName) {
   const raw = trimString(value);
   if (!raw) throw new Error(`${fieldName} is required`);
-  const normalized = raw.startsWith("0x") ? raw.toLowerCase() : `0x${raw.toLowerCase()}`;
+  const normalized = raw.startsWith('0x') ? raw.toLowerCase() : `0x${raw.toLowerCase()}`;
   if (!/^0x[0-9a-f]+$/i.test(normalized)) {
     throw new Error(`${fieldName} must be a hex string`);
   }
@@ -157,46 +182,45 @@ function normalizeScalarString(value, fieldName) {
 function normalizePublicSignals(value) {
   if (Array.isArray(value)) return value.map((entry) => String(entry));
   if (value === undefined || value === null) return [];
-  throw new Error("public_signals must be an array");
+  throw new Error('public_signals must be an array');
 }
 
 function resolveZkpVerifyMaxInputBytes() {
   return resolveMaxBytes(
-    env("COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES", "MORPHEUS_MAX_ZKP_VERIFY_INPUT_BYTES"),
+    env('COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES', 'MORPHEUS_MAX_ZKP_VERIFY_INPUT_BYTES'),
     DEFAULT_ZKP_VERIFY_MAX_INPUT_BYTES,
-    4096,
+    4096
   );
 }
 
 function enforceZkpVerificationSizeLimit(payload) {
-  enforceSerializedSizeLimit(
-    payload,
-    "zkp verification input",
-    resolveZkpVerifyMaxInputBytes(),
-  );
+  enforceSerializedSizeLimit(payload, 'zkp verification input', resolveZkpVerifyMaxInputBytes());
 }
 
 function resolveZkpVerificationRuntime() {
-  return trimString(env("MORPHEUS_ZKP_VERIFY_RUNTIME", "COMPUTE_ZKP_VERIFY_RUNTIME")).toLowerCase() || "disabled";
+  return (
+    trimString(env('MORPHEUS_ZKP_VERIFY_RUNTIME', 'COMPUTE_ZKP_VERIFY_RUNTIME')).toLowerCase() ||
+    'disabled'
+  );
 }
 
 function resolveZkpVerifyTimeoutMs() {
   return parseDurationMs(
-    env("MORPHEUS_ZKP_VERIFY_TIMEOUT_MS", "COMPUTE_ZKP_VERIFY_TIMEOUT_MS"),
-    DEFAULT_ZKP_VERIFY_TIMEOUT_MS,
+    env('MORPHEUS_ZKP_VERIFY_TIMEOUT_MS', 'COMPUTE_ZKP_VERIFY_TIMEOUT_MS'),
+    DEFAULT_ZKP_VERIFY_TIMEOUT_MS
   );
 }
 
 function resolveSnarkjsCommand() {
-  return trimString(env("MORPHEUS_SNARKJS_BIN", "COMPUTE_SNARKJS_BIN")) || "snarkjs";
+  return trimString(env('MORPHEUS_SNARKJS_BIN', 'COMPUTE_SNARKJS_BIN')) || 'snarkjs';
 }
 
 async function verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof) {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "morpheus-groth16-"));
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'morpheus-groth16-'));
   try {
-    const verifyingKeyPath = path.join(tempDir, "verifying-key.json");
-    const publicSignalsPath = path.join(tempDir, "public-signals.json");
-    const proofPath = path.join(tempDir, "proof.json");
+    const verifyingKeyPath = path.join(tempDir, 'verifying-key.json');
+    const publicSignalsPath = path.join(tempDir, 'public-signals.json');
+    const proofPath = path.join(tempDir, 'proof.json');
     await Promise.all([
       writeFile(verifyingKeyPath, JSON.stringify(verifyingKey)),
       writeFile(publicSignalsPath, JSON.stringify(publicSignals)),
@@ -206,8 +230,8 @@ async function verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof) {
     try {
       await execFile(
         resolveSnarkjsCommand(),
-        ["groth16", "verify", verifyingKeyPath, publicSignalsPath, proofPath],
-        { timeout: resolveZkpVerifyTimeoutMs(), maxBuffer: 1024 * 1024 },
+        ['groth16', 'verify', verifyingKeyPath, publicSignalsPath, proofPath],
+        { timeout: resolveZkpVerifyTimeoutMs(), maxBuffer: 1024 * 1024 }
       );
       return true;
     } catch (error) {
@@ -221,32 +245,43 @@ async function verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof) {
 }
 
 async function verifyGroth16Proof(verifyingKey, publicSignals, proof) {
-  enforceZkpVerificationSizeLimit({ verifying_key: verifyingKey, public_signals: publicSignals, proof });
+  enforceZkpVerificationSizeLimit({
+    verifying_key: verifyingKey,
+    public_signals: publicSignals,
+    proof,
+  });
   const runtime = resolveZkpVerificationRuntime();
-  if (runtime !== "cli") {
-    throw new Error("groth16 verification runtime disabled; set MORPHEUS_ZKP_VERIFY_RUNTIME=cli to enable explicit external verification");
+  if (runtime !== 'cli') {
+    throw new Error(
+      'groth16 verification runtime disabled; set MORPHEUS_ZKP_VERIFY_RUNTIME=cli to enable explicit external verification'
+    );
   }
   return verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof);
 }
 
 function normalizeZerc20SingleWithdrawStatement(input = {}) {
-  const source = input.public_inputs && typeof input.public_inputs === "object"
-    ? input.public_inputs
-    : input;
+  const source =
+    input.public_inputs && typeof input.public_inputs === 'object' ? input.public_inputs : input;
   return {
-    recipient: normalizeHexString(source.recipient, "recipient"),
-    withdraw_value: normalizeScalarString(source.withdraw_value ?? source.withdrawValue, "withdraw_value"),
-    tree_root: normalizeHexString(source.tree_root ?? source.treeRoot, "tree_root"),
-    path_indices: normalizeHexString(source.path_indices ?? source.pathIndices, "path_indices"),
-    blacklisted_root: normalizeHexString(source.blacklisted_root ?? source.blacklistedRoot, "blacklisted_root"),
+    recipient: normalizeHexString(source.recipient, 'recipient'),
+    withdraw_value: normalizeScalarString(
+      source.withdraw_value ?? source.withdrawValue,
+      'withdraw_value'
+    ),
+    tree_root: normalizeHexString(source.tree_root ?? source.treeRoot, 'tree_root'),
+    path_indices: normalizeHexString(source.path_indices ?? source.pathIndices, 'path_indices'),
+    blacklisted_root: normalizeHexString(
+      source.blacklisted_root ?? source.blacklistedRoot,
+      'blacklisted_root'
+    ),
   };
 }
 
 function compareExpected(label, actual, expected) {
-  if (expected === undefined || expected === null || trimString(expected) === "") {
+  if (expected === undefined || expected === null || trimString(expected) === '') {
     return { checked: false, ok: true, actual };
   }
-  const normalizedExpected = label.includes("value")
+  const normalizedExpected = label.includes('value')
     ? normalizeScalarString(expected, label)
     : normalizeHexString(expected, label);
   return {
@@ -260,23 +295,42 @@ function compareExpected(label, actual, expected) {
 async function verifyZerc20SingleWithdraw(input = {}) {
   const statement = normalizeZerc20SingleWithdrawStatement(input);
   const publicSignals = normalizePublicSignals(
-    input.public_signals
-      ?? input.publicSignals
-      ?? [
+    input.public_signals ??
+      input.publicSignals ?? [
         statement.recipient,
         statement.withdraw_value,
         statement.tree_root,
         statement.path_indices,
         statement.blacklisted_root,
-      ],
+      ]
   );
 
   const checks = {
-    recipient: compareExpected("expected_recipient", statement.recipient, input.expected_recipient ?? input.expectedRecipient),
-    withdraw_value: compareExpected("expected_withdraw_value", statement.withdraw_value, input.expected_withdraw_value ?? input.expectedWithdrawValue),
-    tree_root: compareExpected("expected_tree_root", statement.tree_root, input.expected_tree_root ?? input.expectedTreeRoot),
-    path_indices: compareExpected("expected_path_indices", statement.path_indices, input.expected_path_indices ?? input.expectedPathIndices),
-    blacklisted_root: compareExpected("expected_blacklisted_root", statement.blacklisted_root, input.expected_blacklisted_root ?? input.expectedBlacklistedRoot),
+    recipient: compareExpected(
+      'expected_recipient',
+      statement.recipient,
+      input.expected_recipient ?? input.expectedRecipient
+    ),
+    withdraw_value: compareExpected(
+      'expected_withdraw_value',
+      statement.withdraw_value,
+      input.expected_withdraw_value ?? input.expectedWithdrawValue
+    ),
+    tree_root: compareExpected(
+      'expected_tree_root',
+      statement.tree_root,
+      input.expected_tree_root ?? input.expectedTreeRoot
+    ),
+    path_indices: compareExpected(
+      'expected_path_indices',
+      statement.path_indices,
+      input.expected_path_indices ?? input.expectedPathIndices
+    ),
+    blacklisted_root: compareExpected(
+      'expected_blacklisted_root',
+      statement.blacklisted_root,
+      input.expected_blacklisted_root ?? input.expectedBlacklistedRoot
+    ),
   };
 
   let proofVerified = null;
@@ -284,8 +338,8 @@ async function verifyZerc20SingleWithdraw(input = {}) {
     proofVerified = null;
   } else if (input.verifying_key || input.verifyingKey) {
     const proof = input.proof;
-    if (!proof || typeof proof !== "object") {
-      throw new Error("proof object is required when verifying_key is supplied");
+    if (!proof || typeof proof !== 'object') {
+      throw new Error('proof object is required when verifying_key is supplied');
     }
     enforceZkpVerificationSizeLimit({
       verifying_key: input.verifying_key ?? input.verifyingKey,
@@ -295,10 +349,10 @@ async function verifyZerc20SingleWithdraw(input = {}) {
     proofVerified = await verifyGroth16Proof(
       input.verifying_key ?? input.verifyingKey,
       publicSignals,
-      proof,
+      proof
     );
   } else {
-    throw new Error("verifying_key is required unless skip_proof_verification=true");
+    throw new Error('verifying_key is required unless skip_proof_verification=true');
   }
 
   const statementsMatch = Object.values(checks).every((entry) => entry.ok);
@@ -313,26 +367,103 @@ async function verifyZerc20SingleWithdraw(input = {}) {
 }
 
 export const BUILTIN_COMPUTE_CATALOG = [
-  { name: "hash.sha256", category: "hash", description: "Hashes any JSON-serializable payload with SHA-256." },
-  { name: "hash.keccak256", category: "hash", description: "Hashes any JSON-serializable payload with Keccak-256." },
-  { name: "crypto.rsa_verify", category: "crypto", description: "Verifies an RSA-SHA256 signature (expensive on-chain)." },
-  { name: "math.modexp", category: "math", description: "Performs big integer modular exponentiation." },
-  { name: "math.polynomial", category: "math", description: "Evaluates a polynomial of arbitrary degree." },
-  { name: "matrix.multiply", category: "linear_algebra", description: "Multiplies two dense matrices." },
-  { name: "vector.cosine_similarity", category: "linear_algebra", description: "Computes cosine similarity between two vectors." },
-  { name: "merkle.root", category: "merkle", description: "Builds a SHA-256 Merkle root from a list of leaves." },
-  { name: "zkp.public_signal_hash", category: "zkp", description: "Computes a deterministic digest over public signals." },
-  { name: "zkp.proof_digest", category: "zkp", description: "Computes a deterministic digest over a proof object." },
-  { name: "zkp.witness_digest", category: "zkp", description: "Computes a digest over witness material before proving." },
-  { name: "zkp.groth16.verify", category: "zkp", description: "Verifies a Groth16 proof against a verifying key and public signals." },
-  { name: "zkp.groth16.prove.plan", category: "zkp", description: "Returns a planning estimate for Groth16 proving workloads." },
-  { name: "zkp.plonk.prove.plan", category: "zkp", description: "Returns a planning estimate for PLONK proving workloads." },
-  { name: "zkp.zerc20.single_withdraw.verify", category: "zkp", description: "Verifies zERC20 single-withdraw public inputs and optionally checks a Groth16 proof." },
-  { name: "fhe.batch_plan", category: "fhe", description: "Builds a ciphertext batching plan." },
-  { name: "fhe.noise_budget_estimate", category: "fhe", description: "Estimates a rough FHE noise budget." },
-  { name: "fhe.rotation_plan", category: "fhe", description: "Returns a rotation/key-switch planning summary." },
-  { name: "privacy.mask", category: "privacy", description: "Masks a sensitive string, leaving edges visible." },
-  { name: "privacy.add_noise", category: "privacy", description: "Adds simulated Laplace noise for differential privacy." },
+  {
+    name: 'hash.sha256',
+    category: 'hash',
+    description: 'Hashes any JSON-serializable payload with SHA-256.',
+  },
+  {
+    name: 'hash.keccak256',
+    category: 'hash',
+    description: 'Hashes any JSON-serializable payload with Keccak-256.',
+  },
+  {
+    name: 'crypto.rsa_verify',
+    category: 'crypto',
+    description: 'Verifies an RSA-SHA256 signature (expensive on-chain).',
+  },
+  {
+    name: 'math.modexp',
+    category: 'math',
+    description: 'Performs big integer modular exponentiation.',
+  },
+  {
+    name: 'math.polynomial',
+    category: 'math',
+    description: 'Evaluates a polynomial of arbitrary degree.',
+  },
+  {
+    name: 'matrix.multiply',
+    category: 'linear_algebra',
+    description: 'Multiplies two dense matrices.',
+  },
+  {
+    name: 'vector.cosine_similarity',
+    category: 'linear_algebra',
+    description: 'Computes cosine similarity between two vectors.',
+  },
+  {
+    name: 'merkle.root',
+    category: 'merkle',
+    description: 'Builds a SHA-256 Merkle root from a list of leaves.',
+  },
+  {
+    name: 'zkp.public_signal_hash',
+    category: 'zkp',
+    description: 'Computes a deterministic digest over public signals.',
+  },
+  {
+    name: 'zkp.proof_digest',
+    category: 'zkp',
+    description: 'Computes a deterministic digest over a proof object.',
+  },
+  {
+    name: 'zkp.witness_digest',
+    category: 'zkp',
+    description: 'Computes a digest over witness material before proving.',
+  },
+  {
+    name: 'zkp.groth16.verify',
+    category: 'zkp',
+    description: 'Verifies a Groth16 proof against a verifying key and public signals.',
+  },
+  {
+    name: 'zkp.groth16.prove.plan',
+    category: 'zkp',
+    description: 'Returns a planning estimate for Groth16 proving workloads.',
+  },
+  {
+    name: 'zkp.plonk.prove.plan',
+    category: 'zkp',
+    description: 'Returns a planning estimate for PLONK proving workloads.',
+  },
+  {
+    name: 'zkp.zerc20.single_withdraw.verify',
+    category: 'zkp',
+    description:
+      'Verifies zERC20 single-withdraw public inputs and optionally checks a Groth16 proof.',
+  },
+  { name: 'fhe.batch_plan', category: 'fhe', description: 'Builds a ciphertext batching plan.' },
+  {
+    name: 'fhe.noise_budget_estimate',
+    category: 'fhe',
+    description: 'Estimates a rough FHE noise budget.',
+  },
+  {
+    name: 'fhe.rotation_plan',
+    category: 'fhe',
+    description: 'Returns a rotation/key-switch planning summary.',
+  },
+  {
+    name: 'privacy.mask',
+    category: 'privacy',
+    description: 'Masks a sensitive string, leaving edges visible.',
+  },
+  {
+    name: 'privacy.add_noise',
+    category: 'privacy',
+    description: 'Adds simulated Laplace noise for differential privacy.',
+  },
 ];
 
 export function listBuiltinComputeFunctions() {
@@ -343,66 +474,156 @@ export async function executeBuiltinCompute(payload) {
   const fn = trimString(payload.function || payload.compute_fn);
   const input = payload.input ?? payload.compute_args ?? {};
   switch (fn) {
-    case "hash.sha256":
+    case 'hash.sha256':
       return { function: fn, result: { digest: sha256Hex(stableStringify(input)) } };
-    case "hash.keccak256":
+    case 'hash.keccak256':
       return { function: fn, result: { digest: keccak256(toUtf8Bytes(stableStringify(input))) } };
-    case "crypto.rsa_verify":
-      return { function: fn, result: { is_valid: verifyRSASignature(input.public_key, input.signature, input.payload) } };
-    case "math.modexp":
-      return { function: fn, result: { value: bigintPowMod(input.base, input.exponent, input.modulus).toString() } };
-    case "math.polynomial":
-      return { function: fn, result: { value: evaluatePolynomial(input.coefficients, input.x, input.modulus) } };
-    case "matrix.multiply":
+    case 'crypto.rsa_verify':
+      return {
+        function: fn,
+        result: { is_valid: verifyRSASignature(input.public_key, input.signature, input.payload) },
+      };
+    case 'math.modexp':
+      return {
+        function: fn,
+        result: { value: bigintPowMod(input.base, input.exponent, input.modulus).toString() },
+      };
+    case 'math.polynomial':
+      return {
+        function: fn,
+        result: { value: evaluatePolynomial(input.coefficients, input.x, input.modulus) },
+      };
+    case 'matrix.multiply':
       return { function: fn, result: { matrix: multiplyMatrices(input.left, input.right) } };
-    case "vector.cosine_similarity":
+    case 'vector.cosine_similarity':
       return { function: fn, result: { similarity: cosineSimilarity(input.left, input.right) } };
-    case "merkle.root":
+    case 'merkle.root':
       return { function: fn, result: { root: merkleRoot(input.leaves || []) } };
-    case "zkp.public_signal_hash":
-      return { function: fn, result: { digest: sha256Hex(stableStringify({ circuit_id: input.circuit_id || null, signals: input.signals || [] })) } };
-    case "zkp.proof_digest":
-      return { function: fn, result: { digest: sha256Hex(stableStringify({ proof: input.proof || input, verifying_key: input.verifying_key || null })) } };
-    case "zkp.witness_digest":
-      return { function: fn, result: { digest: sha256Hex(stableStringify({ witness: input.witness || input, circuit_id: input.circuit_id || null })) } };
-    case "zkp.groth16.verify":
+    case 'zkp.public_signal_hash':
+      return {
+        function: fn,
+        result: {
+          digest: sha256Hex(
+            stableStringify({ circuit_id: input.circuit_id || null, signals: input.signals || [] })
+          ),
+        },
+      };
+    case 'zkp.proof_digest':
+      return {
+        function: fn,
+        result: {
+          digest: sha256Hex(
+            stableStringify({
+              proof: input.proof || input,
+              verifying_key: input.verifying_key || null,
+            })
+          ),
+        },
+      };
+    case 'zkp.witness_digest':
+      return {
+        function: fn,
+        result: {
+          digest: sha256Hex(
+            stableStringify({
+              witness: input.witness || input,
+              circuit_id: input.circuit_id || null,
+            })
+          ),
+        },
+      };
+    case 'zkp.groth16.verify':
       enforceZkpVerificationSizeLimit({
         verifying_key: input.verifying_key ?? input.verifyingKey,
         public_signals: normalizePublicSignals(input.public_signals ?? input.publicSignals),
         proof: input.proof,
       });
-      return { function: fn, result: { is_valid: await verifyGroth16Proof(input.verifying_key ?? input.verifyingKey, normalizePublicSignals(input.public_signals ?? input.publicSignals), input.proof) } };
-    case "zkp.groth16.prove.plan": {
+      return {
+        function: fn,
+        result: {
+          is_valid: await verifyGroth16Proof(
+            input.verifying_key ?? input.verifyingKey,
+            normalizePublicSignals(input.public_signals ?? input.publicSignals),
+            input.proof
+          ),
+        },
+      };
+    case 'zkp.groth16.prove.plan': {
       const constraints = Number(input.constraints || 0);
       const witnessCount = Number(input.witness_count || input.witnessCount || 0);
-      return { function: fn, result: { constraints, witness_count: witnessCount, estimated_segments: Math.max(Math.ceil(constraints / 50000), 1), estimated_memory_mb: Math.max(Math.ceil((constraints + witnessCount) / 25000), 1) } };
+      return {
+        function: fn,
+        result: {
+          constraints,
+          witness_count: witnessCount,
+          estimated_segments: Math.max(Math.ceil(constraints / 50000), 1),
+          estimated_memory_mb: Math.max(Math.ceil((constraints + witnessCount) / 25000), 1),
+        },
+      };
     }
-    case "zkp.plonk.prove.plan": {
+    case 'zkp.plonk.prove.plan': {
       const gates = Number(input.gates || 0);
-      return { function: fn, result: { gates, estimated_polynomials: Math.max(Math.ceil(gates / 65536), 1), estimated_memory_mb: Math.max(Math.ceil(gates / 30000), 1) } };
+      return {
+        function: fn,
+        result: {
+          gates,
+          estimated_polynomials: Math.max(Math.ceil(gates / 65536), 1),
+          estimated_memory_mb: Math.max(Math.ceil(gates / 30000), 1),
+        },
+      };
     }
-    case "zkp.zerc20.single_withdraw.verify":
+    case 'zkp.zerc20.single_withdraw.verify':
       return { function: fn, result: await verifyZerc20SingleWithdraw(input) };
-    case "fhe.batch_plan": {
+    case 'fhe.batch_plan': {
       const slotCount = Number(input.slot_count || input.slotCount || 0);
       const ciphertextCount = Number(input.ciphertext_count || input.ciphertextCount || 0);
-      const slotsPerCiphertext = slotCount > 0 && ciphertextCount > 0 ? Math.ceil(slotCount / ciphertextCount) : slotCount;
-      return { function: fn, result: { slot_count: slotCount, ciphertext_count: ciphertextCount, slots_per_ciphertext: slotsPerCiphertext } };
+      const slotsPerCiphertext =
+        slotCount > 0 && ciphertextCount > 0 ? Math.ceil(slotCount / ciphertextCount) : slotCount;
+      return {
+        function: fn,
+        result: {
+          slot_count: slotCount,
+          ciphertext_count: ciphertextCount,
+          slots_per_ciphertext: slotsPerCiphertext,
+        },
+      };
     }
-    case "fhe.noise_budget_estimate": {
-      const multiplicativeDepth = Number(input.multiplicative_depth || input.multiplicativeDepth || 1);
+    case 'fhe.noise_budget_estimate': {
+      const multiplicativeDepth = Number(
+        input.multiplicative_depth || input.multiplicativeDepth || 1
+      );
       const scaleBits = Number(input.scale_bits || input.scaleBits || 40);
       const modulusBits = Number(input.modulus_bits || input.modulusBits || 218);
-      const estimatedNoiseBudget = Math.max(modulusBits - (multiplicativeDepth * scaleBits), 0);
-      return { function: fn, result: { multiplicative_depth: multiplicativeDepth, scale_bits: scaleBits, modulus_bits: modulusBits, estimated_noise_budget: estimatedNoiseBudget } };
+      const estimatedNoiseBudget = Math.max(modulusBits - multiplicativeDepth * scaleBits, 0);
+      return {
+        function: fn,
+        result: {
+          multiplicative_depth: multiplicativeDepth,
+          scale_bits: scaleBits,
+          modulus_bits: modulusBits,
+          estimated_noise_budget: estimatedNoiseBudget,
+        },
+      };
     }
-    case "fhe.rotation_plan": {
-      const indices = Array.isArray(input.indices) ? input.indices.map((value) => Number(value)) : [];
-      return { function: fn, result: { indices, unique_rotations: [...new Set(indices)].sort((a, b) => a - b), key_switch_steps: indices.length } };
+    case 'fhe.rotation_plan': {
+      const indices = Array.isArray(input.indices)
+        ? input.indices.map((value) => Number(value))
+        : [];
+      return {
+        function: fn,
+        result: {
+          indices,
+          unique_rotations: [...new Set(indices)].sort((a, b) => a - b),
+          key_switch_steps: indices.length,
+        },
+      };
     }
-    case "privacy.mask":
-      return { function: fn, result: { masked: maskString(input.value, input.unmasked_left, input.unmasked_right) } };
-    case "privacy.add_noise":
+    case 'privacy.mask':
+      return {
+        function: fn,
+        result: { masked: maskString(input.value, input.unmasked_left, input.unmasked_right) },
+      };
+    case 'privacy.add_noise':
       return { function: fn, result: { noisy_value: addLaplaceNoise(input.value, input.scale) } };
     default:
       throw new Error(`unknown builtin compute function: ${fn}`);
@@ -410,24 +631,26 @@ export async function executeBuiltinCompute(payload) {
 }
 
 export async function executeStandaloneCompute(payload) {
-  const maxInputBytes = resolveMaxBytes(env("COMPUTE_MAX_INPUT_BYTES"), 64 * 1024, 1024);
+  const maxInputBytes = resolveMaxBytes(env('COMPUTE_MAX_INPUT_BYTES'), 64 * 1024, 1024);
   const wasmModuleBase64 = resolveWasmModuleBase64(payload);
   if (wasmModuleBase64) {
-    enforceSerializedSizeLimit(payload.input ?? {}, "compute input", maxInputBytes);
-    const entryPoint = trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || "run") || "run";
+    enforceSerializedSizeLimit(payload.input ?? {}, 'compute input', maxInputBytes);
+    const entryPoint =
+      trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || 'run') ||
+      'run';
     const timeoutMs = parseDurationMs(
-      payload.wasm_timeout_ms
-        || payload.script_timeout_ms
-        || payload.compute_timeout_ms
-        || env("COMPUTE_WASM_TIMEOUT_MS", "MORPHEUS_WASM_TIMEOUT_MS")
-        || 30000,
-      30000,
+      payload.wasm_timeout_ms ||
+        payload.script_timeout_ms ||
+        payload.compute_timeout_ms ||
+        env('COMPUTE_WASM_TIMEOUT_MS', 'MORPHEUS_WASM_TIMEOUT_MS') ||
+        30000,
+      30000
     );
     return {
-      runtime: "wasm",
+      runtime: 'wasm',
       entry_point: entryPoint,
       result: await runWasmWithTimeout({
-        mode: "compute",
+        mode: 'compute',
         moduleBase64: wasmModuleBase64,
         entryPoint,
         input: { input: payload.input ?? {} },
@@ -438,26 +661,26 @@ export async function executeStandaloneCompute(payload) {
 
   const script = await resolveScriptSource(payload);
   if (!script) {
-    throw new Error("script or script_base64 required");
+    throw new Error('script or script_base64 required');
   }
   assertUntrustedScriptsEnabled();
   validateUserScriptSource(script);
-  enforceSerializedSizeLimit(payload.input ?? {}, "compute input", maxInputBytes);
+  enforceSerializedSizeLimit(payload.input ?? {}, 'compute input', maxInputBytes);
 
-  const entryPoint = trimString(payload.entry_point || "process") || "process";
+  const entryPoint = trimString(payload.entry_point || 'process') || 'process';
   if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entryPoint)) {
-    throw new Error("entry point must be a valid identifier");
+    throw new Error('entry point must be a valid identifier');
   }
   const timeoutMs = parseDurationMs(
-    payload.script_timeout_ms || payload.compute_timeout_ms || env("COMPUTE_SCRIPT_TIMEOUT_MS"),
-    2000,
+    payload.script_timeout_ms || payload.compute_timeout_ms || env('COMPUTE_SCRIPT_TIMEOUT_MS'),
+    2000
   );
 
   return {
-    runtime: "script",
+    runtime: 'script',
     entry_point: entryPoint,
     result: await runScriptWithTimeout({
-      mode: "compute",
+      mode: 'compute',
       script,
       entryPoint,
       input: payload.input ?? {},
@@ -469,18 +692,25 @@ export async function executeStandaloneCompute(payload) {
 export async function handleComputeExecute(payload) {
   try {
     const resolvedPayload = await resolveConfidentialPayload(payload);
-    const mode = trimString(
-      resolvedPayload.mode || (resolvedPayload.function || resolvedPayload.compute_fn ? "builtin" : "script"),
-    ) || "script";
-    const result = mode === "builtin"
-      ? await executeBuiltinCompute(resolvedPayload)
-      : await executeStandaloneCompute(resolvedPayload);
+    const mode =
+      trimString(
+        resolvedPayload.mode ||
+          (resolvedPayload.function || resolvedPayload.compute_fn ? 'builtin' : 'script')
+      ) || 'script';
+    const result =
+      mode === 'builtin'
+        ? await executeBuiltinCompute(resolvedPayload)
+        : await executeStandaloneCompute(resolvedPayload);
     const signed = await buildSignedResultEnvelope(result, resolvedPayload);
     const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, result);
     return json(200, {
       mode,
-      target_chain: resolvedPayload.target_chain ? normalizeTargetChain(resolvedPayload.target_chain) : "neo_n3",
-      target_chain_id: resolvedPayload.target_chain_id ? String(resolvedPayload.target_chain_id) : null,
+      target_chain: resolvedPayload.target_chain
+        ? normalizeTargetChain(resolvedPayload.target_chain)
+        : 'neo_n3',
+      target_chain_id: resolvedPayload.target_chain_id
+        ? String(resolvedPayload.target_chain_id)
+        : null,
       ...result,
       output_hash: signed.output_hash,
       signature: signed.signature,
@@ -503,16 +733,16 @@ export function handleComputeJobs(jobId = null) {
   if (jobId) {
     return json(200, {
       id: jobId,
-      status: "completed",
-      mode: "morpheus-compute",
+      status: 'completed',
+      mode: 'morpheus-compute',
       result: null,
-      note: "Job detail response served by the Morpheus compute module.",
+      note: 'Job detail response served by the Morpheus compute module.',
     });
   }
 
   return json(200, {
     jobs: [],
-    mode: "morpheus-compute",
-    note: "Morpheus compute exposes built-in and script-driven off-chain functions from the same trusted worker runtime.",
+    mode: 'morpheus-compute',
+    note: 'Morpheus compute exposes built-in and script-driven off-chain functions from the same trusted worker runtime.',
   });
 }

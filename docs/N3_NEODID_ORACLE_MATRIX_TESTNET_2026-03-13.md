@@ -29,12 +29,14 @@ Network: testnet
 ## Cases
 
 ### NeoDID bind through Oracle callback, public payload
+
 - Request type: `neodid_bind`
 - Txid: `0x3b413609d2d5db8a2b77372ba0de64f8b268d46f6cd1db7f7e700c15a95c11bf`
 - Request id: `159`
 - Callback success: `true`
 - Expected: Callback succeeds and returns a stable master_nullifier bound to the provided vault account.
 - On-chain request:
+
 ```json
 {
   "request_id": "159",
@@ -61,7 +63,9 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 - Callback:
+
 ```json
 {
   "request_type": "neodid_bind",
@@ -95,13 +99,16 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 ### NeoDID bind through Oracle callback, encrypted params
+
 - Request type: `neodid_bind`
 - Txid: `0xc69e7bc12c3d4b9aba7010ffde0fd3c194d50cee2b85b0ed4975684b09b9cd32`
 - Request id: `161`
 - Callback success: `true`
 - Expected: Callback succeeds, but the on-chain request payload keeps the confidential provider_uid out of plaintext.
 - On-chain request:
+
 ```json
 {
   "request_id": "161",
@@ -124,7 +131,9 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 - Callback:
+
 ```json
 {
   "request_type": "neodid_bind",
@@ -158,13 +167,16 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 ### NeoDID action ticket for disposable account A
+
 - Request type: `neodid_action_ticket`
 - Txid: `0xa3481f7ad85f0cf743548f4e13a728833f6508cb63bbcf6127762e4252331995`
 - Request id: `162`
 - Callback success: `true`
 - Expected: Callback succeeds and binds the ticket to disposable account A.
 - On-chain request:
+
 ```json
 {
   "request_id": "162",
@@ -187,7 +199,9 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 - Callback:
+
 ```json
 {
   "request_type": "neodid_action_ticket",
@@ -219,13 +233,16 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 ### NeoDID action ticket for disposable account B with same action_id
+
 - Request type: `neodid_action_ticket`
 - Txid: `0xa4e0701c64abfa3fd9434e075f3f2e93fdcf82b0531e5e85389244fd68a93674`
 - Request id: `165`
 - Callback success: `true`
 - Expected: action_nullifier stays stable for the same human + action_id, while digest/signature remain bound to the new disposable account.
 - On-chain request:
+
 ```json
 {
   "request_id": "165",
@@ -248,7 +265,9 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 - Callback:
+
 ```json
 {
   "request_type": "neodid_action_ticket",
@@ -280,13 +299,16 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 ### NeoDID recovery ticket A through Oracle callback
+
 - Request type: `neodid_recovery_ticket`
 - Txid: `0x6e9b83ec1aa339164026f77dfcf5b85f5eabc009be0d943052519b5b439de8af`
 - Request id: `167`
 - Callback success: `true`
 - Expected: Callback succeeds and binds network, aa_contract, account_id, new_owner, recovery_nonce, and nullifiers into the ticket.
 - On-chain request:
+
 ```json
 {
   "request_id": "167",
@@ -314,7 +336,9 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 - Callback:
+
 ```json
 {
   "request_type": "neodid_recovery_ticket",
@@ -354,13 +378,16 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 ### NeoDID recovery ticket B with different account / owner
+
 - Request type: `neodid_recovery_ticket`
 - Txid: `0x690b84e4171f16b7cef09db0c37db2d3b6afe96157356076402e94ca633346eb`
 - Request id: `170`
 - Callback success: `true`
 - Expected: Changing account_id or new_owner changes the ticket binding and derived recovery action id.
 - On-chain request:
+
 ```json
 {
   "request_id": "170",
@@ -388,7 +415,9 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 - Callback:
+
 ```json
 {
   "request_type": "neodid_recovery_ticket",
@@ -428,13 +457,16 @@ Network: testnet
   "error_text": ""
 }
 ```
+
 ### NeoDID recovery ticket failure callback when required context is missing
+
 - Request type: `neodid_recovery_ticket`
 - Txid: `0x5632e36bcc7f8818693d189c3987b0df6b99c4220a1f7d1108b64b73f7722264`
 - Request id: `171`
 - Callback success: `false`
 - Expected: Request is still fulfilled, but callback success=false and error explains that new_owner is required.
 - On-chain request:
+
 ```json
 {
   "request_id": "171",
@@ -461,7 +493,9 @@ Network: testnet
   "error_text": "new_owner must be a 20-byte hash160"
 }
 ```
+
 - Callback:
+
 ```json
 {
   "request_type": "neodid_recovery_ticket",

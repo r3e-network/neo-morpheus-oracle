@@ -1,36 +1,36 @@
-import { appConfig } from "@/lib/config";
-import { parseFeedProviders, parseFeedSymbols } from "@/lib/feed-defaults";
-import { recordOperationLog } from "@/lib/operation-logs";
-import { resolveProviderAwarePayload } from "@/lib/provider-configs";
+import { appConfig } from '@/lib/config';
+import { parseFeedProviders, parseFeedSymbols } from '@/lib/feed-defaults';
+import { recordOperationLog } from '@/lib/operation-logs';
+import { resolveProviderAwarePayload } from '@/lib/provider-configs';
 
 function isAuthorized(request: Request) {
-  const configured = process.env.CRON_SECRET || "";
+  const configured = process.env.CRON_SECRET || '';
   if (!configured) return false;
-  const auth = request.headers.get("authorization") || "";
+  const auth = request.headers.get('authorization') || '';
   return auth === `Bearer ${configured}`;
 }
 
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
-    const body = { error: "unauthorized" };
+    const body = { error: 'unauthorized' };
     await recordOperationLog({
-      route: "/api/cron/feed",
-      method: "GET",
-      category: "feed",
+      route: '/api/cron/feed',
+      method: 'GET',
+      category: 'feed',
       requestPayload: Object.fromEntries(new URL(request.url).searchParams.entries()),
       responsePayload: body,
       httpStatus: 401,
-      error: "unauthorized",
+      error: 'unauthorized',
     });
     return Response.json(body, { status: 401 });
   }
 
   if (!appConfig.phalaApiUrl) {
-    const body = { error: "PHALA_API_URL is not configured" };
+    const body = { error: 'PHALA_API_URL is not configured' };
     await recordOperationLog({
-      route: "/api/cron/feed",
-      method: "GET",
-      category: "feed",
+      route: '/api/cron/feed',
+      method: 'GET',
+      category: 'feed',
       requestPayload: Object.fromEntries(new URL(request.url).searchParams.entries()),
       responsePayload: body,
       httpStatus: 500,
@@ -41,13 +41,13 @@ export async function GET(request: Request) {
 
   const routeUrl = new URL(request.url);
   const symbols = parseFeedSymbols(process.env.MORPHEUS_FEED_SYMBOLS);
-  const explicitTargetChain = (routeUrl.searchParams.get("target_chain") || "").trim();
-  if (explicitTargetChain && explicitTargetChain !== "neo_n3") {
-    const body = { error: "target_chain must be neo_n3" };
+  const explicitTargetChain = (routeUrl.searchParams.get('target_chain') || '').trim();
+  if (explicitTargetChain && explicitTargetChain !== 'neo_n3') {
+    const body = { error: 'target_chain must be neo_n3' };
     await recordOperationLog({
-      route: "/api/cron/feed",
-      method: "GET",
-      category: "feed",
+      route: '/api/cron/feed',
+      method: 'GET',
+      category: 'feed',
       requestPayload: Object.fromEntries(routeUrl.searchParams.entries()),
       responsePayload: body,
       httpStatus: 400,
@@ -55,15 +55,25 @@ export async function GET(request: Request) {
     });
     return Response.json(body, { status: 400 });
   }
-  const targetChains = ["neo_n3"];
-  const configuredProjectSlug = (routeUrl.searchParams.get("project_slug") || process.env.MORPHEUS_FEED_PROJECT_SLUG || "").trim();
-  const configuredProvider = (routeUrl.searchParams.get("provider") || process.env.MORPHEUS_FEED_PROVIDER || "").trim();
-  const configuredProviders = parseFeedProviders(routeUrl.searchParams.get("providers") || process.env.MORPHEUS_FEED_PROVIDERS || "");
+  const targetChains = ['neo_n3'];
+  const configuredProjectSlug = (
+    routeUrl.searchParams.get('project_slug') ||
+    process.env.MORPHEUS_FEED_PROJECT_SLUG ||
+    ''
+  ).trim();
+  const configuredProvider = (
+    routeUrl.searchParams.get('provider') ||
+    process.env.MORPHEUS_FEED_PROVIDER ||
+    ''
+  ).trim();
+  const configuredProviders = parseFeedProviders(
+    routeUrl.searchParams.get('providers') || process.env.MORPHEUS_FEED_PROVIDERS || ''
+  );
 
-  const headers = new Headers({ "content-type": "application/json" });
+  const headers = new Headers({ 'content-type': 'application/json' });
   if (appConfig.phalaToken) {
-    headers.set("authorization", `Bearer ${appConfig.phalaToken}`);
-    headers.set("x-phala-token", appConfig.phalaToken);
+    headers.set('authorization', `Bearer ${appConfig.phalaToken}`);
+    headers.set('x-phala-token', appConfig.phalaToken);
   }
 
   const results = await Promise.all(
@@ -81,19 +91,16 @@ export async function GET(request: Request) {
           payload.providers = configuredProviders;
         }
 
-        const resolved = await resolveProviderAwarePayload(
-          payload,
-          {
-            projectSlug: configuredProjectSlug || undefined,
-            fallbackProviderId: configuredProvider || undefined,
-          },
-        );
+        const resolved = await resolveProviderAwarePayload(payload, {
+          projectSlug: configuredProjectSlug || undefined,
+          fallbackProviderId: configuredProvider || undefined,
+        });
 
-        const response = await fetch(`${appConfig.phalaApiUrl.replace(/\/$/, "")}/oracle/feed`, {
-          method: "POST",
+        const response = await fetch(`${appConfig.phalaApiUrl.replace(/\/$/, '')}/oracle/feed`, {
+          method: 'POST',
           headers,
           body: JSON.stringify(resolved.payload),
-          cache: "no-store",
+          cache: 'no-store',
         });
         const text = await response.text();
         try {
@@ -108,7 +115,7 @@ export async function GET(request: Request) {
           body: { error: error instanceof Error ? error.message : String(error) },
         };
       }
-    }),
+    })
   );
 
   const finalBody = {
@@ -119,9 +126,9 @@ export async function GET(request: Request) {
     results,
   };
   await recordOperationLog({
-    route: "/api/cron/feed",
-    method: "GET",
-    category: "feed",
+    route: '/api/cron/feed',
+    method: 'GET',
+    category: 'feed',
     requestPayload: {
       ...Object.fromEntries(routeUrl.searchParams.entries()),
       project_slug: configuredProjectSlug || undefined,

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
 import {
   fetchActiveAutomationJobs,
@@ -9,26 +9,30 @@ import {
   patchAutomationRunByQueueTxHash,
   persistAutomationEncryptedFields,
   upsertAutomationJob,
-} from "./persistence.js";
-import { fetchNeoN3FeedRecord, queueNeoN3AutomationRequest } from "./neo-n3.js";
-import { fetchNeoXFeedRecord, queueNeoXAutomationRequest } from "./neo-x.js";
+} from './persistence.js';
+import { fetchNeoN3FeedRecord, queueNeoN3AutomationRequest } from './neo-n3.js';
+import { fetchNeoXFeedRecord, queueNeoXAutomationRequest } from './neo-x.js';
 
 function trimString(value) {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function resolveSupabaseNetwork(value) {
-  return trimString(value || process.env.MORPHEUS_NETWORK || process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || "testnet") === "mainnet"
-    ? "mainnet"
-    : "testnet";
+  return trimString(
+    value || process.env.MORPHEUS_NETWORK || process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || 'testnet'
+  ) === 'mainnet'
+    ? 'mainnet'
+    : 'testnet';
 }
 
 function normalizeRequestType(value) {
-  return trimString(value).toLowerCase().replace(/[\s-]+/g, "_");
+  return trimString(value)
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 }
 
 function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function nowIso() {
@@ -36,7 +40,7 @@ function nowIso() {
 }
 
 function parseTimestamp(value) {
-  if (value === undefined || value === null || value === "") return null;
+  if (value === undefined || value === null || value === '') return null;
   const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -59,17 +63,21 @@ function parseBigIntLike(value, fieldName) {
 
 function resolveExecutionRequestType(payload) {
   const execution = isPlainObject(payload.execution) ? payload.execution : {};
-  const requestType = normalizeRequestType(execution.request_type || payload.execution_request_type || "");
-  if (!requestType) throw new Error("execution.request_type is required");
-  if (requestType.includes("feed")) throw new Error("automation execution request_type cannot be datafeed");
-  if (requestType.startsWith("automation_")) throw new Error("automation execution request_type cannot be an automation control type");
+  const requestType = normalizeRequestType(
+    execution.request_type || payload.execution_request_type || ''
+  );
+  if (!requestType) throw new Error('execution.request_type is required');
+  if (requestType.includes('feed'))
+    throw new Error('automation execution request_type cannot be datafeed');
+  if (requestType.startsWith('automation_'))
+    throw new Error('automation execution request_type cannot be an automation control type');
   return requestType;
 }
 
 function resolveExecutionPayload(payload) {
   const execution = isPlainObject(payload.execution) ? payload.execution : {};
   const executionPayload = execution.payload ?? payload.execution_payload;
-  if (typeof executionPayload === "string") {
+  if (typeof executionPayload === 'string') {
     try {
       return JSON.parse(executionPayload);
     } catch {
@@ -77,25 +85,25 @@ function resolveExecutionPayload(payload) {
     }
   }
   if (!isPlainObject(executionPayload)) {
-    throw new Error("execution.payload must be a JSON object or string");
+    throw new Error('execution.payload must be a JSON object or string');
   }
   return executionPayload;
 }
 
 function stringifyExecutionPayload(payload) {
-  if (typeof payload === "string") return payload;
+  if (typeof payload === 'string') return payload;
   return JSON.stringify(payload);
 }
 
 function buildInitialTrigger(trigger) {
-  const type = normalizeRequestType(trigger.type || "");
-  if (!type) throw new Error("trigger.type is required");
+  const type = normalizeRequestType(trigger.type || '');
+  if (!type) throw new Error('trigger.type is required');
 
-  if (type === "one_shot") {
+  if (type === 'one_shot') {
     const executeAt = parseTimestamp(trigger.execute_at || trigger.executeAt);
-    if (!executeAt) throw new Error("trigger.execute_at is required for one_shot");
+    if (!executeAt) throw new Error('trigger.execute_at is required for one_shot');
     return {
-      triggerType: "one_shot",
+      triggerType: 'one_shot',
       triggerConfig: {
         execute_at: executeAt.toISOString(),
       },
@@ -103,11 +111,14 @@ function buildInitialTrigger(trigger) {
     };
   }
 
-  if (type === "interval") {
-    const intervalMs = parsePositiveInteger(trigger.interval_ms || trigger.intervalMs, "trigger.interval_ms");
+  if (type === 'interval') {
+    const intervalMs = parsePositiveInteger(
+      trigger.interval_ms || trigger.intervalMs,
+      'trigger.interval_ms'
+    );
     const startAt = parseTimestamp(trigger.start_at || trigger.startAt) || new Date();
     return {
-      triggerType: "interval",
+      triggerType: 'interval',
       triggerConfig: {
         interval_ms: intervalMs,
         start_at: startAt.toISOString(),
@@ -116,20 +127,21 @@ function buildInitialTrigger(trigger) {
     };
   }
 
-  if (type === "price_threshold") {
-    const comparator = normalizeRequestType(trigger.comparator || "");
-    if (!["gte", "lte", "cross_above", "cross_below"].includes(comparator)) {
-      throw new Error("trigger.comparator must be one of gte, lte, cross_above, cross_below");
+  if (type === 'price_threshold') {
+    const comparator = normalizeRequestType(trigger.comparator || '');
+    if (!['gte', 'lte', 'cross_above', 'cross_below'].includes(comparator)) {
+      throw new Error('trigger.comparator must be one of gte, lte, cross_above, cross_below');
     }
-    const pair = trimString(trigger.pair || trigger.feed_pair || "");
-    if (!pair) throw new Error("trigger.pair is required for price_threshold");
-    const threshold = parseBigIntLike(trigger.threshold, "trigger.threshold").toString();
-    const cooldownMs = trigger.cooldown_ms !== undefined
-      ? parsePositiveInteger(trigger.cooldown_ms, "trigger.cooldown_ms")
-      : null;
-    const feedChain = normalizeRequestType(trigger.feed_chain || trigger.feedChain || "");
+    const pair = trimString(trigger.pair || trigger.feed_pair || '');
+    if (!pair) throw new Error('trigger.pair is required for price_threshold');
+    const threshold = parseBigIntLike(trigger.threshold, 'trigger.threshold').toString();
+    const cooldownMs =
+      trigger.cooldown_ms !== undefined
+        ? parsePositiveInteger(trigger.cooldown_ms, 'trigger.cooldown_ms')
+        : null;
+    const feedChain = normalizeRequestType(trigger.feed_chain || trigger.feedChain || '');
     return {
-      triggerType: "price_threshold",
+      triggerType: 'price_threshold',
       triggerConfig: {
         pair,
         comparator,
@@ -145,32 +157,36 @@ function buildInitialTrigger(trigger) {
 }
 
 function buildAutomationJobFromPayload(event, payload) {
-  if (!isPlainObject(payload)) throw new Error("automation registration payload must be a JSON object");
+  if (!isPlainObject(payload))
+    throw new Error('automation registration payload must be a JSON object');
   const trigger = isPlainObject(payload.trigger) ? payload.trigger : null;
-  if (!trigger) throw new Error("trigger is required");
+  if (!trigger) throw new Error('trigger is required');
 
   const executionRequestType = resolveExecutionRequestType(payload);
   const executionPayload = resolveExecutionPayload(payload);
   const { triggerType, triggerConfig, nextRunAt } = buildInitialTrigger(trigger);
-  const maxExecutions = payload.max_executions === undefined || payload.max_executions === null || payload.max_executions === ""
-    ? null
-    : parsePositiveInteger(payload.max_executions, "max_executions");
+  const maxExecutions =
+    payload.max_executions === undefined ||
+    payload.max_executions === null ||
+    payload.max_executions === ''
+      ? null
+      : parsePositiveInteger(payload.max_executions, 'max_executions');
 
   return {
     automation_id: `automation:${event.chain}:${randomUUID()}`,
     registration_request_id: String(event.requestId),
     network: resolveSupabaseNetwork(event.network),
-    project_slug: trimString(payload.project_slug || executionPayload.project_slug || ""),
+    project_slug: trimString(payload.project_slug || executionPayload.project_slug || ''),
     chain: event.chain,
-    requester: trimString(event.requester || ""),
-    callback_contract: trimString(event.callbackContract || ""),
-    callback_method: trimString(event.callbackMethod || ""),
+    requester: trimString(event.requester || ''),
+    callback_contract: trimString(event.callbackContract || ''),
+    callback_method: trimString(event.callbackMethod || ''),
     execution_request_type: executionRequestType,
     execution_payload: executionPayload,
     trigger_type: triggerType,
     trigger_config: triggerConfig,
     trigger_state: {},
-    status: "active",
+    status: 'active',
     next_run_at: nextRunAt,
     last_run_at: null,
     execution_count: 0,
@@ -184,8 +200,8 @@ function buildAutomationJobFromPayload(event, payload) {
 
 function buildRegistrationResult(job) {
   return {
-    mode: "automation",
-    action: "register",
+    mode: 'automation',
+    action: 'register',
     automation_id: job.automation_id,
     chain: job.chain,
     requester: job.requester,
@@ -199,11 +215,11 @@ function buildRegistrationResult(job) {
 
 function buildCancellationResult(job, automationId) {
   return {
-    mode: "automation",
-    action: "cancel",
+    mode: 'automation',
+    action: 'cancel',
     automation_id: automationId,
     chain: job?.chain || null,
-    status: "cancelled",
+    status: 'cancelled',
   };
 }
 
@@ -212,7 +228,7 @@ function buildCancelledExecutionError(automationId) {
 }
 
 export async function guardQueuedAutomationExecution(event, deps = {}) {
-  const txHash = trimString(event?.txHash || "");
+  const txHash = trimString(event?.txHash || '');
   if (!txHash) return { blocked: false, run: null, job: null };
 
   const fetchRun = deps.fetchAutomationRunByQueueTxHash || fetchAutomationRunByQueueTxHash;
@@ -222,16 +238,16 @@ export async function guardQueuedAutomationExecution(event, deps = {}) {
   const run = await fetchRun(txHash);
   if (!run) return { blocked: false, run: null, job: null };
 
-  const automationId = trimString(run.automation_id || "");
+  const automationId = trimString(run.automation_id || '');
   if (!automationId) {
     await patchRun(txHash, {
-      status: "failed",
-      error: "queued automation run missing automation_id",
+      status: 'failed',
+      error: 'queued automation run missing automation_id',
     }).catch(() => undefined);
     return {
       blocked: true,
-      route: "automation:invalid-queued-run",
-      error: "queued automation run missing automation_id",
+      route: 'automation:invalid-queued-run',
+      error: 'queued automation run missing automation_id',
       automation_id: null,
       run,
       job: null,
@@ -242,12 +258,12 @@ export async function guardQueuedAutomationExecution(event, deps = {}) {
   if (!job) {
     const error = `automation job missing before execution: ${automationId}`;
     await patchRun(txHash, {
-      status: "failed",
+      status: 'failed',
       error,
     }).catch(() => undefined);
     return {
       blocked: true,
-      route: "automation:missing-before-execution",
+      route: 'automation:missing-before-execution',
       error,
       automation_id: automationId,
       run,
@@ -255,15 +271,15 @@ export async function guardQueuedAutomationExecution(event, deps = {}) {
     };
   }
 
-  if (trimString(job.status || "") === "cancelled") {
+  if (trimString(job.status || '') === 'cancelled') {
     const error = buildCancelledExecutionError(automationId);
     await patchRun(txHash, {
-      status: "failed",
+      status: 'failed',
       error,
     }).catch(() => undefined);
     return {
       blocked: true,
-      route: "automation:cancelled-before-execution",
+      route: 'automation:cancelled-before-execution',
       error,
       automation_id: automationId,
       run,
@@ -281,13 +297,13 @@ export async function guardQueuedAutomationExecution(event, deps = {}) {
 
 export function isAutomationControlRequestType(requestType) {
   const normalized = normalizeRequestType(requestType);
-  return normalized === "automation_register" || normalized === "automation_cancel";
+  return normalized === 'automation_register' || normalized === 'automation_cancel';
 }
 
 export async function handleAutomationControlRequest(event, payload) {
   const normalized = normalizeRequestType(event.requestType);
 
-  if (normalized === "automation_register") {
+  if (normalized === 'automation_register') {
     const job = buildAutomationJobFromPayload(event, payload);
     await upsertAutomationJob(job);
     await persistAutomationEncryptedFields(job);
@@ -295,28 +311,47 @@ export async function handleAutomationControlRequest(event, payload) {
       ok: true,
       status: 200,
       body: buildRegistrationResult(job),
-      route: "automation:register",
+      route: 'automation:register',
     };
   }
 
-  if (normalized === "automation_cancel") {
-    const automationId = trimString(payload?.automation_id || payload?.id || "");
+  if (normalized === 'automation_cancel') {
+    const automationId = trimString(payload?.automation_id || payload?.id || '');
     if (!automationId) {
-      return { ok: false, status: 400, body: { error: "automation_id required" }, route: "automation:cancel" };
+      return {
+        ok: false,
+        status: 400,
+        body: { error: 'automation_id required' },
+        route: 'automation:cancel',
+      };
     }
     const job = await fetchAutomationJobById(automationId);
     if (!job) {
-      return { ok: false, status: 404, body: { error: `automation not found: ${automationId}` }, route: "automation:cancel" };
+      return {
+        ok: false,
+        status: 404,
+        body: { error: `automation not found: ${automationId}` },
+        route: 'automation:cancel',
+      };
     }
-    if (trimString(job.requester) !== trimString(event.requester || "")) {
-      return { ok: false, status: 403, body: { error: "automation cancel requester mismatch" }, route: "automation:cancel" };
+    if (trimString(job.requester) !== trimString(event.requester || '')) {
+      return {
+        ok: false,
+        status: 403,
+        body: { error: 'automation cancel requester mismatch' },
+        route: 'automation:cancel',
+      };
     }
-    await patchAutomationJob(automationId, { status: "cancelled", next_run_at: null, last_error: null });
+    await patchAutomationJob(automationId, {
+      status: 'cancelled',
+      next_run_at: null,
+      last_error: null,
+    });
     return {
       ok: true,
       status: 200,
       body: buildCancellationResult(job, automationId),
-      route: "automation:cancel",
+      route: 'automation:cancel',
     };
   }
 
@@ -326,19 +361,24 @@ export async function handleAutomationControlRequest(event, payload) {
 function evaluatePriceThreshold(job, record, nowMs, defaultCooldownMs) {
   const triggerConfig = isPlainObject(job.trigger_config) ? job.trigger_config : {};
   const triggerState = isPlainObject(job.trigger_state) ? job.trigger_state : {};
-  const threshold = BigInt(String(triggerConfig.threshold || "0"));
-  const current = BigInt(String(record.price || "0"));
-  const previous = triggerState.last_observed_value !== undefined && triggerState.last_observed_value !== null && triggerState.last_observed_value !== ""
-    ? BigInt(String(triggerState.last_observed_value))
-    : null;
-  const comparator = normalizeRequestType(triggerConfig.comparator || "");
+  const threshold = BigInt(String(triggerConfig.threshold || '0'));
+  const current = BigInt(String(record.price || '0'));
+  const previous =
+    triggerState.last_observed_value !== undefined &&
+    triggerState.last_observed_value !== null &&
+    triggerState.last_observed_value !== ''
+      ? BigInt(String(triggerState.last_observed_value))
+      : null;
+  const comparator = normalizeRequestType(triggerConfig.comparator || '');
   const cooldownMs = Number(triggerConfig.cooldown_ms ?? defaultCooldownMs ?? 0);
 
   let due = false;
-  if (comparator === "gte") due = current >= threshold;
-  if (comparator === "lte") due = current <= threshold;
-  if (comparator === "cross_above") due = previous !== null && previous < threshold && current >= threshold;
-  if (comparator === "cross_below") due = previous !== null && previous > threshold && current <= threshold;
+  if (comparator === 'gte') due = current >= threshold;
+  if (comparator === 'lte') due = current <= threshold;
+  if (comparator === 'cross_above')
+    due = previous !== null && previous < threshold && current >= threshold;
+  if (comparator === 'cross_below')
+    due = previous !== null && previous > threshold && current <= threshold;
 
   return {
     due,
@@ -349,51 +389,71 @@ function evaluatePriceThreshold(job, record, nowMs, defaultCooldownMs) {
         ...triggerState,
         last_observed_value: current.toString(),
         last_observed_at: new Date(nowMs).toISOString(),
-        last_round_id: String(record.roundId || "0"),
+        last_round_id: String(record.roundId || '0'),
       },
-      next_run_at: due && cooldownMs > 0 ? new Date(nowMs + cooldownMs).toISOString() : job.next_run_at,
+      next_run_at:
+        due && cooldownMs > 0 ? new Date(nowMs + cooldownMs).toISOString() : job.next_run_at,
     },
   };
 }
 
 async function evaluateAutomationJob(config, job, nowMs, deps = {}) {
-  if (job.status !== "active") return { due: false, patch: null, reason: "inactive" };
+  if (job.status !== 'active') return { due: false, patch: null, reason: 'inactive' };
 
-  if (job.max_executions !== null && job.max_executions !== undefined && Number(job.execution_count || 0) >= Number(job.max_executions)) {
+  if (
+    job.max_executions !== null &&
+    job.max_executions !== undefined &&
+    Number(job.execution_count || 0) >= Number(job.max_executions)
+  ) {
     return {
       due: false,
-      patch: { status: "completed", next_run_at: null },
-      reason: "max-executions-reached",
+      patch: { status: 'completed', next_run_at: null },
+      reason: 'max-executions-reached',
     };
   }
 
-  if (job.trigger_type === "one_shot" || job.trigger_type === "interval") {
-    const nextRun = parseTimestamp(job.next_run_at || (isPlainObject(job.trigger_config) ? job.trigger_config.start_at : null));
+  if (job.trigger_type === 'one_shot' || job.trigger_type === 'interval') {
+    const nextRun = parseTimestamp(
+      job.next_run_at || (isPlainObject(job.trigger_config) ? job.trigger_config.start_at : null)
+    );
     if (!nextRun) {
-      return { due: false, patch: { status: "error", last_error: "invalid next_run_at" }, reason: "invalid-next-run" };
+      return {
+        due: false,
+        patch: { status: 'error', last_error: 'invalid next_run_at' },
+        reason: 'invalid-next-run',
+      };
     }
     return { due: nextRun.getTime() <= nowMs, patch: null, reason: job.trigger_type };
   }
 
-  if (job.trigger_type === "price_threshold") {
+  if (job.trigger_type === 'price_threshold') {
     const triggerConfig = isPlainObject(job.trigger_config) ? job.trigger_config : {};
-    const feedChain = normalizeRequestType(triggerConfig.feed_chain || "") || job.chain;
-    const pair = trimString(triggerConfig.pair || "");
+    const feedChain = normalizeRequestType(triggerConfig.feed_chain || '') || job.chain;
+    const pair = trimString(triggerConfig.pair || '');
     if (!pair) {
-      return { due: false, patch: { status: "error", last_error: "price_threshold pair missing" }, reason: "invalid-pair" };
+      return {
+        due: false,
+        patch: { status: 'error', last_error: 'price_threshold pair missing' },
+        reason: 'invalid-pair',
+      };
     }
     if (job.next_run_at && parseTimestamp(job.next_run_at)?.getTime() > nowMs) {
-      return { due: false, patch: null, reason: "cooldown" };
+      return { due: false, patch: null, reason: 'cooldown' };
     }
     const loadNeoXFeedRecord = deps.fetchNeoXFeedRecord || fetchNeoXFeedRecord;
     const loadNeoN3FeedRecord = deps.fetchNeoN3FeedRecord || fetchNeoN3FeedRecord;
-    const record = feedChain === "neo_x"
-      ? await loadNeoXFeedRecord(config, pair)
-      : await loadNeoN3FeedRecord(config, pair);
+    const record =
+      feedChain === 'neo_x'
+        ? await loadNeoXFeedRecord(config, pair)
+        : await loadNeoN3FeedRecord(config, pair);
     return evaluatePriceThreshold(job, record, nowMs, config.automation.defaultPriceCooldownMs);
   }
 
-  return { due: false, patch: { status: "error", last_error: `unsupported trigger type: ${job.trigger_type}` }, reason: "unsupported-trigger" };
+  return {
+    due: false,
+    patch: { status: 'error', last_error: `unsupported trigger type: ${job.trigger_type}` },
+    reason: 'unsupported-trigger',
+  };
 }
 
 function computeNextIntervalRun(job, nowMs) {
@@ -409,11 +469,11 @@ function classifyAutomationExecutionFailure(error) {
 
   // These failures are terminal for the current job state and should stop
   // scheduler retries until an operator/user explicitly reactivates the job.
-  if (normalized.includes("request fee not paid")) {
+  if (normalized.includes('request fee not paid')) {
     return {
       terminal: true,
       patch: {
-        status: "error",
+        status: 'error',
         next_run_at: null,
         last_error: message,
       },
@@ -438,7 +498,7 @@ async function queueAutomationExecution(config, job, deps = {}) {
   const requestId = buildAutomationQueueRequestId(job);
   const queueNeoX = deps.queueNeoXAutomationRequest || queueNeoXAutomationRequest;
   const queueNeoN3 = deps.queueNeoN3AutomationRequest || queueNeoN3AutomationRequest;
-  if (job.chain === "neo_x") {
+  if (job.chain === 'neo_x') {
     return queueNeoX(
       config,
       job.requester,
@@ -446,7 +506,7 @@ async function queueAutomationExecution(config, job, deps = {}) {
       payloadText,
       job.callback_contract,
       job.callback_method,
-      requestId,
+      requestId
     );
   }
   return queueNeoN3(
@@ -456,7 +516,7 @@ async function queueAutomationExecution(config, job, deps = {}) {
     payloadText,
     job.callback_contract,
     job.callback_method,
-    requestId,
+    requestId
   );
 }
 
@@ -472,7 +532,7 @@ export async function processAutomationJobs(config, logger, deps = {}) {
   try {
     jobs = await fetchJobs(config.automation.batchSize, new Date().toISOString());
   } catch (error) {
-    logger.warn({ error }, "Supabase automation fetch unavailable; skipping automation tick");
+    logger.warn({ error }, 'Supabase automation fetch unavailable; skipping automation tick');
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
   }
 
@@ -503,7 +563,7 @@ export async function processAutomationJobs(config, logger, deps = {}) {
         automation_id: job.automation_id,
         queued_request_id: queuedTx?.request_id || null,
         chain: job.chain,
-        status: "queued",
+        status: 'queued',
         trigger_reason: evaluation.triggerReason || job.trigger_type,
         observed_value: evaluation.observedValue || null,
         queue_tx: queuedTx,
@@ -511,18 +571,22 @@ export async function processAutomationJobs(config, logger, deps = {}) {
       });
 
       const nextExecutionCount = Number(job.execution_count || 0) + 1;
-      let nextStatus = "active";
+      let nextStatus = 'active';
       let nextRunAt = job.next_run_at;
-      if (job.trigger_type === "one_shot") {
-        nextStatus = "completed";
+      if (job.trigger_type === 'one_shot') {
+        nextStatus = 'completed';
         nextRunAt = null;
-      } else if (job.trigger_type === "interval") {
+      } else if (job.trigger_type === 'interval') {
         nextRunAt = computeNextIntervalRun(job, nowMs);
       } else if (evaluation.patch?.next_run_at !== undefined) {
         nextRunAt = evaluation.patch.next_run_at;
       }
-      if (job.max_executions !== null && job.max_executions !== undefined && nextExecutionCount >= Number(job.max_executions)) {
-        nextStatus = "completed";
+      if (
+        job.max_executions !== null &&
+        job.max_executions !== undefined &&
+        nextExecutionCount >= Number(job.max_executions)
+      ) {
+        nextStatus = 'completed';
         nextRunAt = null;
       }
 
@@ -544,13 +608,13 @@ export async function processAutomationJobs(config, logger, deps = {}) {
         automation_id: job.automation_id,
         queued_request_id: null,
         chain: job.chain,
-        status: "failed",
+        status: 'failed',
         trigger_reason: job.trigger_type,
         observed_value: null,
         queue_tx: null,
         error: error instanceof Error ? error.message : String(error),
       }).catch(() => undefined);
-      logger.warn({ automation_id: job.automation_id, error }, "Automation job processing failed");
+      logger.warn({ automation_id: job.automation_id, error }, 'Automation job processing failed');
     }
   }
 

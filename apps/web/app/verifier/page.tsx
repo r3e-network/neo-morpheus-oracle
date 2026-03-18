@@ -1,14 +1,17 @@
-"use client";
+'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, ClipboardList, FileSearch, Play, ShieldCheck } from "lucide-react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { CheckCircle2, ClipboardList, FileSearch, Play, ShieldCheck } from 'lucide-react';
+import { Layout } from '@/components/ui/Layout';
+import { Card } from '@/components/ui/Card';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 async function requestJSON(path: string, body?: Record<string, unknown>) {
   const response = await fetch(path, {
-    method: body ? "POST" : "GET",
-    headers: body ? { "content-type": "application/json" } : undefined,
+    method: body ? 'POST' : 'GET',
+    headers: body ? { 'content-type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -23,90 +26,104 @@ async function requestJSON(path: string, body?: Record<string, unknown>) {
 function VerifierPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialLookupHash = searchParams.get("attestation_hash") || "";
-  const [attestationJson, setAttestationJson] = useState("{}");
-  const [expectedPayloadJson, setExpectedPayloadJson] = useState("{}");
-  const [expectedOutputHash, setExpectedOutputHash] = useState("");
-  const [expectedAttestationHash, setExpectedAttestationHash] = useState("");
-  const [expectedComposeHash, setExpectedComposeHash] = useState("");
-  const [expectedAppId, setExpectedAppId] = useState("");
-  const [expectedInstanceId, setExpectedInstanceId] = useState("");
-  const [result, setResult] = useState<string>("");
+  const initialLookupHash = searchParams.get('attestation_hash') || '';
+  const [attestationJson, setAttestationJson] = useState('{}');
+  const [expectedPayloadJson, setExpectedPayloadJson] = useState('{}');
+  const [expectedOutputHash, setExpectedOutputHash] = useState('');
+  const [expectedAttestationHash, setExpectedAttestationHash] = useState('');
+  const [expectedComposeHash, setExpectedComposeHash] = useState('');
+  const [expectedAppId, setExpectedAppId] = useState('');
+  const [expectedInstanceId, setExpectedInstanceId] = useState('');
+  const [result, setResult] = useState<string>('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [lookupHash, setLookupHash] = useState(initialLookupHash);
   const [isLookuping, setIsLookuping] = useState(false);
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
   const normalizedLookupHash = useMemo(() => lookupHash.trim(), [lookupHash]);
 
-  const runVerification = useCallback(async (params: {
-    attestation: unknown;
-    expectedPayload?: unknown;
-    expectedOutputHash?: string;
-    expectedAttestationHash?: string;
-    expectedComposeHash?: string;
-    expectedAppId?: string;
-    expectedInstanceId?: string;
-  }) => {
-    const body = await requestJSON("/api/attestation/verify", {
-      envelope: params.attestation,
-      attestation: params.attestation,
-      expected_payload: params.expectedPayload,
-      expected_output_hash: params.expectedOutputHash || undefined,
-      expected_attestation_hash: params.expectedAttestationHash || undefined,
-      expected_onchain_attestation_hash: params.expectedAttestationHash || undefined,
-      expected_compose_hash: params.expectedComposeHash || undefined,
-      expected_app_id: params.expectedAppId || undefined,
-      expected_instance_id: params.expectedInstanceId || undefined,
-    });
-    return body;
-  }, []);
-
-  const lookupAttestation = useCallback(async (hash: string, updateUrl = true) => {
-    const value = hash.trim();
-    if (!value) return;
-
-    if (updateUrl) {
-      router.replace(`/verifier?attestation_hash=${encodeURIComponent(value)}`);
-    }
-
-    setIsLookuping(true);
-    try {
-      const body = await requestJSON(`/api/attestation/lookup?attestation_hash=${encodeURIComponent(value)}`);
-      if ((body as { error?: string }).error && !(body as { found?: boolean }).found) {
-        setResult(JSON.stringify(body, null, 2));
-        return;
-      }
-
-      const verifierInput = (body as { verifier_input?: Record<string, unknown> | null }).verifier_input || null;
-      if (!verifierInput) {
-        setExpectedAttestationHash(value);
-        setResult(JSON.stringify(body, null, 2));
-        return;
-      }
-
-      setAttestationJson(JSON.stringify(verifierInput.envelope || verifierInput.attestation || {}, null, 2));
-      setExpectedOutputHash(String(verifierInput.expected_output_hash || ""));
-      setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || value));
-      setExpectedComposeHash(String(verifierInput.expected_compose_hash || ""));
-      setExpectedAppId(String(verifierInput.expected_app_id || ""));
-      setExpectedInstanceId(String(verifierInput.expected_instance_id || ""));
-
-      const verification = await runVerification({
-        attestation: verifierInput.envelope || verifierInput.attestation || {},
-        expectedOutputHash: String(verifierInput.expected_output_hash || ""),
-        expectedAttestationHash: String(verifierInput.expected_attestation_hash || value),
-        expectedComposeHash: String(verifierInput.expected_compose_hash || ""),
-        expectedAppId: String(verifierInput.expected_app_id || ""),
-        expectedInstanceId: String(verifierInput.expected_instance_id || ""),
+  const runVerification = useCallback(
+    async (params: {
+      attestation: unknown;
+      expectedPayload?: unknown;
+      expectedOutputHash?: string;
+      expectedAttestationHash?: string;
+      expectedComposeHash?: string;
+      expectedAppId?: string;
+      expectedInstanceId?: string;
+    }) => {
+      const body = await requestJSON('/api/attestation/verify', {
+        envelope: params.attestation,
+        attestation: params.attestation,
+        expected_payload: params.expectedPayload,
+        expected_output_hash: params.expectedOutputHash || undefined,
+        expected_attestation_hash: params.expectedAttestationHash || undefined,
+        expected_onchain_attestation_hash: params.expectedAttestationHash || undefined,
+        expected_compose_hash: params.expectedComposeHash || undefined,
+        expected_app_id: params.expectedAppId || undefined,
+        expected_instance_id: params.expectedInstanceId || undefined,
       });
+      return body;
+    },
+    []
+  );
 
-      setResult(JSON.stringify({ lookup: body, verification }, null, 2));
-    } catch (error) {
-      setResult(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2));
-    } finally {
-      setIsLookuping(false);
-    }
-  }, [router, runVerification]);
+  const lookupAttestation = useCallback(
+    async (hash: string, updateUrl = true) => {
+      const value = hash.trim();
+      if (!value) return;
+
+      if (updateUrl) {
+        router.replace(`/verifier?attestation_hash=${encodeURIComponent(value)}`);
+      }
+
+      setIsLookuping(true);
+      try {
+        const body = await requestJSON(
+          `/api/attestation/lookup?attestation_hash=${encodeURIComponent(value)}`
+        );
+        if ((body as { error?: string }).error && !(body as { found?: boolean }).found) {
+          setResult(JSON.stringify(body, null, 2));
+          return;
+        }
+
+        const verifierInput =
+          (body as { verifier_input?: Record<string, unknown> | null }).verifier_input || null;
+        if (!verifierInput) {
+          setExpectedAttestationHash(value);
+          setResult(JSON.stringify(body, null, 2));
+          return;
+        }
+
+        setAttestationJson(
+          JSON.stringify(verifierInput.envelope || verifierInput.attestation || {}, null, 2)
+        );
+        setExpectedOutputHash(String(verifierInput.expected_output_hash || ''));
+        setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || value));
+        setExpectedComposeHash(String(verifierInput.expected_compose_hash || ''));
+        setExpectedAppId(String(verifierInput.expected_app_id || ''));
+        setExpectedInstanceId(String(verifierInput.expected_instance_id || ''));
+
+        const verification = await runVerification({
+          attestation: verifierInput.envelope || verifierInput.attestation || {},
+          expectedOutputHash: String(verifierInput.expected_output_hash || ''),
+          expectedAttestationHash: String(verifierInput.expected_attestation_hash || value),
+          expectedComposeHash: String(verifierInput.expected_compose_hash || ''),
+          expectedAppId: String(verifierInput.expected_app_id || ''),
+          expectedInstanceId: String(verifierInput.expected_instance_id || ''),
+        });
+
+        setResult(JSON.stringify({ lookup: body, verification }, null, 2));
+      } catch (error) {
+        setResult(
+          JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2)
+        );
+      } finally {
+        setIsLookuping(false);
+      }
+    },
+    [router, runVerification]
+  );
 
   useEffect(() => {
     if (!initialLookupHash) return;
@@ -114,171 +131,282 @@ function VerifierPageClient() {
     void lookupAttestation(initialLookupHash, false);
   }, [initialLookupHash, lookupAttestation]);
 
+  const handleLoadDemo = async () => {
+    setIsLoadingDemo(true);
+    try {
+      const body = await requestJSON('/api/attestation/demo');
+      if ((body as { error?: string }).error) {
+        setResult(JSON.stringify(body, null, 2));
+        return;
+      }
+
+      const verifierInput =
+        (body as { verifier_input?: Record<string, unknown> }).verifier_input || {};
+      setAttestationJson(
+        JSON.stringify(verifierInput.envelope || verifierInput.attestation || {}, null, 2)
+      );
+      setExpectedPayloadJson(JSON.stringify(verifierInput.expected_payload || {}, null, 2));
+      setExpectedOutputHash(String(verifierInput.expected_output_hash || ''));
+      setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || ''));
+      setExpectedComposeHash(String(verifierInput.expected_compose_hash || ''));
+      setExpectedAppId(String(verifierInput.expected_app_id || ''));
+      setExpectedInstanceId(String(verifierInput.expected_instance_id || ''));
+      setResult(JSON.stringify(body, null, 2));
+    } catch (error) {
+      setResult(
+        JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2)
+      );
+    } finally {
+      setIsLoadingDemo(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <nav className="navbar">
-        <Link href="/" className="nav-logo">
-          <img src="/logo-morpheus.png" alt="Neo Morpheus Oracle" style={{ height: "36px", width: "auto" }} />
-          <span className="text-gradient">Morpheus Oracle</span>
-        </Link>
-        <div className="nav-links">
-          <Link href="/" className="btn btn-outline" style={{ padding: "6px 16px", borderRadius: "8px", fontSize: "0.85rem" }}>
-            Back
-          </Link>
-          <a
-            href="https://github.com/r3e-network/neo-morpheus-oracle/tree/main/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-outline"
-            style={{ padding: "6px 16px", borderRadius: "8px", fontSize: "0.85rem" }}
+    <Layout
+      navbarRight={
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <Link
+            href="/docs/verifier"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.5rem 1rem',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-highlight)',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+              transition: 'all 0.2s',
+            }}
           >
             Docs
-          </a>
+          </Link>
         </div>
-      </nav>
-
-      <main className="dashboard-container" style={{ paddingTop: "110px", paddingBottom: "80px" }}>
-        <section className="card" style={{ marginBottom: "32px" }}>
-          <div className="card-topline">
+      }
+    >
+      <div className="container" style={{ padding: '2rem 0' }}>
+        <Card style={{ marginBottom: '2rem', borderLeft: '4px solid var(--neo-green)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              gap: '2rem',
+            }}
+          >
             <div>
-              <span className="console-kicker">TEE Verification</span>
-              <h1 className="font-outfit" style={{ fontSize: "2.6rem", marginBottom: "12px" }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '0.75rem',
+                }}
+              >
+                <ShieldCheck size={16} color="var(--neo-green)" />
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 800,
+                    color: 'var(--neo-green)',
+                    letterSpacing: '0.1em',
+                    fontFamily: 'var(--font-mono)',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  TEE Verification
+                </span>
+              </div>
+              <h1
+                style={{
+                  fontSize: '2rem',
+                  fontWeight: 900,
+                  letterSpacing: '-0.03em',
+                  marginBottom: '0.5rem',
+                }}
+              >
                 Attestation Verifier
               </h1>
-              <small>
-                Paste a worker response, on-chain callback envelope, or raw TEE attestation JSON and verify hash binding, report-data prefix, compose hash, app id, and instance id.
-              </small>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Paste a worker response, on-chain callback envelope, or raw TEE attestation JSON and
+                verify hash binding, report-data prefix, compose hash, app id, and instance id.
+              </p>
             </div>
-            <ShieldCheck size={34} color="var(--neo-green)" />
+            <ShieldCheck size={48} color="var(--neo-green)" />
           </div>
-        </section>
+        </Card>
 
-        <section className="card" style={{ marginBottom: "24px" }}>
-          <div className="card-topline">
+        <Card style={{ marginBottom: '1.5rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
             <div>
-              <h3>Lookup By Attestation Hash</h3>
-              <small>Open this page with <code>?attestation_hash=0x...</code> or paste a hash below to auto-load the matching attestation record.</small>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
+                Lookup By Attestation Hash
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                Open with <code>?attestation_hash=0x...</code> or paste a hash below.
+              </p>
             </div>
-            <FileSearch size={22} color="var(--neo-green)" />
+            <FileSearch size={20} color="var(--neo-green)" />
           </div>
-          <div className="grid" style={{ gap: "16px" }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <input
+              className="neo-input"
               value={lookupHash}
               onChange={(event) => setLookupHash(event.target.value)}
               placeholder="0x attestation hash"
+              style={{ flex: 1, minWidth: '200px' }}
             />
             <button
-              className="btn btn-primary"
+              className="btn-ata"
               disabled={isLookuping || !normalizedLookupHash}
               onClick={() => {
                 void lookupAttestation(normalizedLookupHash, true);
               }}
+              style={{ whiteSpace: 'nowrap' }}
             >
-              {isLookuping ? "Querying..." : "Lookup Attestation"}
+              {isLookuping ? 'Querying...' : 'Lookup'}
             </button>
           </div>
-        </section>
+        </Card>
 
-        <section className="card" style={{ marginBottom: "24px" }}>
-          <div className="card-topline">
+        <Card style={{ marginBottom: '1.5rem' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
             <div>
-              <h3>Demo Flow</h3>
-              <small>Fetch a sample attested worker response and auto-fill the verifier.</small>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Demo Flow</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                Load a sample attested worker response.
+              </p>
             </div>
             <button
-              className="btn btn-inline"
-              onClick={async () => {
-                const body = await requestJSON("/api/attestation/demo");
-                if ((body as { error?: string }).error) {
-                  setResult(JSON.stringify(body, null, 2));
-                  return;
-                }
-
-                const verifierInput = (body as { verifier_input?: Record<string, unknown> }).verifier_input || {};
-                setAttestationJson(JSON.stringify(verifierInput.envelope || verifierInput.attestation || {}, null, 2));
-                setExpectedPayloadJson(JSON.stringify(verifierInput.expected_payload || {}, null, 2));
-                setExpectedOutputHash(String(verifierInput.expected_output_hash || ""));
-                setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || ""));
-                setExpectedComposeHash(String(verifierInput.expected_compose_hash || ""));
-                setExpectedAppId(String(verifierInput.expected_app_id || ""));
-                setExpectedInstanceId(String(verifierInput.expected_instance_id || ""));
-                setResult(JSON.stringify(body, null, 2));
+              className="btn-secondary"
+              onClick={() => void handleLoadDemo()}
+              disabled={isLoadingDemo}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
               }}
             >
-              <Play size={16} />
-              Load Demo
+              <Play size={14} />
+              {isLoadingDemo ? 'Loading...' : 'Load Demo'}
             </button>
           </div>
-        </section>
+        </Card>
 
-        <div className="grid grid-2">
-          <section className="card">
-            <div className="card-topline">
+        <div className="grid grid-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
+          <Card>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+              }}
+            >
               <div>
-                <h3>Worker / Callback / Attestation JSON</h3>
-                <small>Paste a full worker response, compact callback envelope, or raw <code>tee_attestation</code> object.</small>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
+                  Worker / Callback / Attestation JSON
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  Paste a full worker response or raw tee_attestation object.
+                </p>
               </div>
-              <ClipboardList size={22} color="var(--neo-green)" />
+              <ClipboardList size={20} color="var(--neo-green)" />
             </div>
             <textarea
+              className="code-editor"
               value={attestationJson}
               onChange={(event) => setAttestationJson(event.target.value)}
-              style={{ minHeight: "360px" }}
+              style={{ minHeight: '300px' }}
               placeholder='{ "verification": { "attestation_hash": "...", "tee_attestation": { ... } } }'
             />
-          </section>
+          </Card>
 
-          <section className="card">
-            <div className="card-topline">
+          <Card>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+              }}
+            >
               <div>
-                <h3>Verification Inputs</h3>
-                <small>Optional expectations for stronger application-level verification.</small>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
+                  Verification Inputs
+                </h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  Optional expectations for stronger verification.
+                </p>
               </div>
-              <FileSearch size={22} color="var(--neo-green)" />
             </div>
 
-            <div className="grid" style={{ gap: "16px" }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <textarea
+                className="code-editor"
                 value={expectedPayloadJson}
                 onChange={(event) => setExpectedPayloadJson(event.target.value)}
-                style={{ minHeight: "120px" }}
+                style={{ minHeight: '80px' }}
                 placeholder='{ "result": true }'
               />
-
               <input
+                className="neo-input"
                 value={expectedOutputHash}
                 onChange={(event) => setExpectedOutputHash(event.target.value)}
                 placeholder="Expected output hash"
               />
               <input
+                className="neo-input"
                 value={expectedAttestationHash}
                 onChange={(event) => setExpectedAttestationHash(event.target.value)}
-                placeholder="Expected / on-chain attestation hash"
+                placeholder="Expected attestation hash"
               />
               <input
+                className="neo-input"
                 value={expectedComposeHash}
                 onChange={(event) => setExpectedComposeHash(event.target.value)}
                 placeholder="Expected compose hash"
               />
               <input
+                className="neo-input"
                 value={expectedAppId}
                 onChange={(event) => setExpectedAppId(event.target.value)}
                 placeholder="Expected app id"
               />
               <input
+                className="neo-input"
                 value={expectedInstanceId}
                 onChange={(event) => setExpectedInstanceId(event.target.value)}
                 placeholder="Expected instance id"
               />
 
               <button
-                className="btn btn-primary"
+                className="btn-ata"
                 disabled={isVerifying}
                 onClick={async () => {
                   setIsVerifying(true);
                   try {
                     const parsedAttestation = JSON.parse(attestationJson);
-                    const parsedPayload = expectedPayloadJson.trim() ? JSON.parse(expectedPayloadJson) : undefined;
+                    const parsedPayload = expectedPayloadJson.trim()
+                      ? JSON.parse(expectedPayloadJson)
+                      : undefined;
                     const body = await runVerification({
                       attestation: parsedAttestation,
                       expectedPayload: parsedPayload,
@@ -290,36 +418,80 @@ function VerifierPageClient() {
                     });
                     setResult(JSON.stringify(body, null, 2));
                   } catch (error) {
-                    setResult(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2));
+                    setResult(
+                      JSON.stringify(
+                        {
+                          error: error instanceof Error ? error.message : String(error),
+                        },
+                        null,
+                        2
+                      )
+                    );
                   } finally {
                     setIsVerifying(false);
                   }
                 }}
               >
-                {isVerifying ? "Verifying..." : "Run Verification"}
+                {isVerifying ? 'Verifying...' : 'Run Verification'}
               </button>
             </div>
-          </section>
+          </Card>
         </div>
 
-        <section className="card" style={{ marginTop: "24px" }}>
-            <div className="card-topline">
-              <div>
-                <h3>Verification Result</h3>
-                <small>Application-level checks for `output_hash`, `attestation_hash`, and the first 32 bytes of TEE `report_data`.</small>
-              </div>
-              <CheckCircle2 size={22} color="var(--neo-green)" />
+        <Card>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1rem',
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Verification Result</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                Application-level checks for output_hash, attestation_hash, and report_data.
+              </p>
             </div>
-          <pre>{result || "Awaiting verification input..."}</pre>
-        </section>
-      </main>
-    </div>
+            <CheckCircle2 size={20} color="var(--neo-green)" />
+          </div>
+          <pre
+            style={{
+              background: '#000',
+              border: '1px solid var(--border-dim)',
+              borderRadius: '4px',
+              padding: '1rem',
+              fontSize: '0.8rem',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--neo-green)',
+              overflow: 'auto',
+              maxHeight: '400px',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {result || 'Awaiting verification input...'}
+          </pre>
+        </Card>
+      </div>
+    </Layout>
   );
 }
 
 export default function VerifierPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen" style={{ background: "var(--bg-primary)" }} />}>
+    <Suspense
+      fallback={
+        <Layout>
+          <div className="container" style={{ padding: '2rem 0' }}>
+            <Skeleton height="200px" style={{ marginBottom: '1.5rem' }} />
+            <div className="grid grid-2" style={{ gap: '1.5rem' }}>
+              <Skeleton height="400px" />
+              <Skeleton height="400px" />
+            </div>
+          </div>
+        </Layout>
+      }
+    >
       <VerifierPageClient />
     </Suspense>
   );
