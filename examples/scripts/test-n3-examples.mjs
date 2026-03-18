@@ -7,9 +7,14 @@ import {
   jsonPretty,
   loadExampleEnv,
   markdownJson,
-  normalizeHash160,
   readDeploymentRegistry,
   resolveNeoN3SignerWif,
+  resolveNeoN3RpcUrl,
+  resolveNeoN3NetworkMagic,
+  resolveNeoN3OracleHash,
+  resolveNeoN3ConsumerHash,
+  resolveNeoN3FeedReaderHash,
+  resolveNeoN3DatafeedHash,
   writeValidationArtifacts,
   sleep,
   trimString,
@@ -173,15 +178,13 @@ await loadExampleEnv();
 const network = trimString(process.env.MORPHEUS_NETWORK || "testnet") || "testnet";
 const registry = await readDeploymentRegistry(network);
 const deployment = registry.neo_n3 || {};
-const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
-const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
-const rpcUrl = trimString(process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl);
-const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic);
+const rpcUrl = resolveNeoN3RpcUrl(network, deployment);
+const networkMagic = resolveNeoN3NetworkMagic(network, deployment);
 const wif = resolveNeoN3SignerWif(network);
-const consumerHash = normalizeHash160(process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || "");
-const readerHash = normalizeHash160(process.env.EXAMPLE_N3_FEED_READER_HASH || deployment.example_feed_reader_hash || "");
-const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || "");
-const datafeedHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_DATAFEED_HASH || deployment.datafeed_hash || "");
+const consumerHash = resolveNeoN3ConsumerHash(network, deployment);
+const readerHash = resolveNeoN3FeedReaderHash(network, deployment);
+const oracleHash = resolveNeoN3OracleHash(network, deployment);
+const datafeedHash = resolveNeoN3DatafeedHash(network, deployment);
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 180000);
 
 if (!wif) throw new Error("NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required");
