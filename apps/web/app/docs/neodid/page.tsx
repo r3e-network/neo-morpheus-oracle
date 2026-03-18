@@ -1,88 +1,186 @@
-"use client";
+'use client';
 
-import { ArrowRight, Fingerprint } from "lucide-react";
-import Link from "next/link";
-import { CodeBlock } from "@/components/ui/CodeBlock";
+import { ArrowRight, Fingerprint } from 'lucide-react';
+import Link from 'next/link';
+import { CodeBlock } from '@/components/ui/CodeBlock';
 import {
   DEFAULT_NEODID_AA_DID,
   DEFAULT_NEODID_SERVICE_DID,
   DEFAULT_NEODID_VAULT_DID,
-} from "@/lib/neodid-did-common";
-import { NETWORKS } from "@/lib/onchain-data";
-import { networkRegistry } from "@/lib/networks";
+} from '@/lib/neodid-did-common';
+import { NETWORKS } from '@/lib/onchain-data';
+import { networkRegistry } from '@/lib/networks';
 
 export default function DocsNeoDidPage() {
   return (
     <div className="fade-in">
-      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "1rem" }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
         <Fingerprint size={14} color="var(--neo-green)" />
-        <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "var(--font-mono)" }}>
+        <span
+          style={{
+            fontSize: '0.7rem',
+            fontWeight: 800,
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
           NEODID STANDARDIZED
         </span>
       </div>
       <h1>NeoDID</h1>
 
-      <p className="lead" style={{ fontSize: "1.1rem", color: "var(--text-primary)", marginBottom: "2.5rem", lineHeight: 1.7 }}>
+      <p
+        className="lead"
+        style={{
+          fontSize: '1.1rem',
+          color: 'var(--text-primary)',
+          marginBottom: '2.5rem',
+          lineHeight: 1.7,
+        }}
+      >
         NeoDID is the Morpheus privacy identity layer for Neo N3. It now has four aligned surfaces:
         an independent N3 registry contract, Oracle-only request types for bind and ticket issuance,
-        Web3Auth-backed identity verification inside the TEE, and a public W3C DID resolver for service
-        discovery without disclosing private identity material.
+        Web3Auth-backed identity verification inside the TEE, and a public W3C DID resolver for
+        service discovery without disclosing private identity material.
       </p>
 
-      <div className="card-industrial" style={{ padding: "1.5rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2rem" }}>
-        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          Privacy boundary: DID resolution is intentionally public and minimal. It exposes service metadata,
-          verifier material, contract anchors, and routing hints. It does <strong>not</strong> expose provider UIDs,
-          raw Web3Auth claims, master nullifiers, action nullifiers, encrypted params, or ticket payloads.
+      <div
+        className="card-industrial"
+        style={{
+          padding: '1.5rem',
+          borderLeft: '4px solid var(--neo-green)',
+          marginBottom: '2rem',
+        }}
+      >
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          Privacy boundary: DID resolution is intentionally public and minimal. It exposes service
+          metadata, verifier material, contract anchors, and routing hints. It does{' '}
+          <strong>not</strong> expose provider UIDs, raw Web3Auth claims, master nullifiers, action
+          nullifiers, encrypted params, or ticket payloads.
         </p>
       </div>
 
       <h2>Core Model</h2>
       <ul>
-        <li><strong>Master Nullifier:</strong> binds a private Web2 identity to a Neo vault account without disclosing the provider UID on-chain.</li>
-        <li><strong>Action Nullifier:</strong> derives a task-specific nullifier so the same person can act through disposable accounts without global linkability.</li>
-        <li><strong>Oracle-Only Execution:</strong> production binds, action tickets, and recovery tickets enter through <code>MorpheusOracle.request(...)</code> and come back through callbacks.</li>
-        <li><strong>Public DID Layer:</strong> a resolver exposes the W3C DID document for the service namespace and subject namespaces, while keeping private claims private.</li>
+        <li>
+          <strong>Master Nullifier:</strong> binds a private Web2 identity to a Neo vault account
+          without disclosing the provider UID on-chain.
+        </li>
+        <li>
+          <strong>Action Nullifier:</strong> derives a task-specific nullifier so the same person
+          can act through disposable accounts without global linkability.
+        </li>
+        <li>
+          <strong>Oracle-Only Execution:</strong> production binds, action tickets, and recovery
+          tickets enter through <code>MorpheusOracle.request(...)</code> and come back through
+          callbacks.
+        </li>
+        <li>
+          <strong>Public DID Layer:</strong> a resolver exposes the W3C DID document for the service
+          namespace and subject namespaces, while keeping private claims private.
+        </li>
       </ul>
 
       <h2>Contracts And Domains</h2>
       <ul>
-        <li><strong>MorpheusOracle:</strong> <code>{NETWORKS.neo_n3.oracle}</code> via <code>{NETWORKS.neo_n3.domains.oracle}</code></li>
-        <li><strong>NeoDIDRegistry:</strong> <code>{NETWORKS.neo_n3.neodid}</code> via <code>{NETWORKS.neo_n3.domains.neodid}</code></li>
-        <li><strong>AbstractAccount:</strong> <code>{NETWORKS.neo_n3.aa}</code> via <code>{NETWORKS.neo_n3.domains.aa}</code></li>
+        <li>
+          <strong>MorpheusOracle:</strong> <code>{NETWORKS.neo_n3.oracle}</code> via{' '}
+          <code>{NETWORKS.neo_n3.domains.oracle}</code>
+        </li>
+        <li>
+          <strong>NeoDIDRegistry:</strong> <code>{NETWORKS.neo_n3.neodid}</code> via{' '}
+          <code>{NETWORKS.neo_n3.domains.neodid}</code>
+        </li>
+        <li>
+          <strong>AbstractAccount:</strong> <code>{NETWORKS.neo_n3.aa}</code> via{' '}
+          <code>{NETWORKS.neo_n3.domains.aa}</code>
+        </li>
       </ul>
 
-      <div className="card-industrial" style={{ padding: "1.5rem", borderLeft: "4px solid var(--accent-blue)", marginBottom: "2rem" }}>
-        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
+      <div
+        className="card-industrial"
+        style={{
+          padding: '1.5rem',
+          borderLeft: '4px solid var(--accent-blue)',
+          marginBottom: '2rem',
+        }}
+      >
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           Network anchors are intentionally explicit:
         </p>
-        <ul style={{ marginTop: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.8 }}>
-          <li><strong>Mainnet Oracle:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_oracle}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_oracle}</code></li>
-          <li><strong>Mainnet NeoDIDRegistry:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_neodid}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_neodid}</code></li>
-          <li><strong>Mainnet AA:</strong> <code>{networkRegistry.mainnet.neo_n3.contracts.abstract_account}</code> via <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_aa}</code></li>
-          <li><strong>Mainnet AA Web3AuthVerifier:</strong> <code>{networkRegistry.mainnet.neo_n3.aa_verifiers.web3auth}</code></li>
-          <li><strong>Mainnet AA RecoveryVerifier:</strong> <code>{networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}</code></li>
-          <li><strong>Testnet Oracle:</strong> <code>{networkRegistry.testnet.neo_n3.contracts.morpheus_oracle}</code></li>
-          <li><strong>Testnet AA:</strong> <code>{networkRegistry.testnet.neo_n3.contracts.abstract_account}</code></li>
-          <li><strong>Testnet NeoDIDRegistry:</strong> unpublished in the canonical shared registry right now</li>
+        <ul style={{ marginTop: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+          <li>
+            <strong>Mainnet Oracle:</strong>{' '}
+            <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_oracle}</code> via{' '}
+            <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_oracle}</code>
+          </li>
+          <li>
+            <strong>Mainnet NeoDIDRegistry:</strong>{' '}
+            <code>{networkRegistry.mainnet.neo_n3.contracts.morpheus_neodid}</code> via{' '}
+            <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_neodid}</code>
+          </li>
+          <li>
+            <strong>Mainnet AA:</strong>{' '}
+            <code>{networkRegistry.mainnet.neo_n3.contracts.abstract_account}</code> via{' '}
+            <code>{networkRegistry.mainnet.neo_n3.domains.morpheus_aa}</code>
+          </li>
+          <li>
+            <strong>Mainnet AA Web3AuthVerifier:</strong>{' '}
+            <code>{networkRegistry.mainnet.neo_n3.aa_verifiers.web3auth}</code>
+          </li>
+          <li>
+            <strong>Mainnet AA RecoveryVerifier:</strong>{' '}
+            <code>{networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}</code>
+          </li>
+          <li>
+            <strong>Testnet Oracle:</strong>{' '}
+            <code>{networkRegistry.testnet.neo_n3.contracts.morpheus_oracle}</code>
+          </li>
+          <li>
+            <strong>Testnet AA:</strong>{' '}
+            <code>{networkRegistry.testnet.neo_n3.contracts.abstract_account}</code>
+          </li>
+          <li>
+            <strong>Testnet NeoDIDRegistry:</strong> unpublished in the canonical shared registry
+            right now
+          </li>
         </ul>
-        <p style={{ marginTop: "0.85rem", marginBottom: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          Public docs use the stable runtime label <code>UnifiedSmartWalletV3</code>. Historical or deployment-specific manifest-name suffixes are implementation details, not the canonical AA product name.
+        <p
+          style={{
+            marginTop: '0.85rem',
+            marginBottom: 0,
+            color: 'var(--text-secondary)',
+            lineHeight: 1.7,
+          }}
+        >
+          Public docs use the stable runtime label <code>UnifiedSmartWalletV3</code>. Historical or
+          deployment-specific manifest-name suffixes are implementation details, not the canonical
+          AA product name.
         </p>
       </div>
 
       <h2>W3C DID Method</h2>
       <p>
-        NeoDID now exposes a W3C-aligned DID method under <code>did:morpheus</code>. The currently supported Neo N3 subjects are:
+        NeoDID now exposes a W3C-aligned DID method under <code>did:morpheus</code>. The currently
+        supported Neo N3 subjects are:
       </p>
       <ul>
-        <li><strong>Service DID:</strong> <code>{DEFAULT_NEODID_SERVICE_DID}</code></li>
-        <li><strong>Vault DID:</strong> <code>{DEFAULT_NEODID_VAULT_DID}</code></li>
-        <li><strong>AA DID:</strong> <code>{DEFAULT_NEODID_AA_DID}</code></li>
+        <li>
+          <strong>Service DID:</strong> <code>{DEFAULT_NEODID_SERVICE_DID}</code>
+        </li>
+        <li>
+          <strong>Vault DID:</strong> <code>{DEFAULT_NEODID_VAULT_DID}</code>
+        </li>
+        <li>
+          <strong>AA DID:</strong> <code>{DEFAULT_NEODID_AA_DID}</code>
+        </li>
       </ul>
       <p>
-        The service DID publishes the TEE verification key as a <code>JsonWebKey2020</code> verification method.
-        Vault and AA DIDs resolve to privacy-preserving service endpoints and contract anchors, not to raw user claims.
+        The service DID publishes the TEE verification key as a <code>JsonWebKey2020</code>{' '}
+        verification method. Vault and AA DIDs resolve to privacy-preserving service endpoints and
+        contract anchors, not to raw user claims.
       </p>
 
       <CodeBlock
@@ -128,20 +226,28 @@ export default function DocsNeoDidPage() {
 }`}
       />
 
-      <div className="card-industrial" style={{ padding: "1.25rem 1.5rem", borderLeft: "4px solid var(--accent-blue)", marginBottom: "2rem" }}>
-        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          Interactive entrypoint:
-          {" "}
-          <Link href="/launchpad/neodid-resolver" style={{ color: "var(--neo-green)" }}>
+      <div
+        className="card-industrial"
+        style={{
+          padding: '1.25rem 1.5rem',
+          borderLeft: '4px solid var(--accent-blue)',
+          marginBottom: '2rem',
+        }}
+      >
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          Interactive entrypoint:{' '}
+          <Link href="/launchpad/neodid-resolver" style={{ color: 'var(--neo-green)' }}>
             NeoDID Resolver
-          </Link>
-          {" "}
-          lets you resolve the full DID resolution object or the raw <code>application/did+ld+json</code> document directly in the browser.
+          </Link>{' '}
+          lets you resolve the full DID resolution object or the raw{' '}
+          <code>application/did+ld+json</code> document directly in the browser.
         </p>
       </div>
 
       <h2>Independent Contract</h2>
-      <p>NeoDID remains an independent contract module anchored separately from the Oracle gateway:</p>
+      <p>
+        NeoDID remains an independent contract module anchored separately from the Oracle gateway:
+      </p>
       <CodeBlock
         language="csharp"
         title="NeoDIDRegistry"
@@ -163,50 +269,97 @@ public class NeoDIDRegistry : SmartContract
 
       <h2>Worker Routes</h2>
       <ul>
-        <li><code>GET /api/neodid/providers</code></li>
-        <li><code>GET /api/neodid/runtime</code></li>
-        <li><code>GET /api/neodid/resolve?did=...</code></li>
-        <li><code>POST /api/neodid/bind</code></li>
-        <li><code>POST /api/neodid/action-ticket</code></li>
-        <li><code>POST /api/neodid/recovery-ticket</code></li>
+        <li>
+          <code>GET /api/neodid/providers</code>
+        </li>
+        <li>
+          <code>GET /api/neodid/runtime</code>
+        </li>
+        <li>
+          <code>GET /api/neodid/resolve?did=...</code>
+        </li>
+        <li>
+          <code>POST /api/neodid/bind</code>
+        </li>
+        <li>
+          <code>POST /api/neodid/action-ticket</code>
+        </li>
+        <li>
+          <code>POST /api/neodid/recovery-ticket</code>
+        </li>
       </ul>
 
       <h2>Oracle Request Types</h2>
       <p>
-        Preferred production usage is on-chain, not direct worker invocation. These request types go through
+        Preferred production usage is on-chain, not direct worker invocation. These request types go
+        through
         <code> MorpheusOracle.request(...)</code> and are fulfilled asynchronously:
       </p>
       <ul>
-        <li><code>neodid_bind</code></li>
-        <li><code>neodid_action_ticket</code></li>
-        <li><code>neodid_recovery_ticket</code></li>
+        <li>
+          <code>neodid_bind</code>
+        </li>
+        <li>
+          <code>neodid_action_ticket</code>
+        </li>
+        <li>
+          <code>neodid_recovery_ticket</code>
+        </li>
       </ul>
 
       <h2>Supported Identity Sources</h2>
       <ul>
-        <li><code>web3auth</code> with alias <code>w3a</code></li>
-        <li><code>twitter</code></li>
-        <li><code>github</code></li>
-        <li><code>google</code></li>
-        <li><code>discord</code></li>
-        <li><code>telegram</code></li>
-        <li><code>binance</code></li>
-        <li><code>okx</code> with alias <code>okex</code></li>
-        <li><code>email</code></li>
+        <li>
+          <code>web3auth</code> with alias <code>w3a</code>
+        </li>
+        <li>
+          <code>twitter</code>
+        </li>
+        <li>
+          <code>github</code>
+        </li>
+        <li>
+          <code>google</code>
+        </li>
+        <li>
+          <code>discord</code>
+        </li>
+        <li>
+          <code>telegram</code>
+        </li>
+        <li>
+          <code>binance</code>
+        </li>
+        <li>
+          <code>okx</code> with alias <code>okex</code>
+        </li>
+        <li>
+          <code>email</code>
+        </li>
       </ul>
 
-      <div className="card-industrial" style={{ padding: "1.25rem 1.5rem", borderLeft: "4px solid var(--neo-green)", marginBottom: "2rem" }}>
-        <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: 1.7 }}>
-          Recommended AA integration: treat <code>web3auth</code> as the DID root. Link Google / Apple / email / SMS / other social providers inside
-          Web3Auth first, then pass the resulting <code>id_token</code> to NeoDID. The TEE verifies the JWT against the configured JWKS, derives the stable
-          provider root internally, and emits a ticket that AA verifiers can consume without knowing the underlying login method.
+      <div
+        className="card-industrial"
+        style={{
+          padding: '1.25rem 1.5rem',
+          borderLeft: '4px solid var(--neo-green)',
+          marginBottom: '2rem',
+        }}
+      >
+        <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          Recommended AA integration: treat <code>web3auth</code> as the DID root. Link Google /
+          Apple / email / SMS / other social providers inside Web3Auth first, then pass the
+          resulting <code>id_token</code> to NeoDID. The TEE verifies the JWT against the configured
+          JWKS, derives the stable provider root internally, and emits a ticket that AA verifiers
+          can consume without knowing the underlying login method.
         </p>
       </div>
 
       <h2>Web3Auth-In-TEE Path</h2>
       <p>
         The TEE now verifies the Web3Auth JWT directly against the configured JWKS and audience.
-        This means the worker derives <code>provider_uid</code> inside the enclave instead of trusting a user-supplied identifier.
+        This means the worker derives <code>provider_uid</code> inside the enclave instead of
+        trusting a user-supplied identifier.
       </p>
       <CodeBlock
         language="json"
@@ -222,7 +375,8 @@ public class NeoDIDRegistry : SmartContract
 
       <h2>Large JWT Oracle Flow</h2>
       <p>
-        Large Web3Auth JWTs should be sealed locally, stored as ciphertext, and referenced on-chain with <code>encrypted_params_ref</code>
+        Large Web3Auth JWTs should be sealed locally, stored as ciphertext, and referenced on-chain
+        with <code>encrypted_params_ref</code>
         so the Oracle notification payload stays short enough for Neo N3.
       </p>
       <CodeBlock
@@ -300,41 +454,64 @@ public class NeoDIDRegistry : SmartContract
 }`}
       />
 
-      <div className="grid grid-2" style={{ gap: "1.5rem", marginTop: "2.5rem" }}>
-        <Link href="/launchpad/neodid-resolver" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>Resolver</span>
+      <div className="grid grid-2" style={{ gap: '1.5rem', marginTop: '2.5rem' }}>
+        <Link
+          href="/launchpad/neodid-resolver"
+          className="card-industrial"
+          style={{ padding: '1.75rem', textDecoration: 'none' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Resolver</span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
-          <p style={{ color: "var(--text-secondary)", marginTop: "0.85rem", marginBottom: 0 }}>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.85rem', marginBottom: 0 }}>
             Resolve the public DID layer for the service, a vault subject, or an AA namespace.
           </p>
         </Link>
-        <Link href="/launchpad/neodid-live" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>Web3Auth Live</span>
+        <Link
+          href="/launchpad/neodid-live"
+          className="card-industrial"
+          style={{ padding: '1.75rem', textDecoration: 'none' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Web3Auth Live</span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
-          <p style={{ color: "var(--text-secondary)", marginTop: "0.85rem", marginBottom: 0 }}>
-            Sign in, fetch a real Web3Auth JWT, locally seal it with X25519, and prepare the Oracle payload with <code>encrypted_params_ref</code>.
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.85rem', marginBottom: 0 }}>
+            Sign in, fetch a real Web3Auth JWT, locally seal it with X25519, and prepare the Oracle
+            payload with <code>encrypted_params_ref</code>.
           </p>
         </Link>
-        <Link href="/docs/r/NEODID_DID_METHOD" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>DID Method Spec</span>
+        <Link
+          href="/docs/r/NEODID_DID_METHOD"
+          className="card-industrial"
+          style={{ padding: '1.75rem', textDecoration: 'none' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+              DID Method Spec
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
-          <p style={{ color: "var(--text-secondary)", marginTop: "0.85rem", marginBottom: 0 }}>
-            Read the formal method syntax, resolution rules, privacy model, and interoperability constraints.
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.85rem', marginBottom: 0 }}>
+            Read the formal method syntax, resolution rules, privacy model, and interoperability
+            constraints.
           </p>
         </Link>
-        <Link href="/docs/r/AA_SOCIAL_RECOVERY" className="card-industrial" style={{ padding: "1.75rem", textDecoration: "none" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 800, fontSize: "1rem", color: "#fff" }}>AA Recovery Spec</span>
+        <Link
+          href="/docs/r/AA_SOCIAL_RECOVERY"
+          className="card-industrial"
+          style={{ padding: '1.75rem', textDecoration: 'none' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+              AA Recovery Spec
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
-          <p style={{ color: "var(--text-secondary)", marginTop: "0.85rem", marginBottom: 0 }}>
-            Read the recovery ticket schema, verifier checks, timelock flow, and confidentiality model for Abstract Account recovery.
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.85rem', marginBottom: 0 }}>
+            Read the recovery ticket schema, verifier checks, timelock flow, and confidentiality
+            model for Abstract Account recovery.
           </p>
         </Link>
       </div>

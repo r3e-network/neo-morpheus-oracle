@@ -1,14 +1,14 @@
-import { createHash } from "node:crypto";
+import { createHash } from 'node:crypto';
 
 function stableStringify(value: unknown): string {
-  if (value === null || value === undefined) return "null";
-  if (typeof value === "bigint") return JSON.stringify(value.toString());
-  if (typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  if (value === null || value === undefined) return 'null';
+  if (typeof value === 'bigint') return JSON.stringify(value.toString());
+  if (typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
   const entries = Object.entries(value as Record<string, unknown>)
     .filter(([, entryValue]) => entryValue !== undefined)
     .sort(([left], [right]) => left.localeCompare(right));
-  return `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`).join(",")}}`;
+  return `{${entries.map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`).join(',')}}`;
 }
 
 function sha256Hex(value: unknown) {
@@ -16,26 +16,29 @@ function sha256Hex(value: unknown) {
     ? value
     : value instanceof Uint8Array
       ? Buffer.from(value)
-      : Buffer.from(typeof value === "string" ? value : stableStringify(value), "utf8");
-  return createHash("sha256").update(buffer).digest("hex");
+      : Buffer.from(typeof value === 'string' ? value : stableStringify(value), 'utf8');
+  return createHash('sha256').update(buffer).digest('hex');
 }
 
 function normalizeHex(value: unknown) {
-  return String(value || "").trim().replace(/^0x/i, "").toLowerCase();
+  return String(value || '')
+    .trim()
+    .replace(/^0x/i, '')
+    .toLowerCase();
 }
 
 function normalizeText(value: unknown) {
-  const text = String(value || "").trim();
+  const text = String(value || '').trim();
   return text || null;
 }
 
 function unwrapRecord(input: unknown) {
-  if (!input || typeof input !== "object") return null;
+  if (!input || typeof input !== 'object') return null;
   const record = input as Record<string, unknown>;
-  if (record.worker_response && typeof record.worker_response === "object") {
+  if (record.worker_response && typeof record.worker_response === 'object') {
     return record.worker_response as Record<string, unknown>;
   }
-  if (record.envelope && typeof record.envelope === "object") {
+  if (record.envelope && typeof record.envelope === 'object') {
     return record.envelope as Record<string, unknown>;
   }
   return record;
@@ -44,7 +47,7 @@ function unwrapRecord(input: unknown) {
 function unwrapVerification(input: unknown) {
   const record = unwrapRecord(input);
   if (!record) return null;
-  if (record.verification && typeof record.verification === "object") {
+  if (record.verification && typeof record.verification === 'object') {
     return record.verification as Record<string, unknown>;
   }
   if (record.output_hash || record.attestation_hash || record.tee_attestation) return record;
@@ -54,15 +57,24 @@ function unwrapVerification(input: unknown) {
 function unwrapAttestation(input: unknown) {
   const record = unwrapRecord(input);
   if (!record) return null;
-  if (record.tee_attestation && typeof record.tee_attestation === "object") return record.tee_attestation as Record<string, unknown>;
-  if (record.attestation && typeof record.attestation === "object") return record.attestation as Record<string, unknown>;
-  if (record.report_data || record.quote || record.event_log || record.compose_hash || record.app_id) return record;
+  if (record.tee_attestation && typeof record.tee_attestation === 'object')
+    return record.tee_attestation as Record<string, unknown>;
+  if (record.attestation && typeof record.attestation === 'object')
+    return record.attestation as Record<string, unknown>;
+  if (
+    record.report_data ||
+    record.quote ||
+    record.event_log ||
+    record.compose_hash ||
+    record.app_id
+  )
+    return record;
   return null;
 }
 
 function reportDataPrefix(reportData: unknown) {
   const normalized = normalizeHex(reportData);
-  if (!normalized) return "";
+  if (!normalized) return '';
   return normalized.slice(0, 64);
 }
 
@@ -84,7 +96,7 @@ export function verifyAttestation(input: {
   if (!verification && !attestation) {
     return {
       ok: false,
-      error: "verification or attestation object missing",
+      error: 'verification or attestation object missing',
       checks: {},
     };
   }
@@ -98,30 +110,44 @@ export function verifyAttestation(input: {
   const actualInstanceId = normalizeText(attestation?.instance_id);
 
   const expectedOutputHash = normalizeHex(
-    input.expectedOutputHash
-      || (input.expectedPayload !== undefined ? sha256Hex(input.expectedPayload) : ""),
+    input.expectedOutputHash ||
+      (input.expectedPayload !== undefined ? sha256Hex(input.expectedPayload) : '')
   );
   const expectedAttestationHash = normalizeHex(
-    input.expectedAttestationHash
-      || input.expectedOnchainAttestationHash
-      || expectedOutputHash,
+    input.expectedAttestationHash || input.expectedOnchainAttestationHash || expectedOutputHash
   );
 
   const bindingChecks = {
-    output_hash_matches_expected: expectedOutputHash && actualOutputHash ? actualOutputHash === expectedOutputHash : null,
-    attestation_hash_matches_expected: expectedAttestationHash && actualAttestationHash ? actualAttestationHash === expectedAttestationHash : null,
-    attestation_hash_matches_output_hash: actualOutputHash && actualAttestationHash ? actualOutputHash === actualAttestationHash : null,
-    report_data_prefix_matches_output_hash: actualReportDataPrefix && actualOutputHash ? actualReportDataPrefix === actualOutputHash : null,
-    report_data_prefix_matches_attestation_hash: actualReportDataPrefix && actualAttestationHash ? actualReportDataPrefix === actualAttestationHash : null,
-    report_data_prefix_matches_expected: actualReportDataPrefix && (expectedAttestationHash || expectedOutputHash)
-      ? actualReportDataPrefix === (expectedAttestationHash || expectedOutputHash)
-      : null,
+    output_hash_matches_expected:
+      expectedOutputHash && actualOutputHash ? actualOutputHash === expectedOutputHash : null,
+    attestation_hash_matches_expected:
+      expectedAttestationHash && actualAttestationHash
+        ? actualAttestationHash === expectedAttestationHash
+        : null,
+    attestation_hash_matches_output_hash:
+      actualOutputHash && actualAttestationHash ? actualOutputHash === actualAttestationHash : null,
+    report_data_prefix_matches_output_hash:
+      actualReportDataPrefix && actualOutputHash
+        ? actualReportDataPrefix === actualOutputHash
+        : null,
+    report_data_prefix_matches_attestation_hash:
+      actualReportDataPrefix && actualAttestationHash
+        ? actualReportDataPrefix === actualAttestationHash
+        : null,
+    report_data_prefix_matches_expected:
+      actualReportDataPrefix && (expectedAttestationHash || expectedOutputHash)
+        ? actualReportDataPrefix === (expectedAttestationHash || expectedOutputHash)
+        : null,
   };
 
   const metadataChecks = {
-    compose_hash_matches: input.expectedComposeHash ? actualComposeHash === normalizeText(input.expectedComposeHash) : null,
+    compose_hash_matches: input.expectedComposeHash
+      ? actualComposeHash === normalizeText(input.expectedComposeHash)
+      : null,
     app_id_matches: input.expectedAppId ? actualAppId === normalizeText(input.expectedAppId) : null,
-    instance_id_matches: input.expectedInstanceId ? actualInstanceId === normalizeText(input.expectedInstanceId) : null,
+    instance_id_matches: input.expectedInstanceId
+      ? actualInstanceId === normalizeText(input.expectedInstanceId)
+      : null,
   };
 
   const bindingFailed = Object.entries(bindingChecks)
@@ -131,10 +157,12 @@ export function verifyAttestation(input: {
     .filter(([, value]) => value === false)
     .map(([key]) => key);
 
-  const hasBindingEvidence = Boolean(actualOutputHash || actualAttestationHash || actualReportDataPrefix);
+  const hasBindingEvidence = Boolean(
+    actualOutputHash || actualAttestationHash || actualReportDataPrefix
+  );
   const bindingOk = hasBindingEvidence && bindingFailed.length === 0;
   const hasQuote = Boolean(attestation?.quote);
-  const hasEventLog = Object.prototype.hasOwnProperty.call(attestation || {}, "event_log");
+  const hasEventLog = Object.prototype.hasOwnProperty.call(attestation || {}, 'event_log');
   const fullAttestationOk = bindingOk && hasQuote && hasEventLog && metadataFailed.length === 0;
 
   return {
@@ -168,12 +196,15 @@ export function verifyAttestation(input: {
     expected: {
       output_hash: expectedOutputHash ? `0x${expectedOutputHash}` : null,
       attestation_hash: expectedAttestationHash ? `0x${expectedAttestationHash}` : null,
-      report_data_prefix: (expectedAttestationHash || expectedOutputHash) ? `0x${expectedAttestationHash || expectedOutputHash}` : null,
+      report_data_prefix:
+        expectedAttestationHash || expectedOutputHash
+          ? `0x${expectedAttestationHash || expectedOutputHash}`
+          : null,
       compose_hash: normalizeText(input.expectedComposeHash),
       app_id: normalizeText(input.expectedAppId),
       instance_id: normalizeText(input.expectedInstanceId),
     },
     failed: [...bindingFailed, ...metadataFailed],
-    note: "Morpheus attestation_hash currently mirrors output_hash. TDX report_data is 64 bytes; this verifier compares its first 32 bytes against output_hash/attestation_hash. Full Intel/TDX quote-chain validation is out of scope for this application-level verifier.",
+    note: 'Morpheus attestation_hash currently mirrors output_hash. TDX report_data is 64 bytes; this verifier compares its first 32 bytes against output_hash/attestation_hash. Full Intel/TDX quote-chain validation is out of scope for this application-level verifier.',
   };
 }

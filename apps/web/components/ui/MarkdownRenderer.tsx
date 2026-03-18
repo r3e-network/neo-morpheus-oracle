@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,24 +17,14 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSlug]}
         components={{
-          code({ node, inline, className, children, ...props }: any) {
+          code({ inline, className, children, ...props }: any) {
             const match = /language-(\w+)/.exec(className || '');
             const codeString = String(children).replace(/\n$/, '');
-            
+
             if (!inline && match) {
-              return (
-                <CodeBlock 
-                  code={codeString} 
-                  language={match[1]} 
-                />
-              );
+              return <CodeBlock code={codeString} language={match[1]} />;
             } else if (!inline) {
-               return (
-                <CodeBlock 
-                  code={codeString} 
-                  language="text" 
-                />
-              );
+              return <CodeBlock code={codeString} language="text" />;
             }
             return (
               <code className={className} {...props}>
@@ -44,7 +34,15 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           },
           table({ children, ...props }) {
             return (
-              <div style={{ overflowX: 'auto', marginBottom: '2.5rem', background: '#000', border: '1px solid var(--border-dim)', borderRadius: '4px' }}>
+              <div
+                style={{
+                  overflowX: 'auto',
+                  marginBottom: '2.5rem',
+                  background: '#000',
+                  border: '1px solid var(--border-dim)',
+                  borderRadius: '4px',
+                }}
+              >
                 <table style={{ width: '100%', borderCollapse: 'collapse' }} {...props}>
                   {children}
                 </table>
@@ -53,30 +51,66 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
           },
           th({ children, ...props }) {
             return (
-              <th style={{ padding: '1rem', textAlign: 'left', borderBottom: '1px solid var(--border-dim)', background: 'rgba(255,255,255,0.02)', color: '#fff', fontSize: '0.85rem' }} {...props}>
+              <th
+                style={{
+                  padding: '1rem',
+                  textAlign: 'left',
+                  borderBottom: '1px solid var(--border-dim)',
+                  background: 'rgba(255,255,255,0.02)',
+                  color: '#fff',
+                  fontSize: '0.85rem',
+                }}
+                {...props}
+              >
                 {children}
               </th>
             );
           },
           td({ children, ...props }) {
             return (
-              <td style={{ padding: '1rem', borderBottom: '1px solid var(--border-dim)', color: 'var(--text-secondary)', fontSize: '0.85rem' }} {...props}>
+              <td
+                style={{
+                  padding: '1rem',
+                  borderBottom: '1px solid var(--border-dim)',
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.85rem',
+                }}
+                {...props}
+              >
                 {children}
               </td>
             );
           },
           a({ children, href, ...props }) {
             return (
-              <a href={href} style={{ color: 'var(--neo-green)', textDecoration: 'none', borderBottom: '1px solid rgba(0,255,163,0.3)' }} {...props}>
+              <a
+                href={href}
+                style={{
+                  color: 'var(--neo-green)',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid rgba(0,255,163,0.3)',
+                }}
+                {...props}
+              >
                 {children}
               </a>
             );
           },
           img({ src, alt, ...props }) {
             return (
-              <img src={src} alt={alt} style={{ maxWidth: '100%', borderRadius: '4px', border: '1px solid var(--border-dim)', margin: '2rem 0' }} {...props} />
+              <img
+                src={src}
+                alt={alt}
+                style={{
+                  maxWidth: '100%',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-dim)',
+                  margin: '2rem 0',
+                }}
+                {...props}
+              />
             );
-          }
+          },
         }}
       >
         {content}

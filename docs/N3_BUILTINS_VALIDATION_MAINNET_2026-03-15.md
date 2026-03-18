@@ -12,26 +12,26 @@ Generated: 2026-03-15T07:50:09.249Z
 
 ## Builtin Matrix
 
-| Builtin | Tx | Request ID | Result |
-| --- | --- | --- | --- |
-| hash.sha256 | `0x9627b2f7907278e4493cb456bbe5eb886d266a9532864c5f5357d2fbc3bd9f47` | `200` | `{"digest":"f9a8e3c50a373fff6540a8bd7fde4c6094936d54f9a1d76b978319f84bedc9dd"}` |
-| hash.keccak256 | `0xcf4261ae5a9ce3bd648c93b5ce2cc6b85d80a75af5eddf070e339b30db63b4f4` | `201` | `{"digest":"0x75c8c3fb2792afb3e58d9f00944fe82beadc4b2d75905ee68530d4e8aa6f1066"}` |
-| crypto.rsa_verify | `0xe16da8a4739d75a61188d4f478245fd81a12905a806f2625f2916eccd2c6f0b0` | `202` | `{"is_valid":true}` |
-| math.modexp | `0xb894e3dc959f9e02700e43a18ed7ca6637afb93c27caec3b089c150b88715fa2` | `203` | `{"value":"4"}` |
-| math.polynomial | `0xc9e006ee3bd6b57f5d7db00b661e063a8d8e436101f3f73bdbaa17b2c4516f9c` | `204` | `{"value":"15"}` |
-| matrix.multiply | `0xb85a6b7271963ead7a937527a6738846af557d5968991d0356040eba1c6d6eff` | `205` | `{"matrix":[[19,22],[43,50]]}` |
-| vector.cosine_similarity | `0x9c240ebb25118bb81ff038f1a5f64379d5ce715b42b946a5b38f263ea9ea0407` | `206` | `{"similarity":1}` |
-| merkle.root | `0xeb98e97ee3d4721b9dd770871b8abc7a93460f3907a8f6d5fb6612dd2acf7a9a` | `207` | `{"root":"d31a37ef6ac14a2db1470c4316beb5592e6afd4465022339adafda76a18ffabe"}` |
-| zkp.public_signal_hash | `0x188eaf2951498e59dade0e05a9acb4d0788f0c1c7b3ccfeb34aa2d95be062bad` | `208` | `{"digest":"96bec0b6442d3eb5be3b0ed884c8df07835adc41ba13374cc12ba5a364d604ef"}` |
-| zkp.proof_digest | `0xa2d20b6f08c69d72883fea55ded666ea2c83407e619c84cb7c7a343b29ecbee4` | `209` | `{"digest":"545c3fac1e0066329f385ea3ac4497f89cf970ae00ba176d89cefec7d47f064d"}` |
-| zkp.witness_digest | `0x96fbfa6385c05c72bb472c8cc7473e6b495dcdbfb4eee17d4776324f3b3eebe2` | `210` | `{"digest":"634346f5df11df8fdae3a57a110545fc38c8abae35bdbeda91cdd873c716914a"}` |
-| zkp.groth16.prove.plan | `0xdf77baf6c6bf9d1d9bae53d89d2cfa0ce784d0eded73fac60f94350f35bb5cee` | `211` | `{"constraints":100000,"witness_count":5000,"estimated_segments":2,"estimated_memory_mb":5}` |
-| zkp.plonk.prove.plan | `0x1647cac3890749a2d334eb87057c6f7dbae909aafda26b48480530e6df52432d` | `212` | `{"gates":131072,"estimated_polynomials":2,"estimated_memory_mb":5}` |
-| fhe.batch_plan | `0x807e1c30d427ae2011261695f23ddd82bfb0149f96873daf493337305a370271` | `213` | `{"slot_count":16,"ciphertext_count":3,"slots_per_ciphertext":6}` |
-| fhe.noise_budget_estimate | `0x493ffd1164f88d660db0a81017e4e272135c16a278ce6ce008cdb130d2c2e052` | `214` | `{"multiplicative_depth":2,"scale_bits":40,"modulus_bits":218,"estimated_noise_budget":138}` |
-| fhe.rotation_plan | `0x81b6f375849f531f4f1d2f0254dc8f4770bb251871959cff6b0c68a4fb0692f1` | `215` | `{"indices":[1,-1,4,1],"unique_rotations":[-1,1,4],"key_switch_steps":4}` |
-| privacy.mask | `0x6db63e9330c09d84f458f7cc508c347a9a3ced96bec1e192294b3cc7f2a3be61` | `216` | `{"masked":"sec************34"}` |
-| privacy.add_noise | `0xf2bd8239dd9ca4ed6dec798418bf61bb4f43e1aa227a71683aa29be5528304cf` | `217` | `{"noisy_value":11.001201278037168}` |
+| Builtin                   | Tx                                                                   | Request ID | Result                                                                                       |
+| ------------------------- | -------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| hash.sha256               | `0x9627b2f7907278e4493cb456bbe5eb886d266a9532864c5f5357d2fbc3bd9f47` | `200`      | `{"digest":"f9a8e3c50a373fff6540a8bd7fde4c6094936d54f9a1d76b978319f84bedc9dd"}`              |
+| hash.keccak256            | `0xcf4261ae5a9ce3bd648c93b5ce2cc6b85d80a75af5eddf070e339b30db63b4f4` | `201`      | `{"digest":"0x75c8c3fb2792afb3e58d9f00944fe82beadc4b2d75905ee68530d4e8aa6f1066"}`            |
+| crypto.rsa_verify         | `0xe16da8a4739d75a61188d4f478245fd81a12905a806f2625f2916eccd2c6f0b0` | `202`      | `{"is_valid":true}`                                                                          |
+| math.modexp               | `0xb894e3dc959f9e02700e43a18ed7ca6637afb93c27caec3b089c150b88715fa2` | `203`      | `{"value":"4"}`                                                                              |
+| math.polynomial           | `0xc9e006ee3bd6b57f5d7db00b661e063a8d8e436101f3f73bdbaa17b2c4516f9c` | `204`      | `{"value":"15"}`                                                                             |
+| matrix.multiply           | `0xb85a6b7271963ead7a937527a6738846af557d5968991d0356040eba1c6d6eff` | `205`      | `{"matrix":[[19,22],[43,50]]}`                                                               |
+| vector.cosine_similarity  | `0x9c240ebb25118bb81ff038f1a5f64379d5ce715b42b946a5b38f263ea9ea0407` | `206`      | `{"similarity":1}`                                                                           |
+| merkle.root               | `0xeb98e97ee3d4721b9dd770871b8abc7a93460f3907a8f6d5fb6612dd2acf7a9a` | `207`      | `{"root":"d31a37ef6ac14a2db1470c4316beb5592e6afd4465022339adafda76a18ffabe"}`                |
+| zkp.public_signal_hash    | `0x188eaf2951498e59dade0e05a9acb4d0788f0c1c7b3ccfeb34aa2d95be062bad` | `208`      | `{"digest":"96bec0b6442d3eb5be3b0ed884c8df07835adc41ba13374cc12ba5a364d604ef"}`              |
+| zkp.proof_digest          | `0xa2d20b6f08c69d72883fea55ded666ea2c83407e619c84cb7c7a343b29ecbee4` | `209`      | `{"digest":"545c3fac1e0066329f385ea3ac4497f89cf970ae00ba176d89cefec7d47f064d"}`              |
+| zkp.witness_digest        | `0x96fbfa6385c05c72bb472c8cc7473e6b495dcdbfb4eee17d4776324f3b3eebe2` | `210`      | `{"digest":"634346f5df11df8fdae3a57a110545fc38c8abae35bdbeda91cdd873c716914a"}`              |
+| zkp.groth16.prove.plan    | `0xdf77baf6c6bf9d1d9bae53d89d2cfa0ce784d0eded73fac60f94350f35bb5cee` | `211`      | `{"constraints":100000,"witness_count":5000,"estimated_segments":2,"estimated_memory_mb":5}` |
+| zkp.plonk.prove.plan      | `0x1647cac3890749a2d334eb87057c6f7dbae909aafda26b48480530e6df52432d` | `212`      | `{"gates":131072,"estimated_polynomials":2,"estimated_memory_mb":5}`                         |
+| fhe.batch_plan            | `0x807e1c30d427ae2011261695f23ddd82bfb0149f96873daf493337305a370271` | `213`      | `{"slot_count":16,"ciphertext_count":3,"slots_per_ciphertext":6}`                            |
+| fhe.noise_budget_estimate | `0x493ffd1164f88d660db0a81017e4e272135c16a278ce6ce008cdb130d2c2e052` | `214`      | `{"multiplicative_depth":2,"scale_bits":40,"modulus_bits":218,"estimated_noise_budget":138}` |
+| fhe.rotation_plan         | `0x81b6f375849f531f4f1d2f0254dc8f4770bb251871959cff6b0c68a4fb0692f1` | `215`      | `{"indices":[1,-1,4,1],"unique_rotations":[-1,1,4],"key_switch_steps":4}`                    |
+| privacy.mask              | `0x6db63e9330c09d84f458f7cc508c347a9a3ced96bec1e192294b3cc7f2a3be61` | `216`      | `{"masked":"sec************34"}`                                                             |
+| privacy.add_noise         | `0xf2bd8239dd9ca4ed6dec798418bf61bb4f43e1aa227a71683aa29be5528304cf` | `217`      | `{"noisy_value":11.001201278037168}`                                                         |
 
 ## Detailed Results
 
@@ -109,14 +109,8 @@ Generated: 2026-03-15T07:50:09.249Z
   "request_id": "205",
   "result": {
     "matrix": [
-      [
-        19,
-        22
-      ],
-      [
-        43,
-        50
-      ]
+      [19, 22],
+      [43, 50]
     ]
   }
 }
@@ -257,17 +251,8 @@ Generated: 2026-03-15T07:50:09.249Z
   "txid": "0x81b6f375849f531f4f1d2f0254dc8f4770bb251871959cff6b0c68a4fb0692f1",
   "request_id": "215",
   "result": {
-    "indices": [
-      1,
-      -1,
-      4,
-      1
-    ],
-    "unique_rotations": [
-      -1,
-      1,
-      4
-    ],
+    "indices": [1, -1, 4, 1],
+    "unique_rotations": [-1, 1, 4],
     "key_switch_steps": 4
   }
 }

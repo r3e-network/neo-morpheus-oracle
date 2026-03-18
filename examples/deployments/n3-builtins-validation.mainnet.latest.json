@@ -54,14 +54,8 @@
       "request_id": "205",
       "result": {
         "matrix": [
-          [
-            19,
-            22
-          ],
-          [
-            43,
-            50
-          ]
+          [19, 22],
+          [43, 50]
         ]
       }
     },
@@ -152,17 +146,8 @@
       "txid": "0x81b6f375849f531f4f1d2f0254dc8f4770bb251871959cff6b0c68a4fb0692f1",
       "request_id": "215",
       "result": {
-        "indices": [
-          1,
-          -1,
-          4,
-          1
-        ],
-        "unique_rotations": [
-          -1,
-          1,
-          4
-        ],
+        "indices": [1, -1, 4, 1],
+        "unique_rotations": [-1, 1, 4],
         "key_switch_steps": 4
       }
     },

@@ -1,19 +1,11 @@
-import { createRequire } from "node:module";
-import { execFile } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { promisify } from "node:util";
+import { createRequire } from 'node:module';
+import { execFile } from 'node:child_process';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { promisify } from 'node:util';
 
-import {
-  experimental,
-  rpc as neoRpc,
-  sc,
-  tx,
-  wallet,
-  u,
-  CONST,
-} from "@cityofzion/neon-js";
+import { experimental, rpc as neoRpc, sc, tx, wallet, u, CONST } from '@cityofzion/neon-js';
 
 import {
   loadExampleEnv,
@@ -23,22 +15,31 @@ import {
   trimString,
   tryParseJson,
   writeValidationArtifacts,
-} from "./common.mjs";
+} from './common.mjs';
 
 const require = createRequire(import.meta.url);
 const execFileAsync = promisify(execFile);
-const { ethers } = require("ethers");
-const { buildV3UserOperationTypedData, sanitizeHex } = require("/Users/jinghuiliao/git/neo-abstract-account/sdk/js/src/metaTx.js");
-const { AbstractAccountClient } = require("/Users/jinghuiliao/git/neo-abstract-account/sdk/js/src/index.js");
-const relayModule = await import("/Users/jinghuiliao/git/neo-abstract-account/frontend/api/relay-transaction.js");
+const { ethers } = require('ethers');
+const {
+  buildV3UserOperationTypedData,
+  sanitizeHex,
+} = require('/Users/jinghuiliao/git/neo-abstract-account/sdk/js/src/metaTx.js');
+const {
+  AbstractAccountClient,
+} = require('/Users/jinghuiliao/git/neo-abstract-account/sdk/js/src/index.js');
+const relayModule =
+  await import('/Users/jinghuiliao/git/neo-abstract-account/frontend/api/relay-transaction.js');
 const relayHandler = relayModule.default;
 
 const GAS_HASH = CONST.NATIVE_CONTRACT_HASH.GasToken;
-const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38";
-const WEB3AUTH_VERIFIER_HASH = process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || "0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d";
-const PAYMASTER_ACCOUNT_ID = process.env.PAYMASTER_ACCOUNT_ID || "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56";
-const PAYMASTER_DAPP_ID = process.env.MORPHEUS_PAYMASTER_DAPP_ID || "demo-dapp";
-const PAYMASTER_APP_ID = process.env.MORPHEUS_PAYMASTER_APP_ID || "28294e89d490924b79c85cdee057ce55723b3d56";
+const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38';
+const WEB3AUTH_VERIFIER_HASH =
+  process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || '0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d';
+const PAYMASTER_ACCOUNT_ID =
+  process.env.PAYMASTER_ACCOUNT_ID || '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56';
+const PAYMASTER_DAPP_ID = process.env.MORPHEUS_PAYMASTER_DAPP_ID || 'demo-dapp';
+const PAYMASTER_APP_ID =
+  process.env.MORPHEUS_PAYMASTER_APP_ID || '28294e89d490924b79c85cdee057ce55723b3d56';
 const PHALA_SSH_RETRIES = Math.max(1, Number(process.env.PHALA_SSH_RETRIES || 3));
 
 function assertCondition(condition, message) {
@@ -51,7 +52,7 @@ function logStage(message, data = undefined) {
     console.log(prefix);
     return;
   }
-  console.log(prefix, typeof data === "string" ? data : JSON.stringify(data));
+  console.log(prefix, typeof data === 'string' ? data : JSON.stringify(data));
 }
 
 function shellQuote(value) {
@@ -86,7 +87,7 @@ function byteArrayParam(hexValue) {
 }
 
 function integerParam(value) {
-  if (typeof value === "bigint") return sc.ContractParam.integer(value.toString());
+  if (typeof value === 'bigint') return sc.ContractParam.integer(value.toString());
   return sc.ContractParam.integer(value);
 }
 
@@ -95,7 +96,7 @@ function stringParam(value) {
 }
 
 function utf8ByteArrayParam(value) {
-  return sc.ContractParam.byteArray(Buffer.from(String(value ?? ""), "utf8").toString("base64"));
+  return sc.ContractParam.byteArray(Buffer.from(String(value ?? ''), 'utf8').toString('base64'));
 }
 
 function arrayParam(values = []) {
@@ -103,24 +104,38 @@ function arrayParam(values = []) {
 }
 
 function emptyByteArrayParam() {
-  return sc.ContractParam.byteArray(u.HexString.fromHex("", true));
+  return sc.ContractParam.byteArray(u.HexString.fromHex('', true));
 }
 
-function userOpJsonParam({ targetContract, method, args = [], nonce = 0n, deadline = 0n, signatureHex = "" }) {
+function userOpJsonParam({
+  targetContract,
+  method,
+  args = [],
+  nonce = 0n,
+  deadline = 0n,
+  signatureHex = '',
+}) {
   return {
-    type: "Struct",
+    type: 'Struct',
     value: [
-      { type: "Hash160", value: normalizeHash(`0x${sanitizeHex(targetContract)}`) },
-      { type: "String", value: String(method) },
-      { type: "Array", value: args },
-      { type: "Integer", value: String(nonce) },
-      { type: "Integer", value: String(deadline) },
-      { type: "ByteArray", value: `0x${sanitizeHex(signatureHex)}` },
+      { type: 'Hash160', value: normalizeHash(`0x${sanitizeHex(targetContract)}`) },
+      { type: 'String', value: String(method) },
+      { type: 'Array', value: args },
+      { type: 'Integer', value: String(nonce) },
+      { type: 'Integer', value: String(deadline) },
+      { type: 'ByteArray', value: `0x${sanitizeHex(signatureHex)}` },
     ],
   };
 }
 
-function userOpContractParam({ targetContract, method, args = [], nonce = 0n, deadline = 0n, signatureHex = "" }) {
+function userOpContractParam({
+  targetContract,
+  method,
+  args = [],
+  nonce = 0n,
+  deadline = 0n,
+  signatureHex = '',
+}) {
   return arrayParam([
     hash160Param(targetContract),
     stringParam(method),
@@ -132,33 +147,33 @@ function userOpContractParam({ targetContract, method, args = [], nonce = 0n, de
 }
 
 function normalizeHash(value) {
-  const hex = sanitizeHex(value || "");
-  return hex ? `0x${hex}` : "";
+  const hex = sanitizeHex(value || '');
+  return hex ? `0x${hex}` : '';
 }
 
 function parseStackItem(item) {
-  if (!item || typeof item !== "object") return null;
+  if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
   switch (type) {
-    case "array":
-    case "struct":
+    case 'array':
+    case 'struct':
       return Array.isArray(item.value) ? item.value.map((entry) => parseStackItem(entry)) : [];
-    case "hash160":
-    case "hash256":
-    case "string":
-      return String(item.value ?? "");
-    case "integer":
-      return String(item.value ?? "0");
-    case "boolean":
+    case 'hash160':
+    case 'hash256':
+    case 'string':
+      return String(item.value ?? '');
+    case 'integer':
+      return String(item.value ?? '0');
+    case 'boolean':
       return Boolean(item.value);
-    case "bytestring":
-    case "bytearray": {
+    case 'bytestring':
+    case 'bytearray': {
       const raw = trimString(item.value);
-      if (!raw) return "";
-      const bytes = Buffer.from(raw, "base64");
-      if (bytes.length === 20) return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
-      const text = bytes.toString("utf8");
-      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString("hex")}`;
+      if (!raw) return '';
+      const bytes = Buffer.from(raw, 'base64');
+      if (bytes.length === 20) return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
+      const text = bytes.toString('utf8');
+      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString('hex')}`;
     }
     default:
       return item.value ?? null;
@@ -166,11 +181,14 @@ function parseStackItem(item) {
 }
 
 function decodeCallbackArray(item) {
-  if (!item || item.type !== "Array" || !Array.isArray(item.value) || item.value.length < 4) return null;
+  if (!item || item.type !== 'Array' || !Array.isArray(item.value) || item.value.length < 4)
+    return null;
   const [requestTypeItem, successItem, resultItem, errorItem] = item.value;
-  const requestType = Buffer.from(trimString(requestTypeItem?.value || ""), "base64").toString("utf8");
-  const resultText = Buffer.from(trimString(resultItem?.value || ""), "base64").toString("utf8");
-  const errorText = Buffer.from(trimString(errorItem?.value || ""), "base64").toString("utf8");
+  const requestType = Buffer.from(trimString(requestTypeItem?.value || ''), 'base64').toString(
+    'utf8'
+  );
+  const resultText = Buffer.from(trimString(resultItem?.value || ''), 'base64').toString('utf8');
+  const errorText = Buffer.from(trimString(errorItem?.value || ''), 'base64').toString('utf8');
   return {
     request_type: requestType,
     success: Boolean(successItem?.value),
@@ -195,21 +213,28 @@ async function waitForAppLog(client, txid, label, timeoutMs = 180000) {
 function assertHalt(appLog, label) {
   const execution = appLog?.executions?.[0];
   if (!execution) throw new Error(`${label}: missing execution`);
-  const vmState = String(execution.vmstate || execution.state || "");
-  if (!vmState.includes("HALT")) {
-    throw new Error(`${label}: expected HALT, got ${vmState} ${execution.exception || ""}`.trim());
+  const vmState = String(execution.vmstate || execution.state || '');
+  if (!vmState.includes('HALT')) {
+    throw new Error(`${label}: expected HALT, got ${vmState} ${execution.exception || ''}`.trim());
   }
   return execution;
 }
 
-async function sendInvocationTransaction({ rpcClient, account, networkMagic, script, signers, label }) {
+async function sendInvocationTransaction({
+  rpcClient,
+  account,
+  networkMagic,
+  script,
+  signers,
+  label,
+}) {
   const preview = await rpcClient.invokeScript(u.HexString.fromHex(script), signers);
   const validUntilBlock = (await rpcClient.getBlockCount()) + 1000;
   const basePayload = {
     signers,
     validUntilBlock,
     script,
-    systemFee: preview?.gasconsumed || "1000000",
+    systemFee: preview?.gasconsumed || '1000000',
   };
 
   let transaction = new tx.Transaction(basePayload);
@@ -228,14 +253,25 @@ async function sendInvocationTransaction({ rpcClient, account, networkMagic, scr
     txid,
     preview,
     networkFee: String(networkFee),
-    systemFee: preview?.gasconsumed || "0",
+    systemFee: preview?.gasconsumed || '0',
     appLog,
     execution: appLog?.executions?.[0] || {},
   };
 }
 
-async function invokePersisted(client, contractHash, account, networkMagic, operation, params = [], signers = undefined, rpcUrl) {
-  const resolvedSigners = signers || [{ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry }];
+async function invokePersisted(
+  client,
+  contractHash,
+  account,
+  networkMagic,
+  operation,
+  params = [],
+  signers = undefined,
+  rpcUrl
+) {
+  const resolvedSigners = signers || [
+    { account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry },
+  ];
   const script = sc.createScript({
     scriptHash: sanitizeHex(contractHash),
     operation,
@@ -253,8 +289,20 @@ async function invokePersisted(client, contractHash, account, networkMagic, oper
   return { txid, appLog, execution };
 }
 
-async function invokePersistedNoPreview(client, contractHash, account, networkMagic, operation, params = [], signers = undefined, rpcUrl, systemFee = "3000000") {
-  const resolvedSigners = signers || [{ account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry }];
+async function invokePersistedNoPreview(
+  client,
+  contractHash,
+  account,
+  networkMagic,
+  operation,
+  params = [],
+  signers = undefined,
+  rpcUrl,
+  systemFee = '3000000'
+) {
+  const resolvedSigners = signers || [
+    { account: account.scriptHash, scopes: tx.WitnessScope.CalledByEntry },
+  ];
   const script = sc.createScript({
     scriptHash: sanitizeHex(contractHash),
     operation,
@@ -278,17 +326,22 @@ async function invokePersistedNoPreview(client, contractHash, account, networkMa
   return { txid, appLog, execution, networkFee: String(networkFee), systemFee };
 }
 
-async function runPhalaRemoteShell(shellScript, apiToken, appId, { maxBuffer = 10 * 1024 * 1024 } = {}) {
+async function runPhalaRemoteShell(
+  shellScript,
+  apiToken,
+  appId,
+  { maxBuffer = 10 * 1024 * 1024 } = {}
+) {
   let lastError = null;
   for (let attempt = 1; attempt <= PHALA_SSH_RETRIES; attempt += 1) {
     for (const args of [
       trimString(apiToken)
-        ? ["ssh", "--api-token", apiToken, appId, "--", `sh -lc ${shellQuote(shellScript)}`]
+        ? ['ssh', '--api-token', apiToken, appId, '--', `sh -lc ${shellQuote(shellScript)}`]
         : null,
-      ["ssh", appId, "--", `sh -lc ${shellQuote(shellScript)}`],
+      ['ssh', appId, '--', `sh -lc ${shellQuote(shellScript)}`],
     ].filter(Boolean)) {
       try {
-        return await execFileAsync("phala", args, { maxBuffer });
+        return await execFileAsync('phala', args, { maxBuffer });
       } catch (error) {
         lastError = error;
       }
@@ -303,12 +356,12 @@ async function runPhalaRemoteShell(shellScript, apiToken, appId, { maxBuffer = 1
 async function callPaymasterAuthorize(endpoint, apiToken, body) {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(new Error("paymaster http timeout")), 12_000);
+    const timeout = setTimeout(() => controller.abort(new Error('paymaster http timeout')), 12_000);
     const response = await fetch(endpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
         authorization: `Bearer ${apiToken}`,
-        "content-type": "application/json",
+        'content-type': 'application/json',
       },
       body: JSON.stringify(body),
       signal: controller.signal,
@@ -320,7 +373,10 @@ async function callPaymasterAuthorize(endpoint, apiToken, body) {
     }
     return payload;
   } catch (networkError) {
-    logStage("public paymaster endpoint unavailable, falling back to CVM shell", String(networkError?.message || networkError));
+    logStage(
+      'public paymaster endpoint unavailable, falling back to CVM shell',
+      String(networkError?.message || networkError)
+    );
     let lastError = networkError;
     const shellScript = `
 set -e
@@ -345,11 +401,16 @@ JS
         const { stdout } = await runPhalaRemoteShell(shellScript, apiToken, PAYMASTER_APP_ID, {
           maxBuffer: 10 * 1024 * 1024,
         });
-        const jsonLine = stdout.trim().split("\n").find((line) => line.trim().startsWith("{"));
+        const jsonLine = stdout
+          .trim()
+          .split('\n')
+          .find((line) => line.trim().startsWith('{'));
         if (!jsonLine) throw new Error(`unexpected paymaster output: ${stdout.trim()}`);
         const remote = JSON.parse(jsonLine);
         if (Number(remote.status || 200) >= 400) {
-          throw new Error(`paymaster authorize failed: ${remote.status} ${JSON.stringify(remote.body || {})}`);
+          throw new Error(
+            `paymaster authorize failed: ${remote.status} ${JSON.stringify(remote.body || {})}`
+          );
         }
         return remote.body || {};
       } catch (error) {
@@ -364,26 +425,28 @@ JS
 }
 
 async function compilePaymasterAutomationConsumer(executeAtIso) {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "aa-paymaster-automation-consumer-"));
-  const outDir = path.join(tempDir, "out");
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'aa-paymaster-automation-consumer-'));
+  const outDir = path.join(tempDir, 'out');
   await mkdir(outDir, { recursive: true });
   const registerPayloadJson = JSON.stringify({
     trigger: {
-      type: "one_shot",
+      type: 'one_shot',
       execute_at: executeAtIso,
     },
     execution: {
-      request_type: "privacy_oracle",
+      request_type: 'privacy_oracle',
       payload: {
-        provider: "twelvedata",
-        symbol: "TWELVEDATA:NEO-USD",
-        json_path: "price",
-        target_chain: "neo_n3",
-        tag: "aa-paymaster-automation",
+        provider: 'twelvedata',
+        symbol: 'TWELVEDATA:NEO-USD',
+        json_path: 'price',
+        target_chain: 'neo_n3',
+        tag: 'aa-paymaster-automation',
       },
     },
     max_executions: 1,
-  }).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  })
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
   const source = `using System.ComponentModel;
 using System.Numerics;
 using Neo;
@@ -507,11 +570,22 @@ public class AAPaymasterAutomationConsumer : SmartContract
   </ItemGroup>
 </Project>
 `;
-  await writeFile(path.join(tempDir, "AAPaymasterAutomationConsumer.cs"), source);
-  await writeFile(path.join(tempDir, "AAPaymasterAutomationConsumer.csproj"), csproj);
-  await execFileAsync(path.join(process.env.HOME || "~", ".dotnet/tools/nccs"), [path.join(tempDir, "AAPaymasterAutomationConsumer.csproj"), "-o", outDir, "--base-name", "AAPaymasterAutomationConsumer", "--assembly"], {
-    maxBuffer: 10 * 1024 * 1024,
-  });
+  await writeFile(path.join(tempDir, 'AAPaymasterAutomationConsumer.cs'), source);
+  await writeFile(path.join(tempDir, 'AAPaymasterAutomationConsumer.csproj'), csproj);
+  await execFileAsync(
+    path.join(process.env.HOME || '~', '.dotnet/tools/nccs'),
+    [
+      path.join(tempDir, 'AAPaymasterAutomationConsumer.csproj'),
+      '-o',
+      outDir,
+      '--base-name',
+      'AAPaymasterAutomationConsumer',
+      '--assembly',
+    ],
+    {
+      maxBuffer: 10 * 1024 * 1024,
+    }
+  );
   return { tempDir, outDir };
 }
 
@@ -520,7 +594,7 @@ async function loadContractArtifacts(baseName, buildDir) {
   const manifestPath = path.join(buildDir, `${baseName}.manifest.json`);
   const [nefBytes, manifestRaw] = await Promise.all([
     readFile(nefPath),
-    readFile(manifestPath, "utf8"),
+    readFile(manifestPath, 'utf8'),
   ]);
   return {
     nef: sc.NEF.fromBuffer(nefBytes),
@@ -529,11 +603,13 @@ async function loadContractArtifacts(baseName, buildDir) {
 }
 
 function decodeDeployHash(appLog) {
-  const notification = appLog?.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "Deploy");
-  const value = notification?.state?.value?.[0]?.value || "";
-  const bytes = Buffer.from(value, "base64");
-  if (bytes.length !== 20) throw new Error("failed to decode deployed Neo N3 contract hash");
-  return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+  const notification = appLog?.executions
+    ?.flatMap((execution) => execution.notifications || [])
+    .find((entry) => entry.eventname === 'Deploy');
+  const value = notification?.state?.value?.[0]?.value || '';
+  const bytes = Buffer.from(value, 'base64');
+  if (bytes.length !== 20) throw new Error('failed to decode deployed Neo N3 contract hash');
+  return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
 }
 
 async function deployContract(client, account, rpcUrl, networkMagic, baseName, buildDir, suffix) {
@@ -545,7 +621,7 @@ async function deployContract(client, account, rpcUrl, networkMagic, baseName, b
   const builder = new sc.ScriptBuilder();
   builder.emitContractCall({
     scriptHash: CONST.NATIVE_CONTRACT_HASH.ManagementContract,
-    operation: "deploy",
+    operation: 'deploy',
     callFlags: sc.CallFlags.All,
     args: [
       sc.ContractParam.byteArray(u.HexString.fromHex(nef.serialize(), true)),
@@ -566,25 +642,33 @@ async function deployContract(client, account, rpcUrl, networkMagic, baseName, b
 }
 
 async function invokeRead(client, contractHash, operation, params = []) {
-  const normalizedHash = trimString(contractHash).replace(/^0x/i, "");
+  const normalizedHash = trimString(contractHash).replace(/^0x/i, '');
   const result = await client.invokeFunction(normalizedHash, operation, params);
-  if (String(result?.state || "").includes("FAULT")) {
-    throw new Error(`${operation} fault: ${result.exception || "VM fault"}`);
+  if (String(result?.state || '').includes('FAULT')) {
+    throw new Error(`${operation} fault: ${result.exception || 'VM fault'}`);
   }
   return result?.stack?.[0];
 }
 
 function decodeIntStack(item) {
-  return BigInt(item?.value || "0");
+  return BigInt(item?.value || '0');
 }
 
-async function ensureConsumerFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, consumerHash, requiredRequests) {
+async function ensureConsumerFeeCredit(
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  consumerHash,
+  requiredRequests
+) {
   const requestFee = 1_000_000n;
   const depositAmount = requestFee * BigInt(requiredRequests);
   const childScript = `
 const { rpc, wallet, sc, tx, u } = require('@cityofzion/neon-js');
 const rpcClient = new rpc.RPCClient(${JSON.stringify(rpcUrl)});
-const account = new wallet.Account(${JSON.stringify(account.WIF || account.export?.() || process.env.NEO_TESTNET_WIF || "")});
+const account = new wallet.Account(${JSON.stringify(account.WIF || account.export?.() || process.env.NEO_TESTNET_WIF || '')});
 const networkMagic = Number(${JSON.stringify(String(networkMagic))});
 const GAS = ${JSON.stringify(GAS_HASH)};
 const consumer = ${JSON.stringify(consumerHash)};
@@ -631,15 +715,19 @@ async function send(scriptHash, operation, args, label) {
   process.exit(1);
 });
 `;
-  const { stdout } = await execFileAsync(process.execPath, ["-e", childScript], {
+  const { stdout } = await execFileAsync(process.execPath, ['-e', childScript], {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      NEO_TESTNET_WIF: account.WIF || process.env.NEO_TESTNET_WIF || "",
+      NEO_TESTNET_WIF: account.WIF || process.env.NEO_TESTNET_WIF || '',
     },
     maxBuffer: 10 * 1024 * 1024,
   });
-  const lastJsonLine = stdout.trim().split("\n").reverse().find((line) => line.trim().startsWith("{"));
+  const lastJsonLine = stdout
+    .trim()
+    .split('\n')
+    .reverse()
+    .find((line) => line.trim().startsWith('{'));
   const parsed = lastJsonLine ? JSON.parse(lastJsonLine) : {};
   return {
     request_fee: requestFee.toString(),
@@ -655,7 +743,9 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
   while (Date.now() - startedAt < timeoutMs) {
     try {
       const appLog = await rpcClient.getApplicationLog(txid);
-      const notification = appLog.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "OracleRequested");
+      const notification = appLog.executions
+        ?.flatMap((execution) => execution.notifications || [])
+        .find((entry) => entry.eventname === 'OracleRequested');
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -667,54 +757,67 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
 async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await rpcClient.invokeFunction(sanitizeHex(consumerHash), "getCallback", [{ type: "Integer", value: String(requestId) }]);
+    const response = await rpcClient.invokeFunction(sanitizeHex(consumerHash), 'getCallback', [
+      { type: 'Integer', value: String(requestId) },
+    ]);
     const decoded = decodeCallbackArray(response.stack?.[0]);
-    if (decoded && (decoded.request_type || decoded.result_text || decoded.error_text)) return decoded;
+    if (decoded && (decoded.request_type || decoded.result_text || decoded.error_text))
+      return decoded;
     await sleep(2000);
   }
   throw new Error(`timed out waiting for callback ${requestId}`);
 }
 
-async function fetchAutomationRecord(baseUrl, apiKey, automationId, network = "testnet") {
+async function fetchAutomationRecord(baseUrl, apiKey, automationId, network = 'testnet') {
   const headers = {
     apikey: apiKey,
     authorization: `Bearer ${apiKey}`,
-    accept: "application/json",
+    accept: 'application/json',
   };
 
-  const jobUrl = new URL(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_automation_jobs`);
-  jobUrl.searchParams.set("select", "*");
-  jobUrl.searchParams.set("network", `eq.${network}`);
-  jobUrl.searchParams.set("automation_id", `eq.${automationId}`);
-  jobUrl.searchParams.set("limit", "1");
-  const jobRows = await fetch(jobUrl, { headers }).then((response) => response.ok ? response.json() : []);
+  const jobUrl = new URL(`${baseUrl.replace(/\/$/, '')}/rest/v1/morpheus_automation_jobs`);
+  jobUrl.searchParams.set('select', '*');
+  jobUrl.searchParams.set('network', `eq.${network}`);
+  jobUrl.searchParams.set('automation_id', `eq.${automationId}`);
+  jobUrl.searchParams.set('limit', '1');
+  const jobRows = await fetch(jobUrl, { headers }).then((response) =>
+    response.ok ? response.json() : []
+  );
 
-  const runsUrl = new URL(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_automation_runs`);
-  runsUrl.searchParams.set("select", "*");
-  runsUrl.searchParams.set("network", `eq.${network}`);
-  runsUrl.searchParams.set("automation_id", `eq.${automationId}`);
-  runsUrl.searchParams.set("order", "created_at.asc");
-  const runRows = await fetch(runsUrl, { headers }).then((response) => response.ok ? response.json() : []);
+  const runsUrl = new URL(`${baseUrl.replace(/\/$/, '')}/rest/v1/morpheus_automation_runs`);
+  runsUrl.searchParams.set('select', '*');
+  runsUrl.searchParams.set('network', `eq.${network}`);
+  runsUrl.searchParams.set('automation_id', `eq.${automationId}`);
+  runsUrl.searchParams.set('order', 'created_at.asc');
+  const runRows = await fetch(runsUrl, { headers }).then((response) =>
+    response.ok ? response.json() : []
+  );
 
   return {
-    job: Array.isArray(jobRows) ? (jobRows[0] || null) : null,
+    job: Array.isArray(jobRows) ? jobRows[0] || null : null,
     runs: Array.isArray(runRows) ? runRows : [],
   };
 }
 
-async function patchAutomationRecord(baseUrl, apiKey, automationId, fields = {}, network = "testnet") {
+async function patchAutomationRecord(
+  baseUrl,
+  apiKey,
+  automationId,
+  fields = {},
+  network = 'testnet'
+) {
   const headers = {
     apikey: apiKey,
     authorization: `Bearer ${apiKey}`,
-    accept: "application/json",
-    "content-type": "application/json",
-    prefer: "return=representation",
+    accept: 'application/json',
+    'content-type': 'application/json',
+    prefer: 'return=representation',
   };
-  const url = new URL(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_automation_jobs`);
-  url.searchParams.set("network", `eq.${network}`);
-  url.searchParams.set("automation_id", `eq.${automationId}`);
+  const url = new URL(`${baseUrl.replace(/\/$/, '')}/rest/v1/morpheus_automation_jobs`);
+  url.searchParams.set('network', `eq.${network}`);
+  url.searchParams.set('automation_id', `eq.${automationId}`);
   const response = await fetch(url, {
-    method: "PATCH",
+    method: 'PATCH',
     headers,
     body: JSON.stringify({
       ...fields,
@@ -722,16 +825,25 @@ async function patchAutomationRecord(baseUrl, apiKey, automationId, fields = {},
     }),
   });
   if (!response.ok) {
-    throw new Error(`failed to patch automation job ${automationId}: ${response.status} ${await response.text()}`);
+    throw new Error(
+      `failed to patch automation job ${automationId}: ${response.status} ${await response.text()}`
+    );
   }
   return response.json().catch(() => []);
 }
 
-async function waitForQueuedAutomation(baseUrl, apiKey, automationId, consumerHash, rpcClient, timeoutMs = 300000) {
+async function waitForQueuedAutomation(
+  baseUrl,
+  apiKey,
+  automationId,
+  consumerHash,
+  rpcClient,
+  timeoutMs = 300000
+) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const record = await fetchAutomationRecord(baseUrl, apiKey, automationId, "testnet");
-    const queuedRun = record.runs.find((row) => row.status === "queued" && row.queue_tx?.tx_hash);
+    const record = await fetchAutomationRecord(baseUrl, apiKey, automationId, 'testnet');
+    const queuedRun = record.runs.find((row) => row.status === 'queued' && row.queue_tx?.tx_hash);
     if (queuedRun) {
       const requestId = await waitForRequestId(rpcClient, queuedRun.queue_tx.tx_hash, 90000);
       const callback = await waitForCallback(rpcClient, consumerHash, requestId, 180000);
@@ -747,26 +859,34 @@ async function waitForQueuedAutomation(baseUrl, apiKey, automationId, consumerHa
   throw new Error(`timed out waiting for queued automation execution for ${automationId}`);
 }
 
-async function queueAutomationExecutionDirect({ rpcClient, account, networkMagic, oracleHash, requesterHash, consumerHash, payloadText }) {
+async function queueAutomationExecutionDirect({
+  rpcClient,
+  account,
+  networkMagic,
+  oracleHash,
+  requesterHash,
+  consumerHash,
+  payloadText,
+}) {
   const queuedTx = await invokePersisted(
     rpcClient,
     oracleHash,
     account,
     networkMagic,
-    "queueAutomationRequest",
+    'queueAutomationRequest',
     [
       hash160Param(requesterHash),
-      stringParam("privacy_oracle"),
+      stringParam('privacy_oracle'),
       utf8ByteArrayParam(payloadText),
       hash160Param(consumerHash),
-      stringParam("onOracleResult"),
+      stringParam('onOracleResult'),
     ],
-    undefined,
+    undefined
   );
   const requestId = await waitForRequestId(rpcClient, queuedTx.txid, 90000);
   const callback = await waitForCallback(rpcClient, consumerHash, requestId, 180000);
   return {
-    mode: "manual_direct_queue",
+    mode: 'manual_direct_queue',
     request_id: String(requestId),
     queue_tx_hash: queuedTx.txid,
     callback,
@@ -776,22 +896,36 @@ async function queueAutomationExecutionDirect({ rpcClient, account, networkMagic
 async function main() {
   await loadExampleEnv();
 
-  const TEST_WIF = process.env.TEST_WIF || process.env.NEO_TESTNET_WIF || "";
-  const deployment = (await readDeploymentRegistry("testnet")).neo_n3 || {};
-  const RPC_URL = trimString(deployment.rpc_url || process.env.TESTNET_RPC_URL || "https://testnet1.neo.coz.io:443");
-  const PAYMASTER_API_TOKEN = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || "";
-  const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.morpheus_SUPABASE_URL || "";
-  const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || process.env.morpheus_SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY || "";
-  const PAYMASTER_ENDPOINT = trimString(process.env.MORPHEUS_PAYMASTER_TESTNET_ENDPOINT || "https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network/paymaster/authorize");
+  const TEST_WIF = process.env.TEST_WIF || process.env.NEO_TESTNET_WIF || '';
+  const deployment = (await readDeploymentRegistry('testnet')).neo_n3 || {};
+  const RPC_URL = trimString(
+    deployment.rpc_url || process.env.TESTNET_RPC_URL || 'https://testnet1.neo.coz.io:443'
+  );
+  const PAYMASTER_API_TOKEN = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '';
+  const SUPABASE_URL =
+    process.env.SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.morpheus_SUPABASE_URL ||
+    '';
+  const SUPABASE_KEY =
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.morpheus_SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY ||
+    '';
+  const PAYMASTER_ENDPOINT = trimString(
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ENDPOINT ||
+      'https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network/paymaster/authorize'
+  );
 
-  assertCondition(TEST_WIF, "TEST_WIF or NEO_TESTNET_WIF is required");
-  assertCondition(PAYMASTER_API_TOKEN, "PHALA_API_TOKEN or PHALA_SHARED_SECRET is required");
-  assertCondition(SUPABASE_URL && SUPABASE_KEY, "Supabase secret or service-role env is required");
+  assertCondition(TEST_WIF, 'TEST_WIF or NEO_TESTNET_WIF is required');
+  assertCondition(PAYMASTER_API_TOKEN, 'PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
+  assertCondition(SUPABASE_URL && SUPABASE_KEY, 'Supabase secret or service-role env is required');
 
-  const oracleHash = normalizeHash160(deployment.oracle_hash || "");
-  assertCondition(oracleHash, "testnet oracle hash is required");
+  const oracleHash = normalizeHash160(deployment.oracle_hash || '');
+  assertCondition(oracleHash, 'testnet oracle hash is required');
 
-  logStage("boot", {
+  logStage('boot', {
     rpc_url: RPC_URL,
     core_hash: normalizeHash(CORE_HASH),
     verifier_hash: normalizeHash(WEB3AUTH_VERIFIER_HASH),
@@ -805,116 +939,162 @@ async function main() {
   const networkMagic = Number(deployment.network_magic || 894710606);
   const aaClient = new AbstractAccountClient(RPC_URL, CORE_HASH);
   const executeAtIso = new Date(Date.now() + 20_000).toISOString();
-  logStage("compiling temporary consumer");
+  logStage('compiling temporary consumer');
   const consumerBuild = await compilePaymasterAutomationConsumer(executeAtIso);
-  logStage("deploying temporary consumer");
-  const consumerDeploy = await deployContract(rpcClient, account, RPC_URL, networkMagic, "AAPaymasterAutomationConsumer", consumerBuild.outDir, `aa-paymaster-automation-${Date.now()}`);
+  logStage('deploying temporary consumer');
+  const consumerDeploy = await deployContract(
+    rpcClient,
+    account,
+    RPC_URL,
+    networkMagic,
+    'AAPaymasterAutomationConsumer',
+    consumerBuild.outDir,
+    `aa-paymaster-automation-${Date.now()}`
+  );
   const consumerHash = consumerDeploy.hash;
-  logStage("consumer deployed", { consumer_hash: consumerHash, txid: consumerDeploy.txid });
-  const adminSigners = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
-  logStage("allowlisting callback");
-  await invokePersisted(rpcClient, oracleHash, account, networkMagic, "addAllowedCallback", [hash160Param(consumerHash)], adminSigners, RPC_URL);
-  logStage("binding oracle on consumer");
-  await invokePersisted(rpcClient, consumerHash, account, networkMagic, "setOracle", [hash160Param(oracleHash)], adminSigners, RPC_URL);
-  logStage("funding consumer fee credits");
+  logStage('consumer deployed', { consumer_hash: consumerHash, txid: consumerDeploy.txid });
+  const adminSigners = [
+    new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global }),
+  ];
+  logStage('allowlisting callback');
+  await invokePersisted(
+    rpcClient,
+    oracleHash,
+    account,
+    networkMagic,
+    'addAllowedCallback',
+    [hash160Param(consumerHash)],
+    adminSigners,
+    RPC_URL
+  );
+  logStage('binding oracle on consumer');
+  await invokePersisted(
+    rpcClient,
+    consumerHash,
+    account,
+    networkMagic,
+    'setOracle',
+    [hash160Param(oracleHash)],
+    adminSigners,
+    RPC_URL
+  );
+  logStage('funding consumer fee credits');
   // Automation registration plus later queued execution can consume additional
   // request credits during live retries, so keep the same larger buffer used
   // by the dedicated automation validation probe.
-  const consumerCredit = await ensureConsumerFeeCredit(account, RPC_URL, networkMagic, rpcClient, oracleHash, consumerHash, 8);
-  logStage("consumer credits ready", consumerCredit);
+  const consumerCredit = await ensureConsumerFeeCredit(
+    account,
+    RPC_URL,
+    networkMagic,
+    rpcClient,
+    oracleHash,
+    consumerHash,
+    8
+  );
+  logStage('consumer credits ready', consumerCredit);
 
   let register = null;
   try {
-    logStage("registering paymaster AA account if needed", normalizeHash(PAYMASTER_ACCOUNT_ID));
+    logStage('registering paymaster AA account if needed', normalizeHash(PAYMASTER_ACCOUNT_ID));
     register = await invokePersisted(
       rpcClient,
       CORE_HASH,
       account,
       networkMagic,
-      "registerAccount",
+      'registerAccount',
       [
         hash160Param(PAYMASTER_ACCOUNT_ID),
-        hash160Param("0".repeat(40)),
+        hash160Param('0'.repeat(40)),
         emptyByteArrayParam(),
-        hash160Param("0".repeat(40)),
+        hash160Param('0'.repeat(40)),
         hash160Param(account.scriptHash),
         integerParam(1),
       ],
       undefined,
-      RPC_URL,
+      RPC_URL
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (!message.includes("Account already exists")) throw error;
-    logStage("registerAccount skipped", "account already exists");
+    if (!message.includes('Account already exists')) throw error;
+    logStage('registerAccount skipped', 'account already exists');
   }
 
   const evmSigner = ethers.Wallet.createRandom();
   const verifierPubKey = sanitizeHex(evmSigner.signingKey.publicKey);
-  logStage("updating verifier");
+  logStage('updating verifier');
   const updateVerifier = await invokePersisted(
     rpcClient,
     CORE_HASH,
     account,
     networkMagic,
-    "updateVerifier",
+    'updateVerifier',
     [
       hash160Param(PAYMASTER_ACCOUNT_ID),
       hash160Param(WEB3AUTH_VERIFIER_HASH),
       byteArrayParam(verifierPubKey),
     ],
     undefined,
-    RPC_URL,
+    RPC_URL
   );
 
-  const nonce = decodeIntStack(await invokeRead(rpcClient, CORE_HASH, "getNonce", [hash160Param(PAYMASTER_ACCOUNT_ID), integerParam(0)]));
-  logStage("nonce loaded", nonce.toString());
+  const nonce = decodeIntStack(
+    await invokeRead(rpcClient, CORE_HASH, 'getNonce', [
+      hash160Param(PAYMASTER_ACCOUNT_ID),
+      integerParam(0),
+    ])
+  );
+  logStage('nonce loaded', nonce.toString());
   const downstreamArgs = [];
   const argsHashHex = await aaClient.computeArgsHash(downstreamArgs);
-  const deadline = BigInt(Date.now() + (60 * 60 * 1000));
+  const deadline = BigInt(Date.now() + 60 * 60 * 1000);
   const typedData = buildV3UserOperationTypedData({
     chainId: networkMagic,
     verifyingContract: sanitizeHex(WEB3AUTH_VERIFIER_HASH),
     accountIdHash: sanitizeHex(PAYMASTER_ACCOUNT_ID),
     targetContract: sanitizeHex(consumerHash),
-    method: "registerDefaultAutomationSponsored",
+    method: 'registerDefaultAutomationSponsored',
     argsHashHex,
     nonce,
     deadline,
   });
-  const signature = ethers.Signature.from(await evmSigner.signTypedData(typedData.domain, typedData.types, typedData.message));
+  const signature = ethers.Signature.from(
+    await evmSigner.signTypedData(typedData.domain, typedData.types, typedData.message)
+  );
   const compactSignature = `${sanitizeHex(signature.r)}${sanitizeHex(signature.s)}`;
 
-  logStage("authorizing paymaster");
+  logStage('authorizing paymaster');
   const paymaster = await callPaymasterAuthorize(PAYMASTER_ENDPOINT, PAYMASTER_API_TOKEN, {
-    network: "testnet",
-    target_chain: "neo_n3",
+    network: 'testnet',
+    target_chain: 'neo_n3',
     account_id: normalizeHash(PAYMASTER_ACCOUNT_ID),
     dapp_id: PAYMASTER_DAPP_ID,
     target_contract: normalizeHash(CORE_HASH),
-    method: "executeUserOp",
+    method: 'executeUserOp',
     estimated_gas_units: 3000000,
-    operation_hash: `0x${Buffer.from(ethers.randomBytes(32)).toString("hex")}`,
+    operation_hash: `0x${Buffer.from(ethers.randomBytes(32)).toString('hex')}`,
   });
-  assertCondition(paymaster?.approved === true, `paymaster authorization was not approved: ${JSON.stringify(paymaster)}`);
-  logStage("paymaster approved", {
+  assertCondition(
+    paymaster?.approved === true,
+    `paymaster authorization was not approved: ${JSON.stringify(paymaster)}`
+  );
+  logStage('paymaster approved', {
     approved: paymaster.approved,
     policy_id: paymaster.policy_id || null,
     approval_digest: paymaster.approval_digest || null,
   });
 
-  logStage("broadcasting executeUserOp without preview");
+  logStage('broadcasting executeUserOp without preview');
   const relay = await invokePersistedNoPreview(
     rpcClient,
     CORE_HASH,
     account,
     networkMagic,
-    "executeUserOp",
+    'executeUserOp',
     [
       hash160Param(PAYMASTER_ACCOUNT_ID),
       userOpContractParam({
         targetContract: normalizeHash(consumerHash),
-        method: "registerDefaultAutomationSponsored",
+        method: 'registerDefaultAutomationSponsored',
         args: [],
         nonce,
         deadline,
@@ -923,27 +1103,55 @@ async function main() {
     ],
     [{ account: account.scriptHash, scopes: tx.WitnessScope.Global }],
     RPC_URL,
-    "4000000",
+    '4000000'
   );
 
   const relayExecution = relay.execution;
-  logStage("executeUserOp HALTed", { txid: relay.txid, network_fee: relay.networkFee, system_fee: relay.systemFee });
-  logStage("waiting for automation_register request id");
+  logStage('executeUserOp HALTed', {
+    txid: relay.txid,
+    network_fee: relay.networkFee,
+    system_fee: relay.systemFee,
+  });
+  logStage('waiting for automation_register request id');
   const automationRegisterRequestId = await waitForRequestId(rpcClient, relay.txid);
-  logStage("waiting for automation_register callback", String(automationRegisterRequestId));
-  const automationRegisterCallback = await waitForCallback(rpcClient, consumerHash, automationRegisterRequestId, 180000);
-  assertCondition(automationRegisterCallback?.success === true, "automation register callback should succeed through paymaster-sponsored AA execution");
-  const automationId = trimString(automationRegisterCallback.result_json?.result?.automation_id || automationRegisterCallback.result_json?.automation_id || "");
-  assertCondition(automationId, "automation register callback did not return automation_id");
+  logStage('waiting for automation_register callback', String(automationRegisterRequestId));
+  const automationRegisterCallback = await waitForCallback(
+    rpcClient,
+    consumerHash,
+    automationRegisterRequestId,
+    180000
+  );
+  assertCondition(
+    automationRegisterCallback?.success === true,
+    'automation register callback should succeed through paymaster-sponsored AA execution'
+  );
+  const automationId = trimString(
+    automationRegisterCallback.result_json?.result?.automation_id ||
+      automationRegisterCallback.result_json?.automation_id ||
+      ''
+  );
+  assertCondition(automationId, 'automation register callback did not return automation_id');
 
-  logStage("waiting for queued automation execution", automationId);
+  logStage('waiting for queued automation execution', automationId);
   let queuedExecution = null;
   let automationRecord = null;
   try {
-    queuedExecution = await waitForQueuedAutomation(SUPABASE_URL, SUPABASE_KEY, automationId, consumerHash, rpcClient, 120000);
+    queuedExecution = await waitForQueuedAutomation(
+      SUPABASE_URL,
+      SUPABASE_KEY,
+      automationId,
+      consumerHash,
+      rpcClient,
+      120000
+    );
   } catch (error) {
-    automationRecord = await fetchAutomationRecord(SUPABASE_URL, SUPABASE_KEY, automationId, "testnet").catch(() => null);
-    logStage("scheduler queue wait timed out; using direct queue fallback", {
+    automationRecord = await fetchAutomationRecord(
+      SUPABASE_URL,
+      SUPABASE_KEY,
+      automationId,
+      'testnet'
+    ).catch(() => null);
+    logStage('scheduler queue wait timed out; using direct queue fallback', {
       automation_id: automationId,
       last_error: automationRecord?.job?.last_error || null,
     });
@@ -955,33 +1163,45 @@ async function main() {
       requesterHash: normalizeHash(account.scriptHash),
       consumerHash,
       payloadText: JSON.stringify({
-        provider: "twelvedata",
-        symbol: "TWELVEDATA:NEO-USD",
-        json_path: "price",
-        target_chain: "neo_n3",
-        tag: "aa-paymaster-automation",
+        provider: 'twelvedata',
+        symbol: 'TWELVEDATA:NEO-USD',
+        json_path: 'price',
+        target_chain: 'neo_n3',
+        tag: 'aa-paymaster-automation',
       }),
     });
-    await patchAutomationRecord(SUPABASE_URL, SUPABASE_KEY, automationId, {
-      status: "completed",
-      execution_count: 1,
-      next_run_at: null,
-      last_run_at: new Date().toISOString(),
-      last_queued_request_id: manualQueued.request_id,
-      last_error: null,
-    }, "testnet").catch(() => undefined);
+    await patchAutomationRecord(
+      SUPABASE_URL,
+      SUPABASE_KEY,
+      automationId,
+      {
+        status: 'completed',
+        execution_count: 1,
+        next_run_at: null,
+        last_run_at: new Date().toISOString(),
+        last_queued_request_id: manualQueued.request_id,
+        last_error: null,
+      },
+      'testnet'
+    ).catch(() => undefined);
     queuedExecution = {
       ...manualQueued,
       record: automationRecord,
     };
   }
-  assertCondition(queuedExecution.callback?.success === true, "queued automation execution should fulfill successfully");
-  assertCondition(queuedExecution.callback?.request_type === "privacy_oracle", "queued automation execution should be privacy_oracle");
+  assertCondition(
+    queuedExecution.callback?.success === true,
+    'queued automation execution should fulfill successfully'
+  );
+  assertCondition(
+    queuedExecution.callback?.request_type === 'privacy_oracle',
+    'queued automation execution should be privacy_oracle'
+  );
 
   const generatedAt = new Date().toISOString();
   const jsonReport = {
     generated_at: generatedAt,
-    network: "testnet",
+    network: 'testnet',
     rpc_url: RPC_URL,
     network_magic: networkMagic,
     aa_core_hash: normalizeHash(CORE_HASH),
@@ -997,7 +1217,7 @@ async function main() {
     update_verifier_txid: updateVerifier.txid,
     relay: {
       txid: relay.txid,
-      execution_vmstate: relayExecution.vmstate || relayExecution.state || "",
+      execution_vmstate: relayExecution.vmstate || relayExecution.state || '',
       execution_stack: relayExecution.stack || [],
       network_fee: relay.networkFee,
       system_fee: relay.systemFee,
@@ -1011,51 +1231,57 @@ async function main() {
   };
 
   const markdownReport = [
-    "# N3 AA Paymaster Automation Oracle Validation",
-    "",
+    '# N3 AA Paymaster Automation Oracle Validation',
+    '',
     `Date: ${generatedAt}`,
-    "",
-    "## Scope",
-    "",
-    "This probe validates the final integrated path where Morpheus paymaster pre-authorizes an AA `executeUserOp`, the AA account calls a downstream consumer to register automation, and the later automation execution triggers a Morpheus privacy_oracle callback successfully.",
-    "",
-    "## Result",
-    "",
+    '',
+    '## Scope',
+    '',
+    'This probe validates the final integrated path where Morpheus paymaster pre-authorizes an AA `executeUserOp`, the AA account calls a downstream consumer to register automation, and the later automation execution triggers a Morpheus privacy_oracle callback successfully.',
+    '',
+    '## Result',
+    '',
     `- AA core: \`${normalizeHash(CORE_HASH)}\``,
     `- Account id: \`${normalizeHash(PAYMASTER_ACCOUNT_ID)}\``,
     `- Consumer: \`${consumerHash}\``,
     `- Relay tx: \`${relay.txid}\``,
-    `- Paymaster policy id: \`${paymaster.policy_id || "n/a"}\``,
-    `- Paymaster approval digest: \`${paymaster.approval_digest || "n/a"}\``,
+    `- Paymaster policy id: \`${paymaster.policy_id || 'n/a'}\``,
+    `- Paymaster approval digest: \`${paymaster.approval_digest || 'n/a'}\``,
     `- Automation id: \`${automationId}\``,
     `- Automation register request id: \`${automationRegisterRequestId}\``,
-    `- Queued automation execution mode: \`${queuedExecution.mode || "scheduler"}\``,
+    `- Queued automation execution mode: \`${queuedExecution.mode || 'scheduler'}\``,
     `- Queued automation chain request id: \`${queuedExecution.request_id}\``,
     `- Queued automation callback success: \`${queuedExecution.callback?.success}\``,
-    "",
-    "## Conclusion",
-    "",
-    queuedExecution.mode === "manual_direct_queue"
-      ? "A paymaster-sponsored `executeUserOp` successfully registered downstream automation through an AA account. The shared testnet scheduler backlog did not materialize a queued run inside the probe window, so the probe executed the same downstream `queueAutomationRequest` path directly with the relayer/updater signer and confirmed that the later Morpheus privacy_oracle callback still succeeds. This closes the final integrated paymaster -> AA -> automation -> Oracle proof gap while explicitly recording the shared-environment fallback."
-      : "A paymaster-sponsored `executeUserOp` can register downstream automation through an AA account, and the later automation execution still reaches the Morpheus privacy_oracle callback path successfully. This closes the final integrated paymaster -> AA -> automation -> Oracle proof gap on testnet.",
-    "",
-  ].join("\n");
+    '',
+    '## Conclusion',
+    '',
+    queuedExecution.mode === 'manual_direct_queue'
+      ? 'A paymaster-sponsored `executeUserOp` successfully registered downstream automation through an AA account. The shared testnet scheduler backlog did not materialize a queued run inside the probe window, so the probe executed the same downstream `queueAutomationRequest` path directly with the relayer/updater signer and confirmed that the later Morpheus privacy_oracle callback still succeeds. This closes the final integrated paymaster -> AA -> automation -> Oracle proof gap while explicitly recording the shared-environment fallback.'
+      : 'A paymaster-sponsored `executeUserOp` can register downstream automation through an AA account, and the later automation execution still reaches the Morpheus privacy_oracle callback path successfully. This closes the final integrated paymaster -> AA -> automation -> Oracle proof gap on testnet.',
+    '',
+  ].join('\n');
 
-    const artifacts = await writeValidationArtifacts({
-    baseName: "n3-aa-paymaster-automation-oracle",
-    network: "testnet",
+  const artifacts = await writeValidationArtifacts({
+    baseName: 'n3-aa-paymaster-automation-oracle',
+    network: 'testnet',
     generatedAt,
     jsonReport,
     markdownReport,
   });
 
-    console.log(JSON.stringify({
-      ...artifacts,
-      relay_txid: relay.txid,
-      automation_id: automationId,
-      queued_chain_request_id: queuedExecution.request_id,
-      paymaster_policy_id: paymaster.policy_id || null,
-    }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        ...artifacts,
+        relay_txid: relay.txid,
+        automation_id: automationId,
+        queued_chain_request_id: queuedExecution.request_id,
+        paymaster_policy_id: paymaster.policy_id || null,
+      },
+      null,
+      2
+    )
+  );
 }
 
 main().catch((error) => {

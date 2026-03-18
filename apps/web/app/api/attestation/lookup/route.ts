@@ -1,27 +1,33 @@
-import { getServerSupabaseClient } from "@/lib/server-supabase";
-import { recordOperationLog } from "@/lib/operation-logs";
-import { getSelectedNetworkKey, networkRegistry, resolveSelectedNetworkKey } from "@/lib/networks";
+import { getServerSupabaseClient } from '@/lib/server-supabase';
+import { recordOperationLog } from '@/lib/operation-logs';
+import { getSelectedNetworkKey, networkRegistry, resolveSelectedNetworkKey } from '@/lib/networks';
 
 function normalizeHex(value: unknown) {
-  const normalized = String(value || "").trim().replace(/^0x/i, "").toLowerCase();
-  return /^[0-9a-f]{64}$/.test(normalized) ? normalized : "";
+  const normalized = String(value || '')
+    .trim()
+    .replace(/^0x/i, '')
+    .toLowerCase();
+  return /^[0-9a-f]{64}$/.test(normalized) ? normalized : '';
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function decodeBase64Utf8(value: unknown) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
+  const raw = String(value || '').trim();
+  if (!raw) return '';
   try {
-    return Buffer.from(raw, "base64").toString("utf8");
+    return Buffer.from(raw, 'base64').toString('utf8');
   } catch {
-    return "";
+    return '';
   }
 }
 
-function extractEnvelopeByAttestationHash(input: unknown, targetHash: string): Record<string, unknown> | null {
+function extractEnvelopeByAttestationHash(
+  input: unknown,
+  targetHash: string
+): Record<string, unknown> | null {
   if (Array.isArray(input)) {
     for (const entry of input) {
       const found = extractEnvelopeByAttestationHash(entry, targetHash);
@@ -49,36 +55,38 @@ function extractEnvelopeByAttestationHash(input: unknown, targetHash: string): R
 function buildVerifierInput(envelope: Record<string, unknown>, fallbackHash: string) {
   const verification = isPlainObject(envelope.verification) ? envelope.verification : {};
   const teeAttestation =
-    (isPlainObject(verification.tee_attestation) ? verification.tee_attestation : null)
-    || (isPlainObject(envelope.tee_attestation) ? envelope.tee_attestation : null)
-    || (isPlainObject(envelope.attestation) ? envelope.attestation : null)
-    || null;
+    (isPlainObject(verification.tee_attestation) ? verification.tee_attestation : null) ||
+    (isPlainObject(envelope.tee_attestation) ? envelope.tee_attestation : null) ||
+    (isPlainObject(envelope.attestation) ? envelope.attestation : null) ||
+    null;
 
   return {
     envelope,
     attestation: teeAttestation,
     expected_output_hash:
-      String(verification.output_hash || envelope.output_hash || "").trim() || null,
+      String(verification.output_hash || envelope.output_hash || '').trim() || null,
     expected_attestation_hash:
-      String(verification.attestation_hash || envelope.attestation_hash || `0x${fallbackHash}`).trim() || `0x${fallbackHash}`,
+      String(
+        verification.attestation_hash || envelope.attestation_hash || `0x${fallbackHash}`
+      ).trim() || `0x${fallbackHash}`,
     expected_compose_hash:
-      String((teeAttestation as Record<string, unknown> | null)?.compose_hash || "").trim() || null,
+      String((teeAttestation as Record<string, unknown> | null)?.compose_hash || '').trim() || null,
     expected_app_id:
-      String((teeAttestation as Record<string, unknown> | null)?.app_id || "").trim() || null,
+      String((teeAttestation as Record<string, unknown> | null)?.app_id || '').trim() || null,
     expected_instance_id:
-      String((teeAttestation as Record<string, unknown> | null)?.instance_id || "").trim() || null,
+      String((teeAttestation as Record<string, unknown> | null)?.instance_id || '').trim() || null,
   };
 }
 
-async function lookupOperationLogs(attestationHash: string, networkKey: "mainnet" | "testnet") {
+async function lookupOperationLogs(attestationHash: string, networkKey: 'mainnet' | 'testnet') {
   const supabase = getServerSupabaseClient();
   if (!supabase) return [];
 
   const { data, error } = await supabase
-    .from("morpheus_operation_logs")
-    .select("route, category, created_at, http_status, request_id, target_chain, response_payload")
-    .eq("network", networkKey)
-    .order("created_at", { ascending: false })
+    .from('morpheus_operation_logs')
+    .select('route, category, created_at, http_status, request_id, target_chain, response_payload')
+    .eq('network', networkKey)
+    .order('created_at', { ascending: false })
     .limit(250);
 
   if (error) throw error;
@@ -88,7 +96,7 @@ async function lookupOperationLogs(attestationHash: string, networkKey: "mainnet
       const envelope = extractEnvelopeByAttestationHash(row.response_payload, attestationHash);
       if (!envelope) return null;
       return {
-        source: "operation_log",
+        source: 'operation_log',
         route: row.route,
         category: row.category,
         created_at: row.created_at,
@@ -101,21 +109,21 @@ async function lookupOperationLogs(attestationHash: string, networkKey: "mainnet
     .filter(Boolean);
 }
 
-function buildFeedLookupUrl(networkKey: "mainnet" | "testnet") {
+function buildFeedLookupUrl(networkKey: 'mainnet' | 'testnet') {
   const registry = networkRegistry[networkKey];
-  const contractHash = String(registry.neo_n3?.contracts?.morpheus_datafeed || "").trim();
-  if (!contractHash) return "";
-  const n3IndexNetwork = networkKey === "mainnet" ? "mainnet" : "testnet";
+  const contractHash = String(registry.neo_n3?.contracts?.morpheus_datafeed || '').trim();
+  if (!contractHash) return '';
+  const n3IndexNetwork = networkKey === 'mainnet' ? 'mainnet' : 'testnet';
   return `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.${n3IndexNetwork}&contract_hash=eq.${contractHash}&event_name=eq.FeedUpdated&limit=200&order=block_index.desc`;
 }
 
-async function lookupFeedNotifications(attestationHash: string, networkKey: "mainnet" | "testnet") {
+async function lookupFeedNotifications(attestationHash: string, networkKey: 'mainnet' | 'testnet') {
   const lookupUrl = buildFeedLookupUrl(networkKey);
   if (!lookupUrl) return [];
 
   const response = await fetch(lookupUrl, {
-    headers: { accept: "application/json" },
-    cache: "no-store",
+    headers: { accept: 'application/json' },
+    cache: 'no-store',
   });
   const body = await response.json().catch(() => []);
   if (!Array.isArray(body)) return [];
@@ -124,16 +132,18 @@ async function lookupFeedNotifications(attestationHash: string, networkKey: "mai
     .map((entry) => {
       const state = entry?.state_json?.value;
       if (!Array.isArray(state) || state.length < 6) return null;
-      const actualHash = normalizeHex(Buffer.from(String(state[4]?.value || ""), "base64").toString("hex"));
+      const actualHash = normalizeHex(
+        Buffer.from(String(state[4]?.value || ''), 'base64').toString('hex')
+      );
       if (actualHash !== attestationHash) return null;
       return {
-        source: "neo_n3_feed",
+        source: 'neo_n3_feed',
         txid: entry.txid || null,
         block_index: entry.block_index || null,
         pair: decodeBase64Utf8(state[0]?.value),
-        round_id: String(state[1]?.value || ""),
-        price: String(state[2]?.value || ""),
-        timestamp: String(state[3]?.value || ""),
+        round_id: String(state[1]?.value || ''),
+        price: String(state[2]?.value || ''),
+        timestamp: String(state[3]?.value || ''),
         attestation_hash: `0x${actualHash}`,
       };
     })
@@ -142,10 +152,12 @@ async function lookupFeedNotifications(attestationHash: string, networkKey: "mai
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const attestationHash = normalizeHex(url.searchParams.get("attestation_hash"));
-  const networkKey = resolveSelectedNetworkKey(url.searchParams.get("network") || getSelectedNetworkKey());
+  const attestationHash = normalizeHex(url.searchParams.get('attestation_hash'));
+  const networkKey = resolveSelectedNetworkKey(
+    url.searchParams.get('network') || getSelectedNetworkKey()
+  );
   if (!attestationHash) {
-    return Response.json({ error: "attestation_hash query param is required" }, { status: 400 });
+    return Response.json({ error: 'attestation_hash query param is required' }, { status: 400 });
   }
 
   let operationMatches: unknown[] = [];
@@ -161,8 +173,10 @@ export async function GET(request: Request) {
     lookupError = error instanceof Error ? error.message : String(error);
   }
 
-  const firstVerifierInput = (operationMatches as Array<{ verifier_input?: Record<string, unknown> }>)
-    .find((entry) => entry?.verifier_input)?.verifier_input || null;
+  const firstVerifierInput =
+    (operationMatches as Array<{ verifier_input?: Record<string, unknown> }>).find(
+      (entry) => entry?.verifier_input
+    )?.verifier_input || null;
 
   const body = {
     ok: !lookupError,
@@ -176,9 +190,9 @@ export async function GET(request: Request) {
   };
 
   await recordOperationLog({
-    route: "/api/attestation/lookup",
-    method: "GET",
-    category: "attestation",
+    route: '/api/attestation/lookup',
+    method: 'GET',
+    category: 'attestation',
     requestPayload: Object.fromEntries(url.searchParams.entries()),
     responsePayload: body,
     httpStatus: lookupError ? 500 : 200,

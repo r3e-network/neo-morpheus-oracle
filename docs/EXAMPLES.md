@@ -104,17 +104,17 @@ If your question is “how do I do X?”, use this shortcut table:
 
 如果你的问题是“我到底该怎么做 X？”，先看这张捷径表：
 
-| Goal / 目标 | Start with / 先看 |
-| --- | --- |
-| Trigger a one-off Oracle price callback / 发起一次 Oracle 价格回调 | Section 6, 7 |
-| Call a private API with an encrypted token / 用加密 token 调私有 API | Section 3, 7 |
-| Keep function name and inputs encrypted / 把函数名和输入一起加密 | Section 3, 10 |
-| Run a custom Oracle reduction inside TEE / 在 TEE 里跑自定义 Oracle 逻辑 | Section 11 |
-| Run a stronger isolated workload / 使用更强隔离的执行模型 | Section 14, 15, 16 |
-| Read on-chain feed state from my contract / 在用户合约里读取 pricefeed | Section 18, 19 |
-| Understand automatic feed synchronization / 理解自动 pricefeed 同步 | Section 20 |
-| Decide between JS and WASM / 在 JS 与 WASM 之间做选择 | Section 21 |
-| Register automation jobs / 注册自动化任务 | Section 23 |
+| Goal / 目标                                                              | Start with / 先看  |
+| ------------------------------------------------------------------------ | ------------------ |
+| Trigger a one-off Oracle price callback / 发起一次 Oracle 价格回调       | Section 6, 7       |
+| Call a private API with an encrypted token / 用加密 token 调私有 API     | Section 3, 7       |
+| Keep function name and inputs encrypted / 把函数名和输入一起加密         | Section 3, 10      |
+| Run a custom Oracle reduction inside TEE / 在 TEE 里跑自定义 Oracle 逻辑 | Section 11         |
+| Run a stronger isolated workload / 使用更强隔离的执行模型                | Section 14, 15, 16 |
+| Read on-chain feed state from my contract / 在用户合约里读取 pricefeed   | Section 18, 19     |
+| Understand automatic feed synchronization / 理解自动 pricefeed 同步      | Section 20         |
+| Decide between JS and WASM / 在 JS 与 WASM 之间做选择                    | Section 21         |
+| Register automation jobs / 注册自动化任务                                | Section 23         |
 
 ## 1. Routing Map / 路由映射
 
@@ -124,14 +124,14 @@ The relayer decides which worker route to use from `requestType`.
 链上请求只知道 `requestType` 和 `payload`。
 真正走哪个 worker 路由，是 relayer 根据 `requestType` 决定的。
 
-| `requestType` example | Worker route | Meaning |
-| --- | --- | --- |
-| `privacy_oracle` | `/oracle/smart-fetch` | Privacy oracle fetch and optional reduction |
-| `oracle` | `/oracle/smart-fetch` | Same as above |
-| `compute` | `/compute/execute` | Off-chain compute |
-| `zkp_compute` | `/compute/execute` | Same compute route |
-| `datafeed` | `/oracle/feed` | Operator-only feed sync / publish |
-| `vrf` | `/vrf/random` | Randomness |
+| `requestType` example | Worker route          | Meaning                                     |
+| --------------------- | --------------------- | ------------------------------------------- |
+| `privacy_oracle`      | `/oracle/smart-fetch` | Privacy oracle fetch and optional reduction |
+| `oracle`              | `/oracle/smart-fetch` | Same as above                               |
+| `compute`             | `/compute/execute`    | Off-chain compute                           |
+| `zkp_compute`         | `/compute/execute`    | Same compute route                          |
+| `datafeed`            | `/oracle/feed`        | Operator-only feed sync / publish           |
+| `vrf`                 | `/vrf/random`         | Randomness                                  |
 
 Important:
 
@@ -196,7 +196,7 @@ Use the Oracle public key first:
 
 ```ts
 async function fetchOracleKey() {
-  const res = await fetch("/api/oracle/public-key");
+  const res = await fetch('/api/oracle/public-key');
   return res.json();
 }
 ```
@@ -210,120 +210,124 @@ Recommended format: `X25519-HKDF-SHA256-AES-256-GCM`.
 async function encryptWithOracleKey(publicKeyBase64: string, plaintext: string) {
   const recipientBytes = Uint8Array.from(atob(publicKeyBase64), (char) => char.charCodeAt(0));
   const recipientKey = await crypto.subtle.importKey(
-    "raw",
+    'raw',
     recipientBytes,
-    { name: "X25519" },
+    { name: 'X25519' },
     false,
-    [],
+    []
   );
-  const ephemeral = await crypto.subtle.generateKey(
-    { name: "X25519" },
-    true,
-    ["deriveBits"],
+  const ephemeral = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+  const epk = new Uint8Array(await crypto.subtle.exportKey('raw', ephemeral.publicKey));
+  const shared = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'X25519', public: recipientKey },
+      ephemeral.privateKey,
+      256
+    )
   );
-  const epk = new Uint8Array(await crypto.subtle.exportKey("raw", ephemeral.publicKey));
-  const shared = new Uint8Array(await crypto.subtle.deriveBits(
-    { name: "X25519", public: recipientKey },
-    ephemeral.privateKey,
-    256,
-  ));
-  const keyMaterial = await crypto.subtle.importKey("raw", shared, "HKDF", false, ["deriveKey"]);
+  const keyMaterial = await crypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveKey']);
   const info = new Uint8Array([
-    ...new TextEncoder().encode("morpheus-confidential-payload-v2"),
+    ...new TextEncoder().encode('morpheus-confidential-payload-v2'),
     ...epk,
     ...recipientBytes,
   ]);
   const aesKey = await crypto.subtle.deriveKey(
     {
-      name: "HKDF",
-      hash: "SHA-256",
+      name: 'HKDF',
+      hash: 'SHA-256',
       salt: recipientBytes,
       info,
     },
     keyMaterial,
-    { name: "AES-GCM", length: 256 },
+    { name: 'AES-GCM', length: 256 },
     false,
-    ["encrypt"],
+    ['encrypt']
   );
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const encrypted = new Uint8Array(await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    aesKey,
-    new TextEncoder().encode(plaintext),
-  ));
+  const encrypted = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      aesKey,
+      new TextEncoder().encode(plaintext)
+    )
+  );
   const ciphertext = encrypted.slice(0, encrypted.length - 16);
   const tag = encrypted.slice(encrypted.length - 16);
 
-  return btoa(JSON.stringify({
-    v: 2,
-    alg: "X25519-HKDF-SHA256-AES-256-GCM",
-    epk: btoa(String.fromCharCode(...epk)),
-    iv: btoa(String.fromCharCode(...iv)),
-    ct: btoa(String.fromCharCode(...ciphertext)),
-    tag: btoa(String.fromCharCode(...tag)),
-  }));
+  return btoa(
+    JSON.stringify({
+      v: 2,
+      alg: 'X25519-HKDF-SHA256-AES-256-GCM',
+      epk: btoa(String.fromCharCode(...epk)),
+      iv: btoa(String.fromCharCode(...iv)),
+      ct: btoa(String.fromCharCode(...ciphertext)),
+      tag: btoa(String.fromCharCode(...tag)),
+    })
+  );
 }
 ```
 
 ## 4. Node Encryption Helper / Node 端加密辅助
 
 ```js
-import { webcrypto } from "node:crypto";
+import { webcrypto } from 'node:crypto';
 
 async function encryptWithOracleKey(publicKeyBase64, plaintext) {
-  const recipientBytes = Buffer.from(publicKeyBase64, "base64");
+  const recipientBytes = Buffer.from(publicKeyBase64, 'base64');
   const recipientKey = await webcrypto.subtle.importKey(
-    "raw",
+    'raw',
     recipientBytes,
-    { name: "X25519" },
+    { name: 'X25519' },
     false,
-    [],
+    []
   );
-  const ephemeral = await webcrypto.subtle.generateKey(
-    { name: "X25519" },
-    true,
-    ["deriveBits"],
+  const ephemeral = await webcrypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+  const epk = new Uint8Array(await webcrypto.subtle.exportKey('raw', ephemeral.publicKey));
+  const shared = new Uint8Array(
+    await webcrypto.subtle.deriveBits(
+      { name: 'X25519', public: recipientKey },
+      ephemeral.privateKey,
+      256
+    )
   );
-  const epk = new Uint8Array(await webcrypto.subtle.exportKey("raw", ephemeral.publicKey));
-  const shared = new Uint8Array(await webcrypto.subtle.deriveBits(
-    { name: "X25519", public: recipientKey },
-    ephemeral.privateKey,
-    256,
-  ));
-  const keyMaterial = await webcrypto.subtle.importKey("raw", shared, "HKDF", false, ["deriveKey"]);
+  const keyMaterial = await webcrypto.subtle.importKey('raw', shared, 'HKDF', false, ['deriveKey']);
   const info = new Uint8Array([
-    ...new TextEncoder().encode("morpheus-confidential-payload-v2"),
+    ...new TextEncoder().encode('morpheus-confidential-payload-v2'),
     ...epk,
     ...recipientBytes,
   ]);
   const aesKey = await webcrypto.subtle.deriveKey(
     {
-      name: "HKDF",
-      hash: "SHA-256",
+      name: 'HKDF',
+      hash: 'SHA-256',
       salt: recipientBytes,
       info,
     },
     keyMaterial,
-    { name: "AES-GCM", length: 256 },
+    { name: 'AES-GCM', length: 256 },
     false,
-    ["encrypt"],
+    ['encrypt']
   );
   const iv = webcrypto.getRandomValues(new Uint8Array(12));
-  const encrypted = new Uint8Array(await webcrypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    aesKey,
-    new TextEncoder().encode(plaintext),
-  ));
+  const encrypted = new Uint8Array(
+    await webcrypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      aesKey,
+      new TextEncoder().encode(plaintext)
+    )
+  );
   const ciphertext = encrypted.slice(0, encrypted.length - 16);
   const tag = encrypted.slice(encrypted.length - 16);
-  return Buffer.from(JSON.stringify({
-    v: 2,
-    alg: "X25519-HKDF-SHA256-AES-256-GCM",
-    epk: Buffer.from(epk).toString("base64"),
-    iv: Buffer.from(iv).toString("base64"),
-    ct: Buffer.from(ciphertext).toString("base64"),
-    tag: Buffer.from(tag).toString("base64"),
-  })).toString("base64");
+  return Buffer.from(
+    JSON.stringify({
+      v: 2,
+      alg: 'X25519-HKDF-SHA256-AES-256-GCM',
+      epk: Buffer.from(epk).toString('base64'),
+      iv: Buffer.from(iv).toString('base64'),
+      ct: Buffer.from(ciphertext).toString('base64'),
+      tag: Buffer.from(tag).toString('base64'),
+    })
+  ).toString('base64');
 }
 ```
 
@@ -849,21 +853,21 @@ Those JS paths require:
 
 ## 22. Quick Combination Matrix / 快速组合矩阵
 
-| Scenario | `requestType` | Key payload fields |
-| --- | --- | --- |
-| Oracle + builtin provider | `privacy_oracle` | `provider`, `symbol`, `json_path` |
-| Oracle + encrypted token | `privacy_oracle` | `url`, `encrypted_token`, `token_header` |
-| Oracle + encrypted params | `privacy_oracle` | `url` or `provider`, `encrypted_params` |
-| Oracle + JS function | `privacy_oracle` | `script`, optional `json_path` |
-| Oracle + JS + encrypted params | `privacy_oracle` | `encrypted_params`, `script` |
-| Oracle + WASM | `privacy_oracle` | `wasm_base64`, `wasm_entry` |
-| Oracle + WASM + encrypted params | `privacy_oracle` | `encrypted_params`, `wasm_base64` |
-| Compute builtin | `compute` | `mode`, `function`, `input` |
-| Compute builtin + encrypted payload | `compute` | `encrypted_payload` or `encrypted_input` |
-| Compute JS script | `compute` | `mode`, `script`, `entry_point`, `input` |
-| Compute WASM | `compute` | `wasm_base64`, `wasm_entry`, `input` |
-| Feed publish (operator-only) | `datafeed` | `symbol`, `target_chain`, `broadcast` |
-| Read feed on-chain | N/A | call `getLatest(...)` on feed contract |
+| Scenario                            | `requestType`    | Key payload fields                       |
+| ----------------------------------- | ---------------- | ---------------------------------------- |
+| Oracle + builtin provider           | `privacy_oracle` | `provider`, `symbol`, `json_path`        |
+| Oracle + encrypted token            | `privacy_oracle` | `url`, `encrypted_token`, `token_header` |
+| Oracle + encrypted params           | `privacy_oracle` | `url` or `provider`, `encrypted_params`  |
+| Oracle + JS function                | `privacy_oracle` | `script`, optional `json_path`           |
+| Oracle + JS + encrypted params      | `privacy_oracle` | `encrypted_params`, `script`             |
+| Oracle + WASM                       | `privacy_oracle` | `wasm_base64`, `wasm_entry`              |
+| Oracle + WASM + encrypted params    | `privacy_oracle` | `encrypted_params`, `wasm_base64`        |
+| Compute builtin                     | `compute`        | `mode`, `function`, `input`              |
+| Compute builtin + encrypted payload | `compute`        | `encrypted_payload` or `encrypted_input` |
+| Compute JS script                   | `compute`        | `mode`, `script`, `entry_point`, `input` |
+| Compute WASM                        | `compute`        | `wasm_base64`, `wasm_entry`, `input`     |
+| Feed publish (operator-only)        | `datafeed`       | `symbol`, `target_chain`, `broadcast`    |
+| Read feed on-chain                  | N/A              | call `getLatest(...)` on feed contract   |
 
 ## 23. Automation Registration / 自动化任务注册
 

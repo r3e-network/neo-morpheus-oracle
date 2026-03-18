@@ -14,7 +14,10 @@ function parseDotEnv(raw) {
     if (index < 0) continue;
     const key = trimmed.slice(0, index).trim();
     let value = trimmed.slice(index + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     out[key] = value;

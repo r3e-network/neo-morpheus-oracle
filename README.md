@@ -2,7 +2,7 @@
 
 **Morpheus Oracle / 墨菲斯网络** is a standalone privacy Oracle network for the Neo ecosystem.
 
-Morpheus is the mentor who gives Neo the truth pill in *The Matrix*.
+Morpheus is the mentor who gives Neo the truth pill in _The Matrix_.
 This project gives the Neo blockchain the same thing: **truth**.
 
 ## Core Modules

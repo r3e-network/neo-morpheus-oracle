@@ -45,9 +45,7 @@ Therefore the new transport is shorter and stronger than the old `RSA-2048` tran
   "public_key_format": "raw",
   "key_source": "dstack-sealed",
   "recommended_payload_encryption": "X25519-HKDF-SHA256-AES-256-GCM",
-  "supported_payload_encryption": [
-    "X25519-HKDF-SHA256-AES-256-GCM"
-  ]
+  "supported_payload_encryption": ["X25519-HKDF-SHA256-AES-256-GCM"]
 }
 ```
 

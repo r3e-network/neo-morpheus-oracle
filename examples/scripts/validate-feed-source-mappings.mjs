@@ -6,18 +6,18 @@ import {
   repoRoot,
   trimString,
   writeValidationArtifacts,
-} from "./common.mjs";
+} from './common.mjs';
 import {
   applyFeedProviderDefaults,
   getDefaultFeedSymbols,
   getFeedDisplaySymbol,
   getFeedUnitLabel,
-} from "../../workers/phala-worker/src/oracle/feed-registry.js";
+} from '../../workers/phala-worker/src/oracle/feed-registry.js';
 import {
   buildProviderRequest,
   fetchProviderJSON,
   resolveProviderPayload,
-} from "../../workers/phala-worker/src/oracle/providers.js";
+} from '../../workers/phala-worker/src/oracle/providers.js';
 
 function extractQuotePrice(data) {
   return data?.price ?? data?.value ?? data?.close ?? data?.data?.amount ?? null;
@@ -25,9 +25,9 @@ function extractQuotePrice(data) {
 
 await loadExampleEnv();
 
-const provider = trimString(process.env.MORPHEUS_FEED_PROVIDER || "twelvedata") || "twelvedata";
-const configuredSymbols = trimString(process.env.MORPHEUS_FEED_SYMBOLS || "")
-  .split(",")
+const provider = trimString(process.env.MORPHEUS_FEED_PROVIDER || 'twelvedata') || 'twelvedata';
+const configuredSymbols = trimString(process.env.MORPHEUS_FEED_SYMBOLS || '')
+  .split(',')
   .map((value) => trimString(value))
   .filter(Boolean);
 const symbols = configuredSymbols.length > 0 ? configuredSymbols : getDefaultFeedSymbols();
@@ -43,7 +43,7 @@ for (const symbol of symbols) {
   });
   const request = buildProviderRequest(resolvedPayload);
   if (!request) {
-    results.push({ pair: symbol, ok: false, error: "provider request could not be built" });
+    results.push({ pair: symbol, ok: false, error: 'provider request could not be built' });
     continue;
   }
 
@@ -71,7 +71,7 @@ for (const symbol of symbols) {
       provider_pair: request.pair,
       request_url: request.url,
       raw_price: rawPrice === null || rawPrice === undefined ? null : String(rawPrice),
-      ok: rawPrice !== null && rawPrice !== undefined && rawPrice !== "",
+      ok: rawPrice !== null && rawPrice !== undefined && rawPrice !== '',
     });
   } catch (error) {
     results.push({
@@ -90,8 +90,8 @@ for (const symbol of symbols) {
 const generatedAt = new Date().toISOString();
 const reportJson = {
   generated_at: generatedAt,
-  network: trimString(process.env.MORPHEUS_NETWORK || "testnet") || "testnet",
-  validation: "feed-source-mappings",
+  network: trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet',
+  validation: 'feed-source-mappings',
   provider,
   pair_count: results.length,
   success_count: results.filter((item) => item.ok).length,
@@ -100,42 +100,42 @@ const reportJson = {
 };
 
 const markdown = [
-  "# Feed Source Validation",
-  "",
+  '# Feed Source Validation',
+  '',
   `Generated: ${generatedAt}`,
-  "",
-  "## Summary",
-  "",
+  '',
+  '## Summary',
+  '',
   `- Provider: \`${provider}\``,
   `- Pairs checked: \`${reportJson.pair_count}\``,
   `- Success count: \`${reportJson.success_count}\``,
   `- Failure count: \`${reportJson.failure_count}\``,
-  "",
-  "## Result Matrix",
-  "",
-  "| Pair | Provider Pair | Raw Price | Status |",
-  "| --- | --- | --- | --- |",
-  ...results.map((item) => `| ${item.pair} | ${item.provider_pair || "-"} | ${item.raw_price || "-"} | ${item.ok ? "ok" : `fail: ${item.error || "unknown"}`} |`),
-  "",
-  "## Detailed Results",
-  "",
-  ...results.flatMap((item) => [
-    `### ${item.pair}`,
-    "",
-    markdownJson(item),
-    "",
-  ]),
-].join("\n");
+  '',
+  '## Result Matrix',
+  '',
+  '| Pair | Provider Pair | Raw Price | Status |',
+  '| --- | --- | --- | --- |',
+  ...results.map(
+    (item) =>
+      `| ${item.pair} | ${item.provider_pair || '-'} | ${item.raw_price || '-'} | ${item.ok ? 'ok' : `fail: ${item.error || 'unknown'}`} |`
+  ),
+  '',
+  '## Detailed Results',
+  '',
+  ...results.flatMap((item) => [`### ${item.pair}`, '', markdownJson(item), '']),
+].join('\n');
 
 const artifacts = await writeValidationArtifacts({
-  baseName: "feed-source-validation",
+  baseName: 'feed-source-validation',
   network: reportJson.network,
   generatedAt,
   jsonReport: reportJson,
   markdownReport: markdown,
 });
 
-process.stdout.write(jsonPretty({
-  ...reportJson,
-  ...artifacts,
-}));
+process.stdout.write(
+  jsonPretty({
+    ...reportJson,
+    ...artifacts,
+  })
+);

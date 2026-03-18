@@ -13,12 +13,8 @@
         "packagesPath": "/Users/jinghuiliao/.nuget/packages/",
         "outputPath": "/Users/jinghuiliao/git/neo-morpheus-oracle/examples/contracts/n3/obj/",
         "projectStyle": "PackageReference",
-        "configFilePaths": [
-          "/Users/jinghuiliao/.nuget/NuGet/NuGet.Config"
-        ],
-        "originalTargetFrameworks": [
-          "net10.0"
-        ],
+        "configFilePaths": ["/Users/jinghuiliao/.nuget/NuGet/NuGet.Config"],
+        "originalTargetFrameworks": ["net10.0"],
         "sources": {
           "https://api.nuget.org/v3/index.json": {}
         },
@@ -29,9 +25,7 @@
           }
         },
         "warningProperties": {
-          "warnAsError": [
-            "NU1605"
-          ]
+          "warnAsError": ["NU1605"]
         },
         "restoreAuditProperties": {
           "enableAudit": "true",
@@ -49,15 +43,7 @@
               "version": "[3.9.1, )"
             }
           },
-          "imports": [
-            "net461",
-            "net462",
-            "net47",
-            "net471",
-            "net472",
-            "net48",
-            "net481"
-          ],
+          "imports": ["net461", "net462", "net47", "net471", "net472", "net48", "net481"],
           "assetTargetFallback": true,
           "warn": true,
           "frameworkReferences": {

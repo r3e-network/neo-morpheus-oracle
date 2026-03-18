@@ -8,7 +8,11 @@ function trimString(value) {
 }
 
 async function loadArtifact(sourceFile, contractName) {
-  const filePath = path.resolve('contracts/neox/artifacts/contracts', sourceFile, `${contractName}.json`);
+  const filePath = path.resolve(
+    'contracts/neox/artifacts/contracts',
+    sourceFile,
+    `${contractName}.json`
+  );
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
 }
 
@@ -35,8 +39,15 @@ async function updateRegistry(network, rpcUrl, chainId, addresses) {
 const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || '');
 const chainId = Number(process.env.NEOX_CHAIN_ID || process.env.NEO_X_CHAIN_ID || 12227332);
-const deployerPrivateKey = trimString(process.env.NEOX_PRIVATE_KEY || process.env.PHALA_NEOX_PRIVATE_KEY || '');
-const updaterPrivateKey = trimString(process.env.MORPHEUS_RELAYER_NEOX_PRIVATE_KEY || process.env.PHALA_NEOX_PRIVATE_KEY || process.env.NEOX_PRIVATE_KEY || '');
+const deployerPrivateKey = trimString(
+  process.env.NEOX_PRIVATE_KEY || process.env.PHALA_NEOX_PRIVATE_KEY || ''
+);
+const updaterPrivateKey = trimString(
+  process.env.MORPHEUS_RELAYER_NEOX_PRIVATE_KEY ||
+    process.env.PHALA_NEOX_PRIVATE_KEY ||
+    process.env.NEOX_PRIVATE_KEY ||
+    ''
+);
 const shouldCompile = trimString(process.env.NEOX_SKIP_COMPILE || '').toLowerCase() !== 'true';
 
 if (!rpcUrl) throw new Error('NEOX_RPC_URL is required');
@@ -59,8 +70,16 @@ const [oracleArtifact, consumerArtifact, datafeedArtifact] = await Promise.all([
 ]);
 
 const oracleFactory = new ContractFactory(oracleArtifact.abi, oracleArtifact.bytecode, deployer);
-const consumerFactory = new ContractFactory(consumerArtifact.abi, consumerArtifact.bytecode, deployer);
-const datafeedFactory = new ContractFactory(datafeedArtifact.abi, datafeedArtifact.bytecode, deployer);
+const consumerFactory = new ContractFactory(
+  consumerArtifact.abi,
+  consumerArtifact.bytecode,
+  deployer
+);
+const datafeedFactory = new ContractFactory(
+  datafeedArtifact.abi,
+  datafeedArtifact.bytecode,
+  deployer
+);
 
 console.log('Deploying MorpheusOracleX...');
 const oracle = await oracleFactory.deploy();
@@ -87,11 +106,17 @@ const addresses = {
 };
 await updateRegistry(network, rpcUrl, chainId, addresses);
 
-console.log(JSON.stringify({
-  network,
-  rpc_url: rpcUrl,
-  chain_id: chainId,
-  deployer: deployer.address,
-  updater: updaterAddress,
-  contracts: addresses,
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      network,
+      rpc_url: rpcUrl,
+      chain_id: chainId,
+      deployer: deployer.address,
+      updater: updaterAddress,
+      contracts: addresses,
+    },
+    null,
+    2
+  )
+);

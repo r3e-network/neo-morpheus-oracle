@@ -1,23 +1,38 @@
-import { json, normalizeTargetChain, sha256Hex } from "../platform/core.js";
-import { resolveSigningBytes, buildSignedResultEnvelope, buildVerificationEnvelope, maybeSignNeoN3Bytes } from "./signing.js";
-import { loadNeoN3Context, relayNeoN3Invocation, sponsorNeoN3Transaction, broadcastNeoN3RawTransaction } from "./neo-n3.js";
-import { handleSignPayloadNeoX, relayNeoXTransaction } from "./neo-x.js";
+import { json, normalizeTargetChain, sha256Hex } from '../platform/core.js';
+import {
+  resolveSigningBytes,
+  buildSignedResultEnvelope,
+  buildVerificationEnvelope,
+  maybeSignNeoN3Bytes,
+} from './signing.js';
+import {
+  loadNeoN3Context,
+  relayNeoN3Invocation,
+  sponsorNeoN3Transaction,
+  broadcastNeoN3RawTransaction,
+} from './neo-n3.js';
+import { handleSignPayloadNeoX, relayNeoXTransaction } from './neo-x.js';
 
-export { buildSignedResultEnvelope, buildVerificationEnvelope } from "./signing.js";
-export { loadNeoN3Context, relayNeoN3Invocation, sponsorNeoN3Transaction, broadcastNeoN3RawTransaction } from "./neo-n3.js";
-export { relayNeoXTransaction } from "./neo-x.js";
-export { normalizeNeoHash160, isConfiguredHash160 } from "../platform/allowlist.js";
+export { buildSignedResultEnvelope, buildVerificationEnvelope } from './signing.js';
+export {
+  loadNeoN3Context,
+  relayNeoN3Invocation,
+  sponsorNeoN3Transaction,
+  broadcastNeoN3RawTransaction,
+} from './neo-n3.js';
+export { relayNeoXTransaction } from './neo-x.js';
+export { normalizeNeoHash160, isConfiguredHash160 } from '../platform/allowlist.js';
 
 export async function handleSignPayload(payload) {
   const targetChain = normalizeTargetChain(payload.target_chain);
-  if (targetChain === "neo_n3") {
+  if (targetChain === 'neo_n3') {
     const { bytes, source } = resolveSigningBytes(payload);
     const signature = await maybeSignNeoN3Bytes(bytes, payload);
     if (!signature) {
-      return json(400, { error: "Neo N3 signing key is not configured" });
+      return json(400, { error: 'Neo N3 signing key is not configured' });
     }
     return json(200, {
-      target_chain: "neo_n3",
+      target_chain: 'neo_n3',
       source,
       payload_hash: sha256Hex(bytes),
       signature: signature.signature,
@@ -32,7 +47,7 @@ export async function handleSignPayload(payload) {
 
 export async function handleRelayTransaction(payload) {
   const targetChain = normalizeTargetChain(payload.target_chain);
-  if (targetChain === "neo_x") {
+  if (targetChain === 'neo_x') {
     return json(200, await relayNeoXTransaction(payload));
   }
 
@@ -40,7 +55,13 @@ export async function handleRelayTransaction(payload) {
     return json(200, await sponsorNeoN3Transaction(payload));
   }
 
-  if (payload.raw_transaction || payload.raw_tx || payload.signed_tx || payload.tx_base64 || payload.tx_hex) {
+  if (
+    payload.raw_transaction ||
+    payload.raw_tx ||
+    payload.signed_tx ||
+    payload.tx_base64 ||
+    payload.tx_hex
+  ) {
     return json(200, await broadcastNeoN3RawTransaction(payload));
   }
 

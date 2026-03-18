@@ -14,12 +14,12 @@ Generated: 2026-03-13T15:52:36.708Z
 
 ## Case Matrix
 
-| Case | Tx | Request ID | Result |
-| --- | --- | --- | --- |
-| provider_request | `0x28f45d741e07c62538fd9653c06a6bcea2db768e74e7e4bcb3a4fdae2c7d9b57` | `143` | `"2.672"` |
-| compute_request | `0xea3264a998753d81e95b6965d0380e3326687141aeeaac22cc22684adee7ac96` | `144` | `{"value":"4"}` |
-| sponsored_provider_request | `0xd11d91bccd3f10461df21d201fc4c9d7cb78bcabc44cd8d17d569ac4a28f3b2f` | `145` | `"2.672"` |
-| custom_oracle_request | `0x0b137fe672c0d503d153fa17722ed80c1489ce9b48955676f750a8b1e9df06cc` | `146` | `"neo-morpheus"` |
+| Case                       | Tx                                                                   | Request ID | Result           |
+| -------------------------- | -------------------------------------------------------------------- | ---------- | ---------------- |
+| provider_request           | `0x28f45d741e07c62538fd9653c06a6bcea2db768e74e7e4bcb3a4fdae2c7d9b57` | `143`      | `"2.672"`        |
+| compute_request            | `0xea3264a998753d81e95b6965d0380e3326687141aeeaac22cc22684adee7ac96` | `144`      | `{"value":"4"}`  |
+| sponsored_provider_request | `0xd11d91bccd3f10461df21d201fc4c9d7cb78bcabc44cd8d17d569ac4a28f3b2f` | `145`      | `"2.672"`        |
+| custom_oracle_request      | `0x0b137fe672c0d503d153fa17722ed80c1489ce9b48955676f750a8b1e9df06cc` | `146`      | `"neo-morpheus"` |
 
 ## Provider Request
 
@@ -191,8 +191,6 @@ Generated: 2026-03-13T15:52:36.708Z
   "timestamp": "1773122684",
   "attestation_hash": "0x9c8a3a9ad62a4071578d9d69232d62f474bd7cce51475fccc45a95176e42fdb0",
   "source_set_id": "1",
-  "reader_pairs": [
-    "TWELVEDATA:NEO-USD"
-  ]
+  "reader_pairs": ["TWELVEDATA:NEO-USD"]
 }
 ```

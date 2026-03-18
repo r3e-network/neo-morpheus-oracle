@@ -1,4 +1,4 @@
-import { experimental, rpc as neoRpc, sc, tx, wallet } from "@cityofzion/neon-js";
+import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
 import {
   encodeUtf8Base64,
   jsonPretty,
@@ -11,9 +11,9 @@ import {
   sleep,
   trimString,
   tryParseJson,
-} from "./common.mjs";
+} from './common.mjs';
 
-const GAS_HASH = "0xd2a4cff31913016155e38e474a2c06d08be276cf";
+const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 
 function isTransientRpcError(error) {
   const message = error instanceof Error ? error.message : String(error);
@@ -31,34 +31,36 @@ async function withRetries(label, task, attempts = 5) {
       await sleep(1000 * attempt);
     }
   }
-  throw new Error(`${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  throw new Error(
+    `${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
+  );
 }
 
 function parseStackItem(item) {
-  if (!item || typeof item !== "object") return null;
+  if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
   switch (type) {
-    case "array":
-    case "struct":
+    case 'array':
+    case 'struct':
       return Array.isArray(item.value) ? item.value.map((entry) => parseStackItem(entry)) : [];
-    case "hash160":
-    case "hash256":
-    case "string":
-      return String(item.value ?? "");
-    case "integer":
-      return String(item.value ?? "0");
-    case "boolean":
+    case 'hash160':
+    case 'hash256':
+    case 'string':
+      return String(item.value ?? '');
+    case 'integer':
+      return String(item.value ?? '0');
+    case 'boolean':
       return Boolean(item.value);
-    case "bytestring":
-    case "bytearray": {
+    case 'bytestring':
+    case 'bytearray': {
       const raw = trimString(item.value);
-      if (!raw) return "";
-      const bytes = Buffer.from(raw, "base64");
+      if (!raw) return '';
+      const bytes = Buffer.from(raw, 'base64');
       if (bytes.length === 20) {
-        return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+        return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
       }
-      const text = bytes.toString("utf8");
-      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString("hex")}`;
+      const text = bytes.toString('utf8');
+      return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text) ? text : `0x${bytes.toString('hex')}`;
     }
     default:
       return item.value ?? null;
@@ -66,11 +68,14 @@ function parseStackItem(item) {
 }
 
 function decodeCallbackArray(item) {
-  if (!item || item.type !== "Array" || !Array.isArray(item.value) || item.value.length < 4) return null;
+  if (!item || item.type !== 'Array' || !Array.isArray(item.value) || item.value.length < 4)
+    return null;
   const [requestTypeItem, successItem, resultItem, errorItem] = item.value;
-  const requestType = Buffer.from(trimString(requestTypeItem?.value || ""), "base64").toString("utf8");
-  const resultText = Buffer.from(trimString(resultItem?.value || ""), "base64").toString("utf8");
-  const errorText = Buffer.from(trimString(errorItem?.value || ""), "base64").toString("utf8");
+  const requestType = Buffer.from(trimString(requestTypeItem?.value || ''), 'base64').toString(
+    'utf8'
+  );
+  const resultText = Buffer.from(trimString(resultItem?.value || ''), 'base64').toString('utf8');
+  const errorText = Buffer.from(trimString(errorItem?.value || ''), 'base64').toString('utf8');
   return {
     request_type: requestType,
     success: Boolean(successItem?.value),
@@ -81,12 +86,11 @@ function decodeCallbackArray(item) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await withRetries(
-    `invokeRead:${method}`,
-    () => rpcClient.invokeFunction(contractHash, method, params),
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
   );
-  if (String(response.state || "").toUpperCase() === "FAULT") {
-    throw new Error(`${method} faulted: ${response.exception || "unknown error"}`);
+  if (String(response.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return parseStackItem(response.stack?.[0]);
 }
@@ -95,11 +99,12 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     try {
-      const appLog = await withRetries(
-        `getApplicationLog:${txid}`,
-        () => rpcClient.getApplicationLog(txid),
+      const appLog = await withRetries(`getApplicationLog:${txid}`, () =>
+        rpcClient.getApplicationLog(txid)
       );
-      const notification = appLog.executions?.flatMap((execution) => execution.notifications || []).find((entry) => entry.eventname === "OracleRequested");
+      const notification = appLog.executions
+        ?.flatMap((execution) => execution.notifications || [])
+        .find((entry) => entry.eventname === 'OracleRequested');
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -111,9 +116,10 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
 async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const response = await withRetries(
-      `getCallback:${requestId}`,
-      () => rpcClient.invokeFunction(consumerHash, "getCallback", [{ type: "Integer", value: String(requestId) }]),
+    const response = await withRetries(`getCallback:${requestId}`, () =>
+      rpcClient.invokeFunction(consumerHash, 'getCallback', [
+        { type: 'Integer', value: String(requestId) },
+      ])
     );
     const decoded = decodeCallbackArray(response.stack?.[0]);
     if (decoded && (decoded.request_type || decoded.result_text || decoded.error_text)) {
@@ -124,12 +130,28 @@ async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 1
   throw new Error(`timed out waiting for Neo N3 callback ${requestId}`);
 }
 
-async function ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, payerHash, requiredRequests) {
-  const currentCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: payerHash }]) || "0");
-  const requestFee = BigInt(await invokeRead(rpcClient, oracleHash, "requestFee", []) || "0");
+async function ensureFeeCredit(
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  payerHash,
+  requiredRequests
+) {
+  const currentCredit = BigInt(
+    (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+      { type: 'Hash160', value: payerHash },
+    ])) || '0'
+  );
+  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
   const requiredCredit = requestFee * BigInt(requiredRequests);
   if (requestFee <= 0n || currentCredit >= requiredCredit) {
-    return { request_fee: requestFee.toString(), current_credit: currentCredit.toString(), deposit_amount: "0" };
+    return {
+      request_fee: requestFee.toString(),
+      current_credit: currentCredit.toString(),
+      deposit_amount: '0',
+    };
   }
 
   const gas = new experimental.SmartContract(GAS_HASH, {
@@ -138,20 +160,21 @@ async function ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleH
     account,
   });
   const deficit = requiredCredit - currentCredit;
-  await withRetries(
-    "gas.transfer",
-    () => gas.invoke("transfer", [
+  await withRetries('gas.transfer', () =>
+    gas.invoke('transfer', [
       sc.ContractParam.hash160(`0x${account.scriptHash}`),
       sc.ContractParam.hash160(payerHash),
       sc.ContractParam.integer(deficit.toString()),
       sc.ContractParam.any(null),
-    ]),
+    ])
   );
 
   const deadlineBalance = Date.now() + 60000;
   while (Date.now() < deadlineBalance) {
-    const contractBalanceRaw = await invokeRead(rpcClient, GAS_HASH, "balanceOf", [{ type: "Hash160", value: payerHash }]);
-    if (BigInt(contractBalanceRaw || "0") >= deficit) break;
+    const contractBalanceRaw = await invokeRead(rpcClient, GAS_HASH, 'balanceOf', [
+      { type: 'Hash160', value: payerHash },
+    ]);
+    if (BigInt(contractBalanceRaw || '0') >= deficit) break;
     await sleep(2000);
   }
 
@@ -161,14 +184,17 @@ async function ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleH
     account,
   });
   const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
-  await withRetries(
-    "depositOracleCredits",
-    () => consumer.invoke("depositOracleCredits", [sc.ContractParam.integer(deficit.toString())], signers),
+  await withRetries('depositOracleCredits', () =>
+    consumer.invoke('depositOracleCredits', [sc.ContractParam.integer(deficit.toString())], signers)
   );
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
-    const updatedCredit = BigInt(await invokeRead(rpcClient, oracleHash, "feeCreditOf", [{ type: "Hash160", value: payerHash }]) || "0");
+    const updatedCredit = BigInt(
+      (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+        { type: 'Hash160', value: payerHash },
+      ])) || '0'
+    );
     if (updatedCredit >= requiredCredit) {
       return {
         request_fee: requestFee.toString(),
@@ -179,31 +205,46 @@ async function ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleH
     await sleep(2000);
   }
 
-  throw new Error("timed out waiting for Neo N3 automation fee credit");
+  throw new Error('timed out waiting for Neo N3 automation fee credit');
 }
 
-async function waitForQueuedExecution(rpcClient, oracleHash, startRequestIdExclusive, requesterHash, consumerHash, timeoutMs = 180000) {
+async function waitForQueuedExecution(
+  rpcClient,
+  oracleHash,
+  startRequestIdExclusive,
+  requesterHash,
+  consumerHash,
+  timeoutMs = 180000
+) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    const totalRequests = BigInt(await invokeRead(rpcClient, oracleHash, "getTotalRequests", []) || "0");
-    for (let requestId = BigInt(startRequestIdExclusive) + 1n; requestId <= totalRequests; requestId += 1n) {
-      const request = await invokeRead(rpcClient, oracleHash, "getRequest", [{ type: "Integer", value: requestId.toString() }]);
+    const totalRequests = BigInt(
+      (await invokeRead(rpcClient, oracleHash, 'getTotalRequests', [])) || '0'
+    );
+    for (
+      let requestId = BigInt(startRequestIdExclusive) + 1n;
+      requestId <= totalRequests;
+      requestId += 1n
+    ) {
+      const request = await invokeRead(rpcClient, oracleHash, 'getRequest', [
+        { type: 'Integer', value: requestId.toString() },
+      ]);
       if (!Array.isArray(request) || request.length < 12) continue;
-      const requester = normalizeHash160(request[5] || "");
-      const callbackContract = normalizeHash160(request[3] || "");
+      const requester = normalizeHash160(request[5] || '');
+      const callbackContract = normalizeHash160(request[3] || '');
       if (requester !== requesterHash || callbackContract !== consumerHash) continue;
 
       const callback = await waitForCallback(rpcClient, consumerHash, requestId.toString(), 120000);
-      if (callback?.request_type === "privacy_oracle" && callback.success) {
+      if (callback?.request_type === 'privacy_oracle' && callback.success) {
         return {
           request_id: requestId.toString(),
           onchain_request: {
             id: String(request[0] || requestId.toString()),
-            request_type: String(request[1] || ""),
-            callback_contract: String(request[3] || ""),
-            requester: String(request[5] || ""),
-            status: String(request[6] || ""),
-            created_at: String(request[7] || ""),
+            request_type: String(request[1] || ''),
+            callback_contract: String(request[3] || ''),
+            requester: String(request[5] || ''),
+            status: String(request[6] || ''),
+            created_at: String(request[7] || ''),
           },
           callback,
         };
@@ -211,47 +252,50 @@ async function waitForQueuedExecution(rpcClient, oracleHash, startRequestIdExclu
     }
     await sleep(4000);
   }
-  throw new Error("timed out waiting for queued automation execution");
+  throw new Error('timed out waiting for queued automation execution');
 }
 
 async function fetchAutomationRecord(automationId) {
-  const baseUrl = trimString(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.morpheus_SUPABASE_URL || "");
+  const baseUrl = trimString(
+    process.env.SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      process.env.morpheus_SUPABASE_URL ||
+      ''
+  );
   const apiKey = trimString(
-    process.env.SUPABASE_SECRET_KEY
-      || process.env.morpheus_SUPABASE_SECRET_KEY
-      || process.env.SUPABASE_SERVICE_ROLE_KEY
-      || process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY
-      || "",
+    process.env.SUPABASE_SECRET_KEY ||
+      process.env.morpheus_SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY ||
+      ''
   );
   if (!baseUrl || !apiKey) return null;
 
   const headers = {
     apikey: apiKey,
     authorization: `Bearer ${apiKey}`,
-    accept: "application/json",
+    accept: 'application/json',
   };
-  const network = trimString(process.env.MORPHEUS_NETWORK || "testnet") || "testnet";
+  const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 
-  const jobUrl = new URL(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_automation_jobs`);
-  jobUrl.searchParams.set("select", "*");
-  jobUrl.searchParams.set("network", `eq.${network}`);
-  jobUrl.searchParams.set("automation_id", `eq.${automationId}`);
-  jobUrl.searchParams.set("limit", "1");
-  const jobResponse = await withRetries(
-    `supabase:automation_job:${automationId}`,
-    () => fetch(jobUrl, { headers }),
+  const jobUrl = new URL(`${baseUrl.replace(/\/$/, '')}/rest/v1/morpheus_automation_jobs`);
+  jobUrl.searchParams.set('select', '*');
+  jobUrl.searchParams.set('network', `eq.${network}`);
+  jobUrl.searchParams.set('automation_id', `eq.${automationId}`);
+  jobUrl.searchParams.set('limit', '1');
+  const jobResponse = await withRetries(`supabase:automation_job:${automationId}`, () =>
+    fetch(jobUrl, { headers })
   );
   const jobRows = jobResponse.ok ? await jobResponse.json() : [];
-  const job = Array.isArray(jobRows) ? (jobRows[0] || null) : null;
+  const job = Array.isArray(jobRows) ? jobRows[0] || null : null;
 
-  const runsUrl = new URL(`${baseUrl.replace(/\/$/, "")}/rest/v1/morpheus_automation_runs`);
-  runsUrl.searchParams.set("select", "*");
-  runsUrl.searchParams.set("network", `eq.${network}`);
-  runsUrl.searchParams.set("automation_id", `eq.${automationId}`);
-  runsUrl.searchParams.set("order", "created_at.asc");
-  const runsResponse = await withRetries(
-    `supabase:automation_runs:${automationId}`,
-    () => fetch(runsUrl, { headers }),
+  const runsUrl = new URL(`${baseUrl.replace(/\/$/, '')}/rest/v1/morpheus_automation_runs`);
+  runsUrl.searchParams.set('select', '*');
+  runsUrl.searchParams.set('network', `eq.${network}`);
+  runsUrl.searchParams.set('automation_id', `eq.${automationId}`);
+  runsUrl.searchParams.set('order', 'created_at.asc');
+  const runsResponse = await withRetries(`supabase:automation_runs:${automationId}`, () =>
+    fetch(runsUrl, { headers })
   );
   const runs = runsResponse.ok ? await runsResponse.json() : [];
 
@@ -263,21 +307,28 @@ async function fetchAutomationRecord(automationId) {
 
 await loadExampleEnv();
 
-const network = trimString(process.env.MORPHEUS_NETWORK || "testnet") || "testnet";
+const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 const registry = await readDeploymentRegistry(network);
 const deployment = registry.neo_n3 || {};
-const defaultRpcUrl = network === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
-const defaultNetworkMagic = network === "mainnet" ? 860833102 : 894710606;
+const defaultRpcUrl =
+  network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443';
+const defaultNetworkMagic = network === 'mainnet' ? 860833102 : 894710606;
 const rpcUrl = trimString(process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl);
-const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic);
+const networkMagic = Number(
+  process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic
+);
 const wif = resolveNeoN3SignerWif(network);
-const consumerHash = normalizeHash160(process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || "");
-const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || "");
+const consumerHash = normalizeHash160(
+  process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || ''
+);
+const oracleHash = normalizeHash160(
+  process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || ''
+);
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 240000);
 
-if (!wif) throw new Error("NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required");
-if (!consumerHash) throw new Error("Neo N3 example consumer hash is required");
-if (!oracleHash) throw new Error("CONTRACT_MORPHEUS_ORACLE_HASH is required");
+if (!wif) throw new Error('NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required');
+if (!consumerHash) throw new Error('Neo N3 example consumer hash is required');
+if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
 
 const account = new wallet.Account(wif);
 const requesterHash = `0x${account.scriptHash}`;
@@ -291,103 +342,140 @@ const consumer = new experimental.SmartContract(consumerHash, {
 
 // Automation flows can consume additional sponsored executions after registration,
 // so keep a larger fee-credit buffer to avoid false negatives during live tests.
-const feeStatus = await ensureFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash, consumerHash, 8);
-const totalRequestsBefore = await invokeRead(rpcClient, oracleHash, "getTotalRequests", []);
+const feeStatus = await ensureFeeCredit(
+  account,
+  rpcUrl,
+  networkMagic,
+  rpcClient,
+  oracleHash,
+  consumerHash,
+  8
+);
+const totalRequestsBefore = await invokeRead(rpcClient, oracleHash, 'getTotalRequests', []);
 
 const executeAt = new Date(Date.now() + 20_000).toISOString();
 const registerPayload = JSON.stringify({
   trigger: {
-    type: "one_shot",
+    type: 'one_shot',
     execute_at: executeAt,
   },
   execution: {
-    request_type: "privacy_oracle",
+    request_type: 'privacy_oracle',
     payload: {
-      provider: "twelvedata",
-      symbol: "NEO-USD",
-      json_path: "price",
-      target_chain: "neo_n3",
+      provider: 'twelvedata',
+      symbol: 'NEO-USD',
+      json_path: 'price',
+      target_chain: 'neo_n3',
     },
   },
   max_executions: 1,
 });
 
-console.log("Registering Neo N3 one-shot automation...");
-const registerTx = await withRetries(
-  "automation_register",
-  () => consumer.invoke("requestRaw", [
-    "automation_register",
-    sc.ContractParam.byteArray(encodeUtf8Base64(registerPayload)),
-  ], signers),
+console.log('Registering Neo N3 one-shot automation...');
+const registerTx = await withRetries('automation_register', () =>
+  consumer.invoke(
+    'requestRaw',
+    ['automation_register', sc.ContractParam.byteArray(encodeUtf8Base64(registerPayload))],
+    signers
+  )
 );
 const registerRequestId = await waitForRequestId(rpcClient, registerTx);
-const registerCallback = await waitForCallback(rpcClient, consumerHash, registerRequestId, callbackTimeoutMs);
+const registerCallback = await waitForCallback(
+  rpcClient,
+  consumerHash,
+  registerRequestId,
+  callbackTimeoutMs
+);
 if (!registerCallback.success) {
-  throw new Error(`Neo N3 automation register callback failed: ${registerCallback.error_text || "unknown error"}`);
+  throw new Error(
+    `Neo N3 automation register callback failed: ${registerCallback.error_text || 'unknown error'}`
+  );
 }
-const automationId = trimString(registerCallback.result_json?.result?.automation_id || registerCallback.result_json?.automation_id || "");
+const automationId = trimString(
+  registerCallback.result_json?.result?.automation_id ||
+    registerCallback.result_json?.automation_id ||
+    ''
+);
 if (!automationId) {
-  throw new Error("Neo N3 automation register callback did not return automation_id");
+  throw new Error('Neo N3 automation register callback did not return automation_id');
 }
 
-console.log("Waiting for queued one-shot automation execution...");
+console.log('Waiting for queued one-shot automation execution...');
 const execution = await waitForQueuedExecution(
   rpcClient,
   oracleHash,
   totalRequestsBefore,
   requesterHash,
   consumerHash,
-  callbackTimeoutMs,
+  callbackTimeoutMs
 );
 
 const intervalPayload = JSON.stringify({
   trigger: {
-    type: "interval",
+    type: 'interval',
     interval_ms: 600000,
     start_at: new Date(Date.now() + 30 * 60_000).toISOString(),
   },
   execution: {
-    request_type: "privacy_oracle",
+    request_type: 'privacy_oracle',
     payload: {
-      provider: "twelvedata",
-      symbol: "NEO-USD",
-      json_path: "price",
-      target_chain: "neo_n3",
+      provider: 'twelvedata',
+      symbol: 'NEO-USD',
+      json_path: 'price',
+      target_chain: 'neo_n3',
     },
   },
 });
 
-console.log("Registering Neo N3 interval automation for cancellation...");
-const intervalRegisterTx = await withRetries(
-  "automation_register:interval",
-  () => consumer.invoke("requestRaw", [
-    "automation_register",
-    sc.ContractParam.byteArray(encodeUtf8Base64(intervalPayload)),
-  ], signers),
+console.log('Registering Neo N3 interval automation for cancellation...');
+const intervalRegisterTx = await withRetries('automation_register:interval', () =>
+  consumer.invoke(
+    'requestRaw',
+    ['automation_register', sc.ContractParam.byteArray(encodeUtf8Base64(intervalPayload))],
+    signers
+  )
 );
 const intervalRegisterRequestId = await waitForRequestId(rpcClient, intervalRegisterTx);
-const intervalRegisterCallback = await waitForCallback(rpcClient, consumerHash, intervalRegisterRequestId, callbackTimeoutMs);
+const intervalRegisterCallback = await waitForCallback(
+  rpcClient,
+  consumerHash,
+  intervalRegisterRequestId,
+  callbackTimeoutMs
+);
 if (!intervalRegisterCallback.success) {
-  throw new Error(`Neo N3 interval automation register callback failed: ${intervalRegisterCallback.error_text || "unknown error"}`);
+  throw new Error(
+    `Neo N3 interval automation register callback failed: ${intervalRegisterCallback.error_text || 'unknown error'}`
+  );
 }
-const cancelAutomationId = trimString(intervalRegisterCallback.result_json?.result?.automation_id || intervalRegisterCallback.result_json?.automation_id || "");
+const cancelAutomationId = trimString(
+  intervalRegisterCallback.result_json?.result?.automation_id ||
+    intervalRegisterCallback.result_json?.automation_id ||
+    ''
+);
 if (!cancelAutomationId) {
-  throw new Error("Neo N3 interval automation register callback did not return automation_id");
+  throw new Error('Neo N3 interval automation register callback did not return automation_id');
 }
 
 const cancelPayload = JSON.stringify({ automation_id: cancelAutomationId });
-console.log("Cancelling Neo N3 automation...");
-const cancelTx = await withRetries(
-  "automation_cancel",
-  () => consumer.invoke("requestRaw", [
-    "automation_cancel",
-    sc.ContractParam.byteArray(encodeUtf8Base64(cancelPayload)),
-  ], signers),
+console.log('Cancelling Neo N3 automation...');
+const cancelTx = await withRetries('automation_cancel', () =>
+  consumer.invoke(
+    'requestRaw',
+    ['automation_cancel', sc.ContractParam.byteArray(encodeUtf8Base64(cancelPayload))],
+    signers
+  )
 );
 const cancelRequestId = await waitForRequestId(rpcClient, cancelTx);
-const cancelCallback = await waitForCallback(rpcClient, consumerHash, cancelRequestId, callbackTimeoutMs);
+const cancelCallback = await waitForCallback(
+  rpcClient,
+  consumerHash,
+  cancelRequestId,
+  callbackTimeoutMs
+);
 if (!cancelCallback.success) {
-  throw new Error(`Neo N3 automation cancel callback failed: ${cancelCallback.error_text || "unknown error"}`);
+  throw new Error(
+    `Neo N3 automation cancel callback failed: ${cancelCallback.error_text || 'unknown error'}`
+  );
 }
 
 const supabase = await fetchAutomationRecord(automationId);
@@ -397,7 +485,7 @@ const generatedAt = new Date().toISOString();
 const reportJson = {
   generated_at: generatedAt,
   network,
-  target_chain: "neo_n3",
+  target_chain: 'neo_n3',
   consumer_hash: consumerHash,
   oracle_hash: oracleHash,
   request_fee: feeStatus.request_fee,
@@ -427,62 +515,64 @@ const reportJson = {
 };
 
 const markdown = [
-  "# Neo N3 Automation Validation",
-  "",
+  '# Neo N3 Automation Validation',
+  '',
   `Generated: ${generatedAt}`,
-  "",
-  "## Environment",
-  "",
+  '',
+  '## Environment',
+  '',
   `- Network: \`${network}\``,
   `- Target chain: \`neo_n3\``,
   `- Consumer: \`${consumerHash}\``,
   `- Oracle: \`${oracleHash}\``,
   `- Request fee: \`${feeStatus.request_fee}\``,
-  "",
-  "## Case Matrix",
-  "",
-  "| Case | Tx | Request ID | Result |",
-  "| --- | --- | --- | --- |",
+  '',
+  '## Case Matrix',
+  '',
+  '| Case | Tx | Request ID | Result |',
+  '| --- | --- | --- | --- |',
   `| register | \`${registerTx}\` | \`${registerRequestId}\` | \`${automationId}\` |`,
   `| queued_execution | \`scheduler\` | \`${execution.request_id}\` | \`${JSON.stringify(execution.callback?.result_json?.result?.result ?? execution.callback?.result_json?.result?.extracted_value ?? null)}\` |`,
   `| cancel_registration | \`${intervalRegisterTx}\` | \`${intervalRegisterRequestId}\` | \`${cancelAutomationId}\` |`,
   `| cancel | \`${cancelTx}\` | \`${cancelRequestId}\` | \`${cancelCallback.success}\` |`,
-  "",
-  "## Registration Result",
-  "",
+  '',
+  '## Registration Result',
+  '',
   markdownJson(reportJson.register),
-  "",
-  "## Queued Execution",
-  "",
+  '',
+  '## Queued Execution',
+  '',
   markdownJson(reportJson.queued_execution),
-  "",
-  "## Cancellation Registration",
-  "",
+  '',
+  '## Cancellation Registration',
+  '',
   markdownJson(reportJson.cancel_registration),
-  "",
-  "## Cancellation Result",
-  "",
+  '',
+  '## Cancellation Result',
+  '',
   markdownJson(reportJson.cancel),
-  "",
-  "## Supabase Job Snapshot",
-  "",
+  '',
+  '## Supabase Job Snapshot',
+  '',
   markdownJson(reportJson.supabase),
-  "",
-  "## Supabase Cancelled Job Snapshot",
-  "",
+  '',
+  '## Supabase Cancelled Job Snapshot',
+  '',
   markdownJson(reportJson.cancelled_supabase),
-  "",
-].join("\n");
+  '',
+].join('\n');
 
 const artifacts = await writeValidationArtifacts({
-  baseName: "n3-automation-validation",
+  baseName: 'n3-automation-validation',
   network,
   generatedAt,
   jsonReport: reportJson,
   markdownReport: markdown,
 });
 
-process.stdout.write(jsonPretty({
-  ...reportJson,
-  ...artifacts,
-}));
+process.stdout.write(
+  jsonPretty({
+    ...reportJson,
+    ...artifacts,
+  })
+);

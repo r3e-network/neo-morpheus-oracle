@@ -6,22 +6,24 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function resolveNeoN3SignerWif(network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()) {
+function resolveNeoN3SignerWif(
+  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
+) {
   if (network === 'testnet') {
     return trimString(
-      process.env.NEO_TESTNET_WIF
-      || process.env.NEO_N3_WIF
-      || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-      || process.env.PHALA_NEO_N3_WIF
-      || '',
+      process.env.NEO_TESTNET_WIF ||
+        process.env.NEO_N3_WIF ||
+        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+        process.env.PHALA_NEO_N3_WIF ||
+        ''
     );
   }
   return trimString(
-    process.env.NEO_N3_WIF
-    || process.env.MORPHEUS_RELAYER_NEO_N3_WIF
-    || process.env.PHALA_NEO_N3_WIF
-    || process.env.NEO_TESTNET_WIF
-    || '',
+    process.env.NEO_N3_WIF ||
+      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+      process.env.PHALA_NEO_N3_WIF ||
+      process.env.NEO_TESTNET_WIF ||
+      ''
   );
 }
 

@@ -1,66 +1,73 @@
-import { REPLAY_WINDOW_MS, env, sha256Hex, stableStringify, strip0x, trimString } from "../platform/core.js";
-import { wallet as neoWallet } from "@cityofzion/neon-js";
-import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from "../platform/dstack.js";
+import {
+  REPLAY_WINDOW_MS,
+  env,
+  sha256Hex,
+  stableStringify,
+  strip0x,
+  trimString,
+} from '../platform/core.js';
+import { wallet as neoWallet } from '@cityofzion/neon-js';
+import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from '../platform/dstack.js';
 
 function resolveOracleVerifierRole(payload = {}) {
-  const explicit = trimString(payload.dstack_key_role || payload.key_role || "");
-  return explicit.toLowerCase() === "oracle_verifier";
+  const explicit = trimString(payload.dstack_key_role || payload.key_role || '');
+  return explicit.toLowerCase() === 'oracle_verifier';
 }
 
 function resolveRequestedNeoN3DerivedRole(payload = {}) {
-  const explicit = trimString(payload.dstack_key_role || payload.key_role || "");
-  return explicit || "worker";
+  const explicit = trimString(payload.dstack_key_role || payload.key_role || '');
+  return explicit || 'worker';
 }
 
 function resolveNeoN3OracleVerifierKey() {
-  const network = trimString(env("MORPHEUS_NETWORK", "NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet").toLowerCase();
-  if (network === "mainnet") {
+  const network = trimString(
+    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
+  ).toLowerCase();
+  if (network === 'mainnet') {
     return trimString(
       env(
-        "MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY",
-        "MORPHEUS_ORACLE_VERIFIER_WIF",
-        "PHALA_ORACLE_VERIFIER_PRIVATE_KEY",
-        "PHALA_ORACLE_VERIFIER_WIF",
-      )
-      || "",
+        'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
+        'MORPHEUS_ORACLE_VERIFIER_WIF',
+        'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
+        'PHALA_ORACLE_VERIFIER_WIF'
+      ) || ''
     );
   }
   return trimString(
     env(
-      "MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY",
-      "MORPHEUS_ORACLE_VERIFIER_WIF",
-      "PHALA_ORACLE_VERIFIER_PRIVATE_KEY",
-      "PHALA_ORACLE_VERIFIER_WIF",
-    )
-    || "",
+      'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
+      'MORPHEUS_ORACLE_VERIFIER_WIF',
+      'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
+      'PHALA_ORACLE_VERIFIER_WIF'
+    ) || ''
   );
 }
 
 function resolveNeoN3WorkerKey() {
-  const network = trimString(env("MORPHEUS_NETWORK", "NEXT_PUBLIC_MORPHEUS_NETWORK") || "testnet").toLowerCase();
-  if (network === "mainnet") {
+  const network = trimString(
+    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
+  ).toLowerCase();
+  if (network === 'mainnet') {
     return trimString(
       env(
-        "PHALA_NEO_N3_PRIVATE_KEY",
-        "PHALA_NEO_N3_WIF",
-        "NEO_N3_WIF",
-        "NEO_PLATFORM_KEY",
-        "TEE_PRIVATE_KEY",
-        "NEO_TESTNET_WIF",
-      )
-      || "",
+        'PHALA_NEO_N3_PRIVATE_KEY',
+        'PHALA_NEO_N3_WIF',
+        'NEO_N3_WIF',
+        'NEO_PLATFORM_KEY',
+        'TEE_PRIVATE_KEY',
+        'NEO_TESTNET_WIF'
+      ) || ''
     );
   }
   return trimString(
     env(
-      "PHALA_NEO_N3_PRIVATE_KEY",
-      "PHALA_NEO_N3_WIF",
-      "NEO_TESTNET_WIF",
-      "NEO_N3_WIF",
-      "NEO_PLATFORM_KEY",
-      "TEE_PRIVATE_KEY",
-    )
-    || "",
+      'PHALA_NEO_N3_PRIVATE_KEY',
+      'PHALA_NEO_N3_WIF',
+      'NEO_TESTNET_WIF',
+      'NEO_N3_WIF',
+      'NEO_PLATFORM_KEY',
+      'TEE_PRIVATE_KEY'
+    ) || ''
   );
 }
 
@@ -86,43 +93,41 @@ export function forgetRequestId(requestId) {
 
 export function resolveSigningBytes(payload) {
   if (trimString(payload.data_hex)) {
-    return { bytes: Buffer.from(strip0x(payload.data_hex), "hex"), source: "data_hex" };
+    return { bytes: Buffer.from(strip0x(payload.data_hex), 'hex'), source: 'data_hex' };
   }
   if (trimString(payload.data_base64)) {
-    return { bytes: Buffer.from(payload.data_base64, "base64"), source: "data_base64" };
+    return { bytes: Buffer.from(payload.data_base64, 'base64'), source: 'data_base64' };
   }
-  if (typeof payload.message === "string") {
-    return { bytes: Buffer.from(payload.message, "utf8"), source: "message" };
+  if (typeof payload.message === 'string') {
+    return { bytes: Buffer.from(payload.message, 'utf8'), source: 'message' };
   }
-  if (typeof payload.data === "string") {
-    return { bytes: Buffer.from(payload.data, "utf8"), source: "data:string" };
+  if (typeof payload.data === 'string') {
+    return { bytes: Buffer.from(payload.data, 'utf8'), source: 'data:string' };
   }
   if (payload.data !== undefined) {
-    return { bytes: Buffer.from(stableStringify(payload.data), "utf8"), source: "data:json" };
+    return { bytes: Buffer.from(stableStringify(payload.data), 'utf8'), source: 'data:json' };
   }
-  throw new Error("one of data, message, data_hex, or data_base64 is required");
+  throw new Error('one of data, message, data_hex, or data_base64 is required');
 }
 
 export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   const useOracleVerifierRole = resolveOracleVerifierRole(payload);
-  const requestScopedKey = trimString(payload.private_key)
-    || trimString(payload.signing_key)
-    || trimString(payload.wif);
-  const configuredOracleVerifierKey = useOracleVerifierRole ? resolveNeoN3OracleVerifierKey() : "";
-  let privateKey = requestScopedKey
-    || configuredOracleVerifierKey
-    || resolveNeoN3WorkerKey();
+  const requestScopedKey =
+    trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif);
+  const configuredOracleVerifierKey = useOracleVerifierRole ? resolveNeoN3OracleVerifierKey() : '';
+  let privateKey = requestScopedKey || configuredOracleVerifierKey || resolveNeoN3WorkerKey();
 
-  const allowDerivedOverride = !requestScopedKey && (!useOracleVerifierRole || !configuredOracleVerifierKey);
+  const allowDerivedOverride =
+    !requestScopedKey && (!useOracleVerifierRole || !configuredOracleVerifierKey);
   if (shouldUseDerivedKeys(payload) && allowDerivedOverride) {
     const requestedRole = resolveRequestedNeoN3DerivedRole(payload);
     try {
       privateKey = await deriveNeoN3PrivateKeyHex(requestedRole);
     } catch {
       // If the dedicated oracle_verifier path is absent, reuse the worker role.
-      if (useOracleVerifierRole && requestedRole !== "worker") {
+      if (useOracleVerifierRole && requestedRole !== 'worker') {
         try {
-          privateKey = await deriveNeoN3PrivateKeyHex("worker");
+          privateKey = await deriveNeoN3PrivateKeyHex('worker');
         } catch {
           // fall back to explicit/env key material if available
         }
@@ -134,7 +139,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   const account = new neoWallet.Account(privateKey);
   const payloadBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   return {
-    signature: neoWallet.sign(payloadBuffer.toString("hex"), account.privateKey),
+    signature: neoWallet.sign(payloadBuffer.toString('hex'), account.privateKey),
     public_key: account.publicKey,
     address: account.address,
     script_hash: `0x${account.scriptHash}`,
@@ -145,7 +150,9 @@ async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
   let privateKey = resolveNeoN3WorkerKey();
   if (shouldUseDerivedKeys(payload)) {
     try {
-      privateKey = await deriveNeoN3PrivateKeyHex(trimString(payload.dstack_key_role || payload.key_role || "worker") || "worker");
+      privateKey = await deriveNeoN3PrivateKeyHex(
+        trimString(payload.dstack_key_role || payload.key_role || 'worker') || 'worker'
+      );
     } catch {
       // fall back to configured worker key material if available
     }
@@ -155,7 +162,7 @@ async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
   const account = new neoWallet.Account(privateKey);
   const payloadBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   return {
-    signature: neoWallet.sign(payloadBuffer.toString("hex"), account.privateKey),
+    signature: neoWallet.sign(payloadBuffer.toString('hex'), account.privateKey),
     public_key: account.publicKey,
     address: account.address,
     script_hash: `0x${account.scriptHash}`,
@@ -163,7 +170,7 @@ async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
 }
 
 export async function buildSignedResultEnvelope(result, payload = {}) {
-  const payloadBytes = Buffer.from(stableStringify(result), "utf8");
+  const payloadBytes = Buffer.from(stableStringify(result), 'utf8');
   const outputHash = sha256Hex(payloadBytes);
   const signature = await maybeSignWorkerNeoN3Bytes(payloadBytes, payload);
   return {

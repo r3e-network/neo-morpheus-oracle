@@ -1,4 +1,4 @@
-import { proxyToPhala } from "@/lib/phala";
+import { proxyToPhala } from '@/lib/phala';
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -8,9 +8,13 @@ export async function POST(request: Request) {
   } catch {
     parsed = { raw_body: body };
   }
-  return proxyToPhala("/compute/execute", { method: "POST", body }, {
-    route: "/api/compute/execute",
-    category: "compute",
-    requestPayload: parsed,
-  });
+  return proxyToPhala(
+    '/compute/execute',
+    { method: 'POST', body },
+    {
+      route: '/api/compute/execute',
+      category: 'compute',
+      requestPayload: parsed,
+    }
+  );
 }

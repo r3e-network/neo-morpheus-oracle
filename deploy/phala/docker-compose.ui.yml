@@ -10,12 +10,18 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       MORPHEUS_RUNTIME_CONFIG_JSON: ${MORPHEUS_RUNTIME_CONFIG_JSON}
     expose:
-      - "${PHALA_WORKER_PORT}"
+      - '${PHALA_WORKER_PORT}'
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-data:/data
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:' + (process.env.PORT || 8080) + '/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -28,7 +34,7 @@ services:
       phala-worker:
         condition: service_healthy
     ports:
-      - "${MORPHEUS_PUBLIC_PORT:-3000}:80"
+      - '${MORPHEUS_PUBLIC_PORT:-3000}:80'
     volumes:
       - /tmp/data:/data
       - /tmp/config:/config

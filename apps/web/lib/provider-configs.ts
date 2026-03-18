@@ -1,7 +1,11 @@
-import { getServerSupabaseClient, loadProjectProviderConfig, resolveSupabaseNetwork } from "./server-supabase";
+import {
+  getServerSupabaseClient,
+  loadProjectProviderConfig,
+  resolveSupabaseNetwork,
+} from './server-supabase';
 
 function trimString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function normalizeProviderId(value: unknown) {
@@ -9,7 +13,7 @@ function normalizeProviderId(value: unknown) {
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function parseJsonObjectParam(rawValue: string | null) {
@@ -17,14 +21,14 @@ export function parseJsonObjectParam(rawValue: string | null) {
   if (!value) return undefined;
   const parsed = JSON.parse(value);
   if (!isPlainObject(parsed)) {
-    throw new Error("provider_params must be a JSON object");
+    throw new Error('provider_params must be a JSON object');
   }
   return parsed;
 }
 
 function coerceObject(value: unknown) {
   if (isPlainObject(value)) return value;
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     try {
       const parsed = JSON.parse(value);
       if (isPlainObject(parsed)) return parsed;
@@ -41,11 +45,11 @@ export async function resolveProviderAwarePayload<T extends Record<string, unkno
     projectSlug?: string;
     fallbackProviderId?: string;
     network?: string;
-  } = {},
+  } = {}
 ) {
-  const projectSlug = trimString(payload.project_slug || options.projectSlug || "");
+  const projectSlug = trimString(payload.project_slug || options.projectSlug || '');
   const providerId = normalizeProviderId(
-    payload.provider || payload.provider_id || payload.source || options.fallbackProviderId || "",
+    payload.provider || payload.provider_id || payload.source || options.fallbackProviderId || ''
   );
 
   if (!projectSlug || !providerId) {
@@ -71,7 +75,7 @@ export async function resolveProviderAwarePayload<T extends Record<string, unkno
     supabase,
     projectSlug,
     providerId,
-    resolveSupabaseNetwork(String(payload.network || options.network || "")),
+    resolveSupabaseNetwork(String(payload.network || options.network || ''))
   );
   if (!providerConfig) {
     return {

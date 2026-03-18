@@ -1,21 +1,21 @@
-import { proxyToPhala } from "@/lib/phala";
-import { recordOperationLog } from "@/lib/operation-logs";
+import { proxyToPhala } from '@/lib/phala';
+import { recordOperationLog } from '@/lib/operation-logs';
 
 export async function GET() {
   const payload = {
-    mode: "builtin",
-    function: "hash.sha256",
+    mode: 'builtin',
+    function: 'hash.sha256',
     input: {
       sample: true,
-      message: "morpheus-attestation-demo",
+      message: 'morpheus-attestation-demo',
       version: 1,
     },
-    target_chain: "neo_n3",
+    target_chain: 'neo_n3',
     include_attestation: true,
   };
 
-  const response = await proxyToPhala("/compute/execute", {
-    method: "POST",
+  const response = await proxyToPhala('/compute/execute', {
+    method: 'POST',
     body: JSON.stringify(payload),
   });
   const text = await response.text();
@@ -38,17 +38,18 @@ export async function GET() {
         entry_point: body?.entry_point,
       },
       expected_output_hash: body?.verification?.output_hash || body?.output_hash || null,
-      expected_attestation_hash: body?.verification?.attestation_hash || body?.attestation_hash || null,
+      expected_attestation_hash:
+        body?.verification?.attestation_hash || body?.attestation_hash || null,
     },
   };
   await recordOperationLog({
-    route: "/api/attestation/demo",
-    method: "GET",
-    category: "attestation",
+    route: '/api/attestation/demo',
+    method: 'GET',
+    category: 'attestation',
     requestPayload: payload,
     responsePayload: finalBody,
     httpStatus: response.status,
-    metadata: { upstream_path: "/compute/execute" },
+    metadata: { upstream_path: '/compute/execute' },
   });
   return Response.json(finalBody, { status: response.status });
 }

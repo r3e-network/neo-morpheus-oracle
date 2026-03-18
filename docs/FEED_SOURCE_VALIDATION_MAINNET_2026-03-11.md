@@ -11,42 +11,42 @@ Generated: 2026-03-11T14:47:44.705Z
 
 ## Result Matrix
 
-| Pair | Provider Pair | Raw Price | Status |
-| --- | --- | --- | --- |
-| NEO-USD | NEO-USD | 2.584 | ok |
-| GAS-USD | GAS-USD | 1.555 | ok |
-| FLM-USD | FLM-USD | 0.002482 | ok |
-| BTC-USD | BTC-USD | 70780.8 | ok |
-| ETH-USD | ETH-USD | 2069.64 | ok |
-| SOL-USD | SOL-USD | 86.84 | ok |
-| TRX-USD | TRX-USD | 0.2897 | ok |
-| PAXG-USD | PAXG-USD | 5181 | ok |
-| WTI-USD | WTI-USD | 85.07 | ok |
-| BRENT-USD | BRENT-USD | 89.24 | ok |
-| NATGAS-USD | NATGAS-USD | 3.089045 | ok |
-| COPPER-USD | COPPER-USD | 25.20000 | ok |
-| WHEAT-USD | WHEAT-USD | 613 | ok |
-| CORN-USD | CORN-USD | 439.64101 | ok |
-| SOY-USD | SOY-USD | 1205.91900 | ok |
-| USDT-USD | USDT-USD | 1.00009 | ok |
-| USDC-USD | USDC-USD | 1 | ok |
-| BNB-USD | BNB-USD | 649.3 | ok |
-| XRP-USD | XRP-USD | 1.39939 | ok |
-| DOGE-USD | DOGE-USD | 0.09394 | ok |
-| AAPL-USD | AAPL-USD | 260.5 | ok |
-| GOOGL-USD | GOOGL-USD | 309.82 | ok |
-| MSFT-USD | MSFT-USD | 404.24 | ok |
-| AMZN-USD | AMZN-USD | 213.98 | ok |
-| TSLA-USD | TSLA-USD | 410.65 | ok |
-| META-USD | META-USD | 653.71 | ok |
-| NVDA-USD | NVDA-USD | 186.31 | ok |
-| SPY-USD | SPY-USD | 677.31 | ok |
-| QQQ-USD | QQQ-USD | 609.03 | ok |
-| GLD-USD | GLD-USD | 476.21 | ok |
-| EUR-USD | EUR-USD | 1.15875 | ok |
-| GBP-USD | GBP-USD | 1.34264 | ok |
-| JPY-USD | JPY-USD | 158.63523 | ok |
-| CNY-USD | CNY-USD | 6.86730 | ok |
+| Pair       | Provider Pair | Raw Price  | Status |
+| ---------- | ------------- | ---------- | ------ |
+| NEO-USD    | NEO-USD       | 2.584      | ok     |
+| GAS-USD    | GAS-USD       | 1.555      | ok     |
+| FLM-USD    | FLM-USD       | 0.002482   | ok     |
+| BTC-USD    | BTC-USD       | 70780.8    | ok     |
+| ETH-USD    | ETH-USD       | 2069.64    | ok     |
+| SOL-USD    | SOL-USD       | 86.84      | ok     |
+| TRX-USD    | TRX-USD       | 0.2897     | ok     |
+| PAXG-USD   | PAXG-USD      | 5181       | ok     |
+| WTI-USD    | WTI-USD       | 85.07      | ok     |
+| BRENT-USD  | BRENT-USD     | 89.24      | ok     |
+| NATGAS-USD | NATGAS-USD    | 3.089045   | ok     |
+| COPPER-USD | COPPER-USD    | 25.20000   | ok     |
+| WHEAT-USD  | WHEAT-USD     | 613        | ok     |
+| CORN-USD   | CORN-USD      | 439.64101  | ok     |
+| SOY-USD    | SOY-USD       | 1205.91900 | ok     |
+| USDT-USD   | USDT-USD      | 1.00009    | ok     |
+| USDC-USD   | USDC-USD      | 1          | ok     |
+| BNB-USD    | BNB-USD       | 649.3      | ok     |
+| XRP-USD    | XRP-USD       | 1.39939    | ok     |
+| DOGE-USD   | DOGE-USD      | 0.09394    | ok     |
+| AAPL-USD   | AAPL-USD      | 260.5      | ok     |
+| GOOGL-USD  | GOOGL-USD     | 309.82     | ok     |
+| MSFT-USD   | MSFT-USD      | 404.24     | ok     |
+| AMZN-USD   | AMZN-USD      | 213.98     | ok     |
+| TSLA-USD   | TSLA-USD      | 410.65     | ok     |
+| META-USD   | META-USD      | 653.71     | ok     |
+| NVDA-USD   | NVDA-USD      | 186.31     | ok     |
+| SPY-USD    | SPY-USD       | 677.31     | ok     |
+| QQQ-USD    | QQQ-USD       | 609.03     | ok     |
+| GLD-USD    | GLD-USD       | 476.21     | ok     |
+| EUR-USD    | EUR-USD       | 1.15875    | ok     |
+| GBP-USD    | GBP-USD       | 1.34264    | ok     |
+| JPY-USD    | JPY-USD       | 158.63523  | ok     |
+| CNY-USD    | CNY-USD       | 6.86730    | ok     |
 
 ## Detailed Results
 

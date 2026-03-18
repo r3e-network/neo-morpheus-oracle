@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { StarterStudio } from "@/components/starter/StarterStudio";
+import { StarterStudio } from '@/components/starter/StarterStudio';
 
 export default function DocsStarterStudioPage() {
   return <StarterStudio />;

@@ -155,9 +155,7 @@
       "timestamp": "1773122684",
       "attestation_hash": "0x9c8a3a9ad62a4071578d9d69232d62f474bd7cce51475fccc45a95176e42fdb0",
       "source_set_id": "1",
-      "reader_pairs": [
-        "TWELVEDATA:NEO-USD"
-      ]
+      "reader_pairs": ["TWELVEDATA:NEO-USD"]
     }
   }
 }

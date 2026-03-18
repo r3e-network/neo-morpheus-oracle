@@ -30,8 +30,10 @@ const originalNextPublicWeb3AuthClientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIE
 const originalWeb3AuthJwksUrl = process.env.WEB3AUTH_JWKS_URL;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
-process.env.PHALA_NEO_N3_PRIVATE_KEY = '1111111111111111111111111111111111111111111111111111111111111111';
-process.env.PHALA_NEOX_PRIVATE_KEY = '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb';
+process.env.PHALA_NEO_N3_PRIVATE_KEY =
+  '1111111111111111111111111111111111111111111111111111111111111111';
+process.env.PHALA_NEOX_PRIVATE_KEY =
+  '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.NEOX_RPC_URL = '';
 process.env.NEO_X_RPC_URL = '';
@@ -48,7 +50,8 @@ delete process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
 delete process.env.WEB3AUTH_JWKS_URL;
 
 const { default: handler } = await import('./src/worker.js');
-const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } = await import('./src/platform/dstack.js');
+const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } =
+  await import('./src/platform/dstack.js');
 const { __resetOracleKeyMaterialForTests } = await import('./src/oracle/crypto.js');
 const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
 const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
@@ -102,17 +105,26 @@ function installWeb3AuthJwksFetch(jwksUrl, jwks) {
 }
 
 function computeExpectedMasterNullifier(provider, providerUid) {
-  return createHash('sha256').update(Buffer.concat([
-    Buffer.from(provider, 'utf8'),
-    Buffer.from([0x1f]),
-    Buffer.from(providerUid, 'utf8'),
-    Buffer.from([0x1f]),
-    Buffer.from(createHash('sha256').update(process.env.NEODID_SECRET_SALT).digest('hex'), 'hex'),
-  ])).digest('hex');
+  return createHash('sha256')
+    .update(
+      Buffer.concat([
+        Buffer.from(provider, 'utf8'),
+        Buffer.from([0x1f]),
+        Buffer.from(providerUid, 'utf8'),
+        Buffer.from([0x1f]),
+        Buffer.from(
+          createHash('sha256').update(process.env.NEODID_SECRET_SALT).digest('hex'),
+          'hex'
+        ),
+      ])
+    )
+    .digest('hex');
 }
 
-const TEST_WASM_OK_BASE64 = 'AGFzbQEAAAABEANgAAF/YAF/AX9gAn9/AX8CGAEIbW9ycGhldXMLbm93X3NlY29uZHMAAAMEAwEAAgUDAQABBgwCfwFBgAgLfwFBAAsHJQQGbWVtb3J5AgAFYWxsb2MAAQpyZXN1bHRfbGVuAAIDcnVuAAMKSQMRAQF/IwAhASMAIABqJAAgAQsEACMBCzAAQQQkAUGAEEH0ADoAAEGBEEHyADoAAEGCEEH1ADoAAEGDEEHlADoAABAAGkGAEAsAQwRuYW1lAQYBAANub3cCHwQAAAECAARzaXplAQRhZGRyAgADAgADcHRyAQNsZW4HEwIABGhlYXABCnJlc3VsdF9sZW4=';
-const TEST_WASM_LOOP_BASE64 = 'AGFzbQEAAAABEANgAX8Bf2AAAX9gAn9/AX8DBAMAAQIFAwEAAQYHAX8BQYAICwclBAZtZW1vcnkCAAVhbGxvYwAACnJlc3VsdF9sZW4AAQNydW4AAgoVAwQAIwALBABBAAsJAANADAALQQALACcEbmFtZQIXAwABAARzaXplAQACAgADcHRyAQNsZW4HBwEABGhlYXA=';
+const TEST_WASM_OK_BASE64 =
+  'AGFzbQEAAAABEANgAAF/YAF/AX9gAn9/AX8CGAEIbW9ycGhldXMLbm93X3NlY29uZHMAAAMEAwEAAgUDAQABBgwCfwFBgAgLfwFBAAsHJQQGbWVtb3J5AgAFYWxsb2MAAQpyZXN1bHRfbGVuAAIDcnVuAAMKSQMRAQF/IwAhASMAIABqJAAgAQsEACMBCzAAQQQkAUGAEEH0ADoAAEGBEEHyADoAAEGCEEH1ADoAAEGDEEHlADoAABAAGkGAEAsAQwRuYW1lAQYBAANub3cCHwQAAAECAARzaXplAQRhZGRyAgADAgADcHRyAQNsZW4HEwIABGhlYXABCnJlc3VsdF9sZW4=';
+const TEST_WASM_LOOP_BASE64 =
+  'AGFzbQEAAAABEANgAX8Bf2AAAX9gAn9/AX8DBAMAAQIFAwEAAQYHAX8BQYAICwclBAZtZW1vcnkCAAVhbGxvYwAACnJlc3VsdF9sZW4AAQNydW4AAgoVAwQAIwALBABBAAsJAANADAALQQALACcEbmFtZQIXAwABAARzaXplAQACAgADcHRyAQNsZW4HBwEABGhlYXA=';
 const TEST_ORACLE_ENCRYPTION_ALGORITHM = 'X25519-HKDF-SHA256-AES-256-GCM';
 const TEST_ORACLE_ENCRYPTION_INFO = 'morpheus-confidential-payload-v2';
 const AES_GCM_TAG_LENGTH_BYTES = 16;
@@ -131,26 +143,24 @@ async function encryptForOracle(publicKeyBase64, plaintext) {
     recipientPublicKeyBytes,
     { name: 'X25519' },
     false,
-    [],
+    []
   );
-  const ephemeralKeyPair = await globalThis.crypto.subtle.generateKey(
-    { name: 'X25519' },
-    true,
-    ['deriveBits'],
+  const ephemeralKeyPair = await globalThis.crypto.subtle.generateKey({ name: 'X25519' }, true, [
+    'deriveBits',
+  ]);
+  const ephemeralPublicKeyBytes = new Uint8Array(
+    await globalThis.crypto.subtle.exportKey('raw', ephemeralKeyPair.publicKey)
   );
-  const ephemeralPublicKeyBytes = new Uint8Array(await globalThis.crypto.subtle.exportKey('raw', ephemeralKeyPair.publicKey));
-  const sharedSecret = new Uint8Array(await globalThis.crypto.subtle.deriveBits(
-    { name: 'X25519', public: recipientKey },
-    ephemeralKeyPair.privateKey,
-    256,
-  ));
-  const keyMaterial = await globalThis.crypto.subtle.importKey(
-    'raw',
-    sharedSecret,
-    'HKDF',
-    false,
-    ['deriveKey'],
+  const sharedSecret = new Uint8Array(
+    await globalThis.crypto.subtle.deriveBits(
+      { name: 'X25519', public: recipientKey },
+      ephemeralKeyPair.privateKey,
+      256
+    )
   );
+  const keyMaterial = await globalThis.crypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, [
+    'deriveKey',
+  ]);
   const info = new Uint8Array([
     ...new TextEncoder().encode(TEST_ORACLE_ENCRYPTION_INFO),
     ...ephemeralPublicKeyBytes,
@@ -166,24 +176,28 @@ async function encryptForOracle(publicKeyBase64, plaintext) {
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
-    ['encrypt'],
+    ['encrypt']
   );
   const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
-  const encryptedBytes = new Uint8Array(await globalThis.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    aesKey,
-    new TextEncoder().encode(plaintext),
-  ));
+  const encryptedBytes = new Uint8Array(
+    await globalThis.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      aesKey,
+      new TextEncoder().encode(plaintext)
+    )
+  );
   const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
   const tagBytes = encryptedBytes.slice(encryptedBytes.length - AES_GCM_TAG_LENGTH_BYTES);
-  return Buffer.from(JSON.stringify({
-    v: 2,
-    alg: TEST_ORACLE_ENCRYPTION_ALGORITHM,
-    epk: Buffer.from(ephemeralPublicKeyBytes).toString('base64'),
-    iv: Buffer.from(iv).toString('base64'),
-    ct: Buffer.from(ciphertextBytes).toString('base64'),
-    tag: Buffer.from(tagBytes).toString('base64'),
-  })).toString('base64');
+  return Buffer.from(
+    JSON.stringify({
+      v: 2,
+      alg: TEST_ORACLE_ENCRYPTION_ALGORITHM,
+      epk: Buffer.from(ephemeralPublicKeyBytes).toString('base64'),
+      iv: Buffer.from(iv).toString('base64'),
+      ct: Buffer.from(ciphertextBytes).toString('base64'),
+      tag: Buffer.from(tagBytes).toString('base64'),
+    })
+  ).toString('base64');
 }
 
 test('oracle query loads project provider defaults inside worker', async () => {
@@ -199,14 +213,19 @@ test('oracle query loads project provider defaults inside worker', async () => {
       });
     }
     if (value.startsWith('https://supabase.test/rest/v1/morpheus_provider_configs')) {
-      return new Response(JSON.stringify([{
-        provider_id: 'twelvedata',
-        enabled: true,
-        config: { symbol: 'GAS-USD', endpoint: 'price', interval: '5min' },
-      }]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify([
+          {
+            provider_id: 'twelvedata',
+            enabled: true,
+            config: { symbol: 'GAS-USD', endpoint: 'price', interval: '5min' },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
     }
     assert.match(value, /api\.twelvedata\.com\/price/);
     assert.match(value, /symbol=GAS%2FUSD/);
@@ -217,11 +236,17 @@ test('oracle query loads project provider defaults inside worker', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/oracle/query', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ provider: 'twelvedata', project_slug: 'demo', target_chain: 'neo_n3' }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'twelvedata',
+        project_slug: 'demo',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'fetch');
@@ -235,36 +260,52 @@ test('oracle query rejects disabled project provider inside worker', async () =>
   global.fetch = async (url) => {
     const value = String(url);
     if (value.startsWith('https://supabase.test/rest/v1/morpheus_projects')) {
-      return new Response(JSON.stringify([{ id: 'project-demo-disabled-id', slug: 'demo-disabled' }]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify([{ id: 'project-demo-disabled-id', slug: 'demo-disabled' }]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
     }
     if (value.startsWith('https://supabase.test/rest/v1/morpheus_provider_configs')) {
-      return new Response(JSON.stringify([{
-        provider_id: 'twelvedata',
-        enabled: false,
-        config: { symbol: 'NEO-USD' },
-      }]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify([
+          {
+            provider_id: 'twelvedata',
+            enabled: false,
+            config: { symbol: 'NEO-USD' },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
     }
     throw new Error(`unexpected fetch ${value}`);
   };
 
-  const res = await handler(new Request('http://local/oracle/query', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ provider: 'twelvedata', project_slug: 'demo-disabled', target_chain: 'neo_n3' }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'twelvedata',
+        project_slug: 'demo-disabled',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /disabled/);
 });
 
 test('neodid providers endpoint lists supported social providers', async () => {
-  const res = await handler(new Request('http://local/neodid/providers', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/neodid/providers', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.ok(Array.isArray(body.providers));
@@ -287,11 +328,13 @@ test('neodid bind returns deterministic master nullifier and ticket signature', 
     metadata: { tier: 'vip' },
   };
 
-  const firstRes = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  }));
+  const firstRes = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+  );
   assert.equal(firstRes.status, 200);
   const first = await firstRes.json();
   assert.equal(first.mode, 'neodid_bind');
@@ -301,11 +344,13 @@ test('neodid bind returns deterministic master nullifier and ticket signature', 
   assert.ok(first.signature);
   assert.ok(first.public_key);
 
-  const secondRes = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  }));
+  const secondRes = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+    })
+  );
   assert.equal(secondRes.status, 200);
   const second = await secondRes.json();
   assert.equal(second.master_nullifier, first.master_nullifier);
@@ -324,26 +369,28 @@ test('neodid bind verifies web3auth id_token and derives provider uid inside the
   });
   installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
 
-  const res = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      provider: 'web3auth',
-      id_token: fixture.token,
-      web3auth_client_id: fixture.clientId,
-      web3auth_jwks_url: fixture.jwksUrl,
-      claim_type: 'Web3Auth_PrimaryIdentity',
-      claim_value: 'linked_social_root',
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        id_token: fixture.token,
+        web3auth_client_id: fixture.clientId,
+        web3auth_jwks_url: fixture.jwksUrl,
+        claim_type: 'Web3Auth_PrimaryIdentity',
+        claim_value: 'linked_social_root',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   const expectedProviderUid = 'web3auth:google-oauth:alice@example.com';
   assert.equal(body.provider, 'web3auth');
   assert.equal(
     body.master_nullifier,
-    `0x${computeExpectedMasterNullifier('web3auth', expectedProviderUid)}`,
+    `0x${computeExpectedMasterNullifier('web3auth', expectedProviderUid)}`
   );
 });
 
@@ -360,19 +407,21 @@ test('neodid bind rejects a mismatched explicit web3auth provider_uid', async ()
   });
   installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
 
-  const res = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      provider: 'web3auth',
-      provider_uid: 'web3auth:google:bob@example.com',
-      id_token: fixture.token,
-      web3auth_client_id: fixture.clientId,
-      web3auth_jwks_url: fixture.jwksUrl,
-      claim_type: 'Web3Auth_PrimaryIdentity',
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        provider_uid: 'web3auth:google:bob@example.com',
+        id_token: fixture.token,
+        web3auth_client_id: fixture.clientId,
+        web3auth_jwks_url: fixture.jwksUrl,
+        claim_type: 'Web3Auth_PrimaryIdentity',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /provider_uid does not match verified id_token/);
@@ -391,17 +440,19 @@ test('neodid bind requires a web3auth client id so audience is always verified',
   });
   installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
 
-  const res = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      provider: 'web3auth',
-      id_token: fixture.token,
-      web3auth_jwks_url: fixture.jwksUrl,
-      claim_type: 'Web3Auth_PrimaryIdentity',
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        id_token: fixture.token,
+        web3auth_jwks_url: fixture.jwksUrl,
+        claim_type: 'Web3Auth_PrimaryIdentity',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /WEB3AUTH_CLIENT_ID is required/);
@@ -414,45 +465,55 @@ test('neodid action-ticket generates action-specific nullifiers', async () => {
     disposable_account: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
   };
 
-  const firstRes = await handler(new Request('http://local/neodid/action-ticket', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ ...common, action_id: 'DAO_Vote_42' }),
-  }));
+  const firstRes = await handler(
+    new Request('http://local/neodid/action-ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ ...common, action_id: 'DAO_Vote_42' }),
+    })
+  );
   assert.equal(firstRes.status, 200);
   const first = await firstRes.json();
   assert.equal(first.mode, 'neodid_action_ticket');
   assert.match(first.action_nullifier, /^0x[0-9a-f]{64}$/);
   assert.ok(first.signature);
-  const expectedDigest = createHash('sha256').update(Buffer.concat([
-    NEODID_ACTION_DOMAIN,
-    Buffer.from(common.disposable_account.replace(/^0x/, ''), 'hex'),
-    encodeLengthPrefixedAscii('DAO_Vote_42'),
-    Buffer.from(first.action_nullifier.replace(/^0x/, ''), 'hex'),
-  ])).digest('hex');
+  const expectedDigest = createHash('sha256')
+    .update(
+      Buffer.concat([
+        NEODID_ACTION_DOMAIN,
+        Buffer.from(common.disposable_account.replace(/^0x/, ''), 'hex'),
+        encodeLengthPrefixedAscii('DAO_Vote_42'),
+        Buffer.from(first.action_nullifier.replace(/^0x/, ''), 'hex'),
+      ])
+    )
+    .digest('hex');
   assert.equal(first.digest, `0x${expectedDigest}`);
 
-  const secondRes = await handler(new Request('http://local/neodid/action-ticket', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ ...common, action_id: 'Airdrop_Season_1' }),
-  }));
+  const secondRes = await handler(
+    new Request('http://local/neodid/action-ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ ...common, action_id: 'Airdrop_Season_1' }),
+    })
+  );
   assert.equal(secondRes.status, 200);
   const second = await secondRes.json();
   assert.notEqual(first.action_nullifier, second.action_nullifier);
 });
 
 test('neodid action-ticket accepts okex alias and normalizes to okx', async () => {
-  const res = await handler(new Request('http://local/neodid/action-ticket', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      provider: 'okex',
-      provider_uid: 'exchange_uid_123',
-      disposable_account: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
-      action_id: 'DAO_Vote_42',
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/neodid/action-ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'okex',
+        provider_uid: 'exchange_uid_123',
+        disposable_account: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+        action_id: 'DAO_Vote_42',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'neodid_action_ticket');
@@ -460,28 +521,35 @@ test('neodid action-ticket accepts okex alias and normalizes to okx', async () =
 });
 
 test('neodid recovery-ticket supports confidential provider payloads and binds AA recovery context', async () => {
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(keyRes.status, 200);
   const keyMeta = await keyRes.json();
-  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
-    provider_uid: 'github_uid_777',
-  }));
+  const encryptedParams = await encryptForOracle(
+    keyMeta.public_key,
+    JSON.stringify({
+      provider_uid: 'github_uid_777',
+    })
+  );
 
-  const res = await handler(new Request('http://local/neodid/recovery-ticket', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      provider: 'github',
-      aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
-      verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
-      account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      account_id: 'aa-social-recovery-demo',
-      new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
-      recovery_nonce: '7',
-      expires_at: '1735689600',
-      encrypted_params: encryptedParams,
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/neodid/recovery-ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'github',
+        aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+        verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
+        account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        account_id: 'aa-social-recovery-demo',
+        new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+        recovery_nonce: '7',
+        expires_at: '1735689600',
+        encrypted_params: encryptedParams,
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'neodid_recovery_ticket');
@@ -494,35 +562,41 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
   assert.match(body.digest, /^0x[0-9a-f]{64}$/);
   assert.ok(body.signature);
   assert.ok(body.public_key);
-  const expectedRecoveryDigest = createHash('sha256').update(Buffer.concat([
-    NEODID_RECOVERY_DOMAIN,
-    encodeLengthPrefixedAscii('neo_n3'),
-    Buffer.from('0x017520f068fd602082fe5572596185e62a4ad991'.replace(/^0x/, ''), 'hex'),
-    Buffer.from('0x03013f49c42a14546c8bbe58f9d434c3517fccab'.replace(/^0x/, ''), 'hex'),
-    Buffer.from('0x6d0656f6dd91469db1c90cc1e574380613f43738'.replace(/^0x/, ''), 'hex'),
-    encodeLengthPrefixedAscii('aa-social-recovery-demo'),
-    Buffer.from('0x89b05cac00804648c666b47ecb1c57bc185821b7'.replace(/^0x/, ''), 'hex'),
-    encodeLengthPrefixedAscii('7'),
-    encodeLengthPrefixedAscii('1735689600'),
-    encodeLengthPrefixedAscii(body.action_id),
-    Buffer.from(body.master_nullifier.replace(/^0x/, ''), 'hex'),
-    Buffer.from(body.action_nullifier.replace(/^0x/, ''), 'hex'),
-  ])).digest('hex');
+  const expectedRecoveryDigest = createHash('sha256')
+    .update(
+      Buffer.concat([
+        NEODID_RECOVERY_DOMAIN,
+        encodeLengthPrefixedAscii('neo_n3'),
+        Buffer.from('0x017520f068fd602082fe5572596185e62a4ad991'.replace(/^0x/, ''), 'hex'),
+        Buffer.from('0x03013f49c42a14546c8bbe58f9d434c3517fccab'.replace(/^0x/, ''), 'hex'),
+        Buffer.from('0x6d0656f6dd91469db1c90cc1e574380613f43738'.replace(/^0x/, ''), 'hex'),
+        encodeLengthPrefixedAscii('aa-social-recovery-demo'),
+        Buffer.from('0x89b05cac00804648c666b47ecb1c57bc185821b7'.replace(/^0x/, ''), 'hex'),
+        encodeLengthPrefixedAscii('7'),
+        encodeLengthPrefixedAscii('1735689600'),
+        encodeLengthPrefixedAscii(body.action_id),
+        Buffer.from(body.master_nullifier.replace(/^0x/, ''), 'hex'),
+        Buffer.from(body.action_nullifier.replace(/^0x/, ''), 'hex'),
+      ])
+    )
+    .digest('hex');
   assert.equal(body.digest, `0x${expectedRecoveryDigest}`);
 
-  const secondRes = await handler(new Request('http://local/neodid/recovery-ticket', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      provider: 'github',
-      aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
-      account_id: 'aa-social-recovery-demo',
-      new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
-      recovery_nonce: '8',
-      expires_at: '1735689600',
-      encrypted_params: encryptedParams,
-    }),
-  }));
+  const secondRes = await handler(
+    new Request('http://local/neodid/recovery-ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'github',
+        aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+        account_id: 'aa-social-recovery-demo',
+        new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+        recovery_nonce: '8',
+        expires_at: '1735689600',
+        encrypted_params: encryptedParams,
+      }),
+    })
+  );
   assert.equal(secondRes.status, 200);
   const second = await secondRes.json();
   assert.notEqual(body.action_nullifier, second.action_nullifier);
@@ -541,30 +615,37 @@ test('neodid recovery-ticket accepts confidential web3auth id_token payloads', a
   });
   installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
 
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(keyRes.status, 200);
   const keyMeta = await keyRes.json();
-  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
-    id_token: fixture.token,
-    web3auth_client_id: fixture.clientId,
-    web3auth_jwks_url: fixture.jwksUrl,
-  }));
+  const encryptedParams = await encryptForOracle(
+    keyMeta.public_key,
+    JSON.stringify({
+      id_token: fixture.token,
+      web3auth_client_id: fixture.clientId,
+      web3auth_jwks_url: fixture.jwksUrl,
+    })
+  );
 
-  const res = await handler(new Request('http://local/neodid/recovery-ticket', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      provider: 'web3auth',
-      aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
-      verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
-      account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      account_id: 'aa-social-recovery-demo',
-      new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
-      recovery_nonce: '7',
-      expires_at: '1735689600',
-      encrypted_params: encryptedParams,
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/neodid/recovery-ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'web3auth',
+        aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+        verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
+        account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        account_id: 'aa-social-recovery-demo',
+        new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+        recovery_nonce: '7',
+        expires_at: '1735689600',
+        encrypted_params: encryptedParams,
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.provider, 'web3auth');
@@ -587,14 +668,19 @@ test('neodid bind resolves encrypted_params_ref through Supabase ciphertext stor
     kid: 'worker-test-web3auth-ref',
   });
 
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(keyRes.status, 200);
   const keyMeta = await keyRes.json();
-  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
-    id_token: fixture.token,
-    web3auth_client_id: fixture.clientId,
-    web3auth_jwks_url: fixture.jwksUrl,
-  }));
+  const encryptedParams = await encryptForOracle(
+    keyMeta.public_key,
+    JSON.stringify({
+      id_token: fixture.token,
+      web3auth_client_id: fixture.clientId,
+      web3auth_jwks_url: fixture.jwksUrl,
+    })
+  );
 
   global.fetch = async (url) => {
     const value = String(url);
@@ -605,28 +691,35 @@ test('neodid bind resolves encrypted_params_ref through Supabase ciphertext stor
       });
     }
     if (value.startsWith('https://supabase.test/rest/v1/morpheus_encrypted_secrets')) {
-      return new Response(JSON.stringify([{
-        id: '11111111-1111-1111-1111-111111111111',
-        ciphertext: encryptedParams,
-      }]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify([
+          {
+            id: '11111111-1111-1111-1111-111111111111',
+            ciphertext: encryptedParams,
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
     }
     throw new Error(`unexpected fetch ${value}`);
   };
 
-  const res = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      provider: 'web3auth',
-      encrypted_params_ref: '11111111-1111-1111-1111-111111111111',
-      claim_type: 'Web3Auth_PrimaryIdentity',
-      claim_value: 'ref-test',
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        encrypted_params_ref: '11111111-1111-1111-1111-111111111111',
+        claim_type: 'Web3Auth_PrimaryIdentity',
+        claim_value: 'ref-test',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.provider, 'web3auth');
@@ -648,14 +741,19 @@ test('encrypted_params_ref enforces requester and callback scope when metadata b
     kid: 'worker-test-web3auth-ref-scope',
   });
 
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(keyRes.status, 200);
   const keyMeta = await keyRes.json();
-  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
-    id_token: fixture.token,
-    web3auth_client_id: fixture.clientId,
-    web3auth_jwks_url: fixture.jwksUrl,
-  }));
+  const encryptedParams = await encryptForOracle(
+    keyMeta.public_key,
+    JSON.stringify({
+      id_token: fixture.token,
+      web3auth_client_id: fixture.clientId,
+      web3auth_jwks_url: fixture.jwksUrl,
+    })
+  );
 
   global.fetch = async (url) => {
     const value = String(url);
@@ -666,69 +764,80 @@ test('encrypted_params_ref enforces requester and callback scope when metadata b
       });
     }
     if (value.startsWith('https://supabase.test/rest/v1/morpheus_encrypted_secrets')) {
-      return new Response(JSON.stringify([{
-        id: '22222222-2222-2222-2222-222222222222',
-        ciphertext: encryptedParams,
-        metadata: {
-          bound_requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-          bound_callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-        },
-      }]), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify([
+          {
+            id: '22222222-2222-2222-2222-222222222222',
+            ciphertext: encryptedParams,
+            metadata: {
+              bound_requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+              bound_callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
     }
     throw new Error(`unexpected fetch ${value}`);
   };
 
-  const success = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      provider: 'web3auth',
-      encrypted_params_ref: '22222222-2222-2222-2222-222222222222',
-      claim_type: 'Web3Auth_PrimaryIdentity',
-      claim_value: 'ref-scope',
-      requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    }),
-  }));
+  const success = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        encrypted_params_ref: '22222222-2222-2222-2222-222222222222',
+        claim_type: 'Web3Auth_PrimaryIdentity',
+        claim_value: 'ref-scope',
+        requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      }),
+    })
+  );
   assert.equal(success.status, 200);
   const successBody = await success.json();
   assert.equal(successBody.provider, 'web3auth');
   assert.match(successBody.master_nullifier, /^0x[0-9a-f]{64}$/);
 
-  const deniedRequester = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      provider: 'web3auth',
-      encrypted_params_ref: '22222222-2222-2222-2222-222222222222',
-      claim_type: 'Web3Auth_PrimaryIdentity',
-      claim_value: 'ref-scope',
-      requester: '0xcccccccccccccccccccccccccccccccccccccccc',
-      callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    }),
-  }));
+  const deniedRequester = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        encrypted_params_ref: '22222222-2222-2222-2222-222222222222',
+        claim_type: 'Web3Auth_PrimaryIdentity',
+        claim_value: 'ref-scope',
+        requester: '0xcccccccccccccccccccccccccccccccccccccccc',
+        callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      }),
+    })
+  );
   assert.equal(deniedRequester.status, 400);
   const deniedRequesterBody = await deniedRequester.json();
   assert.match(deniedRequesterBody.error, /encrypted ref requester mismatch/i);
 
-  const deniedCallback = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
-      provider: 'web3auth',
-      encrypted_params_ref: '22222222-2222-2222-2222-222222222222',
-      claim_type: 'Web3Auth_PrimaryIdentity',
-      claim_value: 'ref-scope',
-      requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      callback_contract: '0xcccccccccccccccccccccccccccccccccccccccc',
-    }),
-  }));
+  const deniedCallback = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        encrypted_params_ref: '22222222-2222-2222-2222-222222222222',
+        claim_type: 'Web3Auth_PrimaryIdentity',
+        claim_value: 'ref-scope',
+        requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        callback_contract: '0xcccccccccccccccccccccccccccccccccccccccc',
+      }),
+    })
+  );
   assert.equal(deniedCallback.status, 400);
   const deniedCallbackBody = await deniedCallback.json();
   assert.match(deniedCallbackBody.error, /encrypted ref callback mismatch/i);
@@ -749,14 +858,19 @@ test('encrypted_params_ref is idempotent for the same request_id but rejects rep
     kid: 'worker-test-web3auth-ref-replay',
   });
 
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(keyRes.status, 200);
   const keyMeta = await keyRes.json();
-  const encryptedParams = await encryptForOracle(keyMeta.public_key, JSON.stringify({
-    id_token: fixture.token,
-    web3auth_client_id: fixture.clientId,
-    web3auth_jwks_url: fixture.jwksUrl,
-  }));
+  const encryptedParams = await encryptForOracle(
+    keyMeta.public_key,
+    JSON.stringify({
+      id_token: fixture.token,
+      web3auth_client_id: fixture.clientId,
+      web3auth_jwks_url: fixture.jwksUrl,
+    })
+  );
 
   const secretRow = {
     id: '33333333-3333-3333-3333-333333333333',
@@ -787,7 +901,8 @@ test('encrypted_params_ref is idempotent for the same request_id but rejects rep
         const parsedUrl = new URL(value);
         const requestBody = JSON.parse(String(init.body || '{}'));
         const claimedRequestId = requestBody?.metadata?._consumed_request_id || null;
-        const requiredNullClaim = parsedUrl.searchParams.get('metadata->>_consumed_request_id') === 'is.null';
+        const requiredNullClaim =
+          parsedUrl.searchParams.get('metadata->>_consumed_request_id') === 'is.null';
         if (requiredNullClaim && secretRow.metadata._consumed_request_id !== undefined) {
           return new Response(JSON.stringify([]), {
             status: 200,
@@ -818,34 +933,40 @@ test('encrypted_params_ref is idempotent for the same request_id but rejects rep
     callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
   };
 
-  const first = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      ...baseBody,
-      request_id: 'oracle-request-1',
-    }),
-  }));
+  const first = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        ...baseBody,
+        request_id: 'oracle-request-1',
+      }),
+    })
+  );
   assert.equal(first.status, 200);
 
-  const retrySameRequest = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      ...baseBody,
-      request_id: 'oracle-request-1',
-    }),
-  }));
+  const retrySameRequest = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        ...baseBody,
+        request_id: 'oracle-request-1',
+      }),
+    })
+  );
   assert.equal(retrySameRequest.status, 200);
 
-  const replayDifferentRequest = await handler(new Request('http://local/neodid/bind', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      ...baseBody,
-      request_id: 'oracle-request-2',
-    }),
-  }));
+  const replayDifferentRequest = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        ...baseBody,
+        request_id: 'oracle-request-2',
+      }),
+    })
+  );
   assert.equal(replayDifferentRequest.status, 400);
   const replayBody = await replayDifferentRequest.json();
   assert.match(replayBody.error, /encrypted ref already consumed by another request/i);
@@ -881,11 +1002,11 @@ test.after(() => {
 test('txproxy allowlist permits Oracle fulfillRequest and queueAutomationRequest', async () => {
   assert.equal(
     allowlistAllows('0x017520f068fd602082fe5572596185e62a4ad991', 'fulfillRequest'),
-    true,
+    true
   );
   assert.equal(
     allowlistAllows('0x017520f068fd602082fe5572596185e62a4ad991', 'queueAutomationRequest'),
-    true,
+    true
   );
 });
 
@@ -893,10 +1014,11 @@ test('createByteArrayParam decodes base64 payloads into raw bytes', async () => 
   const expected = '04030201';
   assert.equal(createByteArrayParam(Buffer.from('01020304', 'hex')).value.toString(), expected);
   assert.equal(createByteArrayParam('01020304').value.toString(), expected);
-  assert.equal(createByteArrayParam(Buffer.from('01020304', 'hex').toString('base64')).value.toString(), expected);
+  assert.equal(
+    createByteArrayParam(Buffer.from('01020304', 'hex').toString('base64')).value.toString(),
+    expected
+  );
 });
-
-
 
 test('providers endpoint lists builtin sources', async () => {
   const res = await handler(new Request('http://local/providers', { headers: authHeaders() }));
@@ -954,7 +1076,9 @@ test('feed quote supports twelvedata provider', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/NEO-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/NEO-USD?provider=twelvedata', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.provider, 'twelvedata');
@@ -971,7 +1095,9 @@ test('feed quote infers provider from canonical prefixed symbol without provider
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/TWELVEDATA:BTC-USD', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/TWELVEDATA:BTC-USD', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:BTC-USD');
@@ -989,7 +1115,9 @@ test('feed quote preserves explicit TwelveData stock symbols without appending /
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/AAPL-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/AAPL-USD?provider=twelvedata', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:AAPL-USD');
@@ -1006,7 +1134,9 @@ test('feed quote uses direct FLM-USD pair naming under 1e6 USD scale', async () 
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:FLM-USD');
@@ -1028,7 +1158,9 @@ test('feed quote can invert forex units for direct JPY-USD pricing under 1e6 USD
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/JPY-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/JPY-USD?provider=twelvedata', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:JPY-USD');
@@ -1050,14 +1182,16 @@ test('feed quote preserves explicit TwelveData futures symbols', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/COPPER-USD?provider=twelvedata', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/COPPER-USD?provider=twelvedata', {
+      headers: authHeaders(),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:COPPER-USD');
   assert.equal(body.price, '25.2');
 });
-
-
 
 test('feed quote supports coinbase-spot provider', async () => {
   global.fetch = async (url) => {
@@ -1068,7 +1202,11 @@ test('feed quote supports coinbase-spot provider', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/NEO-USD?provider=coinbase-spot', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/NEO-USD?provider=coinbase-spot', {
+      headers: authHeaders(),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.provider, 'coinbase-spot');
@@ -1084,7 +1222,11 @@ test('feed quote supports binance-spot provider', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/NEO-USD?provider=binance-spot', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/NEO-USD?provider=binance-spot', {
+      headers: authHeaders(),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.provider, 'binance-spot');
@@ -1109,7 +1251,9 @@ test('feed quote returns all available providers when provider is omitted', asyn
     throw new Error(`unexpected fetch ${value}`);
   };
 
-  const res = await handler(new Request('http://local/feeds/price/NEO-USD', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/NEO-USD', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.pair, 'NEO-USD');
@@ -1126,11 +1270,13 @@ test('oracle query supports builtin provider mode', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/oracle/query', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', target_chain: 'neo_n3' }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', target_chain: 'neo_n3' }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'fetch');
@@ -1146,11 +1292,13 @@ test('oracle query fails on builtin provider upstream 429', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/oracle/query', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', target_chain: 'neo_n3' }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', target_chain: 'neo_n3' }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /429/);
@@ -1178,7 +1326,9 @@ test('attestation endpoint works without auth', async () => {
 });
 
 test('oracle public key endpoint returns X25519 metadata', async () => {
-  const res = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.algorithm, TEST_ORACLE_ENCRYPTION_ALGORITHM);
@@ -1198,19 +1348,31 @@ test('oracle public key prefers a dstack-sealed keystore whenever dstack is avai
   __setDstackClientFactoryForTests(async () => ({
     isReachable: async () => true,
     getKey: async () => ({ key: Uint8Array.from(Buffer.from('11'.repeat(32), 'hex')) }),
-    info: async () => ({ app_id: 'app', instance_id: 'inst', compose_hash: 'compose', app_name: 'Morpheus', device_id: 'device', key_provider_info: 'mock', tcb_info: null }),
+    info: async () => ({
+      app_id: 'app',
+      instance_id: 'inst',
+      compose_hash: 'compose',
+      app_name: 'Morpheus',
+      device_id: 'device',
+      key_provider_info: 'mock',
+      tcb_info: null,
+    }),
     getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
   }));
 
   __resetOracleKeyMaterialForTests();
-  const first = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const first = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(first.status, 200);
   const firstBody = await first.json();
   assert.match(firstBody.key_source, /dstack-sealed/);
   assert.ok(firstBody.public_key);
 
   __resetOracleKeyMaterialForTests();
-  const second = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const second = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   assert.equal(second.status, 200);
   const secondBody = await second.json();
   assert.equal(secondBody.public_key, firstBody.public_key);
@@ -1226,11 +1388,13 @@ test('oracle query supports plain fetch mode', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/oracle/query', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ url: 'https://api.example.com/plain', target_chain: 'neo_n3' }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ url: 'https://api.example.com/plain', target_chain: 'neo_n3' }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'fetch');
@@ -1239,7 +1403,9 @@ test('oracle query supports plain fetch mode', async () => {
 });
 
 test('oracle smart fetch supports encrypted_payload alias and script_base64', async () => {
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   const keyBody = await keyRes.json();
   const ciphertext = await encryptForOracle(keyBody.public_key, 'secret-token');
 
@@ -1252,17 +1418,21 @@ test('oracle smart fetch supports encrypted_payload alias and script_base64', as
     });
   };
 
-  const res = await handler(new Request('http://local/oracle/smart-fetch', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      url: 'https://api.example.com/private',
-      encrypted_payload: ciphertext,
-      script_base64: Buffer.from('function process(data) { return data.age > 80; }').toString('base64'),
-      target_chain: 'neo_x',
-      target_chain_id: '12227332'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/private',
+        encrypted_payload: ciphertext,
+        script_base64: Buffer.from('function process(data) { return data.age > 80; }').toString(
+          'base64'
+        ),
+        target_chain: 'neo_x',
+        target_chain_id: '12227332',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'fetch+compute');
@@ -1272,12 +1442,17 @@ test('oracle smart fetch supports encrypted_payload alias and script_base64', as
 });
 
 test('oracle smart fetch supports encrypted JSON payload patches', async () => {
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   const keyBody = await keyRes.json();
-  const ciphertext = await encryptForOracle(keyBody.public_key, JSON.stringify({
-    headers: { 'x-api-key': 'sealed-secret' },
-    script: 'function process(data) { return data.age > 80; }',
-  }));
+  const ciphertext = await encryptForOracle(
+    keyBody.public_key,
+    JSON.stringify({
+      headers: { 'x-api-key': 'sealed-secret' },
+      script: 'function process(data) { return data.age > 80; }',
+    })
+  );
 
   global.fetch = async (url, init) => {
     assert.equal(url, 'https://api.example.com/private-patch');
@@ -1289,15 +1464,17 @@ test('oracle smart fetch supports encrypted JSON payload patches', async () => {
     });
   };
 
-  const res = await handler(new Request('http://local/oracle/smart-fetch', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      url: 'https://api.example.com/private-patch',
-      encrypted_payload: ciphertext,
-      target_chain: 'neo_n3',
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/private-patch',
+        encrypted_payload: ciphertext,
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'fetch+compute');
@@ -1306,16 +1483,18 @@ test('oracle smart fetch supports encrypted JSON payload patches', async () => {
 });
 
 test('compute execute supports builtin heavy functions', async () => {
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'builtin',
-      function: 'math.modexp',
-      input: { base: '2', exponent: '10', modulus: '17' },
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'builtin',
+        function: 'math.modexp',
+        input: { base: '2', exponent: '10', modulus: '17' },
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'builtin');
@@ -1325,27 +1504,29 @@ test('compute execute supports builtin heavy functions', async () => {
 });
 
 test('compute execute supports zerc20 single-withdraw verification preflight', async () => {
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'builtin',
-      function: 'zkp.zerc20.single_withdraw.verify',
-      input: {
-        skip_proof_verification: true,
-        public_inputs: {
-          recipient: `0x${'11'.repeat(20)}`,
-          withdraw_value: '1000000',
-          tree_root: `0x${'22'.repeat(32)}`,
-          path_indices: '0x01',
-          blacklisted_root: `0x${'33'.repeat(32)}`,
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'builtin',
+        function: 'zkp.zerc20.single_withdraw.verify',
+        input: {
+          skip_proof_verification: true,
+          public_inputs: {
+            recipient: `0x${'11'.repeat(20)}`,
+            withdraw_value: '1000000',
+            tree_root: `0x${'22'.repeat(32)}`,
+            path_indices: '0x01',
+            blacklisted_root: `0x${'33'.repeat(32)}`,
+          },
+          expected_recipient: `0x${'11'.repeat(20)}`,
+          expected_withdraw_value: '1000000',
         },
-        expected_recipient: `0x${'11'.repeat(20)}`,
-        expected_withdraw_value: '1000000',
-      },
-      target_chain: 'neo_n3'
-    }),
-  }));
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.function, 'zkp.zerc20.single_withdraw.verify');
@@ -1358,20 +1539,29 @@ test('compute execute rejects oversized zkp verification payloads before snarkjs
   const previous = process.env.COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES;
   process.env.COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES = '4096';
   try {
-    const res = await handler(new Request('http://local/compute/execute', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        mode: 'builtin',
-        function: 'zkp.groth16.verify',
-        input: {
-          verifying_key: { huge: 'x'.repeat(7000) },
-          public_signals: ['1'],
-          proof: { pi_a: ['1', '2'], pi_b: [['1', '2'], ['3', '4']], pi_c: ['5', '6'] },
-        },
-        target_chain: 'neo_n3',
-      }),
-    }));
+    const res = await handler(
+      new Request('http://local/compute/execute', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          mode: 'builtin',
+          function: 'zkp.groth16.verify',
+          input: {
+            verifying_key: { huge: 'x'.repeat(7000) },
+            public_signals: ['1'],
+            proof: {
+              pi_a: ['1', '2'],
+              pi_b: [
+                ['1', '2'],
+                ['3', '4'],
+              ],
+              pi_c: ['5', '6'],
+            },
+          },
+          target_chain: 'neo_n3',
+        }),
+      })
+    );
     assert.equal(res.status, 400);
     const body = await res.json();
     assert.match(body.error, /zkp verification input exceeds max size/i);
@@ -1385,20 +1575,29 @@ test('compute execute rejects groth16 verification when the verifier runtime is 
   const previousRuntime = process.env.MORPHEUS_ZKP_VERIFY_RUNTIME;
   delete process.env.MORPHEUS_ZKP_VERIFY_RUNTIME;
   try {
-    const res = await handler(new Request('http://local/compute/execute', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        mode: 'builtin',
-        function: 'zkp.groth16.verify',
-        input: {
-          verifying_key: { vk_alpha_1: ['1', '2'] },
-          public_signals: ['1'],
-          proof: { pi_a: ['1', '2'], pi_b: [['1', '2'], ['3', '4']], pi_c: ['5', '6'] },
-        },
-        target_chain: 'neo_n3',
-      }),
-    }));
+    const res = await handler(
+      new Request('http://local/compute/execute', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          mode: 'builtin',
+          function: 'zkp.groth16.verify',
+          input: {
+            verifying_key: { vk_alpha_1: ['1', '2'] },
+            public_signals: ['1'],
+            proof: {
+              pi_a: ['1', '2'],
+              pi_b: [
+                ['1', '2'],
+                ['3', '4'],
+              ],
+              pi_c: ['5', '6'],
+            },
+          },
+          target_chain: 'neo_n3',
+        }),
+      })
+    );
     assert.equal(res.status, 400);
     const body = await res.json();
     assert.match(body.error, /groth16 verification runtime disabled/i);
@@ -1416,20 +1615,29 @@ test('compute execute can use an external groth16 verifier command when explicit
   process.env.MORPHEUS_ZKP_VERIFY_RUNTIME = 'cli';
   process.env.MORPHEUS_SNARKJS_BIN = stub;
   try {
-    const res = await handler(new Request('http://local/compute/execute', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        mode: 'builtin',
-        function: 'zkp.groth16.verify',
-        input: {
-          verifying_key: { vk_alpha_1: ['1', '2'] },
-          public_signals: ['1'],
-          proof: { pi_a: ['1', '2'], pi_b: [['1', '2'], ['3', '4']], pi_c: ['5', '6'] },
-        },
-        target_chain: 'neo_n3',
-      }),
-    }));
+    const res = await handler(
+      new Request('http://local/compute/execute', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          mode: 'builtin',
+          function: 'zkp.groth16.verify',
+          input: {
+            verifying_key: { vk_alpha_1: ['1', '2'] },
+            public_signals: ['1'],
+            proof: {
+              pi_a: ['1', '2'],
+              pi_b: [
+                ['1', '2'],
+                ['3', '4'],
+              ],
+              pi_c: ['5', '6'],
+            },
+          },
+          target_chain: 'neo_n3',
+        }),
+      })
+    );
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.function, 'zkp.groth16.verify');
@@ -1467,20 +1675,22 @@ test('paymaster authorize enforces network-specific policy', async () => {
   process.env.MORPHEUS_PAYMASTER_MAINNET_ENABLED = 'false';
 
   try {
-    const approved = await handler(new Request('http://local/paymaster/authorize', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        network: 'testnet',
-        target_chain: 'neo_n3',
-        account_id: 'aa-test-account',
-        dapp_id: 'demo-dapp',
-        target_contract: `0x${'aa'.repeat(20)}`,
-        method: 'executeUserOp',
-        estimated_gas_units: 120000,
-        operation_hash: `0x${'44'.repeat(32)}`,
-      }),
-    }));
+    const approved = await handler(
+      new Request('http://local/paymaster/authorize', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          network: 'testnet',
+          target_chain: 'neo_n3',
+          account_id: 'aa-test-account',
+          dapp_id: 'demo-dapp',
+          target_contract: `0x${'aa'.repeat(20)}`,
+          method: 'executeUserOp',
+          estimated_gas_units: 120000,
+          operation_hash: `0x${'44'.repeat(32)}`,
+        }),
+      })
+    );
     assert.equal(approved.status, 200);
     const approvedBody = await approved.json();
     assert.equal(approvedBody.approved, true);
@@ -1491,39 +1701,43 @@ test('paymaster authorize enforces network-specific policy', async () => {
     assert.ok(approvedBody.approval_digest);
     assert.ok(approvedBody.signature);
 
-    const denied = await handler(new Request('http://local/paymaster/authorize', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        network: 'mainnet',
-        target_chain: 'neo_n3',
-        account_id: 'aa-test-account',
-        dapp_id: 'demo-dapp',
-        target_contract: `0x${'aa'.repeat(20)}`,
-        method: 'executeUserOp',
-        estimated_gas_units: 120000,
-        operation_hash: `0x${'44'.repeat(32)}`,
-      }),
-    }));
+    const denied = await handler(
+      new Request('http://local/paymaster/authorize', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          network: 'mainnet',
+          target_chain: 'neo_n3',
+          account_id: 'aa-test-account',
+          dapp_id: 'demo-dapp',
+          target_contract: `0x${'aa'.repeat(20)}`,
+          method: 'executeUserOp',
+          estimated_gas_units: 120000,
+          operation_hash: `0x${'44'.repeat(32)}`,
+        }),
+      })
+    );
     assert.equal(denied.status, 200);
     const deniedBody = await denied.json();
     assert.equal(deniedBody.approved, false);
     assert.match(deniedBody.reason, /disabled/i);
 
-    const deniedDapp = await handler(new Request('http://local/paymaster/authorize', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        network: 'testnet',
-        target_chain: 'neo_n3',
-        account_id: 'aa-test-account',
-        dapp_id: 'rogue-dapp',
-        target_contract: `0x${'aa'.repeat(20)}`,
-        method: 'executeUserOp',
-        estimated_gas_units: 120000,
-        operation_hash: `0x${'55'.repeat(32)}`,
-      }),
-    }));
+    const deniedDapp = await handler(
+      new Request('http://local/paymaster/authorize', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          network: 'testnet',
+          target_chain: 'neo_n3',
+          account_id: 'aa-test-account',
+          dapp_id: 'rogue-dapp',
+          target_contract: `0x${'aa'.repeat(20)}`,
+          method: 'executeUserOp',
+          estimated_gas_units: 120000,
+          operation_hash: `0x${'55'.repeat(32)}`,
+        }),
+      })
+    );
     assert.equal(deniedDapp.status, 200);
     const deniedDappBody = await deniedDapp.json();
     assert.equal(deniedDappBody.approved, false);
@@ -1582,46 +1796,59 @@ test('paymaster authorize can consult AA hook allowlist state', async () => {
     }
     const [, operation, args] = body.params;
     if (operation === 'getHook') {
-      return new Response(JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        result: {
-          state: 'HALT',
-          stack: [{ type: 'Hash160', value: whitelistHookHash }],
-        },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          result: {
+            state: 'HALT',
+            stack: [{ type: 'Hash160', value: whitelistHookHash }],
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
     }
     if (operation === 'isWhitelisted') {
       const targetHash = args?.[1]?.value;
-      return new Response(JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        result: {
-          state: 'HALT',
-          stack: [{ type: 'Boolean', value: String(targetHash).toLowerCase() === downstreamAllowed.toLowerCase() }],
-        },
-      }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          result: {
+            state: 'HALT',
+            stack: [
+              {
+                type: 'Boolean',
+                value: String(targetHash).toLowerCase() === downstreamAllowed.toLowerCase(),
+              },
+            ],
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
     }
     throw new Error(`unexpected operation ${operation}`);
   };
 
   try {
-    const approved = await handler(new Request('http://local/paymaster/authorize', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        network: 'testnet',
-        target_chain: 'neo_n3',
-        account_id: 'aa-test-account',
-        dapp_id: 'demo-dapp',
-        target_contract: aaCoreHash,
-        method: 'executeUserOp',
-        userop_target_contract: downstreamAllowed,
-        userop_method: 'claimRewards',
-        estimated_gas_units: 120000,
-        operation_hash: `0x${'44'.repeat(32)}`,
-      }),
-    }));
+    const approved = await handler(
+      new Request('http://local/paymaster/authorize', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          network: 'testnet',
+          target_chain: 'neo_n3',
+          account_id: 'aa-test-account',
+          dapp_id: 'demo-dapp',
+          target_contract: aaCoreHash,
+          method: 'executeUserOp',
+          userop_target_contract: downstreamAllowed,
+          userop_method: 'claimRewards',
+          estimated_gas_units: 120000,
+          operation_hash: `0x${'44'.repeat(32)}`,
+        }),
+      })
+    );
     assert.equal(approved.status, 200);
     const approvedBody = await approved.json();
     assert.equal(approvedBody.approved, true);
@@ -1629,22 +1856,24 @@ test('paymaster authorize can consult AA hook allowlist state', async () => {
     assert.equal(approvedBody.userop_target_contract, downstreamAllowed);
     assert.equal(approvedBody.userop_method, 'claimRewards');
 
-    const denied = await handler(new Request('http://local/paymaster/authorize', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        network: 'testnet',
-        target_chain: 'neo_n3',
-        account_id: 'aa-test-account',
-        dapp_id: 'demo-dapp',
-        target_contract: aaCoreHash,
-        method: 'executeUserOp',
-        userop_target_contract: downstreamDenied,
-        userop_method: 'claimRewards',
-        estimated_gas_units: 120000,
-        operation_hash: `0x${'55'.repeat(32)}`,
-      }),
-    }));
+    const denied = await handler(
+      new Request('http://local/paymaster/authorize', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          network: 'testnet',
+          target_chain: 'neo_n3',
+          account_id: 'aa-test-account',
+          dapp_id: 'demo-dapp',
+          target_contract: aaCoreHash,
+          method: 'executeUserOp',
+          userop_target_contract: downstreamDenied,
+          userop_method: 'claimRewards',
+          estimated_gas_units: 120000,
+          operation_hash: `0x${'55'.repeat(32)}`,
+        }),
+      })
+    );
     assert.equal(denied.status, 200);
     const deniedBody = await denied.json();
     assert.equal(deniedBody.approved, false);
@@ -1667,21 +1896,28 @@ test('paymaster authorize can consult AA hook allowlist state', async () => {
 });
 
 test('compute execute supports encrypted confidential payload patches', async () => {
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   const keyBody = await keyRes.json();
-  const ciphertext = await encryptForOracle(keyBody.public_key, JSON.stringify({
-    mode: 'builtin',
-    function: 'math.modexp',
-    input: { base: '2', exponent: '10', modulus: '17' },
-    target_chain: 'neo_x',
-    target_chain_id: '12227332',
-  }));
+  const ciphertext = await encryptForOracle(
+    keyBody.public_key,
+    JSON.stringify({
+      mode: 'builtin',
+      function: 'math.modexp',
+      input: { base: '2', exponent: '10', modulus: '17' },
+      target_chain: 'neo_x',
+      target_chain_id: '12227332',
+    })
+  );
 
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ encrypted_payload: ciphertext }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ encrypted_payload: ciphertext }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'builtin');
@@ -1692,23 +1928,30 @@ test('compute execute supports encrypted confidential payload patches', async ()
 });
 
 test('compute execute supports X25519 encrypted payloads larger than raw RSA limits', async () => {
-  const keyRes = await handler(new Request('http://local/oracle/public-key', { headers: authHeaders() }));
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
   const keyBody = await keyRes.json();
-  const ciphertext = await encryptForOracle(keyBody.public_key, JSON.stringify({
-    mode: 'builtin',
-    function: 'hash.sha256',
-    input: {
-      message: 'neo-morpheus',
-      note: 'x'.repeat(2048),
-    },
-    target_chain: 'neo_n3',
-  }));
+  const ciphertext = await encryptForOracle(
+    keyBody.public_key,
+    JSON.stringify({
+      mode: 'builtin',
+      function: 'hash.sha256',
+      input: {
+        message: 'neo-morpheus',
+        note: 'x'.repeat(2048),
+      },
+      target_chain: 'neo_n3',
+    })
+  );
 
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ encrypted_input: ciphertext }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ encrypted_input: ciphertext }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'builtin');
@@ -1717,14 +1960,16 @@ test('compute execute supports X25519 encrypted payloads larger than raw RSA lim
 });
 
 test('compute execute supports wasm runtime', async () => {
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      wasm_base64: TEST_WASM_OK_BASE64,
-      target_chain: 'neo_x',
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        wasm_base64: TEST_WASM_OK_BASE64,
+        target_chain: 'neo_x',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.runtime, 'wasm');
@@ -1739,75 +1984,85 @@ test('compute builtins support rsa verification and canonical polynomial order',
   signer.end();
   const signatureHex = signer.sign(privateKey).toString('hex');
 
-  const rsaRes = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'builtin',
-      function: 'crypto.rsa_verify',
-      input: {
-        public_key: publicKey.export({ type: 'spki', format: 'pem' }),
-        signature: signatureHex,
-        payload: payloadString,
-      },
-      target_chain: 'neo_n3',
-    }),
-  }));
+  const rsaRes = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'builtin',
+        function: 'crypto.rsa_verify',
+        input: {
+          public_key: publicKey.export({ type: 'spki', format: 'pem' }),
+          signature: signatureHex,
+          payload: payloadString,
+        },
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(rsaRes.status, 200);
   const rsaBody = await rsaRes.json();
   assert.equal(rsaBody.result.is_valid, true);
 
-  const polynomialRes = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'builtin',
-      function: 'math.polynomial',
-      input: { coefficients: [2, 3], x: 5 },
-      target_chain: 'neo_n3',
-    }),
-  }));
+  const polynomialRes = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'builtin',
+        function: 'math.polynomial',
+        input: { coefficients: [2, 3], x: 5 },
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(polynomialRes.status, 200);
   const polynomialBody = await polynomialRes.json();
   assert.equal(polynomialBody.result.value, '13');
 });
 
 test('oracle smart fetch enforces script timeout', async () => {
-  global.fetch = async () => new Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  global.fetch = async () =>
+    new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
 
-  const res = await handler(new Request('http://local/oracle/smart-fetch', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      url: 'https://api.example.com/slow-script',
-      script: 'function process(data) { while (true) {} }',
-      script_timeout_ms: 50,
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/slow-script',
+        script: 'function process(data) { while (true) {} }',
+        script_timeout_ms: 50,
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /timed out/);
 });
 
 test('oracle smart fetch supports wasm runtime', async () => {
-  global.fetch = async () => new Response(JSON.stringify({ ok: true, price: '1.23' }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  global.fetch = async () =>
+    new Response(JSON.stringify({ ok: true, price: '1.23' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
 
-  const res = await handler(new Request('http://local/oracle/smart-fetch', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      url: 'https://api.example.com/wasm',
-      wasm_base64: TEST_WASM_OK_BASE64,
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/wasm',
+        wasm_base64: TEST_WASM_OK_BASE64,
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.mode, 'fetch+compute');
@@ -1815,19 +2070,22 @@ test('oracle smart fetch supports wasm runtime', async () => {
 });
 
 test('oracle fetch enforces upstream timeout', async () => {
-  global.fetch = async (_url, init) => await new Promise((resolve, reject) => {
-    init.signal.addEventListener('abort', () => reject(new Error('aborted')));
-  });
+  global.fetch = async (_url, init) =>
+    await new Promise((resolve, reject) => {
+      init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+    });
 
-  const res = await handler(new Request('http://local/oracle/query', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      url: 'https://api.example.com/hanging',
-      oracle_timeout_ms: 50,
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/hanging',
+        oracle_timeout_ms: 50,
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /timed out/);
@@ -1835,19 +2093,22 @@ test('oracle fetch enforces upstream timeout', async () => {
 
 test('oracle smart fetch rejects oversized upstream responses', async () => {
   process.env.ORACLE_MAX_UPSTREAM_BODY_BYTES = '128';
-  global.fetch = async () => new Response('x'.repeat(8192), {
-    status: 200,
-    headers: { 'content-type': 'text/plain' },
-  });
+  global.fetch = async () =>
+    new Response('x'.repeat(8192), {
+      status: 200,
+      headers: { 'content-type': 'text/plain' },
+    });
 
-  const res = await handler(new Request('http://local/oracle/smart-fetch', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      url: 'https://api.example.com/large',
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/large',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   delete process.env.ORACLE_MAX_UPSTREAM_BODY_BYTES;
   assert.equal(res.status, 400);
   const body = await res.json();
@@ -1855,47 +2116,53 @@ test('oracle smart fetch rejects oversized upstream responses', async () => {
 });
 
 test('compute script enforces timeout', async () => {
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'script',
-      script: 'function process(input) { while (true) {} }',
-      script_timeout_ms: 50,
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'script',
+        script: 'function process(input) { while (true) {} }',
+        script_timeout_ms: 50,
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /timed out/);
 });
 
 test('compute wasm enforces timeout', async () => {
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      wasm_base64: TEST_WASM_LOOP_BASE64,
-      wasm_timeout_ms: 50,
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        wasm_base64: TEST_WASM_LOOP_BASE64,
+        wasm_timeout_ms: 50,
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /timed out/);
 });
 
 test('compute script rejects invalid entry point identifiers', async () => {
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'script',
-      script: 'function safe(input) { return input; }',
-      entry_point: 'safe();evil',
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'script',
+        script: 'function safe(input) { return input; }',
+        entry_point: 'safe();evil',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /valid identifier/);
@@ -1903,16 +2170,18 @@ test('compute script rejects invalid entry point identifiers', async () => {
 
 test('compute script rejects oversized input payloads', async () => {
   process.env.COMPUTE_MAX_INPUT_BYTES = '1024';
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'script',
-      script: 'function process(input) { return input.payload.length; }',
-      input: { payload: 'x'.repeat(3000) },
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'script',
+        script: 'function process(input) { return input.payload.length; }',
+        input: { payload: 'x'.repeat(3000) },
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   delete process.env.COMPUTE_MAX_INPUT_BYTES;
   assert.equal(res.status, 400);
   const body = await res.json();
@@ -1921,15 +2190,17 @@ test('compute script rejects oversized input payloads', async () => {
 
 test('compute script rejects oversized result payloads', async () => {
   process.env.SCRIPT_WORKER_MAX_RESULT_BYTES = '1024';
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'script',
-      script: 'function process(input) { return "x".repeat(4000); }',
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'script',
+        script: 'function process(input) { return "x".repeat(4000); }',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   delete process.env.SCRIPT_WORKER_MAX_RESULT_BYTES;
   assert.equal(res.status, 400);
   const body = await res.json();
@@ -1942,27 +2213,34 @@ test('compute execute resolves script_ref from a Neo N3 contract getter', async 
     assert.equal(method, 'getScript');
     return {
       state: 'HALT',
-      stack: [{
-        type: 'ByteString',
-        value: Buffer.from('function process(input) { return input.value * 2; }', 'utf8').toString('base64'),
-      }],
+      stack: [
+        {
+          type: 'ByteString',
+          value: Buffer.from(
+            'function process(input) { return input.value * 2; }',
+            'utf8'
+          ).toString('base64'),
+        },
+      ],
     };
   };
   try {
-    const res = await handler(new Request('http://local/compute/execute', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        mode: 'script',
-        script_ref: {
-          contract_hash: '0x1111111111111111111111111111111111111111',
-          method: 'getScript',
-          script_name: 'double',
-        },
-        input: { value: 7 },
-        target_chain: 'neo_n3'
-      }),
-    }));
+    const res = await handler(
+      new Request('http://local/compute/execute', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          mode: 'script',
+          script_ref: {
+            contract_hash: '0x1111111111111111111111111111111111111111',
+            method: 'getScript',
+            script_name: 'double',
+          },
+          input: { value: 7 },
+          target_chain: 'neo_n3',
+        }),
+      })
+    );
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.result, 14);
@@ -1972,36 +2250,41 @@ test('compute execute resolves script_ref from a Neo N3 contract getter', async 
 });
 
 test('compute script blocks constructor escape patterns', async () => {
-  const res = await handler(new Request('http://local/compute/execute', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      mode: 'script',
-      script: 'function process(input) { return this.constructor.constructor(\"return 1\")(); }',
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        mode: 'script',
+        script: 'function process(input) { return this.constructor.constructor(\"return 1\")(); }',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /constructor introspection is not allowed/);
 });
 
 test('oracle smart fetch blocks global object access in user script', async () => {
-  global.fetch = async () => new Response(JSON.stringify({ ok: true, price: '1.23' }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  global.fetch = async () =>
+    new Response(JSON.stringify({ ok: true, price: '1.23' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
 
-  const res = await handler(new Request('http://local/oracle/smart-fetch', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      provider: 'twelvedata',
-      symbol: 'NEO-USD',
-      script: 'function process(data) { return globalThis.process; }',
-      target_chain: 'neo_n3'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'twelvedata',
+        symbol: 'NEO-USD',
+        script: 'function process(data) { return globalThis.process; }',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /global object access is not allowed/);
@@ -2013,30 +2296,35 @@ test('oracle smart fetch resolves script_ref from a Neo N3 contract getter', asy
     assert.equal(method, 'getScript');
     return {
       state: 'HALT',
-      stack: [{
-        type: 'String',
-        value: 'function process(data) { return Number(data.price) > 1; }',
-      }],
+      stack: [
+        {
+          type: 'String',
+          value: 'function process(data) { return Number(data.price) > 1; }',
+        },
+      ],
     };
   };
-  global.fetch = async () => new Response(JSON.stringify({ price: '1.23' }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
+  global.fetch = async () =>
+    new Response(JSON.stringify({ price: '1.23' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
   try {
-    const res = await handler(new Request('http://local/oracle/smart-fetch', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        url: 'https://api.example.com/script-ref',
-        script_ref: {
-          contract_hash: '0x2222222222222222222222222222222222222222',
-          method: 'getScript',
-          script_name: 'greaterThanOne',
-        },
-        target_chain: 'neo_n3'
-      }),
-    }));
+    const res = await handler(
+      new Request('http://local/oracle/smart-fetch', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          url: 'https://api.example.com/script-ref',
+          script_ref: {
+            contract_hash: '0x2222222222222222222222222222222222222222',
+            method: 'getScript',
+            script_name: 'greaterThanOne',
+          },
+          target_chain: 'neo_n3',
+        }),
+      })
+    );
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.result, true);
@@ -2048,23 +2336,29 @@ test('oracle smart fetch resolves script_ref from a Neo N3 contract getter', asy
 test('oracle smart fetch uses compact programmable context for large custom URL payloads', async () => {
   const previousMax = process.env.ORACLE_MAX_SCRIPT_INPUT_BYTES;
   process.env.ORACLE_MAX_SCRIPT_INPUT_BYTES = '1024';
-  global.fetch = async () => new Response(JSON.stringify({
-    args: { probe: 'neo-morpheus' },
-    noise: 'x'.repeat(700),
-  }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  });
-  try {
-    const res = await handler(new Request('http://local/oracle/smart-fetch', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        url: 'https://api.example.com/compact-context',
-        script: 'function process(data) { return data.args.probe + \"-script\"; }',
-        target_chain: 'neo_n3',
+  global.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        args: { probe: 'neo-morpheus' },
+        noise: 'x'.repeat(700),
       }),
-    }));
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }
+    );
+  try {
+    const res = await handler(
+      new Request('http://local/oracle/smart-fetch', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          url: 'https://api.example.com/compact-context',
+          script: 'function process(data) { return data.args.probe + \"-script\"; }',
+          target_chain: 'neo_n3',
+        }),
+      })
+    );
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.result, 'neo-morpheus-script');
@@ -2077,22 +2371,26 @@ test('oracle smart fetch uses compact programmable context for large custom URL 
 test('sign-payload supports neo_n3 and neo_x', async () => {
   global.fetch = originalFetch;
 
-  const neoN3Res = await handler(new Request('http://local/sign/payload', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ target_chain: 'neo_n3', message: 'hello neo n3' }),
-  }));
+  const neoN3Res = await handler(
+    new Request('http://local/sign/payload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ target_chain: 'neo_n3', message: 'hello neo n3' }),
+    })
+  );
   assert.equal(neoN3Res.status, 200);
   const neoN3 = await neoN3Res.json();
   assert.ok(neoN3.signature);
   assert.ok(neoN3.public_key);
   assert.ok(neoN3.address);
 
-  const neoXRes = await handler(new Request('http://local/sign/payload', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ target_chain: 'neo_x', message: 'hello neo x' }),
-  }));
+  const neoXRes = await handler(
+    new Request('http://local/sign/payload', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ target_chain: 'neo_x', message: 'hello neo x' }),
+    })
+  );
   assert.equal(neoXRes.status, 200);
   const neoX = await neoXRes.json();
   assert.ok(neoX.signature);
@@ -2103,13 +2401,20 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
 test('sign-payload can use the oracle_verifier signing role when configured', async () => {
   global.fetch = originalFetch;
   const previous = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
-  process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = '68e15083a6fd187b6f5f6136bada4eb00f096e5e21d82c74edf6f086e80539ba';
+  process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY =
+    '68e15083a6fd187b6f5f6136bada4eb00f096e5e21d82c74edf6f086e80539ba';
   try {
-    const res = await handler(new Request('http://local/sign/payload', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ target_chain: 'neo_n3', key_role: 'oracle_verifier', message: 'oracle verifier path' }),
-    }));
+    const res = await handler(
+      new Request('http://local/sign/payload', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          target_chain: 'neo_n3',
+          key_role: 'oracle_verifier',
+          message: 'oracle verifier path',
+        }),
+      })
+    );
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.ok(body.signature);
@@ -2143,16 +2448,30 @@ test('sign-payload falls back to the worker derived key when oracle_verifier der
       }
       throw new Error(`unexpected key path ${keyPath}`);
     },
-    info: async () => ({ app_id: 'app', instance_id: 'inst', compose_hash: 'compose', app_name: 'Morpheus', device_id: 'device', key_provider_info: 'mock', tcb_info: null }),
+    info: async () => ({
+      app_id: 'app',
+      instance_id: 'inst',
+      compose_hash: 'compose',
+      app_name: 'Morpheus',
+      device_id: 'device',
+      key_provider_info: 'mock',
+      tcb_info: null,
+    }),
     getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
   }));
 
   try {
-    const res = await handler(new Request('http://local/sign/payload', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ target_chain: 'neo_n3', key_role: 'oracle_verifier', message: 'oracle verifier fallback path' }),
-    }));
+    const res = await handler(
+      new Request('http://local/sign/payload', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          target_chain: 'neo_n3',
+          key_role: 'oracle_verifier',
+          message: 'oracle verifier fallback path',
+        }),
+      })
+    );
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.ok(body.signature);
@@ -2167,7 +2486,8 @@ test('sign-payload falls back to the worker derived key when oracle_verifier der
     if (previousWorkerKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
     else process.env.PHALA_NEO_N3_PRIVATE_KEY = previousWorkerKey;
 
-    if (previousOracleVerifierKey === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+    if (previousOracleVerifierKey === undefined)
+      delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
     else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = previousOracleVerifierKey;
 
     __resetDstackClientStateForTests();
@@ -2179,7 +2499,8 @@ test('sign-payload prefers an explicit oracle_verifier key over derived signing 
   const previousUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
   const previousOracleVerifierKey = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
   const requestedPaths = [];
-  const explicitOracleVerifierKey = '68e15083a6fd187b6f5f6136bada4eb00f096e5e21d82c74edf6f086e80539ba';
+  const explicitOracleVerifierKey =
+    '68e15083a6fd187b6f5f6136bada4eb00f096e5e21d82c74edf6f086e80539ba';
   const explicitAccount = new neoWallet.Account(explicitOracleVerifierKey);
 
   process.env.PHALA_USE_DERIVED_KEYS = 'true';
@@ -2190,16 +2511,30 @@ test('sign-payload prefers an explicit oracle_verifier key over derived signing 
       requestedPaths.push(String(keyPath));
       return { key: Uint8Array.from(Buffer.from('33'.repeat(32), 'hex')) };
     },
-    info: async () => ({ app_id: 'app', instance_id: 'inst', compose_hash: 'compose', app_name: 'Morpheus', device_id: 'device', key_provider_info: 'mock', tcb_info: null }),
+    info: async () => ({
+      app_id: 'app',
+      instance_id: 'inst',
+      compose_hash: 'compose',
+      app_name: 'Morpheus',
+      device_id: 'device',
+      key_provider_info: 'mock',
+      tcb_info: null,
+    }),
     getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
   }));
 
   try {
-    const res = await handler(new Request('http://local/sign/payload', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ target_chain: 'neo_n3', key_role: 'oracle_verifier', message: 'oracle verifier explicit key path' }),
-    }));
+    const res = await handler(
+      new Request('http://local/sign/payload', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          target_chain: 'neo_n3',
+          key_role: 'oracle_verifier',
+          message: 'oracle verifier explicit key path',
+        }),
+      })
+    );
     assert.equal(res.status, 200);
     const body = await res.json();
     assert.equal(body.public_key, explicitAccount.publicKey);
@@ -2209,14 +2544,13 @@ test('sign-payload prefers an explicit oracle_verifier key over derived signing 
     if (previousUseDerivedKeys === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
     else process.env.PHALA_USE_DERIVED_KEYS = previousUseDerivedKeys;
 
-    if (previousOracleVerifierKey === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
+    if (previousOracleVerifierKey === undefined)
+      delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
     else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = previousOracleVerifierKey;
 
     __resetDstackClientStateForTests();
   }
 });
-
-
 
 test('oracle feed supports neo_x contract relay mode', async () => {
   __resetFeedStateForTests();
@@ -2224,29 +2558,37 @@ test('oracle feed supports neo_x contract relay mode', async () => {
   global.fetch = async (url, init) => {
     const value = String(url);
     if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('NEO%2FUSD')) {
-      return new Response(JSON.stringify({ price: '12.34' }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ price: '12.34' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('GAS%2FUSD')) {
-      return new Response(JSON.stringify({ price: '5.67' }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ price: '5.67' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     throw new Error(`unexpected fetch ${url}`);
   };
 
-  const res = await handler(new Request('http://local/oracle/feed', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      symbols: ['NEO-USD', 'GAS-USD'],
-      target_chain: 'neo_x',
-      broadcast: false,
-      contract_address: '0x1111111111111111111111111111111111111111',
-      chain_id: 47763,
-      nonce: 1,
-      gas_limit: '250000',
-      max_fee_per_gas: '1000000000',
-      max_priority_fee_per_gas: '100000000'
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        symbols: ['NEO-USD', 'GAS-USD'],
+        target_chain: 'neo_x',
+        broadcast: false,
+        contract_address: '0x1111111111111111111111111111111111111111',
+        chain_id: 47763,
+        nonce: 1,
+        gas_limit: '250000',
+        max_fee_per_gas: '1000000000',
+        max_priority_fee_per_gas: '100000000',
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.target_chain, 'neo_x');
@@ -2275,50 +2617,57 @@ test('oracle feed records scan prices and skips chain tx when all changes stay b
   global.fetch = async (url) => {
     const value = String(url);
     if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('NEO%2FUSD')) {
-      return new Response(JSON.stringify({ price: currentPrice }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ price: currentPrice }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     throw new Error(`unexpected fetch ${url}`);
   };
 
-  const first = await handler(new Request('http://local/oracle/feed', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      symbols: ['NEO-USD'],
-      target_chain: 'neo_x',
-      feed_change_threshold_bps: 10,
-      feed_min_update_interval_ms: 0,
-      broadcast: false,
-      contract_address: '0x1111111111111111111111111111111111111111',
-      chain_id: 47763,
-      nonce: 1,
-      gas_limit: '250000',
-      max_fee_per_gas: '1000000000',
-      max_priority_fee_per_gas: '100000000'
-    }),
-  }));
+  const first = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        symbols: ['NEO-USD'],
+        target_chain: 'neo_x',
+        feed_change_threshold_bps: 10,
+        feed_min_update_interval_ms: 0,
+        broadcast: false,
+        contract_address: '0x1111111111111111111111111111111111111111',
+        chain_id: 47763,
+        nonce: 1,
+        gas_limit: '250000',
+        max_fee_per_gas: '1000000000',
+        max_priority_fee_per_gas: '100000000',
+      }),
+    })
+  );
   assert.equal(first.status, 200);
   const firstBody = await first.json();
   assert.equal(firstBody.batch_submitted, true);
 
   currentPrice = '12.35'; // ~0.081% change from 12.34
-  const second = await handler(new Request('http://local/oracle/feed', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      symbols: ['NEO-USD'],
-      target_chain: 'neo_x',
-      feed_change_threshold_bps: 10,
-      feed_min_update_interval_ms: 0,
-      broadcast: false,
-      contract_address: '0x1111111111111111111111111111111111111111',
-      chain_id: 47763,
-      nonce: 2,
-      gas_limit: '250000',
-      max_fee_per_gas: '1000000000',
-      max_priority_fee_per_gas: '100000000'
-    }),
-  }));
+  const second = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        symbols: ['NEO-USD'],
+        target_chain: 'neo_x',
+        feed_change_threshold_bps: 10,
+        feed_min_update_interval_ms: 0,
+        broadcast: false,
+        contract_address: '0x1111111111111111111111111111111111111111',
+        chain_id: 47763,
+        nonce: 2,
+        gas_limit: '250000',
+        max_fee_per_gas: '1000000000',
+        max_priority_fee_per_gas: '100000000',
+      }),
+    })
+  );
   assert.equal(second.status, 200);
   const secondBody = await second.json();
   assert.equal(secondBody.batch_submitted, false);
@@ -2329,23 +2678,25 @@ test('oracle feed records scan prices and skips chain tx when all changes stay b
   assert.equal(secondBody.sync_results[0].comparison_basis, 'current-chain-price');
 
   currentPrice = '12.36'; // >0.1% from submitted chain value 12.34, but only ~0.08% from prior scan 12.35
-  const third = await handler(new Request('http://local/oracle/feed', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      symbols: ['NEO-USD'],
-      target_chain: 'neo_x',
-      feed_change_threshold_bps: 10,
-      feed_min_update_interval_ms: 0,
-      broadcast: false,
-      contract_address: '0x1111111111111111111111111111111111111111',
-      chain_id: 47763,
-      nonce: 3,
-      gas_limit: '250000',
-      max_fee_per_gas: '1000000000',
-      max_priority_fee_per_gas: '100000000'
-    }),
-  }));
+  const third = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        symbols: ['NEO-USD'],
+        target_chain: 'neo_x',
+        feed_change_threshold_bps: 10,
+        feed_min_update_interval_ms: 0,
+        broadcast: false,
+        contract_address: '0x1111111111111111111111111111111111111111',
+        chain_id: 47763,
+        nonce: 3,
+        gas_limit: '250000',
+        max_fee_per_gas: '1000000000',
+        max_priority_fee_per_gas: '100000000',
+      }),
+    })
+  );
   assert.equal(third.status, 200);
   const thirdBody = await third.json();
   assert.equal(thirdBody.batch_submitted, true);
@@ -2361,50 +2712,57 @@ test('oracle feed compares threshold using quantized on-chain integer price unit
   global.fetch = async (url) => {
     const value = String(url);
     if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('USDT%2FUSD')) {
-      return new Response(JSON.stringify({ price: currentPrice }), { status: 200, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ price: currentPrice }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
     throw new Error(`unexpected fetch ${url}`);
   };
 
-  const first = await handler(new Request('http://local/oracle/feed', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      symbols: ['USDT-USD'],
-      target_chain: 'neo_x',
-      feed_change_threshold_bps: 10,
-      feed_min_update_interval_ms: 0,
-      broadcast: false,
-      contract_address: '0x1111111111111111111111111111111111111111',
-      chain_id: 47763,
-      nonce: 11,
-      gas_limit: '250000',
-      max_fee_per_gas: '1000000000',
-      max_priority_fee_per_gas: '100000000'
-    }),
-  }));
+  const first = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        symbols: ['USDT-USD'],
+        target_chain: 'neo_x',
+        feed_change_threshold_bps: 10,
+        feed_min_update_interval_ms: 0,
+        broadcast: false,
+        contract_address: '0x1111111111111111111111111111111111111111',
+        chain_id: 47763,
+        nonce: 11,
+        gas_limit: '250000',
+        max_fee_per_gas: '1000000000',
+        max_priority_fee_per_gas: '100000000',
+      }),
+    })
+  );
   assert.equal(first.status, 200);
   const firstBody = await first.json();
   assert.equal(firstBody.batch_submitted, true);
 
   currentPrice = '1.0000004'; // still quantizes to the same 1e6-scaled on-chain integer
-  const second = await handler(new Request('http://local/oracle/feed', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      symbols: ['USDT-USD'],
-      target_chain: 'neo_x',
-      feed_change_threshold_bps: 10,
-      feed_min_update_interval_ms: 0,
-      broadcast: false,
-      contract_address: '0x1111111111111111111111111111111111111111',
-      chain_id: 47763,
-      nonce: 12,
-      gas_limit: '250000',
-      max_fee_per_gas: '1000000000',
-      max_priority_fee_per_gas: '100000000'
-    }),
-  }));
+  const second = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        symbols: ['USDT-USD'],
+        target_chain: 'neo_x',
+        feed_change_threshold_bps: 10,
+        feed_min_update_interval_ms: 0,
+        broadcast: false,
+        contract_address: '0x1111111111111111111111111111111111111111',
+        chain_id: 47763,
+        nonce: 12,
+        gas_limit: '250000',
+        max_fee_per_gas: '1000000000',
+        max_priority_fee_per_gas: '100000000',
+      }),
+    })
+  );
   assert.equal(second.status, 200);
   const secondBody = await second.json();
   assert.equal(secondBody.batch_submitted, false);
@@ -2413,23 +2771,25 @@ test('oracle feed compares threshold using quantized on-chain integer price unit
   assert.equal(secondBody.sync_results[0].comparison_basis, 'current-chain-price');
 
   currentPrice = '1.001'; // +0.1%, should now publish under 1e6 scale
-  const third = await handler(new Request('http://local/oracle/feed', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      symbols: ['USDT-USD'],
-      target_chain: 'neo_x',
-      feed_change_threshold_bps: 10,
-      feed_min_update_interval_ms: 0,
-      broadcast: false,
-      contract_address: '0x1111111111111111111111111111111111111111',
-      chain_id: 47763,
-      nonce: 13,
-      gas_limit: '250000',
-      max_fee_per_gas: '1000000000',
-      max_priority_fee_per_gas: '100000000'
-    }),
-  }));
+  const third = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        symbols: ['USDT-USD'],
+        target_chain: 'neo_x',
+        feed_change_threshold_bps: 10,
+        feed_min_update_interval_ms: 0,
+        broadcast: false,
+        contract_address: '0x1111111111111111111111111111111111111111',
+        chain_id: 47763,
+        nonce: 13,
+        gas_limit: '250000',
+        max_fee_per_gas: '1000000000',
+        max_priority_fee_per_gas: '100000000',
+      }),
+    })
+  );
   assert.equal(third.status, 200);
   const thirdBody = await third.json();
   assert.equal(thirdBody.batch_submitted, true);
@@ -2440,24 +2800,26 @@ test('oracle feed compares threshold using quantized on-chain integer price unit
 test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {
   global.fetch = originalFetch;
 
-  const res = await handler(new Request('http://local/relay/transaction', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({
-      target_chain: 'neo_x',
-      broadcast: false,
-      transaction: {
-        to: '0x1111111111111111111111111111111111111111',
-        data: '0x',
-        value: '0',
-        chain_id: 47763,
-        nonce: 1,
-        gas_limit: '21000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000'
-      }
-    }),
-  }));
+  const res = await handler(
+    new Request('http://local/relay/transaction', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        target_chain: 'neo_x',
+        broadcast: false,
+        transaction: {
+          to: '0x1111111111111111111111111111111111111111',
+          data: '0x',
+          value: '0',
+          chain_id: 47763,
+          nonce: 1,
+          gas_limit: '21000',
+          max_fee_per_gas: '1000000000',
+          max_priority_fee_per_gas: '100000000',
+        },
+      }),
+    })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.target_chain, 'neo_x');

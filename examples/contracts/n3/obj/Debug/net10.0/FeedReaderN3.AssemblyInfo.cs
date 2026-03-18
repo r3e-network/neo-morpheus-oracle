@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FeedReaderN3")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+eab9452aef20d734b19f5f6ad0c947113f6ea201")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3f264001476eb0ab59c3a2021ffbf16ef67abec9")]
 [assembly: System.Reflection.AssemblyProductAttribute("FeedReaderN3")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FeedReaderN3")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

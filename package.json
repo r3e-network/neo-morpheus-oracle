@@ -7,6 +7,10 @@
     "packages/*"
   ],
   "scripts": {
+    "lint": "eslint . --ext .js,.mjs,.ts,.tsx",
+    "lint:fix": "eslint . --ext .js,.mjs,.ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{js,mjs,ts,tsx,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,ts,tsx,json,md,yml,yaml}\"",
     "dev:web": "npm --prefix apps/web run dev",
     "build:web": "npm --prefix apps/web run build",
     "check:web-content": "node scripts/check-web-consistency.mjs",
@@ -62,5 +66,11 @@
     "check:phala-env": "node scripts/check-phala-env.mjs",
     "compile:neox": "npm --prefix contracts/neox run compile",
     "test:neox": "npm --prefix contracts/neox test"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.0"
   }
 }

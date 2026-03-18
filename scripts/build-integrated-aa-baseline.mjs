@@ -1,43 +1,148 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
-import path from "node:path";
+import fs from 'node:fs';
+import path from 'node:path';
 
 const repoRoot = process.cwd();
-const aaRepoRoot = path.resolve(repoRoot, "..", "neo-abstract-account");
+const aaRepoRoot = path.resolve(repoRoot, '..', 'neo-abstract-account');
 
-const datePrefix = "2026-03-14";
-const markdownPath = path.join(repoRoot, "docs", "AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14.md");
-const jsonLatestPath = path.join(repoRoot, "examples", "deployments", "aa-neodid-oracle-integrated-baseline.testnet.latest.json");
-const jsonStampedPath = path.join(repoRoot, "examples", "deployments", `aa-neodid-oracle-integrated-baseline.testnet.${datePrefix}.json`);
+const datePrefix = '2026-03-14';
+const markdownPath = path.join(
+  repoRoot,
+  'docs',
+  'AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14.md'
+);
+const jsonLatestPath = path.join(
+  repoRoot,
+  'examples',
+  'deployments',
+  'aa-neodid-oracle-integrated-baseline.testnet.latest.json'
+);
+const jsonStampedPath = path.join(
+  repoRoot,
+  'examples',
+  'deployments',
+  `aa-neodid-oracle-integrated-baseline.testnet.${datePrefix}.json`
+);
 
 function readJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, "utf8"));
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
 function rel(filePath) {
-  return path.relative(repoRoot, filePath).replaceAll(path.sep, "/");
+  return path.relative(repoRoot, filePath).replaceAll(path.sep, '/');
 }
 
 const inputs = {
-  aaSuite: path.join(aaRepoRoot, "sdk", "docs", "reports", "2026-03-14-v3-testnet-validation-suite.latest.json"),
-  morpheusNeodid: path.join(repoRoot, "examples", "deployments", "n3-neodid-oracle-matrix.testnet.latest.json"),
-  morpheusPrivacy: path.join(repoRoot, "examples", "deployments", "n3-privacy-validation.testnet.latest.json"),
-  morpheusBuiltins: path.join(repoRoot, "examples", "deployments", "n3-builtins-validation.testnet.latest.json"),
-  morpheusAutomation: path.join(repoRoot, "examples", "deployments", "n3-automation-validation.testnet.latest.json"),
-  automationIdempotency: path.join(repoRoot, "examples", "deployments", "n3-automation-idempotency.testnet.latest.json"),
-  automationCancelRace: path.join(repoRoot, "examples", "deployments", "n3-automation-cancel-race.testnet.latest.json"),
-  automationDepositExhaustion: path.join(repoRoot, "examples", "deployments", "n3-automation-deposit-exhaustion.testnet.latest.json"),
-  callbackBoundary: path.join(repoRoot, "examples", "deployments", "n3-callback-boundary.testnet.latest.json"),
-  neodidRegistryBoundary: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-boundary.testnet.latest.json"),
-  neodidRegistryV1: path.join(repoRoot, "examples", "deployments", "n3-neodid-registry-v1.testnet.latest.json"),
-  encryptedRefBoundary: path.join(repoRoot, "examples", "deployments", "n3-encrypted-ref-boundary.testnet.latest.json"),
-  fulfillmentReplay: path.join(repoRoot, "examples", "deployments", "n3-fulfillment-replay.testnet.latest.json"),
-  aaSessionOracleBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-session-oracle-boundary.testnet.latest.json"),
-  aaCallbackReplayBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-callback-replay-boundary.testnet.latest.json"),
-  aaRecoveryCrossAccountBoundary: path.join(repoRoot, "examples", "deployments", "n3-aa-recovery-cross-account-boundary.testnet.latest.json"),
-  aaPaymasterAutomationOracle: path.join(repoRoot, "examples", "deployments", "n3-aa-paymaster-automation-oracle.testnet.latest.json"),
-  integratedAttackRegression: path.join(repoRoot, "examples", "deployments", "n3-integrated-attack-regression.testnet.latest.json"),
+  aaSuite: path.join(
+    aaRepoRoot,
+    'sdk',
+    'docs',
+    'reports',
+    '2026-03-14-v3-testnet-validation-suite.latest.json'
+  ),
+  morpheusNeodid: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-neodid-oracle-matrix.testnet.latest.json'
+  ),
+  morpheusPrivacy: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-privacy-validation.testnet.latest.json'
+  ),
+  morpheusBuiltins: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-builtins-validation.testnet.latest.json'
+  ),
+  morpheusAutomation: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-automation-validation.testnet.latest.json'
+  ),
+  automationIdempotency: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-automation-idempotency.testnet.latest.json'
+  ),
+  automationCancelRace: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-automation-cancel-race.testnet.latest.json'
+  ),
+  automationDepositExhaustion: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-automation-deposit-exhaustion.testnet.latest.json'
+  ),
+  callbackBoundary: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-callback-boundary.testnet.latest.json'
+  ),
+  neodidRegistryBoundary: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-neodid-registry-boundary.testnet.latest.json'
+  ),
+  neodidRegistryV1: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-neodid-registry-v1.testnet.latest.json'
+  ),
+  encryptedRefBoundary: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-encrypted-ref-boundary.testnet.latest.json'
+  ),
+  fulfillmentReplay: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-fulfillment-replay.testnet.latest.json'
+  ),
+  aaSessionOracleBoundary: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-aa-session-oracle-boundary.testnet.latest.json'
+  ),
+  aaCallbackReplayBoundary: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-aa-callback-replay-boundary.testnet.latest.json'
+  ),
+  aaRecoveryCrossAccountBoundary: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-aa-recovery-cross-account-boundary.testnet.latest.json'
+  ),
+  aaPaymasterAutomationOracle: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-aa-paymaster-automation-oracle.testnet.latest.json'
+  ),
+  integratedAttackRegression: path.join(
+    repoRoot,
+    'examples',
+    'deployments',
+    'n3-integrated-attack-regression.testnet.latest.json'
+  ),
 };
 
 const aaSuite = readJson(inputs.aaSuite);
@@ -61,20 +166,24 @@ const integratedAttackRegression = fs.existsSync(inputs.integratedAttackRegressi
   ? readJson(inputs.integratedAttackRegression)
   : null;
 
-const aaStages = Object.fromEntries((aaSuite.stages || []).map((stage) => [stage.id, stage.summary || {}]));
+const aaStages = Object.fromEntries(
+  (aaSuite.stages || []).map((stage) => [stage.id, stage.summary || {}])
+);
 const neodidCases = Array.isArray(neodid.cases) ? neodid.cases : [];
 const privacyCases = Array.isArray(privacy.cases) ? privacy.cases : [];
 const builtinItems = Array.isArray(builtins.builtins) ? builtins.builtins : [];
 
 const successfulNeoDidCases = neodidCases.filter((item) => item?.callback?.success === true).length;
-const expectedNeoDidFailureCases = neodidCases.filter((item) => item?.callback?.success === false).length;
+const expectedNeoDidFailureCases = neodidCases.filter(
+  (item) => item?.callback?.success === false
+).length;
 const successfulPrivacyCases = privacyCases.filter((item) => item?.pass === true).length;
 
 const summary = {
   generated_at: new Date().toISOString(),
-  network: "testnet",
+  network: 'testnet',
   aa_suite: {
-    report_path: path.relative(repoRoot, inputs.aaSuite).replaceAll(path.sep, "/"),
+    report_path: path.relative(repoRoot, inputs.aaSuite).replaceAll(path.sep, '/'),
     stages: (aaSuite.stages || []).map((stage) => ({ id: stage.id, title: stage.title })),
     smoke: aaStages.smoke || null,
     plugin_matrix: aaStages.plugin_matrix || null,
@@ -126,10 +235,19 @@ const summary = {
     automation_deposit_exhaustion: {
       report_path: rel(inputs.automationDepositExhaustion),
       shared_requester_hash: automationDepositExhaustion.shared_requester_hash || null,
-      queued_runs: automationDepositExhaustion.queued_runs?.length ?? automationDepositExhaustion.queued_runs ?? null,
-      failed_runs: automationDepositExhaustion.failed_runs?.length ?? automationDepositExhaustion.failed_runs ?? null,
+      queued_runs:
+        automationDepositExhaustion.queued_runs?.length ??
+        automationDepositExhaustion.queued_runs ??
+        null,
+      failed_runs:
+        automationDepositExhaustion.failed_runs?.length ??
+        automationDepositExhaustion.failed_runs ??
+        null,
       queued_chain_request_id: automationDepositExhaustion.queued_chain_request_id || null,
-      failed_error: automationDepositExhaustion.failed_runs?.[0]?.error || automationDepositExhaustion.failed_error || null,
+      failed_error:
+        automationDepositExhaustion.failed_runs?.[0]?.error ||
+        automationDepositExhaustion.failed_error ||
+        null,
     },
     callback_boundary: {
       report_path: rel(inputs.callbackBoundary),
@@ -178,10 +296,22 @@ const summary = {
     },
     aa_callback_replay_boundary: {
       report_path: rel(inputs.aaCallbackReplayBoundary),
-      replay_txid: aaCallbackReplayBoundary.replay_attempt?.txid || aaCallbackReplayBoundary.replay_txid || null,
-      replay_exception: aaCallbackReplayBoundary.replay_attempt?.exception || aaCallbackReplayBoundary.replay_exception || null,
-      unlocked_a: aaCallbackReplayBoundary.state_after_replay?.unlocked_a ?? aaCallbackReplayBoundary.unlocked_a ?? null,
-      unlocked_b: aaCallbackReplayBoundary.state_after_replay?.unlocked_b ?? aaCallbackReplayBoundary.unlocked_b ?? null,
+      replay_txid:
+        aaCallbackReplayBoundary.replay_attempt?.txid ||
+        aaCallbackReplayBoundary.replay_txid ||
+        null,
+      replay_exception:
+        aaCallbackReplayBoundary.replay_attempt?.exception ||
+        aaCallbackReplayBoundary.replay_exception ||
+        null,
+      unlocked_a:
+        aaCallbackReplayBoundary.state_after_replay?.unlocked_a ??
+        aaCallbackReplayBoundary.unlocked_a ??
+        null,
+      unlocked_b:
+        aaCallbackReplayBoundary.state_after_replay?.unlocked_b ??
+        aaCallbackReplayBoundary.unlocked_b ??
+        null,
     },
     aa_recovery_cross_account_boundary: {
       report_path: rel(inputs.aaRecoveryCrossAccountBoundary),
@@ -196,58 +326,64 @@ const summary = {
       relay_txid: aaPaymasterAutomationOracle.relay?.txid || null,
       automation_id: aaPaymasterAutomationOracle.automation_register?.automation_id || null,
       queued_request_id: aaPaymasterAutomationOracle.queued_execution?.request_id || null,
-      queued_mode: aaPaymasterAutomationOracle.queued_execution?.mode || "scheduler",
-      queued_callback_success: aaPaymasterAutomationOracle.queued_execution?.callback?.success ?? null,
+      queued_mode: aaPaymasterAutomationOracle.queued_execution?.mode || 'scheduler',
+      queued_callback_success:
+        aaPaymasterAutomationOracle.queued_execution?.callback?.success ?? null,
     },
     integrated_attack_regression: integratedAttackRegression
       ? {
           report_path: rel(inputs.integratedAttackRegression),
-          stage_count: Array.isArray(integratedAttackRegression.stages) ? integratedAttackRegression.stages.length : 0,
-          failed_stages: (integratedAttackRegression.stages || []).filter((stage) => stage.status === "failed").map((stage) => stage.id),
+          stage_count: Array.isArray(integratedAttackRegression.stages)
+            ? integratedAttackRegression.stages.length
+            : 0,
+          failed_stages: (integratedAttackRegression.stages || [])
+            .filter((stage) => stage.status === 'failed')
+            .map((stage) => stage.id),
         }
       : null,
   },
   executed_coverage: [
-    "AA V3 smoke execution",
-    "AA verifier and hook adversarial matrix",
-    "AA paymaster deny-path policy matrix",
-    "AA paymaster-sponsored relay execution",
-    "NeoDID Oracle callback binding and ticket issuance",
-    "Privacy oracle encrypted parameter and custom function matrix",
-    "Builtin compute catalog",
-    "Automation register / queue / cancel flow",
-    "Sequential automation duplicate-queue suppression under back-to-back relayer ticks",
-    "Automation cancellation-race execution probe",
-    "Automation shared-credit deposit exhaustion fail-closed probe",
-    "Callback consumer direct injection rejection",
-    "NeoDID action ticket JSON callback boundary rejection",
-    "NeoDID compact action ticket registry consumption and replay rejection",
-    "encrypted_params_ref requester and callback binding enforcement",
-    "fulfillment signature request-id replay rejection",
-    "AA session-key downstream Morpheus Oracle boundary enforcement",
-    "AA-bound callback replay rejection with account-scoped pending context",
-    "AA recovery ticket cross-account replay rejection",
-    "AA paymaster-sponsored automation registration with downstream Oracle execution proof",
+    'AA V3 smoke execution',
+    'AA verifier and hook adversarial matrix',
+    'AA paymaster deny-path policy matrix',
+    'AA paymaster-sponsored relay execution',
+    'NeoDID Oracle callback binding and ticket issuance',
+    'Privacy oracle encrypted parameter and custom function matrix',
+    'Builtin compute catalog',
+    'Automation register / queue / cancel flow',
+    'Sequential automation duplicate-queue suppression under back-to-back relayer ticks',
+    'Automation cancellation-race execution probe',
+    'Automation shared-credit deposit exhaustion fail-closed probe',
+    'Callback consumer direct injection rejection',
+    'NeoDID action ticket JSON callback boundary rejection',
+    'NeoDID compact action ticket registry consumption and replay rejection',
+    'encrypted_params_ref requester and callback binding enforcement',
+    'fulfillment signature request-id replay rejection',
+    'AA session-key downstream Morpheus Oracle boundary enforcement',
+    'AA-bound callback replay rejection with account-scoped pending context',
+    'AA recovery ticket cross-account replay rejection',
+    'AA paymaster-sponsored automation registration with downstream Oracle execution proof',
   ],
-  remaining_integrated_gaps: aaPaymasterAutomationOracle?.queued_execution?.callback?.success === true
-    ? []
-    : [
-        "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path",
-      ],
+  remaining_integrated_gaps:
+    aaPaymasterAutomationOracle?.queued_execution?.callback?.success === true
+      ? []
+      : [
+          'AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path',
+        ],
 };
 
 const lines = [
-  "# AA + NeoDID + Oracle Integrated Baseline",
-  "",
+  '# AA + NeoDID + Oracle Integrated Baseline',
+  '',
   `Date: ${summary.generated_at}`,
-  "",
-  "## Purpose",
-  "",
-  "This report collects the latest standalone AA V3 testnet validation suite and the latest Morpheus testnet validation artifacts into one cross-repository baseline.",
-  "It does not claim that every cross-system attack has already been live-executed. It establishes which layers have already been proven separately before the next integrated adversarial run.",
-  "",
-  "## Upstream Inputs",
-  "",
+  '',
+  '## Purpose',
+  '',
+  'This report collects the latest standalone AA V3 testnet validation suite and the latest Morpheus testnet validation artifacts into one cross-repository baseline.',
+  'It does not claim that every cross-system attack has already been live-executed. It establishes which layers have already been proven separately before the next integrated adversarial run.',
+  '',
+  '## Upstream Inputs',
+  '',
   `- AA suite: \`${summary.aa_suite.report_path}\``,
   `- NeoDID Oracle matrix: \`${summary.morpheus.neodid.report_path}\``,
   `- Privacy matrix: \`${summary.morpheus.privacy.report_path}\``,
@@ -265,15 +401,15 @@ const lines = [
   `- AA callback replay boundary probe: \`${summary.morpheus.aa_callback_replay_boundary.report_path}\``,
   `- AA recovery cross-account boundary probe: \`${summary.morpheus.aa_recovery_cross_account_boundary.report_path}\``,
   `- AA paymaster automation Oracle probe: \`${summary.morpheus.aa_paymaster_automation_oracle.report_path}\``,
-  "",
-  "## AA Baseline",
-  "",
-  `- Stages: ${(summary.aa_suite.stages || []).map((stage) => stage.id).join(", ")}`,
-  `- Paymaster relay tx: \`${summary.aa_suite.paymaster_relay?.txid || "n/a"}\``,
-  `- Paymaster policy denied cases: \`${(summary.aa_suite.paymaster_policy?.deniedCases || []).join(", ")}\``,
-  "",
-  "## Morpheus Baseline",
-  "",
+  '',
+  '## AA Baseline',
+  '',
+  `- Stages: ${(summary.aa_suite.stages || []).map((stage) => stage.id).join(', ')}`,
+  `- Paymaster relay tx: \`${summary.aa_suite.paymaster_relay?.txid || 'n/a'}\``,
+  `- Paymaster policy denied cases: \`${(summary.aa_suite.paymaster_policy?.deniedCases || []).join(', ')}\``,
+  '',
+  '## Morpheus Baseline',
+  '',
   `- NeoDID: ${summary.morpheus.neodid.successful_cases}/${summary.morpheus.neodid.total_cases} callback-success cases plus ${summary.morpheus.neodid.expected_failure_cases} expected failure callback case`,
   `- Privacy: ${summary.morpheus.privacy.passing_cases}/${summary.morpheus.privacy.total_cases} cases marked passing`,
   `- Builtins: ${summary.morpheus.builtins.total_builtins} builtin requests`,
@@ -290,27 +426,35 @@ const lines = [
   `- AA callback replay boundary: replay exception=\`${summary.morpheus.aa_callback_replay_boundary.replay_exception}\`, unlocked_a=\`${summary.morpheus.aa_callback_replay_boundary.unlocked_a}\`, unlocked_b=\`${summary.morpheus.aa_callback_replay_boundary.unlocked_b}\``,
   `- AA recovery cross-account boundary: wrong account state=\`${summary.morpheus.aa_recovery_cross_account_boundary.wrong_account_state}\`, wrong account exception=\`${summary.morpheus.aa_recovery_cross_account_boundary.wrong_account_exception}\``,
   `- AA paymaster automation Oracle: policy=\`${summary.morpheus.aa_paymaster_automation_oracle.paymaster_policy_id}\`, queued mode=\`${summary.morpheus.aa_paymaster_automation_oracle.queued_mode}\`, queued request id=\`${summary.morpheus.aa_paymaster_automation_oracle.queued_request_id}\`, callback success=\`${summary.morpheus.aa_paymaster_automation_oracle.queued_callback_success}\``,
-  "",
-  "## Executed Coverage",
-  "",
+  '',
+  '## Executed Coverage',
+  '',
   ...summary.executed_coverage.map((item) => `- ${item}`),
-  "",
-  "## Remaining Integrated Gaps",
-  "",
-  ...(summary.remaining_integrated_gaps.length > 0 ? summary.remaining_integrated_gaps.map((item) => `- ${item}`) : ["- none"]),
-  "",
-  "## Recommendation",
-  "",
-  "Use this baseline as the prerequisite evidence set for the next integrated adversarial run. The next executable layer should combine a live AA account, NeoDID-backed recovery or credential state, and Morpheus callback fulfillment under negative replay and cross-account misuse scenarios.",
-  "",
+  '',
+  '## Remaining Integrated Gaps',
+  '',
+  ...(summary.remaining_integrated_gaps.length > 0
+    ? summary.remaining_integrated_gaps.map((item) => `- ${item}`)
+    : ['- none']),
+  '',
+  '## Recommendation',
+  '',
+  'Use this baseline as the prerequisite evidence set for the next integrated adversarial run. The next executable layer should combine a live AA account, NeoDID-backed recovery or credential state, and Morpheus callback fulfillment under negative replay and cross-account misuse scenarios.',
+  '',
 ];
 
-fs.writeFileSync(markdownPath, `${lines.join("\n")}\n`);
+fs.writeFileSync(markdownPath, `${lines.join('\n')}\n`);
 fs.writeFileSync(jsonLatestPath, JSON.stringify(summary, null, 2));
 fs.writeFileSync(jsonStampedPath, JSON.stringify(summary, null, 2));
 
-console.log(JSON.stringify({
-  markdownPath: rel(markdownPath),
-  jsonLatestPath: rel(jsonLatestPath),
-  jsonStampedPath: rel(jsonStampedPath),
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      markdownPath: rel(markdownPath),
+      jsonLatestPath: rel(jsonLatestPath),
+      jsonStampedPath: rel(jsonStampedPath),
+    },
+    null,
+    2
+  )
+);

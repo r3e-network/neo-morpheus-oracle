@@ -1,5 +1,5 @@
-import { getSelectedNetwork, networkRegistry } from "@/lib/networks";
-import { recordOperationLog } from "@/lib/operation-logs";
+import { getSelectedNetwork, networkRegistry } from '@/lib/networks';
+import { recordOperationLog } from '@/lib/operation-logs';
 
 export async function GET() {
   const body = {
@@ -7,9 +7,9 @@ export async function GET() {
     available: networkRegistry,
   };
   await recordOperationLog({
-    route: "/api/networks",
-    method: "GET",
-    category: "network",
+    route: '/api/networks',
+    method: 'GET',
+    category: 'network',
     responsePayload: body,
     httpStatus: 200,
   });

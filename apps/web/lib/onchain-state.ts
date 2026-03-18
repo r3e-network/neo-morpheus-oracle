@@ -1,6 +1,6 @@
-import { Interface, formatEther } from "ethers";
+import { Interface, formatEther } from 'ethers';
 
-import { getSelectedNetwork } from "./networks";
+import { getSelectedNetwork } from './networks';
 
 type OnchainFeedRecord = {
   pair: string;
@@ -45,20 +45,20 @@ const PRICE_SCALE = 1_000_000;
 const PRICE_DECIMALS = 6;
 
 const ORACLE_X_INTERFACE = new Interface([
-  "function requestFee() view returns (uint256)",
-  "function updater() view returns (address)",
-  "function oracleVerifier() view returns (address)",
-  "function oracleEncryptionAlgorithm() view returns (string)",
-  "function oracleEncryptionKeyVersion() view returns (uint256)",
-  "function accruedFees() view returns (uint256)",
+  'function requestFee() view returns (uint256)',
+  'function updater() view returns (address)',
+  'function oracleVerifier() view returns (address)',
+  'function oracleEncryptionAlgorithm() view returns (string)',
+  'function oracleEncryptionKeyVersion() view returns (uint256)',
+  'function accruedFees() view returns (uint256)',
 ]);
 
 const DATAFEED_X_INTERFACE = new Interface([
-  "function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])",
+  'function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])',
 ]);
 
 function trimString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function isPrintableAscii(value: string) {
@@ -66,28 +66,31 @@ function isPrintableAscii(value: string) {
 }
 
 function decodeNeoByteString(bytes: Buffer) {
-  const text = bytes.toString("utf8");
-  const reversedText = Buffer.from(bytes).reverse().toString("utf8");
-  const knownPairPrefixes = ["TWELVEDATA:", "BINANCE-SPOT:", "COINBASE-SPOT:"];
+  const text = bytes.toString('utf8');
+  const reversedText = Buffer.from(bytes).reverse().toString('utf8');
+  const knownPairPrefixes = ['TWELVEDATA:', 'BINANCE-SPOT:', 'COINBASE-SPOT:'];
 
-  if (isPrintableAscii(reversedText) && knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))) {
+  if (
+    isPrintableAscii(reversedText) &&
+    knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))
+  ) {
     return reversedText;
   }
   if (isPrintableAscii(text)) return text;
   if (isPrintableAscii(reversedText) && /^[A-Z0-9:_-]+$/.test(reversedText)) {
     return reversedText;
   }
-  return `0x${bytes.toString("hex")}`;
+  return `0x${bytes.toString('hex')}`;
 }
 
 function formatFixedPoint(rawValue: string | bigint, decimals: number) {
-  const raw = String(rawValue ?? "0");
-  const negative = raw.startsWith("-");
-  const digits = raw.replace(/^[+-]/, "") || "0";
-  const padded = digits.padStart(decimals + 1, "0");
-  const whole = padded.slice(0, -decimals) || "0";
+  const raw = String(rawValue ?? '0');
+  const negative = raw.startsWith('-');
+  const digits = raw.replace(/^[+-]/, '') || '0';
+  const padded = digits.padStart(decimals + 1, '0');
+  const whole = padded.slice(0, -decimals) || '0';
   const fraction = padded.slice(-decimals);
-  return `${negative ? "-" : ""}${whole}.${fraction}`;
+  return `${negative ? '-' : ''}${whole}.${fraction}`;
 }
 
 function toIsoTimestamp(value: string | number | bigint) {
@@ -98,8 +101,8 @@ function toIsoTimestamp(value: string | number | bigint) {
 
 function normalizeHashText(value: unknown) {
   const raw = trimString(value);
-  if (!raw) return "";
-  return raw.startsWith("0x") ? raw : `0x${raw}`;
+  if (!raw) return '';
+  return raw.startsWith('0x') ? raw : `0x${raw}`;
 }
 
 function normalizeFeedRecord(record: {
@@ -110,11 +113,11 @@ function normalizeFeedRecord(record: {
   attestationHash: unknown;
   sourceSetId: unknown;
 }): OnchainFeedRecord {
-  const priceUnits = String(record.price ?? "0");
-  const timestamp = String(record.timestamp ?? "0");
+  const priceUnits = String(record.price ?? '0');
+  const timestamp = String(record.timestamp ?? '0');
   return {
-    pair: trimString(record.pair) || "UNKNOWN",
-    round_id: String(record.roundId ?? "0"),
+    pair: trimString(record.pair) || 'UNKNOWN',
+    round_id: String(record.roundId ?? '0'),
     price_units: priceUnits,
     price_display: formatFixedPoint(priceUnits, PRICE_DECIMALS),
     price_scale: String(PRICE_SCALE),
@@ -122,34 +125,36 @@ function normalizeFeedRecord(record: {
     timestamp,
     timestamp_iso: toIsoTimestamp(timestamp),
     attestation_hash: normalizeHashText(record.attestationHash),
-    source_set_id: String(record.sourceSetId ?? "0"),
+    source_set_id: String(record.sourceSetId ?? '0'),
   };
 }
 
 function parseNeoStackItem(item: any): unknown {
-  if (!item || typeof item !== "object") return null;
+  if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
 
   switch (type) {
-    case "array":
-    case "struct":
-      return Array.isArray(item.value) ? item.value.map((entry: unknown) => parseNeoStackItem(entry)) : [];
-    case "string":
-    case "hash160":
-    case "hash256":
-      return String(item.value ?? "");
-    case "integer":
-      return String(item.value ?? "0");
-    case "boolean":
+    case 'array':
+    case 'struct':
+      return Array.isArray(item.value)
+        ? item.value.map((entry: unknown) => parseNeoStackItem(entry))
+        : [];
+    case 'string':
+    case 'hash160':
+    case 'hash256':
+      return String(item.value ?? '');
+    case 'integer':
+      return String(item.value ?? '0');
+    case 'boolean':
       return Boolean(item.value);
-    case "bytestring":
-    case "bytearray": {
+    case 'bytestring':
+    case 'bytearray': {
       const raw = trimString(item.value);
-      if (!raw) return "";
-      const bytes = Buffer.from(raw, "base64");
+      if (!raw) return '';
+      const bytes = Buffer.from(raw, 'base64');
       const decoded = decodeNeoByteString(bytes);
-      if (bytes.length === 20 && typeof decoded === "string" && decoded.startsWith("0x")) {
-        return `0x${Buffer.from(bytes).reverse().toString("hex")}`;
+      if (bytes.length === 20 && typeof decoded === 'string' && decoded.startsWith('0x')) {
+        return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
       }
       return decoded;
     }
@@ -160,17 +165,17 @@ function parseNeoStackItem(item: any): unknown {
 
 async function fetchJsonRpc(url: string, body: Record<string, unknown>) {
   const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
-    cache: "no-store",
+    cache: 'no-store',
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(
-      trimString(payload?.error?.message)
-        || trimString(payload?.message)
-        || `rpc request failed with status ${response.status}`,
+      trimString(payload?.error?.message) ||
+        trimString(payload?.message) ||
+        `rpc request failed with status ${response.status}`
     );
   }
   if (payload?.error?.message) {
@@ -179,14 +184,19 @@ async function fetchJsonRpc(url: string, body: Record<string, unknown>) {
   return payload?.result;
 }
 
-async function invokeNeoN3Read(rpcUrl: string, contractHash: string, method: string, params: unknown[] = []) {
+async function invokeNeoN3Read(
+  rpcUrl: string,
+  contractHash: string,
+  method: string,
+  params: unknown[] = []
+) {
   const result = await fetchJsonRpc(rpcUrl, {
-    jsonrpc: "2.0",
+    jsonrpc: '2.0',
     id: 1,
-    method: "invokefunction",
+    method: 'invokefunction',
     params: [contractHash, method, params],
   });
-  if (String(result?.state || "").toUpperCase() === "FAULT") {
+  if (String(result?.state || '').toUpperCase() === 'FAULT') {
     throw new Error(trimString(result?.exception) || `${method} faulted`);
   }
   return parseNeoStackItem(result?.stack?.[0]);
@@ -194,10 +204,10 @@ async function invokeNeoN3Read(rpcUrl: string, contractHash: string, method: str
 
 async function invokeNeoXCall(rpcUrl: string, contractAddress: string, callData: string) {
   return fetchJsonRpc(rpcUrl, {
-    jsonrpc: "2.0",
+    jsonrpc: '2.0',
     id: 1,
-    method: "eth_call",
-    params: [{ to: contractAddress, data: callData }, "latest"],
+    method: 'eth_call',
+    params: [{ to: contractAddress, data: callData }, 'latest'],
   });
 }
 
@@ -206,21 +216,29 @@ async function fetchNeoN3State(
   oracleHash: string,
   datafeedHash: string,
   limit: number,
-  domains: { morpheus_oracle?: string; morpheus_datafeed?: string } = {},
+  domains: { morpheus_oracle?: string; morpheus_datafeed?: string } = {}
 ): Promise<ChainState> {
   try {
-    const [requestFee, updater, verifier, encryptionAlgorithm, encryptionKeyVersion, accruedFees, rawRecords] = await Promise.all([
-      invokeNeoN3Read(rpcUrl, oracleHash, "requestFee"),
-      invokeNeoN3Read(rpcUrl, oracleHash, "updater"),
-      invokeNeoN3Read(rpcUrl, oracleHash, "oracleVerificationPublicKey"),
-      invokeNeoN3Read(rpcUrl, oracleHash, "oracleEncryptionAlgorithm"),
-      invokeNeoN3Read(rpcUrl, oracleHash, "oracleEncryptionKeyVersion"),
-      invokeNeoN3Read(rpcUrl, oracleHash, "accruedRequestFees"),
-      invokeNeoN3Read(rpcUrl, datafeedHash, "getAllFeedRecords"),
+    const [
+      requestFee,
+      updater,
+      verifier,
+      encryptionAlgorithm,
+      encryptionKeyVersion,
+      accruedFees,
+      rawRecords,
+    ] = await Promise.all([
+      invokeNeoN3Read(rpcUrl, oracleHash, 'requestFee'),
+      invokeNeoN3Read(rpcUrl, oracleHash, 'updater'),
+      invokeNeoN3Read(rpcUrl, oracleHash, 'oracleVerificationPublicKey'),
+      invokeNeoN3Read(rpcUrl, oracleHash, 'oracleEncryptionAlgorithm'),
+      invokeNeoN3Read(rpcUrl, oracleHash, 'oracleEncryptionKeyVersion'),
+      invokeNeoN3Read(rpcUrl, oracleHash, 'accruedRequestFees'),
+      invokeNeoN3Read(rpcUrl, datafeedHash, 'getAllFeedRecords'),
     ]);
 
     const records = Array.isArray(rawRecords)
-      ? rawRecords
+      ? (rawRecords
           .map((entry) => {
             if (!Array.isArray(entry) || entry.length < 6) return null;
             return normalizeFeedRecord({
@@ -232,7 +250,7 @@ async function fetchNeoN3State(
               sourceSetId: entry[5],
             });
           })
-          .filter(Boolean) as OnchainFeedRecord[]
+          .filter(Boolean) as OnchainFeedRecord[])
       : [];
 
     records.sort((left, right) => {
@@ -245,13 +263,13 @@ async function fetchNeoN3State(
       oracle: {
         contract: oracleHash,
         domain: trimString(domains.morpheus_oracle) || null,
-        request_fee_raw: String(requestFee ?? "0"),
-        request_fee_display: `${formatFixedPoint(String(requestFee ?? "0"), NEON3_GAS_DECIMALS)} GAS`,
+        request_fee_raw: String(requestFee ?? '0'),
+        request_fee_display: `${formatFixedPoint(String(requestFee ?? '0'), NEON3_GAS_DECIMALS)} GAS`,
         updater: trimString(updater) || null,
         verifier: trimString(verifier) || null,
         encryption_algorithm: trimString(encryptionAlgorithm) || null,
-        encryption_key_version: String(encryptionKeyVersion ?? "0"),
-        accrued_fees_raw: String(accruedFees ?? "0"),
+        encryption_key_version: String(encryptionKeyVersion ?? '0'),
+        accrued_fees_raw: String(accruedFees ?? '0'),
       },
       datafeed: {
         contract: datafeedHash,
@@ -278,7 +296,12 @@ function decodeNeoXResult(contractAddress: string, functionName: string, iface: 
   };
 }
 
-async function fetchNeoXState(rpcUrl: string, oracleAddress: string, datafeedAddress: string, limit: number): Promise<ChainState> {
+async function fetchNeoXState(
+  rpcUrl: string,
+  oracleAddress: string,
+  datafeedAddress: string,
+  limit: number
+): Promise<ChainState> {
   try {
     const [
       requestFeeDecoded,
@@ -289,25 +312,27 @@ async function fetchNeoXState(rpcUrl: string, oracleAddress: string, datafeedAdd
       accruedFeesDecoded,
       feedRecordsDecoded,
     ] = await Promise.all([
-      decodeNeoXResult(oracleAddress, "requestFee", ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, "updater", ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, "oracleVerifier", ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, "oracleEncryptionAlgorithm", ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, "oracleEncryptionKeyVersion", ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, "accruedFees", ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(datafeedAddress, "getAllFeedRecords", DATAFEED_X_INTERFACE)(rpcUrl),
+      decodeNeoXResult(oracleAddress, 'requestFee', ORACLE_X_INTERFACE)(rpcUrl),
+      decodeNeoXResult(oracleAddress, 'updater', ORACLE_X_INTERFACE)(rpcUrl),
+      decodeNeoXResult(oracleAddress, 'oracleVerifier', ORACLE_X_INTERFACE)(rpcUrl),
+      decodeNeoXResult(oracleAddress, 'oracleEncryptionAlgorithm', ORACLE_X_INTERFACE)(rpcUrl),
+      decodeNeoXResult(oracleAddress, 'oracleEncryptionKeyVersion', ORACLE_X_INTERFACE)(rpcUrl),
+      decodeNeoXResult(oracleAddress, 'accruedFees', ORACLE_X_INTERFACE)(rpcUrl),
+      decodeNeoXResult(datafeedAddress, 'getAllFeedRecords', DATAFEED_X_INTERFACE)(rpcUrl),
     ]);
 
     const feedRecordsRaw = Array.isArray(feedRecordsDecoded?.[0]) ? feedRecordsDecoded[0] : [];
     const records = feedRecordsRaw
-      .map((entry: any) => normalizeFeedRecord({
-        pair: entry?.pair ?? entry?.[0],
-        roundId: entry?.roundId ?? entry?.[1],
-        price: entry?.price ?? entry?.[2],
-        timestamp: entry?.timestamp ?? entry?.[3],
-        attestationHash: entry?.attestationHash ?? entry?.[4],
-        sourceSetId: entry?.sourceSetId ?? entry?.[5],
-      }))
+      .map((entry: any) =>
+        normalizeFeedRecord({
+          pair: entry?.pair ?? entry?.[0],
+          roundId: entry?.roundId ?? entry?.[1],
+          price: entry?.price ?? entry?.[2],
+          timestamp: entry?.timestamp ?? entry?.[3],
+          attestationHash: entry?.attestationHash ?? entry?.[4],
+          sourceSetId: entry?.sourceSetId ?? entry?.[5],
+        })
+      )
       .sort((left: OnchainFeedRecord, right: OnchainFeedRecord) => {
         const timestampDiff = Number(right.timestamp) - Number(left.timestamp);
         if (timestampDiff !== 0) return timestampDiff;
@@ -318,13 +343,13 @@ async function fetchNeoXState(rpcUrl: string, oracleAddress: string, datafeedAdd
       oracle: {
         contract: oracleAddress,
         domain: null,
-        request_fee_raw: String(requestFeeDecoded?.[0] ?? "0"),
+        request_fee_raw: String(requestFeeDecoded?.[0] ?? '0'),
         request_fee_display: `${formatEther(requestFeeDecoded?.[0] ?? 0n)} GAS`,
-        updater: trimString(String(updaterDecoded?.[0] ?? "")) || null,
-        verifier: trimString(String(verifierDecoded?.[0] ?? "")) || null,
-        encryption_algorithm: trimString(String(encryptionAlgorithmDecoded?.[0] ?? "")) || null,
-        encryption_key_version: String(encryptionKeyVersionDecoded?.[0] ?? "0"),
-        accrued_fees_raw: String(accruedFeesDecoded?.[0] ?? "0"),
+        updater: trimString(String(updaterDecoded?.[0] ?? '')) || null,
+        verifier: trimString(String(verifierDecoded?.[0] ?? '')) || null,
+        encryption_algorithm: trimString(String(encryptionAlgorithmDecoded?.[0] ?? '')) || null,
+        encryption_key_version: String(encryptionKeyVersionDecoded?.[0] ?? '0'),
+        accrued_fees_raw: String(accruedFeesDecoded?.[0] ?? '0'),
       },
       datafeed: {
         contract: datafeedAddress,
@@ -353,18 +378,18 @@ export async function fetchOnchainState(limit = 12) {
       trimString(selected.neo_n3.contracts.morpheus_oracle),
       trimString(selected.neo_n3.contracts.morpheus_datafeed),
       boundedLimit,
-      selected.neo_n3.domains || {},
+      selected.neo_n3.domains || {}
     ),
     fetchNeoXState(
       trimString(selected.neo_x.rpc_url),
       trimString(selected.neo_x.contracts.morpheus_oracle_x),
       trimString(selected.neo_x.contracts.morpheus_datafeed_x),
-      boundedLimit,
+      boundedLimit
     ),
   ]);
 
   return {
-    network: trimString(selected.network) || "testnet",
+    network: trimString(selected.network) || 'testnet',
     generated_at: new Date().toISOString(),
     neo_n3: neoN3,
     neo_x: neoX,

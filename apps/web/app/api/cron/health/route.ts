@@ -1,11 +1,11 @@
-import { recordOperationLog } from "@/lib/operation-logs";
+import { recordOperationLog } from '@/lib/operation-logs';
 
 export async function GET() {
-  const body = { status: "ok", service: "morpheus-cron" };
+  const body = { status: 'ok', service: 'morpheus-cron' };
   await recordOperationLog({
-    route: "/api/cron/health",
-    method: "GET",
-    category: "system",
+    route: '/api/cron/health',
+    method: 'GET',
+    category: 'system',
     responsePayload: body,
     httpStatus: 200,
   });

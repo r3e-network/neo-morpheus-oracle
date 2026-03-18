@@ -1,8 +1,12 @@
-import { proxyToPhala } from "@/lib/phala";
+import { proxyToPhala } from '@/lib/phala';
 
 export async function GET() {
-  return proxyToPhala("/compute/functions", { method: "GET" }, {
-    route: "/api/compute/functions",
-    category: "compute",
-  });
+  return proxyToPhala(
+    '/compute/functions',
+    { method: 'GET' },
+    {
+      route: '/api/compute/functions',
+      category: 'compute',
+    }
+  );
 }

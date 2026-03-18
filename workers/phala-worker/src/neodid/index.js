@@ -1,41 +1,107 @@
-import { createHash } from "node:crypto";
-import { wallet as neoWallet } from "@cityofzion/neon-js";
-import { createRemoteJWKSet, jwtVerify } from "jose";
-import { env, json, sha256Hex, trimString } from "../platform/core.js";
-import { resolveConfidentialPayload } from "../oracle/crypto.js";
-import { buildVerificationEnvelope, buildSignedResultEnvelope } from "../chain/index.js";
-import { maybeBuildDstackAttestation, deriveKeyBytes, deriveNeoN3PrivateKeyHex, getDstackInfo, shouldUseDerivedKeys } from "../platform/dstack.js";
+import { createHash } from 'node:crypto';
+import { wallet as neoWallet } from '@cityofzion/neon-js';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { env, json, sha256Hex, trimString } from '../platform/core.js';
+import { resolveConfidentialPayload } from '../oracle/crypto.js';
+import { buildVerificationEnvelope, buildSignedResultEnvelope } from '../chain/index.js';
+import {
+  maybeBuildDstackAttestation,
+  deriveKeyBytes,
+  deriveNeoN3PrivateKeyHex,
+  getDstackInfo,
+  shouldUseDerivedKeys,
+} from '../platform/dstack.js';
 
-const NEODID_BINDING_DOMAIN = Buffer.from("neodid-binding-v1", "utf8");
-const NEODID_ACTION_DOMAIN = Buffer.from("neodid-action-v1", "utf8");
-const NEODID_RECOVERY_DOMAIN = Buffer.from("neodid-recovery-v1", "utf8");
+const NEODID_BINDING_DOMAIN = Buffer.from('neodid-binding-v1', 'utf8');
+const NEODID_ACTION_DOMAIN = Buffer.from('neodid-action-v1', 'utf8');
+const NEODID_RECOVERY_DOMAIN = Buffer.from('neodid-recovery-v1', 'utf8');
 const SUPPORTED_PROVIDERS = [
-  { id: "web3auth", category: "identity", aliases: ["w3a"], auth_modes: ["aggregate_oauth", "mfa"], claim_types: ["Web3Auth_PrimaryIdentity", "Web3Auth_LinkedSocials", "Web3Auth_VerifiedUser"] },
-  { id: "twitter", category: "social", aliases: [], auth_modes: ["oauth"], claim_types: ["Twitter_VIP", "Twitter_Verified", "Twitter_Followers"] },
-  { id: "github", category: "social", aliases: [], auth_modes: ["oauth"], claim_types: ["Github_Contributor", "Github_OrgMember", "Github_VerifiedUser"] },
-  { id: "google", category: "social", aliases: ["gmail"], auth_modes: ["oauth"], claim_types: ["Google_Identity", "Google_Workspace", "Google_VerifiedEmail"] },
-  { id: "discord", category: "social", aliases: [], auth_modes: ["oauth"], claim_types: ["Discord_Member"] },
-  { id: "telegram", category: "social", aliases: [], auth_modes: ["oauth"], claim_types: ["Telegram_Member"] },
-  { id: "binance", category: "exchange", aliases: [], auth_modes: ["api", "oauth"], claim_types: ["Binance_KYC", "Binance_VIP", "Binance_AssetHolder"] },
-  { id: "okx", category: "exchange", aliases: ["okex"], auth_modes: ["api", "oauth"], claim_types: ["OKX_KYC", "OKX_VIP", "OKX_AssetHolder"] },
-  { id: "email", category: "contact", aliases: ["mail"], auth_modes: ["otp", "magic_link"], claim_types: ["Email_Verified"] },
-  { id: "generic_oauth", category: "generic", aliases: [], auth_modes: ["oauth"], claim_types: ["Generic_Claim"] },
+  {
+    id: 'web3auth',
+    category: 'identity',
+    aliases: ['w3a'],
+    auth_modes: ['aggregate_oauth', 'mfa'],
+    claim_types: ['Web3Auth_PrimaryIdentity', 'Web3Auth_LinkedSocials', 'Web3Auth_VerifiedUser'],
+  },
+  {
+    id: 'twitter',
+    category: 'social',
+    aliases: [],
+    auth_modes: ['oauth'],
+    claim_types: ['Twitter_VIP', 'Twitter_Verified', 'Twitter_Followers'],
+  },
+  {
+    id: 'github',
+    category: 'social',
+    aliases: [],
+    auth_modes: ['oauth'],
+    claim_types: ['Github_Contributor', 'Github_OrgMember', 'Github_VerifiedUser'],
+  },
+  {
+    id: 'google',
+    category: 'social',
+    aliases: ['gmail'],
+    auth_modes: ['oauth'],
+    claim_types: ['Google_Identity', 'Google_Workspace', 'Google_VerifiedEmail'],
+  },
+  {
+    id: 'discord',
+    category: 'social',
+    aliases: [],
+    auth_modes: ['oauth'],
+    claim_types: ['Discord_Member'],
+  },
+  {
+    id: 'telegram',
+    category: 'social',
+    aliases: [],
+    auth_modes: ['oauth'],
+    claim_types: ['Telegram_Member'],
+  },
+  {
+    id: 'binance',
+    category: 'exchange',
+    aliases: [],
+    auth_modes: ['api', 'oauth'],
+    claim_types: ['Binance_KYC', 'Binance_VIP', 'Binance_AssetHolder'],
+  },
+  {
+    id: 'okx',
+    category: 'exchange',
+    aliases: ['okex'],
+    auth_modes: ['api', 'oauth'],
+    claim_types: ['OKX_KYC', 'OKX_VIP', 'OKX_AssetHolder'],
+  },
+  {
+    id: 'email',
+    category: 'contact',
+    aliases: ['mail'],
+    auth_modes: ['otp', 'magic_link'],
+    claim_types: ['Email_Verified'],
+  },
+  {
+    id: 'generic_oauth',
+    category: 'generic',
+    aliases: [],
+    auth_modes: ['oauth'],
+    claim_types: ['Generic_Claim'],
+  },
 ];
 
 const PROVIDER_ALIAS_MAP = Object.fromEntries(
   SUPPORTED_PROVIDERS.flatMap((provider) => [
     [provider.id, provider.id],
     ...(provider.aliases || []).map((alias) => [alias, provider.id]),
-  ]),
+  ])
 );
 
 const WEB3AUTH_JWKS_CACHE = new Map();
 
-function encodeLengthPrefixedAscii(value = "") {
-  const text = String(value ?? "");
-  const body = Buffer.from(text, "utf8");
+function encodeLengthPrefixedAscii(value = '') {
+  const text = String(value ?? '');
+  const body = Buffer.from(text, 'utf8');
   if (body.length > 255) {
-    throw new Error("segment too long");
+    throw new Error('segment too long');
   }
   return Buffer.concat([Buffer.from([body.length]), body]);
 }
@@ -47,7 +113,7 @@ function normalizeNeoDidProviderId(value) {
 
 function getWeb3AuthJwks(url) {
   const normalized = trimString(url);
-  if (!normalized) throw new Error("WEB3AUTH_JWKS_URL is required");
+  if (!normalized) throw new Error('WEB3AUTH_JWKS_URL is required');
   if (!WEB3AUTH_JWKS_CACHE.has(normalized)) {
     WEB3AUTH_JWKS_CACHE.set(normalized, createRemoteJWKSet(new URL(normalized)));
   }
@@ -56,61 +122,61 @@ function getWeb3AuthJwks(url) {
 
 function resolveWeb3AuthJwksUrl(payload = {}) {
   return trimString(
-    payload.web3auth_jwks_url
-    || env("WEB3AUTH_JWKS_URL")
-    || "https://api-auth.web3auth.io/.well-known/jwks.json",
+    payload.web3auth_jwks_url ||
+      env('WEB3AUTH_JWKS_URL') ||
+      'https://api-auth.web3auth.io/.well-known/jwks.json'
   );
 }
 
 function resolveWeb3AuthClientId(payload = {}) {
   return trimString(
-    payload.web3auth_client_id
-    || env("WEB3AUTH_CLIENT_ID", "NEXT_PUBLIC_WEB3AUTH_CLIENT_ID", "VITE_WEB3AUTH_CLIENT_ID")
-    || "",
+    payload.web3auth_client_id ||
+      env('WEB3AUTH_CLIENT_ID', 'NEXT_PUBLIC_WEB3AUTH_CLIENT_ID', 'VITE_WEB3AUTH_CLIENT_ID') ||
+      ''
   );
 }
 
 function buildStableWeb3AuthProviderUid(claims = {}) {
-  const aggregateVerifier = trimString(claims.aggregateVerifier || "");
-  const aggregateVerifierId = trimString(claims.aggregateVerifierId || "");
+  const aggregateVerifier = trimString(claims.aggregateVerifier || '');
+  const aggregateVerifierId = trimString(claims.aggregateVerifierId || '');
   if (aggregateVerifier && aggregateVerifierId) {
     return `web3auth:${aggregateVerifier}:${aggregateVerifierId}`;
   }
 
-  const verifier = trimString(claims.verifier || "");
-  const verifierId = trimString(claims.verifierId || claims.email || claims.sub || "");
+  const verifier = trimString(claims.verifier || '');
+  const verifierId = trimString(claims.verifierId || claims.email || claims.sub || '');
   if (verifier && verifierId) {
     return `web3auth:${verifier}:${verifierId}`;
   }
 
-  const fallback = trimString(claims.sub || claims.email || claims.name || "");
-  return fallback ? `web3auth:user:${fallback}` : "";
+  const fallback = trimString(claims.sub || claims.email || claims.name || '');
+  return fallback ? `web3auth:user:${fallback}` : '';
 }
 
 function extractWeb3AuthIdToken(payload = {}) {
   return trimString(
-    payload.id_token
-    || payload.idToken
-    || payload.web3auth_id_token
-    || payload.web3authIdToken
-    || "",
+    payload.id_token ||
+      payload.idToken ||
+      payload.web3auth_id_token ||
+      payload.web3authIdToken ||
+      ''
   );
 }
 
 async function resolveVerifiedProviderUid(provider, payload = {}) {
-  if (provider !== "web3auth") {
+  if (provider !== 'web3auth') {
     return resolveProviderUid(payload);
   }
 
   const idToken = extractWeb3AuthIdToken(payload);
   if (!idToken) {
-    throw new Error("web3auth id_token is required");
+    throw new Error('web3auth id_token is required');
   }
 
   const jwksUrl = resolveWeb3AuthJwksUrl(payload);
   const clientId = resolveWeb3AuthClientId(payload);
   if (!clientId) {
-    throw new Error("WEB3AUTH_CLIENT_ID is required for web3auth verification");
+    throw new Error('WEB3AUTH_CLIENT_ID is required for web3auth verification');
   }
   const JWKS = getWeb3AuthJwks(jwksUrl);
   const { payload: claims } = await jwtVerify(idToken, JWKS, {
@@ -118,12 +184,14 @@ async function resolveVerifiedProviderUid(provider, payload = {}) {
   });
   const derivedProviderUid = buildStableWeb3AuthProviderUid(claims);
   if (!derivedProviderUid) {
-    throw new Error("unable to derive stable Web3Auth provider_uid");
+    throw new Error('unable to derive stable Web3Auth provider_uid');
   }
 
-  const suppliedProviderUid = trimString(payload.provider_uid || payload.social_uid || payload.user_id || "");
+  const suppliedProviderUid = trimString(
+    payload.provider_uid || payload.social_uid || payload.user_id || ''
+  );
   if (suppliedProviderUid && suppliedProviderUid !== derivedProviderUid) {
-    throw new Error("web3auth provider_uid does not match verified id_token");
+    throw new Error('web3auth provider_uid does not match verified id_token');
   }
 
   return derivedProviderUid;
@@ -138,40 +206,40 @@ function requireSupportedProvider(value) {
 }
 
 async function resolveNeoDidSalt(payload = {}) {
-  const explicit = trimString(payload.neodid_secret_salt || env("NEODID_SECRET_SALT") || "");
+  const explicit = trimString(payload.neodid_secret_salt || env('NEODID_SECRET_SALT') || '');
   if (explicit) {
-    return Buffer.from(sha256Hex(explicit), "hex");
+    return Buffer.from(sha256Hex(explicit), 'hex');
   }
   try {
-    const configuredPath = trimString(env("PHALA_DSTACK_NEODID_SALT_PATH") || "");
-    const keyPath = configuredPath || "morpheus/neodid/nullifier/v1";
-    return await deriveKeyBytes(keyPath, "neodid-nullifier-salt");
+    const configuredPath = trimString(env('PHALA_DSTACK_NEODID_SALT_PATH') || '');
+    const keyPath = configuredPath || 'morpheus/neodid/nullifier/v1';
+    return await deriveKeyBytes(keyPath, 'neodid-nullifier-salt');
   } catch {
     const info = await getDstackInfo({ required: false }).catch(() => null);
-    return Buffer.from(sha256Hex(`neodid:${info?.app_id || "fallback"}`), "hex");
+    return Buffer.from(sha256Hex(`neodid:${info?.app_id || 'fallback'}`), 'hex');
   }
 }
 
 function computeMasterNullifier(provider, providerUid, saltBytes) {
-  return createHash("sha256")
-    .update(Buffer.from(String(provider || ""), "utf8"))
+  return createHash('sha256')
+    .update(Buffer.from(String(provider || ''), 'utf8'))
     .update(Buffer.from([0x1f]))
-    .update(Buffer.from(String(providerUid || ""), "utf8"))
+    .update(Buffer.from(String(providerUid || ''), 'utf8'))
     .update(Buffer.from([0x1f]))
     .update(saltBytes)
-    .digest("hex");
+    .digest('hex');
 }
 
 function computeActionNullifier(provider, providerUid, actionId, saltBytes) {
-  return createHash("sha256")
-    .update(Buffer.from(String(provider || ""), "utf8"))
+  return createHash('sha256')
+    .update(Buffer.from(String(provider || ''), 'utf8'))
     .update(Buffer.from([0x1f]))
-    .update(Buffer.from(String(providerUid || ""), "utf8"))
+    .update(Buffer.from(String(providerUid || ''), 'utf8'))
     .update(Buffer.from([0x1f]))
-    .update(Buffer.from(String(actionId || ""), "utf8"))
+    .update(Buffer.from(String(actionId || ''), 'utf8'))
     .update(Buffer.from([0x1f]))
     .update(saltBytes)
-    .digest("hex");
+    .digest('hex');
 }
 
 function computeMetadataHash(metadata) {
@@ -180,60 +248,74 @@ function computeMetadataHash(metadata) {
 
 function encodeHash160OrZero(value) {
   if (!value) return Buffer.alloc(20, 0);
-  return Buffer.from(value.replace(/^0x/i, ""), "hex");
+  return Buffer.from(value.replace(/^0x/i, ''), 'hex');
 }
 
 function buildBindingDigestBytes(ticket) {
-  return createHash("sha256").update(Buffer.concat([
-    NEODID_BINDING_DOMAIN,
-    Buffer.from(ticket.vault_account.replace(/^0x/i, ""), "hex"),
-    encodeLengthPrefixedAscii(ticket.provider),
-    encodeLengthPrefixedAscii(ticket.claim_type),
-    encodeLengthPrefixedAscii(ticket.claim_value || ""),
-    Buffer.from(ticket.master_nullifier, "hex"),
-    Buffer.from(ticket.metadata_hash, "hex"),
-  ])).digest();
+  return createHash('sha256')
+    .update(
+      Buffer.concat([
+        NEODID_BINDING_DOMAIN,
+        Buffer.from(ticket.vault_account.replace(/^0x/i, ''), 'hex'),
+        encodeLengthPrefixedAscii(ticket.provider),
+        encodeLengthPrefixedAscii(ticket.claim_type),
+        encodeLengthPrefixedAscii(ticket.claim_value || ''),
+        Buffer.from(ticket.master_nullifier, 'hex'),
+        Buffer.from(ticket.metadata_hash, 'hex'),
+      ])
+    )
+    .digest();
 }
 
 function buildActionDigestBytes(ticket) {
-  return createHash("sha256").update(Buffer.concat([
-    NEODID_ACTION_DOMAIN,
-    Buffer.from(ticket.disposable_account.replace(/^0x/i, ""), "hex"),
-    encodeLengthPrefixedAscii(ticket.action_id),
-    Buffer.from(ticket.action_nullifier, "hex"),
-  ])).digest();
+  return createHash('sha256')
+    .update(
+      Buffer.concat([
+        NEODID_ACTION_DOMAIN,
+        Buffer.from(ticket.disposable_account.replace(/^0x/i, ''), 'hex'),
+        encodeLengthPrefixedAscii(ticket.action_id),
+        Buffer.from(ticket.action_nullifier, 'hex'),
+      ])
+    )
+    .digest();
 }
 
 function buildRecoveryDigestBytes(ticket) {
-  return createHash("sha256").update(Buffer.concat([
-    NEODID_RECOVERY_DOMAIN,
-    encodeLengthPrefixedAscii(ticket.network),
-    Buffer.from(ticket.aa_contract.replace(/^0x/i, ""), "hex"),
-    encodeHash160OrZero(ticket.verifier_contract),
-    encodeHash160OrZero(ticket.account_address),
-    encodeLengthPrefixedAscii(ticket.account_id),
-    Buffer.from(ticket.new_owner.replace(/^0x/i, ""), "hex"),
-    encodeLengthPrefixedAscii(ticket.recovery_nonce),
-    encodeLengthPrefixedAscii(ticket.expires_at),
-    encodeLengthPrefixedAscii(ticket.action_id),
-    Buffer.from(ticket.master_nullifier, "hex"),
-    Buffer.from(ticket.action_nullifier, "hex"),
-  ])).digest();
+  return createHash('sha256')
+    .update(
+      Buffer.concat([
+        NEODID_RECOVERY_DOMAIN,
+        encodeLengthPrefixedAscii(ticket.network),
+        Buffer.from(ticket.aa_contract.replace(/^0x/i, ''), 'hex'),
+        encodeHash160OrZero(ticket.verifier_contract),
+        encodeHash160OrZero(ticket.account_address),
+        encodeLengthPrefixedAscii(ticket.account_id),
+        Buffer.from(ticket.new_owner.replace(/^0x/i, ''), 'hex'),
+        encodeLengthPrefixedAscii(ticket.recovery_nonce),
+        encodeLengthPrefixedAscii(ticket.expires_at),
+        encodeLengthPrefixedAscii(ticket.action_id),
+        Buffer.from(ticket.master_nullifier, 'hex'),
+        Buffer.from(ticket.action_nullifier, 'hex'),
+      ])
+    )
+    .digest();
 }
 
 async function resolveNeoDidSignerPrivateKey(payload = {}) {
-  let privateKey = trimString(payload.private_key || payload.signing_key || env("NEODID_NEO_N3_PRIVATE_KEY") || "");
+  let privateKey = trimString(
+    payload.private_key || payload.signing_key || env('NEODID_NEO_N3_PRIVATE_KEY') || ''
+  );
   if (!privateKey && shouldUseDerivedKeys(payload)) {
     try {
-      privateKey = await deriveNeoN3PrivateKeyHex("neodid");
+      privateKey = await deriveNeoN3PrivateKeyHex('neodid');
     } catch {
       // fall through
     }
   }
   if (!privateKey) {
-    privateKey = trimString(env("PHALA_NEO_N3_PRIVATE_KEY") || env("PHALA_NEO_N3_WIF") || "");
+    privateKey = trimString(env('PHALA_NEO_N3_PRIVATE_KEY') || env('PHALA_NEO_N3_WIF') || '');
   }
-  if (!privateKey) throw new Error("NeoDID signing key is not configured");
+  if (!privateKey) throw new Error('NeoDID signing key is not configured');
   return privateKey;
 }
 
@@ -241,7 +323,7 @@ async function signDigestBytes(digestBytes, payload = {}) {
   const privateKey = await resolveNeoDidSignerPrivateKey(payload);
   const account = new neoWallet.Account(privateKey);
   return {
-    signature: neoWallet.sign(Buffer.from(digestBytes).toString("hex"), account.privateKey),
+    signature: neoWallet.sign(Buffer.from(digestBytes).toString('hex'), account.privateKey),
     public_key: account.publicKey,
     signer_address: account.address,
     signer_script_hash: `0x${account.scriptHash}`,
@@ -249,13 +331,15 @@ async function signDigestBytes(digestBytes, payload = {}) {
 }
 
 function resolveProviderUid(payload = {}) {
-  const providerUid = trimString(payload.provider_uid || payload.social_uid || payload.user_id || payload.account_id || "");
-  if (!providerUid) throw new Error("provider_uid is required");
+  const providerUid = trimString(
+    payload.provider_uid || payload.social_uid || payload.user_id || payload.account_id || ''
+  );
+  if (!providerUid) throw new Error('provider_uid is required');
   return providerUid;
 }
 
 function resolveHash160(value, fieldName) {
-  const normalized = trimString(value).replace(/^0x/i, "").toLowerCase();
+  const normalized = trimString(value).replace(/^0x/i, '').toLowerCase();
   if (!/^[0-9a-f]{40}$/.test(normalized)) throw new Error(`${fieldName} must be a 20-byte hash160`);
   return `0x${normalized}`;
 }
@@ -269,31 +353,25 @@ function resolveOptionalHash160(value, fieldName) {
 function resolveRequiredText(value, fieldName) {
   const text = trimString(value);
   if (!text) throw new Error(`${fieldName} is required`);
-  if (Buffer.byteLength(text, "utf8") > 255) throw new Error(`${fieldName} is too long`);
+  if (Buffer.byteLength(text, 'utf8') > 255) throw new Error(`${fieldName} is too long`);
   return text;
 }
 
 function resolveRecoveryActionId(payload, network, aaContract, accountId, newOwner, recoveryNonce) {
-  const explicit = trimString(payload.action_id || payload.recovery_action_id || payload.recovery_id || payload.intent || "");
-  if (explicit) return resolveRequiredText(explicit, "action_id");
-  const digest = sha256Hex([
-    "aa_recovery",
-    network,
-    aaContract,
-    accountId,
-    newOwner,
-    recoveryNonce,
-  ].join("\u001f"));
-  return resolveRequiredText(
-    `aa_recovery:${digest}`,
-    "action_id",
+  const explicit = trimString(
+    payload.action_id || payload.recovery_action_id || payload.recovery_id || payload.intent || ''
   );
+  if (explicit) return resolveRequiredText(explicit, 'action_id');
+  const digest = sha256Hex(
+    ['aa_recovery', network, aaContract, accountId, newOwner, recoveryNonce].join('\u001f')
+  );
+  return resolveRequiredText(`aa_recovery:${digest}`, 'action_id');
 }
 
 async function buildNeoDidResponse(mode, result, payload) {
   const signed = await buildSignedResultEnvelope(result, payload);
   const teeAttestation = await maybeBuildDstackAttestation(payload, signed.output_hash);
-  const callbackEncoding = trimString(payload.callback_encoding || payload.result_encoding || "");
+  const callbackEncoding = trimString(payload.callback_encoding || payload.result_encoding || '');
   return json(200, {
     ...result,
     mode,
@@ -311,28 +389,24 @@ export function handleNeoDidProviders() {
 
 export async function handleNeoDidRuntime(payload = {}) {
   const info = await getDstackInfo({ required: false });
-  const signer = await signDigestBytes(Buffer.from(sha256Hex("neodid-runtime"), "hex"), payload);
+  const signer = await signDigestBytes(Buffer.from(sha256Hex('neodid-runtime'), 'hex'), payload);
   const web3authJwksUrl = resolveWeb3AuthJwksUrl(payload);
   const web3authClientId = resolveWeb3AuthClientId(payload);
   return json(200, {
-    service: "neodid",
+    service: 'neodid',
     app_id: info?.app_id || null,
     instance_id: info?.instance_id || null,
     compose_hash: info?.compose_hash || null,
     verification_public_key: signer.public_key,
-    verifier_curve: "secp256r1",
+    verifier_curve: 'secp256r1',
     supported_routes: [
-      "/neodid/providers",
-      "/neodid/runtime",
-      "/neodid/bind",
-      "/neodid/action-ticket",
-      "/neodid/recovery-ticket",
+      '/neodid/providers',
+      '/neodid/runtime',
+      '/neodid/bind',
+      '/neodid/action-ticket',
+      '/neodid/recovery-ticket',
     ],
-    request_types: [
-      "neodid_bind",
-      "neodid_action_ticket",
-      "neodid_recovery_ticket",
-    ],
+    request_types: ['neodid_bind', 'neodid_action_ticket', 'neodid_recovery_ticket'],
     web3auth: {
       jwks_url: web3authJwksUrl || null,
       audience_configured: Boolean(web3authClientId),
@@ -345,14 +419,17 @@ export async function handleNeoDidRuntime(payload = {}) {
 export async function handleNeoDidBind(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
-  const provider = requireSupportedProvider(resolvedPayload.provider || "twitter");
+  const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
   const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
   const ticket = {
-    vault_account: resolveHash160(resolvedPayload.vault_account || resolvedPayload.vault_script_hash, "vault_account"),
+    vault_account: resolveHash160(
+      resolvedPayload.vault_account || resolvedPayload.vault_script_hash,
+      'vault_account'
+    ),
     provider,
     provider_uid: providerUid,
-    claim_type: trimString(resolvedPayload.claim_type || "Generic_Claim") || "Generic_Claim",
-    claim_value: trimString(resolvedPayload.claim_value || ""),
+    claim_type: trimString(resolvedPayload.claim_type || 'Generic_Claim') || 'Generic_Claim',
+    claim_value: trimString(resolvedPayload.claim_value || ''),
     metadata_hash: computeMetadataHash(resolvedPayload.metadata || {}),
   };
   ticket.master_nullifier = computeMasterNullifier(ticket.provider, ticket.provider_uid, saltBytes);
@@ -365,22 +442,25 @@ export async function handleNeoDidBind(payload = {}) {
     claim_value: ticket.claim_value,
     master_nullifier: `0x${ticket.master_nullifier}`,
     metadata_hash: `0x${ticket.metadata_hash}`,
-    digest: `0x${Buffer.from(digestBytes).toString("hex")}`,
+    digest: `0x${Buffer.from(digestBytes).toString('hex')}`,
     ...signer,
   };
-  return buildNeoDidResponse("neodid_bind", result, resolvedPayload);
+  return buildNeoDidResponse('neodid_bind', result, resolvedPayload);
 }
 
 export async function handleNeoDidActionTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
-  const provider = requireSupportedProvider(resolvedPayload.provider || "twitter");
+  const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
   const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
-  const actionId = trimString(resolvedPayload.action_id || resolvedPayload.intent || "").trim();
-  if (!actionId) throw new Error("action_id is required");
+  const actionId = trimString(resolvedPayload.action_id || resolvedPayload.intent || '').trim();
+  if (!actionId) throw new Error('action_id is required');
   const actionNullifier = computeActionNullifier(provider, providerUid, actionId, saltBytes);
   const ticket = {
-    disposable_account: resolveHash160(resolvedPayload.disposable_account || resolvedPayload.disposable_script_hash, "disposable_account"),
+    disposable_account: resolveHash160(
+      resolvedPayload.disposable_account || resolvedPayload.disposable_script_hash,
+      'disposable_account'
+    ),
     action_id: actionId,
     action_nullifier: actionNullifier,
   };
@@ -390,48 +470,60 @@ export async function handleNeoDidActionTicket(payload = {}) {
     disposable_account: ticket.disposable_account,
     action_id: ticket.action_id,
     action_nullifier: `0x${ticket.action_nullifier}`,
-    digest: `0x${Buffer.from(digestBytes).toString("hex")}`,
+    digest: `0x${Buffer.from(digestBytes).toString('hex')}`,
     ...signer,
   };
-  return buildNeoDidResponse("neodid_action_ticket", result, resolvedPayload);
+  return buildNeoDidResponse('neodid_action_ticket', result, resolvedPayload);
 }
 
 export async function handleNeoDidRecoveryTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
-  const provider = requireSupportedProvider(resolvedPayload.provider || "twitter");
+  const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
   const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
-  const network = resolveRequiredText(resolvedPayload.network || resolvedPayload.target_chain || "neo_n3", "network");
+  const network = resolveRequiredText(
+    resolvedPayload.network || resolvedPayload.target_chain || 'neo_n3',
+    'network'
+  );
   const aaContract = resolveHash160(
-    resolvedPayload.aa_contract || resolvedPayload.account_contract || resolvedPayload.wallet_contract,
-    "aa_contract",
+    resolvedPayload.aa_contract ||
+      resolvedPayload.account_contract ||
+      resolvedPayload.wallet_contract,
+    'aa_contract'
   );
   const verifierContract = resolveOptionalHash160(
     resolvedPayload.verifier_contract || resolvedPayload.recovery_verifier_contract,
-    "verifier_contract",
+    'verifier_contract'
   );
   const accountAddress = resolveOptionalHash160(
     resolvedPayload.account_address || resolvedPayload.aa_address || resolvedPayload.wallet_address,
-    "account_address",
+    'account_address'
   );
   const accountId = resolveRequiredText(
     resolvedPayload.account_id || resolvedPayload.accountId || resolvedPayload.wallet_id,
-    "account_id",
+    'account_id'
   );
   const newOwner = resolveHash160(
     resolvedPayload.new_owner || resolvedPayload.recovery_address || resolvedPayload.target_owner,
-    "new_owner",
+    'new_owner'
   );
   const recoveryNonce = resolveRequiredText(
     resolvedPayload.recovery_nonce || resolvedPayload.nonce,
-    "recovery_nonce",
+    'recovery_nonce'
   );
   const expiresAt = resolveRequiredText(
     resolvedPayload.expires_at || resolvedPayload.expiry || resolvedPayload.ticket_expires_at,
-    "expires_at",
+    'expires_at'
   );
   const masterNullifier = computeMasterNullifier(provider, providerUid, saltBytes);
-  const actionId = resolveRecoveryActionId(resolvedPayload, network, aaContract, accountId, newOwner, recoveryNonce);
+  const actionId = resolveRecoveryActionId(
+    resolvedPayload,
+    network,
+    aaContract,
+    accountId,
+    newOwner,
+    recoveryNonce
+  );
   const actionNullifier = computeActionNullifier(provider, providerUid, actionId, saltBytes);
 
   const ticket = {
@@ -462,10 +554,10 @@ export async function handleNeoDidRecoveryTicket(payload = {}) {
     action_id: ticket.action_id,
     master_nullifier: `0x${ticket.master_nullifier}`,
     action_nullifier: `0x${ticket.action_nullifier}`,
-    digest: `0x${Buffer.from(digestBytes).toString("hex")}`,
+    digest: `0x${Buffer.from(digestBytes).toString('hex')}`,
     ...signer,
   };
-  return buildNeoDidResponse("neodid_recovery_ticket", result, resolvedPayload);
+  return buildNeoDidResponse('neodid_recovery_ticket', result, resolvedPayload);
 }
 
 export function __resetNeoDidStateForTests() {
