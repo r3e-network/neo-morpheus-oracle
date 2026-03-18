@@ -159,6 +159,111 @@ export function encodeUtf8Base64(value) {
   return Buffer.from(String(value ?? ""), "utf8").toString("base64");
 }
 
+export function resolveNeoN3RpcUrl(network = "testnet", deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || "testnet";
+  const defaultRpcUrl = normalized === "mainnet" ? "https://mainnet1.neo.coz.io:443" : "https://testnet1.neo.coz.io:443";
+  return trimString(
+    normalized === "testnet"
+      ? (process.env.NEO_TESTNET_RPC_URL || deployment.rpc_url || process.env.NEO_RPC_URL || defaultRpcUrl)
+      : (process.env.NEO_MAINNET_RPC_URL || process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl),
+  );
+}
+
+export function resolveNeoN3NetworkMagic(network = "testnet", deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || "testnet";
+  const defaultNetworkMagic = normalized === "mainnet" ? 860833102 : 894710606;
+  const raw = normalized === "testnet"
+    ? (
+      process.env.NEO_TESTNET_NETWORK_MAGIC
+      || deployment.network_magic
+      || process.env.NEO_NETWORK_MAGIC
+      || defaultNetworkMagic
+    )
+    : (
+      process.env.NEO_MAINNET_NETWORK_MAGIC
+      || process.env.NEO_NETWORK_MAGIC
+      || deployment.network_magic
+      || defaultNetworkMagic
+    );
+  return Number(raw);
+}
+
+export function resolveNeoN3OracleHash(network = "testnet", deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || "testnet";
+  return normalizeHash160(
+    normalized === "testnet"
+      ? (
+        process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET
+        || deployment.oracle_hash
+        || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
+        || ""
+      )
+      : (
+        process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET
+        || process.env.CONTRACT_MORPHEUS_ORACLE_HASH
+        || deployment.oracle_hash
+        || ""
+      ),
+  );
+}
+
+export function resolveNeoN3ConsumerHash(network = "testnet", deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || "testnet";
+  return normalizeHash160(
+    normalized === "testnet"
+      ? (
+        process.env.EXAMPLE_N3_CONSUMER_HASH_TESTNET
+        || deployment.example_consumer_hash
+        || process.env.EXAMPLE_N3_CONSUMER_HASH
+        || ""
+      )
+      : (
+        process.env.EXAMPLE_N3_CONSUMER_HASH_MAINNET
+        || process.env.EXAMPLE_N3_CONSUMER_HASH
+        || deployment.example_consumer_hash
+        || ""
+      ),
+  );
+}
+
+export function resolveNeoN3FeedReaderHash(network = "testnet", deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || "testnet";
+  return normalizeHash160(
+    normalized === "testnet"
+      ? (
+        process.env.EXAMPLE_N3_FEED_READER_HASH_TESTNET
+        || deployment.example_feed_reader_hash
+        || process.env.EXAMPLE_N3_FEED_READER_HASH
+        || ""
+      )
+      : (
+        process.env.EXAMPLE_N3_FEED_READER_HASH_MAINNET
+        || process.env.EXAMPLE_N3_FEED_READER_HASH
+        || deployment.example_feed_reader_hash
+        || ""
+      ),
+  );
+}
+
+export function resolveNeoN3DatafeedHash(network = "testnet", deployment = {}) {
+  const normalized = trimString(network).toLowerCase() || "testnet";
+  return normalizeHash160(
+    normalized === "testnet"
+      ? (
+        process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_TESTNET
+        || deployment.datafeed_hash
+        || process.env.CONTRACT_MORPHEUS_DATAFEED_HASH
+        || ""
+      )
+      : (
+        process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_MAINNET
+        || process.env.CONTRACT_MORPHEUS_DATAFEED_HASH
+        || deployment.datafeed_hash
+        || ""
+      ),
+  );
+}
+
 const ORACLE_ENCRYPTION_ALGORITHM = "X25519-HKDF-SHA256-AES-256-GCM";
 const ORACLE_ENCRYPTION_INFO = "morpheus-confidential-payload-v2";
 const AES_GCM_TAG_LENGTH_BYTES = 16;
