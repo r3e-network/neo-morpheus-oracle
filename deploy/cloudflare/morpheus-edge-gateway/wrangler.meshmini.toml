@@ -1,0 +1,12 @@
+name = "morpheus-edge-gateway"
+main = "worker.mjs"
+compatibility_date = "2026-03-19"
+account_id = "bf0d7e814f69945157f30505e9fba9fe"
+
+[vars]
+MORPHEUS_ORIGIN_URL = "https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network"
+UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
+
+[[routes]]
+pattern = "morpheus.meshmini.app/*"
+zone_name = "meshmini.app"

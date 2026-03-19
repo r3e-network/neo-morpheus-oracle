@@ -6,8 +6,8 @@
   "scripts": {
     "bundle": "node src/worker.js",
     "start": "node src/server.js",
-    "check": "node --check src/worker.js && node --check src/server.js",
-    "test": "node --test worker.test.mjs"
+    "check": "node --check src/worker.js && node --check src/server.js && node --check src/platform/upstash.js && node --check src/platform/request-guards.js && node --check src/platform/request-guards.test.mjs",
+    "test": "node --test worker.test.mjs && node --test src/platform/request-guards.test.mjs"
   },
   "dependencies": {
     "@cityofzion/neon-js": "^5.8.1",
