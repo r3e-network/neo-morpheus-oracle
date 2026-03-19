@@ -208,6 +208,7 @@ function buildOriginRequest(request, env) {
 
   const targetUrl = `${originBaseUrl}${routing.forwardedPath}${incomingUrl.search}`;
   const headers = new Headers(request.headers);
+  headers.delete('host');
   if (!headers.has('authorization') && trimString(env.MORPHEUS_ORIGIN_TOKEN)) {
     headers.set('authorization', `Bearer ${trimString(env.MORPHEUS_ORIGIN_TOKEN)}`);
   }
