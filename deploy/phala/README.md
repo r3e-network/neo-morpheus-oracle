@@ -68,6 +68,10 @@ For isolated testnet validation, `Small TDX` is acceptable because:
 
 Use the Dashboard `Deploy -> docker-compose.yml` flow and paste `deploy/phala/docker-compose.ui.yml`.
 
+For the official Phala custom-domain route, use:
+
+- `deploy/phala/docker-compose.ingress.ui.yml`
+
 In the UI, add the same keys from `deploy/phala/morpheus.env.example` into **Encrypted Secrets**.
 
 Recommended first deployment in the UI:
@@ -75,8 +79,9 @@ Recommended first deployment in the UI:
 - CVM size: `Medium TDX`
 - Guest image: `dstack-dev-*`
 - Compose mode: `Advanced`
-- Public service: `caddy` on port `80`
-- Paste `deploy/phala/docker-compose.ui.yml`
+- Public service:
+  - `caddy` route: `deploy/phala/docker-compose.ui.yml`
+  - official custom-domain route: `deploy/phala/docker-compose.ingress.ui.yml`
 
 When updating an existing Phala CVM with `phala deploy`, keep using `deploy/phala/docker-compose.ui.yml` together with `-e deploy/phala/morpheus.<network>.env`. That path injects the env values directly as encrypted secrets. The file-based `deploy/phala/docker-compose.yml` expects a real env file inside the CVM (`./morpheus.<network>.env`) and will fail on restart if you only pass the env file to `phala deploy` without copying it into the guest filesystem.
 
@@ -147,6 +152,14 @@ For the current `deploy/phala/docker-compose.ui.yml`, the Phala UI only needs th
 - `MORPHEUS_RUNTIME_CONFIG_JSON`
 
 Everything else now lives inside `MORPHEUS_RUNTIME_CONFIG_JSON`.
+
+For `deploy/phala/docker-compose.ingress.ui.yml`, add these extra secrets:
+
+- `CLOUDFLARE_DNS_API_TOKEN`
+- `CERTBOT_EMAIL`
+- `MORPHEUS_CUSTOM_DOMAIN`
+- `MORPHEUS_INGRESS_PORT`
+- `MORPHEUS_INGRESS_SET_CAA`
 
 `MORPHEUS_PUBLIC_PORT` should stay aligned with the exposed dstack app URL. The default public mapping is `3000 -> caddy:80`.
 
