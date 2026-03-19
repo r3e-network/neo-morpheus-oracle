@@ -3,7 +3,9 @@ main = "worker.mjs"
 compatibility_date = "2026-03-19"
 
 [vars]
-MORPHEUS_ORIGIN_URL = "https://your-phala-worker.example.com"
+MORPHEUS_ORIGIN_URL = "https://your-default-phala-worker.example.com"
+MORPHEUS_MAINNET_ORIGIN_URL = "https://your-mainnet-phala-worker.example.com"
+MORPHEUS_TESTNET_ORIGIN_URL = "https://your-testnet-phala-worker.example.com"
 MORPHEUS_ORIGIN_TOKEN = "replace-me"
 UPSTASH_REDIS_REST_URL = ""
 

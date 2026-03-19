@@ -32,6 +32,46 @@ function trimString(value) {
   return String(value || '').trim();
 }
 
+function stripLeadingSlash(value) {
+  return String(value || '').replace(/^\/+/, '');
+}
+
+function resolveNetworkRoute(url, env) {
+  const path = url.pathname || '/';
+  if (path === '/' || path === '') {
+    return {
+      network: 'testnet',
+      forwardedPath: '/',
+      routePrefix: '/',
+      originBaseUrl: trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, ''),
+    };
+  }
+
+  const segments = stripLeadingSlash(path).split('/');
+  const prefix = segments[0]?.toLowerCase();
+  if (prefix === 'mainnet' || prefix === 'testnet') {
+    const rest = segments.slice(1).join('/');
+    const forwardedPath = `/${rest}`.replace(/\/+$/, '') || '/';
+    const originBaseUrl =
+      prefix === 'mainnet'
+        ? trimString(env.MORPHEUS_MAINNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '')
+        : trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '');
+    return {
+      network: prefix,
+      forwardedPath,
+      routePrefix: `/${prefix}`,
+      originBaseUrl,
+    };
+  }
+
+  return {
+    network: 'testnet',
+    forwardedPath: path,
+    routePrefix: '',
+    originBaseUrl: trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, ''),
+  };
+}
+
 function getClientIp(request) {
   return (
     trimString(request.headers.get('cf-connecting-ip')) ||
@@ -159,19 +199,21 @@ async function applyUpstashRateLimit(request, env, routeKey) {
 }
 
 function buildOriginRequest(request, env) {
-  const originBaseUrl = trimString(env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '');
+  const incomingUrl = new URL(request.url);
+  const routing = resolveNetworkRoute(incomingUrl, env);
+  const originBaseUrl = routing.originBaseUrl;
   if (!originBaseUrl) {
-    throw new Error('MORPHEUS_ORIGIN_URL is required');
+    throw new Error(`origin URL is required for network ${routing.network}`);
   }
 
-  const incomingUrl = new URL(request.url);
-  const targetUrl = `${originBaseUrl}${incomingUrl.pathname}${incomingUrl.search}`;
+  const targetUrl = `${originBaseUrl}${routing.forwardedPath}${incomingUrl.search}`;
   const headers = new Headers(request.headers);
   if (!headers.has('authorization') && trimString(env.MORPHEUS_ORIGIN_TOKEN)) {
     headers.set('authorization', `Bearer ${trimString(env.MORPHEUS_ORIGIN_TOKEN)}`);
   }
   headers.set('x-forwarded-proto', 'https');
   headers.set('x-edge-route', incomingUrl.pathname);
+  headers.set('x-morpheus-network', routing.network);
 
   return new Request(targetUrl, {
     method: request.method,
@@ -184,18 +226,35 @@ function buildOriginRequest(request, env) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    const routing = resolveNetworkRoute(url, env);
 
-    const turnstileFailure = await verifyTurnstile(request, env);
+    if (url.pathname === '/' || url.pathname === '') {
+      return json(200, {
+        service: 'morpheus-edge-gateway',
+        domain: url.host,
+        routes: {
+          mainnet: `${url.origin}/mainnet/health`,
+          testnet: `${url.origin}/testnet/health`,
+        },
+        default_network: routing.network,
+      });
+    }
+
+    const turnstileRequest =
+      routing.routePrefix && url.pathname.startsWith(routing.routePrefix)
+        ? new Request(`${url.origin}${routing.forwardedPath}${url.search}`, request)
+        : request;
+    const turnstileFailure = await verifyTurnstile(turnstileRequest, env);
     if (turnstileFailure) return turnstileFailure;
 
     const routeKey =
-      url.pathname.endsWith('/paymaster/authorize') ? 'paymaster' :
-      url.pathname.endsWith('/relay/transaction') ? 'relay' :
-      url.pathname.endsWith('/compute/execute') ? 'compute' :
-      url.pathname.endsWith('/vrf/random') ? 'vrf' :
-      url.pathname.endsWith('/oracle/query') ? 'oracle-query' :
-      url.pathname.endsWith('/oracle/smart-fetch') ? 'oracle-query' :
-      url.pathname.endsWith('/feeds/price') || /\/feeds\/price\//.test(url.pathname) ? 'feeds-price' :
+      routing.forwardedPath.endsWith('/paymaster/authorize') ? 'paymaster' :
+      routing.forwardedPath.endsWith('/relay/transaction') ? 'relay' :
+      routing.forwardedPath.endsWith('/compute/execute') ? 'compute' :
+      routing.forwardedPath.endsWith('/vrf/random') ? 'vrf' :
+      routing.forwardedPath.endsWith('/oracle/query') ? 'oracle-query' :
+      routing.forwardedPath.endsWith('/oracle/smart-fetch') ? 'oracle-query' :
+      routing.forwardedPath.endsWith('/feeds/price') || /\/feeds\/price\//.test(routing.forwardedPath) ? 'feeds-price' :
       'origin';
 
     const rateLimited = await applyNativeRateLimit(request, env, routeKey);
@@ -209,10 +268,37 @@ export default {
     }
 
     const originRequest = buildOriginRequest(request, env);
-    const originResponse = await fetch(originRequest);
+    let originResponse;
+    try {
+      originResponse = await fetch(originRequest);
+    } catch (error) {
+      return json(
+        503,
+        {
+          error: 'origin_unavailable',
+          network: routing.network,
+          route: routeKey,
+          message: error instanceof Error ? error.message : String(error),
+        },
+        { 'cache-control': 'no-store' }
+      );
+    }
+    if (originResponse.status >= 520) {
+      return json(
+        503,
+        {
+          error: 'origin_unavailable',
+          network: routing.network,
+          route: routeKey,
+          upstream_status: originResponse.status,
+        },
+        { 'cache-control': 'no-store' }
+      );
+    }
     const response = new Response(originResponse.body, originResponse);
     response.headers.set('x-morpheus-edge', 'cloudflare');
     response.headers.set('x-morpheus-route', routeKey);
+    response.headers.set('x-morpheus-network', routing.network);
 
     if (cacheRule && originResponse.ok) {
       response.headers.set('cache-control', `public, max-age=${cacheRule.ttl}`);

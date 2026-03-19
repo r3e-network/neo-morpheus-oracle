@@ -5,6 +5,8 @@ account_id = "bf0d7e814f69945157f30505e9fba9fe"
 
 [vars]
 MORPHEUS_ORIGIN_URL = "https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network"
+MORPHEUS_MAINNET_ORIGIN_URL = "https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network"
+MORPHEUS_TESTNET_ORIGIN_URL = "https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network"
 UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
 
 [[routes]]
