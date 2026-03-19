@@ -31,6 +31,44 @@ If one of these is wrong, the system usually stops working.
   English: Authentication secret for the worker.
   中文：worker 的鉴权密钥。
 
+### Edge Hardening / 边缘防护
+
+- `UPSTASH_REDIS_REST_URL`
+  English: Upstash Redis REST endpoint used by worker-side rate limiting and idempotency guards.
+  中文：worker 侧限流与幂等保护使用的 Upstash Redis REST 地址。
+
+- `UPSTASH_REDIS_REST_TOKEN`
+  English: Upstash Redis REST bearer token.
+  中文：Upstash Redis REST 鉴权 token。
+
+- `MORPHEUS_UPSTASH_GUARDS_ENABLED`
+  English: Enables worker-side Upstash-backed request guards for sensitive routes like paymaster / relay / compute / VRF.
+  中文：开启 worker 侧基于 Upstash 的敏感路由保护，例如 paymaster / relay / compute / VRF。
+
+- `MORPHEUS_UPSTASH_FAIL_CLOSED`
+  English: If `true`, Upstash failures reject guarded requests instead of failing open.
+  中文：若为 `true`，Upstash 故障时拒绝请求，而不是放行。
+
+- `MORPHEUS_RATE_LIMIT_PAYMASTER_AUTHORIZE_MAX`
+- `MORPHEUS_RATE_LIMIT_RELAY_TRANSACTION_MAX`
+- `MORPHEUS_RATE_LIMIT_COMPUTE_EXECUTE_MAX`
+- `MORPHEUS_RATE_LIMIT_VRF_RANDOM_MAX`
+- `MORPHEUS_RATE_LIMIT_ORACLE_QUERY_MAX`
+  English: Per-route fixed-window request ceilings enforced through Upstash.
+  中文：通过 Upstash 执行的分路由固定窗口请求上限。
+
+- `CLOUDFLARE_API_TOKEN`
+  English: Optional deployment/admin token for Cloudflare scripts and worker rollout.
+  中文：可选的 Cloudflare 部署/管理 token，用于脚本和 worker 发布。
+
+- `CLOUDFLARE_ACCOUNT_ID`
+  English: Cloudflare account id used when deploying the edge gateway worker.
+  中文：发布 edge gateway worker 时使用的 Cloudflare account id。
+
+- `TURNSTILE_SECRET_KEY`
+  English: Optional secret used by the Cloudflare gateway worker to verify Turnstile tokens on abuse-prone endpoints.
+  中文：Cloudflare gateway worker 可选使用的 Turnstile secret，用于高风险接口的人机验证。
+
 ### Supabase / Supabase
 
 - `SUPABASE_URL`

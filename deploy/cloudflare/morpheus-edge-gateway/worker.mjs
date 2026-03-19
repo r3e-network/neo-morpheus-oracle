@@ -1,0 +1,226 @@
+const CACHE_RULES = [
+  { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/health'), ttl: 15 },
+  { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/providers'), ttl: 60 },
+  { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/feeds/catalog'), ttl: 300 },
+  { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/oracle/public-key'), ttl: 300 },
+  { match: (url, req) => req.method === 'GET' && /\/feeds\/price(?:\/|$)/.test(url.pathname), ttl: 15 },
+];
+
+const TURNSTILE_PROTECTED_PATHS = [
+  '/paymaster/authorize',
+  '/relay/transaction',
+  '/compute/execute',
+  '/vrf/random',
+];
+
+const UPSTASH_ROUTE_LIMITS = {
+  paymaster: { limit: 20, windowMs: 60_000 },
+  relay: { limit: 20, windowMs: 60_000 },
+  compute: { limit: 10, windowMs: 60_000 },
+  vrf: { limit: 15, windowMs: 60_000 },
+  'oracle-query': { limit: 30, windowMs: 60_000 },
+};
+
+function json(status, body, headers = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json', ...headers },
+  });
+}
+
+function trimString(value) {
+  return String(value || '').trim();
+}
+
+function getClientIp(request) {
+  return (
+    trimString(request.headers.get('cf-connecting-ip')) ||
+    trimString(request.headers.get('x-real-ip')) ||
+    trimString(request.headers.get('x-forwarded-for')).split(',')[0] ||
+    'unknown'
+  );
+}
+
+function shouldProtectWithTurnstile(pathname) {
+  return TURNSTILE_PROTECTED_PATHS.some((path) => pathname.endsWith(path));
+}
+
+function resolveCacheRule(url, request) {
+  return CACHE_RULES.find((rule) => rule.match(url, request)) || null;
+}
+
+async function verifyTurnstile(request, env) {
+  const secret = trimString(env.TURNSTILE_WORKER_SECRET || env.TURNSTILE_SECRET_KEY);
+  if (!secret) return null;
+
+  const url = new URL(request.url);
+  if (!shouldProtectWithTurnstile(url.pathname)) return null;
+
+  const cloned = request.clone();
+  const contentType = trimString(cloned.headers.get('content-type')).toLowerCase();
+  let token =
+    trimString(request.headers.get('cf-turnstile-token')) ||
+    trimString(request.headers.get('x-turnstile-token'));
+
+  if (!token && contentType.includes('application/json')) {
+    const body = await cloned.json().catch(() => ({}));
+    token = trimString(body.turnstile_token || body.turnstileToken);
+  }
+
+  if (!token) {
+    return json(403, { error: 'turnstile_required' });
+  }
+
+  const formData = new URLSearchParams();
+  formData.set('secret', secret);
+  formData.set('response', token);
+  formData.set('remoteip', getClientIp(request));
+
+  const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: formData,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!payload.success) {
+    return json(403, {
+      error: 'turnstile_failed',
+      details: payload['error-codes'] || [],
+    });
+  }
+  return null;
+}
+
+async function applyNativeRateLimit(request, env, routeKey) {
+  if (!env.MORPHEUS_RATE_LIMITER || typeof env.MORPHEUS_RATE_LIMITER.limit !== 'function') {
+    return applyUpstashRateLimit(request, env, routeKey);
+  }
+  const verdict = await env.MORPHEUS_RATE_LIMITER.limit({
+    key: `${routeKey}:${getClientIp(request)}`,
+  });
+  if (verdict?.success) return null;
+  const retryAfter = verdict?.retryAfter ?? 60;
+  return json(429, { error: 'rate_limit_exceeded', route: routeKey }, { 'retry-after': String(retryAfter) });
+}
+
+function routeLimitConfig(routeKey, env) {
+  const defaults = UPSTASH_ROUTE_LIMITS[routeKey];
+  if (!defaults) return null;
+  const upper = routeKey.toUpperCase().replace(/-/g, '_');
+  return {
+    limit: Number(env[`MORPHEUS_RATE_LIMIT_${upper}_MAX`] || defaults.limit),
+    windowMs: Number(env[`MORPHEUS_RATE_LIMIT_${upper}_WINDOW_MS`] || defaults.windowMs),
+  };
+}
+
+async function upstashPipeline(env, commands) {
+  const url = trimString(env.UPSTASH_REDIS_REST_URL).replace(/\/$/, '');
+  const token = trimString(env.UPSTASH_REDIS_REST_TOKEN);
+  if (!url || !token) return null;
+  const response = await fetch(`${url}/pipeline`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(commands),
+  });
+  if (!response.ok) {
+    throw new Error(`upstash pipeline failed (${response.status})`);
+  }
+  return response.json();
+}
+
+async function applyUpstashRateLimit(request, env, routeKey) {
+  const config = routeLimitConfig(routeKey, env);
+  if (!config) return null;
+  const redisUrl = trimString(env.UPSTASH_REDIS_REST_URL);
+  const redisToken = trimString(env.UPSTASH_REDIS_REST_TOKEN);
+  if (!redisUrl || !redisToken) return null;
+
+  const key = `morpheus:edge:ratelimit:${routeKey}:${getClientIp(request)}`;
+  const result = await upstashPipeline(env, [
+    ['INCR', key],
+    ['PTTL', key],
+  ]);
+  const count = Number(result?.[0]?.result || 0);
+  let ttl = Number(result?.[1]?.result || -1);
+  if (count <= 1 || ttl < 0) {
+    await upstashPipeline(env, [['PEXPIRE', key, String(config.windowMs)]]);
+    ttl = config.windowMs;
+  }
+  if (count <= config.limit) return null;
+
+  return json(
+    429,
+    { error: 'rate_limit_exceeded', route: routeKey },
+    { 'retry-after': String(Math.max(Math.ceil(ttl / 1000), 1)) }
+  );
+}
+
+function buildOriginRequest(request, env) {
+  const originBaseUrl = trimString(env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '');
+  if (!originBaseUrl) {
+    throw new Error('MORPHEUS_ORIGIN_URL is required');
+  }
+
+  const incomingUrl = new URL(request.url);
+  const targetUrl = `${originBaseUrl}${incomingUrl.pathname}${incomingUrl.search}`;
+  const headers = new Headers(request.headers);
+  if (!headers.has('authorization') && trimString(env.MORPHEUS_ORIGIN_TOKEN)) {
+    headers.set('authorization', `Bearer ${trimString(env.MORPHEUS_ORIGIN_TOKEN)}`);
+  }
+  headers.set('x-forwarded-proto', 'https');
+  headers.set('x-edge-route', incomingUrl.pathname);
+
+  return new Request(targetUrl, {
+    method: request.method,
+    headers,
+    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
+    redirect: 'follow',
+  });
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    const turnstileFailure = await verifyTurnstile(request, env);
+    if (turnstileFailure) return turnstileFailure;
+
+    const routeKey =
+      url.pathname.endsWith('/paymaster/authorize') ? 'paymaster' :
+      url.pathname.endsWith('/relay/transaction') ? 'relay' :
+      url.pathname.endsWith('/compute/execute') ? 'compute' :
+      url.pathname.endsWith('/vrf/random') ? 'vrf' :
+      url.pathname.endsWith('/oracle/query') ? 'oracle-query' :
+      url.pathname.endsWith('/oracle/smart-fetch') ? 'oracle-query' :
+      url.pathname.endsWith('/feeds/price') || /\/feeds\/price\//.test(url.pathname) ? 'feeds-price' :
+      'origin';
+
+    const rateLimited = await applyNativeRateLimit(request, env, routeKey);
+    if (rateLimited) return rateLimited;
+
+    const cacheRule = resolveCacheRule(url, request);
+    const cache = caches.default;
+    if (cacheRule) {
+      const cached = await cache.match(request);
+      if (cached) return cached;
+    }
+
+    const originRequest = buildOriginRequest(request, env);
+    const originResponse = await fetch(originRequest);
+    const response = new Response(originResponse.body, originResponse);
+    response.headers.set('x-morpheus-edge', 'cloudflare');
+    response.headers.set('x-morpheus-route', routeKey);
+
+    if (cacheRule && originResponse.ok) {
+      response.headers.set('cache-control', `public, max-age=${cacheRule.ttl}`);
+      ctx.waitUntil(cache.put(request, response.clone()));
+    } else {
+      response.headers.set('cache-control', 'no-store');
+    }
+
+    return response;
+  },
+};

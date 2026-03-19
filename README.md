@@ -17,6 +17,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 
 - **Frontend / control plane**: Next.js, deployable to Vercel
 - **State / auth / encrypted secret storage**: Supabase
+- **Edge hardening**: optional Cloudflare Worker gateway + Upstash Redis guards
 - **Trusted execution**: Phala TEE worker
   - **Mainnet CVM**: `966f16610bdfe1794a503e16c5ae0bc69a1d92f1`
   - **Mainnet endpoint**: [https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network](https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network)
@@ -78,6 +79,33 @@ npm --prefix workers/phala-worker test
 npm --prefix workers/morpheus-relayer test
 npm --prefix apps/web run dev
 ```
+
+## Edge Hardening
+
+The current repo now includes first-party edge hardening scaffolding for:
+
+- `Upstash Redis` request guards on the Phala worker origin
+- `Cloudflare Worker` gateway proxying and caching
+- optional `Turnstile` checks on abuse-prone routes
+
+Relevant files:
+
+- `workers/phala-worker/src/platform/upstash.js`
+- `workers/phala-worker/src/platform/request-guards.js`
+- `deploy/cloudflare/morpheus-edge-gateway/worker.mjs`
+- `deploy/cloudflare/morpheus-edge-gateway/README.md`
+- `scripts/verify-cloudflare-token.mjs`
+- `scripts/verify-edge-gateway.mjs`
+
+Current live edge gateway:
+
+- `https://morpheus.meshmini.app`
+
+Current live gateway mode:
+
+- Cloudflare Worker in front of the testnet Phala worker
+- `Turnstile` enforcement enabled for `/paymaster/authorize`, `/relay/transaction`, `/compute/execute`, and `/vrf/random`
+- `Upstash Redis` edge-side rate-limit support configured
 
 ## Validation Commands
 

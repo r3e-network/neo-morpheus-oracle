@@ -10,6 +10,7 @@ import { exportJWK, SignJWT } from 'jose';
 
 const originalFetch = global.fetch;
 const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
+const originalPhalaApiToken = process.env.PHALA_API_TOKEN;
 const originalNeoN3Key = process.env.PHALA_NEO_N3_PRIVATE_KEY;
 const originalNeoXKey = process.env.PHALA_NEOX_PRIVATE_KEY;
 const originalNeoRpc = process.env.NEO_RPC_URL;
@@ -30,6 +31,7 @@ const originalNextPublicWeb3AuthClientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIE
 const originalWeb3AuthJwksUrl = process.env.WEB3AUTH_JWKS_URL;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
+process.env.PHALA_API_TOKEN = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
 process.env.PHALA_NEOX_PRIVATE_KEY =
@@ -975,6 +977,7 @@ test('encrypted_params_ref is idempotent for the same request_id but rejects rep
 test.after(() => {
   global.fetch = originalFetch;
   process.env.PHALA_SHARED_SECRET = originalPhalaToken;
+  process.env.PHALA_API_TOKEN = originalPhalaApiToken;
   process.env.PHALA_NEO_N3_PRIVATE_KEY = originalNeoN3Key;
   process.env.PHALA_NEOX_PRIVATE_KEY = originalNeoXKey;
   process.env.NEO_RPC_URL = originalNeoRpc;
