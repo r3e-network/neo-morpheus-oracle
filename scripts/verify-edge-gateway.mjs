@@ -21,7 +21,7 @@ async function readJson(pathname, options = {}) {
 async function main() {
   const health = await readJson('/health');
   const providers = await readJson('/providers');
-  const paymasterDenied = await readJson('/paymaster/authorize', {
+  const paymasterTurnstileProbe = await readJson('/paymaster/authorize', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -50,8 +50,8 @@ async function main() {
       cacheControl: providers.headers['cache-control'] || null,
     },
     paymasterTurnstileProbe: {
-      status: paymasterDenied.status,
-      body: paymasterDenied.body,
+      status: paymasterTurnstileProbe.status,
+      body: paymasterTurnstileProbe.body,
     },
   }, null, 2));
 }
