@@ -17,6 +17,8 @@ Cloudflare Worker gateway for `neo-morpheus-oracle`.
 ## Required bindings / vars
 
 - `MORPHEUS_ORIGIN_URL`
+- `MORPHEUS_MAINNET_ORIGIN_URL`
+- `MORPHEUS_TESTNET_ORIGIN_URL`
 - `MORPHEUS_ORIGIN_TOKEN`
 - optional `TURNSTILE_SECRET_KEY`
 - optional `MORPHEUS_RATE_LIMITER` native binding
@@ -26,6 +28,20 @@ Cloudflare Worker gateway for `neo-morpheus-oracle`.
 - public oracle / feed / vrf / paymaster / relay endpoints
 - do not expose direct worker management endpoints publicly
 - keep internal maintenance/admin surfaces behind Cloudflare Access or private origin networking
+
+## Unified network routing
+
+The gateway now supports a single public hostname with explicit network prefixes:
+
+- `/mainnet/...`
+- `/testnet/...`
+
+Example:
+
+- `/mainnet/health`
+- `/testnet/health`
+- `/mainnet/oracle/query`
+- `/testnet/paymaster/authorize`
 
 ## Account / zone discovery
 
