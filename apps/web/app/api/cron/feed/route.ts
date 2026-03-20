@@ -12,6 +12,14 @@ function isAuthorized(request: Request) {
   return auth === `Bearer ${configured}`;
 }
 
+function isFeedControlPlaneEnabled() {
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(process.env.MORPHEUS_CONTROL_PLANE_ENABLE_FEED || '')
+      .trim()
+      .toLowerCase()
+  );
+}
+
 export async function GET(request: Request) {
   if (!isAuthorized(request) && !isAuthorizedControlPlaneRequest(request)) {
     const body = { error: 'unauthorized' };
@@ -78,7 +86,7 @@ export async function GET(request: Request) {
     symbols,
   };
 
-  if (shouldDispatchToControlPlane('/feeds/tick')) {
+  if (isFeedControlPlaneEnabled() && shouldDispatchToControlPlane('/feeds/tick')) {
     return dispatchToControlPlane(
       '/feeds/tick',
       {
