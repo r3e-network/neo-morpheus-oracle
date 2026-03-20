@@ -42,57 +42,66 @@ export async function POST(request: Request) {
       ? body.success
       : trimString(body.success).toLowerCase() === 'true';
 
-  const config = await buildRelayerExecutionConfig(network);
-  const neoN3ModulePath = '../../../../../../../workers/morpheus-relayer/src/neo-n3.js';
-  const neoXModulePath = '../../../../../../../workers/morpheus-relayer/src/neo-x.js';
-  const neoN3 = (await import(neoN3ModulePath)) as {
-    fulfillNeoN3Request: (
-      config: unknown,
-      requestId: string,
-      success: boolean,
-      result: string,
-      error: string,
-      verificationSignature: string,
-      resultBytesBase64?: string
-    ) => Promise<unknown>;
-  };
-  const neoX = (await import(neoXModulePath)) as {
-    fulfillNeoXRequest: (
-      config: unknown,
-      requestId: string,
-      success: boolean,
-      result: string,
-      error: string,
-      verificationSignature: string,
-      resultBytesBase64?: string
-    ) => Promise<unknown>;
-  };
-  const result =
-    targetChain === 'neo_x'
-      ? await neoX.fulfillNeoXRequest(
-          config,
-          requestId,
-          success,
-          resultText,
-          errorText,
-          verificationSignature,
-          resultBytesBase64
-        )
-      : await neoN3.fulfillNeoN3Request(
-          config,
-          requestId,
-          success,
-          resultText,
-          errorText,
-          verificationSignature,
-          resultBytesBase64
-        );
+  try {
+    const config = await buildRelayerExecutionConfig(network);
+    const neoN3ModulePath = '../../../../../../../workers/morpheus-relayer/src/neo-n3.js';
+    const neoXModulePath = '../../../../../../../workers/morpheus-relayer/src/neo-x.js';
+    const neoN3 = (await import(neoN3ModulePath)) as {
+      fulfillNeoN3Request: (
+        config: unknown,
+        requestId: string,
+        success: boolean,
+        result: string,
+        error: string,
+        verificationSignature: string,
+        resultBytesBase64?: string
+      ) => Promise<unknown>;
+    };
+    const neoX = (await import(neoXModulePath)) as {
+      fulfillNeoXRequest: (
+        config: unknown,
+        requestId: string,
+        success: boolean,
+        result: string,
+        error: string,
+        verificationSignature: string,
+        resultBytesBase64?: string
+      ) => Promise<unknown>;
+    };
+    const result =
+      targetChain === 'neo_x'
+        ? await neoX.fulfillNeoXRequest(
+            config,
+            requestId,
+            success,
+            resultText,
+            errorText,
+            verificationSignature,
+            resultBytesBase64
+          )
+        : await neoN3.fulfillNeoN3Request(
+            config,
+            requestId,
+            success,
+            resultText,
+            errorText,
+            verificationSignature,
+            resultBytesBase64
+          );
 
-  return Response.json({
-    ok: true,
-    network,
-    target_chain: targetChain,
-    request_id: requestId,
-    broadcast: result,
-  });
+    return Response.json({
+      ok: true,
+      network,
+      target_chain: targetChain,
+      request_id: requestId,
+      broadcast: result,
+    });
+  } catch (error) {
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
 }
