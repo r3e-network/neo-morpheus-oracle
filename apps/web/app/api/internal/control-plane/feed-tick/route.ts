@@ -1,7 +1,5 @@
-// @ts-expect-error external workspace JS module bundled via Next externalDir
-import { handleOracleFeed } from '../../../../../../../workers/phala-worker/src/oracle/feeds.js';
-import { trimString, withMorpheusNetworkContext } from '@/lib/control-plane-execution';
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
+import { runFeedSyncJob } from '@/lib/feed-sync';
 
 export const runtime = 'nodejs';
 
@@ -13,6 +11,47 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function trimString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function resolveNetwork(value: unknown) {
+  return trimString(value) === 'mainnet' ? 'mainnet' : 'testnet';
+}
+
+function resolveNeoN3UpdaterMaterial(network: 'mainnet' | 'testnet') {
+  const candidates =
+    network === 'mainnet'
+      ? [
+          ['private_key', process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET],
+          ['wif', process.env.MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET],
+          ['private_key', process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET],
+          ['wif', process.env.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET],
+          ['private_key', process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY],
+          ['wif', process.env.MORPHEUS_UPDATER_NEO_N3_WIF],
+          ['private_key', process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY],
+          ['wif', process.env.MORPHEUS_RELAYER_NEO_N3_WIF],
+        ]
+      : [
+          ['private_key', process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET],
+          ['wif', process.env.MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET],
+          ['private_key', process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET],
+          ['wif', process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET],
+          ['private_key', process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY],
+          ['wif', process.env.MORPHEUS_UPDATER_NEO_N3_WIF],
+          ['private_key', process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY],
+          ['wif', process.env.MORPHEUS_RELAYER_NEO_N3_WIF],
+        ];
+
+  for (const [kind, value] of candidates) {
+    const trimmed = trimString(value);
+    if (trimmed) {
+      return kind === 'wif' ? { wif: trimmed } : { private_key: trimmed };
+    }
+  }
+  return {};
+}
+
 export async function POST(request: Request) {
   if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -21,8 +60,16 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   if (!isPlainObject(body)) return badRequest('invalid JSON body');
 
-  const network = trimString(body.network || 'testnet') === 'mainnet' ? 'mainnet' : 'testnet';
-  const payload = {
+  const network = resolveNetwork(body.network);
+  const signer = resolveNeoN3UpdaterMaterial(network);
+  if (!signer.private_key && !signer.wif) {
+    return Response.json(
+      { error: `Neo N3 updater signer is not configured for ${network}` },
+      { status: 500 }
+    );
+  }
+
+  const result = await runFeedSyncJob({
     target_chain: trimString(body.target_chain || 'neo_n3'),
     project_slug: trimString(body.project_slug || '') || undefined,
     provider: trimString(body.provider || '') || undefined,
@@ -32,26 +79,8 @@ export async function POST(request: Request) {
     symbols: Array.isArray(body.symbols)
       ? body.symbols.map((entry) => trimString(entry)).filter(Boolean)
       : undefined,
-    wait: false,
-  };
+    ...signer,
+  });
 
-  try {
-    const result = await withMorpheusNetworkContext(network, async () => {
-      const response = await handleOracleFeed(payload);
-      const bodyJson = await response.json();
-      return {
-        ok: response.ok,
-        ...bodyJson,
-      };
-    });
-
-    return Response.json(result, { status: result.ok ? 200 : 502 });
-  } catch (error) {
-    return Response.json(
-      {
-        error: error instanceof Error ? error.message : String(error),
-      },
-      { status: 500 }
-    );
-  }
+  return Response.json(result, { status: result.ok ? 200 : 502 });
 }
