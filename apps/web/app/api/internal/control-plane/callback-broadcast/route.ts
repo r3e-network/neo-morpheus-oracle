@@ -27,6 +27,13 @@ function readSignerMaterial(body: Record<string, unknown>) {
   };
 }
 
+function resolveErrorStatus(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  if (normalized.includes('request not found')) return 400;
+  return 500;
+}
+
 export async function POST(request: Request) {
   if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -86,7 +93,7 @@ export async function POST(request: Request) {
       {
         error: error instanceof Error ? error.message : String(error),
       },
-      { status: 500 }
+      { status: resolveErrorStatus(error) }
     );
   }
 }
