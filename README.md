@@ -99,7 +99,7 @@ Relevant files:
 
 Current live edge gateway:
 
-- `https://morpheus.meshmini.app`
+- `https://edge.meshmini.app`
 
 Current live gateway mode:
 

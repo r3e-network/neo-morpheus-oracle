@@ -65,6 +65,8 @@ Optional:
 - `MORPHEUS_MAINNET_EXECUTION_BASE_URL`
 - `MORPHEUS_TESTNET_EXECUTION_BASE_URL`
 - `MORPHEUS_EXECUTION_TOKEN`
+- `MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF` or `MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY`
+- `MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF` or `MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY`
 - `MORPHEUS_APP_BACKEND_URL`
 - `MORPHEUS_APP_BACKEND_TOKEN`
 
@@ -75,7 +77,7 @@ Example env template:
 
 Current production route target:
 
-- `https://morpheus.meshmini.app/control`
+- `https://control.meshmini.app`
 
 Validation helper:
 

@@ -12,7 +12,7 @@ const defaultNeoXRpcUrl =
     ? 'https://mainnet-2.rpc.banelabs.org'
     : 'https://neoxt4seed1.ngd.network';
 const defaultNeoXChainId = selectedNetworkKey === 'mainnet' ? '47763' : '12227332';
-const defaultControlPlaneUrl = process.env.NODE_ENV === 'production' ? 'https://morpheus.meshmini.app/control' : '';
+const defaultControlPlaneUrl = process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
 const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
 const defaultPhalaApiCandidates = [
   process.env.PHALA_API_URL || '',
@@ -21,7 +21,7 @@ const defaultPhalaApiCandidates = [
   selectedNetworkKey === 'mainnet'
     ? 'https://morpheus-mainnet.meshmini.app'
     : 'https://morpheus-testnet.meshmini.app',
-  `https://morpheus.meshmini.app/${selectedNetworkKey}`,
+  `https://edge.meshmini.app/${selectedNetworkKey}`,
 ]
   .map((value) => value.trim())
   .filter(Boolean);

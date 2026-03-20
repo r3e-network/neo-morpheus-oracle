@@ -133,7 +133,7 @@ Required env for the smoke:
 
 Current recommended public control-plane base URL:
 
-- `https://morpheus.meshmini.app/control`
+- `https://control.meshmini.app`
 
 Config validation helper:
 
