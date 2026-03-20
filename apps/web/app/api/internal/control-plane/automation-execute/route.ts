@@ -28,6 +28,15 @@ function parseTimestamp(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function readSignerMaterial(body: Record<string, unknown>) {
+  const wif = trimString(body.wif || '');
+  const private_key = trimString(body.private_key || body.privateKey || '');
+  return {
+    ...(wif ? { wif } : {}),
+    ...(private_key ? { private_key } : {}),
+  };
+}
+
 export async function POST(request: Request) {
   if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -92,6 +101,7 @@ export async function POST(request: Request) {
       callbackContract: trimString(job.callback_contract || ''),
       callbackMethod: trimString(job.callback_method || ''),
       requestId,
+      ...readSignerMaterial(body),
     });
 
     await recordAutomationRunForBackend(network, {

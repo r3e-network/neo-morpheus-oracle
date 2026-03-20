@@ -70,8 +70,29 @@ export function resolveNeoN3UpdaterSigner(network: MorpheusNetwork) {
   };
 }
 
-function createNeoN3Account(network: MorpheusNetwork) {
-  const signer = resolveNeoN3UpdaterSigner(network);
+function resolveInputSignerMaterial(input?: {
+  wif?: string | null;
+  private_key?: string | null;
+  privateKey?: string | null;
+}) {
+  return {
+    wif: pickValue(input?.wif),
+    privateKey: pickValue(input?.privateKey, input?.private_key),
+  };
+}
+
+function createNeoN3Account(
+  network: MorpheusNetwork,
+  inputSigner?: {
+    wif?: string | null;
+    private_key?: string | null;
+    privateKey?: string | null;
+  }
+) {
+  const signer = {
+    ...resolveNeoN3UpdaterSigner(network),
+    ...resolveInputSignerMaterial(inputSigner),
+  };
   const key = signer.wif || signer.privateKey;
   if (!key) {
     throw new Error(`Neo N3 updater signer is not configured for ${network}`);
@@ -87,12 +108,14 @@ export async function fulfillNeoN3RequestViaBackend(input: {
   error: string;
   verificationSignature: string;
   resultBytesBase64?: string;
+  wif?: string;
+  private_key?: string;
 }) {
   const runtime = resolveNeoN3Runtime(input.network);
   if (!runtime.rpcUrl || !runtime.oracleHash) {
     throw new Error(`Neo N3 runtime is not configured for ${input.network}`);
   }
-  const account = createNeoN3Account(input.network);
+  const account = createNeoN3Account(input.network, input);
   const contract = new experimental.SmartContract(u.HexString.fromHex(runtime.oracleHash), {
     rpcAddress: runtime.rpcUrl,
     networkMagic: runtime.networkMagic,
@@ -135,12 +158,14 @@ export async function queueNeoN3AutomationViaBackend(input: {
   callbackContract: string;
   callbackMethod: string;
   requestId: string;
+  wif?: string;
+  private_key?: string;
 }) {
   const runtime = resolveNeoN3Runtime(input.network);
   if (!runtime.rpcUrl || !runtime.oracleHash) {
     throw new Error(`Neo N3 runtime is not configured for ${input.network}`);
   }
-  const account = createNeoN3Account(input.network);
+  const account = createNeoN3Account(input.network, input);
   const contract = new experimental.SmartContract(u.HexString.fromHex(runtime.oracleHash), {
     rpcAddress: runtime.rpcUrl,
     networkMagic: runtime.networkMagic,

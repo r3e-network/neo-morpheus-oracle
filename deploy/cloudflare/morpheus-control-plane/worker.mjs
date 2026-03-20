@@ -253,9 +253,38 @@ function getExecutionPlaneConfig(env, network) {
     throw new Error(`execution base URL is not configured for network ${network}`);
   }
   return {
-    baseUrl: baseUrl.replace(/\/$/, ''),
+    baseUrls: baseUrl
+      .split(',')
+      .map((entry) => trimString(entry).replace(/\/$/, ''))
+      .filter(Boolean),
     token,
   };
+}
+
+function resolveNeoN3FeedSigner(env, network) {
+  const upper = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  const wif = trimString(
+    env[`MORPHEUS_${upper}_FEED_NEO_N3_WIF`] ||
+      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_WIF`] ||
+      env.MORPHEUS_FEED_NEO_N3_WIF ||
+      env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+      ''
+  );
+  const privateKey = trimString(
+    env[`MORPHEUS_${upper}_FEED_NEO_N3_PRIVATE_KEY`] ||
+      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_PRIVATE_KEY`] ||
+      env.MORPHEUS_FEED_NEO_N3_PRIVATE_KEY ||
+      env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY ||
+      ''
+  );
+  return {
+    ...(wif ? { wif } : {}),
+    ...(privateKey ? { private_key: privateKey } : {}),
+  };
+}
+
+function resolveNeoN3BackendSigner(env, network) {
+  return resolveNeoN3FeedSigner(env, network);
 }
 
 function isRetryableStatus(status) {
@@ -294,17 +323,80 @@ async function callExecutionPlane(env, job) {
     headers.set('x-phala-token', execution.token);
   }
   const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
-  const { response, body } = await fetchJsonWithTimeout(`${execution.baseUrl}${job.route}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(job.payload || {}),
-  }, timeoutMs);
-  return {
-    ok: response.ok,
-    status: response.status,
-    body,
-    execution_base_url: execution.baseUrl,
-  };
+  let lastError = null;
+  let lastResponse = null;
+  for (const baseUrl of execution.baseUrls) {
+    try {
+      const { response, body } = await fetchJsonWithTimeout(
+        `${baseUrl}${job.route}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(job.payload || {}),
+        },
+        timeoutMs
+      );
+      lastResponse = {
+        ok: response.ok,
+        status: response.status,
+        body,
+        execution_base_url: baseUrl,
+      };
+      if (response.ok || !isRetryableStatus(response.status)) {
+        return lastResponse;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  if (lastResponse) return lastResponse;
+  throw new Error(lastError || 'execution plane unavailable');
+}
+
+async function callExecutionFeedPlane(env, job) {
+  const execution = getExecutionPlaneConfig(env, job.network);
+  const signer = resolveNeoN3FeedSigner(env, job.network);
+  if (!signer.wif && !signer.private_key) {
+    throw new Error(`Neo N3 updater signer is not configured for ${job.network}`);
+  }
+  const headers = new Headers({ 'content-type': 'application/json' });
+  if (execution.token) {
+    headers.set('authorization', `Bearer ${execution.token}`);
+    headers.set('x-phala-token', execution.token);
+  }
+  const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
+  let lastError = null;
+  let lastResponse = null;
+  for (const baseUrl of execution.baseUrls) {
+    try {
+      const { response, body } = await fetchJsonWithTimeout(
+        `${baseUrl}/oracle/feed`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            ...(job.payload || {}),
+            ...signer,
+            wait: false,
+          }),
+        },
+        timeoutMs
+      );
+      lastResponse = {
+        ok: response.ok,
+        status: response.status,
+        body,
+        execution_base_url: baseUrl,
+      };
+      if (response.ok || !isRetryableStatus(response.status)) {
+        return lastResponse;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  if (lastResponse) return lastResponse;
+  throw new Error(lastError || 'feed execution plane unavailable');
 }
 
 function getAppBackendConfig(env) {
@@ -484,9 +576,11 @@ async function processAutomationExecuteJob(message, env) {
   }
 
   try {
+    const signer = resolveNeoN3BackendSigner(env, network);
     const result = await callAppBackend(env, '/api/internal/control-plane/automation-execute', {
       automation_id: automationId,
       network,
+      ...signer,
     });
     if (result.ok) {
       await patchJob(env, jobId, network, {
@@ -557,12 +651,14 @@ async function processCallbackBroadcastJob(message, env) {
   }).catch(() => null);
 
   try {
+    const signer = resolveNeoN3BackendSigner(env, network);
     const result = await callAppBackend(
       env,
       '/api/internal/control-plane/callback-broadcast',
       {
         ...job.payload,
         network,
+        ...signer,
       }
     );
     if (result.ok) {
@@ -634,8 +730,8 @@ async function processFeedTickJob(message, env) {
   }).catch(() => null);
 
   try {
-    const result = await callAppBackend(env, '/api/internal/control-plane/feed-tick', {
-      ...job.payload,
+    const result = await callExecutionFeedPlane(env, {
+      ...job,
       network,
     });
     if (result.ok) {
@@ -646,8 +742,8 @@ async function processFeedTickJob(message, env) {
         completed_at: new Date().toISOString(),
         metadata: {
           ...(job.metadata || {}),
-          backend_status: result.status,
-          backend_url: result.backend_url,
+          execution_status: result.status,
+          execution_base_url: result.execution_base_url,
         },
       }).catch(() => null);
       message.ack();
@@ -662,6 +758,11 @@ async function processFeedTickJob(message, env) {
           trimString(result.body?.error || result.body?.message || '') ||
           `feed tick failed with status ${result.status}`,
         completed_at: new Date().toISOString(),
+        metadata: {
+          ...(job.metadata || {}),
+          execution_status: result.status,
+          execution_base_url: result.execution_base_url,
+        },
       }).catch(() => null);
       message.ack();
       return;
@@ -674,6 +775,11 @@ async function processFeedTickJob(message, env) {
         `feed tick temporarily failed with status ${result.status}`,
       retry_count: Number(message.attempts || 1),
       run_after: new Date(Date.now() + 5000).toISOString(),
+      metadata: {
+        ...(job.metadata || {}),
+        execution_status: result.status,
+        execution_base_url: result.execution_base_url,
+      },
     }).catch(() => null);
     message.retry({ delaySeconds: 5 });
   } catch (error) {
@@ -682,6 +788,10 @@ async function processFeedTickJob(message, env) {
       error: error instanceof Error ? error.message : String(error),
       retry_count: Number(message.attempts || 1),
       run_after: new Date(Date.now() + 5000).toISOString(),
+      metadata: {
+        ...(job.metadata || {}),
+        last_queue_error: error instanceof Error ? error.message : String(error),
+      },
     }).catch(() => null);
     message.retry({ delaySeconds: 5 });
   }

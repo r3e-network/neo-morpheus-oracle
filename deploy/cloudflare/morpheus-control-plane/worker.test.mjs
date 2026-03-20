@@ -16,6 +16,8 @@ function createEnv(overrides = {}) {
     MORPHEUS_APP_BACKEND_URL: 'https://app.test',
     MORPHEUS_EXECUTION_TOKEN: 'exec-token',
     MORPHEUS_APP_BACKEND_TOKEN: 'backend-token',
+    MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF: 'testnet-updater-wif',
+    MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF: 'mainnet-updater-wif',
     MORPHEUS_ORACLE_REQUEST_QUEUE: {
       sent: oracleMessages,
       async send(message) {
@@ -208,7 +210,7 @@ test('oracle_request consumer forwards jobs to confidential execution plane', as
   assert.equal(state.jobs.get('job-oracle')?.status, 'succeeded');
 });
 
-test('feed_tick consumer forwards jobs to app backend feed route', async () => {
+test('feed_tick consumer forwards jobs to confidential execution plane feed route', async () => {
   const env = createEnv();
   const state = createState();
   global.fetch = createFetchMock(state);
@@ -234,8 +236,9 @@ test('feed_tick consumer forwards jobs to app backend feed route', async () => {
   await worker.queue({ queue: 'morpheus-feed-tick', messages: [message] }, env);
 
   assert.equal(message.acked, true);
-  assert.equal(state.backendCalls.length, 1);
-  assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/feed-tick');
+  assert.equal(state.executionCalls.length, 1);
+  assert.equal(state.executionCalls[0].path, '/oracle/feed');
+  assert.equal(state.executionCalls[0].body.wif, 'testnet-updater-wif');
   assert.equal(state.jobs.get('job-feed')?.status, 'succeeded');
 });
 
@@ -270,6 +273,7 @@ test('callback_broadcast consumer forwards jobs to app backend callback route', 
   assert.equal(message.acked, true);
   assert.equal(state.backendCalls.length, 1);
   assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/callback-broadcast');
+  assert.equal(state.backendCalls[0].body.wif, 'testnet-updater-wif');
   assert.equal(state.jobs.get('job-callback')?.status, 'succeeded');
 });
 
@@ -300,5 +304,6 @@ test('automation_execute consumer forwards jobs to app backend automation route'
   assert.equal(message.acked, true);
   assert.equal(state.backendCalls.length, 1);
   assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/automation-execute');
+  assert.equal(state.backendCalls[0].body.wif, 'testnet-updater-wif');
   assert.equal(state.jobs.get('job-automation')?.status, 'succeeded');
 });

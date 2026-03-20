@@ -18,6 +18,15 @@ function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function readSignerMaterial(body: Record<string, unknown>) {
+  const wif = trimString(body.wif || '');
+  const private_key = trimString(body.private_key || body.privateKey || '');
+  return {
+    ...(wif ? { wif } : {}),
+    ...(private_key ? { private_key } : {}),
+  };
+}
+
 export async function POST(request: Request) {
   if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -62,6 +71,7 @@ export async function POST(request: Request) {
             error: errorText,
             verificationSignature,
             resultBytesBase64,
+            ...readSignerMaterial(body),
           });
 
     return Response.json({
