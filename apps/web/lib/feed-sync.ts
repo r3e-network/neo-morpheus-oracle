@@ -84,8 +84,9 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
     })
   );
 
+  const ok = results.every((entry) => Number(entry.status || 500) < 400);
   return {
-    ok: true,
+    ok,
     project_slug: configuredProjectSlug || null,
     provider: configuredProvider || null,
     providers: configuredProviders,

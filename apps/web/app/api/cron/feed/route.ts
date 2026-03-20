@@ -110,7 +110,7 @@ export async function GET(request: Request) {
       target_chains: ['neo_n3'],
     },
     responsePayload: finalBody,
-    httpStatus: 200,
+    httpStatus: finalBody.ok ? 200 : 502,
   });
-  return Response.json(finalBody);
+  return Response.json(finalBody, { status: finalBody.ok ? 200 : 502 });
 }
