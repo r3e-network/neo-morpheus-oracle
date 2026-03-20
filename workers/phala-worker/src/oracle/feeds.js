@@ -40,8 +40,125 @@ const DATAFEED_X_READ_INTERFACE = new Interface([
 
 let feedStateCache;
 
+function resolveSupabaseNetwork() {
+  return trimString(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet') ===
+    'mainnet'
+    ? 'mainnet'
+    : 'testnet';
+}
+
+function getSupabaseRestConfig() {
+  const baseUrl = trimString(
+    env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL') || env('morpheus_SUPABASE_URL') || ''
+  );
+  const apiKey = trimString(
+    env('SUPABASE_SECRET_KEY') ||
+      env('morpheus_SUPABASE_SECRET_KEY') ||
+      env('SUPABASE_SERVICE_ROLE_KEY') ||
+      env('morpheus_SUPABASE_SERVICE_ROLE_KEY') ||
+      env('SUPABASE_SERVICE_KEY') ||
+      ''
+  );
+  if (!baseUrl || !apiKey) return null;
+  return {
+    restUrl: `${baseUrl.replace(/\/$/, '')}/rest/v1`,
+    apiKey,
+  };
+}
+
+function isEnabled(rawValue, fallback = true) {
+  const normalized = trimString(rawValue).toLowerCase();
+  if (!normalized) return fallback;
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+async function fetchLatestFeedSnapshots(limit = 250) {
+  const restConfig = getSupabaseRestConfig();
+  if (!restConfig) return [];
+  const url = new URL(`${restConfig.restUrl}/morpheus_feed_snapshots`);
+  url.searchParams.set(
+    'select',
+    'symbol,target_chain,price,payload,attestation_hash,created_at,network'
+  );
+  url.searchParams.set('network', `eq.${resolveSupabaseNetwork()}`);
+  url.searchParams.set('order', 'created_at.desc');
+  url.searchParams.set('limit', String(Math.max(limit, 1)));
+  const response = await fetch(url.toString(), {
+    headers: {
+      apikey: restConfig.apiKey,
+      authorization: `Bearer ${restConfig.apiKey}`,
+      accept: 'application/json',
+    },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `supabase morpheus_feed_snapshots GET failed: ${response.status} ${await response.text()}`
+    );
+  }
+  const text = await response.text();
+  if (!text) return [];
+  try {
+    return JSON.parse(text);
+  } catch {
+    return [];
+  }
+}
+
+async function persistFeedSnapshots(rows) {
+  const restConfig = getSupabaseRestConfig();
+  if (!restConfig || !Array.isArray(rows) || rows.length === 0) return false;
+  const response = await fetch(`${restConfig.restUrl}/morpheus_feed_snapshots`, {
+    method: 'POST',
+    headers: {
+      apikey: restConfig.apiKey,
+      authorization: `Bearer ${restConfig.apiKey}`,
+      accept: 'application/json',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(rows),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `supabase morpheus_feed_snapshots POST failed: ${response.status} ${await response.text()}`
+    );
+  }
+  return true;
+}
+
+function applySnapshotRowsToFeedState(state, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return state;
+  const seenStoragePairs = new Set();
+  for (const row of rows) {
+    const payload = row?.payload && typeof row.payload === 'object' ? row.payload : {};
+    const storagePair = trimString(payload.storage_pair || row?.symbol || '');
+    if (!storagePair || seenStoragePairs.has(storagePair)) continue;
+    seenStoragePairs.add(storagePair);
+    state.records[storagePair] = {
+      ...(state.records[storagePair] || {}),
+      ...payload,
+      storage_pair: storagePair,
+      pair: trimString(payload.pair || row?.symbol || storagePair),
+      price:
+        payload.price !== undefined && payload.price !== null && trimString(payload.price) !== ''
+          ? payload.price
+          : row?.price ?? null,
+      attestation_hash: trimString(payload.attestation_hash || row?.attestation_hash || ''),
+      snapshot_created_at: trimString(row?.created_at || ''),
+    };
+  }
+  return state;
+}
+
 export function __resetFeedStateForTests() {
   feedStateCache = undefined;
+}
+
+export async function __loadFeedStateForTests() {
+  return loadFeedState();
+}
+
+export function __buildFeedSnapshotRowsForTests(targetChain, syncResults, state, batchTx) {
+  return buildFeedSnapshotRows(targetChain, syncResults, state, batchTx);
 }
 
 export function normalizePairSymbol(rawSymbol) {
@@ -54,8 +171,8 @@ export function normalizePairSymbol(rawSymbol) {
     const [base, quote] = raw.split('-');
     return normalizeFeedPairSymbol(`${base}-${quote === 'USDT' ? 'USD' : quote}`);
   }
-  if (/^[A-Z0-9]+[/-_][A-Z0-9]+$/.test(raw)) {
-    const [base, quote] = raw.split(/[/_-]/);
+  if (/^[A-Z0-9]+[-/_][A-Z0-9]+$/.test(raw)) {
+    const [base, quote] = raw.split(/[-/_]/);
     return normalizeFeedPairSymbol(`${base}-${quote === 'USDT' ? 'USD' : quote}`);
   }
   if (raw.endsWith('USDT')) return normalizeFeedPairSymbol(`${raw.slice(0, -4)}-USD`);
@@ -144,6 +261,17 @@ async function loadFeedState() {
   if (!feedStateCache.records || typeof feedStateCache.records !== 'object') {
     feedStateCache.records = {};
   }
+  if (
+    isEnabled(env('MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED'), true) &&
+    Object.keys(feedStateCache.records).length === 0
+  ) {
+    try {
+      const rows = await fetchLatestFeedSnapshots();
+      feedStateCache = applySnapshotRowsToFeedState(feedStateCache, rows);
+    } catch {
+      // keep pricefeed startup independent from Supabase health
+    }
+  }
   return feedStateCache;
 }
 
@@ -155,6 +283,33 @@ async function saveFeedState(state) {
   } catch {
     // best effort only; feed sync still works without persistence
   }
+}
+
+function buildFeedSnapshotRows(targetChain, syncResults, state, batchTx) {
+  const network = resolveSupabaseNetwork();
+  const rows = [];
+  for (const result of Array.isArray(syncResults) ? syncResults : []) {
+    const storagePair = trimString(result?.storage_pair || '');
+    const record = storagePair ? state.records?.[storagePair] || {} : {};
+    const quote = result?.quote && typeof result.quote === 'object' ? result.quote : null;
+    const price = record?.price ?? record?.last_observed_price ?? quote?.price ?? null;
+    rows.push({
+      network,
+      symbol: storagePair || trimString(result?.pair || ''),
+      target_chain: targetChain,
+      price,
+      attestation_hash: trimString(record?.attestation_hash || quote?.attestation_hash || ''),
+      payload: {
+        ...(record && typeof record === 'object' ? record : {}),
+        relay_status: result?.relay_status || null,
+        skip_reason: result?.skip_reason || null,
+        change_bps: result?.change_bps ?? null,
+        comparison_basis: result?.comparison_basis ?? null,
+        anchored_tx: result?.anchored_tx ?? batchTx ?? null,
+      },
+    });
+  }
+  return rows.filter((entry) => trimString(entry.symbol));
 }
 
 function parseProviderList(value, fallback = []) {
@@ -545,12 +700,22 @@ function buildRoundId(previousRecord) {
 }
 
 function buildNeoN3RelaySigningPayload(payload = {}) {
-  const signingKey = trimString(payload.private_key || payload.signing_key || '');
-  const wif = trimString(payload.wif || '');
+  const signingKey = trimString(
+    payload.private_key ||
+      payload.signing_key ||
+      env('MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY')
+  );
+  const wif = trimString(
+    payload.wif || env('MORPHEUS_UPDATER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF')
+  );
   return {
     ...(signingKey ? { private_key: signingKey } : {}),
     ...(wif ? { wif } : {}),
   };
+}
+
+export function __buildNeoN3RelaySigningPayloadForTests(payload = {}) {
+  return buildNeoN3RelaySigningPayload(payload);
 }
 
 async function submitQuoteToN3(
@@ -880,6 +1045,14 @@ export async function handleOracleFeed(payload) {
   }
 
   await saveFeedState(state);
+  if (isEnabled(env('MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED'), true)) {
+    const snapshotRows = buildFeedSnapshotRows(targetChain, syncResults, state, batchTx);
+    try {
+      await persistFeedSnapshots(snapshotRows);
+    } catch {
+      // keep pricefeed path independent from Supabase write health
+    }
+  }
 
   return json(200, {
     mode: 'pricefeed',
