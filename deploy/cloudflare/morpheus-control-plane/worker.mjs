@@ -78,7 +78,9 @@ function getClientIp(request) {
 
 function resolveNetworkRoute(url) {
   const path = trimString(url.pathname || '/');
-  const segments = path.replace(/^\/+/, '').split('/');
+  const rawSegments = path.replace(/^\/+/, '').split('/');
+  const segments =
+    trimString(rawSegments[0]).toLowerCase() === 'control' ? rawSegments.slice(1) : rawSegments;
   const maybeNetwork = trimString(segments[0]).toLowerCase();
   const network = maybeNetwork === 'mainnet' ? 'mainnet' : 'testnet';
   const routePath =
@@ -260,6 +262,27 @@ function isRetryableStatus(status) {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
+async function fetchJsonWithTimeout(url, init = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error(`request timed out after ${timeoutMs}ms`)), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let body = text;
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      body = { raw: text };
+    }
+    return { response, body };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function callExecutionPlane(env, job) {
   if (!EXECUTION_PLANE_ROUTES.has(job.route)) {
     throw new Error(`route ${job.route} is not mapped to the confidential execution plane`);
@@ -270,18 +293,12 @@ async function callExecutionPlane(env, job) {
     headers.set('authorization', `Bearer ${execution.token}`);
     headers.set('x-phala-token', execution.token);
   }
-  const response = await fetch(`${execution.baseUrl}${job.route}`, {
+  const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
+  const { response, body } = await fetchJsonWithTimeout(`${execution.baseUrl}${job.route}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(job.payload || {}),
-  });
-  const text = await response.text();
-  let body = text;
-  try {
-    body = text ? JSON.parse(text) : {};
-  } catch {
-    body = { raw: text };
-  }
+  }, timeoutMs);
   return {
     ok: response.ok,
     status: response.status,
@@ -314,18 +331,12 @@ async function callAppBackend(env, path, payload) {
     headers.set('authorization', `Bearer ${backend.token}`);
     headers.set('x-admin-api-key', backend.token);
   }
-  const response = await fetch(`${backend.baseUrl}${path}`, {
+  const timeoutMs = Math.max(Number(env.MORPHEUS_APP_BACKEND_TIMEOUT_MS || 30000), 1000);
+  const { response, body } = await fetchJsonWithTimeout(`${backend.baseUrl}${path}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(payload || {}),
-  });
-  const text = await response.text();
-  let body = text;
-  try {
-    body = text ? JSON.parse(text) : {};
-  } catch {
-    body = { raw: text };
-  }
+  }, timeoutMs);
   return {
     ok: response.ok,
     status: response.status,
