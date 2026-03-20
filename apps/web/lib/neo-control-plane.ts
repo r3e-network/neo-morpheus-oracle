@@ -104,10 +104,13 @@ export async function fulfillNeoN3RequestViaBackend(input: {
   const txHashRaw = await contract.invoke('fulfillRequest', [
     sc.ContractParam.integer(String(input.requestId)),
     sc.ContractParam.boolean(Boolean(input.success)),
-    sc.ContractParam.byteArray(u.HexString.fromHex(resultHex, true)),
+    sc.ContractParam.byteArray(u.HexString.fromHex(resultHex as never, true)),
     sc.ContractParam.string(input.error || ''),
     sc.ContractParam.byteArray(
-      u.HexString.fromHex(trimString(input.verificationSignature).replace(/^0x/i, ''), true)
+      u.HexString.fromHex(
+        trimString(input.verificationSignature).replace(/^0x/i, '') as never,
+        true
+      )
     ),
   ]);
   const txHash = trimString(txHashRaw).startsWith('0x')
@@ -118,8 +121,8 @@ export async function fulfillNeoN3RequestViaBackend(input: {
   const execution = appLog?.executions?.[0];
   return {
     tx_hash: txHash,
-    vm_state: execution?.vmstate || execution?.VMState || null,
-    exception: execution?.exception || execution?.Exception || null,
+    vm_state: execution?.vmstate || null,
+    exception: execution?.exception || null,
     target_chain: 'neo_n3',
   };
 }
@@ -146,7 +149,7 @@ export async function queueNeoN3AutomationViaBackend(input: {
   const txHashRaw = await contract.invoke('queueAutomationRequest', [
     sc.ContractParam.hash160(input.requester),
     sc.ContractParam.string(input.requestType),
-    sc.ContractParam.byteArray(Buffer.from(input.payloadText, 'utf8').toString('base64')),
+    sc.ContractParam.byteArray(Buffer.from(input.payloadText, 'utf8').toString('base64') as never),
     sc.ContractParam.hash160(input.callbackContract),
     sc.ContractParam.string(input.callbackMethod),
   ]);
