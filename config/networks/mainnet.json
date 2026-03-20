@@ -1,8 +1,8 @@
 {
   "network": "mainnet",
   "phala": {
-    "cvm_id": "966f16610bdfe1794a503e16c5ae0bc69a1d92f1",
-    "public_api_url": "https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network"
+    "cvm_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
+    "public_api_url": "https://morpheus-mainnet.meshmini.app"
   },
   "neo_n3": {
     "rpc_url": "https://mainnet1.neo.coz.io:443",

@@ -24,12 +24,23 @@ function maybeParseJson(text: string) {
   }
 }
 
+function isRetryableStatus(status: number) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
 export async function proxyToPhala(
   path: string,
   init: RequestInit = {},
   operation?: ProxyOperation
 ) {
-  if (!appConfig.phalaApiUrl) {
+  const candidateUrls =
+    Array.isArray(appConfig.phalaApiUrls) && appConfig.phalaApiUrls.length > 0
+      ? appConfig.phalaApiUrls
+      : appConfig.phalaApiUrl
+        ? [appConfig.phalaApiUrl]
+        : [];
+
+  if (candidateUrls.length === 0) {
     if (operation) {
       await recordOperationLog({
         route: operation.route,
@@ -52,30 +63,70 @@ export async function proxyToPhala(
     headers.set('x-phala-token', appConfig.phalaToken);
   }
 
-  const response = await fetch(`${appConfig.phalaApiUrl.replace(/\/$/, '')}${path}`, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  });
+  let lastResponse: { status: number; text: string; contentType: string; url: string } | null = null;
+  let lastError: string | null = null;
 
-  const text = await response.text();
+  for (const baseUrl of candidateUrls) {
+    try {
+      const response = await fetch(`${baseUrl.replace(/\/$/, '')}${path}`, {
+        ...init,
+        headers,
+        cache: 'no-store',
+      });
+      const text = await response.text();
+      lastResponse = {
+        status: response.status,
+        text,
+        contentType: response.headers.get('content-type') || 'application/json',
+        url: baseUrl,
+      };
+      if (response.ok || !isRetryableStatus(response.status)) {
+        break;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  if (!lastResponse) {
+    if (operation) {
+      await recordOperationLog({
+        route: operation.route,
+        method: init.method || 'GET',
+        category: operation.category,
+        requestPayload: operation.requestPayload,
+        responsePayload: { error: lastError || 'upstream unavailable' },
+        httpStatus: 503,
+        error: lastError || 'upstream unavailable',
+        metadata: {
+          upstream_path: path,
+          upstream_candidates: candidateUrls,
+          ...operation.metadata,
+        },
+      });
+    }
+    return Response.json({ error: lastError || 'upstream unavailable' }, { status: 503 });
+  }
+
   if (operation) {
     await recordOperationLog({
       route: operation.route,
       method: init.method || 'GET',
       category: operation.category,
       requestPayload: operation.requestPayload,
-      responsePayload: maybeParseJson(text),
-      httpStatus: response.status,
-      error: response.ok ? null : text,
+      responsePayload: maybeParseJson(lastResponse.text),
+      httpStatus: lastResponse.status,
+      error: lastResponse.status >= 400 ? lastResponse.text : null,
       metadata: {
         upstream_path: path,
+        upstream_url: lastResponse.url,
+        upstream_candidates: candidateUrls,
         ...operation.metadata,
       },
     });
   }
-  return new Response(text, {
-    status: response.status,
-    headers: { 'content-type': response.headers.get('content-type') || 'application/json' },
+  return new Response(lastResponse.text, {
+    status: lastResponse.status,
+    headers: { 'content-type': lastResponse.contentType },
   });
 }

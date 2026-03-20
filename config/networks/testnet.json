@@ -2,7 +2,7 @@
   "network": "testnet",
   "phala": {
     "cvm_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-    "public_api_url": "https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network"
+    "public_api_url": "https://morpheus-testnet.meshmini.app"
   },
   "neo_n3": {
     "rpc_url": "https://testnet1.neo.coz.io:443",
