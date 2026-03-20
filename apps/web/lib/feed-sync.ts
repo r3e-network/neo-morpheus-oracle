@@ -12,6 +12,8 @@ type FeedSyncOptions = {
   provider?: string | null;
   providers?: string[] | null;
   symbols?: string[] | null;
+  private_key?: string | null;
+  wif?: string | null;
 };
 
 export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
@@ -50,6 +52,8 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
           target_chain: targetChain,
           wait: false,
           project_slug: configuredProjectSlug || undefined,
+          private_key: trimString(options.private_key || '') || undefined,
+          wif: trimString(options.wif || '') || undefined,
         };
         if (configuredProvider) {
           payload.provider = configuredProvider;
