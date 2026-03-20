@@ -35,5 +35,5 @@ export async function POST(request: Request) {
       : undefined,
   });
 
-  return Response.json(result);
+  return Response.json(result, { status: result.ok ? 200 : 502 });
 }
