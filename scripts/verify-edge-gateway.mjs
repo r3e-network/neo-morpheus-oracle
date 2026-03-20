@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const baseUrl = String(process.env.MORPHEUS_EDGE_URL || 'https://morpheus.meshmini.app').trim().replace(/\/$/, '');
+const baseUrl = String(process.env.MORPHEUS_EDGE_URL || 'https://edge.meshmini.app').trim().replace(/\/$/, '');
 
 async function readJson(pathname, options = {}) {
   const response = await fetch(`${baseUrl}${pathname}`, options);
