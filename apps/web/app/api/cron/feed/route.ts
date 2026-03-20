@@ -13,11 +13,12 @@ function isAuthorized(request: Request) {
 }
 
 function isFeedControlPlaneEnabled() {
-  return ['1', 'true', 'yes', 'on'].includes(
-    String(process.env.MORPHEUS_CONTROL_PLANE_ENABLE_FEED || '')
-      .trim()
-      .toLowerCase()
-  );
+  const raw = String(process.env.MORPHEUS_CONTROL_PLANE_ENABLE_FEED || '')
+    .trim()
+    .toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(raw)) return true;
+  if (['0', 'false', 'no', 'off'].includes(raw)) return false;
+  return process.env.NODE_ENV === 'production';
 }
 
 export async function GET(request: Request) {
