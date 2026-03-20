@@ -1,5 +1,4 @@
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
-import { resolveSupabaseNetwork } from '@/lib/server-supabase';
 import {
   fulfillNeoN3RequestViaBackend,
   resolveControlPlaneNetwork,
