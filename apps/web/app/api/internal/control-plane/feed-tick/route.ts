@@ -33,18 +33,27 @@ export async function POST(request: Request) {
     wait: false,
   };
 
-  const result = await withMorpheusNetworkContext(network, async () => {
-    const modulePath = '../../../../../../../workers/phala-worker/src/oracle/feeds.js';
-    const feeds = (await import(modulePath)) as {
-      handleOracleFeed: (payload: Record<string, unknown>) => Promise<Response>;
-    };
-    const response = await feeds.handleOracleFeed(payload);
-    const bodyJson = await response.json();
-    return {
-      ok: response.ok,
-      ...bodyJson,
-    };
-  });
+  try {
+    const result = await withMorpheusNetworkContext(network, async () => {
+      const modulePath = '../../../../../../../workers/phala-worker/src/oracle/feeds.js';
+      const feeds = (await import(modulePath)) as {
+        handleOracleFeed: (payload: Record<string, unknown>) => Promise<Response>;
+      };
+      const response = await feeds.handleOracleFeed(payload);
+      const bodyJson = await response.json();
+      return {
+        ok: response.ok,
+        ...bodyJson,
+      };
+    });
 
-  return Response.json(result, { status: result.ok ? 200 : 502 });
+    return Response.json(result, { status: result.ok ? 200 : 502 });
+  } catch (error) {
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    );
+  }
 }
