@@ -13,6 +13,17 @@ const defaultNeoXRpcUrl =
     : 'https://neoxt4seed1.ngd.network';
 const defaultNeoXChainId = selectedNetworkKey === 'mainnet' ? '47763' : '12227332';
 const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
+const defaultPhalaApiCandidates = [
+  process.env.PHALA_API_URL || '',
+  process.env.NEXT_PUBLIC_PHALA_API_URL || '',
+  defaultPhalaApiUrl,
+  selectedNetworkKey === 'mainnet'
+    ? 'https://morpheus-mainnet.meshmini.app'
+    : 'https://morpheus-testnet.meshmini.app',
+  `https://morpheus.meshmini.app/${selectedNetworkKey}`,
+]
+  .map((value) => value.trim())
+  .filter(Boolean);
 
 export const appConfig = {
   name: process.env.NEXT_PUBLIC_APP_NAME || 'Morpheus Oracle',
@@ -20,6 +31,7 @@ export const appConfig = {
   selectedNetworkKey,
   phalaApiUrl:
     process.env.PHALA_API_URL || process.env.NEXT_PUBLIC_PHALA_API_URL || defaultPhalaApiUrl,
+  phalaApiUrls: [...new Set(defaultPhalaApiCandidates)],
   phalaToken: process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '',
   controlPlaneUrl:
     process.env.MORPHEUS_CONTROL_PLANE_URL ||
