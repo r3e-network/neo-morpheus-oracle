@@ -1,0 +1,54 @@
+name = "morpheus-control-plane"
+main = "worker.mjs"
+compatibility_date = "2026-03-20"
+
+[vars]
+SUPABASE_URL = ""
+MORPHEUS_CONTROL_PLANE_API_KEY = ""
+UPSTASH_REDIS_REST_URL = ""
+UPSTASH_REDIS_REST_TOKEN = ""
+MORPHEUS_MAINNET_EXECUTION_BASE_URL = ""
+MORPHEUS_TESTNET_EXECUTION_BASE_URL = ""
+MORPHEUS_EXECUTION_TOKEN = ""
+MORPHEUS_APP_BACKEND_URL = ""
+MORPHEUS_APP_BACKEND_TOKEN = ""
+
+[[queues.producers]]
+binding = "MORPHEUS_ORACLE_REQUEST_QUEUE"
+queue = "morpheus-oracle-request"
+
+[[queues.producers]]
+binding = "MORPHEUS_FEED_TICK_QUEUE"
+queue = "morpheus-feed-tick"
+
+[[queues.producers]]
+binding = "MORPHEUS_CALLBACK_BROADCAST_QUEUE"
+queue = "morpheus-callback-broadcast"
+
+[[queues.producers]]
+binding = "MORPHEUS_AUTOMATION_EXECUTE_QUEUE"
+queue = "morpheus-automation-execute"
+
+[[queues.consumers]]
+queue = "morpheus-oracle-request"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10
+
+[[queues.consumers]]
+queue = "morpheus-feed-tick"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10
+
+[[queues.consumers]]
+queue = "morpheus-callback-broadcast"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10
+
+[[queues.consumers]]
+queue = "morpheus-automation-execute"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10

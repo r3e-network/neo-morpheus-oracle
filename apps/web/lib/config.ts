@@ -17,9 +17,20 @@ const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
 export const appConfig = {
   name: process.env.NEXT_PUBLIC_APP_NAME || 'Morpheus Oracle',
   appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  selectedNetworkKey,
   phalaApiUrl:
     process.env.PHALA_API_URL || process.env.NEXT_PUBLIC_PHALA_API_URL || defaultPhalaApiUrl,
   phalaToken: process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '',
+  controlPlaneUrl:
+    process.env.MORPHEUS_CONTROL_PLANE_URL ||
+    process.env.NEXT_PUBLIC_MORPHEUS_CONTROL_PLANE_URL ||
+    '',
+  controlPlaneApiKey:
+    process.env.MORPHEUS_CONTROL_PLANE_API_KEY ||
+    process.env.MORPHEUS_PROVIDER_CONFIG_API_KEY ||
+    process.env.MORPHEUS_OPERATOR_API_KEY ||
+    process.env.ADMIN_CONSOLE_API_KEY ||
+    '',
   feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || 'demo',
   feedProvider: process.env.MORPHEUS_FEED_PROVIDER || 'twelvedata',
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',

@@ -1,3 +1,4 @@
+import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
 import { resolveProviderAwarePayload } from '@/lib/provider-configs';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { proxyToPhala } from '@/lib/phala';
@@ -29,6 +30,20 @@ export async function POST(request: Request) {
     const resolved = await resolveProviderAwarePayload(body, {
       fallbackProviderId: !body.url && body.symbol ? 'twelvedata' : undefined,
     });
+    if (shouldDispatchToControlPlane('/oracle/smart-fetch')) {
+      return dispatchToControlPlane(
+        '/oracle/smart-fetch',
+        {
+          method: 'POST',
+          body: JSON.stringify(resolved.payload),
+        },
+        {
+          route: '/api/oracle/smart-fetch',
+          category: 'oracle',
+          requestPayload: resolved.payload,
+        }
+      );
+    }
     return proxyToPhala(
       '/oracle/smart-fetch',
       {

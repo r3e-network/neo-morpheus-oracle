@@ -1,0 +1,56 @@
+name = "morpheus-control-plane"
+main = "worker.mjs"
+compatibility_date = "2026-03-20"
+account_id = "bf0d7e814f69945157f30505e9fba9fe"
+
+[vars]
+SUPABASE_URL = "https://przhhxbovqwopibssjzr.supabase.co"
+UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
+MORPHEUS_MAINNET_EXECUTION_BASE_URL = "https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network"
+MORPHEUS_TESTNET_EXECUTION_BASE_URL = "https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network"
+MORPHEUS_APP_BACKEND_URL = "https://neo-morpheus-oracle-web.vercel.app"
+MORPHEUS_CONTROL_PLANE_URL = "https://control.morpheus.meshmini.app"
+
+[[queues.producers]]
+binding = "MORPHEUS_ORACLE_REQUEST_QUEUE"
+queue = "morpheus-oracle-request"
+
+[[queues.producers]]
+binding = "MORPHEUS_FEED_TICK_QUEUE"
+queue = "morpheus-feed-tick"
+
+[[queues.producers]]
+binding = "MORPHEUS_CALLBACK_BROADCAST_QUEUE"
+queue = "morpheus-callback-broadcast"
+
+[[queues.producers]]
+binding = "MORPHEUS_AUTOMATION_EXECUTE_QUEUE"
+queue = "morpheus-automation-execute"
+
+[[queues.consumers]]
+queue = "morpheus-oracle-request"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10
+
+[[queues.consumers]]
+queue = "morpheus-feed-tick"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10
+
+[[queues.consumers]]
+queue = "morpheus-callback-broadcast"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10
+
+[[queues.consumers]]
+queue = "morpheus-automation-execute"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 10
+
+[[routes]]
+pattern = "control.morpheus.meshmini.app/*"
+zone_name = "meshmini.app"

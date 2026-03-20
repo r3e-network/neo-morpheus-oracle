@@ -1,4 +1,65 @@
 export type SupportedChain = 'neo_n3' | 'neo_x';
+export type MorpheusNetwork = 'mainnet' | 'testnet';
+export type ControlPlaneQueue =
+  | 'oracle_request'
+  | 'feed_tick'
+  | 'callback_broadcast'
+  | 'automation_execute';
+export type ControlPlaneJobStatus =
+  | 'queued'
+  | 'dispatching'
+  | 'dispatched'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'dead_lettered'
+  | 'cancelled';
+export type ControlPlaneExecutionRoute =
+  | '/oracle/query'
+  | '/oracle/smart-fetch'
+  | '/compute/execute'
+  | '/neodid/bind'
+  | '/neodid/action-ticket'
+  | '/neodid/recovery-ticket';
+export type ControlPlaneAuxRoute =
+  | '/feeds/tick'
+  | '/callbacks/broadcast'
+  | '/automation/execute';
+export type ControlPlaneRoute = ControlPlaneExecutionRoute | ControlPlaneAuxRoute;
+
+export type ControlPlaneJobRecord = {
+  id: string;
+  network: MorpheusNetwork;
+  queue: ControlPlaneQueue;
+  route: ControlPlaneRoute;
+  target_chain?: SupportedChain | null;
+  project_slug?: string | null;
+  request_id?: string | null;
+  status: ControlPlaneJobStatus;
+  dedupe_key?: string | null;
+  payload: Record<string, unknown>;
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+  retry_count: number;
+  run_after?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  metadata: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export const controlPlaneRouteQueues: Record<ControlPlaneRoute, ControlPlaneQueue> = {
+  '/oracle/query': 'oracle_request',
+  '/oracle/smart-fetch': 'oracle_request',
+  '/compute/execute': 'oracle_request',
+  '/neodid/bind': 'oracle_request',
+  '/neodid/action-ticket': 'oracle_request',
+  '/neodid/recovery-ticket': 'oracle_request',
+  '/feeds/tick': 'feed_tick',
+  '/callbacks/broadcast': 'callback_broadcast',
+  '/automation/execute': 'automation_execute',
+};
 
 export type OraclePayload = {
   project_slug?: string;
