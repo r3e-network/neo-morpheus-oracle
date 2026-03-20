@@ -1,3 +1,5 @@
+// @ts-expect-error external workspace JS module bundled via Next externalDir
+import { handleOracleFeed } from '../../../../../../../workers/phala-worker/src/oracle/feeds.js';
 import { trimString, withMorpheusNetworkContext } from '@/lib/control-plane-execution';
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 
@@ -35,11 +37,7 @@ export async function POST(request: Request) {
 
   try {
     const result = await withMorpheusNetworkContext(network, async () => {
-      const modulePath = '../../../../../../../workers/phala-worker/src/oracle/feeds.js';
-      const feeds = (await import(modulePath)) as {
-        handleOracleFeed: (payload: Record<string, unknown>) => Promise<Response>;
-      };
-      const response = await feeds.handleOracleFeed(payload);
+      const response = await handleOracleFeed(payload);
       const bodyJson = await response.json();
       return {
         ok: response.ok,
