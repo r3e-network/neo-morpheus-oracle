@@ -12,6 +12,7 @@ const defaultNeoXRpcUrl =
     ? 'https://mainnet-2.rpc.banelabs.org'
     : 'https://neoxt4seed1.ngd.network';
 const defaultNeoXChainId = selectedNetworkKey === 'mainnet' ? '47763' : '12227332';
+const defaultControlPlaneUrl = process.env.NODE_ENV === 'production' ? 'https://morpheus.meshmini.app/control' : '';
 const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
 const defaultPhalaApiCandidates = [
   process.env.PHALA_API_URL || '',
@@ -36,12 +37,14 @@ export const appConfig = {
   controlPlaneUrl:
     process.env.MORPHEUS_CONTROL_PLANE_URL ||
     process.env.NEXT_PUBLIC_MORPHEUS_CONTROL_PLANE_URL ||
-    '',
+    defaultControlPlaneUrl,
   controlPlaneApiKey:
     process.env.MORPHEUS_CONTROL_PLANE_API_KEY ||
     process.env.MORPHEUS_PROVIDER_CONFIG_API_KEY ||
     process.env.MORPHEUS_OPERATOR_API_KEY ||
     process.env.ADMIN_CONSOLE_API_KEY ||
+    process.env.PHALA_API_TOKEN ||
+    process.env.PHALA_SHARED_SECRET ||
     '',
   feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || 'demo',
   feedProvider: process.env.MORPHEUS_FEED_PROVIDER || 'twelvedata',
