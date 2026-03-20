@@ -93,7 +93,7 @@ export async function fulfillNeoN3RequestViaBackend(input: {
     throw new Error(`Neo N3 runtime is not configured for ${input.network}`);
   }
   const account = createNeoN3Account(input.network);
-  const contract = new experimental.SmartContract(runtime.oracleHash, {
+  const contract = new experimental.SmartContract(u.HexString.fromHex(runtime.oracleHash), {
     rpcAddress: runtime.rpcUrl,
     networkMagic: runtime.networkMagic,
     account,
@@ -141,7 +141,7 @@ export async function queueNeoN3AutomationViaBackend(input: {
     throw new Error(`Neo N3 runtime is not configured for ${input.network}`);
   }
   const account = createNeoN3Account(input.network);
-  const contract = new experimental.SmartContract(runtime.oracleHash, {
+  const contract = new experimental.SmartContract(u.HexString.fromHex(runtime.oracleHash), {
     rpcAddress: runtime.rpcUrl,
     networkMagic: runtime.networkMagic,
     account,
