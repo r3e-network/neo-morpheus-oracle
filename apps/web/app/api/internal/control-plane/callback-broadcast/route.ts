@@ -1,6 +1,9 @@
-import { buildRelayerExecutionConfig, trimString } from '@/lib/control-plane-execution';
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 import { resolveSupabaseNetwork } from '@/lib/server-supabase';
+import {
+  fulfillNeoN3RequestViaBackend,
+  resolveControlPlaneNetwork,
+} from '@/lib/neo-control-plane';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +15,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function trimString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export async function POST(request: Request) {
   if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -20,7 +27,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!isPlainObject(body)) return badRequest('invalid JSON body');
 
-  const network = resolveSupabaseNetwork(trimString(body.network || 'testnet'));
+  const network = resolveControlPlaneNetwork(trimString(body.network || 'testnet'));
   const targetChain = trimString(body.target_chain || body.chain || '');
   const requestId = trimString(body.request_id || '');
   const verificationSignature = trimString(
@@ -43,51 +50,20 @@ export async function POST(request: Request) {
       : trimString(body.success).toLowerCase() === 'true';
 
   try {
-    const config = await buildRelayerExecutionConfig(network);
-    const neoN3ModulePath = '../../../../../../../workers/morpheus-relayer/src/neo-n3.js';
-    const neoXModulePath = '../../../../../../../workers/morpheus-relayer/src/neo-x.js';
-    const neoN3 = (await import(neoN3ModulePath)) as {
-      fulfillNeoN3Request: (
-        config: unknown,
-        requestId: string,
-        success: boolean,
-        result: string,
-        error: string,
-        verificationSignature: string,
-        resultBytesBase64?: string
-      ) => Promise<unknown>;
-    };
-    const neoX = (await import(neoXModulePath)) as {
-      fulfillNeoXRequest: (
-        config: unknown,
-        requestId: string,
-        success: boolean,
-        result: string,
-        error: string,
-        verificationSignature: string,
-        resultBytesBase64?: string
-      ) => Promise<unknown>;
-    };
     const result =
       targetChain === 'neo_x'
-        ? await neoX.fulfillNeoXRequest(
-            config,
+        ? (() => {
+            throw new Error('neo_x callback broadcast is not implemented in app backend yet');
+          })()
+        : await fulfillNeoN3RequestViaBackend({
+            network,
             requestId,
             success,
-            resultText,
-            errorText,
+            result: resultText,
+            error: errorText,
             verificationSignature,
-            resultBytesBase64
-          )
-        : await neoN3.fulfillNeoN3Request(
-            config,
-            requestId,
-            success,
-            resultText,
-            errorText,
-            verificationSignature,
-            resultBytesBase64
-          );
+            resultBytesBase64,
+          });
 
     return Response.json({
       ok: true,

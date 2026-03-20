@@ -1,15 +1,31 @@
-import { buildRelayerExecutionConfig, trimString, withMorpheusNetworkContext } from '@/lib/control-plane-execution';
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
-import { resolveSupabaseNetwork } from '@/lib/server-supabase';
+import {
+  fetchAutomationJobForBackend,
+  patchAutomationJobForBackend,
+  queueNeoN3AutomationViaBackend,
+  recordAutomationRunForBackend,
+  resolveControlPlaneNetwork,
+} from '@/lib/neo-control-plane';
 
 export const runtime = 'nodejs';
+
+function trimString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 
 function badRequest(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+function parseTimestamp(value: unknown) {
+  const text = trimString(value);
+  if (!text) return null;
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export async function POST(request: Request) {
@@ -23,66 +39,87 @@ export async function POST(request: Request) {
   const automationId = trimString(body.automation_id || body.id || '');
   if (!automationId) return badRequest('automation_id is required');
 
-  const network = resolveSupabaseNetwork(trimString(body.network || 'testnet'));
+  const network = resolveControlPlaneNetwork(trimString(body.network || 'testnet'));
+
   try {
-    const config = await buildRelayerExecutionConfig(network);
-    const automationModulePath = '../../../../../../../workers/morpheus-relayer/src/automation.js';
-    const loggerModulePath = '../../../../../../../workers/morpheus-relayer/src/logger.js';
-    const persistenceModulePath = '../../../../../../../workers/morpheus-relayer/src/persistence.js';
-    const automationMod = (await import(automationModulePath)) as {
-      processAutomationJobs: (
-        config: unknown,
-        logger: unknown,
-        deps?: Record<string, unknown>
-      ) => Promise<unknown>;
-    };
-    const loggerMod = (await import(loggerModulePath)) as {
-      createLogger: (config: unknown) => unknown;
-    };
-    const persistenceMod = (await import(persistenceModulePath)) as {
-      fetchAutomationJobById: (
-        automationId: string
-      ) => Promise<{ automation_id?: string; status?: string } | null>;
-      fetchActiveAutomationJobs: (
-        limit?: number,
-        dueAtIso?: string | null
-      ) => Promise<Array<{ automation_id?: string; status?: string }>>;
-    };
-    const logger = loggerMod.createLogger(config);
-
-    const result = await withMorpheusNetworkContext(network, async () => {
-      const targetJob = await persistenceMod.fetchAutomationJobById(automationId);
-      if (!targetJob) return { missing: true };
-
-      const summary = await automationMod.processAutomationJobs(config, logger, {
-        fetchActiveAutomationJobs: async () => {
-          const jobs = await persistenceMod.fetchActiveAutomationJobs(
-            (config as { automation?: { batchSize?: number } })?.automation?.batchSize || 50,
-            new Date().toISOString()
-          );
-          return jobs.filter(
-            (job: { automation_id?: string }) => trimString(job.automation_id) === automationId
-          );
-        },
-      });
-
-      return {
-        missing: false,
-        job: targetJob,
-        summary,
-      };
-    });
-
-    if (result.missing) {
+    const job = await fetchAutomationJobForBackend(network, automationId);
+    if (!job) {
       return Response.json({ error: `automation not found: ${automationId}` }, { status: 404 });
     }
+
+    const currentStatus = trimString(job.status || '');
+    if (currentStatus !== 'active') {
+      return Response.json({
+        ok: true,
+        network,
+        automation_id: automationId,
+        job_status: currentStatus || null,
+        queued: false,
+        reason: 'inactive',
+      });
+    }
+
+    const nextRunAt = parseTimestamp(job.next_run_at);
+    if (nextRunAt && nextRunAt.getTime() > Date.now()) {
+      return Response.json({
+        ok: true,
+        network,
+        automation_id: automationId,
+        job_status: currentStatus,
+        queued: false,
+        reason: 'not-due',
+        next_run_at: nextRunAt.toISOString(),
+      });
+    }
+
+    if (trimString(job.chain || '') !== 'neo_n3') {
+      return Response.json(
+        { error: 'only neo_n3 automation execution is currently implemented in app backend' },
+        { status: 400 }
+      );
+    }
+
+    const payloadText = JSON.stringify(
+      typeof job.execution_payload === 'string' ? { raw_payload: job.execution_payload } : job.execution_payload || {}
+    );
+    const requestId = `automation:${job.chain}:${automationId}:${Number(job.execution_count || 0) + 1}`;
+
+    const queueTx = await queueNeoN3AutomationViaBackend({
+      network,
+      requester: trimString(job.requester || ''),
+      requestType: trimString(job.execution_request_type || ''),
+      payloadText,
+      callbackContract: trimString(job.callback_contract || ''),
+      callbackMethod: trimString(job.callback_method || ''),
+      requestId,
+    });
+
+    await recordAutomationRunForBackend(network, {
+      automation_id: automationId,
+      queued_request_id: queueTx.request_id || requestId,
+      chain: job.chain,
+      status: 'queued',
+      trigger_reason: trimString(job.trigger_type || '') || 'manual_control_plane',
+      observed_value: null,
+      queue_tx: queueTx,
+      error: null,
+    });
+
+    const nextExecutionCount = Number(job.execution_count || 0) + 1;
+    await patchAutomationJobForBackend(network, automationId, {
+      execution_count: nextExecutionCount,
+      last_run_at: new Date().toISOString(),
+      last_queued_request_id: queueTx.request_id || requestId,
+      last_error: null,
+    });
 
     return Response.json({
       ok: true,
       network,
       automation_id: automationId,
-      job_status: result.job?.status || null,
-      summary: result.summary,
+      job_status: currentStatus,
+      queued: true,
+      queue_tx: queueTx,
     });
   } catch (error) {
     return Response.json(
