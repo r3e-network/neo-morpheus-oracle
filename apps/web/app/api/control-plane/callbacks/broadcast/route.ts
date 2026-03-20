@@ -19,6 +19,13 @@ function resolveNetwork(value: unknown) {
   return trimString(value) === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
+function resolveControlPlaneUrl(value: unknown) {
+  const text = trimString(value);
+  if (!text) return appConfig.controlPlaneUrl;
+  if (!/^https:\/\//i.test(text)) return '';
+  return text.replace(/\/$/, '');
+}
+
 export async function POST(request: Request) {
   if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -26,7 +33,8 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   if (!isPlainObject(body)) return badRequest('invalid JSON body');
-  if (!appConfig.controlPlaneUrl) return badRequest('MORPHEUS_CONTROL_PLANE_URL is not configured', 500);
+  const controlPlaneUrl = resolveControlPlaneUrl(body.control_plane_url);
+  if (!controlPlaneUrl) return badRequest('MORPHEUS_CONTROL_PLANE_URL is not configured', 500);
 
   const headers = new Headers({ 'content-type': 'application/json' });
   if (appConfig.controlPlaneApiKey) {
@@ -36,7 +44,7 @@ export async function POST(request: Request) {
 
   const network = resolveNetwork(body.network);
   const response = await fetch(
-    `${appConfig.controlPlaneUrl.replace(/\/$/, '')}/${network}/callbacks/broadcast`,
+    `${controlPlaneUrl}/${network}/callbacks/broadcast`,
     {
       method: 'POST',
       headers,
