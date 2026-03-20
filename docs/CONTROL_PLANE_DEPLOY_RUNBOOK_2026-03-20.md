@@ -131,6 +131,10 @@ Required env for the smoke:
 - `MORPHEUS_CONTROL_PLANE_API_KEY` or `MORPHEUS_OPERATOR_API_KEY`
 - `MORPHEUS_NETWORK`
 
+Current recommended public control-plane base URL:
+
+- `https://morpheus.meshmini.app/control`
+
 Config validation helper:
 
 - [check-control-plane-env.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/check-control-plane-env.mjs)
