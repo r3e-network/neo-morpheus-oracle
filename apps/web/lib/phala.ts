@@ -42,16 +42,18 @@ export async function proxyToPhala(
 
   if (candidateUrls.length === 0) {
     if (operation) {
-      await recordOperationLog({
-        route: operation.route,
-        method: init.method || 'GET',
-        category: operation.category,
-        requestPayload: operation.requestPayload,
-        responsePayload: { error: 'PHALA_API_URL is not configured' },
-        httpStatus: 500,
-        error: 'PHALA_API_URL is not configured',
-        metadata: operation.metadata,
-      });
+      try {
+        await recordOperationLog({
+          route: operation.route,
+          method: init.method || 'GET',
+          category: operation.category,
+          requestPayload: operation.requestPayload,
+          responsePayload: { error: 'PHALA_API_URL is not configured' },
+          httpStatus: 500,
+          error: 'PHALA_API_URL is not configured',
+          metadata: operation.metadata,
+        });
+      } catch {}
     }
     return Response.json({ error: 'PHALA_API_URL is not configured' }, { status: 500 });
   }
@@ -90,40 +92,44 @@ export async function proxyToPhala(
 
   if (!lastResponse) {
     if (operation) {
-      await recordOperationLog({
-        route: operation.route,
-        method: init.method || 'GET',
-        category: operation.category,
-        requestPayload: operation.requestPayload,
-        responsePayload: { error: lastError || 'upstream unavailable' },
-        httpStatus: 503,
-        error: lastError || 'upstream unavailable',
-        metadata: {
-          upstream_path: path,
-          upstream_candidates: candidateUrls,
-          ...operation.metadata,
-        },
-      });
+      try {
+        await recordOperationLog({
+          route: operation.route,
+          method: init.method || 'GET',
+          category: operation.category,
+          requestPayload: operation.requestPayload,
+          responsePayload: { error: lastError || 'upstream unavailable' },
+          httpStatus: 503,
+          error: lastError || 'upstream unavailable',
+          metadata: {
+            upstream_path: path,
+            upstream_candidates: candidateUrls,
+            ...operation.metadata,
+          },
+        });
+      } catch {}
     }
     return Response.json({ error: lastError || 'upstream unavailable' }, { status: 503 });
   }
 
   if (operation) {
-    await recordOperationLog({
-      route: operation.route,
-      method: init.method || 'GET',
-      category: operation.category,
-      requestPayload: operation.requestPayload,
-      responsePayload: maybeParseJson(lastResponse.text),
-      httpStatus: lastResponse.status,
-      error: lastResponse.status >= 400 ? lastResponse.text : null,
-      metadata: {
-        upstream_path: path,
-        upstream_url: lastResponse.url,
-        upstream_candidates: candidateUrls,
-        ...operation.metadata,
-      },
-    });
+    try {
+      await recordOperationLog({
+        route: operation.route,
+        method: init.method || 'GET',
+        category: operation.category,
+        requestPayload: operation.requestPayload,
+        responsePayload: maybeParseJson(lastResponse.text),
+        httpStatus: lastResponse.status,
+        error: lastResponse.status >= 400 ? lastResponse.text : null,
+        metadata: {
+          upstream_path: path,
+          upstream_url: lastResponse.url,
+          upstream_candidates: candidateUrls,
+          ...operation.metadata,
+        },
+      });
+    } catch {}
   }
   return new Response(lastResponse.text, {
     status: lastResponse.status,
