@@ -1,0 +1,106 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+const envPath = path.resolve(process.cwd(), '.env');
+
+function trimString(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function parseDotEnv(raw) {
+  const out = {};
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const index = trimmed.indexOf('=');
+    if (index < 0) continue;
+    const key = trimmed.slice(0, index).trim();
+    let value = trimmed.slice(index + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    out[key] = value;
+  }
+  return out;
+}
+
+function getValue(env, keys) {
+  for (const key of keys) {
+    const value = trimString(env[key]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function buildUrlStatus(value) {
+  const raw = trimString(value);
+  if (!raw) return { ok: false, value: '' };
+  try {
+    const parsed = new URL(raw);
+    return {
+      ok: parsed.protocol === 'https:' || parsed.protocol === 'http:',
+      value: raw,
+    };
+  } catch {
+    return { ok: false, value: raw };
+  }
+}
+
+let fileEnv = {};
+try {
+  fileEnv = parseDotEnv(await fs.readFile(envPath, 'utf8'));
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
+
+const env = {
+  ...fileEnv,
+  ...Object.fromEntries(
+    Object.entries(process.env).map(([key, value]) => [key, trimString(value)])
+  ),
+};
+
+const required = {
+  control_plane_worker: [
+    ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL'],
+    ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'morpheus_SUPABASE_SECRET_KEY'],
+    ['MORPHEUS_CONTROL_PLANE_API_KEY', 'MORPHEUS_OPERATOR_API_KEY', 'MORPHEUS_PROVIDER_CONFIG_API_KEY'],
+  ],
+  execution_plane: [
+    ['MORPHEUS_MAINNET_EXECUTION_BASE_URL'],
+    ['MORPHEUS_TESTNET_EXECUTION_BASE_URL'],
+    ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
+  ],
+  app_backend: [
+    ['MORPHEUS_APP_BACKEND_URL'],
+    ['MORPHEUS_APP_BACKEND_TOKEN', 'MORPHEUS_CONTROL_PLANE_API_KEY', 'MORPHEUS_OPERATOR_API_KEY', 'MORPHEUS_PROVIDER_CONFIG_API_KEY'],
+  ],
+  web_cutover: [['MORPHEUS_CONTROL_PLANE_URL']],
+};
+
+const missing = {};
+for (const [section, groups] of Object.entries(required)) {
+  missing[section] = groups.filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
+}
+
+const urls = {
+  control_plane_url: buildUrlStatus(getValue(env, ['MORPHEUS_CONTROL_PLANE_URL'])),
+  app_backend_url: buildUrlStatus(getValue(env, ['MORPHEUS_APP_BACKEND_URL'])),
+  mainnet_execution_url: buildUrlStatus(getValue(env, ['MORPHEUS_MAINNET_EXECUTION_BASE_URL'])),
+  testnet_execution_url: buildUrlStatus(getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL'])),
+};
+
+const report = {
+  env_path: envPath,
+  missing,
+  urls,
+  ok:
+    Object.values(missing).every((items) => items.length === 0) &&
+    Object.values(urls).every((entry) => entry.ok),
+};
+
+console.log(JSON.stringify(report, null, 2));
+if (!report.ok) process.exitCode = 1;

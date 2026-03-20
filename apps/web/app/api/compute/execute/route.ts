@@ -1,3 +1,4 @@
+import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
 import { proxyToPhala } from '@/lib/phala';
 
 export async function POST(request: Request) {
@@ -7,6 +8,17 @@ export async function POST(request: Request) {
     parsed = JSON.parse(body);
   } catch {
     parsed = { raw_body: body };
+  }
+  if (shouldDispatchToControlPlane('/compute/execute')) {
+    return dispatchToControlPlane(
+      '/compute/execute',
+      { method: 'POST', body },
+      {
+        route: '/api/compute/execute',
+        category: 'compute',
+        requestPayload: parsed,
+      }
+    );
   }
   return proxyToPhala(
     '/compute/execute',

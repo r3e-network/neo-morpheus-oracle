@@ -1,7 +1,8 @@
 import { appConfig } from '@/lib/config';
+import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
 import { parseFeedProviders, parseFeedSymbols } from '@/lib/feed-defaults';
+import { runFeedSyncJob } from '@/lib/feed-sync';
 import { recordOperationLog } from '@/lib/operation-logs';
-import { resolveProviderAwarePayload } from '@/lib/provider-configs';
 
 function isAuthorized(request: Request) {
   const configured = process.env.CRON_SECRET || '';
@@ -55,7 +56,6 @@ export async function GET(request: Request) {
     });
     return Response.json(body, { status: 400 });
   }
-  const targetChains = ['neo_n3'];
   const configuredProjectSlug = (
     routeUrl.searchParams.get('project_slug') ||
     process.env.MORPHEUS_FEED_PROJECT_SLUG ||
@@ -69,62 +69,33 @@ export async function GET(request: Request) {
   const configuredProviders = parseFeedProviders(
     routeUrl.searchParams.get('providers') || process.env.MORPHEUS_FEED_PROVIDERS || ''
   );
+  const feedTickPayload = {
+    target_chain: explicitTargetChain || 'neo_n3',
+    project_slug: configuredProjectSlug || undefined,
+    provider: configuredProvider || undefined,
+    providers: configuredProviders,
+    symbols,
+  };
 
-  const headers = new Headers({ 'content-type': 'application/json' });
-  if (appConfig.phalaToken) {
-    headers.set('authorization', `Bearer ${appConfig.phalaToken}`);
-    headers.set('x-phala-token', appConfig.phalaToken);
+  if (shouldDispatchToControlPlane('/feeds/tick')) {
+    return dispatchToControlPlane(
+      '/feeds/tick',
+      {
+        method: 'POST',
+        body: JSON.stringify(feedTickPayload),
+      },
+      {
+        route: '/api/cron/feed',
+        category: 'feed',
+        requestPayload: feedTickPayload,
+        metadata: {
+          source: 'cron',
+        },
+      }
+    );
   }
 
-  const results = await Promise.all(
-    targetChains.map(async (targetChain) => {
-      try {
-        const payload: Record<string, unknown> = {
-          symbols,
-          target_chain: targetChain,
-          wait: false,
-          project_slug: configuredProjectSlug || undefined,
-        };
-        if (configuredProvider) {
-          payload.provider = configuredProvider;
-        } else {
-          payload.providers = configuredProviders;
-        }
-
-        const resolved = await resolveProviderAwarePayload(payload, {
-          projectSlug: configuredProjectSlug || undefined,
-          fallbackProviderId: configuredProvider || undefined,
-        });
-
-        const response = await fetch(`${appConfig.phalaApiUrl.replace(/\/$/, '')}/oracle/feed`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(resolved.payload),
-          cache: 'no-store',
-        });
-        const text = await response.text();
-        try {
-          return { target_chain: targetChain, status: response.status, body: JSON.parse(text) };
-        } catch {
-          return { target_chain: targetChain, status: response.status, body: text };
-        }
-      } catch (error) {
-        return {
-          target_chain: targetChain,
-          status: 400,
-          body: { error: error instanceof Error ? error.message : String(error) },
-        };
-      }
-    })
-  );
-
-  const finalBody = {
-    ok: true,
-    project_slug: configuredProjectSlug || null,
-    provider: configuredProvider || null,
-    providers: configuredProviders,
-    results,
-  };
+  const finalBody = await runFeedSyncJob(feedTickPayload);
   await recordOperationLog({
     route: '/api/cron/feed',
     method: 'GET',
@@ -135,7 +106,7 @@ export async function GET(request: Request) {
       provider: configuredProvider || undefined,
       providers: configuredProviders,
       symbols,
-      target_chains: targetChains,
+      target_chains: ['neo_n3'],
     },
     responsePayload: finalBody,
     httpStatus: 200,
