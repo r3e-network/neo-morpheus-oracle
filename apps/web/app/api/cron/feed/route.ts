@@ -1,4 +1,5 @@
 import { appConfig } from '@/lib/config';
+import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
 import { parseFeedProviders, parseFeedSymbols } from '@/lib/feed-defaults';
 import { runFeedSyncJob } from '@/lib/feed-sync';
@@ -12,7 +13,7 @@ function isAuthorized(request: Request) {
 }
 
 export async function GET(request: Request) {
-  if (!isAuthorized(request)) {
+  if (!isAuthorized(request) && !isAuthorizedControlPlaneRequest(request)) {
     const body = { error: 'unauthorized' };
     await recordOperationLog({
       route: '/api/cron/feed',
