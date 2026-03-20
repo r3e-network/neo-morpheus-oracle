@@ -1,5 +1,6 @@
 import { buildRelayerExecutionConfig, trimString } from '@/lib/control-plane-execution';
-import { isAuthorizedAdminRequest, resolveSupabaseNetwork } from '@/lib/server-supabase';
+import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
+import { resolveSupabaseNetwork } from '@/lib/server-supabase';
 
 export const runtime = 'nodejs';
 
@@ -12,10 +13,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 export async function POST(request: Request) {
-  if (
-    !isAuthorizedAdminRequest(request, 'relayer_ops') &&
-    !isAuthorizedAdminRequest(request, 'provider_config')
-  ) {
+  if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 

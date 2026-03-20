@@ -1,5 +1,5 @@
 import { runFeedSyncJob } from '@/lib/feed-sync';
-import { isAuthorizedAdminRequest } from '@/lib/server-supabase';
+import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 
 export const runtime = 'nodejs';
 
@@ -16,10 +16,7 @@ function trimString(value: unknown) {
 }
 
 export async function POST(request: Request) {
-  if (
-    !isAuthorizedAdminRequest(request, 'relayer_ops') &&
-    !isAuthorizedAdminRequest(request, 'provider_config')
-  ) {
+  if (!isAuthorizedControlPlaneRequest(request)) {
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
 
