@@ -6,10 +6,10 @@ account_id = "bf0d7e814f69945157f30505e9fba9fe"
 [vars]
 SUPABASE_URL = "https://przhhxbovqwopibssjzr.supabase.co"
 UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
-MORPHEUS_MAINNET_EXECUTION_BASE_URL = "https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network"
-MORPHEUS_TESTNET_EXECUTION_BASE_URL = "https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network"
+MORPHEUS_MAINNET_EXECUTION_BASE_URL = "https://morpheus.meshmini.app/mainnet"
+MORPHEUS_TESTNET_EXECUTION_BASE_URL = "https://morpheus.meshmini.app/testnet"
 MORPHEUS_APP_BACKEND_URL = "https://neo-morpheus-oracle-web.vercel.app"
-MORPHEUS_CONTROL_PLANE_URL = "https://control.morpheus.meshmini.app"
+MORPHEUS_CONTROL_PLANE_URL = "https://morpheus.meshmini.app/control"
 
 [[queues.producers]]
 binding = "MORPHEUS_ORACLE_REQUEST_QUEUE"
@@ -52,5 +52,5 @@ max_batch_timeout = 5
 max_retries = 10
 
 [[routes]]
-pattern = "control.morpheus.meshmini.app/*"
+pattern = "morpheus.meshmini.app/control/*"
 zone_name = "meshmini.app"

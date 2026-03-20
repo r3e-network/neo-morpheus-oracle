@@ -73,6 +73,10 @@ Example env template:
 - [vars.example.env](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/vars.example.env)
 - [wrangler.meshmini.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/wrangler.meshmini.toml)
 
+Current production route target:
+
+- `https://morpheus.meshmini.app/control`
+
 Validation helper:
 
 - `npm run check:control-plane`
