@@ -165,10 +165,16 @@ const TEST_ORACLE_ENCRYPTION_INFO = 'morpheus-confidential-payload-v2';
 const AES_GCM_TAG_LENGTH_BYTES = 16;
 const NEODID_ACTION_DOMAIN = Buffer.from('neodid-action-v1', 'utf8');
 const NEODID_RECOVERY_DOMAIN = Buffer.from('neodid-recovery-v1', 'utf8');
+const NEODID_ZKLOGIN_DOMAIN = Buffer.from('neodid-zklogin-v1', 'utf8');
 
 function encodeLengthPrefixedAscii(value = '') {
   const body = Buffer.from(String(value || ''), 'utf8');
   return Buffer.concat([Buffer.from([body.length]), body]);
+}
+
+function encodeUint256Word(value) {
+  const hex = BigInt(String(value ?? '0')).toString(16);
+  return Buffer.from(hex.padStart(64, '0'), 'hex');
 }
 
 async function encryptForOracle(publicKeyBase64, plaintext) {
@@ -686,6 +692,83 @@ test('neodid recovery-ticket accepts confidential web3auth id_token payloads', a
   assert.equal(body.provider, 'web3auth');
   assert.match(body.master_nullifier, /^0x[0-9a-f]{64}$/);
   assert.match(body.action_nullifier, /^0x[0-9a-f]{64}$/);
+});
+
+test('neodid zklogin-ticket binds a web3auth identity root to an AA operation digest', async () => {
+  __resetNeoDidStateForTests();
+  const fixture = await buildWeb3AuthFixture({
+    claims: {
+      aggregateVerifier: 'web3auth-google',
+      aggregateVerifierId: 'alice@example.com',
+    },
+    clientId: 'worker-test-web3auth-client-zklogin',
+    jwksUrl: 'https://jwks.test/web3auth-zklogin.json',
+    kid: 'worker-test-web3auth-zklogin',
+  });
+  installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
+
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
+  assert.equal(keyRes.status, 200);
+  const keyMeta = await keyRes.json();
+  const encryptedParams = await encryptForOracle(
+    keyMeta.public_key,
+    JSON.stringify({
+      id_token: fixture.token,
+      web3auth_client_id: fixture.clientId,
+      web3auth_jwks_url: fixture.jwksUrl,
+    })
+  );
+
+  const res = await handler(
+    new Request('http://local/neodid/zklogin-ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'web3auth',
+        verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
+        account_id_hash: '0xf951cd3eb5196dacde99b339c5dcca37ac38cc22',
+        target_contract: '0xd2a4cff31913016155e38e474a2c06d08be276cf',
+        method: 'transfer',
+        args_hash: `0x${'12'.repeat(32)}`,
+        nonce: '4',
+        deadline: '1710001234',
+        encrypted_params: encryptedParams,
+      }),
+    })
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.mode, 'neodid_zklogin_ticket');
+  assert.equal(body.provider, 'web3auth');
+  assert.equal(body.method, 'transfer');
+  assert.equal(body.nonce, '4');
+  assert.equal(body.deadline, '1710001234');
+  assert.match(body.master_nullifier, /^0x[0-9a-f]{64}$/);
+  assert.match(body.action_nullifier, /^0x[0-9a-f]{64}$/);
+  assert.match(body.digest, /^0x[0-9a-f]{64}$/);
+  assert.ok(body.signature);
+  assert.ok(body.public_key);
+
+  const expectedDigest = createHash('sha256')
+    .update(
+      Buffer.concat([
+        NEODID_ZKLOGIN_DOMAIN,
+        Buffer.from('0x03013f49c42a14546c8bbe58f9d434c3517fccab'.replace(/^0x/, ''), 'hex'),
+        Buffer.from('0xf951cd3eb5196dacde99b339c5dcca37ac38cc22'.replace(/^0x/, ''), 'hex'),
+        Buffer.from('0xd2a4cff31913016155e38e474a2c06d08be276cf'.replace(/^0x/, ''), 'hex'),
+        encodeLengthPrefixedAscii('transfer'),
+        Buffer.from('12'.repeat(32), 'hex'),
+        encodeUint256Word('4'),
+        encodeUint256Word('1710001234'),
+        encodeLengthPrefixedAscii('web3auth'),
+        Buffer.from(body.master_nullifier.replace(/^0x/, ''), 'hex'),
+        Buffer.from(body.action_nullifier.replace(/^0x/, ''), 'hex'),
+      ])
+    )
+    .digest('hex');
+  assert.equal(body.digest, `0x${expectedDigest}`);
 });
 
 test('neodid bind resolves encrypted_params_ref through Supabase ciphertext storage', async () => {

@@ -23,6 +23,7 @@ import {
   handleNeoDidProviders,
   handleNeoDidRecoveryTicket,
   handleNeoDidRuntime,
+  handleNeoDidZkLoginTicket,
 } from './neodid/index.js';
 import { acquireOverloadSlot, snapshotOverloadState } from './platform/overload-guard.js';
 import { applyRequestGuards, persistGuardResult } from './platform/request-guards.js';
@@ -71,6 +72,7 @@ function handleHealth() {
       'neodid/bind',
       'neodid/action-ticket',
       'neodid/recovery-ticket',
+      'neodid/zklogin-ticket',
     ],
   });
 }
@@ -126,6 +128,7 @@ export default async function handler(request) {
       else if (path.endsWith('/neodid/bind')) response = await handleNeoDidBind(payload);
       else if (path.endsWith('/neodid/action-ticket')) response = await handleNeoDidActionTicket(payload);
       else if (path.endsWith('/neodid/recovery-ticket')) response = await handleNeoDidRecoveryTicket(payload);
+      else if (path.endsWith('/neodid/zklogin-ticket')) response = await handleNeoDidZkLoginTicket(payload);
 
       else if (path.endsWith('/providers')) response = await handleProvidersList();
 

@@ -165,6 +165,7 @@ export function resolveWorkerRoute(requestType, payload) {
   if (normalized === 'rng' || normalized.includes('vrf') || normalized.includes('random'))
     return '/vrf/random';
   if (normalized.startsWith('neodid')) {
+    if (normalized.includes('zklogin')) return '/neodid/zklogin-ticket';
     if (normalized.includes('recovery')) return '/neodid/recovery-ticket';
     if (normalized.includes('action')) return '/neodid/action-ticket';
     return '/neodid/bind';
