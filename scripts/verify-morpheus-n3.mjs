@@ -2,6 +2,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
+import {
+  resolvePinnedNeoN3UpdaterHash,
+  resolvePinnedNeoN3VerifierPublicKey,
+} from './lib-neo-signers.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -79,48 +83,11 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
   return parseStackItem(result.stack?.[0]);
 }
 
-function resolveExpectedUpdater() {
-  const updaterHash = normalizeHash160(process.env.MORPHEUS_UPDATER_HASH || '');
-  if (updaterHash) return updaterHash;
-  const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
-  const key = trimString(
-    network === 'testnet'
-      ? process.env.NEO_TESTNET_WIF ||
-          process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET ||
-          process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET ||
-          process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-          process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY ||
-          process.env.PHALA_NEO_N3_WIF ||
-          process.env.PHALA_NEO_N3_PRIVATE_KEY ||
-          process.env.NEO_N3_WIF
-      : process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-          process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY ||
-          process.env.NEO_N3_WIF ||
-          process.env.PHALA_NEO_N3_WIF ||
-          process.env.PHALA_NEO_N3_PRIVATE_KEY ||
-          process.env.NEO_TESTNET_WIF ||
-          ''
-  );
-  if (!key) return '';
-  return normalizeHash160(new wallet.Account(key).scriptHash);
-}
-
-function resolveExpectedVerifierPublicKey() {
-  const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
-  return trimString(
-    network === 'testnet'
-      ? process.env.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET ||
-          process.env.PHALA_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET ||
-          ''
-      : process.env.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY ||
-          process.env.PHALA_ORACLE_VERIFIER_PUBLIC_KEY ||
-          ''
-  );
-}
-
+const requestedNetwork = trimString(process.env.MORPHEUS_NETWORK || '');
 await loadDotEnv();
+const network = trimString(requestedNetwork || process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
+await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${network}.env`), { override: true });
 
-const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 const registry = await loadRegistry(network);
 const deployments = await loadDeploymentRegistry(network);
 const rpcUrl = trimString(process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || '');
@@ -160,8 +127,8 @@ const callbackHash = normalizeHash160(
         registryCallbackHash ||
         ''
 );
-const expectedUpdater = resolveExpectedUpdater();
-const expectedVerifierPublicKey = resolveExpectedVerifierPublicKey();
+const expectedUpdater = resolvePinnedNeoN3UpdaterHash(network, process.env);
+const expectedVerifierPublicKey = resolvePinnedNeoN3VerifierPublicKey(network, process.env);
 
 if (!rpcUrl) throw new Error('NEO_RPC_URL is required');
 if (!oracleHash) throw new Error('MorpheusOracle hash is required');

@@ -14,12 +14,23 @@ import {
   normalizeRequestType,
   resolveWorkerRoute,
 } from './src/router.js';
+import { callPhala } from './src/phala.js';
 import {
   guardQueuedAutomationExecution,
   isAutomationControlRequestType,
   processAutomationJobs,
 } from './src/automation.js';
-import { getFeedSyncDelayMs, resolveChainFromBlock } from './src/relayer.js';
+import {
+  getRequestCursorFloor,
+  getFeedSyncDelayMs,
+  hydrateDurableQueue,
+  persistFreshEventsToDurableQueue,
+  pruneRetryQueueBelowRequestFloor,
+  quarantineDurableBacklogBelowRequestFloor,
+  resolveChainFromBlock,
+  shouldRunFeedSync,
+  shouldRunRequestProcessing,
+} from './src/relayer.js';
 import {
   buildEventKey,
   createEmptyRelayerState,
@@ -38,7 +49,7 @@ import {
   hasNeoN3RelayerConfig,
 } from './src/neo-n3.js';
 import { hasNeoXRelayerConfig } from './src/neo-x.js';
-import { sanitizeForPostgres } from './src/persistence.js';
+import { claimRelayerJob, sanitizeForPostgres } from './src/persistence.js';
 import { createRelayerConfig } from './src/config.js';
 
 const retryConfig = {
@@ -79,6 +90,98 @@ test('isAutomationControlRequestType detects automation registration flows', () 
   assert.equal(isAutomationControlRequestType('automation_register'), true);
   assert.equal(isAutomationControlRequestType('automation-cancel'), true);
   assert.equal(isAutomationControlRequestType('privacy_oracle'), false);
+});
+
+test('callPhala rejects when the worker fetch never resolves', async () => {
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = () => new Promise(() => {});
+
+    await assert.rejects(
+      callPhala(
+        {
+          phala: {
+            apiUrl: 'https://worker.test',
+            token: 'secret',
+            timeoutMs: 25,
+          },
+        },
+        '/oracle/query',
+        { ping: true }
+      ),
+      /phala request timed out after 1000ms/
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('callPhala rejects when the worker response body never resolves', async () => {
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      text: () => new Promise(() => {}),
+    });
+
+    await assert.rejects(
+      callPhala(
+        {
+          phala: {
+            apiUrl: 'https://worker.test',
+            token: 'secret',
+            timeoutMs: 25,
+          },
+        },
+        '/oracle/query',
+        { ping: true }
+      ),
+      /phala request timed out after 1000ms/
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('callPhala falls back to the next configured worker endpoint', async () => {
+  const originalFetch = global.fetch;
+  try {
+    const calls = [];
+    global.fetch = async (url) => {
+      calls.push(String(url));
+      if (String(url).startsWith('https://worker-a.test')) {
+        throw new Error('fetch failed');
+      }
+      return new Response(JSON.stringify({ ok: true, route: 'fallback' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const response = await callPhala(
+      {
+        phala: {
+          apiUrl: 'https://worker-a.test, https://worker-b.test',
+          token: 'secret',
+          timeoutMs: 1000,
+        },
+      },
+      '/oracle/query',
+      { ping: true }
+    );
+
+    assert.equal(response.ok, true);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.route, 'fallback');
+    assert.equal(response.api_url, 'https://worker-b.test');
+    assert.deepEqual(calls, [
+      'https://worker-a.test/oracle/query',
+      'https://worker-b.test/oracle/query',
+    ]);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('guardQueuedAutomationExecution blocks cancelled queued automation requests', async () => {
@@ -587,6 +690,63 @@ test('createRelayerConfig defaults active chains to neo_n3 only', () => {
   }
 });
 
+test('createRelayerConfig enables durable queue by default when Supabase is configured', () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const previousFlag = process.env.MORPHEUS_DURABLE_QUEUE_ENABLED;
+  const previousFailClosed = process.env.MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED;
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  delete process.env.MORPHEUS_DURABLE_QUEUE_ENABLED;
+  delete process.env.MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED;
+
+  try {
+    const config = createRelayerConfig();
+    assert.equal(config.durableQueue.enabled, true);
+    assert.equal(config.durableQueue.failClosed, true);
+  } finally {
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+    if (previousFlag === undefined) delete process.env.MORPHEUS_DURABLE_QUEUE_ENABLED;
+    else process.env.MORPHEUS_DURABLE_QUEUE_ENABLED = previousFlag;
+    if (previousFailClosed === undefined) delete process.env.MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED;
+    else process.env.MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED = previousFailClosed;
+  }
+});
+
+test('createRelayerConfig supports feed_only mode with isolated default state file', () => {
+  const previousMode = process.env.MORPHEUS_RELAYER_MODE;
+  const previousStateFile = process.env.MORPHEUS_RELAYER_STATE_FILE;
+  delete process.env.MORPHEUS_RELAYER_STATE_FILE;
+  process.env.MORPHEUS_RELAYER_MODE = 'feed_only';
+
+  try {
+    const config = createRelayerConfig();
+    assert.equal(config.mode, 'feed_only');
+    assert.match(config.stateFile, /\.morpheus-relayer-state\.feed_only\.json$/);
+  } finally {
+    if (previousMode === undefined) delete process.env.MORPHEUS_RELAYER_MODE;
+    else process.env.MORPHEUS_RELAYER_MODE = previousMode;
+    if (previousStateFile === undefined) delete process.env.MORPHEUS_RELAYER_STATE_FILE;
+    else process.env.MORPHEUS_RELAYER_STATE_FILE = previousStateFile;
+  }
+});
+
+test('createRelayerConfig exposes dedicated feed sync timeout', () => {
+  const previous = process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
+  process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = '90000';
+  try {
+    const config = createRelayerConfig();
+    assert.equal(config.feedSync.timeoutMs, 90000);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
+    else process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = previous;
+  }
+});
+
 test('encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8', () => {
   const encoded = encodeUtf8ByteArrayParamValue('{"ok":true}');
   assert.equal(Buffer.from(encoded, 'base64').toString('utf8'), '{"ok":true}');
@@ -713,9 +873,310 @@ test('getFeedSyncDelayMs uses the last feed-sync start time', () => {
     },
   };
   const state = createEmptyRelayerState();
-  state.metrics.last_feed_sync_started_at = '2026-03-10T13:00:00.000Z';
-  state.metrics.last_feed_sync_completed_at = '2026-03-10T13:00:05.000Z';
+  state.metrics.last_feed_sync_success_at = '2026-03-10T13:00:05.000Z';
 
-  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:00:10.000Z')), 50000);
-  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:01.000Z')), 0);
+  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:00:10.000Z')), 55000);
+  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:01.000Z')), 4000);
+});
+
+test('durable queue persists fresh chain events before checkpoint advancement', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  const inserted = [];
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  global.fetch = async (url, options = {}) => {
+    assert.match(String(url), /morpheus_relayer_jobs/);
+    assert.equal(options.method, 'POST');
+    inserted.push(JSON.parse(String(options.body)));
+    return new Response('', { status: 201 });
+  };
+
+  try {
+    await persistFreshEventsToDurableQueue(
+      {
+        network: 'testnet',
+        concurrency: 2,
+        durableQueue: { enabled: true, failClosed: true },
+      },
+      { warn() {}, info() {} },
+      'neo_n3',
+      [
+        { chain: 'neo_n3', requestId: '101', requestType: 'privacy_oracle', txHash: '0xaaa' },
+        { chain: 'neo_n3', requestId: '102', requestType: 'privacy_oracle', txHash: '0xbbb' },
+      ]
+    );
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+  }
+
+  assert.equal(inserted.length, 2);
+  assert.equal(inserted[0].status, 'queued');
+  assert.equal(inserted[1].status, 'queued');
+  assert.equal(inserted[0].request_id, '101');
+  assert.equal(inserted[1].request_id, '102');
+});
+
+test('durable queue hydrates queued and stale processing jobs back into retry queue', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  const state = createEmptyRelayerState();
+  let persisted = 0;
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  global.fetch = async (url) => {
+    assert.match(String(url), /morpheus_relayer_jobs/);
+    return new Response(
+      JSON.stringify([
+        {
+          event_key: 'neo_n3:101:0xaaa::',
+          chain: 'neo_n3',
+          request_id: '101',
+          status: 'queued',
+          attempts: 0,
+          event: { chain: 'neo_n3', requestId: '101', requestType: 'privacy_oracle', txHash: '0xaaa' },
+          updated_at: new Date(Date.now() - 10_000).toISOString(),
+        },
+        {
+          event_key: 'neo_n3:102:0xbbb::',
+          chain: 'neo_n3',
+          request_id: '102',
+          status: 'processing',
+          attempts: 2,
+          last_error: 'worker timeout',
+          event: { chain: 'neo_n3', requestId: '102', requestType: 'privacy_oracle', txHash: '0xbbb' },
+          updated_at: new Date(Date.now() - 10_000).toISOString(),
+        },
+        {
+          event_key: 'neo_n3:103:0xccc::',
+          chain: 'neo_n3',
+          request_id: '103',
+          status: 'retry_scheduled',
+          attempts: 1,
+          next_retry_at: new Date(Date.now() + 60_000).toISOString(),
+          event: { chain: 'neo_n3', requestId: '103', requestType: 'privacy_oracle', txHash: '0xccc' },
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  };
+
+  try {
+    const hydrated = await hydrateDurableQueue(
+      {
+        concurrency: 1,
+        durableQueue: {
+          enabled: true,
+          failClosed: true,
+          syncLimit: 10,
+          staleProcessingMs: 1000,
+        },
+      },
+      state,
+      { warn() {}, info() {} },
+      'neo_n3',
+      () => {
+        persisted += 1;
+      }
+    );
+    assert.deepEqual(hydrated.sort(), ['neo_n3:101:0xaaa::', 'neo_n3:102:0xbbb::']);
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+  }
+
+  assert.equal(state.neo_n3.retry_queue.length, 2);
+  assert.ok(state.neo_n3.retry_queue.some((item) => String(item.event.requestId) === '101'));
+  assert.ok(state.neo_n3.retry_queue.some((item) => String(item.event.requestId) === '102'));
+  assert.equal(persisted, 1);
+});
+
+test('durable queue ignores jobs older than configured request cursor floor', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  const state = createEmptyRelayerState();
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  global.fetch = async () =>
+    new Response(
+      JSON.stringify([
+        {
+          event_key: 'neo_n3:3999:0xaaa::',
+          chain: 'neo_n3',
+          request_id: '3999',
+          status: 'queued',
+          attempts: 0,
+          event: { chain: 'neo_n3', requestId: '3999', requestType: 'privacy_oracle', txHash: '0xaaa' },
+          updated_at: new Date().toISOString(),
+        },
+        {
+          event_key: 'neo_n3:4050:0xbbb::',
+          chain: 'neo_n3',
+          request_id: '4050',
+          status: 'queued',
+          attempts: 0,
+          event: { chain: 'neo_n3', requestId: '4050', requestType: 'privacy_oracle', txHash: '0xbbb' },
+          updated_at: new Date().toISOString(),
+        },
+      ]),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+
+  try {
+    const hydrated = await hydrateDurableQueue(
+      {
+        startRequestIds: { neo_n3: 4050 },
+        durableQueue: { enabled: true, failClosed: true, syncLimit: 10, staleProcessingMs: 1000 },
+      },
+      state,
+      { warn() {}, info() {} },
+      'neo_n3',
+      () => {}
+    );
+    assert.deepEqual(hydrated, ['neo_n3:4050:0xbbb::']);
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+  }
+
+  assert.equal(state.neo_n3.retry_queue.length, 1);
+  assert.equal(String(state.neo_n3.retry_queue[0].event.requestId), '4050');
+});
+
+test('request cursor floor prunes legacy local retry queue entries', () => {
+  const state = createEmptyRelayerState();
+
+  state.neo_n3.retry_queue.push(
+    {
+      key: 'neo_n3:3999:0xaaa::',
+      event: { chain: 'neo_n3', requestId: '3999', requestType: 'privacy_oracle', txHash: '0xaaa' },
+      attempts: 1,
+      next_retry_at: Date.now(),
+    },
+    {
+      key: 'neo_n3:4050:0xbbb::',
+      event: { chain: 'neo_n3', requestId: '4050', requestType: 'privacy_oracle', txHash: '0xbbb' },
+      attempts: 1,
+      next_retry_at: Date.now(),
+    }
+  );
+
+  const floor = getRequestCursorFloor({ startRequestIds: { neo_n3: 4050 } }, 'neo_n3');
+  const pruned = pruneRetryQueueBelowRequestFloor(state, 'neo_n3', floor);
+  assert.equal(pruned, 1);
+  assert.equal(state.neo_n3.retry_queue.length, 1);
+  assert.equal(String(state.neo_n3.retry_queue[0].event.requestId), '4050');
+});
+
+test('request cursor floor quarantines durable jobs below the floor', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  const calls = [];
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  global.fetch = async (url, options = {}) => {
+    const value = String(url);
+    if (!options.method || options.method === 'GET') {
+      return new Response(
+        JSON.stringify([
+          {
+            event_key: 'neo_n3:3999:0xaaa::',
+            request_id: '3999',
+            status: 'retry_scheduled',
+            last_error: 'legacy',
+            chain: 'neo_n3',
+          },
+          {
+            event_key: 'neo_n3:4050:0xbbb::',
+            request_id: '4050',
+            status: 'retry_scheduled',
+            last_error: 'current',
+            chain: 'neo_n3',
+          },
+        ]),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    calls.push({ url: value, body: JSON.parse(String(options.body || '{}')) });
+    return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  try {
+    const patched = await quarantineDurableBacklogBelowRequestFloor(
+      { network: 'testnet', startRequestIds: { neo_n3: 4050 }, durableQueue: { enabled: true, failClosed: true } },
+      { warn() {}, info() {} },
+      'neo_n3'
+    );
+    assert.equal(patched, 1);
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+  }
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].body.status, 'stale_quarantined');
+});
+
+test('claimRelayerJob returns null when another instance already claimed the row', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  let calls = 0;
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  global.fetch = async (url, options = {}) => {
+    calls += 1;
+    assert.match(String(url), /morpheus_relayer_jobs/);
+    assert.equal(options.method, 'PATCH');
+    return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+
+  try {
+    const result = await claimRelayerJob(
+      'neo_n3:101:0xaaa::',
+      { status: 'processing', attempts: 0 },
+      { readyStatuses: ['queued'], staleStatuses: ['processing'], staleBeforeIso: new Date().toISOString() }
+    );
+    assert.equal(result, null);
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+  }
+
+  assert.equal(calls, 1);
+});
+
+test('relayer mode helpers isolate pricefeed from request-processing loops', () => {
+  assert.equal(shouldRunFeedSync({ mode: 'combined' }), true);
+  assert.equal(shouldRunFeedSync({ mode: 'feed_only' }), true);
+  assert.equal(shouldRunFeedSync({ mode: 'requests_only' }), false);
+  assert.equal(shouldRunRequestProcessing({ mode: 'combined' }), true);
+  assert.equal(shouldRunRequestProcessing({ mode: 'feed_only' }), false);
+  assert.equal(shouldRunRequestProcessing({ mode: 'requests_only' }), true);
 });

@@ -1,5 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {
+  normalizeMorpheusNetwork,
+  reportPinnedNeoN3Roles,
+} from './lib-neo-signers.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -106,6 +110,21 @@ const report = {
   ok: missing.length === 0 && missingEither.length === 0 && missingNeoX.length === 0,
 };
 
+report.neo_n3_signers = reportPinnedNeoN3Roles(
+  normalizeMorpheusNetwork(getValue(env, runtimeConfig, 'MORPHEUS_NETWORK') || 'testnet'),
+  ['worker', 'relayer', 'updater', 'oracle_verifier'],
+  { env: { ...runtimeConfig, ...env }, allowMissing: false }
+).map((entry) => ({
+  network: entry.network,
+  role: entry.role,
+  pinned: entry.pinned,
+  selected_source: entry.selected_source,
+  selected_identity: entry.selected_identity,
+  public_key: entry.public_key,
+  issues: entry.issues,
+  ok: entry.ok,
+}));
+
 const explicitOracleVerifierKeys = [
   'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
   'MORPHEUS_ORACLE_VERIFIER_WIF',
@@ -116,6 +135,8 @@ const explicitOracleVerifierKeys = [
 if (!explicitOracleVerifierKeys.some((key) => getValue(env, runtimeConfig, key))) {
   report.optional_recommendations.oracle_verifier.push(explicitOracleVerifierKeys.join(' | '));
 }
+
+report.ok = report.ok && report.neo_n3_signers.every((entry) => entry.ok);
 
 console.log(JSON.stringify(report, null, 2));
 if (!report.ok) process.exitCode = 1;

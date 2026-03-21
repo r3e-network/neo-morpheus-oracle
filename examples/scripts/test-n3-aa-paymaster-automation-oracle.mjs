@@ -11,6 +11,7 @@ import {
   loadExampleEnv,
   normalizeHash160,
   readDeploymentRegistry,
+  resolveNeoN3SignerWif,
   sleep,
   trimString,
   tryParseJson,
@@ -768,6 +769,21 @@ async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 1
   throw new Error(`timed out waiting for callback ${requestId}`);
 }
 
+async function readCallbackOnce(rpcClient, consumerHash, requestId) {
+  const response = await rpcClient.invokeFunction(sanitizeHex(consumerHash), 'getCallback', [
+    { type: 'Integer', value: String(requestId) },
+  ]);
+  return decodeCallbackArray(response.stack?.[0]);
+}
+
+async function resolveQueueTxRequestId(rpcClient, txid, timeoutMs = 30000) {
+  try {
+    return await waitForRequestId(rpcClient, txid, timeoutMs);
+  } catch {
+    return null;
+  }
+}
+
 async function fetchAutomationRecord(baseUrl, apiKey, automationId, network = 'testnet') {
   const headers = {
     apikey: apiKey,
@@ -836,67 +852,72 @@ async function waitForQueuedAutomation(
   baseUrl,
   apiKey,
   automationId,
+  oracleHash,
+  startRequestIdExclusive,
+  requesterHash,
   consumerHash,
   rpcClient,
   timeoutMs = 300000
 ) {
   const startedAt = Date.now();
+  let nextRequestId = BigInt(startRequestIdExclusive) + 1n;
+  const candidateRequestIds = new Map();
   while (Date.now() - startedAt < timeoutMs) {
     const record = await fetchAutomationRecord(baseUrl, apiKey, automationId, 'testnet');
-    const queuedRun = record.runs.find((row) => row.status === 'queued' && row.queue_tx?.tx_hash);
-    if (queuedRun) {
-      const requestId = await waitForRequestId(rpcClient, queuedRun.queue_tx.tx_hash, 90000);
-      const callback = await waitForCallback(rpcClient, consumerHash, requestId, 180000);
-      return {
-        request_id: String(requestId),
-        queue_tx_hash: queuedRun.queue_tx.tx_hash,
-        callback,
-        record,
-      };
+    for (const run of record.runs || []) {
+      const txHash = trimString(run?.queue_tx?.tx_hash || '');
+      if (!txHash) continue;
+      const resolvedRequestId = await resolveQueueTxRequestId(rpcClient, txHash, 10000);
+      if (!resolvedRequestId) continue;
+      candidateRequestIds.set(String(resolvedRequestId), {
+        source: 'supabase_queue_tx',
+        run_status: trimString(run?.status || ''),
+        queue_tx_hash: txHash,
+      });
+    }
+
+    const totalRequests = decodeIntStack(
+      await invokeRead(rpcClient, oracleHash, 'getTotalRequests', [])
+    );
+    for (; nextRequestId <= totalRequests; nextRequestId += 1n) {
+      const requestId = nextRequestId;
+      const requestItem = await invokeRead(rpcClient, oracleHash, 'getRequest', [
+        { type: 'Integer', value: requestId.toString() },
+      ]);
+      const request = Array.isArray(requestItem?.value) ? requestItem.value : [];
+      if (request.length < 12) continue;
+      const requester = normalizeHash160(request[5]?.value || '');
+      const callbackContract = normalizeHash160(request[3]?.value || '');
+      if (requester !== requesterHash || callbackContract !== consumerHash) continue;
+      candidateRequestIds.set(requestId.toString(), {
+        source: 'chain_scan',
+      });
+    }
+
+    const sortedRequestIds = [...candidateRequestIds.keys()].sort(
+      (left, right) => Number(left) - Number(right)
+    );
+    for (const requestId of sortedRequestIds) {
+      const callback = await readCallbackOnce(rpcClient, consumerHash, requestId);
+      if (callback?.request_type === 'privacy_oracle' && callback.success) {
+        return {
+          mode: 'scheduler',
+          request_id: String(requestId),
+          callback,
+          record,
+          source: candidateRequestIds.get(String(requestId)) || null,
+        };
+      }
     }
     await sleep(3000);
   }
   throw new Error(`timed out waiting for queued automation execution for ${automationId}`);
 }
 
-async function queueAutomationExecutionDirect({
-  rpcClient,
-  account,
-  networkMagic,
-  oracleHash,
-  requesterHash,
-  consumerHash,
-  payloadText,
-}) {
-  const queuedTx = await invokePersisted(
-    rpcClient,
-    oracleHash,
-    account,
-    networkMagic,
-    'queueAutomationRequest',
-    [
-      hash160Param(requesterHash),
-      stringParam('privacy_oracle'),
-      utf8ByteArrayParam(payloadText),
-      hash160Param(consumerHash),
-      stringParam('onOracleResult'),
-    ],
-    undefined
-  );
-  const requestId = await waitForRequestId(rpcClient, queuedTx.txid, 90000);
-  const callback = await waitForCallback(rpcClient, consumerHash, requestId, 180000);
-  return {
-    mode: 'manual_direct_queue',
-    request_id: String(requestId),
-    queue_tx_hash: queuedTx.txid,
-    callback,
-  };
-}
-
 async function main() {
   await loadExampleEnv();
 
-  const TEST_WIF = process.env.TEST_WIF || process.env.NEO_TESTNET_WIF || '';
+  const TEST_WIF = trimString(process.env.TEST_WIF || resolveNeoN3SignerWif('testnet') || '');
   const deployment = (await readDeploymentRegistry('testnet')).neo_n3 || {};
   const RPC_URL = trimString(
     deployment.rpc_url || process.env.TESTNET_RPC_URL || 'https://testnet1.neo.coz.io:443'
@@ -918,7 +939,7 @@ async function main() {
       'https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network/paymaster/authorize'
   );
 
-  assertCondition(TEST_WIF, 'TEST_WIF or NEO_TESTNET_WIF is required');
+  assertCondition(TEST_WIF, 'TEST_WIF or compatible pinned Neo N3 signer is required');
   assertCondition(PAYMASTER_API_TOKEN, 'PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
   assertCondition(SUPABASE_URL && SUPABASE_KEY, 'Supabase secret or service-role env is required');
 
@@ -1133,62 +1154,17 @@ async function main() {
   assertCondition(automationId, 'automation register callback did not return automation_id');
 
   logStage('waiting for queued automation execution', automationId);
-  let queuedExecution = null;
-  let automationRecord = null;
-  try {
-    queuedExecution = await waitForQueuedAutomation(
-      SUPABASE_URL,
-      SUPABASE_KEY,
-      automationId,
-      consumerHash,
-      rpcClient,
-      120000
-    );
-  } catch (error) {
-    automationRecord = await fetchAutomationRecord(
-      SUPABASE_URL,
-      SUPABASE_KEY,
-      automationId,
-      'testnet'
-    ).catch(() => null);
-    logStage('scheduler queue wait timed out; using direct queue fallback', {
-      automation_id: automationId,
-      last_error: automationRecord?.job?.last_error || null,
-    });
-    const manualQueued = await queueAutomationExecutionDirect({
-      rpcClient,
-      account,
-      networkMagic,
-      oracleHash,
-      requesterHash: normalizeHash(account.scriptHash),
-      consumerHash,
-      payloadText: JSON.stringify({
-        provider: 'twelvedata',
-        symbol: 'TWELVEDATA:NEO-USD',
-        json_path: 'price',
-        target_chain: 'neo_n3',
-        tag: 'aa-paymaster-automation',
-      }),
-    });
-    await patchAutomationRecord(
-      SUPABASE_URL,
-      SUPABASE_KEY,
-      automationId,
-      {
-        status: 'completed',
-        execution_count: 1,
-        next_run_at: null,
-        last_run_at: new Date().toISOString(),
-        last_queued_request_id: manualQueued.request_id,
-        last_error: null,
-      },
-      'testnet'
-    ).catch(() => undefined);
-    queuedExecution = {
-      ...manualQueued,
-      record: automationRecord,
-    };
-  }
+  const queuedExecution = await waitForQueuedAutomation(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    automationId,
+    oracleHash,
+    automationRegisterRequestId,
+    normalizeHash(account.scriptHash),
+    consumerHash,
+    rpcClient,
+    180000
+  );
   assertCondition(
     queuedExecution.callback?.success === true,
     'queued automation execution should fulfill successfully'
@@ -1255,9 +1231,7 @@ async function main() {
     '',
     '## Conclusion',
     '',
-    queuedExecution.mode === 'manual_direct_queue'
-      ? 'A paymaster-sponsored `executeUserOp` successfully registered downstream automation through an AA account. The shared testnet scheduler backlog did not materialize a queued run inside the probe window, so the probe executed the same downstream `queueAutomationRequest` path directly with the relayer/updater signer and confirmed that the later Morpheus privacy_oracle callback still succeeds. This closes the final integrated paymaster -> AA -> automation -> Oracle proof gap while explicitly recording the shared-environment fallback.'
-      : 'A paymaster-sponsored `executeUserOp` can register downstream automation through an AA account, and the later automation execution still reaches the Morpheus privacy_oracle callback path successfully. This closes the final integrated paymaster -> AA -> automation -> Oracle proof gap on testnet.',
+    'A paymaster-sponsored `executeUserOp` can register downstream automation through an AA account, and the later automation execution still reaches the Morpheus privacy_oracle callback path successfully. This closes the final integrated paymaster -> AA -> automation -> Oracle proof gap on testnet.',
     '',
   ].join('\n');
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import {
   buildEncryptedJsonPatch,
   encodeUtf8Base64,
@@ -11,6 +11,8 @@ import {
   normalizeHash160,
   readDeploymentRegistry,
   repoRoot,
+  resolveNeoN3ConsumerHash,
+  resolveNeoN3OracleHash,
   resolveNeoN3SignerWif,
   writeValidationArtifacts,
   sleep,
@@ -21,6 +23,7 @@ import {
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const EXAMPLE_BUILD_DIR = path.resolve(repoRoot, 'examples/build/n3');
 const EXAMPLE_CONSUMER_ARTIFACT = 'UserConsumerN3OracleExample';
+const REQUEST_TX_SYSTEM_FEE_BUFFER = BigInt(process.env.EXAMPLE_REQUEST_SYSTEM_FEE_BUFFER || '3000000');
 
 function parseStackItem(item) {
   if (!item || typeof item !== 'object') return null;
@@ -77,6 +80,36 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return parseStackItem(response.stack?.[0]);
+}
+
+async function sendBufferedInvocation({ rpcClient, account, networkMagic, script, signers }) {
+  const preview = await rpcClient.invokeScript(u.HexString.fromHex(script), signers);
+  if (String(preview?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(preview?.exception || 'preview fault');
+  }
+
+  const validUntilBlock = (await rpcClient.getBlockCount()) + 1000;
+  const bufferedSystemFee = (
+    BigInt(String(preview?.gasconsumed || '0'))
+    + REQUEST_TX_SYSTEM_FEE_BUFFER
+  ).toString();
+  const basePayload = {
+    signers,
+    validUntilBlock,
+    script,
+    systemFee: bufferedSystemFee,
+  };
+
+  let transaction = new tx.Transaction(basePayload);
+  transaction.sign(account, networkMagic);
+  const networkFee = await rpcClient.calculateNetworkFee(transaction);
+
+  transaction = new tx.Transaction({
+    ...basePayload,
+    networkFee,
+  });
+  transaction.sign(account, networkMagic);
+  return rpcClient.sendRawTransaction(transaction);
 }
 
 async function ensureRequestFeeCredit(
@@ -355,12 +388,8 @@ const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic
 );
 const wif = resolveNeoN3SignerWif(network);
-const consumerHash = normalizeHash160(
-  process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || ''
-);
-const oracleHash = normalizeHash160(
-  process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || ''
-);
+const consumerHash = resolveNeoN3ConsumerHash(network, deployment);
+const oracleHash = resolveNeoN3OracleHash(network, deployment);
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 180000);
 const aaContractHash = normalizeHash160(
   process.env.AA_TESTNET_HASH || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38'
@@ -416,11 +445,18 @@ const feeStatus = await ensureRequestFeeCredit(
 
 async function submitCase({ title, requestType, payload, expected, validate }) {
   const payloadText = JSON.stringify(payload);
-  const txid = await consumer.invoke(
-    'requestRaw',
-    [requestType, sc.ContractParam.byteArray(encodeUtf8Base64(payloadText))],
-    signers
-  );
+  const script = sc.createScript({
+    scriptHash: resolvedConsumerHash,
+    operation: 'requestRaw',
+    args: [requestType, sc.ContractParam.byteArray(encodeUtf8Base64(payloadText))],
+  });
+  const txid = await sendBufferedInvocation({
+    rpcClient,
+    account,
+    networkMagic,
+    script,
+    signers,
+  });
   const requestId = await waitForRequestId(rpcClient, txid);
   const callback = await waitForCallback(
     rpcClient,

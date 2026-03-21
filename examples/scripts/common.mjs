@@ -7,6 +7,10 @@ import { fileURLToPath } from 'node:url';
 import { Contract, JsonRpcProvider } from 'ethers';
 import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from '../../scripts/lib-env.mjs';
+import {
+  normalizeMorpheusNetwork,
+  resolvePinnedNeoN3RolePreferMatch,
+} from '../../scripts/lib-neo-signers.mjs';
 
 export const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const deploymentsDir = path.resolve(repoRoot, 'examples/deployments');
@@ -21,24 +25,17 @@ export function trimString(value) {
 }
 
 export function resolveNeoN3SignerWif(
-  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
+  network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet')
 ) {
-  if (network === 'testnet') {
-    return trimString(
-      process.env.NEO_TESTNET_WIF ||
-        process.env.NEO_N3_WIF ||
-        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-        process.env.PHALA_NEO_N3_WIF ||
-        ''
-    );
-  }
-  return trimString(
-    process.env.NEO_N3_WIF ||
-      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-      process.env.PHALA_NEO_N3_WIF ||
-      process.env.NEO_TESTNET_WIF ||
-      ''
+  const explicit = trimString(
+    process.env.TEST_WIF || process.env.EXAMPLE_NEO_N3_WIF || process.env.EXAMPLE_TEST_WIF || ''
   );
+  if (explicit) return explicit;
+  const signer = resolvePinnedNeoN3RolePreferMatch(network, 'updater', {
+    env: process.env,
+    allowMissing: true,
+  });
+  return trimString(signer.materialized?.wif || signer.materialized?.private_key || '');
 }
 
 export function sleep(ms) {
@@ -62,7 +59,16 @@ export function jsonPretty(value) {
 }
 
 export async function loadExampleEnv() {
+  const requestedNetwork = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
   await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
+  const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || requestedNetwork);
+  const phalaEnvPath = path.resolve(
+    repoRoot,
+    'deploy',
+    'phala',
+    network === 'mainnet' ? 'morpheus.mainnet.env' : 'morpheus.testnet.env'
+  );
+  await loadDotEnv(phalaEnvPath, { override: true });
 }
 
 export async function readDeploymentRegistry(network = 'testnet') {

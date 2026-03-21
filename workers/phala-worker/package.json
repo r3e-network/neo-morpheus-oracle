@@ -6,8 +6,8 @@
   "scripts": {
     "bundle": "node src/worker.js",
     "start": "node src/server.js",
-    "check": "node --check src/worker.js && node --check src/server.js && node --check src/platform/upstash.js && node --check src/platform/request-guards.js && node --check src/platform/request-guards.test.mjs",
-    "test": "node --test worker.test.mjs && node --test src/platform/request-guards.test.mjs"
+    "check": "node --check src/worker.js && node --check src/server.js && node --check src/platform/upstash.js && node --check src/platform/request-guards.js && node --check src/platform/request-guards.test.mjs && node --check src/platform/overload-guard.js && node --check src/platform/overload-guard.test.mjs && node --check src/oracle/feeds.test.mjs",
+    "test": "node --test worker.test.mjs && node --test src/platform/request-guards.test.mjs && node --test src/platform/overload-guard.test.mjs && node --test src/oracle/feeds.test.mjs"
   },
   "dependencies": {
     "@cityofzion/neon-js": "^5.8.1",

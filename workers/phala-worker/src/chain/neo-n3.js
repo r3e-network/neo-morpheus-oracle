@@ -1,6 +1,11 @@
 import { randomUUID } from 'crypto';
 import { experimental, rpc as neoRpc, tx, u, wallet as neoWallet } from '@cityofzion/neon-js';
 import {
+  NEO_N3_SIGNER_ENV_KEYS,
+  normalizeMorpheusNetwork,
+  resolvePinnedNeoN3Role,
+} from '../../../../scripts/lib-neo-signers.mjs';
+import {
   DEFAULT_NEO_NETWORK_MAGIC,
   DEFAULT_POLL_INTERVAL_MS,
   DEFAULT_WAIT_TIMEOUT_MS,
@@ -17,32 +22,23 @@ import { forgetRequestId, rememberRequestId } from './signing.js';
 import { sleep } from '../platform/core.js';
 import { env } from '../platform/core.js';
 
-function resolveNeoN3SigningKey() {
-  const network = trimString(
-    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
-  ).toLowerCase();
-  if (network === 'mainnet') {
-    return env(
-      'PHALA_NEO_N3_PRIVATE_KEY',
-      'PHALA_NEO_N3_WIF',
-      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-      'MORPHEUS_RELAYER_NEO_N3_WIF',
-      'NEO_N3_WIF',
-      'NEO_PLATFORM_KEY',
-      'TEE_PRIVATE_KEY',
-      'NEO_TESTNET_WIF'
-    );
+function snapshotSignerEnv() {
+  const snapshot = {};
+  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
+    const value = trimString(env(key));
+    if (value) snapshot[key] = value;
   }
-  return env(
-    'PHALA_NEO_N3_PRIVATE_KEY',
-    'PHALA_NEO_N3_WIF',
-    'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-    'MORPHEUS_RELAYER_NEO_N3_WIF',
-    'NEO_TESTNET_WIF',
-    'NEO_N3_WIF',
-    'NEO_PLATFORM_KEY',
-    'TEE_PRIVATE_KEY'
+  return snapshot;
+}
+
+function resolveNeoN3SigningKey() {
+  const network = normalizeMorpheusNetwork(
+    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
   );
+  const signer = resolvePinnedNeoN3Role(network, 'worker', {
+    env: snapshotSignerEnv(),
+  });
+  return signer.materialized?.private_key || signer.materialized?.wif || '';
 }
 
 export function getNeoSigners(account, scope = 'CalledByEntry') {

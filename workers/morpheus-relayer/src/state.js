@@ -30,8 +30,11 @@ function defaultMetrics() {
     feed_sync_success_total: 0,
     feed_sync_error_total: 0,
     feed_sync_skipped_total: 0,
+    backpressure_deferred_total: 0,
+    backpressure_retry_skipped_total: 0,
     last_feed_sync_started_at: null,
     last_feed_sync_completed_at: null,
+    last_feed_sync_success_at: null,
     last_feed_sync_duration_ms: null,
     last_tick_started_at: null,
     last_tick_completed_at: null,
@@ -181,6 +184,7 @@ export function enqueueRetryItem(state, chain, event, options = {}) {
     manual_action: options.manual_action || null,
     finalize_only: Boolean(options.finalize_only),
     terminal_error: options.terminal_error || null,
+    durable_claimed: Boolean(options.durable_claimed),
   };
   const index = chainState.retry_queue.findIndex((entry) => entry.key === key);
   if (index >= 0) {

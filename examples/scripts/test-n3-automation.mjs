@@ -6,6 +6,8 @@ import {
   markdownJson,
   normalizeHash160,
   readDeploymentRegistry,
+  resolveNeoN3ConsumerHash,
+  resolveNeoN3OracleHash,
   resolveNeoN3SignerWif,
   writeValidationArtifacts,
   sleep,
@@ -130,6 +132,23 @@ async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 1
   throw new Error(`timed out waiting for Neo N3 callback ${requestId}`);
 }
 
+async function readCallbackOnce(rpcClient, consumerHash, requestId) {
+  const response = await withRetries(`getCallback:${requestId}`, () =>
+    rpcClient.invokeFunction(consumerHash, 'getCallback', [
+      { type: 'Integer', value: String(requestId) },
+    ])
+  );
+  return decodeCallbackArray(response.stack?.[0]);
+}
+
+async function resolveQueueTxRequestId(rpcClient, txid, timeoutMs = 30000) {
+  try {
+    return await waitForRequestId(rpcClient, txid, timeoutMs);
+  } catch {
+    return null;
+  }
+}
+
 async function ensureFeeCredit(
   account,
   rpcUrl,
@@ -214,18 +233,33 @@ async function waitForQueuedExecution(
   startRequestIdExclusive,
   requesterHash,
   consumerHash,
+  automationId,
   timeoutMs = 180000
 ) {
   const startedAt = Date.now();
+  let nextRequestId = BigInt(startRequestIdExclusive) + 1n;
+  const candidateRequestIds = new Map();
   while (Date.now() - startedAt < timeoutMs) {
+    if (automationId) {
+      const automationRecord = await fetchAutomationRecord(automationId).catch(() => null);
+      for (const run of automationRecord?.runs || []) {
+        const txHash = trimString(run?.queue_tx?.tx_hash || '');
+        if (!txHash) continue;
+        const resolvedRequestId = await resolveQueueTxRequestId(rpcClient, txHash, 10000);
+        if (!resolvedRequestId) continue;
+        candidateRequestIds.set(String(resolvedRequestId), {
+          source: 'supabase_queue_tx',
+          run_status: trimString(run?.status || ''),
+          queue_tx_hash: txHash,
+        });
+      }
+    }
+
     const totalRequests = BigInt(
       (await invokeRead(rpcClient, oracleHash, 'getTotalRequests', [])) || '0'
     );
-    for (
-      let requestId = BigInt(startRequestIdExclusive) + 1n;
-      requestId <= totalRequests;
-      requestId += 1n
-    ) {
+    for (; nextRequestId <= totalRequests; nextRequestId += 1n) {
+      const requestId = nextRequestId;
       const request = await invokeRead(rpcClient, oracleHash, 'getRequest', [
         { type: 'Integer', value: requestId.toString() },
       ]);
@@ -233,13 +267,24 @@ async function waitForQueuedExecution(
       const requester = normalizeHash160(request[5] || '');
       const callbackContract = normalizeHash160(request[3] || '');
       if (requester !== requesterHash || callbackContract !== consumerHash) continue;
+      candidateRequestIds.set(requestId.toString(), {
+        source: 'chain_scan',
+      });
+    }
 
-      const callback = await waitForCallback(rpcClient, consumerHash, requestId.toString(), 120000);
+    const sortedRequestIds = [...candidateRequestIds.keys()].sort(
+      (left, right) => Number(left) - Number(right)
+    );
+    for (const requestId of sortedRequestIds) {
+      const callback = await readCallbackOnce(rpcClient, consumerHash, requestId);
       if (callback?.request_type === 'privacy_oracle' && callback.success) {
+        const request = await invokeRead(rpcClient, oracleHash, 'getRequest', [
+          { type: 'Integer', value: String(requestId) },
+        ]);
         return {
-          request_id: requestId.toString(),
+          request_id: String(requestId),
           onchain_request: {
-            id: String(request[0] || requestId.toString()),
+            id: String(request?.[0] || requestId),
             request_type: String(request[1] || ''),
             callback_contract: String(request[3] || ''),
             requester: String(request[5] || ''),
@@ -247,6 +292,7 @@ async function waitForQueuedExecution(
             created_at: String(request[7] || ''),
           },
           callback,
+          source: candidateRequestIds.get(String(requestId)) || null,
         };
       }
     }
@@ -318,12 +364,8 @@ const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic
 );
 const wif = resolveNeoN3SignerWif(network);
-const consumerHash = normalizeHash160(
-  process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || ''
-);
-const oracleHash = normalizeHash160(
-  process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || ''
-);
+const consumerHash = resolveNeoN3ConsumerHash(network, deployment);
+const oracleHash = resolveNeoN3OracleHash(network, deployment);
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 240000);
 
 if (!wif) throw new Error('NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required');
@@ -407,6 +449,7 @@ const execution = await waitForQueuedExecution(
   totalRequestsBefore,
   requesterHash,
   consumerHash,
+  automationId,
   callbackTimeoutMs
 );
 

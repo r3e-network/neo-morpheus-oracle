@@ -1,32 +1,18 @@
 import { experimental, rpc as neoRpc, sc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
+import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function resolveSignerWif(
-  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
-) {
-  if (network === 'mainnet') {
-    return trimString(
-      process.env.NEO_N3_WIF ||
-        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-        process.env.NEO_TESTNET_WIF ||
-        ''
-    );
-  }
-  return trimString(
-    process.env.NEO_TESTNET_WIF ||
-      process.env.NEO_N3_WIF ||
-      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-      ''
-  );
-}
-
+const requestedNetwork = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
 await loadDotEnv();
+const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || requestedNetwork);
+await loadDotEnv(new URL(`../deploy/phala/morpheus.${network}.env`, import.meta.url), {
+  override: true,
+});
 
-const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
 const rpcAddress = trimString(
   process.env.NEO_RPC_URL ||
     (network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443')
@@ -34,15 +20,14 @@ const rpcAddress = trimString(
 const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606)
 );
-const signerWif = resolveSignerWif(network);
 const oracleHash = trimString(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
 const updaterHash = trimString(process.env.MORPHEUS_UPDATER_HASH || '');
 
-if (!signerWif) throw new Error('NEO_N3_WIF / NEO_TESTNET_WIF is required');
 if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
 if (!updaterHash) throw new Error('MORPHEUS_UPDATER_HASH is required');
 
-const account = new wallet.Account(signerWif);
+const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
+const account = new wallet.Account(signer.materialized?.wif || signer.materialized?.private_key || '');
 const oracle = new experimental.SmartContract(oracleHash, {
   rpcAddress,
   networkMagic,

@@ -1,30 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { experimental, sc, wallet } from '@cityofzion/neon-js';
+import { resolvePinnedNeoN3Role, normalizeMorpheusNetwork } from './lib-neo-signers.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function resolveNeoN3SignerWif(
-  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
-) {
-  if (network === 'testnet') {
-    return trimString(
-      process.env.NEO_TESTNET_WIF ||
-        process.env.NEO_N3_WIF ||
-        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-        process.env.PHALA_NEO_N3_WIF ||
-        ''
-    );
-  }
-  return trimString(
-    process.env.NEO_N3_WIF ||
-      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-      process.env.PHALA_NEO_N3_WIF ||
-      process.env.NEO_TESTNET_WIF ||
-      ''
-  );
 }
 
 function resolveNeoN3NetworkDefaults() {
@@ -56,12 +36,11 @@ export async function loadContractArtifacts(baseName, buildDir = path.resolve('c
 
 export function getDeployConfig() {
   const defaults = resolveNeoN3NetworkDefaults();
-  const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
+  const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
   const rpcAddress = trimString(process.env.NEO_RPC_URL || defaults.rpcAddress);
   const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || defaults.networkMagic);
-  const wif = resolveNeoN3SignerWif(network);
-  if (!wif) throw new Error('NEO_N3_WIF or compatible Neo N3 WIF env is required');
-  const account = new wallet.Account(wif);
+  const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
+  const account = new wallet.Account(signer.materialized?.wif || signer.materialized?.private_key || '');
   return { rpcAddress, networkMagic, account };
 }
 

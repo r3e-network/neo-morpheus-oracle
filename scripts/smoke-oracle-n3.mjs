@@ -3,30 +3,15 @@ import { loadDotEnv } from './lib-env.mjs';
 import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {
+  normalizeMorpheusNetwork,
+  resolvePinnedNeoN3Role,
+} from './lib-neo-signers.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function resolveNeoN3SignerWif(
-  network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase()
-) {
-  if (network === 'testnet') {
-    return trimString(
-      process.env.NEO_TESTNET_WIF ||
-        process.env.NEO_N3_WIF ||
-        process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-        ''
-    );
-  }
-  return trimString(
-    process.env.NEO_N3_WIF ||
-      process.env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-      process.env.NEO_TESTNET_WIF ||
-      ''
-  );
 }
 
 function sleep(ms) {
@@ -56,9 +41,9 @@ async function loadJsonIfExists(filePath) {
   }
 }
 
+const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
+await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${network}.env`), { override: false });
 await loadDotEnv();
-
-const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
 const networkConfig = await loadJsonIfExists(path.resolve('config', 'networks', `${network}.json`));
 const deploymentRegistry = await loadJsonIfExists(
   path.resolve('examples', 'deployments', `${network}.json`)
@@ -283,7 +268,8 @@ const rpcUrl = trimString(
 const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || networkConfig?.neo_n3?.network_magic || defaultNetworkMagic
 );
-const wif = resolveNeoN3SignerWif(network);
+const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
+const wif = signer.materialized?.wif || signer.materialized?.private_key || '';
 const oracleHash =
   network === 'testnet' && rawOracleHash === mainnetOracleHash && registryOracleHash
     ? registryOracleHash
@@ -297,6 +283,8 @@ const jsonPath = trimString(process.env.MORPHEUS_SMOKE_JSON_PATH || 'price') || 
 const script = trimString(process.env.MORPHEUS_SMOKE_SCRIPT || '');
 const requestTimeoutMs = Number(process.env.MORPHEUS_SMOKE_REQUEST_TIMEOUT_MS || 90000);
 const callbackTimeoutMs = Number(process.env.MORPHEUS_SMOKE_CALLBACK_TIMEOUT_MS || 180000);
+const updaterSigner = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
+const updaterWif = updaterSigner.materialized?.wif || updaterSigner.materialized?.private_key || '';
 
 if (!wif) throw new Error('NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required');
 if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
@@ -310,6 +298,7 @@ const payload = {
 if (script) payload.script = script;
 
 const account = new wallet.Account(wif);
+const updaterAccount = updaterWif ? new wallet.Account(updaterWif) : account;
 const oracle = new experimental.SmartContract(oracleHash, {
   rpcAddress: rpcUrl,
   networkMagic,
@@ -347,7 +336,7 @@ try {
   await fulfillRequestLocally(
     rpcClient,
     oracleHash,
-    account,
+    updaterAccount,
     rpcUrl,
     networkMagic,
     requestId,
