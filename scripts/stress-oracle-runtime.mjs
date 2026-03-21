@@ -28,22 +28,36 @@ function parseArgs(argv = []) {
     const next = argv[index + 1];
     if (arg === '--preset' && next) out.preset = next;
     else if (arg.startsWith('--preset=')) out.preset = arg.slice('--preset='.length);
-    else if (arg === '--levels' && next) out.levels = next.split(',').map((v) => Number(v.trim())).filter(Number.isFinite);
-    else if (arg.startsWith('--levels=')) out.levels = arg.slice('--levels='.length).split(',').map((v) => Number(v.trim())).filter(Number.isFinite);
+    else if (arg === '--levels' && next)
+      out.levels = next
+        .split(',')
+        .map((v) => Number(v.trim()))
+        .filter(Number.isFinite);
+    else if (arg.startsWith('--levels='))
+      out.levels = arg
+        .slice('--levels='.length)
+        .split(',')
+        .map((v) => Number(v.trim()))
+        .filter(Number.isFinite);
     else if (arg === '--duration-ms' && next) out.stageDurationMs = Number(next);
-    else if (arg.startsWith('--duration-ms=')) out.stageDurationMs = Number(arg.slice('--duration-ms='.length));
+    else if (arg.startsWith('--duration-ms='))
+      out.stageDurationMs = Number(arg.slice('--duration-ms='.length));
     else if (arg === '--cooldown-ms' && next) out.cooldownMs = Number(next);
-    else if (arg.startsWith('--cooldown-ms=')) out.cooldownMs = Number(arg.slice('--cooldown-ms='.length));
+    else if (arg.startsWith('--cooldown-ms='))
+      out.cooldownMs = Number(arg.slice('--cooldown-ms='.length));
     else if (arg === '--target-url' && next) out.targetUrl = next;
     else if (arg.startsWith('--target-url=')) out.targetUrl = arg.slice('--target-url='.length);
     else if (arg === '--network' && next) out.network = next;
     else if (arg.startsWith('--network=')) out.network = arg.slice('--network='.length);
     else if (arg === '--output-dir' && next) out.outputDir = path.resolve(next);
-    else if (arg.startsWith('--output-dir=')) out.outputDir = path.resolve(arg.slice('--output-dir='.length));
+    else if (arg.startsWith('--output-dir='))
+      out.outputDir = path.resolve(arg.slice('--output-dir='.length));
     else if (arg === '--success-threshold' && next) out.successThreshold = Number(next);
-    else if (arg.startsWith('--success-threshold=')) out.successThreshold = Number(arg.slice('--success-threshold='.length));
+    else if (arg.startsWith('--success-threshold='))
+      out.successThreshold = Number(arg.slice('--success-threshold='.length));
     else if (arg === '--p95-threshold-ms' && next) out.p95ThresholdMs = Number(next);
-    else if (arg.startsWith('--p95-threshold-ms=')) out.p95ThresholdMs = Number(arg.slice('--p95-threshold-ms='.length));
+    else if (arg.startsWith('--p95-threshold-ms='))
+      out.p95ThresholdMs = Number(arg.slice('--p95-threshold-ms='.length));
   }
 
   return out;
@@ -58,7 +72,10 @@ function loadLocalEnv(filePath) {
       if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
       const idx = trimmed.indexOf('=');
       let value = trimmed.slice(idx + 1).trim();
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
         value = value.slice(1, -1);
       }
       result[trimmed.slice(0, idx)] = value;
@@ -224,22 +241,24 @@ async function runStage({ baseUrl, authToken, concurrency, durationMs, presetFac
 }
 
 function deriveRecommendation(stages, { successThreshold, p95ThresholdMs }) {
-  const lossless = stages.filter((stage) =>
-    stage.success_rate >= successThreshold &&
-    Number(stage.statuses['network_error'] || 0) === 0 &&
-    Number(stage.statuses[503] || 0) === 0 &&
-    Number(stage.statuses[500] || 0) === 0 &&
-    Number(stage.statuses[400] || 0) === 0
+  const lossless = stages.filter(
+    (stage) =>
+      stage.success_rate >= successThreshold &&
+      Number(stage.statuses['network_error'] || 0) === 0 &&
+      Number(stage.statuses[503] || 0) === 0 &&
+      Number(stage.statuses[500] || 0) === 0 &&
+      Number(stage.statuses[400] || 0) === 0
   );
   const latencyComfort = lossless.filter((stage) => stage.latency_ms.p95 <= p95ThresholdMs);
   const steady = lossless.length ? lossless[lossless.length - 1].concurrency : 0;
   const comfort = latencyComfort.length ? latencyComfort[latencyComfort.length - 1].concurrency : 0;
-  const firstWarning = stages.find((stage) =>
-    stage.success_rate < successThreshold ||
-    stage.latency_ms.p95 > p95ThresholdMs ||
-    Number(stage.statuses[400] || 0) > 0 ||
-    Number(stage.statuses[503] || 0) > 0 ||
-    Number(stage.statuses['network_error'] || 0) > 0
+  const firstWarning = stages.find(
+    (stage) =>
+      stage.success_rate < successThreshold ||
+      stage.latency_ms.p95 > p95ThresholdMs ||
+      Number(stage.statuses[400] || 0) > 0 ||
+      Number(stage.statuses[503] || 0) > 0 ||
+      Number(stage.statuses['network_error'] || 0) > 0
   );
   return {
     recommended_lossless_concurrency: steady,
@@ -293,8 +312,9 @@ async function writeArtifacts({ outputDir, preset, network, report }) {
     '',
     '| Concurrency | Success | RPS | p50 | p95 | p99 | 503 | 429 | Network |',
     '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-    ...report.stages.map((stage) =>
-      `| ${stage.concurrency} | ${(stage.success_rate * 100).toFixed(2)}% | ${stage.throughput_rps.toFixed(2)} | ${stage.latency_ms.p50} | ${stage.latency_ms.p95} | ${stage.latency_ms.p99} | ${stage.statuses[503] || 0} | ${stage.statuses[429] || 0} | ${stage.statuses.network_error || 0} |`
+    ...report.stages.map(
+      (stage) =>
+        `| ${stage.concurrency} | ${(stage.success_rate * 100).toFixed(2)}% | ${stage.throughput_rps.toFixed(2)} | ${stage.latency_ms.p50} | ${stage.latency_ms.p95} | ${stage.latency_ms.p99} | ${stage.statuses[503] || 0} | ${stage.statuses[429] || 0} | ${stage.statuses.network_error || 0} |`
     ),
     '',
   ].join('\n');
@@ -305,12 +325,19 @@ async function writeArtifacts({ outputDir, preset, network, report }) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const network = trimString(args.network || process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase() === 'mainnet' ? 'mainnet' : 'testnet';
+  const network =
+    trimString(args.network || process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase() ===
+    'mainnet'
+      ? 'mainnet'
+      : 'testnet';
   await loadDotEnv(path.resolve('.env.local'), { override: false });
   await loadDotEnv(path.resolve('.env'), { override: false });
 
   const authToken = trimString(
-    process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''
+    process.env.MORPHEUS_RUNTIME_TOKEN ||
+      process.env.PHALA_API_TOKEN ||
+      process.env.PHALA_SHARED_SECRET ||
+      ''
   );
   if (!authToken) {
     throw new Error('MORPHEUS_RUNTIME_TOKEN or PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');

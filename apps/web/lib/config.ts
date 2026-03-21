@@ -12,7 +12,8 @@ const defaultNeoXRpcUrl =
     ? 'https://mainnet-2.rpc.banelabs.org'
     : 'https://neoxt4seed1.ngd.network';
 const defaultNeoXChainId = selectedNetworkKey === 'mainnet' ? '47763' : '12227332';
-const defaultControlPlaneUrl = process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
+const defaultControlPlaneUrl =
+  process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
 const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
 
 function trimString(value: unknown) {

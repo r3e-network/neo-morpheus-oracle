@@ -40,7 +40,9 @@ export function getDeployConfig() {
   const rpcAddress = trimString(process.env.NEO_RPC_URL || defaults.rpcAddress);
   const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || defaults.networkMagic);
   const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
-  const account = new wallet.Account(signer.materialized?.wif || signer.materialized?.private_key || '');
+  const account = new wallet.Account(
+    signer.materialized?.wif || signer.materialized?.private_key || ''
+  );
   return { rpcAddress, networkMagic, account };
 }
 

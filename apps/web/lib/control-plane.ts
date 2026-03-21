@@ -46,7 +46,11 @@ function shouldFailOpen(status: number, text: string, contentType: string) {
   const normalizedType = contentType.toLowerCase();
   if (status === 429 && normalizedText.includes('error code: 1027')) return true;
   if (status === 429 && normalizedText.includes('temporarily rate limited')) return true;
-  if (status >= 500 && normalizedType.includes('text/html') && normalizedText.includes('cloudflare'))
+  if (
+    status >= 500 &&
+    normalizedType.includes('text/html') &&
+    normalizedText.includes('cloudflare')
+  )
     return true;
   return false;
 }
@@ -65,7 +69,10 @@ export async function dispatchToControlPlane(
   operation?: DispatchOperation
 ) {
   if (!appConfig.controlPlaneUrl) {
-    return Response.json({ error: 'MORPHEUS_CONTROL_PLANE_URL is not configured' }, { status: 500 });
+    return Response.json(
+      { error: 'MORPHEUS_CONTROL_PLANE_URL is not configured' },
+      { status: 500 }
+    );
   }
 
   const headers = new Headers(init.headers || {});

@@ -27,7 +27,9 @@ if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
 if (!updaterHash) throw new Error('MORPHEUS_UPDATER_HASH is required');
 
 const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
-const account = new wallet.Account(signer.materialized?.wif || signer.materialized?.private_key || '');
+const account = new wallet.Account(
+  signer.materialized?.wif || signer.materialized?.private_key || ''
+);
 const oracle = new experimental.SmartContract(oracleHash, {
   rpcAddress,
   networkMagic,

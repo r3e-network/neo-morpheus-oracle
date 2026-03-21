@@ -36,9 +36,11 @@ test.afterEach(async () => {
   else process.env.SUPABASE_URL = originalSupabaseUrl;
   if (originalSupabaseServiceRoleKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   else process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
-  if (originalFeedBootstrap === undefined) delete process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED;
+  if (originalFeedBootstrap === undefined)
+    delete process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED;
   else process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = originalFeedBootstrap;
-  if (originalFeedSnapshot === undefined) delete process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED;
+  if (originalFeedSnapshot === undefined)
+    delete process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED;
   else process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = originalFeedSnapshot;
   if (originalFeedProviders === undefined) delete process.env.MORPHEUS_FEED_PROVIDERS;
   else process.env.MORPHEUS_FEED_PROVIDERS = originalFeedProviders;

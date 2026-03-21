@@ -17,15 +17,17 @@ describe('control-plane fail-open behavior', () => {
   it('marks Cloudflare 1027 responses as fail-open', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response('error code: 1027', {
-          status: 429,
-          headers: { 'content-type': 'text/html; charset=UTF-8' },
-        })
+      vi.fn(
+        async () =>
+          new Response('error code: 1027', {
+            status: 429,
+            headers: { 'content-type': 'text/html; charset=UTF-8' },
+          })
       )
     );
 
-    const { dispatchToControlPlane, shouldUseControlPlaneFallback } = await import('../lib/control-plane');
+    const { dispatchToControlPlane, shouldUseControlPlaneFallback } =
+      await import('../lib/control-plane');
     const response = await dispatchToControlPlane('/oracle/query', {
       method: 'POST',
       body: JSON.stringify({ symbol: 'TWELVEDATA:NEO-USD' }),
@@ -46,7 +48,8 @@ describe('control-plane fail-open behavior', () => {
       })
     );
 
-    const { dispatchToControlPlane, shouldUseControlPlaneFallback } = await import('../lib/control-plane');
+    const { dispatchToControlPlane, shouldUseControlPlaneFallback } =
+      await import('../lib/control-plane');
     const response = await dispatchToControlPlane('/compute/execute', {
       method: 'POST',
       body: JSON.stringify({ script: 'return 1;' }),
@@ -63,15 +66,17 @@ describe('control-plane fail-open behavior', () => {
   it('does not fail-open healthy control-plane responses', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () =>
-        new Response(JSON.stringify({ id: 'job-1', status: 'dispatched' }), {
-          status: 202,
-          headers: { 'content-type': 'application/json' },
-        })
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ id: 'job-1', status: 'dispatched' }), {
+            status: 202,
+            headers: { 'content-type': 'application/json' },
+          })
       )
     );
 
-    const { dispatchToControlPlane, shouldUseControlPlaneFallback } = await import('../lib/control-plane');
+    const { dispatchToControlPlane, shouldUseControlPlaneFallback } =
+      await import('../lib/control-plane');
     const response = await dispatchToControlPlane('/oracle/smart-fetch', {
       method: 'POST',
       body: JSON.stringify({ symbol: 'TWELVEDATA:NEO-USD' }),

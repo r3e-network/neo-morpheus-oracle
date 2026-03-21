@@ -3,10 +3,7 @@ import { loadDotEnv } from './lib-env.mjs';
 import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  normalizeMorpheusNetwork,
-  resolvePinnedNeoN3Role,
-} from './lib-neo-signers.mjs';
+import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 

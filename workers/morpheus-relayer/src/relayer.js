@@ -104,7 +104,7 @@ function isTerminalConfigurationError(message) {
     normalized.includes('oracle verifier') ||
     normalized.includes('updater not set') ||
     normalized.includes('callback not allowed') ||
-    normalized.includes('called contract') && normalized.includes('not found')
+    (normalized.includes('called contract') && normalized.includes('not found'))
   );
 }
 
@@ -113,7 +113,10 @@ function computeRetryDelayMs(config, attempts) {
 }
 
 async function deferEventsForBackpressure(config, state, logger, chain, events, persistState) {
-  const maxFreshEventsPerTick = Math.max(Number(config.backpressure?.maxFreshEventsPerTick || events.length), 1);
+  const maxFreshEventsPerTick = Math.max(
+    Number(config.backpressure?.maxFreshEventsPerTick || events.length),
+    1
+  );
   if (events.length <= maxFreshEventsPerTick) {
     return { processable: events, deferred: [] };
   }
@@ -662,11 +665,19 @@ async function hydrateDurableQueue(config, state, logger, chain, persistState) {
   if (!ensureDurableQueueAvailable(config, logger, `${chain}:durable-queue-hydration`)) return [];
 
   const minRequestId =
-    Number.isFinite(Number(config.startRequestIds?.[chain])) && Number(config.startRequestIds?.[chain]) > 0
+    Number.isFinite(Number(config.startRequestIds?.[chain])) &&
+    Number(config.startRequestIds?.[chain]) > 0
       ? Number(config.startRequestIds?.[chain])
       : null;
   const jobs = await fetchRelayerJobsByStatuses(
-    ['queued', 'queued_backpressure', 'retry_scheduled', 'failure_callback_retry_scheduled', 'processing', 'retrying'],
+    [
+      'queued',
+      'queued_backpressure',
+      'retry_scheduled',
+      'failure_callback_retry_scheduled',
+      'processing',
+      'retrying',
+    ],
     chain,
     Math.max(Number(config.durableQueue?.syncLimit || 200), 1)
   );
@@ -679,13 +690,18 @@ async function hydrateDurableQueue(config, state, logger, chain, persistState) {
     if (minRequestId !== null && Number.isFinite(jobRequestId) && jobRequestId < minRequestId) {
       continue;
     }
-    if (!isDurableQueueReadyJob(job, nowMs, Number(config.durableQueue?.staleProcessingMs || 120000))) {
+    if (
+      !isDurableQueueReadyJob(job, nowMs, Number(config.durableQueue?.staleProcessingMs || 120000))
+    ) {
       continue;
     }
     const event = job?.event && typeof job.event === 'object' ? job.event : null;
     if (!event || !event.chain || !event.requestId) continue;
     const eventKey = job.event_key || buildEventKey(event);
-    if (hasProcessedEvent(state, chain, eventKey) || isEventQueuedForRetry(state, chain, eventKey)) {
+    if (
+      hasProcessedEvent(state, chain, eventKey) ||
+      isEventQueuedForRetry(state, chain, eventKey)
+    ) {
       continue;
     }
     const retryMeta = extractDurableRetryMeta(job);
@@ -703,7 +719,10 @@ async function hydrateDurableQueue(config, state, logger, chain, persistState) {
 
   if (hydrated.length > 0) {
     persistState();
-    logger.info({ chain, hydrated_count: hydrated.length }, 'Hydrated relayer retry queue from durable Supabase jobs');
+    logger.info(
+      { chain, hydrated_count: hydrated.length },
+      'Hydrated relayer retry queue from durable Supabase jobs'
+    );
   }
   return hydrated;
 }
@@ -1296,10 +1315,17 @@ async function processChain(config, state, logger, chain, options) {
   const persistState = createPersistor(config, state);
   await quarantineDurableBacklogBelowRequestFloor(config, logger, chain);
   await hydrateDurableQueue(config, state, logger, chain, persistState);
-  const pruned = pruneRetryQueueBelowRequestFloor(state, chain, getRequestCursorFloor(config, chain));
+  const pruned = pruneRetryQueueBelowRequestFloor(
+    state,
+    chain,
+    getRequestCursorFloor(config, chain)
+  );
   if (pruned > 0) {
     persistState();
-    logger.info({ chain, pruned_count: pruned }, 'Pruned legacy retry queue entries below request cursor floor');
+    logger.info(
+      { chain, pruned_count: pruned },
+      'Pruned legacy retry queue entries below request cursor floor'
+    );
   }
 
   const latestBlock = await options.getLatestBlock(config);
@@ -1434,10 +1460,17 @@ async function processChainByRequestCursor(config, state, logger, chain, options
   const persistState = createPersistor(config, state);
   await quarantineDurableBacklogBelowRequestFloor(config, logger, chain);
   await hydrateDurableQueue(config, state, logger, chain, persistState);
-  const pruned = pruneRetryQueueBelowRequestFloor(state, chain, getRequestCursorFloor(config, chain));
+  const pruned = pruneRetryQueueBelowRequestFloor(
+    state,
+    chain,
+    getRequestCursorFloor(config, chain)
+  );
   if (pruned > 0) {
     persistState();
-    logger.info({ chain, pruned_count: pruned }, 'Pruned legacy retry queue entries below request cursor floor');
+    logger.info(
+      { chain, pruned_count: pruned },
+      'Pruned legacy retry queue entries below request cursor floor'
+    );
   }
 
   const latestRequestId = await options.getLatestRequestId(config);
@@ -1513,34 +1546,36 @@ export async function runRelayerOnce(options = {}) {
     ? await processFeedSync(config, state, logger)
     : { enabled: false, skipped: true, mode: config.mode };
 
-  const neoN3 = shouldRunRequestProcessing(config) && config.activeChains.includes('neo_n3')
-    ? config.neo_n3.scanMode === 'request_cursor'
-      ? await processChainByRequestCursor(config, state, logger, 'neo_n3', {
-          hasConfig: hasNeoN3RelayerConfig,
-          getLatestRequestId: getNeoN3LatestRequestId,
-          scan: scanNeoN3OracleRequestsById,
+  const neoN3 =
+    shouldRunRequestProcessing(config) && config.activeChains.includes('neo_n3')
+      ? config.neo_n3.scanMode === 'request_cursor'
+        ? await processChainByRequestCursor(config, state, logger, 'neo_n3', {
+            hasConfig: hasNeoN3RelayerConfig,
+            getLatestRequestId: getNeoN3LatestRequestId,
+            scan: scanNeoN3OracleRequestsById,
+          })
+        : await processChain(config, state, logger, 'neo_n3', {
+            hasConfig: hasNeoN3RelayerConfig,
+            getLatestBlock:
+              config.neo_n3.scanMode === 'n3index_notifications'
+                ? getNeoN3IndexedBlock
+                : getNeoN3LatestBlock,
+            getLatestRequestId: getNeoN3LatestRequestId,
+            scan:
+              config.neo_n3.scanMode === 'n3index_notifications'
+                ? scanNeoN3OracleRequestsViaN3Index
+                : scanNeoN3OracleRequests,
+            scanByRequestId: scanNeoN3OracleRequestsById,
+          })
+      : { skipped: true, chain: 'neo_n3' };
+  const neoX =
+    shouldRunRequestProcessing(config) && config.activeChains.includes('neo_x')
+      ? await processChain(config, state, logger, 'neo_x', {
+          hasConfig: hasNeoXRelayerConfig,
+          getLatestBlock: getNeoXLatestBlock,
+          scan: scanNeoXOracleRequests,
         })
-      : await processChain(config, state, logger, 'neo_n3', {
-          hasConfig: hasNeoN3RelayerConfig,
-          getLatestBlock:
-            config.neo_n3.scanMode === 'n3index_notifications'
-              ? getNeoN3IndexedBlock
-              : getNeoN3LatestBlock,
-          getLatestRequestId: getNeoN3LatestRequestId,
-          scan:
-            config.neo_n3.scanMode === 'n3index_notifications'
-              ? scanNeoN3OracleRequestsViaN3Index
-              : scanNeoN3OracleRequests,
-          scanByRequestId: scanNeoN3OracleRequestsById,
-        })
-    : { skipped: true, chain: 'neo_n3' };
-  const neoX = shouldRunRequestProcessing(config) && config.activeChains.includes('neo_x')
-    ? await processChain(config, state, logger, 'neo_x', {
-        hasConfig: hasNeoXRelayerConfig,
-        getLatestBlock: getNeoXLatestBlock,
-        scan: scanNeoXOracleRequests,
-      })
-    : { skipped: true, chain: 'neo_x' };
+      : { skipped: true, chain: 'neo_x' };
   const automation = shouldRunRequestProcessing(config)
     ? await processAutomationJobs(config, logger)
     : { skipped: true, mode: config.mode };

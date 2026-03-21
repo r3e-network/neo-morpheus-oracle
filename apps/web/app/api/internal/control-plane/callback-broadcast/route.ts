@@ -1,8 +1,5 @@
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
-import {
-  fulfillNeoN3RequestViaBackend,
-  resolveControlPlaneNetwork,
-} from '@/lib/neo-control-plane';
+import { fulfillNeoN3RequestViaBackend, resolveControlPlaneNetwork } from '@/lib/neo-control-plane';
 
 export const runtime = 'nodejs';
 
@@ -49,8 +46,7 @@ export async function POST(request: Request) {
     body.verification_signature || body.signature || body.oracle_verifier_signature || ''
   );
   const errorText = trimString(body.error || '');
-  const resultText =
-    body.result === null || body.result === undefined ? '' : String(body.result);
+  const resultText = body.result === null || body.result === undefined ? '' : String(body.result);
   const resultBytesBase64 = trimString(body.result_bytes_base64 || '');
 
   if (!requestId) return badRequest('request_id is required');

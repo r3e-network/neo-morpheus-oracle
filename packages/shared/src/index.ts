@@ -21,10 +21,7 @@ export type ControlPlaneExecutionRoute =
   | '/neodid/bind'
   | '/neodid/action-ticket'
   | '/neodid/recovery-ticket';
-export type ControlPlaneAuxRoute =
-  | '/feeds/tick'
-  | '/callbacks/broadcast'
-  | '/automation/execute';
+export type ControlPlaneAuxRoute = '/feeds/tick' | '/callbacks/broadcast' | '/automation/execute';
 export type ControlPlaneRoute = ControlPlaneExecutionRoute | ControlPlaneAuxRoute;
 
 export type ControlPlaneJobRecord = {

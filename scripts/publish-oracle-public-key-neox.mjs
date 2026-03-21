@@ -10,7 +10,10 @@ const phalaUrl = trimString(
   process.env.MORPHEUS_RUNTIME_URL || process.env.PHALA_API_URL || ''
 ).replace(/\/$/, '');
 const phalaToken = trimString(
-  process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''
+  process.env.MORPHEUS_RUNTIME_TOKEN ||
+    process.env.PHALA_API_TOKEN ||
+    process.env.PHALA_SHARED_SECRET ||
+    ''
 );
 const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || '');
 const privateKey = trimString(

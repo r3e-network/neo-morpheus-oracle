@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
-const baseUrl = String(process.env.MORPHEUS_EDGE_URL || 'https://edge.meshmini.app').trim().replace(/\/$/, '');
+const baseUrl = String(process.env.MORPHEUS_EDGE_URL || 'https://edge.meshmini.app')
+  .trim()
+  .replace(/\/$/, '');
 
 async function readJson(pathname, options = {}) {
   const response = await fetch(`${baseUrl}${pathname}`, options);
@@ -36,24 +38,30 @@ async function main() {
     }),
   });
 
-  console.log(JSON.stringify({
-    baseUrl,
-    health: {
-      status: health.status,
-      edge: health.headers['x-morpheus-edge'] || null,
-      route: health.headers['x-morpheus-route'] || null,
-      cacheControl: health.headers['cache-control'] || null,
-    },
-    providers: {
-      status: providers.status,
-      count: Array.isArray(providers.body?.providers) ? providers.body.providers.length : null,
-      cacheControl: providers.headers['cache-control'] || null,
-    },
-    paymasterTurnstileProbe: {
-      status: paymasterTurnstileProbe.status,
-      body: paymasterTurnstileProbe.body,
-    },
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        baseUrl,
+        health: {
+          status: health.status,
+          edge: health.headers['x-morpheus-edge'] || null,
+          route: health.headers['x-morpheus-route'] || null,
+          cacheControl: health.headers['cache-control'] || null,
+        },
+        providers: {
+          status: providers.status,
+          count: Array.isArray(providers.body?.providers) ? providers.body.providers.length : null,
+          cacheControl: providers.headers['cache-control'] || null,
+        },
+        paymasterTurnstileProbe: {
+          status: paymasterTurnstileProbe.status,
+          body: paymasterTurnstileProbe.body,
+        },
+      },
+      null,
+      2
+    )
+  );
 }
 
 main().catch((error) => {

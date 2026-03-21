@@ -26,7 +26,9 @@ async function upstashRequest(pathname, { method = 'GET', body = null } = {}) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload?.error || payload?.message || `upstash request failed (${response.status})`);
+    throw new Error(
+      payload?.error || payload?.message || `upstash request failed (${response.status})`
+    );
   }
   return payload;
 }
@@ -52,16 +54,13 @@ export function isUpstashEnabled() {
 }
 
 export async function upstashPipeline(commands = []) {
-  return safeUpstash(
-    async () => {
-      const payload = await upstashRequest('/pipeline', {
-        method: 'POST',
-        body: commands,
-      });
-      return Array.isArray(payload) ? payload : [];
-    },
-    []
-  );
+  return safeUpstash(async () => {
+    const payload = await upstashRequest('/pipeline', {
+      method: 'POST',
+      body: commands,
+    });
+    return Array.isArray(payload) ? payload : [];
+  }, []);
 }
 
 export async function upstashGetString(key) {

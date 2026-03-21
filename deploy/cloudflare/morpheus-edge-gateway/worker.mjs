@@ -1,9 +1,18 @@
 const CACHE_RULES = [
   { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/health'), ttl: 15 },
   { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/providers'), ttl: 60 },
-  { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/feeds/catalog'), ttl: 300 },
-  { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/oracle/public-key'), ttl: 300 },
-  { match: (url, req) => req.method === 'GET' && /\/feeds\/price(?:\/|$)/.test(url.pathname), ttl: 15 },
+  {
+    match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/feeds/catalog'),
+    ttl: 300,
+  },
+  {
+    match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/oracle/public-key'),
+    ttl: 300,
+  },
+  {
+    match: (url, req) => req.method === 'GET' && /\/feeds\/price(?:\/|$)/.test(url.pathname),
+    ttl: 15,
+  },
 ];
 
 const TURNSTILE_PROTECTED_PATHS = [
@@ -43,7 +52,10 @@ function resolveNetworkRoute(url, env) {
       network: 'testnet',
       forwardedPath: '/',
       routePrefix: '/',
-      originBaseUrl: trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, ''),
+      originBaseUrl: trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(
+        /\/$/,
+        ''
+      ),
     };
   }
 
@@ -68,7 +80,10 @@ function resolveNetworkRoute(url, env) {
     network: 'testnet',
     forwardedPath: path,
     routePrefix: '',
-    originBaseUrl: trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, ''),
+    originBaseUrl: trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(
+      /\/$/,
+      ''
+    ),
   };
 }
 
@@ -140,7 +155,11 @@ async function applyNativeRateLimit(request, env, routeKey) {
   });
   if (verdict?.success) return null;
   const retryAfter = verdict?.retryAfter ?? 60;
-  return json(429, { error: 'rate_limit_exceeded', route: routeKey }, { 'retry-after': String(retryAfter) });
+  return json(
+    429,
+    { error: 'rate_limit_exceeded', route: routeKey },
+    { 'retry-after': String(retryAfter) }
+  );
 }
 
 function routeLimitConfig(routeKey, env) {
@@ -248,15 +267,22 @@ export default {
     const turnstileFailure = await verifyTurnstile(turnstileRequest, env);
     if (turnstileFailure) return turnstileFailure;
 
-    const routeKey =
-      routing.forwardedPath.endsWith('/paymaster/authorize') ? 'paymaster' :
-      routing.forwardedPath.endsWith('/relay/transaction') ? 'relay' :
-      routing.forwardedPath.endsWith('/compute/execute') ? 'compute' :
-      routing.forwardedPath.endsWith('/vrf/random') ? 'vrf' :
-      routing.forwardedPath.endsWith('/oracle/query') ? 'oracle-query' :
-      routing.forwardedPath.endsWith('/oracle/smart-fetch') ? 'oracle-query' :
-      routing.forwardedPath.endsWith('/feeds/price') || /\/feeds\/price\//.test(routing.forwardedPath) ? 'feeds-price' :
-      'origin';
+    const routeKey = routing.forwardedPath.endsWith('/paymaster/authorize')
+      ? 'paymaster'
+      : routing.forwardedPath.endsWith('/relay/transaction')
+        ? 'relay'
+        : routing.forwardedPath.endsWith('/compute/execute')
+          ? 'compute'
+          : routing.forwardedPath.endsWith('/vrf/random')
+            ? 'vrf'
+            : routing.forwardedPath.endsWith('/oracle/query')
+              ? 'oracle-query'
+              : routing.forwardedPath.endsWith('/oracle/smart-fetch')
+                ? 'oracle-query'
+                : routing.forwardedPath.endsWith('/feeds/price') ||
+                    /\/feeds\/price\//.test(routing.forwardedPath)
+                  ? 'feeds-price'
+                  : 'origin';
 
     const rateLimited = await applyNativeRateLimit(request, env, routeKey);
     if (rateLimited) return rateLimited;

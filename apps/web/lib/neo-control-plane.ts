@@ -1,5 +1,9 @@
 import { experimental, rpc as neoRpc, sc, u, wallet as neoWallet } from '@cityofzion/neon-js';
-import { getServerSupabaseClient, resolveSupabaseNetwork, type MorpheusNetwork } from './server-supabase';
+import {
+  getServerSupabaseClient,
+  resolveSupabaseNetwork,
+  type MorpheusNetwork,
+} from './server-supabase';
 import mainnet from '../../../config/networks/mainnet.json';
 import testnet from '../../../config/networks/testnet.json';
 
@@ -201,7 +205,10 @@ export async function fetchAutomationJobForBackend(network: MorpheusNetwork, aut
   return data;
 }
 
-export async function recordAutomationRunForBackend(network: MorpheusNetwork, record: Record<string, unknown>) {
+export async function recordAutomationRunForBackend(
+  network: MorpheusNetwork,
+  record: Record<string, unknown>
+) {
   const supabase = getServerSupabaseClient();
   if (!supabase) throw new Error('Supabase is not configured');
   const { error } = await supabase.from('morpheus_automation_runs').insert({
@@ -211,7 +218,11 @@ export async function recordAutomationRunForBackend(network: MorpheusNetwork, re
   if (error) throw error;
 }
 
-export async function patchAutomationJobForBackend(network: MorpheusNetwork, automationId: string, fields: Record<string, unknown>) {
+export async function patchAutomationJobForBackend(
+  network: MorpheusNetwork,
+  automationId: string,
+  fields: Record<string, unknown>
+) {
   const supabase = getServerSupabaseClient();
   if (!supabase) throw new Error('Supabase is not configured');
   const { error } = await supabase

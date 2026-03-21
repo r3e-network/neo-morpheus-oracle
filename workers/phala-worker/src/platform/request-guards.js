@@ -1,4 +1,11 @@
-import { json, normalizeBoolean, parseDurationMs, sha256Hex, stableStringify, trimString } from './core.js';
+import {
+  json,
+  normalizeBoolean,
+  parseDurationMs,
+  sha256Hex,
+  stableStringify,
+  trimString,
+} from './core.js';
 import {
   claimIdempotencyLock,
   incrementFixedWindowCounter,
@@ -85,9 +92,12 @@ function getClientIp(request) {
 }
 
 function payloadIdentity(payload = {}) {
-  const paymaster = payload?.paymaster && typeof payload.paymaster === 'object' ? payload.paymaster : {};
+  const paymaster =
+    payload?.paymaster && typeof payload.paymaster === 'object' ? payload.paymaster : {};
   const metaInvocation =
-    payload?.metaInvocation && typeof payload.metaInvocation === 'object' ? payload.metaInvocation : {};
+    payload?.metaInvocation && typeof payload.metaInvocation === 'object'
+      ? payload.metaInvocation
+      : {};
   const firstArg = Array.isArray(metaInvocation.args) ? metaInvocation.args[0] : null;
   return {
     accountId: firstTruthy(
@@ -97,7 +107,12 @@ function payloadIdentity(payload = {}) {
       paymaster.accountId,
       firstArg?.value
     ).toLowerCase(),
-    dappId: firstTruthy(payload.dapp_id, payload.dappId, paymaster.dapp_id, paymaster.dappId).toLowerCase(),
+    dappId: firstTruthy(
+      payload.dapp_id,
+      payload.dappId,
+      paymaster.dapp_id,
+      paymaster.dappId
+    ).toLowerCase(),
     operationHash: firstTruthy(
       payload.operation_hash,
       payload.operationHash,
@@ -168,10 +183,13 @@ export async function applyRequestGuards({ request, path, payload }) {
     return { ok: true, routeName };
   }
 
-  const rateLimit = await incrementFixedWindowCounter(buildRateLimitKey(routeName, request, payload), {
-    max: policy.max,
-    windowMs: policy.windowMs,
-  });
+  const rateLimit = await incrementFixedWindowCounter(
+    buildRateLimitKey(routeName, request, payload),
+    {
+      max: policy.max,
+      windowMs: policy.windowMs,
+    }
+  );
   if (!rateLimit.allowed) {
     return {
       ok: false,

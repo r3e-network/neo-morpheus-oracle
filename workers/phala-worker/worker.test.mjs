@@ -57,9 +57,8 @@ const baselineEnv = { ...process.env };
 const { default: handler } = await import('./src/worker.js');
 const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } =
   await import('./src/platform/dstack.js');
-const { __resetOracleKeyMaterialForTests, decryptEncryptedToken } = await import(
-  './src/oracle/crypto.js'
-);
+const { __resetOracleKeyMaterialForTests, decryptEncryptedToken } =
+  await import('./src/oracle/crypto.js');
 const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
 const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
@@ -1239,7 +1238,9 @@ test('feed quote expands bare asset symbols to USD pairs without producing undef
     });
   };
 
-  const res = await handler(new Request('http://local/feeds/price/GAS', { headers: authHeaders() }));
+  const res = await handler(
+    new Request('http://local/feeds/price/GAS', { headers: authHeaders() })
+  );
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:GAS-USD');

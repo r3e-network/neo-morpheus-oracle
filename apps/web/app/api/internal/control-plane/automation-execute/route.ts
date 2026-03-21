@@ -89,7 +89,9 @@ export async function POST(request: Request) {
     }
 
     const payloadText = JSON.stringify(
-      typeof job.execution_payload === 'string' ? { raw_payload: job.execution_payload } : job.execution_payload || {}
+      typeof job.execution_payload === 'string'
+        ? { raw_payload: job.execution_payload }
+        : job.execution_payload || {}
     );
     const requestId = `automation:${job.chain}:${automationId}:${Number(job.execution_count || 0) + 1}`;
 
