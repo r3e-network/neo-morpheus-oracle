@@ -1,6 +1,10 @@
 import { appConfig } from '@/lib/config';
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
-import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
+import {
+  dispatchToControlPlane,
+  shouldDispatchToControlPlane,
+  shouldUseControlPlaneFallback,
+} from '@/lib/control-plane';
 import { parseFeedProviders, parseFeedSymbols } from '@/lib/feed-defaults';
 import { runFeedSyncJob } from '@/lib/feed-sync';
 import { recordOperationLog } from '@/lib/operation-logs';
@@ -88,7 +92,7 @@ export async function GET(request: Request) {
   };
 
   if (isFeedControlPlaneEnabled() && shouldDispatchToControlPlane('/feeds/tick')) {
-    return dispatchToControlPlane(
+    const controlPlaneResponse = await dispatchToControlPlane(
       '/feeds/tick',
       {
         method: 'POST',
@@ -103,6 +107,9 @@ export async function GET(request: Request) {
         },
       }
     );
+    if (!shouldUseControlPlaneFallback(controlPlaneResponse)) {
+      return controlPlaneResponse;
+    }
   }
 
   const finalBody = await runFeedSyncJob(feedTickPayload);

@@ -1,4 +1,8 @@
-import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
+import {
+  dispatchToControlPlane,
+  shouldDispatchToControlPlane,
+  shouldUseControlPlaneFallback,
+} from '@/lib/control-plane';
 import { resolveProviderAwarePayload } from '@/lib/provider-configs';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { proxyToPhala } from '@/lib/phala';
@@ -31,7 +35,7 @@ export async function POST(request: Request) {
       fallbackProviderId: !body.url && body.symbol ? 'twelvedata' : undefined,
     });
     if (shouldDispatchToControlPlane('/oracle/query')) {
-      return dispatchToControlPlane(
+      const controlPlaneResponse = await dispatchToControlPlane(
         '/oracle/query',
         {
           method: 'POST',
@@ -43,6 +47,9 @@ export async function POST(request: Request) {
           requestPayload: resolved.payload,
         }
       );
+      if (!shouldUseControlPlaneFallback(controlPlaneResponse)) {
+        return controlPlaneResponse;
+      }
     }
     return proxyToPhala(
       '/oracle/query',

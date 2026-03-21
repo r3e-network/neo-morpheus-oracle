@@ -1,10 +1,14 @@
-import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
+import {
+  dispatchToControlPlane,
+  shouldDispatchToControlPlane,
+  shouldUseControlPlaneFallback,
+} from '@/lib/control-plane';
 import { proxyToPhala } from '@/lib/phala';
 
 export async function POST(request: Request) {
   const body = await request.text();
   if (shouldDispatchToControlPlane('/neodid/recovery-ticket')) {
-    return dispatchToControlPlane(
+    const controlPlaneResponse = await dispatchToControlPlane(
       '/neodid/recovery-ticket',
       {
         method: 'POST',
@@ -17,6 +21,9 @@ export async function POST(request: Request) {
         requestPayload: body,
       }
     );
+    if (!shouldUseControlPlaneFallback(controlPlaneResponse)) {
+      return controlPlaneResponse;
+    }
   }
   return proxyToPhala(
     '/neodid/recovery-ticket',
