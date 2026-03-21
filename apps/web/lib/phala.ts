@@ -28,6 +28,8 @@ function isRetryableStatus(status: number) {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
+const RUNTIME_URL_ERROR = 'MORPHEUS_RUNTIME_URL or PHALA_API_URL is not configured';
+
 export async function proxyToPhala(
   path: string,
   init: RequestInit = {},
@@ -48,14 +50,14 @@ export async function proxyToPhala(
           method: init.method || 'GET',
           category: operation.category,
           requestPayload: operation.requestPayload,
-          responsePayload: { error: 'PHALA_API_URL is not configured' },
+          responsePayload: { error: RUNTIME_URL_ERROR },
           httpStatus: 500,
-          error: 'PHALA_API_URL is not configured',
+          error: RUNTIME_URL_ERROR,
           metadata: operation.metadata,
         });
       } catch {}
     }
-    return Response.json({ error: 'PHALA_API_URL is not configured' }, { status: 500 });
+    return Response.json({ error: RUNTIME_URL_ERROR }, { status: 500 });
   }
 
   const headers = new Headers(init.headers || {});

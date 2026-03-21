@@ -37,8 +37,8 @@ npm --prefix workers/morpheus-relayer run metrics
 
 ## Required env
 
-- `PHALA_API_URL`
-- `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
+- `MORPHEUS_RUNTIME_URL` preferred, or legacy `PHALA_API_URL`
+- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
 - `MORPHEUS_NETWORK` (`testnet` or `mainnet`)
 - `NEO_RPC_URL`
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
@@ -146,5 +146,5 @@ A simple production pattern is:
 
 - deploy `workers/phala-worker` to Phala
 - run `workers/morpheus-relayer` as a sidecar process on a small VM or container
-- point `PHALA_API_URL` at the public Phala worker endpoint
+- point `MORPHEUS_RUNTIME_URL` at the public Morpheus runtime endpoint
 - keep chain updater keys and Supabase service credentials only in the sidecar env

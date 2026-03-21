@@ -21,15 +21,24 @@ If one of these is wrong, the system usually stops working.
 这些是日常运行最关键的变量。
 其中任意一个出错，系统通常就会停止工作。
 
-### Phala Access / Phala 访问
+### Runtime Access / Runtime 访问
 
-- `PHALA_API_URL`
-  English: Public URL of the Phala worker. The web app and scripts call this URL.
-  中文：Phala worker 的公网地址。前端和运维脚本都会调用它。
+- `MORPHEUS_RUNTIME_URL`
+  English: Preferred public URL of the unified Morpheus runtime. The web app and scripts should use this first.
+  中文：统一 Morpheus runtime 的优先公网地址。前端和运维脚本应优先使用它。
 
+- `MORPHEUS_MAINNET_RUNTIME_URL` / `MORPHEUS_TESTNET_RUNTIME_URL`
+  English: Optional network-scoped runtime URLs when you want explicit mainnet/testnet separation.
+  中文：可选的分网络 runtime 地址，用于显式区分 mainnet/testnet。
+
+- legacy `PHALA_API_URL`
+  English: Backward-compatible alias for the runtime URL.
+  中文：runtime 地址的向后兼容旧别名。
+
+- `MORPHEUS_RUNTIME_TOKEN`
 - `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
-  English: Authentication secret for the worker.
-  中文：worker 的鉴权密钥。
+  English: Authentication secret for the runtime. Prefer `MORPHEUS_RUNTIME_TOKEN`; older aliases still work.
+  中文：runtime 的鉴权密钥。优先使用 `MORPHEUS_RUNTIME_TOKEN`；旧别名仍兼容。
 
 ### Edge Hardening / 边缘防护
 

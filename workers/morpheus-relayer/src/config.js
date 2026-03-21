@@ -1,6 +1,12 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  NEO_N3_SIGNER_ENV_KEYS,
+  normalizeMorpheusNetwork,
+  resolvePinnedNeoN3Role,
+} from '../../../scripts/lib-neo-signers.mjs';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '../../..');
@@ -22,6 +28,20 @@ function parseActiveChains(value) {
   const requested = parseList(value).map((entry) => entry.toLowerCase());
   const filtered = requested.filter((entry) => entry === 'neo_n3' || entry === 'neo_x');
   return filtered.length > 0 ? filtered : ['neo_n3'];
+}
+
+function parseBoolean(value, fallback = false) {
+  const raw = trimString(value).toLowerCase();
+  if (!raw) return fallback;
+  if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') return true;
+  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+  return fallback;
+}
+
+function resolveRelayerMode(value) {
+  const normalized = trimString(value).toLowerCase();
+  if (normalized === 'feed_only' || normalized === 'requests_only') return normalized;
+  return 'combined';
 }
 
 let runtimeConfigCache;
@@ -66,23 +86,13 @@ function resolveNetworkName() {
   return env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet';
 }
 
-function resolveNeoN3UpdaterWif(networkName) {
-  if (networkName === 'mainnet') {
-    return env(
-      'MORPHEUS_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_UPDATER_NEO_N3_WIF',
-      'NEO_N3_WIF',
-      'PHALA_NEO_N3_WIF',
-      'NEO_TESTNET_WIF'
-    );
+function snapshotSignerEnv() {
+  const snapshot = {};
+  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
+    const value = env(key);
+    if (value) snapshot[key] = value;
   }
-  return env(
-    'MORPHEUS_RELAYER_NEO_N3_WIF',
-    'MORPHEUS_UPDATER_NEO_N3_WIF',
-    'NEO_TESTNET_WIF',
-    'PHALA_NEO_N3_WIF',
-    'NEO_N3_WIF'
-  );
+  return snapshot;
 }
 
 function loadNetworkRegistry(networkName) {
@@ -97,16 +107,39 @@ function loadNetworkRegistry(networkName) {
 }
 
 export function createRelayerConfig() {
-  const network = resolveNetworkName();
+  const network = normalizeMorpheusNetwork(resolveNetworkName());
   const registry = loadNetworkRegistry(network);
+  const mode = resolveRelayerMode(env('MORPHEUS_RELAYER_MODE') || 'combined');
+  const hasSupabaseUrl = Boolean(env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL'));
+  const hasSupabaseKey = Boolean(
+    env(
+      'SUPABASE_SECRET_KEY',
+      'SUPABASE_SERVICE_ROLE_KEY',
+      'morpheus_SUPABASE_SECRET_KEY',
+      'morpheus_SUPABASE_SERVICE_ROLE_KEY',
+      'SUPABASE_SERVICE_KEY'
+    )
+  );
+  const durableQueueEnabled = parseBoolean(
+    env('MORPHEUS_DURABLE_QUEUE_ENABLED'),
+    hasSupabaseUrl && hasSupabaseKey
+  );
   const stateFile = path.resolve(
     repoRoot,
-    env('MORPHEUS_RELAYER_STATE_FILE') || '.morpheus-relayer-state.json'
+    env('MORPHEUS_RELAYER_STATE_FILE') ||
+      (mode === 'combined' ? '.morpheus-relayer-state.json' : `.morpheus-relayer-state.${mode}.json`)
   );
+  const updaterSigner = resolvePinnedNeoN3Role(network, 'updater', {
+    env: snapshotSignerEnv(),
+  });
 
   return {
     repoRoot,
     network,
+    mode,
+    instanceId:
+      trimString(env('MORPHEUS_RELAYER_INSTANCE_ID')) ||
+      `${mode}:${network}:${trimString(os.hostname() || 'host')}:${process.pid}`,
     activeChains: parseActiveChains(env('MORPHEUS_ACTIVE_CHAINS') || 'neo_n3'),
     pollIntervalMs: Number(env('MORPHEUS_RELAYER_POLL_INTERVAL_MS') || 5000),
     concurrency: Math.max(Number(env('MORPHEUS_RELAYER_CONCURRENCY') || 4), 1),
@@ -116,9 +149,36 @@ export function createRelayerConfig() {
     retryMaxDelayMs: Math.max(Number(env('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || 300000), 1000),
     processedCacheSize: Math.max(Number(env('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || 5000), 100),
     deadLetterLimit: Math.max(Number(env('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || 500), 10),
+    durableQueue: {
+      enabled: durableQueueEnabled,
+      failClosed: parseBoolean(
+        env('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED'),
+        durableQueueEnabled
+      ),
+      syncLimit: Math.max(Number(env('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT') || 200), 1),
+      staleProcessingMs: Math.max(
+        Number(env('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS') || 120000),
+        1000
+      ),
+    },
+    backpressure: {
+      maxFreshEventsPerTick: Math.max(
+        Number(env('MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK') || 32),
+        1
+      ),
+      maxRetryEventsPerTick: Math.max(
+        Number(env('MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK') || 16),
+        1
+      ),
+      deferDelayMs: Math.max(
+        Number(env('MORPHEUS_RELAYER_DEFER_DELAY_MS') || 5000),
+        250
+      ),
+    },
     feedSync: {
       enabled: (env('MORPHEUS_FEED_SYNC_ENABLED') || 'true').toLowerCase() !== 'false',
       intervalMs: Math.max(Number(env('MORPHEUS_FEED_SYNC_INTERVAL_MS') || 60000), 1000),
+      timeoutMs: Math.max(Number(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || 120000), 1000),
       projectSlug: env('MORPHEUS_FEED_PROJECT_SLUG') || 'demo',
       provider: env('MORPHEUS_FEED_PROVIDER'),
       providers: parseList(env('MORPHEUS_FEED_PROVIDERS')),
@@ -163,8 +223,18 @@ export function createRelayerConfig() {
     },
     stateFile,
     phala: {
-      apiUrl: env('PHALA_API_URL'),
-      token: env('PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
+      apiUrl:
+        env(
+          `MORPHEUS_${network.toUpperCase()}_RUNTIME_URL`,
+          'MORPHEUS_RUNTIME_URL',
+          `MORPHEUS_${network.toUpperCase()}_PHALA_API_URL`,
+          'PHALA_API_URL'
+        ) ||
+        trimString(registry.phala?.public_api_url || '') ||
+        (network === 'mainnet'
+          ? 'https://morpheus-mainnet.meshmini.app'
+          : 'https://morpheus-testnet.meshmini.app'),
+      token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
       timeoutMs: Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || 30000),
     },
     neo_n3: {
@@ -184,12 +254,8 @@ export function createRelayerConfig() {
       datafeedContract:
         env('CONTRACT_MORPHEUS_DATAFEED_HASH') ||
         trimString(registry.neo_n3?.contracts?.morpheus_datafeed || ''),
-      updaterWif: resolveNeoN3UpdaterWif(network),
-      updaterPrivateKey: env(
-        'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-        'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
-        'PHALA_NEO_N3_PRIVATE_KEY'
-      ),
+      updaterWif: updaterSigner.materialized?.wif || '',
+      updaterPrivateKey: updaterSigner.materialized?.private_key || '',
     },
     neo_x: {
       rpcUrl: env('NEOX_RPC_URL', 'NEO_X_RPC_URL') || trimString(registry.neo_x?.rpc_url || ''),

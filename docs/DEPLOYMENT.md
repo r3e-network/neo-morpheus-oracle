@@ -25,8 +25,8 @@ Deploy `apps/web` to Vercel.
 Required env vars:
 
 - `NEXT_PUBLIC_MORPHEUS_NETWORK` (`mainnet` or `testnet`)
-- `PHALA_API_URL`
-- `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
+- `MORPHEUS_RUNTIME_URL` preferred, or network-scoped `MORPHEUS_MAINNET_RUNTIME_URL` / `MORPHEUS_TESTNET_RUNTIME_URL`
+- `MORPHEUS_RUNTIME_TOKEN` preferred, or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
 - `TWELVEDATA_API_KEY` for the TwelveData built-in provider
 - `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`
 - optional Coinbase spot provider requires no secret
@@ -53,7 +53,7 @@ Required env vars:
 
 Deploy `workers/phala-worker` to Phala with:
 
-- `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
+- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
 - `NEO_RPC_URL`
 - `MORPHEUS_ACTIVE_CHAINS=neo_n3`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
@@ -137,8 +137,8 @@ Current production scope:
 
 Required env vars:
 
-- `PHALA_API_URL`
-- `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
+- `MORPHEUS_RUNTIME_URL` preferred, or legacy `PHALA_API_URL`
+- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
 - `MORPHEUS_NETWORK`
 - `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
 - `MORPHEUS_RELAYER_NEOX_PRIVATE_KEY`

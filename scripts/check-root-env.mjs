@@ -1,5 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {
+  reportPinnedNeoN3Roles,
+  normalizeMorpheusNetwork,
+} from './lib-neo-signers.mjs';
 
 const envPath = path.resolve(process.cwd(), '.env');
 
@@ -46,11 +50,17 @@ const required = {
   web_public: [
     ['NEXT_PUBLIC_APP_NAME'],
     ['NEXT_PUBLIC_APP_URL'],
-    ['PHALA_API_URL'],
+    [
+      'MORPHEUS_RUNTIME_URL',
+      'MORPHEUS_MAINNET_RUNTIME_URL',
+      'MORPHEUS_TESTNET_RUNTIME_URL',
+      'PHALA_API_URL',
+    ],
     ['NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL'],
     ['NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_morpheus_SUPABASE_ANON_KEY'],
   ],
   web_server: [
+    ['MORPHEUS_RUNTIME_URL', 'MORPHEUS_MAINNET_RUNTIME_URL', 'MORPHEUS_TESTNET_RUNTIME_URL', 'PHALA_API_URL'],
     ['SUPABASE_URL', 'morpheus_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'],
     [
       'SUPABASE_SECRET_KEY',
@@ -58,7 +68,7 @@ const required = {
       'SUPABASE_SERVICE_ROLE_KEY',
       'morpheus_SUPABASE_SERVICE_ROLE_KEY',
     ],
-    ['PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
+    ['MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
     ['MORPHEUS_NETWORK'],
     ['NEO_RPC_URL'],
     ['NEO_NETWORK_MAGIC'],
@@ -98,6 +108,22 @@ const report = {
     ]),
   },
 };
+
+const signerNetwork = normalizeMorpheusNetwork(env.MORPHEUS_NETWORK || 'testnet');
+report.neo_n3_signers = reportPinnedNeoN3Roles(
+  signerNetwork,
+  ['worker', 'relayer', 'updater', 'oracle_verifier'],
+  { env, allowMissing: true }
+).map((entry) => ({
+  network: entry.network,
+  role: entry.role,
+  pinned: entry.pinned,
+  selected_source: entry.selected_source,
+  selected_identity: entry.selected_identity,
+  public_key: entry.public_key,
+  issues: entry.issues,
+  ok: entry.ok,
+}));
 
 for (const [section, groups] of Object.entries(required)) {
   report.missing[section] = groups
@@ -143,7 +169,9 @@ report.optional_recommendations.oracle_verifier = [
   .filter((keys) => !getValue(env, keys))
   .map((keys) => keys.join(' | '));
 
-report.ok = Object.values(report.missing).every((items) => items.length === 0);
+report.ok =
+  Object.values(report.missing).every((items) => items.length === 0) &&
+  report.neo_n3_signers.every((entry) => entry.ok);
 
 console.log(JSON.stringify(report, null, 2));
 if (!report.ok) process.exitCode = 1;

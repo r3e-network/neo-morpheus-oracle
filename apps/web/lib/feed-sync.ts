@@ -17,8 +17,14 @@ type FeedSyncOptions = {
 };
 
 export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
-  if (!appConfig.phalaApiUrl) {
-    throw new Error('PHALA_API_URL is not configured');
+  const candidateUrls =
+    Array.isArray(appConfig.phalaApiUrls) && appConfig.phalaApiUrls.length > 0
+      ? appConfig.phalaApiUrls
+      : appConfig.phalaApiUrl
+        ? [appConfig.phalaApiUrl]
+        : [];
+  if (candidateUrls.length === 0) {
+    throw new Error('MORPHEUS_RUNTIME_URL or PHALA_API_URL is not configured');
   }
 
   const explicitTargetChain = trimString(options.target_chain || '');
@@ -66,18 +72,34 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
           fallbackProviderId: configuredProvider || undefined,
         });
 
-        const response = await fetch(`${appConfig.phalaApiUrl.replace(/\/$/, '')}/oracle/feed`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(resolved.payload),
-          cache: 'no-store',
-        });
-        const text = await response.text();
-        try {
-          return { target_chain: targetChain, status: response.status, body: JSON.parse(text) };
-        } catch {
-          return { target_chain: targetChain, status: response.status, body: text };
+        let lastStatus = 503;
+        let lastBody: unknown = { error: 'upstream unavailable' };
+        for (const apiBaseUrl of candidateUrls) {
+          const response = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/oracle/feed`, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(resolved.payload),
+            cache: 'no-store',
+          });
+          const text = await response.text();
+          let body: unknown = text;
+          try {
+            body = text ? JSON.parse(text) : {};
+          } catch {}
+          lastStatus = response.status;
+          lastBody = body;
+          if (
+            response.ok ||
+            (response.status !== 408 &&
+              response.status !== 409 &&
+              response.status !== 425 &&
+              response.status !== 429 &&
+              response.status < 500)
+          ) {
+            break;
+          }
         }
+        return { target_chain: targetChain, status: lastStatus, body: lastBody };
       } catch (error) {
         return {
           target_chain: targetChain,
