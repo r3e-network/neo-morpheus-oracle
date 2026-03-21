@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const envPath = path.resolve(process.cwd(), '.env');
+const strict = process.argv.includes('--strict');
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -49,6 +50,10 @@ function buildUrlStatus(value) {
   }
 }
 
+function isSectionConfigured(env, keys) {
+  return keys.some((key) => trimString(env[key]));
+}
+
 let fileEnv = {};
 try {
   fileEnv = parseDotEnv(await fs.readFile(envPath, 'utf8'));
@@ -67,12 +72,18 @@ const required = {
   control_plane_worker: [
     ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL'],
     ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'morpheus_SUPABASE_SECRET_KEY'],
+  ],
+};
+
+const optional = {
+  auth: [
     [
       'MORPHEUS_CONTROL_PLANE_API_KEY',
       'MORPHEUS_OPERATOR_API_KEY',
       'MORPHEUS_PROVIDER_CONFIG_API_KEY',
     ],
   ],
+  rate_limit: [['UPSTASH_REDIS_REST_URL'], ['UPSTASH_REDIS_REST_TOKEN']],
   execution_plane: [
     ['MORPHEUS_MAINNET_EXECUTION_BASE_URL'],
     ['MORPHEUS_TESTNET_EXECUTION_BASE_URL'],
@@ -97,21 +108,127 @@ for (const [section, groups] of Object.entries(required)) {
   missing[section] = groups.filter((keys) => !getValue(env, keys)).map((keys) => keys.join(' | '));
 }
 
+const optionalRecommendations = {};
+for (const [section, groups] of Object.entries(optional)) {
+  optionalRecommendations[section] = groups
+    .filter((keys) => !getValue(env, keys))
+    .map((keys) => keys.join(' | '));
+}
+
+const mainnetExecutionConfigured = Boolean(trimString(env.MORPHEUS_MAINNET_EXECUTION_BASE_URL));
+const testnetExecutionConfigured = Boolean(trimString(env.MORPHEUS_TESTNET_EXECUTION_BASE_URL));
+const executionPlaneConfigured = mainnetExecutionConfigured || testnetExecutionConfigured;
+const appBackendConfigured = isSectionConfigured(env, ['MORPHEUS_APP_BACKEND_URL']);
+const webCutoverConfigured = isSectionConfigured(env, ['MORPHEUS_CONTROL_PLANE_URL']);
+
 const urls = {
-  control_plane_url: buildUrlStatus(getValue(env, ['MORPHEUS_CONTROL_PLANE_URL'])),
-  app_backend_url: buildUrlStatus(getValue(env, ['MORPHEUS_APP_BACKEND_URL'])),
-  mainnet_execution_url: buildUrlStatus(getValue(env, ['MORPHEUS_MAINNET_EXECUTION_BASE_URL'])),
-  testnet_execution_url: buildUrlStatus(getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL'])),
+  control_plane_url: webCutoverConfigured
+    ? buildUrlStatus(getValue(env, ['MORPHEUS_CONTROL_PLANE_URL']))
+    : { ok: true, value: '' },
+  app_backend_url: appBackendConfigured
+    ? buildUrlStatus(getValue(env, ['MORPHEUS_APP_BACKEND_URL']))
+    : { ok: true, value: '' },
+  mainnet_execution_url: trimString(env.MORPHEUS_MAINNET_EXECUTION_BASE_URL)
+    ? buildUrlStatus(getValue(env, ['MORPHEUS_MAINNET_EXECUTION_BASE_URL']))
+    : { ok: true, value: '' },
+  testnet_execution_url: trimString(env.MORPHEUS_TESTNET_EXECUTION_BASE_URL)
+    ? buildUrlStatus(getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL']))
+    : { ok: true, value: '' },
 };
 
 const report = {
   env_path: envPath,
   missing,
+  optional_recommendations: optionalRecommendations,
+  mode: {
+    strict,
+    execution_plane_configured: executionPlaneConfigured,
+    app_backend_configured: appBackendConfigured,
+    web_cutover_configured: webCutoverConfigured,
+  },
   urls,
-  ok:
-    Object.values(missing).every((items) => items.length === 0) &&
-    Object.values(urls).every((entry) => entry.ok),
+  ok: false,
 };
+
+const requiredOk =
+  Object.values(missing).every((items) => items.length === 0) &&
+  Object.values(urls).every((entry) => entry.ok);
+
+const strictOk = strict
+  ? Object.values(optionalRecommendations).every((items) => items.length === 0)
+  : true;
+
+const partiallyConfiguredMissing = {};
+
+if (executionPlaneConfigured || strict) {
+  const executionMissing = [];
+  if (strict || mainnetExecutionConfigured) {
+    if (!getValue(env, ['MORPHEUS_MAINNET_EXECUTION_BASE_URL'])) {
+      executionMissing.push('MORPHEUS_MAINNET_EXECUTION_BASE_URL');
+    }
+    if (
+      !getValue(env, [
+        'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
+        'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY',
+      ])
+    ) {
+      executionMissing.push(
+        'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF | MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY'
+      );
+    }
+  }
+  if (strict || testnetExecutionConfigured) {
+    if (!getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL'])) {
+      executionMissing.push('MORPHEUS_TESTNET_EXECUTION_BASE_URL');
+    }
+    if (
+      !getValue(env, [
+        'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF',
+        'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY',
+      ])
+    ) {
+      executionMissing.push(
+        'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF | MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY'
+      );
+    }
+  }
+  if (!getValue(env, ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'])) {
+    executionMissing.push('MORPHEUS_EXECUTION_TOKEN | PHALA_API_TOKEN | PHALA_SHARED_SECRET');
+  }
+  partiallyConfiguredMissing.execution_plane = executionMissing;
+}
+
+if (appBackendConfigured || strict) {
+  const backendMissing = [];
+  if (!getValue(env, ['MORPHEUS_APP_BACKEND_URL'])) {
+    backendMissing.push('MORPHEUS_APP_BACKEND_URL');
+  }
+  if (
+    strict &&
+    !getValue(env, [
+      'MORPHEUS_APP_BACKEND_TOKEN',
+      'MORPHEUS_CONTROL_PLANE_API_KEY',
+      'MORPHEUS_OPERATOR_API_KEY',
+      'MORPHEUS_PROVIDER_CONFIG_API_KEY',
+    ])
+  ) {
+    backendMissing.push(
+      'MORPHEUS_APP_BACKEND_TOKEN | MORPHEUS_CONTROL_PLANE_API_KEY | MORPHEUS_OPERATOR_API_KEY | MORPHEUS_PROVIDER_CONFIG_API_KEY'
+    );
+  }
+  partiallyConfiguredMissing.app_backend = backendMissing;
+}
+
+if (webCutoverConfigured || strict) {
+  partiallyConfiguredMissing.web_cutover = !getValue(env, ['MORPHEUS_CONTROL_PLANE_URL'])
+    ? ['MORPHEUS_CONTROL_PLANE_URL']
+    : [];
+}
+
+report.missing_optional_when_configured = partiallyConfiguredMissing;
+
+report.ok =
+  requiredOk && strictOk && Object.values(partiallyConfiguredMissing).every((v) => v.length === 0);
 
 console.log(JSON.stringify(report, null, 2));
 if (!report.ok) process.exitCode = 1;
