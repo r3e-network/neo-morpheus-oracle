@@ -19,9 +19,9 @@ This is the best balance for the current project: simple, cheap, and enough to r
 
 From the TDX sizes shown in your console:
 
-- `Small TDX (1 vCPU / 2GB)` — **not recommended** for this project
-- `Medium TDX (2 vCPU / 4GB)` — **recommended for dev / testnet / MVP**
-- `Large TDX (4 vCPU / 8GB)` — **recommended default for production**
+- `Small TDX (1 vCPU / 2GB)` — only for narrow isolated validation, not a stable shared environment
+- `Medium TDX (2 vCPU / 4GB)` — acceptable for light dev or temporary test workloads
+- `Large TDX (4 vCPU / 8GB)` — current production baseline
 - `XLarge TDX (8 vCPU / 16GB)` — only if you expect high throughput or heavier compute bursts
 - `2XLarge TDX (16 vCPU / 32GB)` — unnecessary for the current codebase
 
@@ -29,22 +29,29 @@ From the TDX sizes shown in your console:
 
 Use two CVMs:
 
-- **testnet validation CVM**: `Small TDX`
-- **mainnet production CVM**: `Medium TDX`
+- **testnet validation CVM**: lower-capacity validation profile
+- **mainnet production CVM**: `Large TDX`
 
 Current recorded app ids:
 
 - testnet CVM: `28294e89d490924b79c85cdee057ce55723b3d56`
-- mainnet CVM: `966f16610bdfe1794a503e16c5ae0bc69a1d92f1`
-- testnet public endpoint: `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network`
-- mainnet public endpoint: `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network`
+- mainnet CVM: `ddff154546fe22d15b65667156dd4b7c611e6093`
+- testnet custom domain: `https://morpheus-testnet.meshmini.app`
+- mainnet custom domain: `https://morpheus-mainnet.meshmini.app`
 
 Tracked launcher files:
 
 - `phala.testnet.toml`
 - `phala.mainnet.toml`
 
-## Why Small is acceptable for testnet but not mainnet
+## Capacity Profiles
+
+Do not extrapolate production capacity directly from testnet results.
+
+Mainnet currently runs on a materially stronger CVM profile than testnet, so:
+
+- testnet measurements are the lower-bound safety floor
+- mainnet measurements must be collected separately and treated as the real operating envelope
 
 For production, `Small TDX` is too tight because one CVM will be running:
 
@@ -71,6 +78,8 @@ Use the Dashboard `Deploy -> docker-compose.yml` flow and paste `deploy/phala/do
 For the official Phala custom-domain route, use:
 
 - `deploy/phala/docker-compose.ingress.ui.yml`
+- split-relayer UI route: `deploy/phala/docker-compose.ui.split-relayer.yml`
+- split-relayer + ingress UI route: `deploy/phala/docker-compose.ingress.ui.split-relayer.yml`
 
 In the UI, add the same keys from `deploy/phala/morpheus.env.example` into **Encrypted Secrets**.
 
@@ -94,16 +103,23 @@ When updating an existing Phala CVM with `phala deploy`, keep using `deploy/phal
 npm run render:phala-env
 npm run render:phala-env:testnet
 npm run render:phala-env:mainnet
+npm run check:signers
 npm run check:phala-env
 ```
 
 Notes:
 
 - `npm run render:phala-env` is the mainnet alias
+- `npm run check:signers` audits the pinned Neo N3 identities across `.env`, `morpheus.testnet.env`, and `morpheus.mainnet.env`
 - testnet should use `deploy/phala/morpheus.testnet.env`
 - mainnet should use `deploy/phala/morpheus.mainnet.env`
 - relayer state is now split by network and start block as `/data/.morpheus-relayer-state.<network>.<start-block>.json`
+- `MORPHEUS_RELAYER_MODE` supports `combined`, `feed_only`, and `requests_only`; use `feed_only` on a dedicated pricefeed relayer instance when you want physical isolation from slower Oracle request traffic
+- `MORPHEUS_RELAYER_INSTANCE_ID` can be set explicitly; otherwise the relayer derives `mode:network:hostname:pid` for durable-queue claim tracing
+- durable chain-request queueing now defaults to `MORPHEUS_DURABLE_QUEUE_ENABLED=true` and `MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED=true`, so fresh chain events are persisted to Supabase before the relayer advances checkpoints
+- `pricefeed` now also bootstraps from `morpheus_feed_snapshots` when local feed-state files are empty; snapshot writes stay best-effort so a transient Supabase issue does not block chain price updates
 - the async Oracle callback path asks the worker to sign fulfillment digests as `oracle_verifier`; renderers now include `MORPHEUS_ORACLE_VERIFIER_*` / `PHALA_ORACLE_VERIFIER_*` in the packed runtime config
+- Neo N3 signer identities are pinned in `config/signer-identities.json`; role drift now fails validation instead of silently switching addresses
 - testnet renderers default the verifier signer to `NEO_TESTNET_WIF` unless you explicitly set a dedicated verifier key, and they default `PHALA_USE_DERIVED_KEYS=false` so the explicit testnet signer is not shadowed by a dstack-derived key
 - testnet renderers also default `MORPHEUS_RELAYER_NEO_N3_SCAN_MODE=request_cursor` because the public testnet `n3index_notifications` feed can lag far behind the current tip
 
@@ -122,6 +138,19 @@ If you want Caddy as the public edge proxy:
 ```bash
 MORPHEUS_LOCAL_ENV_FILE=./morpheus.mainnet.env docker compose --env-file ./morpheus.mainnet.env --profile edge -f docker-compose.yml up -d
 ```
+
+If you want physical isolation between pricefeeds and slower Oracle-request workflows, use the split-relayer override file instead of the single combined relayer:
+
+```bash
+MORPHEUS_LOCAL_ENV_FILE=./morpheus.mainnet.env docker compose --env-file ./morpheus.mainnet.env -f docker-compose.yml -f docker-compose.split-relayer.yml up -d
+```
+
+That split deployment runs:
+
+- `morpheus-feed-relayer` with `MORPHEUS_RELAYER_MODE=feed_only`
+- `morpheus-request-relayer` with `MORPHEUS_RELAYER_MODE=requests_only`
+
+Do not combine `docker-compose.yml` and the split-relayer override with the default `morpheus-relayer` service at the same time unless you intentionally want duplicate request processors.
 
 5. Verify worker:
 
@@ -143,8 +172,8 @@ For the current `deploy/phala/docker-compose.ui.yml`, the Phala UI only needs th
 - `MORPHEUS_RELAYER_IMAGE`
 - `MORPHEUS_PUBLIC_PORT`
 - `PHALA_WORKER_PORT`
+- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN`
 - `PHALA_SHARED_SECRET`
-- `PHALA_API_TOKEN`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_URL`
@@ -167,6 +196,7 @@ Recommended flow:
 
 ```bash
 npm run render:phala-env
+npm run check:signers
 npm run check:phala-env
 ```
 

@@ -123,8 +123,10 @@ async function insertSupabaseBackupRows(rows) {
 await loadDotEnv(path.resolve(process.cwd(), '.env'), { override: false });
 
 const appId = trimString(process.env.PHALA_APP_ID || '966f16610bdfe1794a503e16c5ae0bc69a1d92f1');
-const apiToken = trimString(process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '');
-if (!apiToken) throw new Error('PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
+const apiToken = trimString(
+  process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''
+);
+if (!apiToken) throw new Error('MORPHEUS_RUNTIME_TOKEN or PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const backupRoot = path.resolve(process.cwd(), 'private-backups', appId, timestamp);

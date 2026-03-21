@@ -120,8 +120,8 @@ curl http://localhost:3000/api/compute/functions
 Or call the worker directly:
 
 ```bash
-curl "$PHALA_API_URL/compute/functions" \
-  -H "Authorization: Bearer $PHALA_API_TOKEN"
+curl "$MORPHEUS_RUNTIME_URL/compute/functions" \
+  -H "Authorization: Bearer $MORPHEUS_RUNTIME_TOKEN"
 ```
 
 Built-in examples:
@@ -303,8 +303,8 @@ curl http://localhost:3000/api/oracle/public-key
 or directly from worker:
 
 ```bash
-curl "$PHALA_API_URL/oracle/public-key" \
-  -H "Authorization: Bearer $PHALA_API_TOKEN"
+curl "$MORPHEUS_RUNTIME_URL/oracle/public-key" \
+  -H "Authorization: Bearer $MORPHEUS_RUNTIME_TOKEN"
 ```
 
 Returned fields:
@@ -360,8 +360,8 @@ curl http://localhost:3000/api/feeds/catalog
 From worker directly:
 
 ```bash
-curl "$PHALA_API_URL/feeds/catalog" \
-  -H "Authorization: Bearer $PHALA_API_TOKEN"
+curl "$MORPHEUS_RUNTIME_URL/feeds/catalog" \
+  -H "Authorization: Bearer $MORPHEUS_RUNTIME_TOKEN"
 ```
 
 Current default pair catalog includes:
@@ -453,8 +453,8 @@ curl http://localhost:3000/api/cron/feed \
 Direct worker route:
 
 ```bash
-curl "$PHALA_API_URL/oracle/feed" \
-  -H "Authorization: Bearer $PHALA_API_TOKEN" \
+curl "$MORPHEUS_RUNTIME_URL/oracle/feed" \
+  -H "Authorization: Bearer $MORPHEUS_RUNTIME_TOKEN" \
   -H 'content-type: application/json' \
   -d '{
     "symbol":"TWELVEDATA:NEO-USD",
@@ -673,8 +673,8 @@ curl http://localhost:3000/api/providers
 or:
 
 ```bash
-curl "$PHALA_API_URL/providers" \
-  -H "Authorization: Bearer $PHALA_API_TOKEN"
+curl "$MORPHEUS_RUNTIME_URL/providers" \
+  -H "Authorization: Bearer $MORPHEUS_RUNTIME_TOKEN"
 ```
 
 ## 8. How to Add New Pairs Later
