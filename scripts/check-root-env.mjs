@@ -1,9 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  reportPinnedNeoN3Roles,
-  normalizeMorpheusNetwork,
-} from './lib-neo-signers.mjs';
+import { reportPinnedNeoN3Roles, normalizeMorpheusNetwork } from './lib-neo-signers.mjs';
 
 const envPath = path.resolve(process.cwd(), '.env');
 
@@ -60,7 +57,12 @@ const required = {
     ['NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_morpheus_SUPABASE_ANON_KEY'],
   ],
   web_server: [
-    ['MORPHEUS_RUNTIME_URL', 'MORPHEUS_MAINNET_RUNTIME_URL', 'MORPHEUS_TESTNET_RUNTIME_URL', 'PHALA_API_URL'],
+    [
+      'MORPHEUS_RUNTIME_URL',
+      'MORPHEUS_MAINNET_RUNTIME_URL',
+      'MORPHEUS_TESTNET_RUNTIME_URL',
+      'PHALA_API_URL',
+    ],
     ['SUPABASE_URL', 'morpheus_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'],
     [
       'SUPABASE_SECRET_KEY',

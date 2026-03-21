@@ -20,7 +20,10 @@ async function main() {
     ''
   ).replace(/\/$/, '');
   const phalaToken =
-    process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '';
+    process.env.MORPHEUS_RUNTIME_TOKEN ||
+    process.env.PHALA_API_TOKEN ||
+    process.env.PHALA_SHARED_SECRET ||
+    '';
   const rpcUrl =
     process.env.NEO_RPC_URL ||
     (network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443');
@@ -32,7 +35,9 @@ async function main() {
   const wif = signer.materialized?.wif || signer.materialized?.private_key || '';
 
   if (!phalaUrl || !oracleHash || !wif) {
-    throw new Error('MORPHEUS_RUNTIME_URL or PHALA_API_URL, CONTRACT_MORPHEUS_ORACLE_HASH, and NEO_N3_WIF are required');
+    throw new Error(
+      'MORPHEUS_RUNTIME_URL or PHALA_API_URL, CONTRACT_MORPHEUS_ORACLE_HASH, and NEO_N3_WIF are required'
+    );
   }
 
   const headers = phalaToken ? { authorization: `Bearer ${phalaToken}` } : {};

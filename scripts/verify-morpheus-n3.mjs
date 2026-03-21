@@ -85,7 +85,8 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
 
 const requestedNetwork = trimString(process.env.MORPHEUS_NETWORK || '');
 await loadDotEnv();
-const network = trimString(requestedNetwork || process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
+const network =
+  trimString(requestedNetwork || process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${network}.env`), { override: true });
 
 const registry = await loadRegistry(network);

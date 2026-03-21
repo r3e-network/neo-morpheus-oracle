@@ -141,7 +141,7 @@ function applySnapshotRowsToFeedState(state, rows) {
       price:
         payload.price !== undefined && payload.price !== null && trimString(payload.price) !== ''
           ? payload.price
-          : row?.price ?? null,
+          : (row?.price ?? null),
       attestation_hash: trimString(payload.attestation_hash || row?.attestation_hash || ''),
       snapshot_created_at: trimString(row?.created_at || ''),
     };

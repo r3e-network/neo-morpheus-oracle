@@ -138,7 +138,11 @@ test('applyRequestGuards rate limits repeated paymaster requests via Upstash', a
   const payload = { account_id: '0x1234', dapp_id: 'demo', operation_hash: '0xaaa' };
 
   const first = await applyRequestGuards({ request, path: '/paymaster/authorize', payload });
-  const second = await applyRequestGuards({ request, path: '/paymaster/authorize', payload: { ...payload, operation_hash: '0xbbb' } });
+  const second = await applyRequestGuards({
+    request,
+    path: '/paymaster/authorize',
+    payload: { ...payload, operation_hash: '0xbbb' },
+  });
 
   assert.equal(first.ok, true);
   assert.equal(second.ok, false);
@@ -165,10 +169,13 @@ test('persistGuardResult caches idempotent responses for repeated relay requests
 
   const first = await applyRequestGuards({ request, path: '/relay/transaction', payload });
   assert.equal(first.ok, true);
-  await persistGuardResult(first, new Response(JSON.stringify({ ok: true, txid: '0x1234' }), {
-    status: 200,
-    headers: { 'content-type': 'application/json' },
-  }));
+  await persistGuardResult(
+    first,
+    new Response(JSON.stringify({ ok: true, txid: '0x1234' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  );
 
   const second = await applyRequestGuards({ request, path: '/relay/transaction', payload });
   assert.equal(second.ok, false);

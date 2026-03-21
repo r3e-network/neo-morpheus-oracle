@@ -43,15 +43,12 @@ export async function POST(request: Request) {
   }
 
   const network = resolveNetwork(body.network);
-  const response = await fetch(
-    `${controlPlaneUrl}/${network}/automation/execute`,
-    {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    }
-  );
+  const response = await fetch(`${controlPlaneUrl}/${network}/automation/execute`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+    cache: 'no-store',
+  });
   const text = await response.text();
   return new Response(text, {
     status: response.status,

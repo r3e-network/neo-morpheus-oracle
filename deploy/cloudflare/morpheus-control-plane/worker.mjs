@@ -132,7 +132,9 @@ function resolveJobMetadata(routePath, payload) {
 }
 
 function validateAuth(request, env) {
-  const configured = trimString(env.MORPHEUS_CONTROL_PLANE_API_KEY || env.MORPHEUS_OPERATOR_API_KEY);
+  const configured = trimString(
+    env.MORPHEUS_CONTROL_PLANE_API_KEY || env.MORPHEUS_OPERATOR_API_KEY
+  );
   if (!configured) return null;
   const bearer = trimString(request.headers.get('authorization'));
   const admin = trimString(request.headers.get('x-admin-api-key'));
@@ -293,7 +295,10 @@ function isRetryableStatus(status) {
 
 async function fetchJsonWithTimeout(url, init = {}, timeoutMs = 30000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error(`request timed out after ${timeoutMs}ms`)), timeoutMs);
+  const timer = setTimeout(
+    () => controller.abort(new Error(`request timed out after ${timeoutMs}ms`)),
+    timeoutMs
+  );
   try {
     const response = await fetch(url, {
       ...init,
@@ -424,11 +429,15 @@ async function callAppBackend(env, path, payload) {
     headers.set('x-admin-api-key', backend.token);
   }
   const timeoutMs = Math.max(Number(env.MORPHEUS_APP_BACKEND_TIMEOUT_MS || 30000), 1000);
-  const { response, body } = await fetchJsonWithTimeout(`${backend.baseUrl}${path}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload || {}),
-  }, timeoutMs);
+  const { response, body } = await fetchJsonWithTimeout(
+    `${backend.baseUrl}${path}`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload || {}),
+    },
+    timeoutMs
+  );
   return {
     ok: response.ok,
     status: response.status,
@@ -529,20 +538,6 @@ async function processExecutionJob(message, env) {
     }).catch(() => null);
     message.retry({ delaySeconds: 5 });
   }
-}
-
-async function markUnsupportedQueueJob(message, env, queueName) {
-  const body = message.body && typeof message.body === 'object' ? message.body : {};
-  const jobId = trimString(body.job_id);
-  const network = trimString(body.network) === 'mainnet' ? 'mainnet' : 'testnet';
-  if (jobId) {
-    await patchJob(env, jobId, network, {
-      status: 'failed',
-      error: `${queueName} consumer is not implemented yet`,
-      completed_at: new Date().toISOString(),
-    }).catch(() => null);
-  }
-  message.ack();
 }
 
 async function processAutomationExecuteJob(message, env) {
@@ -652,15 +647,11 @@ async function processCallbackBroadcastJob(message, env) {
 
   try {
     const signer = resolveNeoN3BackendSigner(env, network);
-    const result = await callAppBackend(
-      env,
-      '/api/internal/control-plane/callback-broadcast',
-      {
-        ...job.payload,
-        network,
-        ...signer,
-      }
-    );
+    const result = await callAppBackend(env, '/api/internal/control-plane/callback-broadcast', {
+      ...job.payload,
+      network,
+      ...signer,
+    });
     if (result.ok) {
       await patchJob(env, jobId, network, {
         status: 'succeeded',

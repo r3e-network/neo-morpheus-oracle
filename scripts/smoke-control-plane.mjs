@@ -16,12 +16,16 @@ function sleep(ms) {
 }
 
 function resolveNetwork() {
-  return trimString(process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet' ? 'mainnet' : 'testnet';
+  return trimString(process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
+    ? 'mainnet'
+    : 'testnet';
 }
 
 function resolveControlPlaneUrl(network) {
   const explicit = trimString(
-    process.env.MORPHEUS_CONTROL_PLANE_URL || process.env.NEXT_PUBLIC_MORPHEUS_CONTROL_PLANE_URL || ''
+    process.env.MORPHEUS_CONTROL_PLANE_URL ||
+      process.env.NEXT_PUBLIC_MORPHEUS_CONTROL_PLANE_URL ||
+      ''
   );
   if (explicit) return explicit.replace(/\/$/, '');
   const defaultDomain = trimString(process.env.MORPHEUS_CONTROL_PLANE_DOMAIN || '');
@@ -125,7 +129,9 @@ const accepted = await callControlPlane(
 );
 
 if (accepted.status !== 202 || !trimString(accepted.body?.id || '')) {
-  throw new Error(`control plane did not accept job: ${accepted.status} ${JSON.stringify(accepted.body)}`);
+  throw new Error(
+    `control plane did not accept job: ${accepted.status} ${JSON.stringify(accepted.body)}`
+  );
 }
 
 const terminal = await waitForTerminalJob(

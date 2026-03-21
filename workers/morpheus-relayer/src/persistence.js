@@ -168,8 +168,12 @@ export async function patchRelayerJob(eventKey, fields) {
 
 export async function claimRelayerJob(eventKey, fields, options = {}) {
   const network = resolveSupabaseNetwork();
-  const readyStatuses = Array.isArray(options.readyStatuses) ? options.readyStatuses.filter(Boolean) : [];
-  const staleStatuses = Array.isArray(options.staleStatuses) ? options.staleStatuses.filter(Boolean) : [];
+  const readyStatuses = Array.isArray(options.readyStatuses)
+    ? options.readyStatuses.filter(Boolean)
+    : [];
+  const staleStatuses = Array.isArray(options.staleStatuses)
+    ? options.staleStatuses.filter(Boolean)
+    : [];
   const staleBeforeIso = trimString(options.staleBeforeIso || '');
   const orParts = [];
   if (readyStatuses.length > 0) {

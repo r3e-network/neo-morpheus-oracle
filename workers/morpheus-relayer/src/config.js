@@ -110,7 +110,9 @@ export function createRelayerConfig() {
   const network = normalizeMorpheusNetwork(resolveNetworkName());
   const registry = loadNetworkRegistry(network);
   const mode = resolveRelayerMode(env('MORPHEUS_RELAYER_MODE') || 'combined');
-  const hasSupabaseUrl = Boolean(env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL'));
+  const hasSupabaseUrl = Boolean(
+    env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL')
+  );
   const hasSupabaseKey = Boolean(
     env(
       'SUPABASE_SECRET_KEY',
@@ -127,7 +129,9 @@ export function createRelayerConfig() {
   const stateFile = path.resolve(
     repoRoot,
     env('MORPHEUS_RELAYER_STATE_FILE') ||
-      (mode === 'combined' ? '.morpheus-relayer-state.json' : `.morpheus-relayer-state.${mode}.json`)
+      (mode === 'combined'
+        ? '.morpheus-relayer-state.json'
+        : `.morpheus-relayer-state.${mode}.json`)
   );
   const updaterSigner = resolvePinnedNeoN3Role(network, 'updater', {
     env: snapshotSignerEnv(),
@@ -151,10 +155,7 @@ export function createRelayerConfig() {
     deadLetterLimit: Math.max(Number(env('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || 500), 10),
     durableQueue: {
       enabled: durableQueueEnabled,
-      failClosed: parseBoolean(
-        env('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED'),
-        durableQueueEnabled
-      ),
+      failClosed: parseBoolean(env('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED'), durableQueueEnabled),
       syncLimit: Math.max(Number(env('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT') || 200), 1),
       staleProcessingMs: Math.max(
         Number(env('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS') || 120000),
@@ -170,10 +171,7 @@ export function createRelayerConfig() {
         Number(env('MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK') || 16),
         1
       ),
-      deferDelayMs: Math.max(
-        Number(env('MORPHEUS_RELAYER_DEFER_DELAY_MS') || 5000),
-        250
-      ),
+      deferDelayMs: Math.max(Number(env('MORPHEUS_RELAYER_DEFER_DELAY_MS') || 5000), 250),
     },
     feedSync: {
       enabled: (env('MORPHEUS_FEED_SYNC_ENABLED') || 'true').toLowerCase() !== 'false',

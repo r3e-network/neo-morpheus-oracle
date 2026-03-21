@@ -12,7 +12,9 @@ export function isAuthorizedControlPlaneRequest(request: Request) {
     return true;
   }
 
-  const sharedToken = trimString(process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '');
+  const sharedToken = trimString(
+    process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''
+  );
   if (!sharedToken) return false;
   const bearer = trimString(request.headers.get('authorization'));
   const admin = trimString(request.headers.get('x-admin-api-key'));

@@ -943,7 +943,12 @@ test('durable queue hydrates queued and stale processing jobs back into retry qu
           request_id: '101',
           status: 'queued',
           attempts: 0,
-          event: { chain: 'neo_n3', requestId: '101', requestType: 'privacy_oracle', txHash: '0xaaa' },
+          event: {
+            chain: 'neo_n3',
+            requestId: '101',
+            requestType: 'privacy_oracle',
+            txHash: '0xaaa',
+          },
           updated_at: new Date(Date.now() - 10_000).toISOString(),
         },
         {
@@ -953,7 +958,12 @@ test('durable queue hydrates queued and stale processing jobs back into retry qu
           status: 'processing',
           attempts: 2,
           last_error: 'worker timeout',
-          event: { chain: 'neo_n3', requestId: '102', requestType: 'privacy_oracle', txHash: '0xbbb' },
+          event: {
+            chain: 'neo_n3',
+            requestId: '102',
+            requestType: 'privacy_oracle',
+            txHash: '0xbbb',
+          },
           updated_at: new Date(Date.now() - 10_000).toISOString(),
         },
         {
@@ -963,7 +973,12 @@ test('durable queue hydrates queued and stale processing jobs back into retry qu
           status: 'retry_scheduled',
           attempts: 1,
           next_retry_at: new Date(Date.now() + 60_000).toISOString(),
-          event: { chain: 'neo_n3', requestId: '103', requestType: 'privacy_oracle', txHash: '0xccc' },
+          event: {
+            chain: 'neo_n3',
+            requestId: '103',
+            requestType: 'privacy_oracle',
+            txHash: '0xccc',
+          },
           updated_at: new Date().toISOString(),
         },
       ]),
@@ -1021,7 +1036,12 @@ test('durable queue ignores jobs older than configured request cursor floor', as
           request_id: '3999',
           status: 'queued',
           attempts: 0,
-          event: { chain: 'neo_n3', requestId: '3999', requestType: 'privacy_oracle', txHash: '0xaaa' },
+          event: {
+            chain: 'neo_n3',
+            requestId: '3999',
+            requestType: 'privacy_oracle',
+            txHash: '0xaaa',
+          },
           updated_at: new Date().toISOString(),
         },
         {
@@ -1030,7 +1050,12 @@ test('durable queue ignores jobs older than configured request cursor floor', as
           request_id: '4050',
           status: 'queued',
           attempts: 0,
-          event: { chain: 'neo_n3', requestId: '4050', requestType: 'privacy_oracle', txHash: '0xbbb' },
+          event: {
+            chain: 'neo_n3',
+            requestId: '4050',
+            requestType: 'privacy_oracle',
+            txHash: '0xbbb',
+          },
           updated_at: new Date().toISOString(),
         },
       ]),
@@ -1123,7 +1148,11 @@ test('request cursor floor quarantines durable jobs below the floor', async () =
 
   try {
     const patched = await quarantineDurableBacklogBelowRequestFloor(
-      { network: 'testnet', startRequestIds: { neo_n3: 4050 }, durableQueue: { enabled: true, failClosed: true } },
+      {
+        network: 'testnet',
+        startRequestIds: { neo_n3: 4050 },
+        durableQueue: { enabled: true, failClosed: true },
+      },
       { warn() {}, info() {} },
       'neo_n3'
     );
@@ -1159,7 +1188,11 @@ test('claimRelayerJob returns null when another instance already claimed the row
     const result = await claimRelayerJob(
       'neo_n3:101:0xaaa::',
       { status: 'processing', attempts: 0 },
-      { readyStatuses: ['queued'], staleStatuses: ['processing'], staleBeforeIso: new Date().toISOString() }
+      {
+        readyStatuses: ['queued'],
+        staleStatuses: ['processing'],
+        staleBeforeIso: new Date().toISOString(),
+      }
     );
     assert.equal(result, null);
   } finally {

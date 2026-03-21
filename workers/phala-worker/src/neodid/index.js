@@ -419,13 +419,31 @@ function resolveRecoveryActionId(payload, network, aaContract, accountId, newOwn
   return resolveRequiredText(`aa_recovery:${digest}`, 'action_id');
 }
 
-function resolveZkLoginActionId(payload, verifierContract, accountIdHash, targetContract, method, argsHash, nonce, deadline) {
+function resolveZkLoginActionId(
+  payload,
+  verifierContract,
+  accountIdHash,
+  targetContract,
+  method,
+  argsHash,
+  nonce,
+  deadline
+) {
   const explicit = trimString(
     payload.action_id || payload.zklogin_action_id || payload.intent || ''
   );
   if (explicit) return resolveRequiredText(explicit, 'action_id');
   const digest = sha256Hex(
-    ['aa_zklogin', verifierContract, accountIdHash, targetContract, method, argsHash, nonce, deadline].join('\u001f')
+    [
+      'aa_zklogin',
+      verifierContract,
+      accountIdHash,
+      targetContract,
+      method,
+      argsHash,
+      nonce,
+      deadline,
+    ].join('\u001f')
   );
   return resolveRequiredText(`aa_zklogin:${digest}`, 'action_id');
 }
@@ -489,7 +507,12 @@ export async function handleNeoDidRuntime(payload = {}) {
       '/neodid/recovery-ticket',
       '/neodid/zklogin-ticket',
     ],
-    request_types: ['neodid_bind', 'neodid_action_ticket', 'neodid_recovery_ticket', 'neodid_zklogin_ticket'],
+    request_types: [
+      'neodid_bind',
+      'neodid_action_ticket',
+      'neodid_recovery_ticket',
+      'neodid_zklogin_ticket',
+    ],
     web3auth: {
       jwks_url: web3authJwksUrl || null,
       audience_configured: Boolean(web3authClientId),

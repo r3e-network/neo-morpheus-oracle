@@ -70,7 +70,10 @@ function createFetchMock(state) {
   return async (url, init = {}) => {
     const target = new URL(String(url));
 
-    if (target.origin === 'https://supabase.test' && target.pathname === '/rest/v1/morpheus_control_plane_jobs') {
+    if (
+      target.origin === 'https://supabase.test' &&
+      target.pathname === '/rest/v1/morpheus_control_plane_jobs'
+    ) {
       if (init.method === 'POST') {
         const record = parseRequestBody(init);
         state.jobs.set(record.id, { ...record });

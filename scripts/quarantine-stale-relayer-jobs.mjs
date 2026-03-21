@@ -118,12 +118,16 @@ async function patchJob(network, eventKey, fields) {
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`morpheus_relayer_jobs PATCH failed for ${eventKey}: ${response.status} ${text}`);
+    throw new Error(
+      `morpheus_relayer_jobs PATCH failed for ${eventKey}: ${response.status} ${text}`
+    );
   }
 }
 
 const args = parseArgs();
-await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${args.network}.env`), { override: false });
+await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${args.network}.env`), {
+  override: false,
+});
 await loadDotEnv();
 
 if (!Number.isFinite(args.ltRequestId)) {

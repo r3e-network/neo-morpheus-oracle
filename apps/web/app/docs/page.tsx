@@ -215,7 +215,8 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Review the canonical deployment model, required env, runtime boundaries, and operational topology.
+            Review the canonical deployment model, required env, runtime boundaries, and operational
+            topology.
           </p>
         </Link>
         <Link
@@ -237,7 +238,8 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Review the canonical contracts, networks, domains, runtime endpoints, and published addresses.
+            Review the canonical contracts, networks, domains, runtime endpoints, and published
+            addresses.
           </p>
         </Link>
         <Link
@@ -259,7 +261,8 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Understand the paymaster model, policy boundaries, and sponsored execution path under the current architecture.
+            Understand the paymaster model, policy boundaries, and sponsored execution path under
+            the current architecture.
           </p>
         </Link>
         <Link
@@ -268,9 +271,7 @@ export default function DocsIntroduction() {
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
-              RELAYER
-            </span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>RELAYER</span>
             <ClipboardList size={18} color="var(--neo-green)" />
           </div>
           <p
@@ -281,7 +282,8 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Inspect the async bridge, retry semantics, durable queue behavior, and feed-priority execution model.
+            Inspect the async bridge, retry semantics, durable queue behavior, and feed-priority
+            execution model.
           </p>
         </Link>
         <Link
@@ -290,9 +292,7 @@ export default function DocsIntroduction() {
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
-              SECURITY AUDIT
-            </span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>SECURITY AUDIT</span>
             <CheckCircle size={18} color="var(--neo-green)" />
           </div>
           <p
@@ -303,7 +303,8 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Review the consolidated risks, mitigations, and hardening assumptions that remain relevant in the current system.
+            Review the consolidated risks, mitigations, and hardening assumptions that remain
+            relevant in the current system.
           </p>
         </Link>
         <Link

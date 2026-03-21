@@ -1,9 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  normalizeMorpheusNetwork,
-  reportPinnedNeoN3Roles,
-} from './lib-neo-signers.mjs';
+import { normalizeMorpheusNetwork, reportPinnedNeoN3Roles } from './lib-neo-signers.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';

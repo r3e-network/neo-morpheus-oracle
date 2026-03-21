@@ -4,10 +4,7 @@ function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ jobId: string }> }
-) {
+export async function GET(request: Request, context: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await context.params;
   const normalizedJobId = trimString(jobId);
   if (!normalizedJobId) {

@@ -298,13 +298,19 @@ export function materializeNeoN3Secret(secret) {
 
 function identityMatchesPinned(identity, pinned) {
   if (!identity || !pinned) return false;
-  if (pinned.script_hash && normalizeHash160(identity.script_hash) !== normalizeHash160(pinned.script_hash)) {
+  if (
+    pinned.script_hash &&
+    normalizeHash160(identity.script_hash) !== normalizeHash160(pinned.script_hash)
+  ) {
     return false;
   }
   if (pinned.address && normalizeHash160(identity.address) !== normalizeHash160(pinned.address)) {
     return false;
   }
-  if (pinned.public_key && normalizePublicKey(identity.public_key) !== normalizePublicKey(pinned.public_key)) {
+  if (
+    pinned.public_key &&
+    normalizePublicKey(identity.public_key) !== normalizePublicKey(pinned.public_key)
+  ) {
     return false;
   }
   return true;
@@ -312,7 +318,9 @@ function identityMatchesPinned(identity, pinned) {
 
 function identityFingerprint(identity) {
   if (!identity) return '';
-  return [normalizeHash160(identity.script_hash), normalizePublicKey(identity.public_key)].join('|');
+  return [normalizeHash160(identity.script_hash), normalizePublicKey(identity.public_key)].join(
+    '|'
+  );
 }
 
 function collectSecrets(snapshot, keys) {
@@ -354,7 +362,13 @@ function formatIssues(role, issues) {
   return `${role} signer drift: ${issues.join('; ')}`;
 }
 
-function buildRoleReport({ network, role, env = process.env, mode = 'strict', allowMissing = false }) {
+function buildRoleReport({
+  network,
+  role,
+  env = process.env,
+  mode = 'strict',
+  allowMissing = false,
+}) {
   const normalizedNetwork = normalizeMorpheusNetwork(network);
   const snapshot = toEnvSnapshot(env);
   const allowUnpinned =
@@ -373,8 +387,12 @@ function buildRoleReport({ network, role, env = process.env, mode = 'strict', al
 
   const primaryValid = primaryCandidates.filter((entry) => entry.identity);
   const fallbackValid = fallbackCandidates.filter((entry) => entry.identity);
-  const primaryFingerprints = uniqueOrdered(primaryValid.map((entry) => identityFingerprint(entry.identity)));
-  const fallbackFingerprints = uniqueOrdered(fallbackValid.map((entry) => identityFingerprint(entry.identity)));
+  const primaryFingerprints = uniqueOrdered(
+    primaryValid.map((entry) => identityFingerprint(entry.identity))
+  );
+  const fallbackFingerprints = uniqueOrdered(
+    fallbackValid.map((entry) => identityFingerprint(entry.identity))
+  );
 
   for (const entry of [...primaryCandidates, ...fallbackCandidates]) {
     if (entry.error) {
@@ -390,9 +408,13 @@ function buildRoleReport({ network, role, env = process.env, mode = 'strict', al
   }
 
   const primaryMatch = primaryValid.find((entry) => identityMatchesPinned(entry.identity, pinned));
-  const fallbackMatch = fallbackValid.find((entry) => identityMatchesPinned(entry.identity, pinned));
+  const fallbackMatch = fallbackValid.find((entry) =>
+    identityMatchesPinned(entry.identity, pinned)
+  );
   const publicKeyMatch = publicCandidates.find(
-    (entry) => !pinned?.public_key || normalizePublicKey(entry.public_key) === normalizePublicKey(pinned.public_key)
+    (entry) =>
+      !pinned?.public_key ||
+      normalizePublicKey(entry.public_key) === normalizePublicKey(pinned.public_key)
   );
   const requireFallbackMatch = !(allowMissing && primaryCandidates.length === 0);
 
@@ -401,7 +423,13 @@ function buildRoleReport({ network, role, env = process.env, mode = 'strict', al
       `primary keys do not match pinned ${role} identity ${pinned.script_hash || pinned.public_key || ''}`.trim()
     );
   }
-  if (!primaryValid.length && fallbackValid.length && pinned && !fallbackMatch && requireFallbackMatch) {
+  if (
+    !primaryValid.length &&
+    fallbackValid.length &&
+    pinned &&
+    !fallbackMatch &&
+    requireFallbackMatch
+  ) {
     issues.push(
       `fallback keys do not match pinned ${role} identity ${pinned.script_hash || pinned.public_key || ''}`.trim()
     );
@@ -423,7 +451,10 @@ function buildRoleReport({ network, role, env = process.env, mode = 'strict', al
 
   const ok =
     issues.length === 0 &&
-    (Boolean(selected) || Boolean(public_key) || allowMissing || (config.allowPublicKeyOnly && pinned));
+    (Boolean(selected) ||
+      Boolean(public_key) ||
+      allowMissing ||
+      (config.allowPublicKeyOnly && pinned));
 
   if (!ok && !allowMissing && !selected && !public_key) {
     issues.push(`no usable ${role} signer configured`);
@@ -469,7 +500,9 @@ export function reportPinnedNeoN3Roles(network, roles, options = {}) {
 
 export function resolvePinnedNeoN3UpdaterHash(network, env = process.env) {
   const report = resolvePinnedNeoN3Role(normalizeMorpheusNetwork(network), 'updater', { env });
-  return normalizeHash160(report.selected_identity?.script_hash || report.pinned?.script_hash || '');
+  return normalizeHash160(
+    report.selected_identity?.script_hash || report.pinned?.script_hash || ''
+  );
 }
 
 export function resolvePinnedNeoN3VerifierPublicKey(network, env = process.env) {

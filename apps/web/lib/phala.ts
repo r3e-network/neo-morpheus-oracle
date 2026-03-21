@@ -67,7 +67,8 @@ export async function proxyToPhala(
     headers.set('x-phala-token', appConfig.phalaToken);
   }
 
-  let lastResponse: { status: number; text: string; contentType: string; url: string } | null = null;
+  let lastResponse: { status: number; text: string; contentType: string; url: string } | null =
+    null;
   let lastError: string | null = null;
 
   for (const baseUrl of candidateUrls) {
