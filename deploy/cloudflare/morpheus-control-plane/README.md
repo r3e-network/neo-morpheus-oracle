@@ -81,4 +81,5 @@ Current production route target:
 
 Validation helper:
 
-- `npm run check:control-plane`
+- `npm run check:control-plane` (required bindings only)
+- `npm run check:control-plane:strict` (full production configuration)

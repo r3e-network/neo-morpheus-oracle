@@ -67,6 +67,7 @@
     "start:testnet-rng-local": "bash scripts/run-testnet-rng-local.sh",
     "check:env": "node scripts/check-root-env.mjs",
     "check:control-plane": "node scripts/check-control-plane-env.mjs",
+    "check:control-plane:strict": "node scripts/check-control-plane-env.mjs --strict",
     "check:signers": "node scripts/check-neo-signers.mjs",
     "check:phala-env": "node scripts/check-phala-env.mjs",
     "test:control-plane": "node --test deploy/cloudflare/morpheus-control-plane/worker.test.mjs",
