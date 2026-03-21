@@ -20,6 +20,7 @@ import {
 const NEODID_BINDING_DOMAIN = Buffer.from('neodid-binding-v1', 'utf8');
 const NEODID_ACTION_DOMAIN = Buffer.from('neodid-action-v1', 'utf8');
 const NEODID_RECOVERY_DOMAIN = Buffer.from('neodid-recovery-v1', 'utf8');
+const NEODID_ZKLOGIN_DOMAIN = Buffer.from('neodid-zklogin-v1', 'utf8');
 
 function snapshotSignerEnv() {
   const snapshot = {};
@@ -369,11 +370,42 @@ function resolveOptionalHash160(value, fieldName) {
   return resolveHash160(text, fieldName);
 }
 
+function resolveHash32(value, fieldName) {
+  const normalized = trimString(value).replace(/^0x/i, '').toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(normalized)) throw new Error(`${fieldName} must be a 32-byte hash`);
+  return `0x${normalized}`;
+}
+
 function resolveRequiredText(value, fieldName) {
   const text = trimString(value);
   if (!text) throw new Error(`${fieldName} is required`);
   if (Buffer.byteLength(text, 'utf8') > 255) throw new Error(`${fieldName} is too long`);
   return text;
+}
+
+function resolveUint256Text(value, fieldName) {
+  const text = resolveRequiredText(value, fieldName);
+  let parsed;
+  try {
+    parsed = BigInt(text);
+  } catch {
+    throw new Error(`${fieldName} must be a uint256 string`);
+  }
+  if (parsed < 0n) throw new Error(`${fieldName} must be >= 0`);
+  return text;
+}
+
+function encodeUint256Word(value, fieldName = 'value') {
+  let parsed;
+  try {
+    parsed = BigInt(String(value ?? '0'));
+  } catch {
+    throw new Error(`${fieldName} must be a uint256 string`);
+  }
+  if (parsed < 0n) throw new Error(`${fieldName} must be >= 0`);
+  const hex = parsed.toString(16);
+  if (hex.length > 64) throw new Error(`${fieldName} overflows uint256`);
+  return Buffer.from(hex.padStart(64, '0'), 'hex');
 }
 
 function resolveRecoveryActionId(payload, network, aaContract, accountId, newOwner, recoveryNonce) {
@@ -385,6 +417,37 @@ function resolveRecoveryActionId(payload, network, aaContract, accountId, newOwn
     ['aa_recovery', network, aaContract, accountId, newOwner, recoveryNonce].join('\u001f')
   );
   return resolveRequiredText(`aa_recovery:${digest}`, 'action_id');
+}
+
+function resolveZkLoginActionId(payload, verifierContract, accountIdHash, targetContract, method, argsHash, nonce, deadline) {
+  const explicit = trimString(
+    payload.action_id || payload.zklogin_action_id || payload.intent || ''
+  );
+  if (explicit) return resolveRequiredText(explicit, 'action_id');
+  const digest = sha256Hex(
+    ['aa_zklogin', verifierContract, accountIdHash, targetContract, method, argsHash, nonce, deadline].join('\u001f')
+  );
+  return resolveRequiredText(`aa_zklogin:${digest}`, 'action_id');
+}
+
+function buildZkLoginDigestBytes(ticket) {
+  return createHash('sha256')
+    .update(
+      Buffer.concat([
+        NEODID_ZKLOGIN_DOMAIN,
+        encodeHash160OrZero(ticket.verifier_contract),
+        Buffer.from(ticket.account_id_hash.replace(/^0x/i, ''), 'hex'),
+        Buffer.from(ticket.target_contract.replace(/^0x/i, ''), 'hex'),
+        encodeLengthPrefixedAscii(ticket.method),
+        Buffer.from(ticket.args_hash.replace(/^0x/i, ''), 'hex'),
+        encodeUint256Word(ticket.nonce, 'nonce'),
+        encodeUint256Word(ticket.deadline, 'deadline'),
+        encodeLengthPrefixedAscii(ticket.provider),
+        Buffer.from(ticket.master_nullifier, 'hex'),
+        Buffer.from(ticket.action_nullifier, 'hex'),
+      ])
+    )
+    .digest();
 }
 
 async function buildNeoDidResponse(mode, result, payload) {
@@ -424,8 +487,9 @@ export async function handleNeoDidRuntime(payload = {}) {
       '/neodid/bind',
       '/neodid/action-ticket',
       '/neodid/recovery-ticket',
+      '/neodid/zklogin-ticket',
     ],
-    request_types: ['neodid_bind', 'neodid_action_ticket', 'neodid_recovery_ticket'],
+    request_types: ['neodid_bind', 'neodid_action_ticket', 'neodid_recovery_ticket', 'neodid_zklogin_ticket'],
     web3auth: {
       jwks_url: web3authJwksUrl || null,
       audience_configured: Boolean(web3authClientId),
@@ -577,6 +641,79 @@ export async function handleNeoDidRecoveryTicket(payload = {}) {
     ...signer,
   };
   return buildNeoDidResponse('neodid_recovery_ticket', result, resolvedPayload);
+}
+
+export async function handleNeoDidZkLoginTicket(payload = {}) {
+  const resolvedPayload = await resolveConfidentialPayload(payload);
+  const saltBytes = await resolveNeoDidSalt(resolvedPayload);
+  const provider = requireSupportedProvider(resolvedPayload.provider || 'web3auth');
+  if (provider !== 'web3auth') {
+    throw new Error('zklogin-ticket currently requires provider=web3auth');
+  }
+  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
+  const verifierContract = resolveHash160(
+    resolvedPayload.verifier_contract || resolvedPayload.verifier || resolvedPayload.verifier_hash,
+    'verifier_contract'
+  );
+  const accountIdHash = resolveHash160(
+    resolvedPayload.account_id_hash || resolvedPayload.account_id || resolvedPayload.accountIdHash,
+    'account_id_hash'
+  );
+  const targetContract = resolveHash160(
+    resolvedPayload.target_contract || resolvedPayload.contract || resolvedPayload.target,
+    'target_contract'
+  );
+  const method = resolveRequiredText(resolvedPayload.method, 'method');
+  const argsHash = resolveHash32(
+    resolvedPayload.args_hash || resolvedPayload.argsHash || resolvedPayload.payload_hash,
+    'args_hash'
+  );
+  const nonce = resolveUint256Text(resolvedPayload.nonce, 'nonce');
+  const deadline = resolveUint256Text(resolvedPayload.deadline, 'deadline');
+  const actionId = resolveZkLoginActionId(
+    resolvedPayload,
+    verifierContract,
+    accountIdHash,
+    targetContract,
+    method,
+    argsHash,
+    nonce,
+    deadline
+  );
+  const masterNullifier = computeMasterNullifier(provider, providerUid, saltBytes);
+  const actionNullifier = computeActionNullifier(provider, providerUid, actionId, saltBytes);
+
+  const ticket = {
+    verifier_contract: verifierContract,
+    account_id_hash: accountIdHash,
+    target_contract: targetContract,
+    method,
+    args_hash: argsHash,
+    nonce,
+    deadline,
+    provider,
+    action_id: actionId,
+    master_nullifier: masterNullifier,
+    action_nullifier: actionNullifier,
+  };
+  const digestBytes = buildZkLoginDigestBytes(ticket);
+  const signer = await signDigestBytes(digestBytes, resolvedPayload);
+  const result = {
+    verifier_contract: ticket.verifier_contract,
+    account_id_hash: ticket.account_id_hash,
+    target_contract: ticket.target_contract,
+    method: ticket.method,
+    args_hash: ticket.args_hash,
+    nonce: ticket.nonce,
+    deadline: ticket.deadline,
+    provider: ticket.provider,
+    action_id: ticket.action_id,
+    master_nullifier: `0x${ticket.master_nullifier}`,
+    action_nullifier: `0x${ticket.action_nullifier}`,
+    digest: `0x${Buffer.from(digestBytes).toString('hex')}`,
+    ...signer,
+  };
+  return buildNeoDidResponse('neodid_zklogin_ticket', result, resolvedPayload);
 }
 
 export function __resetNeoDidStateForTests() {

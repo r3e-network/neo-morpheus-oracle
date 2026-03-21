@@ -73,6 +73,7 @@ test('resolveWorkerRoute routes compute, feed, vrf, and oracle payloads', () => 
   assert.equal(resolveWorkerRoute('neodid_bind', {}), '/neodid/bind');
   assert.equal(resolveWorkerRoute('neodid_action_ticket', {}), '/neodid/action-ticket');
   assert.equal(resolveWorkerRoute('neodid_recovery_ticket', {}), '/neodid/recovery-ticket');
+  assert.equal(resolveWorkerRoute('neodid_zklogin_ticket', {}), '/neodid/zklogin-ticket');
   assert.equal(
     resolveWorkerRoute('privacy_oracle', { script: 'function process(){}' }),
     '/oracle/smart-fetch'

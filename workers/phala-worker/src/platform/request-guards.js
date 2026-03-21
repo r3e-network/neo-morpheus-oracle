@@ -27,6 +27,7 @@ function resolveRouteName(path) {
   if (path.endsWith('/oracle/feed')) return 'oracle_feed';
   if (path.endsWith('/neodid/action-ticket')) return 'neodid_action_ticket';
   if (path.endsWith('/neodid/recovery-ticket')) return 'neodid_recovery_ticket';
+  if (path.endsWith('/neodid/zklogin-ticket')) return 'neodid_zklogin_ticket';
   return '';
 }
 
@@ -45,6 +46,7 @@ function routePolicy(name) {
     oracle_feed: { max: 20, window: '1m', idempotencyTtl: '2m', lockTtl: '15s' },
     neodid_action_ticket: { max: 12, window: '1m', idempotencyTtl: '5m', lockTtl: '15s' },
     neodid_recovery_ticket: { max: 6, window: '1m', idempotencyTtl: '5m', lockTtl: '15s' },
+    neodid_zklogin_ticket: { max: 8, window: '1m', idempotencyTtl: '5m', lockTtl: '15s' },
   };
 
   const current = defaults[name];

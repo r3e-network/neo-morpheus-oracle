@@ -14,6 +14,7 @@ function normalizeRouteName(path = '') {
   if (path.endsWith('/neodid/bind')) return 'neodid_bind';
   if (path.endsWith('/neodid/action-ticket')) return 'neodid_action_ticket';
   if (path.endsWith('/neodid/recovery-ticket')) return 'neodid_recovery_ticket';
+  if (path.endsWith('/neodid/zklogin-ticket')) return 'neodid_zklogin_ticket';
   return '';
 }
 
@@ -32,6 +33,8 @@ function defaultLimit(routeName) {
     case 'neodid_bind':
       return 6;
     case 'neodid_action_ticket':
+      return 6;
+    case 'neodid_zklogin_ticket':
       return 6;
     case 'oracle_feed':
       return 0;
