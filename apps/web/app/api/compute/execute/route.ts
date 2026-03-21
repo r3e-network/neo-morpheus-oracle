@@ -1,4 +1,8 @@
-import { dispatchToControlPlane, shouldDispatchToControlPlane } from '@/lib/control-plane';
+import {
+  dispatchToControlPlane,
+  shouldDispatchToControlPlane,
+  shouldUseControlPlaneFallback,
+} from '@/lib/control-plane';
 import { proxyToPhala } from '@/lib/phala';
 
 export async function POST(request: Request) {
@@ -10,7 +14,7 @@ export async function POST(request: Request) {
     parsed = { raw_body: body };
   }
   if (shouldDispatchToControlPlane('/compute/execute')) {
-    return dispatchToControlPlane(
+    const controlPlaneResponse = await dispatchToControlPlane(
       '/compute/execute',
       { method: 'POST', body },
       {
@@ -19,6 +23,9 @@ export async function POST(request: Request) {
         requestPayload: parsed,
       }
     );
+    if (!shouldUseControlPlaneFallback(controlPlaneResponse)) {
+      return controlPlaneResponse;
+    }
   }
   return proxyToPhala(
     '/compute/execute',

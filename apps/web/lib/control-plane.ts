@@ -37,8 +37,26 @@ function maybeParseJson(text: string) {
   }
 }
 
+function trimString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function shouldFailOpen(status: number, text: string, contentType: string) {
+  const normalizedText = text.toLowerCase();
+  const normalizedType = contentType.toLowerCase();
+  if (status === 429 && normalizedText.includes('error code: 1027')) return true;
+  if (status === 429 && normalizedText.includes('temporarily rate limited')) return true;
+  if (status >= 500 && normalizedType.includes('text/html') && normalizedText.includes('cloudflare'))
+    return true;
+  return false;
+}
+
 export function shouldDispatchToControlPlane(path: string) {
   return Boolean(appConfig.controlPlaneUrl) && DISPATCHABLE_PATHS.has(path);
+}
+
+export function shouldUseControlPlaneFallback(response: Response) {
+  return trimString(response.headers.get('x-morpheus-control-plane-fail-open')) === '1';
 }
 
 export async function dispatchToControlPlane(
@@ -58,12 +76,29 @@ export async function dispatchToControlPlane(
   }
 
   const controlPlaneUrl = `${appConfig.controlPlaneUrl.replace(/\/$/, '')}/${appConfig.selectedNetworkKey}${path}`;
-  const response = await fetch(controlPlaneUrl, {
-    ...init,
-    headers,
-    cache: 'no-store',
-  });
-  const text = await response.text();
+  let response: Response;
+  let text: string;
+  let contentType = 'application/json';
+  let failOpen = false;
+
+  try {
+    response = await fetch(controlPlaneUrl, {
+      ...init,
+      headers,
+      cache: 'no-store',
+    });
+    text = await response.text();
+    contentType = response.headers.get('content-type') || 'application/json';
+    failOpen = shouldFailOpen(response.status, text, contentType);
+  } catch (error) {
+    text = JSON.stringify({
+      error: 'control_plane_unavailable',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    contentType = 'application/json';
+    failOpen = true;
+    response = new Response(text, { status: 503, headers: { 'content-type': contentType } });
+  }
 
   if (operation) {
     await recordOperationLog({
@@ -83,8 +118,16 @@ export async function dispatchToControlPlane(
     });
   }
 
+  const responseHeaders = new Headers({
+    'content-type': contentType,
+  });
+  if (failOpen) {
+    responseHeaders.set('x-morpheus-control-plane-fail-open', '1');
+    responseHeaders.set('x-morpheus-control-plane-url', controlPlaneUrl);
+  }
+
   return new Response(text, {
     status: response.status,
-    headers: { 'content-type': response.headers.get('content-type') || 'application/json' },
+    headers: responseHeaders,
   });
 }
