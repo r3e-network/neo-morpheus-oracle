@@ -14,8 +14,8 @@ cp .env.development.example .env.local
 
 Fill in at least:
 
-- `PHALA_API_URL`
-- `PHALA_SHARED_SECRET` or `PHALA_API_TOKEN`
+- `MORPHEUS_RUNTIME_URL` preferred, or legacy `PHALA_API_URL`
+- `MORPHEUS_RUNTIME_TOKEN` preferred, or `PHALA_SHARED_SECRET` / `PHALA_API_TOKEN`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SECRET_KEY` preferred, or legacy `SUPABASE_SERVICE_ROLE_KEY`

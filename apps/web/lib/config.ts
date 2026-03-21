@@ -14,8 +14,22 @@ const defaultNeoXRpcUrl =
 const defaultNeoXChainId = selectedNetworkKey === 'mainnet' ? '47763' : '12227332';
 const defaultControlPlaneUrl = process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
 const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
+
+function trimString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function networkScopedEnv(baseKey: string) {
+  const upper = selectedNetworkKey === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  return trimString(process.env[`${baseKey}_${upper}` as keyof NodeJS.ProcessEnv]);
+}
+
 const defaultPhalaApiCandidates = [
+  networkScopedEnv('MORPHEUS_RUNTIME_URL'),
+  trimString(process.env.MORPHEUS_RUNTIME_URL || ''),
   process.env.PHALA_API_URL || '',
+  networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL'),
+  trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || ''),
   process.env.NEXT_PUBLIC_PHALA_API_URL || '',
   defaultPhalaApiUrl,
   selectedNetworkKey === 'mainnet'
@@ -31,9 +45,20 @@ export const appConfig = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   selectedNetworkKey,
   phalaApiUrl:
-    process.env.PHALA_API_URL || process.env.NEXT_PUBLIC_PHALA_API_URL || defaultPhalaApiUrl,
+    networkScopedEnv('MORPHEUS_RUNTIME_URL') ||
+    trimString(process.env.MORPHEUS_RUNTIME_URL || '') ||
+    networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL') ||
+    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || '') ||
+    process.env.PHALA_API_URL ||
+    process.env.NEXT_PUBLIC_PHALA_API_URL ||
+    defaultPhalaApiUrl,
   phalaApiUrls: [...new Set(defaultPhalaApiCandidates)],
-  phalaToken: process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '',
+  phalaToken:
+    trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '') ||
+    trimString(process.env.PHALA_API_TOKEN || '') ||
+    trimString(process.env.PHALA_SHARED_SECRET || '') ||
+    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_TOKEN || '') ||
+    '',
   controlPlaneUrl:
     process.env.MORPHEUS_CONTROL_PLANE_URL ||
     process.env.NEXT_PUBLIC_MORPHEUS_CONTROL_PLANE_URL ||
