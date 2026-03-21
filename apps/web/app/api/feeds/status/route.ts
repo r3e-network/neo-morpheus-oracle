@@ -22,7 +22,7 @@ function normalizeChainPair(value: string) {
 
 async function fetchLiveQuote(pair: string) {
   if (!appConfig.phalaApiUrl) {
-    return { error: 'PHALA_API_URL is not configured' };
+    return { error: 'MORPHEUS_RUNTIME_URL or PHALA_API_URL is not configured' };
   }
 
   const headers = new Headers({ accept: 'application/json' });
