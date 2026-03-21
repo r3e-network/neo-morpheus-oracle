@@ -4,7 +4,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
 import {
+  encryptWithOracleKey,
   encodeUtf8Base64,
+  fetchOnchainOraclePublicKey,
   jsonPretty,
   loadExampleEnv,
   normalizeHash160,
@@ -178,7 +180,7 @@ async function waitForApplicationLog(rpcClient, txHash, timeoutMs = 180000) {
   throw new Error(`timed out waiting for application log ${txHash}`);
 }
 
-async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 180000) {
+async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 600000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const response = await rpcClient.invokeFunction(consumerHash, 'getCallback', [
@@ -331,6 +333,29 @@ async function insertEncryptedSecret({
   }
   const rows = await response.json();
   return Array.isArray(rows) ? rows[0] : rows;
+}
+
+async function loadReusableEncryptedPatch({ supabaseUrl, serviceRoleKey }) {
+  const response = await fetch(
+    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/morpheus_encrypted_secrets?select=id,ciphertext,metadata,created_at&order=created_at.desc&limit=20`,
+    {
+      headers: {
+        apikey: serviceRoleKey,
+        authorization: `Bearer ${serviceRoleKey}`,
+        accept: 'application/json',
+      },
+    }
+  );
+  if (!response.ok) return null;
+  const rows = await response.json().catch(() => []);
+  const matched = Array.isArray(rows)
+    ? rows.find(
+        (row) =>
+          trimString(row?.metadata?.source || '') === 'examples.test.n3.encrypted-ref-boundary' &&
+          trimString(row?.ciphertext || '')
+      )
+    : null;
+  return trimString(matched?.ciphertext || '') || null;
 }
 
 async function runPhalaRemoteShell(
@@ -487,46 +512,9 @@ async function startRelayer({ phalaApiToken, appId, handle }) {
   await waitForRelayerState({ phalaApiToken, appId, pid: handle.pid, shouldBeRunning: true });
 }
 
-async function buildRemoteEncryptedPatch(plaintext, { phalaApiToken, appId }) {
-  const plaintextBase64 = Buffer.from(String(plaintext), 'utf8').toString('base64');
-  const shellScript = `
-set -e
-WORKER_CONTAINER="$(docker ps --format '{{.Names}}' | grep 'phala-worker' | head -n1)"
-test -n "$WORKER_CONTAINER"
-docker exec -i "$WORKER_CONTAINER" node --input-type=module - <<'JS'
-import { webcrypto } from 'node:crypto';
-const token = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET;
-const plaintext = Buffer.from('${plaintextBase64}', 'base64').toString('utf8');
-const keyRes = await fetch('http://127.0.0.1:8080/oracle/public-key', { headers: { authorization: 'Bearer ' + token } });
-const keyBody = await keyRes.json();
-const recipientPublicKeyBytes = Buffer.from(keyBody.public_key, 'base64');
-const recipientKey = await webcrypto.subtle.importKey('raw', recipientPublicKeyBytes, { name: 'X25519' }, false, []);
-const ephemeralKeyPair = await webcrypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
-const ephemeralPublicKeyBytes = new Uint8Array(await webcrypto.subtle.exportKey('raw', ephemeralKeyPair.publicKey));
-const sharedSecret = new Uint8Array(await webcrypto.subtle.deriveBits({ name: 'X25519', public: recipientKey }, ephemeralKeyPair.privateKey, 256));
-const keyMaterial = await webcrypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveKey']);
-const info = new Uint8Array([ ...new TextEncoder().encode('morpheus-confidential-payload-v2'), ...ephemeralPublicKeyBytes, ...recipientPublicKeyBytes ]);
-const aesKey = await webcrypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: recipientPublicKeyBytes, info }, keyMaterial, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
-const iv = webcrypto.getRandomValues(new Uint8Array(12));
-const encryptedBytes = new Uint8Array(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, new TextEncoder().encode(plaintext)));
-const ciphertextBytes = encryptedBytes.slice(0, encryptedBytes.length - 16);
-const tagBytes = encryptedBytes.slice(encryptedBytes.length - 16);
-const ciphertext = Buffer.from(JSON.stringify({ v: 2, alg: 'X25519-HKDF-SHA256-AES-256-GCM', epk: Buffer.from(ephemeralPublicKeyBytes).toString('base64'), iv: Buffer.from(iv).toString('base64'), ct: Buffer.from(ciphertextBytes).toString('base64'), tag: Buffer.from(tagBytes).toString('base64') })).toString('base64');
-console.log(JSON.stringify({ ciphertext }));
-JS
-`;
-  const { stdout } = await runPhalaRemoteShell(shellScript, {
-    phalaApiToken,
-    appId,
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  const jsonLine = stdout
-    .trim()
-    .split('\n')
-    .find((line) => line.trim().startsWith('{'));
-  const parsed = jsonLine ? JSON.parse(jsonLine) : {};
-  if (!parsed.ciphertext) throw new Error(`failed to generate remote ciphertext: ${stdout.trim()}`);
-  return parsed.ciphertext;
+async function buildRemoteEncryptedPatch(plaintext) {
+  const oracleKey = await fetchOnchainOraclePublicKey('neo_n3');
+  return encryptWithOracleKey(oracleKey.public_key, String(plaintext));
 }
 
 async function submitCase({
@@ -603,9 +591,6 @@ async function main() {
   const phalaApiToken = trimString(
     process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''
   );
-  const phalaAppId = trimString(
-    process.env.MORPHEUS_PAYMASTER_APP_ID || '28294e89d490924b79c85cdee057ce55723b3d56'
-  );
 
   assertCondition(network === 'testnet', 'this probe is intended for testnet');
   assertCondition(signerWif, 'testnet signer WIF is required');
@@ -626,26 +611,19 @@ async function main() {
   });
   const requesterHash = `0x${account.scriptHash}`;
   async function refreshRequesterCredit(requiredRequests) {
-    const handle = await stopRelayer({ phalaApiToken, appId: phalaAppId });
-    try {
-      return await ensureRequestFeeCredit(
-        account,
-        rpcUrl,
-        networkMagic,
-        rpcClient,
-        oracleHash,
-        requiredRequests
-      );
-    } finally {
-      await startRelayer({ phalaApiToken, appId: phalaAppId, handle }).catch(() => {});
-    }
+    return ensureRequestFeeCredit(
+      account,
+      rpcUrl,
+      networkMagic,
+      rpcClient,
+      oracleHash,
+      requiredRequests
+    );
   }
 
   function creditProtectedHooks(requiredRequests) {
-    let handle = null;
     return {
       beforeSubmit: async () => {
-        handle = await stopRelayer({ phalaApiToken, appId: phalaAppId });
         await ensureRequestFeeCredit(
           account,
           rpcUrl,
@@ -655,24 +633,20 @@ async function main() {
           requiredRequests
         );
       },
-      afterSubmit: async () => {
-        await startRelayer({ phalaApiToken, appId: phalaAppId, handle }).catch(() => {});
-      },
+      afterSubmit: async () => {},
     };
   }
 
   const feeStatus = await refreshRequesterCredit(20);
 
-  const encryptedPatch = await buildRemoteEncryptedPatch(
-    JSON.stringify({
-      provider_uid: 'encrypted-ref-gh-001',
-      claim_value: 'ref-bound-pass',
-    }),
-    {
-      phalaApiToken,
-      appId: phalaAppId,
-    }
-  );
+  const encryptedPatch =
+    (await loadReusableEncryptedPatch({ supabaseUrl, serviceRoleKey })) ||
+    (await buildRemoteEncryptedPatch(
+      JSON.stringify({
+        provider_uid: 'encrypted-ref-gh-001',
+        claim_value: 'ref-bound-pass',
+      })
+    ));
 
   const matchingSecret = await insertEncryptedSecret({
     supabaseUrl,

@@ -59,6 +59,10 @@ function getSupabaseRestConfig() {
   };
 }
 
+export function hasSupabasePersistence() {
+  return Boolean(getSupabaseRestConfig());
+}
+
 async function supabaseRequest(table, method, payload, options = {}) {
   const config = getSupabaseRestConfig();
   if (!config) return null;
@@ -83,9 +87,17 @@ async function supabaseRequest(table, method, payload, options = {}) {
     headers['content-type'] = 'application/json';
     body = JSON.stringify(sanitizeForPostgres(payload));
   }
+  const prefer = [];
   if (options.onConflict) {
-    headers.Prefer = `resolution=merge-duplicates,return=minimal`;
+    const resolution = options.ignoreDuplicates ? 'ignore-duplicates' : 'merge-duplicates';
+    prefer.push(`resolution=${resolution}`);
     url.searchParams.set('on_conflict', options.onConflict);
+  }
+  if (options.returnRepresentation) {
+    prefer.push('return=representation');
+  }
+  if (prefer.length > 0) {
+    headers.Prefer = prefer.join(',');
   }
 
   const response = await fetch(url.toString(), { method, headers, body });
@@ -131,6 +143,13 @@ export async function upsertRelayerJob(record) {
   return supabaseRequest('morpheus_relayer_jobs', 'POST', record, { onConflict: 'event_key' });
 }
 
+export async function insertRelayerJobIfAbsent(record) {
+  return supabaseRequest('morpheus_relayer_jobs', 'POST', record, {
+    onConflict: 'event_key',
+    ignoreDuplicates: true,
+  });
+}
+
 export async function patchRelayerJob(eventKey, fields) {
   return supabaseRequest(
     'morpheus_relayer_jobs',
@@ -145,6 +164,84 @@ export async function patchRelayerJob(eventKey, fields) {
       },
     }
   );
+}
+
+export async function claimRelayerJob(eventKey, fields, options = {}) {
+  const network = resolveSupabaseNetwork();
+  const readyStatuses = Array.isArray(options.readyStatuses) ? options.readyStatuses.filter(Boolean) : [];
+  const staleStatuses = Array.isArray(options.staleStatuses) ? options.staleStatuses.filter(Boolean) : [];
+  const staleBeforeIso = trimString(options.staleBeforeIso || '');
+  const orParts = [];
+  if (readyStatuses.length > 0) {
+    orParts.push(`status.in.(${readyStatuses.join(',')})`);
+  }
+  if (staleStatuses.length > 0 && staleBeforeIso) {
+    for (const status of staleStatuses) {
+      orParts.push(`and(status.eq.${status},updated_at.lt.${staleBeforeIso})`);
+    }
+  }
+  const response = await supabaseRequest(
+    'morpheus_relayer_jobs',
+    'PATCH',
+    {
+      ...fields,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      returnRepresentation: true,
+      query: {
+        event_key: `eq.${eventKey}`,
+        network: `eq.${network}`,
+        ...(orParts.length > 0 ? { or: `(${orParts.join(',')})` } : {}),
+      },
+    }
+  );
+  if (!response) return null;
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    const rows = JSON.parse(text);
+    return Array.isArray(rows) ? rows[0] || null : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function quarantineRelayerJobsBelowRequestId({
+  network = resolveSupabaseNetwork(),
+  chain = 'neo_n3',
+  ltRequestId,
+  statuses = [],
+  note = '',
+}) {
+  if (!Number.isFinite(Number(ltRequestId))) return 0;
+  const rows = await fetchRelayerJobsByStatuses(statuses, chain, 5000);
+  const threshold = Number(ltRequestId);
+  const targetRows = rows.filter((row) => Number(row.request_id || 0) < threshold);
+  if (targetRows.length === 0) return 0;
+  const nowIso = new Date().toISOString();
+  let patched = 0;
+  for (const row of targetRows) {
+    const response = await supabaseRequest(
+      'morpheus_relayer_jobs',
+      'PATCH',
+      {
+        status: 'stale_quarantined',
+        next_retry_at: null,
+        completed_at: nowIso,
+        updated_at: nowIso,
+        last_error: `${note || `quarantined below request cursor floor ${threshold}`} :: ${trimString(row.last_error || 'legacy open relayer job')}`,
+      },
+      {
+        query: {
+          event_key: `eq.${row.event_key}`,
+          network: `eq.${network}`,
+        },
+      }
+    );
+    if (response?.ok !== false) patched += 1;
+  }
+  return patched;
 }
 
 export async function fetchRelayerJobsByStatuses(statuses, chain = null, limit = 100) {

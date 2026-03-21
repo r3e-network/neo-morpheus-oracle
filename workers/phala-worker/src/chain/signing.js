@@ -8,6 +8,12 @@ import {
 } from '../platform/core.js';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from '../platform/dstack.js';
+import {
+  NEO_N3_SIGNER_ENV_KEYS,
+  normalizeMorpheusNetwork,
+  reportPinnedNeoN3Role,
+  resolvePinnedNeoN3Role,
+} from '../../../../scripts/lib-neo-signers.mjs';
 
 function resolveOracleVerifierRole(payload = {}) {
   const explicit = trimString(payload.dstack_key_role || payload.key_role || '');
@@ -19,56 +25,42 @@ function resolveRequestedNeoN3DerivedRole(payload = {}) {
   return explicit || 'worker';
 }
 
-function resolveNeoN3OracleVerifierKey() {
-  const network = trimString(
-    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
-  ).toLowerCase();
-  if (network === 'mainnet') {
-    return trimString(
-      env(
-        'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-        'MORPHEUS_ORACLE_VERIFIER_WIF',
-        'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
-        'PHALA_ORACLE_VERIFIER_WIF'
-      ) || ''
-    );
+function snapshotSignerEnv() {
+  const snapshot = {};
+  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
+    const value = trimString(env(key));
+    if (value) snapshot[key] = value;
   }
-  return trimString(
-    env(
-      'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-      'MORPHEUS_ORACLE_VERIFIER_WIF',
-      'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
-      'PHALA_ORACLE_VERIFIER_WIF'
-    ) || ''
+  return snapshot;
+}
+
+function resolveNeoN3OracleVerifierKey() {
+  const network = normalizeMorpheusNetwork(
+    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
   );
+  const report = reportPinnedNeoN3Role(network, 'oracle_verifier', {
+    env: snapshotSignerEnv(),
+    allowMissing: true,
+  });
+  if (report.issues.length > 0) {
+    throw new Error(report.issues.join('; '));
+  }
+  if (!report.materialized) return '';
+  return report.materialized.private_key || report.materialized.wif || '';
 }
 
 function resolveNeoN3WorkerKey() {
-  const network = trimString(
+  const network = normalizeMorpheusNetwork(
     env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
-  ).toLowerCase();
-  if (network === 'mainnet') {
-    return trimString(
-      env(
-        'PHALA_NEO_N3_PRIVATE_KEY',
-        'PHALA_NEO_N3_WIF',
-        'NEO_N3_WIF',
-        'NEO_PLATFORM_KEY',
-        'TEE_PRIVATE_KEY',
-        'NEO_TESTNET_WIF'
-      ) || ''
-    );
-  }
-  return trimString(
-    env(
-      'PHALA_NEO_N3_PRIVATE_KEY',
-      'PHALA_NEO_N3_WIF',
-      'NEO_TESTNET_WIF',
-      'NEO_N3_WIF',
-      'NEO_PLATFORM_KEY',
-      'TEE_PRIVATE_KEY'
-    ) || ''
   );
+  const signer = reportPinnedNeoN3Role(network, 'worker', {
+    env: snapshotSignerEnv(),
+    allowMissing: true,
+  });
+  if (signer.issues.length > 0) {
+    throw new Error(signer.issues.join('; '));
+  }
+  return signer.materialized?.private_key || signer.materialized?.wif || '';
 }
 
 const seenRequestIds = new Map();

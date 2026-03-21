@@ -56,6 +56,59 @@ function getOracleKeyStorePath() {
   return trimString(env('PHALA_ORACLE_KEYSTORE_PATH')) || '/data/morpheus/oracle-key.json';
 }
 
+function parseConfiguredOracleKeyMaterial() {
+  const rawJson = trimString(
+    env('PHALA_ORACLE_KEY_MATERIAL_JSON') || env('MORPHEUS_ORACLE_KEY_MATERIAL_JSON') || ''
+  );
+  const rawBase64 = trimString(
+    env('PHALA_ORACLE_KEY_MATERIAL_BASE64') || env('MORPHEUS_ORACLE_KEY_MATERIAL_BASE64') || ''
+  );
+  const explicitPublicKey = trimString(
+    env('PHALA_ORACLE_PUBLIC_KEY_RAW') || env('MORPHEUS_ORACLE_PUBLIC_KEY_RAW') || ''
+  );
+  const explicitPrivateKey = trimString(
+    env('PHALA_ORACLE_PRIVATE_KEY_PKCS8') || env('MORPHEUS_ORACLE_PRIVATE_KEY_PKCS8') || ''
+  );
+
+  let parsed = null;
+  if (rawJson) {
+    try {
+      parsed = JSON.parse(rawJson);
+    } catch {
+      throw new Error('PHALA_ORACLE_KEY_MATERIAL_JSON is not valid JSON');
+    }
+  } else if (rawBase64) {
+    try {
+      parsed = JSON.parse(Buffer.from(rawBase64, 'base64').toString('utf8'));
+    } catch {
+      throw new Error('PHALA_ORACLE_KEY_MATERIAL_BASE64 is not valid base64 JSON');
+    }
+  } else if (explicitPublicKey && explicitPrivateKey) {
+    parsed = {
+      public_key_raw: explicitPublicKey,
+      private_key_pkcs8: explicitPrivateKey,
+    };
+  } else {
+    return null;
+  }
+
+  const publicKeyRaw = trimString(
+    parsed?.public_key_raw || parsed?.publicKeyRaw || parsed?.public_key || ''
+  );
+  const privateKeyPkcs8 = trimString(
+    parsed?.private_key_pkcs8 || parsed?.privateKeyPkcs8 || parsed?.private_key || ''
+  );
+  if (!publicKeyRaw || !privateKeyPkcs8) {
+    throw new Error('configured oracle key material requires public_key_raw and private_key_pkcs8');
+  }
+
+  return formatKeyMaterial({
+    publicKeyRawBytes: Buffer.from(publicKeyRaw, 'base64'),
+    privateKeyPkcs8Bytes: Buffer.from(privateKeyPkcs8, 'base64'),
+    source: 'configured-env',
+  });
+}
+
 export function __resetOracleKeyMaterialForTests() {
   oracleKeyMaterialPromise = undefined;
 }
@@ -476,6 +529,13 @@ async function decryptX25519Envelope(envelope, keyMaterial) {
 export async function ensureOracleKeyMaterial(payload = {}) {
   if (!oracleKeyMaterialPromise) {
     oracleKeyMaterialPromise = (async () => {
+      try {
+        const configured = parseConfiguredOracleKeyMaterial();
+        if (configured) return configured;
+      } catch {
+        // continue to stable keystore / ephemeral fallback
+      }
+
       try {
         return await loadStableOracleKeyMaterial();
       } catch {

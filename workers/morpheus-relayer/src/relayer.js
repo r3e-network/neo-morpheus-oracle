@@ -17,9 +17,13 @@ import {
 } from './router.js';
 import {
   buildRelayerJobRecord,
+  claimRelayerJob,
   fetchRelayerJobsByStatuses,
+  hasSupabasePersistence,
+  insertRelayerJobIfAbsent,
   patchRelayerJob,
   persistRelayerRun,
+  quarantineRelayerJobsBelowRequestId,
   upsertRelayerJob,
 } from './persistence.js';
 import {
@@ -64,12 +68,12 @@ export function getFeedSyncDelayMs(config, state, nowMs = Date.now()) {
   const intervalMs = Math.max(Number(config.feedSync.intervalMs) || 0, 0);
   if (intervalMs <= 0) return 0;
 
-  const lastStartedAt = state.metrics.last_feed_sync_started_at
-    ? new Date(state.metrics.last_feed_sync_started_at).getTime()
+  const lastSuccessAt = state.metrics.last_feed_sync_success_at
+    ? new Date(state.metrics.last_feed_sync_success_at).getTime()
     : 0;
-  if (!lastStartedAt) return 0;
+  if (!lastSuccessAt) return 0;
 
-  return Math.max(lastStartedAt + intervalMs - nowMs, 0);
+  return Math.max(lastSuccessAt + intervalMs - nowMs, 0);
 }
 
 function normalizeErrorMessage(error) {
@@ -91,8 +95,61 @@ function isAlreadyFulfilledError(message) {
   );
 }
 
+function isTerminalConfigurationError(message) {
+  const normalized = normalizeErrorMessage(message).toLowerCase();
+  return (
+    normalized.includes('reason: unauthorized') ||
+    normalized.includes('invalid signature') ||
+    normalized.includes('verifier rejected signature') ||
+    normalized.includes('oracle verifier') ||
+    normalized.includes('updater not set') ||
+    normalized.includes('callback not allowed') ||
+    normalized.includes('called contract') && normalized.includes('not found')
+  );
+}
+
 function computeRetryDelayMs(config, attempts) {
   return Math.min(config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0), config.retryMaxDelayMs);
+}
+
+async function deferEventsForBackpressure(config, state, logger, chain, events, persistState) {
+  const maxFreshEventsPerTick = Math.max(Number(config.backpressure?.maxFreshEventsPerTick || events.length), 1);
+  if (events.length <= maxFreshEventsPerTick) {
+    return { processable: events, deferred: [] };
+  }
+
+  const processable = events.slice(0, maxFreshEventsPerTick);
+  const deferred = events.slice(maxFreshEventsPerTick);
+  const nextRetryAt = Date.now() + Math.max(Number(config.backpressure?.deferDelayMs || 5000), 250);
+  const nextRetryIso = new Date(nextRetryAt).toISOString();
+
+  for (const event of deferred) {
+    enqueueRetryItem(state, chain, event, {
+      attempts: 0,
+      next_retry_at: nextRetryAt,
+      last_error: 'backpressure_deferred',
+    });
+    await maybeUpsertJob(logger, event, {
+      event_key: buildEventKey(event),
+      status: 'queued_backpressure',
+      attempts: 0,
+      last_error: 'backpressure_deferred',
+      next_retry_at: nextRetryIso,
+    });
+  }
+
+  incrementMetric(state, 'backpressure_deferred_total', deferred.length);
+  persistState();
+  logger.warn(
+    {
+      chain,
+      deferred_count: deferred.length,
+      processable_count: processable.length,
+      next_retry_at: nextRetryIso,
+    },
+    'Deferred fresh oracle requests into the retry queue due to backpressure'
+  );
+  return { processable, deferred };
 }
 
 async function mapWithConcurrency(items, limit, worker) {
@@ -463,6 +520,231 @@ function createPersistor(config, state) {
   return () => saveRelayerState(config.stateFile, state);
 }
 
+function shouldRunFeedSync(config) {
+  return config.mode !== 'requests_only';
+}
+
+function shouldRunRequestProcessing(config) {
+  return config.mode !== 'feed_only';
+}
+
+function getRequestCursorFloor(config, chain) {
+  const raw = Number(config.startRequestIds?.[chain]);
+  return Number.isFinite(raw) && raw > 0 ? raw : null;
+}
+
+function pruneRetryQueueBelowRequestFloor(state, chain, minRequestId) {
+  if (minRequestId === null) return 0;
+  const before = state[chain].retry_queue.length;
+  state[chain].retry_queue = state[chain].retry_queue.filter((item) => {
+    const requestId = Number(item?.event?.requestId || 0);
+    return !Number.isFinite(requestId) || requestId >= minRequestId;
+  });
+  return before - state[chain].retry_queue.length;
+}
+
+function parseTimestampMs(value) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function extractDurableRetryMeta(job) {
+  const retryMeta =
+    job?.worker_response &&
+    typeof job.worker_response === 'object' &&
+    job.worker_response.retry_meta &&
+    typeof job.worker_response.retry_meta === 'object'
+      ? job.worker_response.retry_meta
+      : {};
+  return {
+    finalize_only: Boolean(retryMeta.finalize_only),
+    terminal_error:
+      typeof retryMeta.terminal_error === 'string' && retryMeta.terminal_error.trim()
+        ? retryMeta.terminal_error.trim()
+        : null,
+    durable_claimed: Boolean(retryMeta.durable_claimed),
+  };
+}
+
+function isDurableQueueReadyJob(job, nowMs, staleProcessingMs) {
+  const status = String(job?.status || '');
+  if (status === 'queued' || status === 'queued_backpressure') return true;
+  if (status === 'retry_scheduled' || status === 'failure_callback_retry_scheduled') {
+    const nextRetryAtMs = parseTimestampMs(job?.next_retry_at);
+    return nextRetryAtMs === 0 || nextRetryAtMs <= nowMs;
+  }
+  if (status === 'processing' || status === 'retrying') {
+    const updatedAtMs = parseTimestampMs(job?.updated_at);
+    return updatedAtMs > 0 && nowMs - updatedAtMs >= staleProcessingMs;
+  }
+  return false;
+}
+
+function ensureDurableQueueAvailable(config, logger, context = 'relayer') {
+  if (!config.durableQueue?.enabled) return false;
+  const available = hasSupabasePersistence();
+  if (available) return true;
+  const message = `durable queue enabled but Supabase persistence unavailable during ${context}`;
+  if (config.durableQueue?.failClosed) {
+    throw new Error(message);
+  }
+  logger.warn({ context }, message);
+  return false;
+}
+
+async function persistFreshEventsToDurableQueue(config, logger, chain, events) {
+  if (!events.length) return;
+  if (!ensureDurableQueueAvailable(config, logger, `${chain}:fresh-event-persist`)) return;
+
+  const nextRetryAtIso = new Date().toISOString();
+  await mapWithConcurrency(events, Math.min(config.concurrency, events.length), async (event) => {
+    await insertRelayerJobIfAbsent(
+      buildRelayerJobRecord(event, {
+        event_key: buildEventKey(event),
+        status: 'queued',
+        attempts: 0,
+        next_retry_at: nextRetryAtIso,
+      })
+    );
+  });
+}
+
+async function claimDurableJobForProcessing(config, logger, event, retryItem = null) {
+  if (!config.durableQueue?.enabled) return true;
+  if (retryItem?.durable_claimed) return true;
+  if (!ensureDurableQueueAvailable(config, logger, `${event.chain}:durable-claim`)) return false;
+
+  const eventKey = buildEventKey(event);
+  const staleBeforeIso = new Date(
+    Date.now() - Math.max(Number(config.durableQueue?.staleProcessingMs || 120000), 1000)
+  ).toISOString();
+  const status = retryItem ? 'retrying' : 'processing';
+  const attempts = Number(retryItem?.attempts || 0);
+  const claim = await claimRelayerJob(
+    eventKey,
+    {
+      status,
+      attempts,
+      next_retry_at: null,
+      worker_response: {
+        retry_meta: {
+          durable_claimed: true,
+          claimed_by: config.instanceId,
+          claimed_at: new Date().toISOString(),
+          finalize_only: Boolean(retryItem?.finalize_only),
+          terminal_error: retryItem?.terminal_error || null,
+        },
+      },
+    },
+    {
+      readyStatuses: retryItem
+        ? ['retry_scheduled', 'failure_callback_retry_scheduled', 'queued', 'queued_backpressure']
+        : ['queued', 'queued_backpressure'],
+      staleStatuses: ['processing', 'retrying'],
+      staleBeforeIso,
+    }
+  );
+  if (claim) return true;
+  logger.info(
+    {
+      chain: event.chain,
+      request_id: event.requestId,
+      event_key: eventKey,
+      status,
+    },
+    'Skipped Morpheus oracle request because another relayer instance already claimed it'
+  );
+  return false;
+}
+
+async function hydrateDurableQueue(config, state, logger, chain, persistState) {
+  if (!shouldRunRequestProcessing(config)) return [];
+  if (!ensureDurableQueueAvailable(config, logger, `${chain}:durable-queue-hydration`)) return [];
+
+  const minRequestId =
+    Number.isFinite(Number(config.startRequestIds?.[chain])) && Number(config.startRequestIds?.[chain]) > 0
+      ? Number(config.startRequestIds?.[chain])
+      : null;
+  const jobs = await fetchRelayerJobsByStatuses(
+    ['queued', 'queued_backpressure', 'retry_scheduled', 'failure_callback_retry_scheduled', 'processing', 'retrying'],
+    chain,
+    Math.max(Number(config.durableQueue?.syncLimit || 200), 1)
+  );
+  if (!jobs.length) return [];
+
+  const nowMs = Date.now();
+  const hydrated = [];
+  for (const job of jobs) {
+    const jobRequestId = Number(job?.request_id || job?.requestId || 0);
+    if (minRequestId !== null && Number.isFinite(jobRequestId) && jobRequestId < minRequestId) {
+      continue;
+    }
+    if (!isDurableQueueReadyJob(job, nowMs, Number(config.durableQueue?.staleProcessingMs || 120000))) {
+      continue;
+    }
+    const event = job?.event && typeof job.event === 'object' ? job.event : null;
+    if (!event || !event.chain || !event.requestId) continue;
+    const eventKey = job.event_key || buildEventKey(event);
+    if (hasProcessedEvent(state, chain, eventKey) || isEventQueuedForRetry(state, chain, eventKey)) {
+      continue;
+    }
+    const retryMeta = extractDurableRetryMeta(job);
+    enqueueRetryItem(state, chain, event, {
+      attempts: Number(job.attempts || 0),
+      next_retry_at: parseTimestampMs(job.next_retry_at) || nowMs,
+      first_failed_at: job.created_at || new Date(nowMs).toISOString(),
+      last_error: job.last_error || null,
+      finalize_only: retryMeta.finalize_only,
+      terminal_error: retryMeta.terminal_error,
+      durable_claimed: true,
+    });
+    hydrated.push(eventKey);
+  }
+
+  if (hydrated.length > 0) {
+    persistState();
+    logger.info({ chain, hydrated_count: hydrated.length }, 'Hydrated relayer retry queue from durable Supabase jobs');
+  }
+  return hydrated;
+}
+
+async function quarantineDurableBacklogBelowRequestFloor(config, logger, chain) {
+  const minRequestId = getRequestCursorFloor(config, chain);
+  if (minRequestId === null) return 0;
+  if (!ensureDurableQueueAvailable(config, logger, `${chain}:durable-floor-quarantine`)) return 0;
+  const patched = await quarantineRelayerJobsBelowRequestId({
+    network: config.network,
+    chain,
+    ltRequestId: minRequestId,
+    statuses: [
+      'queued',
+      'queued_backpressure',
+      'retry_scheduled',
+      'failure_callback_retry_scheduled',
+      'processing',
+      'retrying',
+    ],
+    note: `auto-quarantined below request cursor floor ${minRequestId}`,
+  });
+  if (patched > 0) {
+    logger.info(
+      { chain, request_cursor_floor: minRequestId, quarantined_count: patched },
+      'Quarantined stale durable relayer jobs below request cursor floor'
+    );
+  }
+  return patched;
+}
+
+export {
+  shouldRunFeedSync,
+  shouldRunRequestProcessing,
+  getRequestCursorFloor,
+  pruneRetryQueueBelowRequestFloor,
+  quarantineDurableBacklogBelowRequestFloor,
+  persistFreshEventsToDurableQueue,
+  hydrateDurableQueue,
+};
+
 export function resolveChainFromBlock(config, state, chain, confirmedTip, logger = null) {
   const configuredStart = config.startBlocks[chain];
   const defaultStart = Math.max(configuredStart ?? 0, 0);
@@ -540,14 +822,19 @@ async function processFeedSync(config, state, logger) {
         payload.providers = config.feedSync.providers;
       }
 
-      const response = await callPhala(config, '/oracle/feed', payload);
+      const timeoutAwareResponse = await callPhala(config, '/oracle/feed', payload, {
+        timeoutMs: config.feedSync.timeoutMs,
+      });
       chains.push({
         target_chain: targetChain,
-        ok: response.ok,
-        status: response.status,
-        body: response.body,
+        ok: timeoutAwareResponse.ok,
+        status: timeoutAwareResponse.status,
+        body: timeoutAwareResponse.body,
       });
-      incrementMetric(state, response.ok ? 'feed_sync_success_total' : 'feed_sync_error_total');
+      incrementMetric(
+        state,
+        timeoutAwareResponse.ok ? 'feed_sync_success_total' : 'feed_sync_error_total'
+      );
     } catch (error) {
       chains.push({
         target_chain: targetChain,
@@ -562,6 +849,9 @@ async function processFeedSync(config, state, logger) {
 
   state.metrics.last_feed_sync_completed_at = new Date().toISOString();
   state.metrics.last_feed_sync_duration_ms = Date.now() - now;
+  if (chains.some((entry) => entry.ok)) {
+    state.metrics.last_feed_sync_success_at = state.metrics.last_feed_sync_completed_at;
+  }
   saveRelayerState(config.stateFile, state);
   return { enabled: true, skipped: false, chains };
 }
@@ -585,6 +875,19 @@ async function processEvent(config, state, persistState, logger, event, retryIte
     },
     'Processing Morpheus oracle request'
   );
+
+  const claimed = await claimDurableJobForProcessing(config, logger, event, retryItem);
+  if (!claimed) {
+    clearRetryItem(state, event.chain, eventKey);
+    persistState();
+    return {
+      event,
+      skipped: true,
+      event_key: eventKey,
+      attempts,
+      retry_status: 'claimed_elsewhere',
+    };
+  }
 
   await maybeUpsertJob(logger, event, {
     event_key: eventKey,
@@ -688,6 +991,53 @@ async function processEvent(config, state, persistState, logger, event, retryIte
       return { event, result: null, event_key: eventKey, attempts, retry_status: 'settled' };
     }
 
+    if (isTerminalConfigurationError(message)) {
+      const terminalError = trimOnchainErrorMessage(message);
+      incrementMetric(state, 'retries_exhausted_total');
+      recordProcessedEvent(
+        state,
+        event.chain,
+        event,
+        'exhausted',
+        {
+          attempts,
+          route: isFinalizeOnly ? 'failure-finalize:config-error' : 'config-error',
+          last_error: terminalError,
+        },
+        config
+      );
+      clearRetryItem(state, event.chain, eventKey);
+      persistState();
+
+      await maybeUpsertJob(logger, event, {
+        event_key: eventKey,
+        status: 'failed_config',
+        attempts,
+        last_error: terminalError,
+        completed_at: new Date().toISOString(),
+        next_retry_at: null,
+      });
+
+      logger.error(
+        {
+          chain: event.chain,
+          request_id: event.requestId,
+          request_type: event.requestType,
+          event_key: eventKey,
+          attempts,
+          error: terminalError,
+        },
+        'Relayer stopped retrying due to a terminal configuration or authorization error'
+      );
+      return {
+        event,
+        error: terminalError,
+        retry_status: 'terminal',
+        event_key: eventKey,
+        attempts,
+      };
+    }
+
     if (isFinalizeOnly) {
       const nextAttempts = attempts + 1;
       const retryItemNext = enqueueRetryItem(state, event.chain, event, {
@@ -707,6 +1057,12 @@ async function processEvent(config, state, persistState, logger, event, retryIte
         attempts: retryItemNext.attempts,
         last_error: retryItemNext.last_error,
         next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
+        worker_response: {
+          retry_meta: {
+            finalize_only: true,
+            terminal_error: terminalError,
+          },
+        },
       });
 
       logger.warn(
@@ -797,6 +1153,12 @@ async function processEvent(config, state, persistState, logger, event, retryIte
           attempts: retryItemNext.attempts,
           last_error: retryItemNext.last_error,
           next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
+          worker_response: {
+            retry_meta: {
+              finalize_only: true,
+              terminal_error: trimOnchainErrorMessage(message),
+            },
+          },
         });
 
         logger.error(
@@ -903,6 +1265,7 @@ async function reconcilePendingRequests(
   incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
 
   const persistState = createPersistor(config, state);
+  await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
   const eventResults = filtered.events.length
     ? await mapWithConcurrency(filtered.events, config.concurrency, (event) =>
         processEvent(config, state, persistState, logger, event)
@@ -930,17 +1293,17 @@ async function processChain(config, state, logger, chain, options) {
   }
 
   await syncManualActions(config, state, logger, chain);
+  const persistState = createPersistor(config, state);
+  await quarantineDurableBacklogBelowRequestFloor(config, logger, chain);
+  await hydrateDurableQueue(config, state, logger, chain, persistState);
+  const pruned = pruneRetryQueueBelowRequestFloor(state, chain, getRequestCursorFloor(config, chain));
+  if (pruned > 0) {
+    persistState();
+    logger.info({ chain, pruned_count: pruned }, 'Pruned legacy retry queue entries below request cursor floor');
+  }
 
   const latestBlock = await options.getLatestBlock(config);
   const confirmedTip = latestBlock - Math.max(config.confirmations[chain], 0);
-
-  const dueRetries = getDueRetryItems(state, chain);
-  const persistState = createPersistor(config, state);
-  const retryResults = dueRetries.length
-    ? await mapWithConcurrency(dueRetries, config.concurrency, (item) =>
-        processEvent(config, state, persistState, logger, item.event, item)
-      )
-    : [];
 
   let scannedBlocks = null;
   let eventResults = [];
@@ -954,12 +1317,21 @@ async function processChain(config, state, logger, chain, options) {
       incrementMetric(state, 'events_scanned_total', scannedEvents.length);
       const filtered = filterNewEvents(state, chain, scannedEvents);
       incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
-      eventResults = filtered.events.length
-        ? await mapWithConcurrency(filtered.events, config.concurrency, (event) =>
+      await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
+      const deferred = await deferEventsForBackpressure(
+        config,
+        state,
+        logger,
+        chain,
+        filtered.events,
+        persistState
+      );
+      eventResults = deferred.processable.length
+        ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
             processEvent(config, state, persistState, logger, event)
           )
         : [];
-      for (const event of filtered.events) {
+      for (const event of deferred.processable) {
         observedRequestIds.add(String(event.requestId || ''));
       }
       state[chain].last_block = toBlock;
@@ -972,6 +1344,24 @@ async function processChain(config, state, logger, chain, options) {
       };
     }
   }
+
+  const dueRetries = getDueRetryItems(state, chain);
+  const retryBatch = dueRetries.slice(
+    0,
+    Math.max(Number(config.backpressure?.maxRetryEventsPerTick || dueRetries.length), 1)
+  );
+  if (dueRetries.length > retryBatch.length) {
+    incrementMetric(
+      state,
+      'backpressure_retry_skipped_total',
+      dueRetries.length - retryBatch.length
+    );
+  }
+  const retryResults = retryBatch.length
+    ? await mapWithConcurrency(retryBatch, config.concurrency, (item) =>
+        processEvent(config, state, persistState, logger, item.event, item)
+      )
+    : [];
 
   const requestReconciliation = await reconcilePendingRequests(
     config,
@@ -1041,12 +1431,19 @@ async function processChainByRequestCursor(config, state, logger, chain, options
   }
 
   await syncManualActions(config, state, logger, chain);
+  const persistState = createPersistor(config, state);
+  await quarantineDurableBacklogBelowRequestFloor(config, logger, chain);
+  await hydrateDurableQueue(config, state, logger, chain, persistState);
+  const pruned = pruneRetryQueueBelowRequestFloor(state, chain, getRequestCursorFloor(config, chain));
+  if (pruned > 0) {
+    persistState();
+    logger.info({ chain, pruned_count: pruned }, 'Pruned legacy retry queue entries below request cursor floor');
+  }
 
   const latestRequestId = await options.getLatestRequestId(config);
   const fromRequestId = resolveRequestCursor(config, state, chain, latestRequestId, logger);
   if (fromRequestId > latestRequestId) {
     const dueRetries = getDueRetryItems(state, chain);
-    const persistState = createPersistor(config, state);
     const retryResults = dueRetries.length
       ? await mapWithConcurrency(dueRetries, config.concurrency, (item) =>
           processEvent(config, state, persistState, logger, item.event, item)
@@ -1060,17 +1457,36 @@ async function processChainByRequestCursor(config, state, logger, chain, options
   incrementMetric(state, 'events_scanned_total', scannedEvents.length);
   const filtered = filterNewEvents(state, chain, scannedEvents);
   incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
-
-  const dueRetries = getDueRetryItems(state, chain);
-  const persistState = createPersistor(config, state);
-  const retryResults = dueRetries.length
-    ? await mapWithConcurrency(dueRetries, config.concurrency, (item) =>
-        processEvent(config, state, persistState, logger, item.event, item)
+  await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
+  const deferred = await deferEventsForBackpressure(
+    config,
+    state,
+    logger,
+    chain,
+    filtered.events,
+    persistState
+  );
+  const eventResults = deferred.processable.length
+    ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
+        processEvent(config, state, persistState, logger, event)
       )
     : [];
-  const eventResults = filtered.events.length
-    ? await mapWithConcurrency(filtered.events, config.concurrency, (event) =>
-        processEvent(config, state, persistState, logger, event)
+
+  const dueRetries = getDueRetryItems(state, chain);
+  const retryBatch = dueRetries.slice(
+    0,
+    Math.max(Number(config.backpressure?.maxRetryEventsPerTick || dueRetries.length), 1)
+  );
+  if (dueRetries.length > retryBatch.length) {
+    incrementMetric(
+      state,
+      'backpressure_retry_skipped_total',
+      dueRetries.length - retryBatch.length
+    );
+  }
+  const retryResults = retryBatch.length
+    ? await mapWithConcurrency(retryBatch, config.concurrency, (item) =>
+        processEvent(config, state, persistState, logger, item.event, item)
       )
     : [];
 
@@ -1093,7 +1509,11 @@ export async function runRelayerOnce(options = {}) {
   incrementMetric(state, 'ticks_total', 1);
   saveRelayerState(config.stateFile, state);
 
-  const neoN3 = config.activeChains.includes('neo_n3')
+  const feedSync = shouldRunFeedSync(config)
+    ? await processFeedSync(config, state, logger)
+    : { enabled: false, skipped: true, mode: config.mode };
+
+  const neoN3 = shouldRunRequestProcessing(config) && config.activeChains.includes('neo_n3')
     ? config.neo_n3.scanMode === 'request_cursor'
       ? await processChainByRequestCursor(config, state, logger, 'neo_n3', {
           hasConfig: hasNeoN3RelayerConfig,
@@ -1114,21 +1534,24 @@ export async function runRelayerOnce(options = {}) {
           scanByRequestId: scanNeoN3OracleRequestsById,
         })
     : { skipped: true, chain: 'neo_n3' };
-  const neoX = config.activeChains.includes('neo_x')
+  const neoX = shouldRunRequestProcessing(config) && config.activeChains.includes('neo_x')
     ? await processChain(config, state, logger, 'neo_x', {
         hasConfig: hasNeoXRelayerConfig,
         getLatestBlock: getNeoXLatestBlock,
         scan: scanNeoXOracleRequests,
       })
     : { skipped: true, chain: 'neo_x' };
-  const feedSync = await processFeedSync(config, state, logger);
-  const automation = await processAutomationJobs(config, logger);
+  const automation = shouldRunRequestProcessing(config)
+    ? await processAutomationJobs(config, logger)
+    : { skipped: true, mode: config.mode };
 
   state.metrics.last_tick_completed_at = new Date().toISOString();
   state.metrics.last_tick_duration_ms = Date.now() - startedAt;
   saveRelayerState(config.stateFile, state);
 
   const result = {
+    instance_id: config.instanceId,
+    mode: config.mode,
     neo_n3: neoN3,
     neo_x: neoX,
     feed_sync: feedSync,
@@ -1146,6 +1569,8 @@ export async function runRelayerLoop(options = {}) {
   logger.info(
     {
       network: config.network,
+      mode: config.mode,
+      instance_id: config.instanceId,
       state_file: config.stateFile,
       poll_interval_ms: config.pollIntervalMs,
       concurrency: config.concurrency,
@@ -1157,13 +1582,16 @@ export async function runRelayerLoop(options = {}) {
       const result = await runRelayerOnce({ config, logger });
       logger.info({ metrics: result.metrics }, 'Relayer loop tick complete');
       const feedSyncDelayMs = getFeedSyncDelayMs(config, result.state, Date.now());
-      const sleepMs = Math.max(
-        0,
-        Math.min(
-          Math.max(config.pollIntervalMs, 0),
-          Number.isFinite(feedSyncDelayMs) ? feedSyncDelayMs : Number.POSITIVE_INFINITY
-        )
-      );
+      const sleepMs =
+        config.mode === 'feed_only'
+          ? Math.max(
+              0,
+              Math.min(
+                Math.max(config.pollIntervalMs, 0),
+                Number.isFinite(feedSyncDelayMs) ? feedSyncDelayMs : Number.POSITIVE_INFINITY
+              )
+            )
+          : Math.max(config.pollIntervalMs, 0);
       await sleep(sleepMs);
     } catch (error) {
       logger.error({ error }, 'Relayer loop tick failed');

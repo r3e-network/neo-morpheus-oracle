@@ -14,6 +14,7 @@
 - `npm run render:phala-env`
 - `npm run render:phala-env:mainnet`
 - `npm run render:phala-env:testnet`
+- `npm run check:signers`
 - `npm run check:phala-env`
 
 ## Neo X contracts
@@ -44,7 +45,11 @@
 Notes:
 
 - `npm run render:phala-env` now aliases mainnet generation
+- `npm run check:signers` audits pinned Neo N3 worker / relayer / updater / oracle_verifier identities across local and generated env files
 - `npm run check:phala-env` validates `deploy/phala/morpheus.<network>.env`
+- `MORPHEUS_RELAYER_MODE=feed_only` can be used for a dedicated pricefeed relayer instance
+- `MORPHEUS_RELAYER_INSTANCE_ID` can be set to make durable-queue claim ownership explicit in logs and job metadata
+- `MORPHEUS_DURABLE_QUEUE_ENABLED=true` persists fresh chain events into `morpheus_relayer_jobs` before checkpoints advance
 
 ## Expected env vars
 

@@ -1,5 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {
+  NEO_N3_SIGNER_ENV_KEYS,
+  resolvePinnedNeoN3Role,
+  resolvePinnedNeoN3RolePreferMatch,
+} from './lib-neo-signers.mjs';
 
 const repoRoot = process.cwd();
 const rootEnvPath = path.resolve(repoRoot, '.env');
@@ -109,6 +114,19 @@ function createExplicitResolver(localEnv, existingEnv) {
   };
 }
 
+function createInputOnlyResolver(localEnv) {
+  return (key) => {
+    if (Object.prototype.hasOwnProperty.call(localEnv, key)) {
+      return trimString(localEnv[key]);
+    }
+    const processValue = trimString(process.env[key]);
+    if (processValue || Object.prototype.hasOwnProperty.call(process.env, key)) {
+      return processValue;
+    }
+    return '';
+  };
+}
+
 function line(key, value) {
   return `${key}=${value ?? ''}`;
 }
@@ -144,6 +162,7 @@ const outputPath = path.resolve(
 const registry = await readNetworkRegistry(network);
 const get = createResolver(localEnv, existingEnv);
 const getExplicit = createExplicitResolver(localEnv, existingEnv);
+const getInputOnly = createInputOnlyResolver(localEnv);
 const explicitNetworkMode = Boolean(requestedNetwork);
 
 function resolveNetworkScoped(...keys) {
@@ -200,68 +219,42 @@ function resolveNetworkScopedValue(baseKey, { allowGeneric = true, defaultValue 
   return defaultValue;
 }
 
-function resolveSignerForNetwork(role = 'worker') {
-  if (network === 'testnet') {
-    return resolveNetworkScoped('NEO_TESTNET_WIF');
-  }
-  if (role === 'worker') {
-    return resolveNetworkScoped('PHALA_NEO_N3_WIF', 'NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF');
-  }
-  return resolveNetworkScoped(
-    'MORPHEUS_RELAYER_NEO_N3_WIF',
-    'MORPHEUS_UPDATER_NEO_N3_WIF',
-    'NEO_N3_WIF'
-  );
+function profileDefault(testnetValue, mainnetValue) {
+  return network === 'mainnet' ? mainnetValue : testnetValue;
 }
 
-function resolveNeoN3PrivateKeyForNetwork(role = 'worker') {
-  if (network === 'testnet') {
-    return role === 'worker'
-      ? resolveNetworkScoped(
-          'PHALA_NEO_N3_PRIVATE_KEY_TESTNET',
-          'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET'
-        )
-      : resolveNetworkScoped(
-          'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET',
-          'PHALA_NEO_N3_PRIVATE_KEY_TESTNET'
-        );
-  }
-  return role === 'worker'
-    ? get('PHALA_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY')
-    : get('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_PRIVATE_KEY');
+function profileTunable(key, testnetValue, mainnetValue) {
+  const explicit = getInputOnly(key);
+  return explicit || profileDefault(testnetValue, mainnetValue);
 }
 
-function resolveOracleVerifierSignerForNetwork() {
-  if (network === 'testnet') {
-    const scopedTestnet = resolveNetworkScoped(
-      'MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET',
-      'PHALA_ORACLE_VERIFIER_WIF_TESTNET'
-    );
-    return scopedTestnet || resolveSignerForNetwork('worker');
+function buildSignerSnapshot() {
+  const snapshot = {};
+  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
+    const value = resolveNetworkScoped(key);
+    if (value) snapshot[key] = value;
   }
-  return resolveNetworkScoped('MORPHEUS_ORACLE_VERIFIER_WIF', 'PHALA_ORACLE_VERIFIER_WIF');
+  return snapshot;
 }
 
-function resolveOracleVerifierPrivateKeyForNetwork() {
-  if (network === 'testnet') {
-    return resolveNetworkScoped(
-      'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET',
-      'PHALA_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET'
-    );
-  }
-  return resolveNetworkScoped(
-    'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-    'PHALA_ORACLE_VERIFIER_PRIVATE_KEY'
-  );
+function resolvePinnedRoleMaterial(role) {
+  const report = resolvePinnedNeoN3RolePreferMatch(network, role, {
+    env: buildSignerSnapshot(),
+  });
+  return {
+    report,
+    wif: report.materialized?.wif || '',
+    privateKey: report.materialized?.private_key || '',
+    publicKey: report.public_key || '',
+  };
 }
 
 function resolveUseDerivedKeysDefault() {
   const explicit = get('PHALA_USE_DERIVED_KEYS');
   if (explicit) return explicit;
 
-  const hasExplicitTestnetVerifier =
-    network === 'testnet' &&
-    Boolean(resolveOracleVerifierSignerForNetwork() || resolveOracleVerifierPrivateKeyForNetwork());
+  const verifier = resolvePinnedRoleMaterial('oracle_verifier');
+  const hasExplicitTestnetVerifier = network === 'testnet' && Boolean(verifier.wif || verifier.privateKey);
   return hasExplicitTestnetVerifier ? 'false' : 'true';
 }
 
@@ -286,6 +279,10 @@ function mergeCsvList(primary, additions = []) {
   }
   return out.join(',');
 }
+
+const workerSigner = resolvePinnedRoleMaterial('worker');
+const relayerSigner = resolvePinnedRoleMaterial('relayer');
+const verifierSigner = resolvePinnedRoleMaterial('oracle_verifier');
 
 const runtimeConfig = {
   TWELVEDATA_API_KEY: get('TWELVEDATA_API_KEY'),
@@ -330,14 +327,14 @@ const runtimeConfig = {
     registry.neo_n3?.contracts?.morpheus_datafeed || '',
     'CONTRACT_MORPHEUS_DATAFEED_HASH'
   ),
-  PHALA_NEO_N3_WIF: resolveSignerForNetwork('worker'),
-  PHALA_NEO_N3_PRIVATE_KEY: resolveNeoN3PrivateKeyForNetwork('worker'),
-  MORPHEUS_ORACLE_VERIFIER_WIF: resolveOracleVerifierSignerForNetwork(),
-  MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY: resolveOracleVerifierPrivateKeyForNetwork(),
-  PHALA_ORACLE_VERIFIER_WIF: resolveOracleVerifierSignerForNetwork(),
-  PHALA_ORACLE_VERIFIER_PRIVATE_KEY: resolveOracleVerifierPrivateKeyForNetwork(),
-  MORPHEUS_RELAYER_NEO_N3_WIF: resolveSignerForNetwork('relayer'),
-  MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: resolveNeoN3PrivateKeyForNetwork('relayer'),
+  PHALA_NEO_N3_WIF: workerSigner.wif,
+  PHALA_NEO_N3_PRIVATE_KEY: workerSigner.privateKey,
+  MORPHEUS_ORACLE_VERIFIER_WIF: verifierSigner.wif,
+  MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY: verifierSigner.privateKey,
+  PHALA_ORACLE_VERIFIER_WIF: verifierSigner.wif,
+  PHALA_ORACLE_VERIFIER_PRIVATE_KEY: verifierSigner.privateKey,
+  MORPHEUS_RELAYER_NEO_N3_WIF: relayerSigner.wif,
+  MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: relayerSigner.privateKey,
   NEOX_RPC_URL: resolveRegistryBackedValue(
     registry.neo_x?.rpc_url || 'https://neoxt4seed1.ngd.network',
     'NEOX_RPC_URL',
@@ -375,7 +372,12 @@ const runtimeConfig = {
   MORPHEUS_FEED_CHANGE_THRESHOLD_BPS: get('MORPHEUS_FEED_CHANGE_THRESHOLD_BPS') || '10',
   MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS: get('MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS') || '60000',
   MORPHEUS_FEED_SYNC_INTERVAL_MS: get('MORPHEUS_FEED_SYNC_INTERVAL_MS') || '60000',
+  MORPHEUS_FEED_SYNC_TIMEOUT_MS: get('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || '120000',
   MORPHEUS_FEED_PAIR_REGISTRY_JSON: get('MORPHEUS_FEED_PAIR_REGISTRY_JSON') || '',
+  MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED:
+    get('MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED') || 'true',
+  MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED:
+    get('MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED') || 'true',
   MORPHEUS_RELAYER_POLL_INTERVAL_MS: get('MORPHEUS_RELAYER_POLL_INTERVAL_MS') || '5000',
   MORPHEUS_RELAYER_CONCURRENCY: get('MORPHEUS_RELAYER_CONCURRENCY') || '4',
   MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK: get('MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK') || '250',
@@ -384,6 +386,18 @@ const runtimeConfig = {
   MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS: get('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || '300000',
   MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE: get('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || '5000',
   MORPHEUS_RELAYER_DEAD_LETTER_LIMIT: get('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || '500',
+  MORPHEUS_RELAYER_MODE: get('MORPHEUS_RELAYER_MODE') || 'combined',
+  MORPHEUS_DURABLE_QUEUE_ENABLED: get('MORPHEUS_DURABLE_QUEUE_ENABLED') || 'true',
+  MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED: get('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED') || 'true',
+  MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT: get('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT') || '200',
+  MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS:
+    get('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS') || '120000',
+  MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK:
+    profileTunable('MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK', '16', '64'),
+  MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK:
+    profileTunable('MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK', '8', '32'),
+  MORPHEUS_RELAYER_DEFER_DELAY_MS:
+    profileTunable('MORPHEUS_RELAYER_DEFER_DELAY_MS', '5000', '3000'),
   MORPHEUS_RELAYER_NEO_N3_SCAN_MODE: resolveNeoN3ScanModeDefault(),
   MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID: get('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID') || '',
   MORPHEUS_AUTOMATION_ENABLED: get('MORPHEUS_AUTOMATION_ENABLED') || 'true',
@@ -450,6 +464,18 @@ const runtimeConfig = {
   MORPHEUS_PAYMASTER_MAINNET_TTL_MS: get('MORPHEUS_PAYMASTER_MAINNET_TTL_MS'),
 };
 
+const signerDiagnostics = [workerSigner.report, relayerSigner.report, verifierSigner.report]
+  .filter((entry) => entry.issues.length > 0)
+  .map((entry) => `${entry.role}: ${entry.issues.join('; ')}`);
+if (signerDiagnostics.length > 0) {
+  console.error(`render-phala-env signer corrections applied for ${network}:`);
+  for (const line of signerDiagnostics) console.error(`- ${line}`);
+}
+
+for (const role of ['worker', 'relayer', 'updater', 'oracle_verifier']) {
+  resolvePinnedNeoN3Role(network, role, { env: runtimeConfig });
+}
+
 const lines = [
   '# Generated from root .env and config/networks; do not commit.',
   line(
@@ -496,6 +522,15 @@ const lines = [
   ),
   line('MORPHEUS_RATE_LIMIT_VRF_RANDOM_MAX', get('MORPHEUS_RATE_LIMIT_VRF_RANDOM_MAX') || '15'),
   line('MORPHEUS_RATE_LIMIT_ORACLE_QUERY_MAX', get('MORPHEUS_RATE_LIMIT_ORACLE_QUERY_MAX') || '30'),
+  line('MORPHEUS_MAX_INFLIGHT_ORACLE_QUERY', profileTunable('MORPHEUS_MAX_INFLIGHT_ORACLE_QUERY', '4', '16')),
+  line('MORPHEUS_MAX_INFLIGHT_ORACLE_SMART_FETCH', profileTunable('MORPHEUS_MAX_INFLIGHT_ORACLE_SMART_FETCH', '2', '8')),
+  line('MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE', profileTunable('MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE', '2', '6')),
+  line('MORPHEUS_MAX_INFLIGHT_VRF_RANDOM', profileTunable('MORPHEUS_MAX_INFLIGHT_VRF_RANDOM', '2', '6')),
+  line('MORPHEUS_MAX_INFLIGHT_PAYMASTER_AUTHORIZE', profileTunable('MORPHEUS_MAX_INFLIGHT_PAYMASTER_AUTHORIZE', '4', '12')),
+  line('MORPHEUS_MAX_INFLIGHT_RELAY_TRANSACTION', profileTunable('MORPHEUS_MAX_INFLIGHT_RELAY_TRANSACTION', '4', '10')),
+  line('MORPHEUS_MAX_INFLIGHT_NEODID_BIND', profileTunable('MORPHEUS_MAX_INFLIGHT_NEODID_BIND', '3', '8')),
+  line('MORPHEUS_MAX_INFLIGHT_NEODID_ACTION_TICKET', profileTunable('MORPHEUS_MAX_INFLIGHT_NEODID_ACTION_TICKET', '3', '8')),
+  line('MORPHEUS_MAX_INFLIGHT_NEODID_RECOVERY_TICKET', profileTunable('MORPHEUS_MAX_INFLIGHT_NEODID_RECOVERY_TICKET', '2', '4')),
   line('TWELVEDATA_API_KEY', get('TWELVEDATA_API_KEY')),
   '',
   line('NEXT_PUBLIC_SUPABASE_URL', get('NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL')),
@@ -610,6 +645,15 @@ const lines = [
     get('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || '5000'
   ),
   line('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT', get('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || '500'),
+  line(
+    'MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK',
+    profileTunable('MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK', '16', '64')
+  ),
+  line(
+    'MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK',
+    profileTunable('MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK', '8', '32')
+  ),
+  line('MORPHEUS_RELAYER_DEFER_DELAY_MS', profileTunable('MORPHEUS_RELAYER_DEFER_DELAY_MS', '5000', '3000')),
   line('MORPHEUS_RELAYER_NEO_N3_SCAN_MODE', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_SCAN_MODE),
   line(
     'MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID',

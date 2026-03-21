@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-03-13T17:01:39.365Z",
+  "generated_at": "2026-03-20T07:56:43.714Z",
   "network": "testnet",
   "target_chain": "neo_n3",
   "consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "request_fee": "1000000",
   "request_credit": "8000000",
-  "request_credit_deposit": "8000000",
+  "request_credit_deposit": "2000000",
   "register": {
-    "txid": "0x083a6bdfc1060aa3c09c42cbeacf65b5e1922d3eb873d926063273929fcad374",
-    "request_id": "188",
+    "txid": "0x9875b90676c36c83974e9a5e2de558353749e0ee6f4c1d7e4446601c22354a95",
+    "request_id": "4091",
     "callback": {
       "request_type": "automation_register",
       "success": true,
-      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"automation_register\",\"success\":true,\"result\":{\"mode\":\"automation\",\"action\":\"register\",\"automation_id\":\"automation:neo_n3:05fd52de-84e3-4185-ae33-c245a45fb6b1\",\"trigger_type\":\"one_shot\",\"next_run_at\":\"2026-03-13T17:00:55.828Z\",\"status\":\"active\",\"chain\":\"neo_n3\",\"requester\":\"0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56\",\"callback_contract\":\"0x8c506f224d82e67200f20d9d5361f767f0756e3b\",\"execution_request_type\":\"privacy_oracle\"},\"verification\":null}",
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"automation_register\",\"success\":true,\"result\":{\"mode\":\"automation\",\"action\":\"register\",\"automation_id\":\"automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d\",\"trigger_type\":\"one_shot\",\"next_run_at\":\"2026-03-20T07:47:23.649Z\",\"status\":\"active\",\"chain\":\"neo_n3\",\"requester\":\"0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7\",\"callback_contract\":\"0x8c506f224d82e67200f20d9d5361f767f0756e3b\",\"execution_request_type\":\"privacy_oracle\"},\"verification\":null}",
       "result_json": {
         "version": "morpheus-result/v1",
         "request_type": "automation_register",
@@ -21,12 +21,12 @@
         "result": {
           "mode": "automation",
           "action": "register",
-          "automation_id": "automation:neo_n3:05fd52de-84e3-4185-ae33-c245a45fb6b1",
+          "automation_id": "automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d",
           "trigger_type": "one_shot",
-          "next_run_at": "2026-03-13T17:00:55.828Z",
+          "next_run_at": "2026-03-20T07:47:23.649Z",
           "status": "active",
           "chain": "neo_n3",
-          "requester": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+          "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
           "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
           "execution_request_type": "privacy_oracle"
         },
@@ -34,23 +34,23 @@
       },
       "error_text": ""
     },
-    "execute_at": "2026-03-13T17:00:55.828Z",
-    "automation_id": "automation:neo_n3:05fd52de-84e3-4185-ae33-c245a45fb6b1"
+    "execute_at": "2026-03-20T07:47:23.649Z",
+    "automation_id": "automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d"
   },
   "queued_execution": {
-    "request_id": "189",
+    "request_id": "4092",
     "onchain_request": {
-      "id": "189",
+      "id": "4092",
       "request_type": "privacy_oracle",
       "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
-      "requester": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+      "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
       "status": "1",
-      "created_at": "1773421248179"
+      "created_at": "1773992964189"
     },
     "callback": {
       "request_type": "privacy_oracle",
       "success": true,
-      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.656\",\"result\":\"2.656\"},\"verification\":{\"output_hash\":\"c86fc26a361b0422d33e9a5b8d667cd1a35279f9074386c8514f8dea56a40b2e\",\"attestation_hash\":\"c86fc26a361b0422d33e9a5b8d667cd1a35279f9074386c8514f8dea56a40b2e\",\"signature\":\"c81f4bd1aa3f569ea9f9490ebcaf90dfa33c93f09110b137546319922532438f61bfda68e375dd86fc9e99e9d0278e08cd708d738781347c4eda72d41ee913fd\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"cb2f7aa88209a765d51ed940cbad89332bac7ba0e770d1ade21827164a6184a5\",\"report_data\":\"c86fc26a361b0422d33e9a5b8d667cd1a35279f9074386c8514f8dea56a40b2e0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"39dee6851b97bdb3cceb0e932f8099ee1a6a095b4c95cb70f319d6bb6369b1f0\"}}}",
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.732\",\"result\":\"2.732\"},\"verification\":{\"output_hash\":\"edec200172361c9a52fe022ac49e6d8acf8393a04f80b0448056d9c402d3137f\",\"attestation_hash\":\"edec200172361c9a52fe022ac49e6d8acf8393a04f80b0448056d9c402d3137f\",\"signature\":\"18aca00840448bd23ec9f69d531b9afc8a5728c3c2b31667676f577aa07b60804218314cc4229361a6368b0ebf50d49c35071e3b5d57caa2e4eed9cc5654a577\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"edec200172361c9a52fe022ac49e6d8acf8393a04f80b0448056d9c402d3137f0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"f766daa84bb9a661b1685b47f55d0fd6fbcb3695d7bc36d9b07dc1dc57627c12\"}}}",
       "result_json": {
         "version": "morpheus-result/v1",
         "request_type": "privacy_oracle",
@@ -60,32 +60,37 @@
           "target_chain": "neo_n3",
           "request_source": "morpheus-relayer:neo_n3",
           "upstream_status": 200,
-          "extracted_value": "2.656",
-          "result": "2.656"
+          "extracted_value": "2.732",
+          "result": "2.732"
         },
         "verification": {
-          "output_hash": "c86fc26a361b0422d33e9a5b8d667cd1a35279f9074386c8514f8dea56a40b2e",
-          "attestation_hash": "c86fc26a361b0422d33e9a5b8d667cd1a35279f9074386c8514f8dea56a40b2e",
-          "signature": "c81f4bd1aa3f569ea9f9490ebcaf90dfa33c93f09110b137546319922532438f61bfda68e375dd86fc9e99e9d0278e08cd708d738781347c4eda72d41ee913fd",
-          "public_key": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917",
+          "output_hash": "edec200172361c9a52fe022ac49e6d8acf8393a04f80b0448056d9c402d3137f",
+          "attestation_hash": "edec200172361c9a52fe022ac49e6d8acf8393a04f80b0448056d9c402d3137f",
+          "signature": "18aca00840448bd23ec9f69d531b9afc8a5728c3c2b31667676f577aa07b60804218314cc4229361a6368b0ebf50d49c35071e3b5d57caa2e4eed9cc5654a577",
+          "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
           "tee_attestation": {
             "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-            "compose_hash": "cb2f7aa88209a765d51ed940cbad89332bac7ba0e770d1ade21827164a6184a5",
-            "report_data": "c86fc26a361b0422d33e9a5b8d667cd1a35279f9074386c8514f8dea56a40b2e0000000000000000000000000000000000000000000000000000000000000000",
-            "quote_hash": "39dee6851b97bdb3cceb0e932f8099ee1a6a095b4c95cb70f319d6bb6369b1f0"
+            "compose_hash": "5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567",
+            "report_data": "edec200172361c9a52fe022ac49e6d8acf8393a04f80b0448056d9c402d3137f0000000000000000000000000000000000000000000000000000000000000000",
+            "quote_hash": "f766daa84bb9a661b1685b47f55d0fd6fbcb3695d7bc36d9b07dc1dc57627c12"
           }
         }
       },
       "error_text": ""
+    },
+    "source": {
+      "source": "supabase_queue_tx",
+      "run_status": "queued",
+      "queue_tx_hash": "0x9cd6a0f006c4e21dbf617c32b7b26213060c0dd6ef4301899e8b25054d066715"
     }
   },
   "cancel_registration": {
-    "txid": "0x01947726b80367d1466add4d921d9b451032d979f4182c47d5ece2aa15b45aad",
-    "request_id": "193",
+    "txid": "0xbcd463ecfe8773eeb9b14399b3e4608d658b0c0049302279ba315b317ed38b58",
+    "request_id": "4093",
     "callback": {
       "request_type": "automation_register",
       "success": true,
-      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"automation_register\",\"success\":true,\"result\":{\"mode\":\"automation\",\"action\":\"register\",\"automation_id\":\"automation:neo_n3:a55bcfa4-ed75-4d3b-be80-50f9d2005243\",\"trigger_type\":\"interval\",\"next_run_at\":\"2026-03-13T17:31:06.060Z\",\"status\":\"active\",\"chain\":\"neo_n3\",\"requester\":\"0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56\",\"callback_contract\":\"0x8c506f224d82e67200f20d9d5361f767f0756e3b\",\"execution_request_type\":\"privacy_oracle\"},\"verification\":null}",
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"automation_register\",\"success\":true,\"result\":{\"mode\":\"automation\",\"action\":\"register\",\"automation_id\":\"automation:neo_n3:cdb6c1c5-1207-4e0d-a960-895dfbbefa88\",\"trigger_type\":\"interval\",\"next_run_at\":\"2026-03-20T08:21:47.365Z\",\"status\":\"active\",\"chain\":\"neo_n3\",\"requester\":\"0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7\",\"callback_contract\":\"0x8c506f224d82e67200f20d9d5361f767f0756e3b\",\"execution_request_type\":\"privacy_oracle\"},\"verification\":null}",
       "result_json": {
         "version": "morpheus-result/v1",
         "request_type": "automation_register",
@@ -93,12 +98,12 @@
         "result": {
           "mode": "automation",
           "action": "register",
-          "automation_id": "automation:neo_n3:a55bcfa4-ed75-4d3b-be80-50f9d2005243",
+          "automation_id": "automation:neo_n3:cdb6c1c5-1207-4e0d-a960-895dfbbefa88",
           "trigger_type": "interval",
-          "next_run_at": "2026-03-13T17:31:06.060Z",
+          "next_run_at": "2026-03-20T08:21:47.365Z",
           "status": "active",
           "chain": "neo_n3",
-          "requester": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+          "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
           "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
           "execution_request_type": "privacy_oracle"
         },
@@ -106,15 +111,15 @@
       },
       "error_text": ""
     },
-    "automation_id": "automation:neo_n3:a55bcfa4-ed75-4d3b-be80-50f9d2005243"
+    "automation_id": "automation:neo_n3:cdb6c1c5-1207-4e0d-a960-895dfbbefa88"
   },
   "cancel": {
-    "txid": "0x5bcc638d2b6d9798d6468d2cb3ddaabe5fa089404208aed12e0040613124eced",
-    "request_id": "194",
+    "txid": "0x640df7bd421d819034e6c95b55cdc41dfcc9a5a4ce64415b799123d9c5ea89af",
+    "request_id": "4094",
     "callback": {
       "request_type": "automation_cancel",
       "success": true,
-      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"automation_cancel\",\"success\":true,\"result\":{\"mode\":\"automation\",\"action\":\"cancel\",\"automation_id\":\"automation:neo_n3:a55bcfa4-ed75-4d3b-be80-50f9d2005243\",\"status\":\"cancelled\",\"chain\":\"neo_n3\"},\"verification\":null}",
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"automation_cancel\",\"success\":true,\"result\":{\"mode\":\"automation\",\"action\":\"cancel\",\"automation_id\":\"automation:neo_n3:cdb6c1c5-1207-4e0d-a960-895dfbbefa88\",\"status\":\"cancelled\",\"chain\":\"neo_n3\"},\"verification\":null}",
       "result_json": {
         "version": "morpheus-result/v1",
         "request_type": "automation_cancel",
@@ -122,7 +127,7 @@
         "result": {
           "mode": "automation",
           "action": "cancel",
-          "automation_id": "automation:neo_n3:a55bcfa4-ed75-4d3b-be80-50f9d2005243",
+          "automation_id": "automation:neo_n3:cdb6c1c5-1207-4e0d-a960-895dfbbefa88",
           "status": "cancelled",
           "chain": "neo_n3"
         },
@@ -133,13 +138,13 @@
   },
   "supabase": {
     "job": {
-      "id": "7c031ec6-95f3-4821-bff0-afb6b2a12d09",
-      "automation_id": "automation:neo_n3:05fd52de-84e3-4185-ae33-c245a45fb6b1",
-      "registration_request_id": "188",
+      "id": "f66c1ac1-c7fb-433a-ad57-07aee040cfc1",
+      "automation_id": "automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d",
+      "registration_request_id": "4091",
       "project_id": null,
       "project_slug": "",
       "chain": "neo_n3",
-      "requester": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+      "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
       "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
       "callback_method": "onOracleResult",
       "execution_request_type": "privacy_oracle",
@@ -151,50 +156,50 @@
       },
       "trigger_type": "one_shot",
       "trigger_config": {
-        "execute_at": "2026-03-13T17:00:55.828Z"
+        "execute_at": "2026-03-20T07:47:23.649Z"
       },
       "trigger_state": {},
       "status": "completed",
       "next_run_at": null,
-      "last_run_at": "2026-03-13T17:01:01.857+00:00",
+      "last_run_at": "2026-03-20T07:49:22.304+00:00",
       "execution_count": 1,
       "max_executions": 1,
-      "last_queued_request_id": null,
+      "last_queued_request_id": "automation:neo_n3:automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d:1",
       "last_error": null,
-      "created_at": "2026-03-13T17:00:57.497+00:00",
-      "updated_at": "2026-03-13T17:01:02.618+00:00",
+      "created_at": "2026-03-20T07:49:20.161+00:00",
+      "updated_at": "2026-03-20T07:49:23.587+00:00",
       "network": "testnet"
     },
     "runs": [
       {
-        "id": "6cdf316e-696f-48f9-a859-f54160fa351e",
-        "automation_id": "automation:neo_n3:05fd52de-84e3-4185-ae33-c245a45fb6b1",
-        "queued_request_id": null,
+        "id": "a41eaf65-9de3-4b59-affe-c7cf09f913e7",
+        "automation_id": "automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d",
+        "queued_request_id": "automation:neo_n3:automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d:1",
         "chain": "neo_n3",
         "status": "queued",
         "trigger_reason": "one_shot",
         "observed_value": null,
         "queue_tx": {
-          "tx_hash": "0xb49c623b941594050fa12bacb5e101cb2711158e4d0a406ceb09e9dc26c0cae3",
+          "tx_hash": "0x9cd6a0f006c4e21dbf617c32b7b26213060c0dd6ef4301899e8b25054d066715",
           "vm_state": "HALT",
-          "request_id": "automation:n3:1773421261857",
+          "request_id": "automation:neo_n3:automation:neo_n3:28bc92ab-df14-445a-bd02-da7c7600899d:1",
           "target_chain": "neo_n3"
         },
         "error": null,
-        "created_at": "2026-03-13T17:01:02.563468+00:00",
+        "created_at": "2026-03-20T07:49:23.288698+00:00",
         "network": "testnet"
       }
     ]
   },
   "cancelled_supabase": {
     "job": {
-      "id": "7ae9758f-0ae0-4ec3-a0b2-61ac857563f0",
-      "automation_id": "automation:neo_n3:a55bcfa4-ed75-4d3b-be80-50f9d2005243",
-      "registration_request_id": "193",
+      "id": "7114ae85-f462-4a01-b9d1-55df31ca15cb",
+      "automation_id": "automation:neo_n3:cdb6c1c5-1207-4e0d-a960-895dfbbefa88",
+      "registration_request_id": "4093",
       "project_id": null,
       "project_slug": "",
       "chain": "neo_n3",
-      "requester": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+      "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
       "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
       "callback_method": "onOracleResult",
       "execution_request_type": "privacy_oracle",
@@ -206,7 +211,7 @@
       },
       "trigger_type": "interval",
       "trigger_config": {
-        "start_at": "2026-03-13T17:31:06.060Z",
+        "start_at": "2026-03-20T08:21:47.365Z",
         "interval_ms": 600000
       },
       "trigger_state": {},
@@ -217,8 +222,8 @@
       "max_executions": null,
       "last_queued_request_id": null,
       "last_error": null,
-      "created_at": "2026-03-13T17:01:18.916+00:00",
-      "updated_at": "2026-03-13T17:01:32.003+00:00",
+      "created_at": "2026-03-20T07:54:00.065+00:00",
+      "updated_at": "2026-03-20T07:56:29.548+00:00",
       "network": "testnet"
     },
     "runs": []

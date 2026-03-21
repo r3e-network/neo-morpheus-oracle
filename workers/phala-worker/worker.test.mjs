@@ -29,6 +29,7 @@ const originalNeoDidSecretSalt = process.env.NEODID_SECRET_SALT;
 const originalWeb3AuthClientId = process.env.WEB3AUTH_CLIENT_ID;
 const originalNextPublicWeb3AuthClientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
 const originalWeb3AuthJwksUrl = process.env.WEB3AUTH_JWKS_URL;
+const originalAllowUnpinnedSigners = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
 
 process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_API_TOKEN = 'worker-test-secret';
@@ -47,14 +48,18 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
 process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0x017520f068fd602082fe5572596185e62a4ad991';
 process.env.NEODID_SECRET_SALT = 'worker-test-neodid-salt';
+process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
 delete process.env.WEB3AUTH_CLIENT_ID;
 delete process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
 delete process.env.WEB3AUTH_JWKS_URL;
+const baselineEnv = { ...process.env };
 
 const { default: handler } = await import('./src/worker.js');
 const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } =
   await import('./src/platform/dstack.js');
-const { __resetOracleKeyMaterialForTests } = await import('./src/oracle/crypto.js');
+const { __resetOracleKeyMaterialForTests, decryptEncryptedToken } = await import(
+  './src/oracle/crypto.js'
+);
 const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
 const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
@@ -66,6 +71,34 @@ function authHeaders() {
     'content-type': 'application/json',
   };
 }
+
+function restoreBaselineEnv() {
+  for (const key of Object.keys(process.env)) {
+    if (!Object.prototype.hasOwnProperty.call(baselineEnv, key)) {
+      delete process.env[key];
+    }
+  }
+  for (const [key, value] of Object.entries(baselineEnv)) {
+    process.env[key] = value;
+  }
+}
+
+function restorePerTestState() {
+  global.fetch = originalFetch;
+  restoreBaselineEnv();
+  __resetDstackClientStateForTests();
+  __resetOracleKeyMaterialForTests();
+  __resetFeedStateForTests();
+  __resetNeoDidStateForTests();
+}
+
+test.beforeEach(() => {
+  restorePerTestState();
+});
+
+test.afterEach(() => {
+  restorePerTestState();
+});
 
 async function buildWeb3AuthFixture({
   claims = {},
@@ -996,6 +1029,11 @@ test.after(() => {
   process.env.WEB3AUTH_CLIENT_ID = originalWeb3AuthClientId;
   process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID = originalNextPublicWeb3AuthClientId;
   process.env.WEB3AUTH_JWKS_URL = originalWeb3AuthJwksUrl;
+  if (originalAllowUnpinnedSigners === undefined) {
+    delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+  } else {
+    process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = originalAllowUnpinnedSigners;
+  }
   __resetDstackClientStateForTests();
   __resetOracleKeyMaterialForTests();
   __resetFeedStateForTests();
@@ -1106,6 +1144,26 @@ test('feed quote infers provider from canonical prefixed symbol without provider
   assert.equal(body.pair, 'TWELVEDATA:BTC-USD');
   assert.equal(body.provider_pair, 'BTC-USD');
   assert.equal(body.price, '70123.5');
+});
+
+test('feed quote expands bare asset symbols to USD pairs without producing undefined quotes', async () => {
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    assert.match(String(url), /GAS%2FUSD|GAS-USD/);
+    return new Response(JSON.stringify({ price: '4.56' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(new Request('http://local/feeds/price/GAS', { headers: authHeaders() }));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.pair, 'TWELVEDATA:GAS-USD');
+  assert.equal(body.providers_requested[0], 'twelvedata');
+  assert.equal(body.quotes[0].provider_pair, 'GAS-USD');
+  assert.equal(body.quotes[0].pair, 'TWELVEDATA:GAS-USD');
+  assert.equal(body.quotes[0].price, '4.56');
 });
 
 test('feed quote preserves explicit TwelveData stock symbols without appending /USD', async () => {
@@ -1380,6 +1438,36 @@ test('oracle public key prefers a dstack-sealed keystore whenever dstack is avai
   const secondBody = await second.json();
   assert.equal(secondBody.public_key, firstBody.public_key);
   assert.match(secondBody.key_source, /dstack-sealed/);
+});
+
+test('oracle key material can be restored explicitly from env configuration', async () => {
+  const keyPair = await globalThis.crypto.subtle.generateKey({ name: 'X25519' }, true, [
+    'deriveBits',
+  ]);
+  const publicKeyRaw = Buffer.from(
+    await globalThis.crypto.subtle.exportKey('raw', keyPair.publicKey)
+  ).toString('base64');
+  const privateKeyPkcs8 = Buffer.from(
+    await globalThis.crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+  ).toString('base64');
+
+  process.env.PHALA_ORACLE_KEY_MATERIAL_JSON = JSON.stringify({
+    public_key_raw: publicKeyRaw,
+    private_key_pkcs8: privateKeyPkcs8,
+  });
+  __resetOracleKeyMaterialForTests();
+
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
+  assert.equal(keyRes.status, 200);
+  const keyBody = await keyRes.json();
+  assert.equal(keyBody.public_key, publicKeyRaw);
+  assert.equal(keyBody.key_source, 'configured-env');
+
+  const ciphertext = await encryptForOracle(publicKeyRaw, 'configured-secret');
+  const plaintext = await decryptEncryptedToken(ciphertext, {});
+  assert.equal(plaintext, 'configured-secret');
 });
 
 test('oracle query supports plain fetch mode', async () => {

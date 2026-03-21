@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import {
+  NEO_N3_SIGNER_ENV_KEYS,
+  normalizeMorpheusNetwork,
+  resolvePinnedNeoN3Role,
+} from '../../../../scripts/lib-neo-signers.mjs';
 import { env, json, sha256Hex, trimString } from '../platform/core.js';
 import { resolveConfidentialPayload } from '../oracle/crypto.js';
 import { buildVerificationEnvelope, buildSignedResultEnvelope } from '../chain/index.js';
@@ -15,6 +20,15 @@ import {
 const NEODID_BINDING_DOMAIN = Buffer.from('neodid-binding-v1', 'utf8');
 const NEODID_ACTION_DOMAIN = Buffer.from('neodid-action-v1', 'utf8');
 const NEODID_RECOVERY_DOMAIN = Buffer.from('neodid-recovery-v1', 'utf8');
+
+function snapshotSignerEnv() {
+  const snapshot = {};
+  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
+    const value = trimString(env(key));
+    if (value) snapshot[key] = value;
+  }
+  return snapshot;
+}
 const SUPPORTED_PROVIDERS = [
   {
     id: 'web3auth',
@@ -313,7 +327,12 @@ async function resolveNeoDidSignerPrivateKey(payload = {}) {
     }
   }
   if (!privateKey) {
-    privateKey = trimString(env('PHALA_NEO_N3_PRIVATE_KEY') || env('PHALA_NEO_N3_WIF') || '');
+    const signer = resolvePinnedNeoN3Role(
+      normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || 'testnet'),
+      'worker',
+      { env: snapshotSignerEnv() }
+    );
+    privateKey = trimString(signer.materialized?.private_key || signer.materialized?.wif || '');
   }
   if (!privateKey) throw new Error('NeoDID signing key is not configured');
   return privateKey;

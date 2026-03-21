@@ -1,0 +1,4 @@
+# Mainnet production CVM with ingress and split pricefeed/request relayers
+id = "966f16610bdfe1794a503e16c5ae0bc69a1d92f1"
+compose_file = "deploy/phala/docker-compose.ingress.ui.split-relayer.yml"
+env_file = "deploy/phala/morpheus.mainnet.env"

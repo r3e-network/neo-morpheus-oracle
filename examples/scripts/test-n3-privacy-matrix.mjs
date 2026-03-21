@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import {
   buildEncryptedJsonPatch,
   encodeUtf8Base64,
@@ -7,6 +7,8 @@ import {
   loadExampleEnv,
   normalizeHash160,
   readDeploymentRegistry,
+  resolveNeoN3ConsumerHash,
+  resolveNeoN3OracleHash,
   resolveNeoN3SignerWif,
   sleep,
   trimString,
@@ -15,6 +17,7 @@ import {
 } from './common.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const REQUEST_TX_SYSTEM_FEE_BUFFER = BigInt(process.env.EXAMPLE_REQUEST_SYSTEM_FEE_BUFFER || '3000000');
 
 function sha256Hex(value) {
   return createHash('sha256')
@@ -77,6 +80,36 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return parseStackItem(response.stack?.[0]);
+}
+
+async function sendBufferedInvocation({ rpcClient, account, networkMagic, script, signers }) {
+  const preview = await rpcClient.invokeScript(u.HexString.fromHex(script), signers);
+  if (String(preview?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(preview?.exception || 'preview fault');
+  }
+
+  const validUntilBlock = (await rpcClient.getBlockCount()) + 1000;
+  const bufferedSystemFee = (
+    BigInt(String(preview?.gasconsumed || '0'))
+    + REQUEST_TX_SYSTEM_FEE_BUFFER
+  ).toString();
+  const basePayload = {
+    signers,
+    validUntilBlock,
+    script,
+    systemFee: bufferedSystemFee,
+  };
+
+  let transaction = new tx.Transaction(basePayload);
+  transaction.sign(account, networkMagic);
+  const networkFee = await rpcClient.calculateNetworkFee(transaction);
+
+  transaction = new tx.Transaction({
+    ...basePayload,
+    networkFee,
+  });
+  transaction.sign(account, networkMagic);
+  return rpcClient.sendRawTransaction(transaction);
 }
 
 async function ensureRequestFeeCredit(
@@ -235,12 +268,8 @@ const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || deployment.network_magic || defaultNetworkMagic
 );
 const wif = resolveNeoN3SignerWif(network);
-const consumerHash = normalizeHash160(
-  process.env.EXAMPLE_N3_CONSUMER_HASH || deployment.example_consumer_hash || ''
-);
-const oracleHash = normalizeHash160(
-  process.env.CONTRACT_MORPHEUS_ORACLE_HASH || deployment.oracle_hash || ''
-);
+const consumerHash = resolveNeoN3ConsumerHash(network, deployment);
+const oracleHash = resolveNeoN3OracleHash(network, deployment);
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 180000);
 
 if (!wif || !consumerHash || !oracleHash) {
@@ -492,11 +521,21 @@ for (const testCase of cases) {
   );
   requestFee = feeStatus.request_fee;
   totalDeposited += BigInt(feeStatus.deposit_amount || '0');
-  const txid = await consumer.invoke(
-    'requestRaw',
-    [testCase.requestType, sc.ContractParam.byteArray(encodeUtf8Base64(prepared.payloadText))],
-    signers
-  );
+  const script = sc.createScript({
+    scriptHash: consumerHash,
+    operation: 'requestRaw',
+    args: [
+      testCase.requestType,
+      sc.ContractParam.byteArray(encodeUtf8Base64(prepared.payloadText)),
+    ],
+  });
+  const txid = await sendBufferedInvocation({
+    rpcClient,
+    account,
+    networkMagic,
+    script,
+    signers,
+  });
 
   const requestId = await waitForRequestId(rpcClient, txid);
   const [callback, requestRecord] = await Promise.all([
