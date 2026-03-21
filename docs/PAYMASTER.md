@@ -142,7 +142,7 @@ This is currently a server-side integration path. It does not require changing t
 The latest integrated Oracle + NeoDID + AA verifier regression entrypoint is:
 
 - `npm run examples:test:n3:attack-regression`
-- report: `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-17.md`
+- reference docs: `docs/RELAYER.md`, `docs/SECURITY_AUDIT.md`
 
 ## Validated Neo N3 Testnet Flow
 

@@ -37,21 +37,20 @@ Network-aware validation:
 
 - `examples:test:n3:privacy` now writes:
   - `examples/deployments/n3-privacy-validation.<network>.latest.json`
-  - `docs/N3_PRIVACY_VALIDATION_<NETWORK>_<DATE>.md`
-- mainnet keeps the legacy compatibility artifact `examples/deployments/mainnet-privacy-validation.latest.json`
+  - optional local markdown summary (not kept in git)
 - pricefeed synchronization is operator-managed and automatic; end-user contracts should read the on-chain feed registry directly instead of trying to trigger feed publication.
 
 Per-script report outputs:
 
 - `examples:test:n3` now writes:
   - `examples/deployments/n3-examples-validation.<network>.latest.json`
-  - `docs/N3_EXAMPLES_VALIDATION_<NETWORK>_<DATE>.md`
+  - optional local markdown summary (not kept in git)
 - `examples:test:n3:builtins` now writes:
   - `examples/deployments/n3-builtins-validation.<network>.latest.json`
-  - `docs/N3_BUILTINS_VALIDATION_<NETWORK>_<DATE>.md`
+  - optional local markdown summary (not kept in git)
 - `examples:test:n3:automation` now writes:
   - `examples/deployments/n3-automation-validation.<network>.latest.json`
-  - `docs/N3_AUTOMATION_VALIDATION_<NETWORK>_<DATE>.md`
+  - optional local markdown summary (not kept in git)
 - `examples:test:feed-source` now writes:
   - `examples/deployments/feed-source-validation.<network>.latest.json`
-  - `docs/FEED_SOURCE_VALIDATION_<NETWORK>_<DATE>.md`
+  - optional local markdown summary (not kept in git)

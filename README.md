@@ -117,7 +117,6 @@ npm run examples:test:n3:encrypted-ref-boundary
 npm run examples:test:n3:fulfillment-replay
 npm run examples:test:n3:aa-session-oracle-boundary
 npm run examples:test:n3:attack-regression
-npm run report:aa-integrated-baseline
 ```
 
 These commands are the current live Neo N3 testnet regression path for:
@@ -137,16 +136,15 @@ These commands are the current live Neo N3 testnet regression path for:
 - `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/PAYMASTER.md`
-- `docs/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14.md` — live Neo N3 testnet validation for the AA relay + Morpheus paymaster path
 - `docs/EXAMPLES.md` — bilingual end-to-end calling patterns for Oracle, Compute, encrypted params, WASM, and pricefeeds, with Neo N3 as the current supported path
 - `docs/PROVIDERS.md`
 - `docs/RELAYER.md`
 - `docs/DEPLOYMENT.md`
 - `docs/ENVIRONMENT.md`
-- `docs/ACCEPTANCE_REPORT_2026-03-10.md`
 - `docs/TESTNET_RUNBOOK.md`
-- `docs/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-17.md`
-- `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`
+- `docs/CONTROL_PLANE_REFACTOR_2026-03-20.md`
+- `docs/CONTROL_PLANE_DEPLOY_RUNBOOK_2026-03-20.md`
+- `docs/RELIABILITY_NOTES_2026-03-20.md`
 - `docs/SECURITY_AUDIT.md`
 - `docs/ATTESTATION_SPEC.md`
 - `docs/HPKE_X25519_MIGRATION.md`

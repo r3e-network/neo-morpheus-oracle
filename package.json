@@ -56,7 +56,6 @@
     "examples:test:all": "node examples/scripts/test-all-examples.mjs",
     "examples:live": "node examples/scripts/deploy-and-test-all.mjs",
     "examples:all": "node examples/scripts/deploy-and-test-all.mjs",
-    "report:aa-integrated-baseline": "node scripts/build-integrated-aa-baseline.mjs",
     "render:phala-env": "node scripts/render-phala-env.mjs --network mainnet --output deploy/phala/morpheus.mainnet.env",
     "render:phala-env:testnet": "node scripts/render-phala-env.mjs --network testnet --output deploy/phala/morpheus.testnet.env",
     "render:phala-env:mainnet": "node scripts/render-phala-env.mjs --network mainnet --output deploy/phala/morpheus.mainnet.env",

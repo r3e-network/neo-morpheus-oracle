@@ -216,5 +216,5 @@ The worker now includes first-stage and second-stage Phala dstack/tappd integrat
 - `node examples/scripts/test-n3-examples.mjs`
 - live Phala health and public-key endpoint verification
 - live Supabase write verification for `morpheus_operation_logs` and `morpheus_encrypted_secrets`
-- standalone AA verifier / hook baseline in `../neo-abstract-account/docs/reports/2026-03-13-v3-testnet-plugin-matrix.md`
-- planned cross-system attack matrix in `docs/AA_NEODID_ORACLE_INTEGRATED_ATTACK_MATRIX_2026-03-13.md`
+- standalone AA verifier / hook validation in the active `neo-abstract-account` test suite
+- cross-system attack coverage through the current integrated regression scripts

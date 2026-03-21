@@ -78,11 +78,11 @@ export default function DocsQuickstart() {
           0x057d4a581efbe815fad0148a3766284da2a33335e72fb50e54d476078d8f40d4
         </p>
         <Link
-          href="/docs/r/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14"
+          href="/docs/r/PAYMASTER"
           className="btn btn-secondary btn-sm"
           style={{ textDecoration: 'none' }}
         >
-          View Validation Report <ArrowRight size={14} />
+          Open Paymaster Guide <ArrowRight size={14} />
         </Link>
       </div>
 
