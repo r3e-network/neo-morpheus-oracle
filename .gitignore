@@ -24,3 +24,6 @@ deploy/phala/morpheus.testnet.env
 deploy/phala/morpheus.mainnet.env
 private-backups/
 .env*.local
+docs/reports/
+docs/*_20??-??-??.md
+examples/deployments/*.20??-??-??.json

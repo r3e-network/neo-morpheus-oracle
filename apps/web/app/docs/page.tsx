@@ -199,12 +199,12 @@ export default function DocsIntroduction() {
           </p>
         </Link>
         <Link
-          href="/docs/r/TESTING_LEDGER"
+          href="/docs/r/DEPLOYMENT"
           className="card-industrial"
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>TESTING LEDGER</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>DEPLOYMENT</span>
             <ClipboardList size={18} color="var(--neo-green)" />
           </div>
           <p
@@ -215,12 +215,11 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            View the exact scripts, contracts, transactions, request ids, and accepted results
-            behind the current validation set.
+            Review the canonical deployment model, required env, runtime boundaries, and operational topology.
           </p>
         </Link>
         <Link
-          href="/docs/r/MAINNET_DOMAIN_ROUTING_2026-03-15"
+          href="/docs/networks"
           className="card-industrial"
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
@@ -238,12 +237,11 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Review the canonical mainnet domain routing table for Oracle, NeoDID, smartwallet,
-            compatibility aliases, and every published AA subdomain.
+            Review the canonical contracts, networks, domains, runtime endpoints, and published addresses.
           </p>
         </Link>
         <Link
-          href="/docs/r/PAYMASTER_AA_TESTNET_VALIDATION_2026-03-14"
+          href="/docs/r/PAYMASTER"
           className="card-industrial"
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
@@ -261,18 +259,17 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Inspect the live Neo N3 testnet validation for account registration, verifier update,
-            paymaster authorization, and relay-backed executeUserOp.
+            Understand the paymaster model, policy boundaries, and sponsored execution path under the current architecture.
           </p>
         </Link>
         <Link
-          href="/docs/r/AA_NEODID_ORACLE_INTEGRATED_BASELINE_2026-03-14"
+          href="/docs/r/RELAYER"
           className="card-industrial"
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
-              AA + MORPHEUS BASELINE
+              RELAYER
             </span>
             <ClipboardList size={18} color="var(--neo-green)" />
           </div>
@@ -284,18 +281,17 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Review the unified testnet baseline across AA V3, NeoDID, privacy oracle, builtins,
-            automation, and paymaster sponsorship before integrated attack execution.
+            Inspect the async bridge, retry semantics, durable queue behavior, and feed-priority execution model.
           </p>
         </Link>
         <Link
-          href="/docs/r/N3_INTEGRATED_ATTACK_REGRESSION_TESTNET_2026-03-17"
+          href="/docs/r/SECURITY_AUDIT"
           className="card-industrial"
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
-              INTEGRATED ATTACK REGRESSION
+              SECURITY AUDIT
             </span>
             <CheckCircle size={18} color="var(--neo-green)" />
           </div>
@@ -307,8 +303,7 @@ export default function DocsIntroduction() {
               marginBottom: 0,
             }}
           >
-            Inspect the current Oracle + NeoDID + AA verifier regression run, including the latest
-            live testnet attack-matrix stage results and remaining gaps.
+            Review the consolidated risks, mitigations, and hardening assumptions that remain relevant in the current system.
           </p>
         </Link>
         <Link

@@ -172,9 +172,9 @@ const journeys = [
       },
       {
         title: 'Store the result',
-        desc: 'Persist the requestId, tx hash, and verified result for your own app workflow.',
-        href: '/docs/r/TESTING_LEDGER',
-        label: 'Testing Ledger',
+        desc: 'Persist the requestId, tx hash, and verified result inside your own application workflow and operational logs.',
+        href: '/docs/api-reference',
+        label: 'API Reference',
       },
     ],
   },
