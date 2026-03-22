@@ -15,6 +15,9 @@ This document is a single “resume point” for the MeshMini workspace. It inve
   - Cloudflare Worker secrets (for Workers)
   - Vercel environment variables (for Vercel apps)
   - local `.env` files **never committed**
+- If you need a single local document that includes values, generate the gitignored file:
+  - `node scripts/generate-workspace-context-values.mjs`
+  - output: `private-backups/WORKSPACE_CONTEXT_VALUES.md`
 - When sharing context with a new engineer/LLM, share only:
   - this doc
   - the **names** of required secrets
