@@ -53,6 +53,11 @@ const EXECUTION_PLANE_ROUTES = new Set([
   '/neodid/recovery-ticket',
 ]);
 
+const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'dead_lettered', 'cancelled']);
+const DEFAULT_REQUEUE_LIMIT = 50;
+const REQUEUE_GRACE_MS = 60_000;
+const DEFAULT_STALE_PROCESSING_MS = 10 * 60_000;
+
 function json(status, body, headers = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -65,6 +70,44 @@ function json(status, body, headers = {}) {
 
 function trimString(value) {
   return String(value || '').trim();
+}
+
+function parseTimestampMs(value) {
+  const raw = trimString(value);
+  if (!raw) return null;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeJobStatus(value) {
+  return trimString(value).toLowerCase();
+}
+
+function resolveRequeueLimit(env) {
+  const configured = Number(env.MORPHEUS_CONTROL_PLANE_REQUEUE_LIMIT || DEFAULT_REQUEUE_LIMIT);
+  if (!Number.isFinite(configured)) return DEFAULT_REQUEUE_LIMIT;
+  return Math.min(Math.max(Math.floor(configured), 1), 200);
+}
+
+function resolveStaleProcessingMs(env) {
+  const configured = Number(env.MORPHEUS_CONTROL_PLANE_STALE_PROCESSING_MS || DEFAULT_STALE_PROCESSING_MS);
+  if (!Number.isFinite(configured)) return DEFAULT_STALE_PROCESSING_MS;
+  return Math.max(Math.floor(configured), 30_000);
+}
+
+function isStaleProcessing(job, nowMs, staleProcessingMs) {
+  const startedMs = parseTimestampMs(job?.started_at);
+  if (!startedMs) return false;
+  return nowMs - startedMs >= staleProcessingMs;
+}
+
+function computeRetryDelaySeconds(attempt, env) {
+  const baseSeconds = Math.max(Number(env.MORPHEUS_CONTROL_PLANE_RETRY_BASE_SECONDS || 5), 1);
+  const maxSeconds = Math.max(Number(env.MORPHEUS_CONTROL_PLANE_RETRY_MAX_SECONDS || 300), baseSeconds);
+  const exp = Math.min(Math.max(Number(attempt || 1) - 1, 0), 10);
+  const delay = Math.min(maxSeconds, baseSeconds * 2 ** exp);
+  const jittered = delay * (0.8 + Math.random() * 0.4);
+  return Math.max(1, Math.round(jittered));
 }
 
 function getClientIp(request) {
@@ -231,12 +274,71 @@ async function loadJob(env, jobId, network) {
   return Array.isArray(rows) ? rows[0] || null : rows;
 }
 
+async function listRecoverableJobs(env, network, limit, staleProcessingMs) {
+  const response = await supabaseFetch(
+    env,
+    `/morpheus_control_plane_jobs?network=eq.${network}&select=*&status=in.(queued,processing)&order=created_at.asc&limit=${limit}`
+  );
+  if (!response.ok) {
+    throw new Error(`recoverable job list failed: ${response.status} ${await response.text()}`);
+  }
+  const rows = await response.json().catch(() => []);
+  const nowMs = Date.now();
+  return (Array.isArray(rows) ? rows : []).filter((job) => {
+    const status = normalizeJobStatus(job.status);
+    if (status === 'queued') {
+      const runAfterMs = parseTimestampMs(job.run_after);
+      const updatedMs = parseTimestampMs(job.updated_at);
+      if (runAfterMs && runAfterMs > nowMs) return false;
+      if (updatedMs && nowMs - updatedMs < REQUEUE_GRACE_MS) return false;
+      return true;
+    }
+    if (status === 'processing') {
+      return isStaleProcessing(job, nowMs, staleProcessingMs);
+    }
+    return false;
+  });
+}
+
 async function enqueueJob(env, bindingName, message) {
   const binding = env[bindingName];
   if (!binding || typeof binding.send !== 'function') {
     throw new Error(`queue binding ${bindingName} is not configured`);
   }
   await binding.send(message);
+}
+
+async function requeueJob(env, job) {
+  const jobConfig = JOB_ROUTE_CONFIG[job.route];
+  if (!jobConfig) {
+    throw new Error(`route ${job.route} is not configured`);
+  }
+  const nowIso = new Date().toISOString();
+  await patchJob(env, job.id, job.network, {
+    status: 'dispatched',
+    error: null,
+    run_after: null,
+    started_at: null,
+    completed_at: null,
+    metadata: {
+      ...(job.metadata || {}),
+      last_requeued_at: nowIso,
+      requeue_source: 'control-plane-recover',
+    },
+  });
+  await enqueueJob(env, jobConfig.binding, {
+    job_id: job.id,
+    network: job.network,
+    queue: job.queue,
+    route: job.route,
+    payload: job.payload || {},
+    target_chain: job.target_chain,
+    project_slug: job.project_slug,
+    request_id: job.request_id,
+    dedupe_key: job.dedupe_key,
+    created_at: job.created_at,
+    requeued_at: nowIso,
+  });
 }
 
 function getExecutionPlaneConfig(env, network) {
@@ -461,14 +563,35 @@ async function processExecutionJob(message, env) {
     return;
   }
 
+  const nowMs = Date.now();
+  const staleProcessingMs = resolveStaleProcessingMs(env);
+  const jobStatus = normalizeJobStatus(job.status);
+  if (TERMINAL_JOB_STATUSES.has(jobStatus)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'processing' && !isStaleProcessing(job, nowMs, staleProcessingMs)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'queued') {
+    const runAfterMs = parseTimestampMs(job.run_after);
+    if (runAfterMs && runAfterMs > nowMs) {
+      const delaySeconds = Math.min(Math.max(Math.ceil((runAfterMs - nowMs) / 1000), 1), 300);
+      message.retry({ delaySeconds });
+      return;
+    }
+  }
+
+  const attempts = Number(message.attempts || 1);
   await patchJob(env, jobId, network, {
     status: 'processing',
-    retry_count: Math.max(Number(message.attempts || 1) - 1, 0),
+    retry_count: Math.max(attempts - 1, 0),
     started_at: job.started_at || new Date().toISOString(),
     metadata: {
       ...(job.metadata || {}),
       queue_message_id: message.id,
-      queue_attempts: Number(message.attempts || 1),
+      queue_attempts: attempts,
       queue_name: body.queue || 'oracle_request',
     },
   }).catch(() => null);
@@ -481,6 +604,7 @@ async function processExecutionJob(message, env) {
         result: result.body,
         error: null,
         completed_at: new Date().toISOString(),
+        run_after: null,
         metadata: {
           ...(job.metadata || {}),
           execution_status: result.status,
@@ -499,6 +623,7 @@ async function processExecutionJob(message, env) {
           trimString(result.body?.error || result.body?.message || '') ||
           `execution failed with status ${result.status}`,
         completed_at: new Date().toISOString(),
+        run_after: null,
         metadata: {
           ...(job.metadata || {}),
           execution_status: result.status,
@@ -509,34 +634,36 @@ async function processExecutionJob(message, env) {
       return;
     }
 
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       result: null,
       error:
         trimString(result.body?.error || result.body?.message || '') ||
         `execution temporarily failed with status ${result.status}`,
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
       metadata: {
         ...(job.metadata || {}),
         execution_status: result.status,
         execution_base_url: result.execution_base_url,
       },
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   } catch (error) {
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       result: null,
       error: error instanceof Error ? error.message : String(error),
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5_000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
       metadata: {
         ...(job.metadata || {}),
         last_queue_error: error instanceof Error ? error.message : String(error),
       },
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   }
 }
 
@@ -553,9 +680,29 @@ async function processAutomationExecuteJob(message, env) {
     message.ack();
     return;
   }
+  const nowMs = Date.now();
+  const staleProcessingMs = resolveStaleProcessingMs(env);
+  const jobStatus = normalizeJobStatus(job.status);
+  if (TERMINAL_JOB_STATUSES.has(jobStatus)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'processing' && !isStaleProcessing(job, nowMs, staleProcessingMs)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'queued') {
+    const runAfterMs = parseTimestampMs(job.run_after);
+    if (runAfterMs && runAfterMs > nowMs) {
+      const delaySeconds = Math.min(Math.max(Math.ceil((runAfterMs - nowMs) / 1000), 1), 300);
+      message.retry({ delaySeconds });
+      return;
+    }
+  }
+  const attempts = Number(message.attempts || 1);
   await patchJob(env, jobId, network, {
     status: 'processing',
-    retry_count: Math.max(Number(message.attempts || 1) - 1, 0),
+    retry_count: Math.max(attempts - 1, 0),
     started_at: job.started_at || new Date().toISOString(),
   }).catch(() => null);
 
@@ -606,23 +753,25 @@ async function processAutomationExecuteJob(message, env) {
       return;
     }
 
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       error:
         trimString(result.body?.error || result.body?.message || '') ||
         `automation execution temporarily failed with status ${result.status}`,
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   } catch (error) {
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       error: error instanceof Error ? error.message : String(error),
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   }
 }
 
@@ -639,9 +788,29 @@ async function processCallbackBroadcastJob(message, env) {
     message.ack();
     return;
   }
+  const nowMs = Date.now();
+  const staleProcessingMs = resolveStaleProcessingMs(env);
+  const jobStatus = normalizeJobStatus(job.status);
+  if (TERMINAL_JOB_STATUSES.has(jobStatus)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'processing' && !isStaleProcessing(job, nowMs, staleProcessingMs)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'queued') {
+    const runAfterMs = parseTimestampMs(job.run_after);
+    if (runAfterMs && runAfterMs > nowMs) {
+      const delaySeconds = Math.min(Math.max(Math.ceil((runAfterMs - nowMs) / 1000), 1), 300);
+      message.retry({ delaySeconds });
+      return;
+    }
+  }
+  const attempts = Number(message.attempts || 1);
   await patchJob(env, jobId, network, {
     status: 'processing',
-    retry_count: Math.max(Number(message.attempts || 1) - 1, 0),
+    retry_count: Math.max(attempts - 1, 0),
     started_at: job.started_at || new Date().toISOString(),
   }).catch(() => null);
 
@@ -681,23 +850,25 @@ async function processCallbackBroadcastJob(message, env) {
       return;
     }
 
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       error:
         trimString(result.body?.error || result.body?.message || '') ||
         `callback broadcast temporarily failed with status ${result.status}`,
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   } catch (error) {
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       error: error instanceof Error ? error.message : String(error),
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   }
 }
 
@@ -714,9 +885,29 @@ async function processFeedTickJob(message, env) {
     message.ack();
     return;
   }
+  const nowMs = Date.now();
+  const staleProcessingMs = resolveStaleProcessingMs(env);
+  const jobStatus = normalizeJobStatus(job.status);
+  if (TERMINAL_JOB_STATUSES.has(jobStatus)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'processing' && !isStaleProcessing(job, nowMs, staleProcessingMs)) {
+    message.ack();
+    return;
+  }
+  if (jobStatus === 'queued') {
+    const runAfterMs = parseTimestampMs(job.run_after);
+    if (runAfterMs && runAfterMs > nowMs) {
+      const delaySeconds = Math.min(Math.max(Math.ceil((runAfterMs - nowMs) / 1000), 1), 300);
+      message.retry({ delaySeconds });
+      return;
+    }
+  }
+  const attempts = Number(message.attempts || 1);
   await patchJob(env, jobId, network, {
     status: 'processing',
-    retry_count: Math.max(Number(message.attempts || 1) - 1, 0),
+    retry_count: Math.max(attempts - 1, 0),
     started_at: job.started_at || new Date().toISOString(),
   }).catch(() => null);
 
@@ -731,6 +922,7 @@ async function processFeedTickJob(message, env) {
         result: result.body,
         error: null,
         completed_at: new Date().toISOString(),
+        run_after: null,
         metadata: {
           ...(job.metadata || {}),
           execution_status: result.status,
@@ -749,6 +941,7 @@ async function processFeedTickJob(message, env) {
           trimString(result.body?.error || result.body?.message || '') ||
           `feed tick failed with status ${result.status}`,
         completed_at: new Date().toISOString(),
+        run_after: null,
         metadata: {
           ...(job.metadata || {}),
           execution_status: result.status,
@@ -759,32 +952,34 @@ async function processFeedTickJob(message, env) {
       return;
     }
 
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       error:
         trimString(result.body?.error || result.body?.message || '') ||
         `feed tick temporarily failed with status ${result.status}`,
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
       metadata: {
         ...(job.metadata || {}),
         execution_status: result.status,
         execution_base_url: result.execution_base_url,
       },
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   } catch (error) {
+    const delaySeconds = computeRetryDelaySeconds(attempts, env);
     await patchJob(env, jobId, network, {
       status: 'queued',
       error: error instanceof Error ? error.message : String(error),
-      retry_count: Number(message.attempts || 1),
-      run_after: new Date(Date.now() + 5000).toISOString(),
+      retry_count: attempts,
+      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
       metadata: {
         ...(job.metadata || {}),
         last_queue_error: error instanceof Error ? error.message : String(error),
       },
     }).catch(() => null);
-    message.retry({ delaySeconds: 5 });
+    message.retry({ delaySeconds });
   }
 }
 
@@ -815,6 +1010,46 @@ export default {
           automation_execute: Boolean(env.MORPHEUS_AUTOMATION_EXECUTE_QUEUE),
         },
       });
+    }
+
+    if (routing.routePath === '/jobs/recover') {
+      if (request.method !== 'POST') {
+        return json(405, { error: 'method_not_allowed' });
+      }
+      try {
+        const limit = resolveRequeueLimit(env);
+        const staleProcessingMs = resolveStaleProcessingMs(env);
+        const jobs = await listRecoverableJobs(env, routing.network, limit, staleProcessingMs);
+        const requeued = [];
+        const failed = [];
+        for (const job of jobs) {
+          try {
+            await requeueJob(env, job);
+            requeued.push({
+              id: job.id,
+              route: job.route,
+              previous_status: job.status,
+            });
+          } catch (error) {
+            failed.push({
+              id: job.id,
+              route: job.route,
+              previous_status: job.status,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+        return json(200, {
+          network: routing.network,
+          scanned: jobs.length,
+          requeued_count: requeued.length,
+          failed_count: failed.length,
+          requeued,
+          failed,
+        });
+      } catch (error) {
+        return json(500, { error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     const jobMatch = routing.routePath.match(/^\/jobs\/([0-9a-f-]+)$/i);
