@@ -13,3 +13,7 @@ UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
 [[routes]]
 pattern = "edge.meshmini.app/*"
 zone_name = "meshmini.app"
+
+[[routes]]
+pattern = "morpheus-testnet.meshmini.app/*"
+zone_name = "meshmini.app"
