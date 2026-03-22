@@ -14,6 +14,7 @@ The confidential execution plane remains on the existing Phala CVM.
 - persist job envelopes into `morpheus_control_plane_jobs`
 - fan jobs into Cloudflare Queues
 - expose `GET /<network>/jobs/<job_id>` for status polling
+- expose `POST /<network>/jobs/recover` for operator-driven requeue of stale jobs
 
 ## Current First Slice
 
@@ -29,6 +30,7 @@ Implemented routes:
 - `POST /<network>/callbacks/broadcast`
 - `POST /<network>/automation/execute`
 - `GET /<network>/jobs/<job_id>`
+- `POST /<network>/jobs/recover`
 - `GET /<network>/health`
 
 This worker does **not** replace the Phala worker. It only accepts jobs and
@@ -44,6 +46,27 @@ Current consumer support:
   app backend for chain broadcast
 - `automation_execute`: implemented, forwards automation execution jobs to the
   app backend for queueing on-chain automation requests
+
+## Recovery Model
+
+The control plane now treats queue delivery as recoverable instead of assuming a
+single successful pass:
+
+- retryable execution/backend failures move jobs back to `queued`
+- `run_after` is persisted with exponential backoff plus jitter
+- consumers skip non-stale `processing` jobs to avoid duplicate execution
+- stale `processing` jobs and overdue `queued` jobs can be re-enqueued with
+  `POST /<network>/jobs/recover`
+
+This is mainly for post-outage recovery. A typical operator flow is:
+
+```bash
+curl -X POST \
+  -H "authorization: Bearer $MORPHEUS_CONTROL_PLANE_API_KEY" \
+  https://control.meshmini.app/testnet/jobs/recover
+```
+
+The response includes `scanned`, `requeued_count`, and `failed_count`.
 
 ## Required Bindings
 
@@ -69,6 +92,10 @@ Optional:
 - `MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF` or `MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY`
 - `MORPHEUS_APP_BACKEND_URL`
 - `MORPHEUS_APP_BACKEND_TOKEN`
+- `MORPHEUS_CONTROL_PLANE_REQUEUE_LIMIT`
+- `MORPHEUS_CONTROL_PLANE_STALE_PROCESSING_MS`
+- `MORPHEUS_CONTROL_PLANE_RETRY_BASE_SECONDS`
+- `MORPHEUS_CONTROL_PLANE_RETRY_MAX_SECONDS`
 
 Example env template:
 
