@@ -181,6 +181,72 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
   throw new Error('timed out waiting for Neo N3 request fee credit');
 }
 
+async function ensureAccountGasBalance({
+  rpcClient,
+  rpcUrl,
+  networkMagic,
+  fundingAccount,
+  targetScriptHash,
+  minGasRaw,
+  timeoutMs = 60000,
+}) {
+  const normalizedTarget = trimString(targetScriptHash).replace(/^0x/i, '');
+  if (!normalizedTarget) {
+    throw new Error('targetScriptHash is required');
+  }
+
+  const current = BigInt(
+    (await invokeRead(rpcClient, GAS_HASH, 'balanceOf', [
+      { type: 'Hash160', value: `0x${normalizedTarget}` },
+    ])) || '0'
+  );
+  if (current >= minGasRaw) {
+    return {
+      funded: false,
+      previous_balance_gas: toGasString(current),
+      current_balance_gas: toGasString(current),
+      min_gas: toGasString(minGasRaw),
+    };
+  }
+
+  const transferAmount = minGasRaw - current;
+  const gas = new experimental.SmartContract(GAS_HASH, {
+    rpcAddress: rpcUrl,
+    networkMagic,
+    account: fundingAccount,
+  });
+
+  await gas.invoke('transfer', [
+    sc.ContractParam.hash160(`0x${fundingAccount.scriptHash}`),
+    sc.ContractParam.hash160(`0x${normalizedTarget}`),
+    sc.ContractParam.integer(transferAmount.toString()),
+    sc.ContractParam.any(null),
+  ]);
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const updated = BigInt(
+      (await invokeRead(rpcClient, GAS_HASH, 'balanceOf', [
+        { type: 'Hash160', value: `0x${normalizedTarget}` },
+      ])) || '0'
+    );
+    if (updated >= minGasRaw) {
+      return {
+        funded: true,
+        transfer_amount_gas: toGasString(transferAmount),
+        previous_balance_gas: toGasString(current),
+        current_balance_gas: toGasString(updated),
+        min_gas: toGasString(minGasRaw),
+      };
+    }
+    await sleep(2000);
+  }
+
+  throw new Error(
+    `timed out waiting for GAS top-up on ${`0x${normalizedTarget}`} (target >= ${toGasString(minGasRaw)} GAS)`
+  );
+}
+
 async function waitForRequestId(rpcClient, txid, timeoutMs = 60000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -317,8 +383,15 @@ const requestType =
   trimString(process.env.MORPHEUS_SMOKE_REQUEST_TYPE || 'privacy_oracle') || 'privacy_oracle';
 const jsonPath = trimString(process.env.MORPHEUS_SMOKE_JSON_PATH || 'price') || 'price';
 const script = trimString(process.env.MORPHEUS_SMOKE_SCRIPT || '');
-const requestTimeoutMs = Number(process.env.MORPHEUS_SMOKE_REQUEST_TIMEOUT_MS || 90000);
-const callbackTimeoutMs = Number(process.env.MORPHEUS_SMOKE_CALLBACK_TIMEOUT_MS || 180000);
+const requestTimeoutMs = Math.max(
+  Number(process.env.MORPHEUS_SMOKE_REQUEST_TIMEOUT_MS || 90000),
+  60000
+);
+const callbackTimeoutMs = Math.max(
+  Number(process.env.MORPHEUS_SMOKE_CALLBACK_TIMEOUT_MS || 180000),
+  120000
+);
+const explicitRequestWif = trimString(process.env.MORPHEUS_SMOKE_REQUEST_WIF || '');
 const updaterSigner = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
 const updaterWif = updaterSigner.materialized?.wif || updaterSigner.materialized?.private_key || '';
 
@@ -333,7 +406,7 @@ const payload = {
 };
 if (script) payload.script = script;
 
-const account = new wallet.Account(wif);
+const account = new wallet.Account(explicitRequestWif || wif);
 const updaterAccount = updaterWif ? new wallet.Account(updaterWif) : account;
 const oracle = new experimental.SmartContract(oracleHash, {
   rpcAddress: rpcUrl,
@@ -342,6 +415,21 @@ const oracle = new experimental.SmartContract(oracleHash, {
 });
 const rpcClient = new neoRpc.RPCClient(rpcUrl);
 const gasBudget = await ensureGasBudget(rpcClient, account);
+const fallbackUpdaterMinGasRaw = parseGasToRaw(
+  process.env.MORPHEUS_SMOKE_FALLBACK_UPDATER_MIN_GAS,
+  3000000n
+);
+let updaterGasTopup = null;
+if (updaterAccount.scriptHash !== account.scriptHash) {
+  updaterGasTopup = await ensureAccountGasBalance({
+    rpcClient,
+    rpcUrl,
+    networkMagic,
+    fundingAccount: account,
+    targetScriptHash: updaterAccount.scriptHash,
+    minGasRaw: fallbackUpdaterMinGasRaw,
+  });
+}
 const feeStatus = await ensureRequestFeeCredit(
   account,
   rpcUrl,
@@ -369,6 +457,21 @@ try {
   console.error(
     `Neo N3 smoke callback timeout for request ${requestId}, attempting local fulfill fallback...`
   );
+  if (updaterAccount.scriptHash !== account.scriptHash) {
+    const fallbackTopup = await ensureAccountGasBalance({
+      rpcClient,
+      rpcUrl,
+      networkMagic,
+      fundingAccount: account,
+      targetScriptHash: updaterAccount.scriptHash,
+      minGasRaw: fallbackUpdaterMinGasRaw,
+      timeoutMs: 90000,
+    });
+    updaterGasTopup = {
+      ...(updaterGasTopup || {}),
+      on_fallback: fallbackTopup,
+    };
+  }
   const resultText = JSON.stringify({ provider, symbol, price: '0', smoke_fallback: true });
   await fulfillRequestLocally(
     rpcClient,
@@ -385,6 +488,9 @@ try {
 const summary = {
   txid,
   request_id: requestId,
+  request_signer: account.address,
+  fallback_updater_signer: updaterAccount.address,
+  fallback_updater_gas_topup: updaterGasTopup,
   gas_budget: gasBudget,
   request_fee: feeStatus.request_fee,
   request_credit: feeStatus.current_credit,
