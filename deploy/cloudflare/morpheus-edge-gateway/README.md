@@ -43,6 +43,10 @@ Example:
 - `/mainnet/oracle/query`
 - `/testnet/paymaster/authorize`
 
+In addition, we route `morpheus-testnet.meshmini.app/*` to this worker so the
+testnet runtime stays reachable even if the Phala custom-domain ingress is not
+enabled inside the CVM.
+
 ## Account / zone discovery
 
 The current provided Cloudflare token was verified as active and can at minimum:
