@@ -51,6 +51,8 @@ function createState() {
     jobs: new Map(),
     executionCalls: [],
     backendCalls: [],
+    executionResponses: [],
+    backendResponses: [],
   };
 }
 
@@ -82,16 +84,39 @@ function createFetchMock(state) {
 
       const id = target.searchParams.get('id')?.replace(/^eq\./, '') || '';
       const network = target.searchParams.get('network')?.replace(/^eq\./, '') || '';
-      const existing = state.jobs.get(id);
-      if (!existing || (network && existing.network !== network)) {
-        return jsonResponse(200, []);
-      }
-
       if (init.method === 'PATCH') {
+        const existing = state.jobs.get(id);
+        if (!existing || (network && existing.network !== network)) {
+          return jsonResponse(200, []);
+        }
         const patch = parseRequestBody(init);
         const updated = { ...existing, ...patch };
         state.jobs.set(id, updated);
         return jsonResponse(200, [updated]);
+      }
+
+      if (!id) {
+        let rows = [...state.jobs.values()];
+        if (network) {
+          rows = rows.filter((row) => row.network === network);
+        }
+        const statusIn = target.searchParams.get('status');
+        if (statusIn?.startsWith('in.(') && statusIn.endsWith(')')) {
+          const statuses = statusIn
+            .slice(4, -1)
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean);
+          rows = rows.filter((row) => statuses.includes(String(row.status || '')));
+        }
+        rows.sort((left, right) => String(left.created_at || '').localeCompare(String(right.created_at || '')));
+        const limit = Number(target.searchParams.get('limit') || rows.length);
+        return jsonResponse(200, rows.slice(0, limit));
+      }
+
+      const existing = state.jobs.get(id);
+      if (!existing || (network && existing.network !== network)) {
+        return jsonResponse(200, []);
       }
 
       return jsonResponse(200, [existing]);
@@ -103,7 +128,7 @@ function createFetchMock(state) {
         body: parseRequestBody(init),
         headers: Object.fromEntries(new Headers(init.headers || {}).entries()),
       });
-      return jsonResponse(200, {
+      return state.executionResponses.shift() || jsonResponse(200, {
         ok: true,
         route: target.pathname,
         result: 'execution-ok',
@@ -116,7 +141,7 @@ function createFetchMock(state) {
         body: parseRequestBody(init),
         headers: Object.fromEntries(new Headers(init.headers || {}).entries()),
       });
-      return jsonResponse(200, {
+      return state.backendResponses.shift() || jsonResponse(200, {
         ok: true,
         route: target.pathname,
       });
@@ -309,4 +334,100 @@ test('automation_execute consumer forwards jobs to app backend automation route'
   assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/automation-execute');
   assert.equal(state.backendCalls[0].body.wif, 'testnet-updater-wif');
   assert.equal(state.jobs.get('job-automation')?.status, 'succeeded');
+});
+
+test('jobs/recover requeues stale queued and processing jobs', async () => {
+  const env = createEnv();
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-old-queued', {
+    id: 'job-old-queued',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' },
+    metadata: {},
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+    run_after: '2026-03-22T11:00:05.000Z',
+  });
+  state.jobs.set('job-stale-processing', {
+    id: 'job-stale-processing',
+    network: 'testnet',
+    queue: 'feed_tick',
+    route: '/feeds/tick',
+    status: 'processing',
+    payload: { target_chain: 'neo_n3', symbols: ['TWELVEDATA:NEO-USD'] },
+    metadata: {},
+    created_at: '2026-03-22T11:01:00.000Z',
+    updated_at: '2026-03-22T11:01:00.000Z',
+    started_at: '2026-03-22T11:01:00.000Z',
+  });
+  state.jobs.set('job-future', {
+    id: 'job-future',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:GAS-USD', target_chain: 'neo_n3' },
+    metadata: {},
+    created_at: '2099-03-22T11:02:00.000Z',
+    updated_at: '2099-03-22T11:02:00.000Z',
+    run_after: '2099-03-22T11:12:00.000Z',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/jobs/recover', {
+      method: 'POST',
+      headers: { authorization: 'Bearer control-plane-key' },
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.scanned, 2);
+  assert.equal(body.requeued_count, 2);
+  assert.equal(body.failed_count, 0);
+  assert.equal(env.MORPHEUS_ORACLE_REQUEST_QUEUE.sent.length, 1);
+  assert.equal(env.MORPHEUS_FEED_TICK_QUEUE.sent.length, 1);
+  assert.equal(state.jobs.get('job-old-queued')?.status, 'dispatched');
+  assert.equal(state.jobs.get('job-stale-processing')?.status, 'dispatched');
+  assert.match(String(state.jobs.get('job-old-queued')?.metadata?.last_requeued_at || ''), /\d{4}-\d{2}-\d{2}T/);
+  assert.equal(state.jobs.get('job-future')?.status, 'queued');
+});
+
+test('oracle_request consumer defers queued jobs until run_after', async () => {
+  const env = createEnv();
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-deferred', {
+    id: 'job-deferred',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: {
+      symbol: 'TWELVEDATA:NEO-USD',
+      target_chain: 'neo_n3',
+    },
+    metadata: {},
+    run_after: '2099-03-22T12:00:00.000Z',
+  });
+
+  const message = createQueueMessage({
+    job_id: 'job-deferred',
+    network: 'testnet',
+    queue: 'oracle_request',
+  });
+  await worker.queue({ queue: 'morpheus-oracle-request', messages: [message] }, env);
+
+  assert.equal(message.acked, false);
+  assert.equal(message.retried, true);
+  assert.ok((message.retryDelaySeconds || 0) >= 1);
+  assert.equal(state.executionCalls.length, 0);
+  assert.equal(state.jobs.get('job-deferred')?.status, 'queued');
 });
