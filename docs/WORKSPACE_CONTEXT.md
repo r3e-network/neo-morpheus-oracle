@@ -378,6 +378,7 @@ SDK live validation:
 Cloudflare deploy:
 
 - `CLOUDFLARE_API_TOKEN` (or equivalent `wrangler` auth)
+- `CLOUDFLARE_DNS_API_TOKEN` (if you run the Phala ingress + DNS updater flows)
 
 Supabase:
 
@@ -389,6 +390,7 @@ Upstash:
 
 Turnstile (optional):
 
+- `TURNSTILE_SITE_KEY` (public, used by frontends embedding the widget)
 - `TURNSTILE_SECRET_KEY`
 
 Email (optional):
@@ -437,4 +439,3 @@ Feed providers:
 - `npm test`
 - `npm run build`
 - `cd sdk/js && TEST_WIF=... node tests/v3_testnet_validation_suite.mjs`
-
