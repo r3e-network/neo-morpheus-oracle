@@ -489,12 +489,12 @@ const lines = [
   '# Generated from root .env and config/networks; do not commit.',
   line(
     'MORPHEUS_PHALA_WORKER_IMAGE',
-    get('MORPHEUS_PHALA_WORKER_IMAGE') ||
+    getInputOnly('MORPHEUS_PHALA_WORKER_IMAGE') ||
       'ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:latest'
   ),
   line(
     'MORPHEUS_RELAYER_IMAGE',
-    get('MORPHEUS_RELAYER_IMAGE') || 'ghcr.io/r3e-network/neo-morpheus-oracle-relayer:latest'
+    getInputOnly('MORPHEUS_RELAYER_IMAGE') || 'ghcr.io/r3e-network/neo-morpheus-oracle-relayer:latest'
   ),
   '',
   line('PHALA_WORKER_PORT', get('PHALA_WORKER_PORT') || '8080'),
