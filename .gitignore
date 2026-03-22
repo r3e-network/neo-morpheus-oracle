@@ -27,3 +27,4 @@ private-backups/
 docs/reports/
 docs/*_20??-??-??.md
 examples/deployments/*.20??-??-??.json
+examples/deployments/control-plane-smoke.*.latest.json
