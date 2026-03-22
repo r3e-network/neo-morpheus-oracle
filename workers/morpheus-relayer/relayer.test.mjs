@@ -748,6 +748,30 @@ test('createRelayerConfig exposes dedicated feed sync timeout', () => {
   }
 });
 
+test('createRelayerConfig appends public runtime fallbacks after explicit runtime urls', () => {
+  const previousNetwork = process.env.MORPHEUS_NETWORK;
+  const previousApiUrl = process.env.PHALA_API_URL;
+  const previousRuntimeUrl = process.env.MORPHEUS_RUNTIME_URL;
+
+  process.env.MORPHEUS_NETWORK = 'testnet';
+  process.env.PHALA_API_URL = 'http://phala-worker:8080';
+  delete process.env.MORPHEUS_RUNTIME_URL;
+
+  try {
+    const config = createRelayerConfig();
+    assert.match(config.phala.apiUrl, /^http:\/\/phala-worker:8080,/);
+    assert.match(config.phala.apiUrl, /https:\/\/morpheus-testnet\.meshmini\.app/);
+    assert.match(config.phala.apiUrl, /https:\/\/edge\.meshmini\.app\/testnet/);
+  } finally {
+    if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
+    else process.env.MORPHEUS_NETWORK = previousNetwork;
+    if (previousApiUrl === undefined) delete process.env.PHALA_API_URL;
+    else process.env.PHALA_API_URL = previousApiUrl;
+    if (previousRuntimeUrl === undefined) delete process.env.MORPHEUS_RUNTIME_URL;
+    else process.env.MORPHEUS_RUNTIME_URL = previousRuntimeUrl;
+  }
+});
+
 test('encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8', () => {
   const encoded = encodeUtf8ByteArrayParamValue('{"ok":true}');
   assert.equal(Buffer.from(encoded, 'base64').toString('utf8'), '{"ok":true}');

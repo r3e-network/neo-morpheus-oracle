@@ -30,6 +30,17 @@ function parseActiveChains(value) {
   return filtered.length > 0 ? filtered : ['neo_n3'];
 }
 
+function parseUrlList(value) {
+  return String(value || '')
+    .split(',')
+    .map((entry) => trimString(entry).replace(/\/$/, ''))
+    .filter(Boolean);
+}
+
+function uniqueOrdered(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
 function parseBoolean(value, fallback = false) {
   const raw = trimString(value).toLowerCase();
   if (!raw) return fallback;
@@ -84,6 +95,34 @@ function loadJsonFile(filePath) {
 
 function resolveNetworkName() {
   return env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet';
+}
+
+function resolvePublicRuntimeCandidates(network, registry) {
+  const networkDomain =
+    network === 'mainnet'
+      ? 'https://morpheus-mainnet.meshmini.app'
+      : 'https://morpheus-testnet.meshmini.app';
+  return uniqueOrdered([
+    trimString(registry.phala?.public_api_url || ''),
+    networkDomain,
+    `https://edge.meshmini.app/${network}`,
+  ]);
+}
+
+function resolvePhalaApiUrls(network, registry) {
+  const explicit = uniqueOrdered(
+    parseUrlList(
+      env(
+        `MORPHEUS_${network.toUpperCase()}_RUNTIME_URL`,
+        'MORPHEUS_RUNTIME_URL',
+        `MORPHEUS_${network.toUpperCase()}_PHALA_API_URL`,
+        'PHALA_API_URL'
+      )
+    )
+  );
+  const publicFallbacks = resolvePublicRuntimeCandidates(network, registry);
+  const combined = uniqueOrdered([...explicit, ...publicFallbacks]);
+  return combined.join(',');
 }
 
 function snapshotSignerEnv() {
@@ -221,17 +260,7 @@ export function createRelayerConfig() {
     },
     stateFile,
     phala: {
-      apiUrl:
-        env(
-          `MORPHEUS_${network.toUpperCase()}_RUNTIME_URL`,
-          'MORPHEUS_RUNTIME_URL',
-          `MORPHEUS_${network.toUpperCase()}_PHALA_API_URL`,
-          'PHALA_API_URL'
-        ) ||
-        trimString(registry.phala?.public_api_url || '') ||
-        (network === 'mainnet'
-          ? 'https://morpheus-mainnet.meshmini.app'
-          : 'https://morpheus-testnet.meshmini.app'),
+      apiUrl: resolvePhalaApiUrls(network, registry),
       token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
       timeoutMs: Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || 30000),
     },
