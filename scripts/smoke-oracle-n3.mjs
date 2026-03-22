@@ -94,6 +94,45 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
   return parseStackItem(response.stack?.[0]);
 }
 
+function toGasString(rawValue) {
+  const negative = rawValue < 0n;
+  const abs = negative ? rawValue * -1n : rawValue;
+  const whole = abs / 100000000n;
+  const fraction = String(abs % 100000000n)
+    .padStart(8, '0')
+    .replace(/0+$/, '');
+  const suffix = fraction ? `.${fraction}` : '';
+  return `${negative ? '-' : ''}${whole}${suffix}`;
+}
+
+function parseGasToRaw(value, fallbackRaw) {
+  const text = trimString(value);
+  if (!text) return fallbackRaw;
+  const asNumber = Number(text);
+  if (!Number.isFinite(asNumber) || asNumber < 0) return fallbackRaw;
+  return BigInt(Math.ceil(asNumber * 100000000));
+}
+
+async function ensureGasBudget(rpcClient, account) {
+  const minGasRaw = parseGasToRaw(process.env.MORPHEUS_SMOKE_MIN_GAS, 2000000n);
+  const balanceRaw = BigInt(
+    (await invokeRead(rpcClient, GAS_HASH, 'balanceOf', [
+      { type: 'Hash160', value: `0x${account.scriptHash}` },
+    ])) || '0'
+  );
+
+  if (balanceRaw < minGasRaw) {
+    throw new Error(
+      `Insufficient GAS for smoke tx path. Required >= ${toGasString(minGasRaw)} GAS, available ${toGasString(balanceRaw)} GAS. Top up wallet and retry.`
+    );
+  }
+
+  return {
+    min_gas: toGasString(minGasRaw),
+    balance_gas: toGasString(balanceRaw),
+  };
+}
+
 async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, oracleHash) {
   const currentCredit = BigInt(
     (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
@@ -302,6 +341,7 @@ const oracle = new experimental.SmartContract(oracleHash, {
   account,
 });
 const rpcClient = new neoRpc.RPCClient(rpcUrl);
+const gasBudget = await ensureGasBudget(rpcClient, account);
 const feeStatus = await ensureRequestFeeCredit(
   account,
   rpcUrl,
@@ -345,6 +385,7 @@ try {
 const summary = {
   txid,
   request_id: requestId,
+  gas_budget: gasBudget,
   request_fee: feeStatus.request_fee,
   request_credit: feeStatus.current_credit,
   provider,
