@@ -75,14 +75,7 @@ function renderFileSection({ repoRoot, filePath }) {
   const headerPath = safeRel(repoRoot, filePath);
   const content = normalizeEol(readText(filePath)).trimEnd();
 
-  return [
-    `### \`${headerPath}\``,
-    '',
-    '```' + language,
-    content,
-    '```',
-    '',
-  ].join('\n');
+  return [`### \`${headerPath}\``, '', '```' + language, content, '```', ''].join('\n');
 }
 
 function collectKeysFromText(text) {
@@ -197,24 +190,32 @@ function main() {
     'apps/web/.env.local',
   ];
 
-  const aaExtra = [
-    'frontend/.env.local',
-    'frontend/.env',
-  ];
+  const aaExtra = ['frontend/.env.local', 'frontend/.env'];
 
-  const miniappsExtra = [
-    'platform/host-app/.env.local',
-    'platform/admin-console/.env.local',
-  ];
+  const miniappsExtra = ['platform/host-app/.env.local', 'platform/admin-console/.env.local'];
 
   const sections = [];
 
-  sections.push(collectRepoSections({ title: 'neo-morpheus-oracle', repoRoot: oracleRoot, extraFiles: oracleExtra }));
+  sections.push(
+    collectRepoSections({
+      title: 'neo-morpheus-oracle',
+      repoRoot: oracleRoot,
+      extraFiles: oracleExtra,
+    })
+  );
   if (fs.existsSync(aaRoot)) {
-    sections.push(collectRepoSections({ title: 'neo-abstract-account', repoRoot: aaRoot, extraFiles: aaExtra }));
+    sections.push(
+      collectRepoSections({ title: 'neo-abstract-account', repoRoot: aaRoot, extraFiles: aaExtra })
+    );
   }
   if (fs.existsSync(miniappsRoot)) {
-    sections.push(collectRepoSections({ title: 'neo-miniapps-platform', repoRoot: miniappsRoot, extraFiles: miniappsExtra }));
+    sections.push(
+      collectRepoSections({
+        title: 'neo-miniapps-platform',
+        repoRoot: miniappsRoot,
+        extraFiles: miniappsExtra,
+      })
+    );
   }
 
   const allKeys = union(sections.map((section) => section.keys));
@@ -228,7 +229,9 @@ function main() {
   const lines = [];
   lines.push('# Workspace Context Values (Sensitive)');
   lines.push('');
-  lines.push('This file contains **secret values** and is intentionally located under `private-backups/` (gitignored).');
+  lines.push(
+    'This file contains **secret values** and is intentionally located under `private-backups/` (gitignored).'
+  );
   lines.push('Do not commit it. Prefer encrypting it before sharing or storing off-machine.');
   lines.push('');
   lines.push(`Generated: \`${nowIso()}\``);
@@ -243,7 +246,9 @@ function main() {
     lines.push('## Missing Keys (Not Found In Local Env Files)');
     lines.push('');
     lines.push('These keys were not found in any discovered local `.env` / runtime env files.');
-    lines.push('If you want this document to be fully self-contained, add them to a local env file under `private-backups/` and re-run the generator.');
+    lines.push(
+      'If you want this document to be fully self-contained, add them to a local env file under `private-backups/` and re-run the generator.'
+    );
     lines.push('');
     for (const key of missing) {
       lines.push(`- \`${key}\``);
@@ -268,9 +273,10 @@ function main() {
 
   // IMPORTANT: Do not print secret contents to stdout.
   console.log(`Wrote ${outPath}`);
-  console.log(`Included ${sections.reduce((acc, section) => acc + section.files.length, 0)} file(s).`);
+  console.log(
+    `Included ${sections.reduce((acc, section) => acc + section.files.length, 0)} file(s).`
+  );
   console.log(`Missing keys: ${missing.length}`);
 }
 
 main();
-
