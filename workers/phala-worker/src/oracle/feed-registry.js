@@ -1,7 +1,9 @@
 import { env, trimString } from '../platform/core.js';
 import { normalizeProviderId } from './providers.js';
 
-const FEED_PAIR_ALIASES = {};
+const FEED_PAIR_ALIASES = {
+  'OIL-USD': 'WTI-USD',
+};
 const KNOWN_FEED_PROVIDER_PREFIXES = ['TWELVEDATA:', 'BINANCE-SPOT:', 'COINBASE-SPOT:'];
 
 export const DEFAULT_FEED_PAIRS = {

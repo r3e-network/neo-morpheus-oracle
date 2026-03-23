@@ -22,6 +22,7 @@ import {
   processAutomationJobs,
 } from './src/automation.js';
 import {
+  buildFeedSyncPayload,
   getRequestCursorFloor,
   getFeedSyncDelayMs,
   hydrateDurableQueue,
@@ -810,6 +811,35 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
     if (previousRuntimeUrl === undefined) delete process.env.MORPHEUS_RUNTIME_URL;
     else process.env.MORPHEUS_RUNTIME_URL = previousRuntimeUrl;
   }
+});
+
+test('buildFeedSyncPayload forwards target-chain signer material to the worker runtime', () => {
+  const config = {
+    feedSync: {
+      symbols: ['NEO-USD'],
+      projectSlug: 'feeds_price',
+      changeThresholdBps: 50,
+      minUpdateIntervalMs: 30000,
+      provider: 'twelvedata',
+    },
+    neo_n3: {
+      updaterWif: 'KzjaqMvqzF1uup6KrTKRxTgjcXE7PbKLRH84e6ckyXDt3fu7afUb',
+      updaterPrivateKey: '',
+    },
+    neo_x: {
+      updaterPrivateKey: '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb',
+    },
+  };
+
+  const neoN3Payload = buildFeedSyncPayload(config, 'neo_n3');
+  assert.equal(neoN3Payload.target_chain, 'neo_n3');
+  assert.equal(neoN3Payload.provider, 'twelvedata');
+  assert.equal(neoN3Payload.wif, config.neo_n3.updaterWif);
+  assert.equal('private_key' in neoN3Payload, false);
+
+  const neoXPayload = buildFeedSyncPayload(config, 'neo_x');
+  assert.equal(neoXPayload.target_chain, 'neo_x');
+  assert.equal(neoXPayload.private_key, config.neo_x.updaterPrivateKey);
 });
 
 test('encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8', () => {
