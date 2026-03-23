@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
-import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, wallet } from '@neo-morpheus-oracle/neon-compat';
 import { createRelayerConfig } from '../../workers/morpheus-relayer/src/config.js';
 import { processAutomationJobs } from '../../workers/morpheus-relayer/src/automation.js';
 import { patchAutomationJob } from '../../workers/morpheus-relayer/src/persistence.js';

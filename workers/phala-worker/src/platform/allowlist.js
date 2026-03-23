@@ -1,4 +1,4 @@
-import { sc, u, wallet as neoWallet } from '@cityofzion/neon-js';
+import { sc, u, wallet as neoWallet } from '@neo-morpheus-oracle/neon-compat';
 import { env, isHexString, strip0x, trimString } from './core.js';
 
 export function normalizeNeoHash160(value) {

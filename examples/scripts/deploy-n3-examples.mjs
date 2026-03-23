@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { experimental, rpc as neoRpc, sc } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc } from '@neo-morpheus-oracle/neon-compat';
 import {
   createContract,
   getDeployConfig,

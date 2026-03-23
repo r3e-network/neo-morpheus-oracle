@@ -1,4 +1,4 @@
-import { rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
+import { rpc as neoRpc, sc, tx, u, wallet } from '@neo-morpheus-oracle/neon-compat';
 import {
   loadExampleEnv,
   readDeploymentRegistry,

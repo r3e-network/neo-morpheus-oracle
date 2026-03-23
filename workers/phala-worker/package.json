@@ -10,7 +10,7 @@
     "test": "node --test worker.test.mjs && node --test src/platform/request-guards.test.mjs && node --test src/platform/overload-guard.test.mjs && node --test src/oracle/feeds.test.mjs"
   },
   "dependencies": {
-    "@cityofzion/neon-js": "^5.8.1",
+    "@neo-morpheus-oracle/neon-compat": "0.1.0",
     "@phala/dstack-sdk": "^0.5.7",
     "ethers": "^6.16.0",
     "jose": "^6.2.1"

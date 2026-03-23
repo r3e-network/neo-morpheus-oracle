@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { experimental, sc, u, wallet } from '@cityofzion/neon-js';
+import { experimental, sc, u, wallet } from '@neo-morpheus-oracle/neon-compat';
 import { loadDotEnv } from './lib-env.mjs';
 import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
 

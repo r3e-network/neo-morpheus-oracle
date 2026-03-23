@@ -4,7 +4,7 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
-import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@neo-morpheus-oracle/neon-compat';
 import {
   encodeUtf8Base64,
   jsonPretty,

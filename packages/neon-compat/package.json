@@ -1,0 +1,16 @@
+{
+  "name": "@neo-morpheus-oracle/neon-compat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "@r3e/neo-js-sdk": "https://codeload.github.com/r3e-network/neo-js-sdk/tar.gz/refs/tags/v0.3.7-r3e.1"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  }
+}

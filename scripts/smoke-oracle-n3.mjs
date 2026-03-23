@@ -1,4 +1,4 @@
-import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
+import { experimental, sc, rpc as neoRpc, wallet } from '@neo-morpheus-oracle/neon-compat';
 import { loadDotEnv } from './lib-env.mjs';
 import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
 import fs from 'node:fs/promises';
