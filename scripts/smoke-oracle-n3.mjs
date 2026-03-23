@@ -401,8 +401,14 @@ const requestSecret =
   trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF || '') ||
   trimString(process.env.PHALA_NEO_N3_WIF || '');
 const requestSigner = requestSecret ? materializeNeoN3Secret(requestSecret) : null;
+const updaterEnv = { ...process.env };
+if (explicitRequestWif) {
+  delete updaterEnv.MORPHEUS_SMOKE_REQUEST_WIF;
+  delete updaterEnv.NEO_N3_WIF;
+  delete updaterEnv.NEO_TESTNET_WIF;
+}
 const updaterSigner = reportPinnedNeoN3Role(network, 'updater', {
-  env: process.env,
+  env: updaterEnv,
   allowMissing: true,
 });
 const updaterWif = updaterSigner.materialized?.wif || updaterSigner.materialized?.private_key || '';
