@@ -3,7 +3,11 @@ import { loadDotEnv } from './lib-env.mjs';
 import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
+import {
+  materializeNeoN3Secret,
+  normalizeMorpheusNetwork,
+  reportPinnedNeoN3Role,
+} from './lib-neo-signers.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 
@@ -370,8 +374,6 @@ const rpcUrl = trimString(
 const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || networkConfig?.neo_n3?.network_magic || defaultNetworkMagic
 );
-const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
-const wif = signer.materialized?.wif || signer.materialized?.private_key || '';
 const oracleHash =
   network === 'testnet' && rawOracleHash === mainnetOracleHash && registryOracleHash
     ? registryOracleHash
@@ -392,10 +394,24 @@ const callbackTimeoutMs = Math.max(
   120000
 );
 const explicitRequestWif = trimString(process.env.MORPHEUS_SMOKE_REQUEST_WIF || '');
-const updaterSigner = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
+const requestSecret =
+  explicitRequestWif ||
+  trimString(process.env.NEO_N3_WIF || '') ||
+  trimString(process.env.NEO_TESTNET_WIF || '') ||
+  trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF || '') ||
+  trimString(process.env.PHALA_NEO_N3_WIF || '');
+const requestSigner = requestSecret ? materializeNeoN3Secret(requestSecret) : null;
+const updaterSigner = reportPinnedNeoN3Role(network, 'updater', {
+  env: process.env,
+  allowMissing: true,
+});
 const updaterWif = updaterSigner.materialized?.wif || updaterSigner.materialized?.private_key || '';
 
-if (!wif) throw new Error('NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required');
+if (!requestSigner) {
+  throw new Error(
+    'MORPHEUS_SMOKE_REQUEST_WIF, NEO_N3_WIF, NEO_TESTNET_WIF, MORPHEUS_RELAYER_NEO_N3_WIF, or PHALA_NEO_N3_WIF is required'
+  );
+}
 if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');
 if (!callbackHash) throw new Error('CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH is required');
 
@@ -406,7 +422,7 @@ const payload = {
 };
 if (script) payload.script = script;
 
-const account = new wallet.Account(explicitRequestWif || wif);
+const account = new wallet.Account(requestSigner.wif || requestSigner.private_key);
 const updaterAccount = updaterWif ? new wallet.Account(updaterWif) : account;
 const oracle = new experimental.SmartContract(oracleHash, {
   rpcAddress: rpcUrl,
@@ -472,6 +488,14 @@ try {
       on_fallback: fallbackTopup,
     };
   }
+  if (!updaterWif) {
+    const reason = updaterSigner.issues.length
+      ? updaterSigner.issues.join('; ')
+      : 'no pinned updater signer materialized';
+    throw new Error(
+      `Neo N3 smoke callback fallback unavailable because updater signer is not configured: ${reason}`
+    );
+  }
   const resultText = JSON.stringify({ provider, symbol, price: '0', smoke_fallback: true });
   await fulfillRequestLocally(
     rpcClient,
@@ -490,6 +514,8 @@ const summary = {
   request_id: requestId,
   request_signer: account.address,
   fallback_updater_signer: updaterAccount.address,
+  fallback_updater_ready: Boolean(updaterWif),
+  fallback_updater_issues: updaterSigner.issues,
   fallback_updater_gas_topup: updaterGasTopup,
   gas_budget: gasBudget,
   request_fee: feeStatus.request_fee,

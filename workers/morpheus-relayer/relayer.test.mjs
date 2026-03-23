@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { wallet } from '@cityofzion/neon-js';
 
 import {
   buildOnchainResultEnvelope,
@@ -59,6 +60,45 @@ const retryConfig = {
   processedCacheSize: 100,
   deadLetterLimit: 10,
 };
+
+const ISOLATED_RELAYER_SIGNER_ENV_KEYS = [
+  'MORPHEUS_ALLOW_UNPINNED_SIGNERS',
+  'MORPHEUS_RELAYER_NEO_N3_WIF',
+  'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+  'MORPHEUS_UPDATER_NEO_N3_WIF',
+  'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
+  'NEO_N3_WIF',
+  'NEO_TESTNET_WIF',
+  'PHALA_NEO_N3_WIF',
+  'PHALA_NEO_N3_PRIVATE_KEY',
+];
+
+function withIsolatedRelayerSigner(run) {
+  const previous = new Map();
+  for (const key of ISOLATED_RELAYER_SIGNER_ENV_KEYS) {
+    previous.set(key, process.env[key]);
+  }
+
+  const isolatedSigner = new wallet.Account(wallet.generatePrivateKey());
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  process.env.MORPHEUS_RELAYER_NEO_N3_WIF = isolatedSigner.WIF;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
+  delete process.env.NEO_N3_WIF;
+  delete process.env.NEO_TESTNET_WIF;
+  delete process.env.PHALA_NEO_N3_WIF;
+  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
+
+  try {
+    return run();
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
 
 test('normalizeRequestType normalizes separators and casing', () => {
   assert.equal(normalizeRequestType('Privacy-Oracle'), 'privacy_oracle');
@@ -663,7 +703,7 @@ test('createRelayerConfig exposes request cursor start ids', () => {
   process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID = '77';
 
   try {
-    const config = createRelayerConfig();
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.startRequestIds.neo_n3, 150);
     assert.equal(config.startRequestIds.neo_x, 77);
   } finally {
@@ -683,7 +723,7 @@ test('createRelayerConfig defaults active chains to neo_n3 only', () => {
   delete process.env.MORPHEUS_ACTIVE_CHAINS;
 
   try {
-    const config = createRelayerConfig();
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.deepEqual(config.activeChains, ['neo_n3']);
   } finally {
     if (previous === undefined) delete process.env.MORPHEUS_ACTIVE_CHAINS;
@@ -703,7 +743,7 @@ test('createRelayerConfig enables durable queue by default when Supabase is conf
   delete process.env.MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED;
 
   try {
-    const config = createRelayerConfig();
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.durableQueue.enabled, true);
     assert.equal(config.durableQueue.failClosed, true);
   } finally {
@@ -725,7 +765,7 @@ test('createRelayerConfig supports feed_only mode with isolated default state fi
   process.env.MORPHEUS_RELAYER_MODE = 'feed_only';
 
   try {
-    const config = createRelayerConfig();
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.mode, 'feed_only');
     assert.match(config.stateFile, /\.morpheus-relayer-state\.feed_only\.json$/);
   } finally {
@@ -740,7 +780,7 @@ test('createRelayerConfig exposes dedicated feed sync timeout', () => {
   const previous = process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
   process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = '90000';
   try {
-    const config = createRelayerConfig();
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.feedSync.timeoutMs, 90000);
   } finally {
     if (previous === undefined) delete process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
@@ -758,7 +798,7 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
   delete process.env.MORPHEUS_RUNTIME_URL;
 
   try {
-    const config = createRelayerConfig();
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.match(config.phala.apiUrl, /^http:\/\/phala-worker:8080,/);
     assert.match(config.phala.apiUrl, /https:\/\/morpheus-testnet\.meshmini\.app/);
     assert.match(config.phala.apiUrl, /https:\/\/edge\.meshmini\.app\/testnet/);

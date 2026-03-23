@@ -52,6 +52,47 @@ process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
 delete process.env.WEB3AUTH_CLIENT_ID;
 delete process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
 delete process.env.WEB3AUTH_JWKS_URL;
+
+// Keep unit tests hermetic even when a developer machine has real Morpheus/Neo secrets exported.
+// These secrets can change default validation behavior or trigger pinned-signer drift checks.
+const WORKER_TEST_ENV_KEEP = new Set([
+  'PHALA_SHARED_SECRET',
+  'PHALA_API_TOKEN',
+  'PHALA_NEO_N3_PRIVATE_KEY',
+  'PHALA_NEOX_PRIVATE_KEY',
+  'NEO_RPC_URL',
+  'NEOX_RPC_URL',
+  'NEO_X_RPC_URL',
+  'EVM_RPC_URL',
+  'TWELVEDATA_API_KEY',
+  'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'PHALA_USE_DERIVED_KEYS',
+  'PHALA_ORACLE_KEYSTORE_PATH',
+  'MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS',
+  'CONTRACT_MORPHEUS_ORACLE_HASH',
+  'NEODID_SECRET_SALT',
+  'MORPHEUS_ALLOW_UNPINNED_SIGNERS',
+]);
+for (const key of Object.keys(process.env)) {
+  if (WORKER_TEST_ENV_KEEP.has(key)) continue;
+  if (
+    key === 'NEO_TESTNET_WIF' ||
+    key === 'NEO_N3_WIF' ||
+    key.startsWith('PHALA_NEO_N3_') ||
+    key.startsWith('MORPHEUS_RELAYER_NEO_N3_') ||
+    key.startsWith('MORPHEUS_UPDATER_NEO_N3_') ||
+    key.startsWith('MORPHEUS_ORACLE_VERIFIER_') ||
+    key.startsWith('PHALA_ORACLE_VERIFIER_') ||
+    key.startsWith('MORPHEUS_FEED_') ||
+    key.startsWith('TURNSTILE_') ||
+    key.startsWith('MORPHEUS_TURNSTILE_') ||
+    key.startsWith('UPSTASH_REDIS_')
+  ) {
+    delete process.env[key];
+  }
+}
 const baselineEnv = { ...process.env };
 
 const { default: handler } = await import('./src/worker.js');
