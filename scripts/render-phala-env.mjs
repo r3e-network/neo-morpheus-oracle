@@ -228,10 +228,22 @@ function profileTunable(key, testnetValue, mainnetValue) {
   return explicit || profileDefault(testnetValue, mainnetValue);
 }
 
+function resolveSignerScoped(...keys) {
+  for (const key of keys) {
+    const processValue = trimString(process.env[key]);
+    if (processValue) return processValue;
+  }
+  for (const key of keys) {
+    const localValue = trimString(localEnv[key]);
+    if (localValue) return localValue;
+  }
+  return '';
+}
+
 function buildSignerSnapshot() {
   const snapshot = {};
   for (const key of NEO_N3_SIGNER_ENV_KEYS) {
-    const value = resolveNetworkScoped(key);
+    const value = resolveSignerScoped(key);
     if (value) snapshot[key] = value;
   }
   return snapshot;
