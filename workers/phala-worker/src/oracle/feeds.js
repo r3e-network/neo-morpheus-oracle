@@ -916,10 +916,11 @@ export async function handleOracleFeed(payload) {
     targetChain === 'neo_n3'
       ? normalizeNeoHash160(env('CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'))
       : null;
-  const neoContext =
-    targetChain === 'neo_n3'
-      ? loadNeoN3Context(payload, { required: false, requireRpc: false })
-      : null;
+  const hasNeoN3DataFeedTarget =
+    targetChain === 'neo_n3' && dataFeedHash && isConfiguredHash160(dataFeedHash);
+  const neoContext = hasNeoN3DataFeedTarget
+    ? loadNeoN3Context(payload, { required: false, requireRpc: false })
+    : null;
   const dataFeedAddress =
     targetChain === 'neo_x' ? trimString(env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS')) : null;
   const onchainRecords = await loadOnchainFeedRecords(targetChain, {
@@ -1007,12 +1008,7 @@ export async function handleOracleFeed(payload) {
 
   let batchTx = null;
   if (batchUpdates.length > 0) {
-    if (
-      targetChain === 'neo_n3' &&
-      dataFeedHash &&
-      isConfiguredHash160(dataFeedHash) &&
-      neoContext
-    ) {
+    if (hasNeoN3DataFeedTarget && neoContext) {
       batchTx = await submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, batchUpdates);
     } else if (targetChain === 'neo_x' && dataFeedAddress) {
       batchTx = await submitQuotesToNeoX(dataFeedAddress, payload, batchUpdates);
