@@ -804,6 +804,32 @@ export function resolveChainFromBlock(config, state, chain, confirmedTip, logger
   return lastBlock + 1;
 }
 
+export function buildFeedSyncPayload(config, targetChain) {
+  const payload = {
+    target_chain: targetChain,
+    symbols: config.feedSync.symbols,
+    project_slug: config.feedSync.projectSlug || undefined,
+    feed_change_threshold_bps: config.feedSync.changeThresholdBps,
+    feed_min_update_interval_ms: config.feedSync.minUpdateIntervalMs,
+    wait: false,
+  };
+
+  if (config.feedSync.provider) {
+    payload.provider = config.feedSync.provider;
+  } else if (Array.isArray(config.feedSync.providers) && config.feedSync.providers.length > 0) {
+    payload.providers = config.feedSync.providers;
+  }
+
+  if (targetChain === 'neo_n3') {
+    if (config.neo_n3?.updaterPrivateKey) payload.private_key = config.neo_n3.updaterPrivateKey;
+    else if (config.neo_n3?.updaterWif) payload.wif = config.neo_n3.updaterWif;
+  } else if (targetChain === 'neo_x' && config.neo_x?.updaterPrivateKey) {
+    payload.private_key = config.neo_x.updaterPrivateKey;
+  }
+
+  return payload;
+}
+
 async function processFeedSync(config, state, logger) {
   if (!config.feedSync?.enabled) {
     return { enabled: false, chains: [] };
@@ -827,19 +853,7 @@ async function processFeedSync(config, state, logger) {
   const chains = [];
   for (const targetChain of targetChains) {
     try {
-      const payload = {
-        target_chain: targetChain,
-        symbols: config.feedSync.symbols,
-        project_slug: config.feedSync.projectSlug || undefined,
-        feed_change_threshold_bps: config.feedSync.changeThresholdBps,
-        feed_min_update_interval_ms: config.feedSync.minUpdateIntervalMs,
-        wait: false,
-      };
-      if (config.feedSync.provider) {
-        payload.provider = config.feedSync.provider;
-      } else if (Array.isArray(config.feedSync.providers) && config.feedSync.providers.length > 0) {
-        payload.providers = config.feedSync.providers;
-      }
+      const payload = buildFeedSyncPayload(config, targetChain);
 
       const timeoutAwareResponse = await callPhala(config, '/oracle/feed', payload, {
         timeoutMs: config.feedSync.timeoutMs,

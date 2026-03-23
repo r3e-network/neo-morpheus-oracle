@@ -10,6 +10,7 @@ import {
   __loadFeedStateForTests,
   __resetFeedStateForTests,
   handleOracleFeed,
+  normalizePairSymbol,
 } from './feeds.js';
 
 const originalFetch = global.fetch;
@@ -26,6 +27,7 @@ const originalRelayerWif = process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
 const originalRelayerKey = process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
 const originalUpdaterWif = process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
 const originalUpdaterKey = process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
+const originalAllowUnpinned = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
 
 test.afterEach(async () => {
   global.fetch = originalFetch;
@@ -58,6 +60,8 @@ test.afterEach(async () => {
   else process.env.MORPHEUS_UPDATER_NEO_N3_WIF = originalUpdaterWif;
   if (originalUpdaterKey === undefined) delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
   else process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY = originalUpdaterKey;
+  if (originalAllowUnpinned === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+  else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = originalAllowUnpinned;
 });
 
 test('buildNeoN3RelaySigningPayload prefers updater signer material over worker signer material', () => {
@@ -69,6 +73,10 @@ test('buildNeoN3RelaySigningPayload prefers updater signer material over worker 
   const resolved = __buildNeoN3RelaySigningPayloadForTests({});
   assert.equal(resolved.private_key, 'updater-key');
   assert.equal(resolved.wif, 'updater-wif');
+});
+
+test('normalizePairSymbol maps legacy oil symbol to WTI-USD', () => {
+  assert.equal(normalizePairSymbol('OIL-USD'), 'WTI-USD');
 });
 
 test('loadFeedState bootstraps from Supabase snapshots when local state is empty', async () => {
@@ -116,6 +124,7 @@ test('handleOracleFeed persists Supabase snapshots without blocking pricefeed fl
   process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
   process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
   process.env.MORPHEUS_NETWORK = 'testnet';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
   delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
 
   const snapshotWrites = [];
