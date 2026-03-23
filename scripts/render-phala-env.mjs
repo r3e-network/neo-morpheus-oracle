@@ -546,11 +546,11 @@ const lines = [
   ),
   line(
     'MORPHEUS_MAX_INFLIGHT_ORACLE_SMART_FETCH',
-    profileTunable('MORPHEUS_MAX_INFLIGHT_ORACLE_SMART_FETCH', '2', '8')
+    profileTunable('MORPHEUS_MAX_INFLIGHT_ORACLE_SMART_FETCH', '1', '8')
   ),
   line(
     'MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE',
-    profileTunable('MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE', '2', '6')
+    profileTunable('MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE', '4', '6')
   ),
   line(
     'MORPHEUS_MAX_INFLIGHT_VRF_RANDOM',
