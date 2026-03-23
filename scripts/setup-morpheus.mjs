@@ -1,4 +1,4 @@
-import { sc } from '@neo-morpheus-oracle/neon-compat';
+import { sc } from '@cityofzion/neon-js';
 import { createContract } from './lib-neo-contracts.mjs';
 
 const oracleHash = process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '';

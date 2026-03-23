@@ -6,7 +6,7 @@ import {
   strip0x,
   trimString,
 } from '../platform/core.js';
-import { wallet as neoWallet } from '@neo-morpheus-oracle/neon-compat';
+import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from '../platform/dstack.js';
 import {
   NEO_N3_SIGNER_ENV_KEYS,

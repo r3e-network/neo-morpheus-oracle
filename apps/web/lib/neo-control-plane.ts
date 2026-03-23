@@ -1,4 +1,4 @@
-import { experimental, rpc as neoRpc, sc, u, wallet as neoWallet } from '@neo-morpheus-oracle/neon-compat';
+import { experimental, rpc as neoRpc, sc, u, wallet as neoWallet } from '@cityofzion/neon-js';
 import {
   getServerSupabaseClient,
   resolveSupabaseNetwork,
