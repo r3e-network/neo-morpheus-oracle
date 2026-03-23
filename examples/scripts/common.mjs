@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { Contract, JsonRpcProvider } from 'ethers';
-import { rpc as neoRpc, wallet } from '@neo-morpheus-oracle/neon-compat';
+import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from '../../scripts/lib-env.mjs';
 import {
   normalizeMorpheusNetwork,

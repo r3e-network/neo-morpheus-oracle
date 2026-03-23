@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { wallet } from '@neo-morpheus-oracle/neon-compat';
+import { wallet } from '@cityofzion/neon-js';
 
 import {
   buildOnchainResultEnvelope,

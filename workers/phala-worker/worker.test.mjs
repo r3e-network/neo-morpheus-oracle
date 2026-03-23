@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
-import { rpc as neoRpc, wallet as neoWallet } from '@neo-morpheus-oracle/neon-compat';
+import { rpc as neoRpc, wallet as neoWallet } from '@cityofzion/neon-js';
 import { Interface, Transaction } from 'ethers';
 import { exportJWK, SignJWT } from 'jose';
 

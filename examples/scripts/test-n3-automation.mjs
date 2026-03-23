@@ -1,4 +1,4 @@
-import { experimental, rpc as neoRpc, sc, tx, wallet } from '@neo-morpheus-oracle/neon-compat';
+import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
 import {
   encodeUtf8Base64,
   jsonPretty,

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@neo-morpheus-oracle/neon-compat';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import { buildFulfillmentDigestBytes } from '../../workers/morpheus-relayer/src/router.js';
 import {
   encodeUtf8Base64,

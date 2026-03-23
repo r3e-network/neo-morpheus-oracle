@@ -1,4 +1,4 @@
-import { experimental, rpc as neoRpc, sc, wallet } from '@neo-morpheus-oracle/neon-compat';
+import { experimental, rpc as neoRpc, sc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
 

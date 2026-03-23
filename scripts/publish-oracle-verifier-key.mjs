@@ -1,4 +1,4 @@
-import { experimental, sc, wallet } from '@neo-morpheus-oracle/neon-compat';
+import { experimental, sc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 import {
   normalizeMorpheusNetwork,

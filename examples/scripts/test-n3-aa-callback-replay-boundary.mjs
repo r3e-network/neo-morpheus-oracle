@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@neo-morpheus-oracle/neon-compat';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import { buildFulfillmentDigestBytes } from '../../workers/morpheus-relayer/src/router.js';
 import {
   jsonPretty,

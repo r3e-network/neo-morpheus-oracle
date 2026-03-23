@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { wallet as neoWallet } from '@neo-morpheus-oracle/neon-compat';
+import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import {
   NEO_N3_SIGNER_ENV_KEYS,

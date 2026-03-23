@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { experimental, rpc as neoRpc, tx, u, wallet as neoWallet } from '@neo-morpheus-oracle/neon-compat';
+import { experimental, rpc as neoRpc, tx, u, wallet as neoWallet } from '@cityofzion/neon-js';
 import {
   NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
@@ -35,14 +35,10 @@ function resolveNeoN3SigningKey() {
   const network = normalizeMorpheusNetwork(
     env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
   );
-  try {
-    const signer = resolvePinnedNeoN3Role(network, 'worker', {
-      env: snapshotSignerEnv(),
-    });
-    return signer.materialized?.private_key || signer.materialized?.wif || '';
-  } catch {
-    return '';
-  }
+  const signer = resolvePinnedNeoN3Role(network, 'worker', {
+    env: snapshotSignerEnv(),
+  });
+  return signer.materialized?.private_key || signer.materialized?.wif || '';
 }
 
 export function getNeoSigners(account, scope = 'CalledByEntry') {

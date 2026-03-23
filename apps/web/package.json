@@ -10,7 +10,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@neo-morpheus-oracle/neon-compat": "0.1.0",
+    "@cityofzion/neon-js": "^5.8.1",
     "@supabase/supabase-js": "^2.89.0",
     "@web3auth/modal": "^10.15.0",
     "encoding": "^0.1.13",

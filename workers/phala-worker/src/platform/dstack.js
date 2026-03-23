@@ -1,4 +1,4 @@
-import { wallet as neoWallet } from '@neo-morpheus-oracle/neon-compat';
+import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { Wallet as EvmWallet } from 'ethers';
 import { DstackClient, TappdClient } from '@phala/dstack-sdk';
 import { env, sha256Hex, stableStringify, trimString } from './core.js';
