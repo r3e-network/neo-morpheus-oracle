@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, wallet } from '@neo-morpheus-oracle/neon-compat';
 import {
   encryptWithOracleKey,
   encodeUtf8Base64,

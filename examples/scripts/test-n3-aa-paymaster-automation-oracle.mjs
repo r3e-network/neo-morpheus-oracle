@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { experimental, rpc as neoRpc, sc, tx, wallet, u, CONST } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, wallet, u, CONST } from '@neo-morpheus-oracle/neon-compat';
 
 import {
   loadExampleEnv,
@@ -667,7 +667,7 @@ async function ensureConsumerFeeCredit(
   const requestFee = 1_000_000n;
   const depositAmount = requestFee * BigInt(requiredRequests);
   const childScript = `
-const { rpc, wallet, sc, tx, u } = require('@cityofzion/neon-js');
+const { rpc, wallet, sc, tx, u } = require('@neo-morpheus-oracle/neon-compat');
 const rpcClient = new rpc.RPCClient(${JSON.stringify(rpcUrl)});
 const account = new wallet.Account(${JSON.stringify(account.WIF || account.export?.() || process.env.NEO_TESTNET_WIF || '')});
 const networkMagic = Number(${JSON.stringify(String(networkMagic))});

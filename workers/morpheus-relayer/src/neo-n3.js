@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { relayNeoN3Invocation } from '../../phala-worker/src/chain/index.js';
-import { experimental, rpc as neonRpc, sc, u, wallet as neonWallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neonRpc, sc, u, wallet as neonWallet } from '@neo-morpheus-oracle/neon-compat';
 import { deriveRelayerNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './dstack.js';
 
 function trimString(value) {

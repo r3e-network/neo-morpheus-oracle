@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@neo-morpheus-oracle/neon-compat';
 import {
   encodeUtf8Base64,
   jsonPretty,

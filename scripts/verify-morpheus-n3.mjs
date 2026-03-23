@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
+import { rpc as neoRpc, wallet } from '@neo-morpheus-oracle/neon-compat';
 import { loadDotEnv } from './lib-env.mjs';
 import {
   resolvePinnedNeoN3UpdaterHash,

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { experimental, sc, wallet } from '@cityofzion/neon-js';
+import { experimental, sc, wallet } from '@neo-morpheus-oracle/neon-compat';
 import { resolvePinnedNeoN3Role, normalizeMorpheusNetwork } from './lib-neo-signers.mjs';
 
 function trimString(value) {

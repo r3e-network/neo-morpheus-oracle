@@ -1,4 +1,4 @@
-import { rpc as neoRpc } from '@cityofzion/neon-js';
+import { rpc as neoRpc } from '@neo-morpheus-oracle/neon-compat';
 import { canonicalizeMethodName, normalizeContractHash, toNeoContractParam } from './allowlist.js';
 import { decodeBase64, env, normalizeTargetChain, resolveMaxBytes, trimString } from './core.js';
 

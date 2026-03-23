@@ -1,4 +1,4 @@
-import { experimental, sc, wallet } from '@cityofzion/neon-js';
+import { experimental, sc, wallet } from '@neo-morpheus-oracle/neon-compat';
 import { loadDotEnv } from './lib-env.mjs';
 import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@neo-morpheus-oracle/neon-compat';
 import {
   buildEncryptedJsonPatch,
   encodeUtf8Base64,
