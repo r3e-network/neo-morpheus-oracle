@@ -197,7 +197,7 @@ export function createRelayerConfig() {
       failClosed: parseBoolean(env('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED'), durableQueueEnabled),
       syncLimit: Math.max(Number(env('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT') || 200), 1),
       staleProcessingMs: Math.max(
-        Number(env('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS') || 120000),
+        Number(env('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS') || 45000),
         1000
       ),
     },

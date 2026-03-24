@@ -25,6 +25,8 @@ function defaultMetrics() {
     worker_failures_total: 0,
     fulfill_success_total: 0,
     fulfill_failure_total: 0,
+    claim_conflicts_total: 0,
+    stale_reclaims_total: 0,
     manual_actions_loaded_total: 0,
     feed_sync_runs_total: 0,
     feed_sync_success_total: 0,
