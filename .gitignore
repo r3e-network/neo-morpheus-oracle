@@ -22,6 +22,7 @@ contracts/neox/node_modules
 deploy/phala/morpheus.env
 deploy/phala/morpheus.testnet.env
 deploy/phala/morpheus.mainnet.env
+deploy/phala/morpheus.hub.env
 private-backups/
 .env*.local
 docs/reports/

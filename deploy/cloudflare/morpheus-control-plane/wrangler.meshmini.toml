@@ -7,8 +7,8 @@ workers_dev = true
 [vars]
 SUPABASE_URL = "https://przhhxbovqwopibssjzr.supabase.co"
 UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
-MORPHEUS_MAINNET_EXECUTION_BASE_URL = "https://morpheus-mainnet.meshmini.app,https://edge.meshmini.app/mainnet"
-MORPHEUS_TESTNET_EXECUTION_BASE_URL = "https://edge.meshmini.app/testnet,https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network"
+MORPHEUS_MAINNET_EXECUTION_BASE_URL = "https://morpheus.meshmini.app/mainnet,https://edge.meshmini.app/mainnet"
+MORPHEUS_TESTNET_EXECUTION_BASE_URL = "https://morpheus.meshmini.app/testnet,https://edge.meshmini.app/testnet"
 MORPHEUS_APP_BACKEND_URL = "https://neo-morpheus-oracle-web.vercel.app"
 MORPHEUS_CONTROL_PLANE_URL = "https://control.meshmini.app"
 

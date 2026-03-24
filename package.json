@@ -59,6 +59,7 @@
     "render:phala-env": "node scripts/render-phala-env.mjs --network mainnet --output deploy/phala/morpheus.mainnet.env",
     "render:phala-env:testnet": "node scripts/render-phala-env.mjs --network testnet --output deploy/phala/morpheus.testnet.env",
     "render:phala-env:mainnet": "node scripts/render-phala-env.mjs --network mainnet --output deploy/phala/morpheus.mainnet.env",
+    "render:phala-hub-env": "node scripts/render-phala-hub-env.mjs --output deploy/phala/morpheus.hub.env",
     "verify:cloudflare-token": "node scripts/verify-cloudflare-token.mjs",
     "verify:edge-gateway": "node scripts/verify-edge-gateway.mjs",
     "smoke:control-plane": "node scripts/smoke-control-plane.mjs",
