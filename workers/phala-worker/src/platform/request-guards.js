@@ -23,6 +23,31 @@ function firstTruthy(...values) {
   return '';
 }
 
+function extractTrustedAuthToken(request) {
+  const bearer = trimString(request.headers.get('authorization'));
+  if (bearer.toLowerCase().startsWith('bearer ')) {
+    return trimString(bearer.slice(7));
+  }
+  return firstTruthy(
+    request.headers.get('x-phala-token'),
+    request.headers.get('x-morpheus-runtime-token'),
+    request.headers.get('x-api-key')
+  );
+}
+
+function isTrustedServiceRequest(request) {
+  const token = extractTrustedAuthToken(request);
+  if (!token) return false;
+  const trusted = [
+    process.env.MORPHEUS_RUNTIME_TOKEN,
+    process.env.PHALA_API_TOKEN,
+    process.env.PHALA_SHARED_SECRET,
+  ]
+    .map((value) => trimString(value))
+    .filter(Boolean);
+  return trusted.includes(token);
+}
+
 function resolveRouteName(path) {
   if (path.endsWith('/paymaster/authorize')) return 'paymaster_authorize';
   if (path.endsWith('/relay/transaction')) return 'relay_transaction';
@@ -183,27 +208,29 @@ export async function applyRequestGuards({ request, path, payload }) {
     return { ok: true, routeName };
   }
 
-  const rateLimit = await incrementFixedWindowCounter(
-    buildRateLimitKey(routeName, request, payload),
-    {
-      max: policy.max,
-      windowMs: policy.windowMs,
+  if (!isTrustedServiceRequest(request)) {
+    const rateLimit = await incrementFixedWindowCounter(
+      buildRateLimitKey(routeName, request, payload),
+      {
+        max: policy.max,
+        windowMs: policy.windowMs,
+      }
+    );
+    if (!rateLimit.allowed) {
+      return {
+        ok: false,
+        routeName,
+        response: json(
+          429,
+          {
+            error: 'rate_limit_exceeded',
+            route: routeName,
+            retry_after: rateLimit.retryAfter,
+          },
+          { 'retry-after': String(rateLimit.retryAfter) }
+        ),
+      };
     }
-  );
-  if (!rateLimit.allowed) {
-    return {
-      ok: false,
-      routeName,
-      response: json(
-        429,
-        {
-          error: 'rate_limit_exceeded',
-          route: routeName,
-          retry_after: rateLimit.retryAfter,
-        },
-        { 'retry-after': String(rateLimit.retryAfter) }
-      ),
-    };
   }
 
   const idempotencyKey = deriveIdempotencyKey(routeName, payload, request);
