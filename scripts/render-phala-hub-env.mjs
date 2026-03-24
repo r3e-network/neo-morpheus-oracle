@@ -82,13 +82,14 @@ const requestHubDomain = pick(
   envs,
   'MORPHEUS_REQUEST_HUB_CUSTOM_DOMAIN',
   'MORPHEUS_SHARED_CUSTOM_DOMAIN'
-) || 'morpheus.meshmini.app';
+) || 'morpheus-hub.meshmini.app';
 
 const lines = [
   '# Generated from deploy/phala/morpheus.mainnet.env and morpheus.testnet.env; do not edit.',
   line('MORPHEUS_PHALA_WORKER_IMAGE', pick(envs, 'MORPHEUS_PHALA_WORKER_IMAGE')),
   line('MORPHEUS_RELAYER_IMAGE', pick(envs, 'MORPHEUS_RELAYER_IMAGE')),
   '',
+  line('MORPHEUS_PUBLIC_PORT', pick(envs, 'MORPHEUS_PUBLIC_PORT') || '3000'),
   line('PHALA_SHARED_SECRET', pick(envs, 'PHALA_SHARED_SECRET')),
   line('PHALA_API_TOKEN', pick(envs, 'PHALA_API_TOKEN')),
   line('SUPABASE_URL', pick(envs, 'SUPABASE_URL')),

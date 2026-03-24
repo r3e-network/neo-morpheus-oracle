@@ -44,9 +44,10 @@ Use the existing two CVMs by **role**, not by network:
 
 Public routing:
 
-- request hub public domain: `https://morpheus.meshmini.app`
-- mainnet public path via request hub: `https://morpheus.meshmini.app/mainnet`
-- testnet public path via request hub: `https://morpheus.meshmini.app/testnet`
+- request hub direct CVM origin: `https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network`
+- public Oracle entry: `https://oracle.meshmini.app`
+- mainnet public path: `https://oracle.meshmini.app/mainnet`
+- testnet public path: `https://oracle.meshmini.app/testnet`
 - Cloudflare edge routes:
   - `https://edge.meshmini.app/mainnet/*`
   - `https://edge.meshmini.app/testnet/*`
@@ -167,10 +168,15 @@ The request hub routes:
 - `/mainnet/*` -> mainnet request worker
 - `/testnet/*` -> testnet request worker
 
-Cloudflare edge and control-plane configs should point both networks to the neutral request hub domain:
+Cloudflare edge and control-plane configs should point their origins to the request hub direct CVM endpoint:
 
-- mainnet: `https://morpheus.meshmini.app/mainnet`
-- testnet: `https://morpheus.meshmini.app/testnet`
+- mainnet origin: `https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network/mainnet`
+- testnet origin: `https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network/testnet`
+
+User-facing traffic should use:
+
+- `https://oracle.meshmini.app/mainnet`
+- `https://oracle.meshmini.app/testnet`
 
 5. Verify worker:
 

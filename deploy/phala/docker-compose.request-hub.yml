@@ -77,46 +77,36 @@ services:
         condition: service_healthy
       testnet-request-worker:
         condition: service_healthy
-    expose:
-      - '8088'
+    ports:
+      - '${MORPHEUS_PUBLIC_PORT:-3000}:8088'
     volumes:
-      - ./Caddyfile.request-hub:/etc/caddy/Caddyfile:ro
       - /tmp/request-hub-caddy-data:/data
       - /tmp/request-hub-caddy-config:/config
-    command: ['caddy', 'run', '--config', '/etc/caddy/Caddyfile']
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "fetch('http://127.0.0.1:8088/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        cat >/etc/caddy/Caddyfile <<'EOF'
+        {
+          auto_https off
+          admin off
+        }
 
-  dstack-ingress:
-    image: dstacktee/dstack-ingress:20250924@sha256:40429d78060ef3066b5f93676bf3ba7c2e9ac47d4648440febfdda558aed4b32
-    restart: unless-stopped
-    depends_on:
-      request-router:
-        condition: service_healthy
-    ports:
-      - '${MORPHEUS_INGRESS_PORT:-443}:443'
-    environment:
-      DOMAIN: ${MORPHEUS_CUSTOM_DOMAIN}
-      TARGET_ENDPOINT: http://request-router:8088
-      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_DNS_API_TOKEN}
-      GATEWAY_DOMAIN: _.${DSTACK_GATEWAY_DOMAIN}
-      CERTBOT_EMAIL: ${CERTBOT_EMAIL}
-      SET_CAA: ${MORPHEUS_INGRESS_SET_CAA:-false}
-      PORT: 443
-    volumes:
-      - /var/run/dstack.sock:/var/run/dstack.sock
-      - request-hub-cert-data:/etc/letsencrypt
+        :8088 {
+          handle_path /testnet/* {
+            reverse_proxy testnet-request-worker:8080
+          }
 
+          handle_path /mainnet/* {
+            reverse_proxy mainnet-request-worker:8080
+          }
+
+          handle {
+            reverse_proxy mainnet-request-worker:8080
+          }
+        }
+        EOF
+        exec caddy run --config /etc/caddy/Caddyfile
   mainnet-request-relayer:
     image: ${MORPHEUS_RELAYER_IMAGE}
     restart: unless-stopped
@@ -159,4 +149,3 @@ services:
 
 volumes:
   morpheus-request-data:
-  request-hub-cert-data:

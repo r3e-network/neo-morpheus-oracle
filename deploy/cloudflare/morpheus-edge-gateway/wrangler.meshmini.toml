@@ -5,13 +5,17 @@ account_id = "bf0d7e814f69945157f30505e9fba9fe"
 workers_dev = true
 
 [vars]
-MORPHEUS_ORIGIN_URL = "https://morpheus.meshmini.app"
-MORPHEUS_MAINNET_ORIGIN_URL = "https://morpheus.meshmini.app/mainnet"
-MORPHEUS_TESTNET_ORIGIN_URL = "https://morpheus.meshmini.app/testnet"
+MORPHEUS_ORIGIN_URL = "https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network"
+MORPHEUS_MAINNET_ORIGIN_URL = "https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network/mainnet"
+MORPHEUS_TESTNET_ORIGIN_URL = "https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network/testnet"
 UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
 
 [[routes]]
 pattern = "edge.meshmini.app/*"
+zone_name = "meshmini.app"
+
+[[routes]]
+pattern = "oracle.meshmini.app/*"
 zone_name = "meshmini.app"
 
 [[routes]]
