@@ -1,0 +1,18 @@
+{
+  auto_https off
+  admin off
+}
+
+:8088 {
+  handle_path /testnet/* {
+    reverse_proxy testnet-request-worker:8080
+  }
+
+  handle_path /mainnet/* {
+    reverse_proxy mainnet-request-worker:8080
+  }
+
+  handle {
+    reverse_proxy mainnet-request-worker:8080
+  }
+}

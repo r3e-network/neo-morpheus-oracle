@@ -1,0 +1,162 @@
+services:
+  mainnet-request-worker:
+    image: ${MORPHEUS_PHALA_WORKER_IMAGE}
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
+      PHALA_API_TOKEN: ${PHALA_API_TOKEN}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN}
+      MORPHEUS_UPSTASH_GUARDS_ENABLED: ${MORPHEUS_UPSTASH_GUARDS_ENABLED}
+      MORPHEUS_UPSTASH_FAIL_CLOSED: ${MORPHEUS_UPSTASH_FAIL_CLOSED}
+      MORPHEUS_RUNTIME_CONFIG_JSON: ${MAINNET_RUNTIME_CONFIG_JSON}
+    expose:
+      - '8080'
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - morpheus-request-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  testnet-request-worker:
+    image: ${MORPHEUS_PHALA_WORKER_IMAGE}
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
+      PHALA_API_TOKEN: ${PHALA_API_TOKEN}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL}
+      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN}
+      MORPHEUS_UPSTASH_GUARDS_ENABLED: ${MORPHEUS_UPSTASH_GUARDS_ENABLED}
+      MORPHEUS_UPSTASH_FAIL_CLOSED: ${MORPHEUS_UPSTASH_FAIL_CLOSED}
+      MORPHEUS_RUNTIME_CONFIG_JSON: ${TESTNET_RUNTIME_CONFIG_JSON}
+    expose:
+      - '8080'
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - morpheus-request-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  request-router:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      mainnet-request-worker:
+        condition: service_healthy
+      testnet-request-worker:
+        condition: service_healthy
+    expose:
+      - '8088'
+    volumes:
+      - ./Caddyfile.request-hub:/etc/caddy/Caddyfile:ro
+      - /tmp/request-hub-caddy-data:/data
+      - /tmp/request-hub-caddy-config:/config
+    command: ['caddy', 'run', '--config', '/etc/caddy/Caddyfile']
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8088/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  dstack-ingress:
+    image: dstacktee/dstack-ingress:20250924@sha256:40429d78060ef3066b5f93676bf3ba7c2e9ac47d4648440febfdda558aed4b32
+    restart: unless-stopped
+    depends_on:
+      request-router:
+        condition: service_healthy
+    ports:
+      - '${MORPHEUS_INGRESS_PORT:-443}:443'
+    environment:
+      DOMAIN: ${MORPHEUS_CUSTOM_DOMAIN}
+      TARGET_ENDPOINT: http://request-router:8088
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_DNS_API_TOKEN}
+      GATEWAY_DOMAIN: _.${DSTACK_GATEWAY_DOMAIN}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL}
+      SET_CAA: ${MORPHEUS_INGRESS_SET_CAA:-false}
+      PORT: 443
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - request-hub-cert-data:/etc/letsencrypt
+
+  mainnet-request-relayer:
+    image: ${MORPHEUS_RELAYER_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      mainnet-request-worker:
+        condition: service_healthy
+    environment:
+      PHALA_API_URL: http://mainnet-request-worker:8080
+      PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
+      PHALA_API_TOKEN: ${PHALA_API_TOKEN}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
+      MORPHEUS_RUNTIME_CONFIG_JSON: ${MAINNET_RUNTIME_CONFIG_JSON}
+      MORPHEUS_RELAYER_MODE: requests_only
+      MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.mainnet.json
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - morpheus-request-data:/data
+
+  testnet-request-relayer:
+    image: ${MORPHEUS_RELAYER_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      testnet-request-worker:
+        condition: service_healthy
+    environment:
+      PHALA_API_URL: http://testnet-request-worker:8080
+      PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
+      PHALA_API_TOKEN: ${PHALA_API_TOKEN}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
+      MORPHEUS_RUNTIME_CONFIG_JSON: ${TESTNET_RUNTIME_CONFIG_JSON}
+      MORPHEUS_RELAYER_MODE: requests_only
+      MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.testnet.json
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+      - morpheus-request-data:/data
+
+volumes:
+  morpheus-request-data:
+  request-hub-cert-data:

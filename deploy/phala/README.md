@@ -8,12 +8,22 @@ For a bilingual explanation of the important environment variables, see:
 
 ## Recommended topology
 
-Use **1 CVM with 2 containers**:
+Use **2 role-specialized CVMs**:
 
-- `phala-worker`
-- `morpheus-relayer`
+- `feed hub` CVM
+  - `mainnet-feed-worker`
+  - `mainnet-feed-relayer`
+  - `testnet-feed-worker`
+  - `testnet-feed-relayer`
+- `request hub` CVM
+  - `mainnet-request-worker`
+  - `mainnet-request-relayer`
+  - `testnet-request-worker`
+  - `testnet-request-relayer`
+  - `request-router`
+  - `dstack-ingress`
 
-This is the best balance for the current project: simple, cheap, and enough to run the full async Oracle loop.
+This keeps `pricefeed` isolated from slower request/response workflows while still maximizing utilization across just two CVMs.
 
 ## Which CVM size to choose
 
@@ -27,22 +37,25 @@ From the TDX sizes shown in your console:
 
 ## Practical recommendation
 
-Use two CVMs:
+Use the existing two CVMs by **role**, not by network:
 
-- **testnet validation CVM**: lower-capacity validation profile
-- **mainnet production CVM**: `Large TDX`
+- **feed hub / small CVM**: `28294e89d490924b79c85cdee057ce55723b3d56`
+- **request hub / large CVM**: `ddff154546fe22d15b65667156dd4b7c611e6093`
 
-Current recorded app ids:
+Public routing:
 
-- testnet CVM: `28294e89d490924b79c85cdee057ce55723b3d56`
-- mainnet CVM: `ddff154546fe22d15b65667156dd4b7c611e6093`
-- testnet custom domain: `https://morpheus-testnet.meshmini.app`
-- mainnet custom domain: `https://morpheus-mainnet.meshmini.app`
+- request hub public domain: `https://morpheus.meshmini.app`
+- mainnet public path via request hub: `https://morpheus.meshmini.app/mainnet`
+- testnet public path via request hub: `https://morpheus.meshmini.app/testnet`
+- Cloudflare edge routes:
+  - `https://edge.meshmini.app/mainnet/*`
+  - `https://edge.meshmini.app/testnet/*`
+  - `https://morpheus-testnet.meshmini.app/*`
 
 Tracked launcher files:
 
-- `phala.testnet.toml`
-- `phala.mainnet.toml`
+- `phala.request-hub.toml`
+- `phala.feed-hub.toml`
 
 ## Capacity Profiles
 
@@ -63,11 +76,11 @@ For production, `Small TDX` is too tight because one CVM will be running:
 
 2GB RAM leaves very little operational margin.
 
-For isolated testnet validation, `Small TDX` is acceptable because:
+For the feed hub, `Small TDX` is acceptable because:
 
-- lower throughput is fine
-- temporary relayer state is disposable
-- it keeps attack simulation and noisy test logs away from production
+- pricefeed is periodic and predictable
+- it avoids request/response bursts starving feed updates
+- it keeps continuous market data isolated from heavier interactive flows
 
 ## Deploy steps
 
@@ -83,14 +96,14 @@ For the official Phala custom-domain route, use:
 
 In the UI, add the same keys from `deploy/phala/morpheus.env.example` into **Encrypted Secrets**.
 
-Recommended first deployment in the UI:
+Recommended deployment now:
 
-- CVM size: `Medium TDX`
-- Guest image: `dstack-dev-*`
-- Compose mode: `Advanced`
-- Public service:
-  - `caddy` route: `deploy/phala/docker-compose.ui.yml`
-  - official custom-domain route: `deploy/phala/docker-compose.ingress.ui.yml`
+- feed hub:
+  - launcher: `phala.feed-hub.toml`
+  - compose: `deploy/phala/docker-compose.feed-hub.yml`
+- request hub:
+  - launcher: `phala.request-hub.toml`
+  - compose: `deploy/phala/docker-compose.request-hub.yml`
 
 When updating an existing Phala CVM with `phala deploy`, keep using `deploy/phala/docker-compose.ui.yml` together with `-e deploy/phala/morpheus.<network>.env`. That path injects the env values directly as encrypted secrets. The file-based `deploy/phala/docker-compose.yml` expects a real env file inside the CVM (`./morpheus.<network>.env`) and will fail on restart if you only pass the env file to `phala deploy` without copying it into the guest filesystem.
 
@@ -103,6 +116,7 @@ When updating an existing Phala CVM with `phala deploy`, keep using `deploy/phal
 npm run render:phala-env
 npm run render:phala-env:testnet
 npm run render:phala-env:mainnet
+npm run render:phala-hub-env
 npm run check:signers
 npm run check:phala-env
 ```
@@ -113,8 +127,9 @@ Notes:
 - `npm run check:signers` audits the pinned Neo N3 identities across `.env`, `morpheus.testnet.env`, and `morpheus.mainnet.env`
 - testnet should use `deploy/phala/morpheus.testnet.env`
 - mainnet should use `deploy/phala/morpheus.mainnet.env`
+- dual-role hubs should use `deploy/phala/morpheus.hub.env`
 - relayer state is now split by network and start block as `/data/.morpheus-relayer-state.<network>.<start-block>.json`
-- `MORPHEUS_RELAYER_MODE` supports `combined`, `feed_only`, and `requests_only`; use `feed_only` on a dedicated pricefeed relayer instance when you want physical isolation from slower Oracle request traffic
+- `MORPHEUS_RELAYER_MODE` supports `combined`, `feed_only`, and `requests_only`; the hub topology runs `feed_only` on the feed CVM and `requests_only` on the request CVM
 - `MORPHEUS_RELAYER_INSTANCE_ID` can be set explicitly; otherwise the relayer derives `mode:network:hostname:pid` for durable-queue claim tracing
 - durable chain-request queueing now defaults to `MORPHEUS_DURABLE_QUEUE_ENABLED=true` and `MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED=true`, so fresh chain events are persisted to Supabase before the relayer advances checkpoints
 - `pricefeed` now also bootstraps from `morpheus_feed_snapshots` when local feed-state files are empty; snapshot writes stay best-effort so a transient Supabase issue does not block chain price updates
@@ -139,18 +154,23 @@ If you want Caddy as the public edge proxy:
 MORPHEUS_LOCAL_ENV_FILE=./morpheus.mainnet.env docker compose --env-file ./morpheus.mainnet.env --profile edge -f docker-compose.yml up -d
 ```
 
-If you want physical isolation between pricefeeds and slower Oracle-request workflows, use the split-relayer override file instead of the single combined relayer:
+For the dual-hub topology:
 
 ```bash
-MORPHEUS_LOCAL_ENV_FILE=./morpheus.mainnet.env docker compose --env-file ./morpheus.mainnet.env -f docker-compose.yml -f docker-compose.split-relayer.yml up -d
+phala deploy --cvm-id 28294e89d490924b79c85cdee057ce55723b3d56 --compose deploy/phala/docker-compose.feed-hub.yml -e deploy/phala/morpheus.hub.env --wait
+phala deploy --cvm-id ddff154546fe22d15b65667156dd4b7c611e6093 --compose deploy/phala/docker-compose.request-hub.yml -e deploy/phala/morpheus.hub.env --wait
 ```
 
-That split deployment runs:
+The request hub routes:
 
-- `morpheus-feed-relayer` with `MORPHEUS_RELAYER_MODE=feed_only`
-- `morpheus-request-relayer` with `MORPHEUS_RELAYER_MODE=requests_only`
+- `/` -> mainnet request worker
+- `/mainnet/*` -> mainnet request worker
+- `/testnet/*` -> testnet request worker
 
-Do not combine `docker-compose.yml` and the split-relayer override with the default `morpheus-relayer` service at the same time unless you intentionally want duplicate request processors.
+Cloudflare edge and control-plane configs should point both networks to the neutral request hub domain:
+
+- mainnet: `https://morpheus.meshmini.app/mainnet`
+- testnet: `https://morpheus.meshmini.app/testnet`
 
 5. Verify worker:
 
