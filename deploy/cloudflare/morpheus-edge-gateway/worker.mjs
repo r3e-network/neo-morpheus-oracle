@@ -100,6 +100,32 @@ function shouldProtectWithTurnstile(pathname) {
   return TURNSTILE_PROTECTED_PATHS.some((path) => pathname.endsWith(path));
 }
 
+function extractTrustedAuthToken(request) {
+  const authorization = trimString(request.headers.get('authorization'));
+  if (authorization.toLowerCase().startsWith('bearer ')) {
+    return trimString(authorization.slice(7));
+  }
+  return (
+    trimString(request.headers.get('x-morpheus-runtime-token')) ||
+    trimString(request.headers.get('x-api-key'))
+  );
+}
+
+function isTrustedAutomationRequest(request, env) {
+  const token = extractTrustedAuthToken(request);
+  if (!token) return false;
+  const trustedTokens = [
+    env.MORPHEUS_RUNTIME_TOKEN,
+    env.MORPHEUS_EDGE_RUNTIME_TOKEN,
+    env.MORPHEUS_ORIGIN_TOKEN,
+    env.PHALA_API_TOKEN,
+    env.PHALA_SHARED_SECRET,
+  ]
+    .map(trimString)
+    .filter(Boolean);
+  return trustedTokens.includes(token);
+}
+
 function resolveCacheRule(url, request) {
   return CACHE_RULES.find((rule) => rule.match(url, request)) || null;
 }
@@ -110,6 +136,7 @@ async function verifyTurnstile(request, env) {
 
   const url = new URL(request.url);
   if (!shouldProtectWithTurnstile(url.pathname)) return null;
+  if (isTrustedAutomationRequest(request, env)) return null;
 
   const cloned = request.clone();
   const contentType = trimString(cloned.headers.get('content-type')).toLowerCase();
