@@ -11,7 +11,7 @@ Current Neo N3 anchors:
 
 | Item                     | Mainnet                                                                              | Testnet                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Phala public API         | `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network` | `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network` |
+| Phala public API         | `https://morpheus-mainnet.meshmini.app` | `https://morpheus-testnet.meshmini.app` |
 | `MorpheusOracle`         | `0x017520f068fd602082fe5572596185e62a4ad991` via `oracle.morpheus.neo`               | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                           |
 | `OracleCallbackConsumer` | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                         | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`                                           |
 | `MorpheusDataFeed`       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`            | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                           |
