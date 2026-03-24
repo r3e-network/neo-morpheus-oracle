@@ -174,6 +174,7 @@ async function verifyTurnstile(request, env) {
 }
 
 async function applyNativeRateLimit(request, env, routeKey) {
+  if (isTrustedAutomationRequest(request, env)) return null;
   if (!env.MORPHEUS_RATE_LIMITER || typeof env.MORPHEUS_RATE_LIMITER.limit !== 'function') {
     return applyUpstashRateLimit(request, env, routeKey);
   }
@@ -218,6 +219,7 @@ async function upstashPipeline(env, commands) {
 }
 
 async function applyUpstashRateLimit(request, env, routeKey) {
+  if (isTrustedAutomationRequest(request, env)) return null;
   const config = routeLimitConfig(routeKey, env);
   if (!config) return null;
   const redisUrl = trimString(env.UPSTASH_REDIS_REST_URL);
