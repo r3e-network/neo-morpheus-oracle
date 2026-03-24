@@ -287,6 +287,8 @@ export async function scanNeoN3OracleRequestsById(config, fromRequestId, toReque
       callbackContract: String(callbackContract || ''),
       callbackMethod: String(callbackMethod || ''),
       payloadText: String(payloadText || ''),
+      createdAtMs: Number(createdAtMs || 0),
+      fulfilledAtMs: Number(fulfilledAtMs || 0),
       blockNumber: Number(createdAtMs || 0),
       txHash: '',
       logIndex: 0,

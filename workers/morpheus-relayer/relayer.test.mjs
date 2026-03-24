@@ -747,6 +747,7 @@ test('createRelayerConfig enables durable queue by default when Supabase is conf
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.durableQueue.enabled, true);
     assert.equal(config.durableQueue.failClosed, true);
+    assert.equal(config.durableQueue.staleProcessingMs, 45000);
   } finally {
     if (previousUrl === undefined) delete process.env.SUPABASE_URL;
     else process.env.SUPABASE_URL = previousUrl;

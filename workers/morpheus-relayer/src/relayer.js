@@ -403,8 +403,11 @@ async function processOracleRequest(config, event) {
       callbackMethod: event.callbackMethod,
     }
   );
+  const workerStartedAt = Date.now();
   const workerResponse = await callPhala(config, route, workerPayload);
+  const workerDurationMs = Date.now() - workerStartedAt;
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
+  const verificationStartedAt = Date.now();
   const verification = await signFulfillmentPayload(config, event.chain, {
     requestId: event.requestId,
     requestType: event.requestType,
@@ -413,8 +416,10 @@ async function processOracleRequest(config, event) {
     result_bytes_base64: fulfillment.result_bytes_base64 || '',
     error: fulfillment.error || '',
   });
+  const verificationDurationMs = Date.now() - verificationStartedAt;
 
   if (event.chain === 'neo_n3') {
+    const fulfillStartedAt = Date.now();
     const tx = await fulfillNeoN3Request(
       config,
       event.requestId,
@@ -424,6 +429,7 @@ async function processOracleRequest(config, event) {
       verification.signature,
       fulfillment.result_bytes_base64
     );
+    const fulfillDurationMs = Date.now() - fulfillStartedAt;
     return {
       ...fulfillment,
       route,
@@ -431,9 +437,16 @@ async function processOracleRequest(config, event) {
       worker_status: workerResponse.status,
       fulfill_tx: tx,
       verification_signature: verification.signature,
+      durations_ms: {
+        worker: workerDurationMs,
+        verification: verificationDurationMs,
+        fulfill: fulfillDurationMs,
+        total: workerDurationMs + verificationDurationMs + fulfillDurationMs,
+      },
     };
   }
 
+  const fulfillStartedAt = Date.now();
   const tx = await fulfillNeoXRequest(
     config,
     event.requestId,
@@ -443,6 +456,7 @@ async function processOracleRequest(config, event) {
     verification.signature,
     fulfillment.result_bytes_base64
   );
+  const fulfillDurationMs = Date.now() - fulfillStartedAt;
   return {
     ...fulfillment,
     route,
@@ -450,6 +464,12 @@ async function processOracleRequest(config, event) {
     worker_status: workerResponse.status,
     fulfill_tx: tx,
     verification_signature: verification.signature,
+    durations_ms: {
+      worker: workerDurationMs,
+      verification: verificationDurationMs,
+      fulfill: fulfillDurationMs,
+      total: workerDurationMs + verificationDurationMs + fulfillDurationMs,
+    },
   };
 }
 
@@ -705,6 +725,9 @@ async function hydrateDurableQueue(config, state, logger, chain, persistState) {
       continue;
     }
     const retryMeta = extractDurableRetryMeta(job);
+    if (job.status === 'processing' || job.status === 'retrying') {
+      incrementMetric(state, 'stale_reclaims_total');
+    }
     enqueueRetryItem(state, chain, event, {
       attempts: Number(job.attempts || 0),
       next_retry_at: parseTimestampMs(job.next_retry_at) || nowMs,
@@ -892,6 +915,11 @@ async function processFeedSync(config, state, logger) {
 async function processEvent(config, state, persistState, logger, event, retryItem = null) {
   const eventKey = buildEventKey(event);
   const attempts = retryItem?.attempts || 0;
+  const processingStartedAt = Date.now();
+  const requestAgeMs =
+    Number.isFinite(Number(event.createdAtMs || 0)) && Number(event.createdAtMs || 0) > 0
+      ? Math.max(processingStartedAt - Number(event.createdAtMs || 0), 0)
+      : null;
   const isFinalizeOnly = Boolean(retryItem?.finalize_only);
   const terminalError = trimOnchainErrorMessage(
     retryItem?.terminal_error || retryItem?.last_error || 'request execution failed'
@@ -905,12 +933,14 @@ async function processEvent(config, state, persistState, logger, event, retryIte
       event_key: eventKey,
       attempts,
       tx_hash: event.txHash,
+      request_age_ms: requestAgeMs,
     },
     'Processing Morpheus oracle request'
   );
 
   const claimed = await claimDurableJobForProcessing(config, logger, event, retryItem);
   if (!claimed) {
+    incrementMetric(state, 'claim_conflicts_total');
     clearRetryItem(state, event.chain, eventKey);
     persistState();
     return {
@@ -953,6 +983,9 @@ async function processEvent(config, state, persistState, logger, event, retryIte
         fulfill_tx: result.fulfill_tx,
         worker_status: result.worker_status,
         last_error: result.error || null,
+        request_age_ms: requestAgeMs,
+        total_duration_ms: Date.now() - processingStartedAt,
+        durations_ms: result.durations_ms || null,
       },
       config
     );
@@ -980,6 +1013,9 @@ async function processEvent(config, state, persistState, logger, event, retryIte
         success: result.success,
         route: result.route,
         worker_status: result.worker_status,
+        request_age_ms: requestAgeMs,
+        total_duration_ms: Date.now() - processingStartedAt,
+        durations_ms: result.durations_ms || null,
       },
       'Fulfilled Morpheus oracle request'
     );
