@@ -550,7 +550,7 @@ const lines = [
   ),
   line(
     'MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE',
-    profileTunable('MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE', '4', '6')
+    profileTunable('MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE', '1', '6')
   ),
   line(
     'MORPHEUS_MAX_INFLIGHT_VRF_RANDOM',

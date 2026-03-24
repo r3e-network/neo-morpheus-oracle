@@ -13,6 +13,7 @@ export const json = (status, body, headers = {}) =>
   });
 
 let runtimeConfigCache;
+const runtimeConfigByNetworkCache = new Map();
 
 function getRuntimeConfig() {
   if (runtimeConfigCache !== undefined) return runtimeConfigCache;
@@ -29,10 +30,68 @@ function getRuntimeConfig() {
   return runtimeConfigCache;
 }
 
+function parseRuntimeConfigJson(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
+function getRuntimeConfigForNetwork(network) {
+  const normalizedNetwork = String(network || '').trim().toLowerCase() === 'mainnet'
+    ? 'mainnet'
+    : 'testnet';
+  if (runtimeConfigByNetworkCache.has(normalizedNetwork)) {
+    return runtimeConfigByNetworkCache.get(normalizedNetwork);
+  }
+  const upper = normalizedNetwork.toUpperCase();
+  const parsed = parseRuntimeConfigJson(
+    process.env[`${upper}_RUNTIME_CONFIG_JSON`] ||
+      process.env[`MORPHEUS_${upper}_RUNTIME_CONFIG_JSON`] ||
+      ''
+  );
+  runtimeConfigByNetworkCache.set(normalizedNetwork, parsed);
+  return parsed;
+}
+
 export function env(...names) {
   const runtimeConfig = getRuntimeConfig();
   for (const name of names) {
     const value = String(process.env[name] || runtimeConfig[name] || '').trim();
+    if (value) return value;
+  }
+  return '';
+}
+
+export function normalizeMorpheusNetwork(value, fallback = 'testnet') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'mainnet' || normalized === 'testnet') return normalized;
+  return fallback === 'mainnet' ? 'mainnet' : 'testnet';
+}
+
+export function resolvePayloadNetwork(payload = {}, fallback = 'testnet') {
+  return normalizeMorpheusNetwork(
+    payload?.network || payload?.morpheus_network || payload?.runtime_network || payload?.environment,
+    fallback
+  );
+}
+
+export function envForNetwork(networkInput, ...names) {
+  const network = normalizeMorpheusNetwork(networkInput);
+  const upper = network.toUpperCase();
+  const scopedRuntimeConfig = getRuntimeConfigForNetwork(network);
+  const runtimeConfig = getRuntimeConfig();
+  for (const name of names) {
+    const value = String(
+      process.env[`${name}_${upper}`] ||
+        scopedRuntimeConfig[name] ||
+        process.env[name] ||
+        runtimeConfig[name] ||
+        ''
+    ).trim();
     if (value) return value;
   }
   return '';
