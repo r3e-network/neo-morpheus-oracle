@@ -19,8 +19,8 @@ This project gives the Neo blockchain the same thing: **truth**.
 - **State / auth / encrypted secret storage**: Supabase
 - **Edge hardening**: optional Cloudflare Worker gateway + Upstash Redis guards
 - **Trusted execution**: Phala TEE worker
-  - **Mainnet CVM**: `966f16610bdfe1794a503e16c5ae0bc69a1d92f1`
-  - **Mainnet endpoint**: [https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network](https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network)
+  - **Mainnet CVM**: `ddff154546fe22d15b65667156dd4b7c611e6093`
+  - **Mainnet endpoint**: [https://morpheus-mainnet.meshmini.app](https://morpheus-mainnet.meshmini.app)
   - **Testnet CVM**: `28294e89d490924b79c85cdee057ce55723b3d56`
   - **Testnet endpoint**: [https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network](https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network)
 - **Chains**: Neo N3 is the active supported runtime path right now. Neo X artifacts remain in-repo but are not the active production target.

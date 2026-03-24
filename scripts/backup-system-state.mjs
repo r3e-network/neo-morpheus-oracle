@@ -122,7 +122,7 @@ async function insertSupabaseBackupRows(rows) {
 
 await loadDotEnv(path.resolve(process.cwd(), '.env'), { override: false });
 
-const appId = trimString(process.env.PHALA_APP_ID || '966f16610bdfe1794a503e16c5ae0bc69a1d92f1');
+const appId = trimString(process.env.PHALA_APP_ID || 'ddff154546fe22d15b65667156dd4b7c611e6093');
 const apiToken = trimString(
   process.env.MORPHEUS_RUNTIME_TOKEN ||
     process.env.PHALA_API_TOKEN ||

@@ -35,7 +35,7 @@ Use two CVMs:
 Current recorded app ids:
 
 - testnet CVM: `28294e89d490924b79c85cdee057ce55723b3d56`
-- mainnet CVM: `966f16610bdfe1794a503e16c5ae0bc69a1d92f1`
+- mainnet CVM: `ddff154546fe22d15b65667156dd4b7c611e6093`
 - testnet custom domain: `https://morpheus-testnet.meshmini.app`
 - mainnet custom domain: `https://morpheus-mainnet.meshmini.app`
 
