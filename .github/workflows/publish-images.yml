@@ -7,6 +7,8 @@ on:
     paths:
       - 'workers/phala-worker/**'
       - 'workers/morpheus-relayer/**'
+      - 'scripts/**'
+      - 'config/**'
       - '.github/workflows/publish-images.yml'
       - 'package.json'
       - 'package-lock.json'
