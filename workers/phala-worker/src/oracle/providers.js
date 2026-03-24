@@ -1,4 +1,11 @@
-import { env, json, resolveMaxBytes, trimString } from '../platform/core.js';
+import {
+  env,
+  json,
+  normalizeMorpheusNetwork,
+  resolveMaxBytes,
+  resolvePayloadNetwork,
+  trimString,
+} from '../platform/core.js';
 
 const PROVIDER_CONFIG_CACHE_TTL_MS = 30_000;
 const providerConfigCache = new Map();
@@ -75,11 +82,9 @@ function coerceProviderParams(value) {
 }
 
 function resolveSupabaseNetwork(value) {
-  return trimString(
+  return normalizeMorpheusNetwork(
     value || env('MORPHEUS_NETWORK') || env('NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
-  ) === 'mainnet'
-    ? 'mainnet'
-    : 'testnet';
+  );
 }
 
 function getSupabaseRestConfig() {
@@ -198,7 +203,7 @@ export async function resolveProviderPayload(payload, options = {}) {
       inferredProviderId
   );
   const projectSlug = trimString(payload.project_slug || options.projectSlug || '');
-  const network = resolveSupabaseNetwork(payload.network || options.network);
+  const network = resolvePayloadNetwork(payload, resolveSupabaseNetwork(options.network));
 
   const resolvedPayload = {
     ...payload,

@@ -3,9 +3,11 @@ import { buildSignedResultEnvelope, buildVerificationEnvelope } from '../chain/i
 import { maybeBuildDstackAttestation } from '../platform/dstack.js';
 import {
   env,
+  envForNetwork,
   json,
   normalizeTargetChain,
   parseDurationMs,
+  resolvePayloadNetwork,
   sha256Hex,
   trimString,
 } from '../platform/core.js';
@@ -36,10 +38,12 @@ function normalizeMethod(value) {
 }
 
 function resolvePaymasterNetwork(payload = {}) {
-  const requested = trimString(
-    payload.network || payload.morpheus_network || env('MORPHEUS_NETWORK') || 'testnet'
-  ).toLowerCase();
-  return requested === 'mainnet' ? 'mainnet' : 'testnet';
+  return resolvePayloadNetwork(
+    payload,
+    trimString(env('MORPHEUS_NETWORK') || 'testnet').toLowerCase() === 'mainnet'
+      ? 'mainnet'
+      : 'testnet'
+  );
 }
 
 function resolvePaymasterPolicy(network) {
@@ -66,12 +70,13 @@ function resolvePaymasterPolicy(network) {
     ),
     aaCoreHash: normalizeHexHash(
       env(`MORPHEUS_PAYMASTER_${upper}_AA_CORE_HASH`) ||
-        env('AA_CORE_HASH_TESTNET') ||
-        env('AA_CORE_HASH_MAINNET')
+        envForNetwork(network, 'AA_CORE_HASH')
     ),
     whitelistHookHash: normalizeHexHash(env(`MORPHEUS_PAYMASTER_${upper}_WHITELIST_HOOK_HASH`)),
     multiHookHash: normalizeHexHash(env(`MORPHEUS_PAYMASTER_${upper}_MULTI_HOOK_HASH`)),
-    neoRpcUrl: trimString(env(`MORPHEUS_PAYMASTER_${upper}_NEO_RPC_URL`) || env('NEO_RPC_URL')),
+    neoRpcUrl: trimString(
+      env(`MORPHEUS_PAYMASTER_${upper}_NEO_RPC_URL`) || envForNetwork(network, 'NEO_RPC_URL')
+    ),
     ttlMs: parseDurationMs(env(`MORPHEUS_PAYMASTER_${upper}_TTL_MS`) || '15m', 15 * 60_000),
   };
 }

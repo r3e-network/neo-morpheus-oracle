@@ -7,8 +7,10 @@ import {
   decodeBase64,
   enforceSerializedSizeLimit,
   env,
+  normalizeMorpheusNetwork,
   parseDurationMs,
   resolveMaxBytes,
+  resolvePayloadNetwork,
   resolveWasmModuleBase64,
   trimString,
 } from '../platform/core.js';
@@ -274,11 +276,10 @@ async function loadEncryptedCiphertextByRef(ref, payload = {}) {
     throw new Error(
       'SUPABASE_URL and a Supabase secret or service-role key are required for encrypted ref resolution'
     );
-  const network =
-    trimString(env('MORPHEUS_NETWORK') || env('NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet') ===
-    'mainnet'
-      ? 'mainnet'
-      : 'testnet';
+  const network = resolvePayloadNetwork(
+    payload,
+    normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || env('NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
+  );
 
   const url = new URL(`${restConfig.restUrl}/morpheus_encrypted_secrets`);
   url.searchParams.set('select', 'id,ciphertext,network,metadata');

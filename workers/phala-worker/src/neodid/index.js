@@ -6,7 +6,7 @@ import {
   normalizeMorpheusNetwork,
   resolvePinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
-import { env, json, sha256Hex, trimString } from '../platform/core.js';
+import { env, json, resolvePayloadNetwork, sha256Hex, trimString } from '../platform/core.js';
 import { resolveConfidentialPayload } from '../oracle/crypto.js';
 import { buildVerificationEnvelope, buildSignedResultEnvelope } from '../chain/index.js';
 import {
@@ -329,7 +329,7 @@ async function resolveNeoDidSignerPrivateKey(payload = {}) {
   }
   if (!privateKey) {
     const signer = resolvePinnedNeoN3Role(
-      normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || 'testnet'),
+      resolvePayloadNetwork(payload, normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || 'testnet')),
       'worker',
       { env: snapshotSignerEnv() }
     );
