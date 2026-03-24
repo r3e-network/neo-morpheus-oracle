@@ -71,7 +71,7 @@ Deploy `workers/phala-worker` to Phala with:
 - optional `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH` / `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH` to override relayer derived key paths
 - optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle X25519 transport key storage
 - optional `PHALA_ORACLE_KEYSTORE_PATH` to control where the sealed Oracle transport key is persisted (default `/data/morpheus/oracle-key.json` inside the shared CVM volume)
-- current mainnet public endpoint: `https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network`
+- current mainnet public endpoint: `https://morpheus-mainnet.meshmini.app`
 - current testnet public endpoint: `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network`
 - web verifier API: `/api/attestation/verify`
 - demo verifier flow: `/api/attestation/demo` and `/verifier`
@@ -86,7 +86,7 @@ Recommended first deployment:
 Recommended production split:
 
 - **testnet validation CVM**: `Small TDX`, app id `28294e89d490924b79c85cdee057ce55723b3d56`
-- **mainnet production CVM**: `Medium TDX`, app id `966f16610bdfe1794a503e16c5ae0bc69a1d92f1`
+- **mainnet production CVM**: `Large TDX`, app id `ddff154546fe22d15b65667156dd4b7c611e6093`
 
 Tracked Phala descriptors:
 
