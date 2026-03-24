@@ -122,8 +122,9 @@ function createFetchMock(state) {
       return jsonResponse(200, [existing]);
     }
 
-    if (target.origin === 'https://exec.test') {
+    if (target.origin.startsWith('https://exec')) {
       state.executionCalls.push({
+        origin: target.origin,
         path: target.pathname,
         body: parseRequestBody(init),
         headers: Object.fromEntries(new Headers(init.headers || {}).entries()),
@@ -268,6 +269,45 @@ test('feed_tick consumer forwards jobs to confidential execution plane feed rout
   assert.equal(state.executionCalls[0].path, '/oracle/feed');
   assert.equal(state.executionCalls[0].body.wif, 'testnet-updater-wif');
   assert.equal(state.jobs.get('job-feed')?.status, 'succeeded');
+});
+
+test('oracle_request consumer falls back to the next execution runtime when the first returns retryable status', async () => {
+  const env = createEnv({
+    MORPHEUS_TESTNET_EXECUTION_BASE_URL: 'https://exec-a.test,https://exec-b.test',
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.executionResponses.push(
+    jsonResponse(503, { error: 'runtime_unavailable' }),
+    jsonResponse(200, { ok: true, route: '/oracle/query', result: 'execution-ok' }),
+  );
+
+  state.jobs.set('job-oracle-fallback', {
+    id: 'job-oracle-fallback',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'dispatched',
+    payload: {
+      request_id: 'pool-test-1',
+      symbol: 'TWELVEDATA:NEO-USD',
+      target_chain: 'neo_n3',
+    },
+    metadata: {},
+  });
+
+  const message = createQueueMessage({
+    job_id: 'job-oracle-fallback',
+    network: 'testnet',
+    queue: 'oracle_request',
+  });
+  await worker.queue({ queue: 'morpheus-oracle-request', messages: [message] }, env);
+
+  assert.equal(message.acked, true);
+  assert.equal(state.executionCalls.length, 2);
+  assert.notEqual(state.executionCalls[0].origin, state.executionCalls[1].origin);
+  assert.equal(state.jobs.get('job-oracle-fallback')?.status, 'succeeded');
 });
 
 test('callback_broadcast consumer forwards jobs to app backend callback route', async () => {

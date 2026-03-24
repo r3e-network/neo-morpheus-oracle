@@ -365,6 +365,24 @@ function getExecutionPlaneConfig(env, network) {
   };
 }
 
+function stableExecutionPoolIndex(seed, size) {
+  if (!size || size <= 1) return 0;
+  const text = trimString(seed || '');
+  if (!text) return 0;
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  }
+  return hash % size;
+}
+
+function orderExecutionBaseUrls(baseUrls, seed) {
+  const urls = Array.isArray(baseUrls) ? baseUrls.filter(Boolean) : [];
+  if (urls.length <= 1) return urls;
+  const start = stableExecutionPoolIndex(seed, urls.length);
+  return [...urls.slice(start), ...urls.slice(0, start)];
+}
+
 function resolveNeoN3FeedSigner(env, network) {
   const upper = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
   const wif = trimString(
@@ -432,7 +450,11 @@ async function callExecutionPlane(env, job) {
   const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
   let lastError = null;
   let lastResponse = null;
-  for (const baseUrl of execution.baseUrls) {
+  const orderedBaseUrls = orderExecutionBaseUrls(
+    execution.baseUrls,
+    job.request_id || job.id || job.dedupe_key || ''
+  );
+  for (const baseUrl of orderedBaseUrls) {
     try {
       const { response, body } = await fetchJsonWithTimeout(
         `${baseUrl}${job.route}`,
@@ -474,7 +496,11 @@ async function callExecutionFeedPlane(env, job) {
   const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
   let lastError = null;
   let lastResponse = null;
-  for (const baseUrl of execution.baseUrls) {
+  const orderedBaseUrls = orderExecutionBaseUrls(
+    execution.baseUrls,
+    job.request_id || job.id || job.symbol || job.payload?.symbol || ''
+  );
+  for (const baseUrl of orderedBaseUrls) {
     try {
       const { response, body } = await fetchJsonWithTimeout(
         `${baseUrl}/oracle/feed`,

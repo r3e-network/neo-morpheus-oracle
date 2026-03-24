@@ -1,6 +1,8 @@
 import {
   REPLAY_WINDOW_MS,
   env,
+  envForNetwork,
+  resolvePayloadNetwork,
   sha256Hex,
   stableStringify,
   strip0x,
@@ -34,9 +36,10 @@ function snapshotSignerEnv() {
   return snapshot;
 }
 
-function resolveNeoN3OracleVerifierKey() {
-  const network = normalizeMorpheusNetwork(
-    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
+function resolveNeoN3OracleVerifierKey(payload = {}) {
+  const network = resolvePayloadNetwork(
+    payload,
+    normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
   const report = reportPinnedNeoN3Role(network, 'oracle_verifier', {
     env: snapshotSignerEnv(),
@@ -49,9 +52,10 @@ function resolveNeoN3OracleVerifierKey() {
   return report.materialized.private_key || report.materialized.wif || '';
 }
 
-function resolveNeoN3WorkerKey() {
-  const network = normalizeMorpheusNetwork(
-    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
+function resolveNeoN3WorkerKey(payload = {}) {
+  const network = resolvePayloadNetwork(
+    payload,
+    normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
   const signer = reportPinnedNeoN3Role(network, 'worker', {
     env: snapshotSignerEnv(),
@@ -106,8 +110,10 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   const useOracleVerifierRole = resolveOracleVerifierRole(payload);
   const requestScopedKey =
     trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif);
-  const configuredOracleVerifierKey = useOracleVerifierRole ? resolveNeoN3OracleVerifierKey() : '';
-  let privateKey = requestScopedKey || configuredOracleVerifierKey || resolveNeoN3WorkerKey();
+  const configuredOracleVerifierKey = useOracleVerifierRole
+    ? resolveNeoN3OracleVerifierKey(payload)
+    : '';
+  let privateKey = requestScopedKey || configuredOracleVerifierKey || resolveNeoN3WorkerKey(payload);
 
   const allowDerivedOverride =
     !requestScopedKey && (!useOracleVerifierRole || !configuredOracleVerifierKey);
@@ -139,7 +145,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
 }
 
 async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
-  let privateKey = resolveNeoN3WorkerKey();
+  let privateKey = resolveNeoN3WorkerKey(payload);
   if (shouldUseDerivedKeys(payload)) {
     try {
       privateKey = await deriveNeoN3PrivateKeyHex(

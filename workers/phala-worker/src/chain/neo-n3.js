@@ -9,6 +9,8 @@ import {
   DEFAULT_NEO_NETWORK_MAGIC,
   DEFAULT_POLL_INTERVAL_MS,
   DEFAULT_WAIT_TIMEOUT_MS,
+  envForNetwork,
+  resolvePayloadNetwork,
   trimString,
 } from '../platform/core.js';
 import {
@@ -31,9 +33,10 @@ function snapshotSignerEnv() {
   return snapshot;
 }
 
-function resolveNeoN3SigningKey() {
-  const network = normalizeMorpheusNetwork(
-    env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
+function resolveNeoN3SigningKey(payload = {}) {
+  const network = resolvePayloadNetwork(
+    payload,
+    normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
   const signer = resolvePinnedNeoN3Role(network, 'worker', {
     env: snapshotSignerEnv(),
@@ -80,22 +83,27 @@ export function getNeoExecutionSummary(appLog) {
 }
 
 export function loadNeoN3Context(payload = {}, { required = false, requireRpc = false } = {}) {
+  const network = resolvePayloadNetwork(payload);
   const key =
     trimString(payload.private_key) ||
     trimString(payload.signing_key) ||
     trimString(payload.wif) ||
-    resolveNeoN3SigningKey();
+    resolveNeoN3SigningKey(payload);
 
   if (!key) {
     if (required) throw new Error('Neo N3 signing key is not configured');
     return null;
   }
 
-  const rpcUrl = trimString(payload.rpc_url) || env('NEO_RPC_URL');
+  const rpcUrl =
+    trimString(payload.rpc_url) ||
+    envForNetwork(network, 'NEO_RPC_URL');
   if (requireRpc && !rpcUrl) throw new Error('NEO_RPC_URL is required for Neo N3 relay');
 
   const networkMagic = Number(
-    payload.network_magic || env('NEO_NETWORK_MAGIC') || DEFAULT_NEO_NETWORK_MAGIC
+    payload.network_magic ||
+      envForNetwork(network, 'NEO_NETWORK_MAGIC') ||
+      DEFAULT_NEO_NETWORK_MAGIC
   );
   return {
     account: new neoWallet.Account(key),
