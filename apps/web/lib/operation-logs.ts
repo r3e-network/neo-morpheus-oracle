@@ -174,7 +174,8 @@ export async function recordOperationLog(input: OperationLogInput) {
       }
     }
 
-    await supabase.from('morpheus_operation_logs').insert({
+    const operationLogs = supabase.from('morpheus_operation_logs') as any;
+    await operationLogs.insert({
       operation_id: operationId,
       network,
       route: input.route,
@@ -217,7 +218,8 @@ export async function recordOperationLog(input: OperationLogInput) {
       },
     }));
 
-    await supabase.from('morpheus_encrypted_secrets').insert(rows);
+    const encryptedSecrets = supabase.from('morpheus_encrypted_secrets') as any;
+    await encryptedSecrets.insert(rows);
   } catch (error) {
     console.warn('[morpheus] failed to record operation log', error);
   }

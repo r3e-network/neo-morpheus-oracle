@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-export type ServerSupabaseClient = NonNullable<ReturnType<typeof getServerSupabaseClient>>;
+export type ServerSupabaseClient = any;
 export type MorpheusNetwork = 'mainnet' | 'testnet';
 
 export type ProjectProviderConfigRecord = {
@@ -10,6 +10,49 @@ export type ProjectProviderConfigRecord = {
   created_at?: string;
   updated_at?: string;
 };
+
+type CacheEntry<T> = {
+  expiresAt: number;
+  value: T;
+};
+
+const LOOKUP_CACHE_TTL_MS = 30_000;
+let serverSupabaseClientCache: ServerSupabaseClient | null | undefined;
+const projectIdCache = new Map<string, CacheEntry<string | null>>();
+const providerConfigCache = new Map<string, CacheEntry<ProjectProviderConfigRecord | null>>();
+const projectIdInFlight = new Map<string, Promise<string | null>>();
+const providerConfigInFlight = new Map<string, Promise<ProjectProviderConfigRecord | null>>();
+
+function resolveLookupCacheTtlMs() {
+  const configured = Number(process.env.MORPHEUS_WEB_LOOKUP_CACHE_TTL_MS || '');
+  if (!Number.isFinite(configured)) return LOOKUP_CACHE_TTL_MS;
+  return Math.max(Math.trunc(configured), 0);
+}
+
+function getCachedValue<T>(cache: Map<string, CacheEntry<T>>, key: string) {
+  const entry = cache.get(key);
+  if (!entry) return { hit: false as const, value: undefined };
+  if (entry.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return { hit: false as const, value: undefined };
+  }
+  return { hit: true as const, value: entry.value };
+}
+
+function setCachedValue<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T) {
+  cache.set(key, {
+    expiresAt: Date.now() + resolveLookupCacheTtlMs(),
+    value,
+  });
+}
+
+export function __resetServerSupabaseCachesForTests() {
+  serverSupabaseClientCache = undefined;
+  projectIdCache.clear();
+  providerConfigCache.clear();
+  projectIdInFlight.clear();
+  providerConfigInFlight.clear();
+}
 
 function resolveAdminKeys(
   scope:
@@ -58,6 +101,10 @@ export function isAuthorizedAdminRequest(
 }
 
 export function getServerSupabaseClient() {
+  if (serverSupabaseClientCache !== undefined) {
+    return serverSupabaseClientCache;
+  }
+
   const url =
     process.env.SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -69,13 +116,17 @@ export function getServerSupabaseClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.morpheus_SUPABASE_SERVICE_ROLE_KEY ||
     '';
-  if (!url || !serviceKey) return null;
-  return createClient(url, serviceKey, {
+  if (!url || !serviceKey) {
+    serverSupabaseClientCache = null;
+    return serverSupabaseClientCache;
+  }
+  serverSupabaseClientCache = createClient(url, serviceKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
+  return serverSupabaseClientCache;
 }
 
 export function resolveSupabaseNetwork(value?: string | null): MorpheusNetwork {
@@ -91,14 +142,31 @@ export async function resolveProjectIdBySlug(
   projectSlug: string,
   network: MorpheusNetwork = resolveSupabaseNetwork()
 ) {
-  const { data, error } = await supabase
+  const cacheKey = `${network}:${projectSlug}`;
+  const cached = getCachedValue(projectIdCache, cacheKey);
+  if (cached.hit) return cached.value;
+
+  const existing = projectIdInFlight.get(cacheKey);
+  if (existing) return existing;
+
+  const request = supabase
     .from('morpheus_projects')
     .select('id, slug, network')
     .eq('slug', projectSlug)
     .eq('network', network)
-    .maybeSingle();
-  if (error) throw error;
-  return data?.id || null;
+    .maybeSingle()
+    .then(({ data, error }: any) => {
+      if (error) throw error;
+      const value = data?.id || null;
+      setCachedValue(projectIdCache, cacheKey, value);
+      return value;
+    })
+    .finally(() => {
+      projectIdInFlight.delete(cacheKey);
+    });
+
+  projectIdInFlight.set(cacheKey, request);
+  return request;
 }
 
 export async function loadProjectProviderConfig(
@@ -107,17 +175,36 @@ export async function loadProjectProviderConfig(
   providerId: string,
   network: MorpheusNetwork = resolveSupabaseNetwork()
 ): Promise<ProjectProviderConfigRecord | null> {
-  const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
-  if (!projectId) return null;
+  const cacheKey = `${network}:${projectSlug}:${providerId}`;
+  const cached = getCachedValue(providerConfigCache, cacheKey);
+  if (cached.hit) return cached.value;
 
-  const { data, error } = await supabase
-    .from('morpheus_provider_configs')
-    .select('provider_id, enabled, config, created_at, updated_at')
-    .eq('project_id', projectId)
-    .eq('network', network)
-    .eq('provider_id', providerId)
-    .maybeSingle();
+  const existing = providerConfigInFlight.get(cacheKey);
+  if (existing) return existing;
 
-  if (error) throw error;
-  return (data as ProjectProviderConfigRecord | null) ?? null;
+  const request = (async () => {
+    const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
+    if (!projectId) {
+      setCachedValue(providerConfigCache, cacheKey, null);
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('morpheus_provider_configs')
+      .select('provider_id, enabled, config, created_at, updated_at')
+      .eq('project_id', projectId)
+      .eq('network', network)
+      .eq('provider_id', providerId)
+      .maybeSingle();
+
+    if (error) throw error;
+    const value = (data as ProjectProviderConfigRecord | null) ?? null;
+    setCachedValue(providerConfigCache, cacheKey, value);
+    return value;
+  })().finally(() => {
+    providerConfigInFlight.delete(cacheKey);
+  });
+
+  providerConfigInFlight.set(cacheKey, request);
+  return request;
 }

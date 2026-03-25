@@ -1,8 +1,40 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { Web3AuthLiveStudio } from '@/components/neodid/Web3AuthLiveStudio';
+
+const Web3AuthLiveStudio = dynamic(
+  () => import('@/components/neodid/Web3AuthLiveStudio').then((mod) => mod.Web3AuthLiveStudio),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="card-industrial"
+        style={{
+          minHeight: '420px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div style={{ textAlign: 'center' }}>
+          <div className="status-dot" style={{ margin: '0 auto 1rem', transform: 'scale(1.5)' }} />
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.8rem',
+              letterSpacing: '0.05em',
+            }}
+          >
+            PREPARING WEB3AUTH STUDIO...
+          </p>
+        </div>
+      </div>
+    ),
+  }
+);
 
 export default function NeoDidWeb3AuthLivePage() {
   return (

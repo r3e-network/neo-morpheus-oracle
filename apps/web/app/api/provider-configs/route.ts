@@ -202,8 +202,8 @@ export async function POST(request: Request) {
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
-    .from('morpheus_provider_configs')
+  const providerConfigs = supabase.from('morpheus_provider_configs') as any;
+  const { data, error } = await providerConfigs
     .upsert(payload, { onConflict: 'project_id,provider_id' })
     .select('provider_id, enabled, config, updated_at')
     .single();

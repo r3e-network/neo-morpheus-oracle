@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { NETWORKS } from '@/lib/onchain-data';
 import { Card, StatCard } from '@/components/ui/Card';
-import { Layout } from '@/components/ui/Layout';
 
 const features = [
   {
@@ -47,7 +46,7 @@ const stats = [
 
 export default function HomePage() {
   return (
-    <Layout>
+    <>
       {/* HERO SECTION */}
       <section
         style={{
@@ -456,6 +455,6 @@ public static void Execute() {
           </Link>
         </div>
       </section>
-    </Layout>
+    </>
   );
 }

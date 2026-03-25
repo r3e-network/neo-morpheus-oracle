@@ -2,6 +2,16 @@ import { getServerSupabaseClient } from '@/lib/server-supabase';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { getSelectedNetworkKey, networkRegistry, resolveSelectedNetworkKey } from '@/lib/networks';
 
+type OperationLogLookupRow = {
+  route: string | null;
+  category: string | null;
+  created_at: string | null;
+  http_status: number | null;
+  request_id: string | null;
+  target_chain: string | null;
+  response_payload: unknown;
+};
+
 function normalizeHex(value: unknown) {
   const normalized = String(value || '')
     .trim()
@@ -91,7 +101,9 @@ async function lookupOperationLogs(attestationHash: string, networkKey: 'mainnet
 
   if (error) throw error;
 
-  return (data || [])
+  const rows = ((data as OperationLogLookupRow[] | null) || []);
+
+  return rows
     .map((row) => {
       const envelope = extractEnvelopeByAttestationHash(row.response_payload, attestationHash);
       if (!envelope) return null;

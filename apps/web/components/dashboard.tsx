@@ -1,12 +1,7 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { OverviewTab } from './dashboard/OverviewTab';
-import { OracleTab } from './dashboard/OracleTab';
-import { ComputeTab } from './dashboard/ComputeTab';
-import { ProvidersTab } from './dashboard/ProvidersTab';
-import { DeveloperHub } from './dashboard/DeveloperHub';
-import { StarterStudio } from './starter/StarterStudio';
 import {
   Globe,
   Cpu,
@@ -20,26 +15,88 @@ import {
   Box,
 } from 'lucide-react';
 
+const TabFallback = () => (
+  <div
+    className="card-industrial"
+    style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: '420px',
+    }}
+  >
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+      <div className="status-dot" style={{ transform: 'scale(1.6)' }}></div>
+      <p
+        style={{
+          color: 'var(--text-secondary)',
+          fontSize: '0.8rem',
+          fontWeight: 600,
+          fontFamily: 'var(--font-mono)',
+          letterSpacing: '0.05em',
+        }}
+      >
+        LOADING MODULE...
+      </p>
+    </div>
+  </div>
+);
+
+const OverviewTab = dynamic(() => import('./dashboard/OverviewTab').then((mod) => mod.OverviewTab), {
+  loading: () => <TabFallback />,
+});
+const OracleTab = dynamic(() => import('./dashboard/OracleTab').then((mod) => mod.OracleTab), {
+  loading: () => <TabFallback />,
+});
+const ComputeTab = dynamic(() => import('./dashboard/ComputeTab').then((mod) => mod.ComputeTab), {
+  loading: () => <TabFallback />,
+});
+const ProvidersTab = dynamic(
+  () => import('./dashboard/ProvidersTab').then((mod) => mod.ProvidersTab),
+  { loading: () => <TabFallback /> }
+);
+const DeveloperHub = dynamic(
+  () => import('./dashboard/DeveloperHub').then((mod) => mod.DeveloperHub),
+  { loading: () => <TabFallback /> }
+);
+const StarterStudio = dynamic(() => import('./starter/StarterStudio').then((mod) => mod.StarterStudio), {
+  loading: () => <TabFallback />,
+});
+
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [output, setOutput] = useState<string>('');
   const [providers, setProviders] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isProvidersLoading, setIsProvidersLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!['providers', 'oracle'].includes(activeTab) || providers.length > 0) {
+      return;
+    }
+
+    let cancelled = false;
     (async () => {
+      setIsProvidersLoading(true);
       try {
         const providersRes = await fetch('/api/providers');
         const providersBody = await providersRes.json();
-        if (Array.isArray(providersBody.providers)) setProviders(providersBody.providers);
+        if (!cancelled && Array.isArray(providersBody.providers)) {
+          setProviders(providersBody.providers);
+        }
       } catch (err) {
         console.error('Failed to fetch initial data', err);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsProvidersLoading(false);
+        }
       }
     })();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, providers.length]);
 
   const handleCopy = () => {
     if (!output) return;
@@ -178,7 +235,7 @@ export function Dashboard() {
       </aside>
 
       <main style={{ minWidth: 0 }}>
-        {isLoading ? (
+        {isProvidersLoading && ['providers', 'oracle'].includes(activeTab) ? (
           <div
             className="card-industrial"
             style={{
