@@ -55,8 +55,18 @@ const desiredChecks = [
     expectedStatus: '200',
   },
   {
+    name: 'morpheus-oracle-testnet-info',
+    url: 'https://oracle.meshmini.app/testnet/info',
+    expectedStatus: '200',
+  },
+  {
     name: 'morpheus-oracle-mainnet-public-key',
     url: 'https://oracle.meshmini.app/mainnet/oracle/public-key',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-oracle-mainnet-info',
+    url: 'https://oracle.meshmini.app/mainnet/info',
     expectedStatus: '200',
   },
   {
@@ -85,8 +95,18 @@ const desiredChecks = [
     expectedStatus: '200',
   },
   {
+    name: 'morpheus-edge-testnet-info',
+    url: 'https://edge.meshmini.app/testnet/info',
+    expectedStatus: '200',
+  },
+  {
     name: 'morpheus-edge-mainnet-public-key',
     url: 'https://edge.meshmini.app/mainnet/oracle/public-key',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-mainnet-info',
+    url: 'https://edge.meshmini.app/mainnet/info',
     expectedStatus: '200',
   },
 ];
