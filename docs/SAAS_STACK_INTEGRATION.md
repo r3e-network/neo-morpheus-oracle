@@ -2,7 +2,7 @@
 
 This repository already uses or is prepared to use the following managed services:
 
-1. Cloudflare Workers + Queues
+1. Cloudflare Workers + Queues + Workflows
 2. Upstash Redis
 3. Sentry
 4. Checkly
@@ -20,11 +20,21 @@ This repository already uses or is prepared to use the following managed service
 - Queue bindings:
   - `morpheus-oracle-request`
   - `morpheus-feed-tick`
-  - `morpheus-callback-broadcast`
-  - `morpheus-automation-execute`
+- Workflow bindings:
+  - `CALLBACK_BROADCAST_WORKFLOW`
+  - `AUTOMATION_EXECUTE_WORKFLOW`
 - Example Wrangler config:
   - [deploy/cloudflare/morpheus-control-plane/wrangler.example.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/wrangler.example.toml)
   - [deploy/cloudflare/morpheus-edge-gateway/wrangler.example.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-edge-gateway/wrangler.example.toml)
+
+Current control-plane split:
+
+- Queues stay on the core execution path:
+  - `oracle_request`
+  - `feed_tick`
+- Workflows own the orchestration-heavy lanes:
+  - `callback_broadcast`
+  - `automation_execute`
 
 ### Upstash
 

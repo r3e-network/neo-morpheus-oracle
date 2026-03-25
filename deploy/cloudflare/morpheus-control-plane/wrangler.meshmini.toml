@@ -20,14 +20,6 @@ queue = "morpheus-oracle-request"
 binding = "MORPHEUS_FEED_TICK_QUEUE"
 queue = "morpheus-feed-tick"
 
-[[queues.producers]]
-binding = "MORPHEUS_CALLBACK_BROADCAST_QUEUE"
-queue = "morpheus-callback-broadcast"
-
-[[queues.producers]]
-binding = "MORPHEUS_AUTOMATION_EXECUTE_QUEUE"
-queue = "morpheus-automation-execute"
-
 [[queues.consumers]]
 queue = "morpheus-oracle-request"
 max_batch_size = 10
@@ -40,17 +32,15 @@ max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 10
 
-[[queues.consumers]]
-queue = "morpheus-callback-broadcast"
-max_batch_size = 10
-max_batch_timeout = 5
-max_retries = 10
+[[workflows]]
+name = "morpheus-callback-broadcast-workflow"
+binding = "CALLBACK_BROADCAST_WORKFLOW"
+class_name = "CallbackBroadcastWorkflow"
 
-[[queues.consumers]]
-queue = "morpheus-automation-execute"
-max_batch_size = 10
-max_batch_timeout = 5
-max_retries = 10
+[[workflows]]
+name = "morpheus-automation-execute-workflow"
+binding = "AUTOMATION_EXECUTE_WORKFLOW"
+class_name = "AutomationExecuteWorkflow"
 
 [[routes]]
 pattern = "control.meshmini.app/*"
