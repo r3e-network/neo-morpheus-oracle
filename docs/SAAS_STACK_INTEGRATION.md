@@ -57,6 +57,11 @@ This repository already uses or is prepared to use the following managed service
 - Better Stack management scripts:
   - [scripts/betterstack-list-heartbeats.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-list-heartbeats.mjs)
   - [scripts/betterstack-sync-heartbeats.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-sync-heartbeats.mjs)
+  - [scripts/betterstack-list-monitors.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-list-monitors.mjs)
+  - [scripts/betterstack-sync-monitors.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-sync-monitors.mjs)
+  - [scripts/betterstack-list-sources.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-list-sources.mjs)
+  - [scripts/betterstack-sync-sources.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-sync-sources.mjs)
+  - [workers/morpheus-relayer/src/betterstack-log-sink.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/betterstack-log-sink.js)
 
 ### Grafana Cloud
 
@@ -156,6 +161,13 @@ Optional but recommended if you want heartbeat-style uptime validation for sched
 - `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL`
 - `MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL`
 - `MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL`
+- `MORPHEUS_BETTERSTACK_CONTROL_FEED_HEARTBEAT_URL`
+- `MORPHEUS_BETTERSTACK_CONTROL_FEED_FAILURE_URL`
+- `MORPHEUS_BETTERSTACK_CONTROL_CALLBACK_FAILURE_URL`
+- `MORPHEUS_BETTERSTACK_CONTROL_AUTOMATION_HEARTBEAT_URL`
+- `MORPHEUS_BETTERSTACK_CONTROL_AUTOMATION_FAILURE_URL`
+- `MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST`
+- `MORPHEUS_BETTERSTACK_LOG_SOURCE_TOKEN`
 
 Current seeded heartbeats:
 
@@ -163,6 +175,10 @@ Current seeded heartbeats:
 - `morpheus-cron-health`
 - `morpheus-relayer`
 - `morpheus-relayer-feed`
+
+Current seeded telemetry source:
+
+- `morpheus-operations-http`
 
 ### Grafana Cloud
 

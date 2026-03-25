@@ -1,3 +1,5 @@
+import { enqueueBetterStackLog } from './betterstack-log-sink.js';
+
 const LEVEL_PRIORITY = {
   debug: 10,
   info: 20,
@@ -26,20 +28,29 @@ function shouldLog(configuredLevel, currentLevel) {
 
 function writeLog(format, level, message, payload) {
   const time = new Date().toISOString();
+  const structured = {
+    time,
+    level,
+    msg: message,
+    ...payload,
+  };
   if (format === 'text') {
     const suffix = payload && Object.keys(payload).length ? ` ${JSON.stringify(payload)}` : '';
     console.log(`[${time}] ${level.toUpperCase()} ${message}${suffix}`);
+    enqueueBetterStackLog({
+      service: 'morpheus-relayer',
+      logger_format: 'text',
+      ...structured,
+    });
     return;
   }
 
-  console.log(
-    JSON.stringify({
-      time,
-      level,
-      msg: message,
-      ...payload,
-    })
-  );
+  console.log(JSON.stringify(structured));
+  enqueueBetterStackLog({
+    service: 'morpheus-relayer',
+    logger_format: 'json',
+    ...structured,
+  });
 }
 
 export function createLogger(config = {}) {
