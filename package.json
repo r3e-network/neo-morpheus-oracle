@@ -62,6 +62,7 @@
     "render:phala-hub-env": "node scripts/render-phala-hub-env.mjs --output deploy/phala/morpheus.hub.env",
     "verify:cloudflare-token": "node scripts/verify-cloudflare-token.mjs",
     "verify:edge-gateway": "node scripts/verify-edge-gateway.mjs",
+    "check:checkly": "node scripts/checkly-list-checks.mjs",
     "smoke:control-plane": "node scripts/smoke-control-plane.mjs",
     "stress:runtime": "node scripts/stress-oracle-runtime.mjs",
     "backup:system": "node scripts/backup-system-state.mjs",
