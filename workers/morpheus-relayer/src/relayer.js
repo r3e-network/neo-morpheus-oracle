@@ -1,4 +1,5 @@
 import { createRelayerConfig } from './config.js';
+import { sendHeartbeat } from './heartbeat.js';
 import { createLogger } from './logger.js';
 import {
   guardQueuedAutomationExecution,
@@ -1645,6 +1646,19 @@ export async function runRelayerOnce(options = {}) {
     metrics: snapshotMetrics(state),
   };
   await maybePersistRun(logger, config, result);
+  if (config.mode === 'feed_only') {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL || '', {
+      mode: config.mode,
+      network: config.network,
+      tick_duration_ms: result.metrics.last_tick_duration_ms,
+    });
+  } else {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL || '', {
+      mode: config.mode,
+      network: config.network,
+      tick_duration_ms: result.metrics.last_tick_duration_ms,
+    });
+  }
   return result;
 }
 
@@ -1680,6 +1694,11 @@ export async function runRelayerLoop(options = {}) {
       await sleep(sleepMs);
     } catch (error) {
       logger.error({ error }, 'Relayer loop tick failed');
+      void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL || '', {
+        mode: config.mode,
+        network: config.network,
+        error: error instanceof Error ? error.message : String(error),
+      });
       await sleep(config.pollIntervalMs);
     }
   }

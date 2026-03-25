@@ -1,5 +1,6 @@
 import { createRelayerConfig } from './config.js';
 import { createLogger } from './logger.js';
+import { renderPrometheusMetrics } from './prometheus.js';
 import { runRelayerLoop, runRelayerOnce } from './relayer.js';
 import { loadRelayerState, snapshotMetrics } from './state.js';
 
@@ -14,6 +15,9 @@ if (mode === 'loop') {
   console.log(
     JSON.stringify({ state_file: config.stateFile, metrics: snapshotMetrics(state) }, null, 2)
   );
+} else if (mode === 'metrics:prom') {
+  const state = loadRelayerState(config.stateFile);
+  process.stdout.write(renderPrometheusMetrics(snapshotMetrics(state)));
 } else {
   const result = await runRelayerOnce({ config, logger });
   console.log(JSON.stringify(result, null, 2));

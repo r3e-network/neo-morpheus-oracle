@@ -6,6 +6,8 @@ This repository already uses or is prepared to use the following managed service
 2. Upstash Redis
 3. Sentry
 4. Checkly
+5. Better Stack
+6. Grafana Cloud
 
 ## What Is Already Wired
 
@@ -43,6 +45,23 @@ This repository already uses or is prepared to use the following managed service
   - [apps/web/sentry.server.config.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/sentry.server.config.ts)
   - [apps/web/sentry.edge.config.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/sentry.edge.config.ts)
   - [apps/web/.env.example](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/.env.example)
+
+### Better Stack
+
+- Cron heartbeat hooks:
+  - [apps/web/app/api/cron/feed/route.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/app/api/cron/feed/route.ts)
+  - [apps/web/app/api/cron/health/route.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/app/api/cron/health/route.ts)
+- Relayer heartbeat hooks:
+  - [workers/morpheus-relayer/src/heartbeat.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/heartbeat.js)
+  - [workers/morpheus-relayer/src/relayer.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/relayer.js)
+
+### Grafana Cloud
+
+- Relayer Prometheus text export:
+  - [workers/morpheus-relayer/src/prometheus.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/prometheus.js)
+  - [workers/morpheus-relayer/src/cli.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/cli.js)
+- Root helper command:
+  - `npm run metrics:relayer:prom`
 
 ## What You Still Need To Provide
 
@@ -117,12 +136,39 @@ Needed if you want Codex to wire deployment automation for browser/API checks:
   - control plane health
   - edge gateway health
 
+### Better Stack
+
+Optional but recommended if you want heartbeat-style uptime validation for scheduled jobs and relayer loops:
+
+- `MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL`
+- `MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL`
+- `MORPHEUS_BETTERSTACK_CRON_HEALTH_HEARTBEAT_URL`
+- `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL`
+- `MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL`
+- `MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL`
+
+### Grafana Cloud
+
+Optional if you want hosted Prometheus / dashboards for relayer internals:
+
+- `GRAFANA_CLOUD_PROMETHEUS_PUSH_URL`
+- `GRAFANA_CLOUD_PROMETHEUS_USERNAME`
+- `GRAFANA_CLOUD_PROMETHEUS_API_KEY`
+
+Current export command:
+
+```bash
+npm run metrics:relayer:prom
+```
+
 ## Recommended Rollout Order
 
 1. Cloudflare Workers + Queues
 2. Upstash Redis
 3. Sentry
 4. Checkly
+5. Better Stack
+6. Grafana Cloud
 
 ## Official References
 
@@ -131,3 +177,5 @@ Needed if you want Codex to wire deployment automation for browser/API checks:
 - Upstash Redis: https://upstash.com/docs/redis/overall/getstarted
 - Sentry for Next.js: https://docs.sentry.io/platforms/javascript/guides/nextjs/
 - Checkly docs: https://www.checklyhq.com/docs/
+- Better Stack Uptime: https://betterstack.com/docs/uptime/
+- Grafana Cloud: https://grafana.com/docs/grafana-cloud/
