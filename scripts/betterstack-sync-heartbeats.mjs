@@ -29,7 +29,7 @@ const desired = [
   },
 ];
 
-const existingResponse = await betterStackApi('/heartbeats?page=1');
+const existingResponse = await betterStackApi('/heartbeats?page=1&per_page=100');
 const existing = Array.isArray(existingResponse?.data) ? existingResponse.data : [];
 const existingByName = new Map(existing.map((row) => [String(row.attributes?.name || ''), row]));
 
@@ -75,7 +75,7 @@ for (const heartbeat of desired) {
   });
 }
 
-const finalResponse = await betterStackApi('/heartbeats?page=1');
+const finalResponse = await betterStackApi('/heartbeats?page=1&per_page=100');
 const finalRows = Array.isArray(finalResponse?.data) ? finalResponse.data : [];
 
 console.log(

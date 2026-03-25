@@ -68,7 +68,7 @@ function buildPayload(spec) {
   };
 }
 
-const existingResponse = await betterStackApi('/monitors?page=1');
+const existingResponse = await betterStackApi('/monitors?page=1&per_page=100');
 const existing = Array.isArray(existingResponse?.data) ? existingResponse.data : [];
 const existingByName = new Map(
   existing.map((row) => [String(row.attributes?.pronounceable_name || ''), row])
@@ -107,7 +107,7 @@ for (const monitor of desired) {
   });
 }
 
-const finalResponse = await betterStackApi('/monitors?page=1');
+const finalResponse = await betterStackApi('/monitors?page=1&per_page=100');
 const finalRows = Array.isArray(finalResponse?.data) ? finalResponse.data : [];
 
 console.log(
