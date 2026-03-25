@@ -35,7 +35,9 @@
 - `npm --prefix workers/morpheus-relayer run start`
 - `npm --prefix workers/morpheus-relayer run metrics`
 - `npm --prefix workers/morpheus-relayer run metrics:prom`
+- `npm --prefix workers/morpheus-relayer run serve:metrics`
 - `npm run metrics:relayer:prom`
+- `npm run start:relayer:metrics`
 - `npm run check:betterstack`
 - `npm run sync:betterstack`
 - `npm run start:testnet-rng-local`
@@ -56,6 +58,7 @@ Notes:
 - `MORPHEUS_DURABLE_QUEUE_ENABLED=true` persists fresh chain events into `morpheus_relayer_jobs` before checkpoints advance
 - `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL` and related heartbeat URLs can be used to ping Better Stack from cron and relayer success/failure paths
 - `npm run metrics:relayer:prom` renders Prometheus text for Grafana Cloud or any Prometheus-compatible scraper / push bridge
+- `npm --prefix workers/morpheus-relayer run serve:metrics` exposes `/metrics` and `/healthz` over HTTP for Prometheus / Grafana Alloy scraping
 
 ## Expected env vars
 

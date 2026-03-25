@@ -297,5 +297,10 @@ export function createRelayerConfig() {
         'PHALA_NEOX_PRIVATE_KEY'
       ),
     },
+    metricsServer: {
+      host: env('MORPHEUS_RELAYER_METRICS_HOST') || '127.0.0.1',
+      port: Math.max(Number(env('MORPHEUS_RELAYER_METRICS_PORT') || 9464), 1),
+      path: env('MORPHEUS_RELAYER_METRICS_PATH') || '/metrics',
+    },
   };
 }

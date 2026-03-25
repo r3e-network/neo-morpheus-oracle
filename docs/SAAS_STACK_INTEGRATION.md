@@ -63,6 +63,11 @@ This repository already uses or is prepared to use the following managed service
 - Relayer Prometheus text export:
   - [workers/morpheus-relayer/src/prometheus.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/prometheus.js)
   - [workers/morpheus-relayer/src/cli.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/cli.js)
+- Relayer HTTP metrics server:
+  - [workers/morpheus-relayer/src/metrics-server.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/metrics-server.js)
+  - [deploy/systemd/morpheus-relayer-metrics.service](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/systemd/morpheus-relayer-metrics.service)
+- Grafana Alloy scrape template:
+  - [monitoring/grafana/alloy.relayer.example.alloy](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/grafana/alloy.relayer.example.alloy)
 - Root helper command:
   - `npm run metrics:relayer:prom`
 
@@ -164,6 +169,9 @@ Optional if you want hosted Prometheus / dashboards for relayer internals:
 - `GRAFANA_CLOUD_PROMETHEUS_PUSH_URL`
 - `GRAFANA_CLOUD_PROMETHEUS_USERNAME`
 - `GRAFANA_CLOUD_PROMETHEUS_API_KEY`
+- `MORPHEUS_RELAYER_METRICS_HOST`
+- `MORPHEUS_RELAYER_METRICS_PORT`
+- `MORPHEUS_RELAYER_METRICS_PATH`
 
 Current export command:
 
