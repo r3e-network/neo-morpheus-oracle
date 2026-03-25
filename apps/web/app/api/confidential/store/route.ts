@@ -8,6 +8,25 @@ import {
   resolveSupabaseNetwork,
 } from '@/lib/server-supabase';
 
+type EncryptedSecretInsertRow = {
+  project_id: string | null;
+  network: string;
+  name: string;
+  target_chain: string;
+  encryption_algorithm: string;
+  key_version: number;
+  ciphertext: string;
+  metadata: Record<string, unknown>;
+};
+
+type EncryptedSecretInsertResult = {
+  id: string;
+  name: string;
+  target_chain: string;
+  encryption_algorithm: string;
+  created_at: string | null;
+};
+
 function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -50,7 +69,7 @@ export async function POST(request: Request) {
     const projectId = projectSlug
       ? await resolveProjectIdBySlug(supabase, projectSlug, network)
       : null;
-    const row = {
+    const row: EncryptedSecretInsertRow = {
       project_id: projectId,
       network,
       name,
@@ -67,20 +86,21 @@ export async function POST(request: Request) {
       },
     };
 
-    const { data, error } = await supabase
-      .from('morpheus_encrypted_secrets')
+    const encryptedSecrets = supabase.from('morpheus_encrypted_secrets') as any;
+    const { data, error } = await encryptedSecrets
       .insert(row)
       .select('id,name,target_chain,encryption_algorithm,created_at')
       .single();
     if (error) throw error;
+    const inserted = data as EncryptedSecretInsertResult;
 
     const responsePayload = {
-      secret_ref: data.id,
+      secret_ref: inserted.id,
       network,
-      name: data.name,
-      target_chain: data.target_chain,
-      encryption_algorithm: data.encryption_algorithm,
-      created_at: data.created_at,
+      name: inserted.name,
+      target_chain: inserted.target_chain,
+      encryption_algorithm: inserted.encryption_algorithm,
+      created_at: inserted.created_at,
       ...(boundRequester ? { bound_requester: boundRequester } : {}),
       ...(boundCallbackContract ? { bound_callback_contract: boundCallbackContract } : {}),
     };
@@ -98,8 +118,8 @@ export async function POST(request: Request) {
       responsePayload,
       httpStatus: 200,
       metadata: {
-        secret_name: data.name,
-        secret_ref: data.id,
+        secret_name: inserted.name,
+        secret_ref: inserted.id,
       },
     });
 

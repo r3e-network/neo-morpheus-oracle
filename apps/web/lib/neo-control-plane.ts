@@ -202,7 +202,7 @@ export async function fetchAutomationJobForBackend(network: MorpheusNetwork, aut
     .eq('automation_id', automationId)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  return (data as Record<string, unknown> | null) ?? null;
 }
 
 export async function recordAutomationRunForBackend(
@@ -211,7 +211,8 @@ export async function recordAutomationRunForBackend(
 ) {
   const supabase = getServerSupabaseClient();
   if (!supabase) throw new Error('Supabase is not configured');
-  const { error } = await supabase.from('morpheus_automation_runs').insert({
+  const automationRuns = supabase.from('morpheus_automation_runs') as any;
+  const { error } = await automationRuns.insert({
     network,
     ...record,
   });

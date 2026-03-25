@@ -4,11 +4,15 @@ import {
   normalizeMorpheusNetwork,
   resolveMaxBytes,
   resolvePayloadNetwork,
+  sleep,
+  stableStringify,
   trimString,
 } from '../platform/core.js';
 
 const PROVIDER_CONFIG_CACHE_TTL_MS = 30_000;
 const providerConfigCache = new Map();
+const providerResponseCache = new Map();
+const providerResponseInFlight = new Map();
 
 export const BUILTIN_PROVIDER_CATALOG = [
   {
@@ -104,6 +108,101 @@ function getSupabaseRestConfig() {
     restUrl: `${baseUrl.replace(/\/$/, '')}/rest/v1`,
     apiKey,
   };
+}
+
+function cloneProviderResult(result) {
+  if (!result || typeof result !== 'object') return result;
+  return {
+    ...result,
+    headers:
+      result.headers && typeof result.headers === 'object' ? { ...result.headers } : result.headers,
+    data:
+      result.data && typeof result.data === 'object' ? structuredClone(result.data) : result.data,
+    provider_error:
+      result.provider_error && typeof result.provider_error === 'object'
+        ? { ...result.provider_error }
+        : result.provider_error,
+  };
+}
+
+function resolveProviderResponseCacheTtlMs() {
+  const configured = Number(env('MORPHEUS_PROVIDER_RESPONSE_CACHE_TTL_MS'));
+  if (!Number.isFinite(configured)) return 1_500;
+  return Math.max(Math.trunc(configured), 0);
+}
+
+function resolveProviderRetryCount() {
+  const configured = Number(env('MORPHEUS_PROVIDER_FETCH_RETRIES'));
+  if (!Number.isFinite(configured)) return 2;
+  return Math.max(Math.trunc(configured), 0);
+}
+
+function resolveRetryAfterMs(headerValue, fallbackMs) {
+  const raw = trimString(headerValue);
+  if (!raw) return fallbackMs;
+  if (/^\d+$/.test(raw)) {
+    return Math.min(Math.max(Number(raw) * 1000, 0), 5_000);
+  }
+  const parsedDate = Date.parse(raw);
+  if (Number.isFinite(parsedDate)) {
+    return Math.min(Math.max(parsedDate - Date.now(), 0), 5_000);
+  }
+  return fallbackMs;
+}
+
+function resolveProviderRetryDelayMs(attemptIndex, response) {
+  const fallback = Math.min(250 * 2 ** Math.max(attemptIndex, 0), 2_000);
+  if (!response?.headers) return fallback;
+  const retryAfter =
+    response.headers instanceof Headers
+      ? response.headers.get('retry-after')
+      : response.headers['retry-after'];
+  return resolveRetryAfterMs(retryAfter, fallback);
+}
+
+function isRetryableProviderStatus(status) {
+  return [408, 425, 429, 500, 502, 503, 504].includes(Number(status));
+}
+
+function isRetryableProviderError(error) {
+  const message = trimString(error?.message || '').toLowerCase();
+  return (
+    message.includes('timed out') ||
+    message.includes('network') ||
+    message.includes('fetch failed') ||
+    message.includes('econnreset') ||
+    message.includes('socket hang up')
+  );
+}
+
+function isCacheableProviderRequest(requestSpec) {
+  return (
+    trimString(requestSpec?.method || 'GET').toUpperCase() === 'GET' &&
+    !requestSpec?.body &&
+    trimString(requestSpec?.url) &&
+    ['none', 'query', 'apikey', ''].includes(trimString(requestSpec?.auth_mode).toLowerCase())
+  );
+}
+
+function buildProviderCacheKey(requestSpec) {
+  if (!isCacheableProviderRequest(requestSpec)) return '';
+  const parsedUrl = new URL(requestSpec.url);
+  if (parsedUrl.searchParams.has('apikey')) {
+    parsedUrl.searchParams.set('apikey', '__redacted__');
+  }
+  return stableStringify({
+    provider: trimString(requestSpec.provider || ''),
+    pair: trimString(requestSpec.pair || ''),
+    method: trimString(requestSpec.method || 'GET').toUpperCase(),
+    url: parsedUrl.toString(),
+    headers: requestSpec.headers || {},
+  });
+}
+
+export function __resetProviderRuntimeCachesForTests() {
+  providerConfigCache.clear();
+  providerResponseCache.clear();
+  providerResponseInFlight.clear();
 }
 
 async function fetchSupabaseRows(table, query) {
@@ -393,69 +492,131 @@ function detectProviderPayloadError(requestSpec, response, data) {
 }
 
 export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
-  const controller = new AbortController();
-  const timer = setTimeout(
-    () => controller.abort(new Error(`provider fetch timed out after ${timeoutMs}ms`)),
-    timeoutMs
-  );
-  let response;
-  try {
-    response = await fetch(requestSpec.url, {
-      method: requestSpec.method || 'GET',
-      headers: requestSpec.headers,
-      body: requestSpec.body,
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error(`provider fetch timed out after ${timeoutMs}ms`);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timer);
+  const cacheKey = buildProviderCacheKey(requestSpec);
+  const cacheTtlMs = resolveProviderResponseCacheTtlMs();
+  const cached = cacheKey ? providerResponseCache.get(cacheKey) : null;
+  if (cached && cached.expiresAt > Date.now()) {
+    return cloneProviderResult(cached.value);
   }
-  const maxBodyBytes = resolveMaxBytes(env('ORACLE_MAX_UPSTREAM_BODY_BYTES'), 256 * 1024, 4096);
-  const text = await (async () => {
-    if (!response.body || typeof response.body.getReader !== 'function') {
-      const body = await response.text();
-      if (Buffer.byteLength(body, 'utf8') > maxBodyBytes) {
-        throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
-      }
-      return body;
-    }
-    const reader = response.body.getReader();
-    const chunks = [];
-    let total = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = Buffer.from(value);
-      total += chunk.length;
-      if (total > maxBodyBytes) {
-        await reader.cancel().catch(() => {});
-        throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
-      }
-      chunks.push(chunk);
-    }
-    return Buffer.concat(chunks).toString('utf8');
-  })();
-  let data = null;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { raw: text };
-    }
+
+  if (cacheKey && providerResponseInFlight.has(cacheKey)) {
+    return cloneProviderResult(await providerResponseInFlight.get(cacheKey));
   }
-  const payloadError = detectProviderPayloadError(requestSpec, response, data);
-  return {
-    ok: response.ok && !payloadError,
-    status: payloadError?.status || response.status,
-    headers: Object.fromEntries(response.headers.entries()),
-    text,
-    data,
-    provider_error: payloadError,
+
+  const execute = async () => {
+    const totalAttempts = resolveProviderRetryCount() + 1;
+    let lastError;
+
+    for (let attempt = 0; attempt < totalAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timer = setTimeout(
+        () => controller.abort(new Error(`provider fetch timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      );
+
+      try {
+        const response = await fetch(requestSpec.url, {
+          method: requestSpec.method || 'GET',
+          headers: requestSpec.headers,
+          body: requestSpec.body,
+          signal: controller.signal,
+        });
+
+        const maxBodyBytes = resolveMaxBytes(
+          env('ORACLE_MAX_UPSTREAM_BODY_BYTES'),
+          256 * 1024,
+          4096
+        );
+        const text = await (async () => {
+          if (!response.body || typeof response.body.getReader !== 'function') {
+            const body = await response.text();
+            if (Buffer.byteLength(body, 'utf8') > maxBodyBytes) {
+              throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
+            }
+            return body;
+          }
+          const reader = response.body.getReader();
+          const chunks = [];
+          let total = 0;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = Buffer.from(value);
+            total += chunk.length;
+            if (total > maxBodyBytes) {
+              await reader.cancel().catch(() => {});
+              throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
+            }
+            chunks.push(chunk);
+          }
+          return Buffer.concat(chunks).toString('utf8');
+        })();
+
+        let data = null;
+        if (text) {
+          try {
+            data = JSON.parse(text);
+          } catch {
+            data = { raw: text };
+          }
+        }
+
+        const payloadError = detectProviderPayloadError(requestSpec, response, data);
+        const result = {
+          ok: response.ok && !payloadError,
+          status: payloadError?.status || response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+          text,
+          data,
+          provider_error: payloadError,
+        };
+
+        if (
+          !result.ok &&
+          attempt + 1 < totalAttempts &&
+          isRetryableProviderStatus(result.status)
+        ) {
+          await sleep(resolveProviderRetryDelayMs(attempt, result));
+          continue;
+        }
+
+        return result;
+      } catch (error) {
+        lastError = error;
+        if (attempt + 1 >= totalAttempts || !isRetryableProviderError(error)) {
+          if (controller.signal.aborted) {
+            throw new Error(`provider fetch timed out after ${timeoutMs}ms`);
+          }
+          throw error;
+        }
+        await sleep(resolveProviderRetryDelayMs(attempt));
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    throw lastError || new Error('provider fetch failed');
   };
+
+  const promise = execute();
+  if (cacheKey) {
+    providerResponseInFlight.set(cacheKey, promise);
+  }
+
+  try {
+    const result = await promise;
+    if (cacheKey && cacheTtlMs > 0 && result.ok) {
+      providerResponseCache.set(cacheKey, {
+        expiresAt: Date.now() + cacheTtlMs,
+        value: cloneProviderResult(result),
+      });
+    }
+    return cloneProviderResult(result);
+  } finally {
+    if (cacheKey) {
+      providerResponseInFlight.delete(cacheKey);
+    }
+  }
 }
 
 export async function handleProvidersList() {
