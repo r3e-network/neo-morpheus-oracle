@@ -1,4 +1,5 @@
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
+import { sendHeartbeat } from '@/lib/heartbeat';
 import { fulfillNeoN3RequestViaBackend, resolveControlPlaneNetwork } from '@/lib/neo-control-plane';
 
 export const runtime = 'nodejs';
@@ -85,6 +86,13 @@ export async function POST(request: Request) {
       broadcast: result,
     });
   } catch (error) {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CONTROL_CALLBACK_FAILURE_URL || '', {
+      route: '/api/internal/control-plane/callback-broadcast',
+      network,
+      target_chain: targetChain,
+      request_id: requestId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return Response.json(
       {
         error: error instanceof Error ? error.message : String(error),
