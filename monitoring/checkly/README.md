@@ -77,10 +77,25 @@ npm run check:checkly
 ## Browser Checks
 
 Browser checks are not seeded yet because the AA public site domain is not reliably resolvable from the current runtime environment.
-Once the canonical public URLs are confirmed, add them to:
+AA browser checks are now scaffolded via:
 
-- [checks.example.json](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/checkly/checks.example.json)
-- [checkly-sync-api-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-sync-api-checks.mjs) or a dedicated browser-check sync script
+- [scripts/checkly-sync-browser-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-sync-browser-checks.mjs)
+
+Current target:
+
+- `https://neo-abstract-account.vercel.app/`
+- `https://neo-abstract-account.vercel.app/identity`
+
+Current seeded browser checks:
+
+- `aa-home-browser`
+- `aa-identity-browser`
+
+Seed command:
+
+```bash
+npm run sync:checkly:browser
+```
 
 ## Required Values
 
