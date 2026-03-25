@@ -54,6 +54,9 @@ This repository already uses or is prepared to use the following managed service
 - Relayer heartbeat hooks:
   - [workers/morpheus-relayer/src/heartbeat.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/heartbeat.js)
   - [workers/morpheus-relayer/src/relayer.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/relayer.js)
+- Better Stack management scripts:
+  - [scripts/betterstack-list-heartbeats.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-list-heartbeats.mjs)
+  - [scripts/betterstack-sync-heartbeats.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-sync-heartbeats.mjs)
 
 ### Grafana Cloud
 
@@ -146,6 +149,13 @@ Optional but recommended if you want heartbeat-style uptime validation for sched
 - `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL`
 - `MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL`
 - `MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL`
+
+Current seeded heartbeats:
+
+- `morpheus-cron-feed`
+- `morpheus-cron-health`
+- `morpheus-relayer`
+- `morpheus-relayer-feed`
 
 ### Grafana Cloud
 

@@ -36,6 +36,8 @@
 - `npm --prefix workers/morpheus-relayer run metrics`
 - `npm --prefix workers/morpheus-relayer run metrics:prom`
 - `npm run metrics:relayer:prom`
+- `npm run check:betterstack`
+- `npm run sync:betterstack`
 - `npm run start:testnet-rng-local`
 - `workers/morpheus-relayer/Dockerfile`
 - `workers/phala-worker/Dockerfile`
