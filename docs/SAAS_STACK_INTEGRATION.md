@@ -68,6 +68,8 @@ This repository already uses or is prepared to use the following managed service
   - [deploy/systemd/morpheus-relayer-metrics.service](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/systemd/morpheus-relayer-metrics.service)
 - Grafana Alloy scrape template:
   - [monitoring/grafana/alloy.relayer.example.alloy](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/grafana/alloy.relayer.example.alloy)
+  - [monitoring/grafana/README.md](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/grafana/README.md)
+  - [deploy/systemd/grafana-alloy.service](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/systemd/grafana-alloy.service)
 - Root helper command:
   - `npm run metrics:relayer:prom`
 

@@ -145,6 +145,7 @@ Notes:
 - testnet renderers also default `MORPHEUS_RELAYER_NEO_N3_SCAN_MODE=request_cursor` because the public testnet `n3index_notifications` feed can lag far behind the current tip
 - `MORPHEUS_BETTERSTACK_*` URLs can be set to ping Better Stack from cron and relayer success/failure paths
 - `npm --prefix workers/morpheus-relayer run metrics:prom` exports Prometheus text that can be scraped or bridged into Grafana Cloud
+- `npm --prefix workers/morpheus-relayer run serve:metrics` starts a local HTTP `/metrics` endpoint for Prometheus / Grafana Alloy scraping
 
 3. Copy `docker-compose.yml`, the selected generated env file (`morpheus.mainnet.env` or `morpheus.testnet.env`), and optionally `Caddyfile` into the CVM
 4. Fill or review the selected env file against `morpheus.env.example`

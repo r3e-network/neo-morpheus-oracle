@@ -1,0 +1,19 @@
+[Unit]
+Description=Grafana Alloy for Morpheus Relayer Metrics
+After=network-online.target morpheus-relayer-metrics.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/neo-morpheus-oracle
+EnvironmentFile=/opt/neo-morpheus-oracle/.env
+ExecStart=/usr/bin/alloy run /opt/neo-morpheus-oracle/monitoring/grafana/alloy.relayer.example.alloy
+Restart=always
+RestartSec=5
+User=morpheus
+Group=morpheus
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
