@@ -1,5 +1,6 @@
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 import { runFeedSyncJob } from '@/lib/feed-sync';
+import { sendHeartbeat } from '@/lib/heartbeat';
 
 export const runtime = 'nodejs';
 
@@ -81,6 +82,20 @@ export async function POST(request: Request) {
       : undefined,
     ...signer,
   });
+
+  if (result.ok) {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CONTROL_FEED_HEARTBEAT_URL || '', {
+      route: '/api/internal/control-plane/feed-tick',
+      network,
+      ok: true,
+    });
+  } else {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CONTROL_FEED_FAILURE_URL || '', {
+      route: '/api/internal/control-plane/feed-tick',
+      network,
+      ok: false,
+    });
+  }
 
   return Response.json(result, { status: result.ok ? 200 : 502 });
 }

@@ -69,6 +69,8 @@
     "sync:checkly:browser": "node scripts/checkly-sync-browser-checks.mjs",
     "check:betterstack": "node scripts/betterstack-list-heartbeats.mjs",
     "sync:betterstack": "node scripts/betterstack-sync-heartbeats.mjs",
+    "check:betterstack:monitors": "node scripts/betterstack-list-monitors.mjs",
+    "sync:betterstack:monitors": "node scripts/betterstack-sync-monitors.mjs",
     "smoke:control-plane": "node scripts/smoke-control-plane.mjs",
     "stress:runtime": "node scripts/stress-oracle-runtime.mjs",
     "backup:system": "node scripts/backup-system-state.mjs",

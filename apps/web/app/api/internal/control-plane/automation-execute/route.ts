@@ -1,4 +1,5 @@
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
+import { sendHeartbeat } from '@/lib/heartbeat';
 import {
   fetchAutomationJobForBackend,
   patchAutomationJobForBackend,
@@ -125,6 +126,13 @@ export async function POST(request: Request) {
       last_error: null,
     });
 
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CONTROL_AUTOMATION_HEARTBEAT_URL || '', {
+      route: '/api/internal/control-plane/automation-execute',
+      network,
+      automation_id: automationId,
+      queued: true,
+    });
+
     return Response.json({
       ok: true,
       network,
@@ -134,6 +142,12 @@ export async function POST(request: Request) {
       queue_tx: queueTx,
     });
   } catch (error) {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CONTROL_AUTOMATION_FAILURE_URL || '', {
+      route: '/api/internal/control-plane/automation-execute',
+      network,
+      automation_id: automationId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return Response.json(
       {
         error: error instanceof Error ? error.message : String(error),
