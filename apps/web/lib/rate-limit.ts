@@ -1,7 +1,10 @@
+import { incrementFixedWindowCounter, isUpstashConfigured } from './upstash';
+
 interface RateLimitOptions {
   windowMs?: number;
   maxRequests?: number;
   keyGenerator?: (request: Request) => string;
+  scope?: string;
 }
 
 interface RateLimitRecord {
@@ -26,6 +29,26 @@ const PRIVATE_IPS = [
 
 let rateLimitMap = new Map<string, RateLimitRecord>();
 let lastCleanup = Date.now();
+
+function incrementLocalCounter(key: string, windowMs: number, now: number) {
+  cleanupStaleEntries();
+  const windowStart = now - windowMs;
+
+  let record = rateLimitMap.get(key);
+  if (!record || record.windowStart < windowStart) {
+    record = { count: 0, windowStart: now, lastAccessed: now };
+    rateLimitMap.set(key, record);
+  } else {
+    record.lastAccessed = now;
+  }
+
+  record.count += 1;
+
+  return {
+    count: record.count,
+    resetAt: record.windowStart + windowMs,
+  };
+}
 
 function cleanupStaleEntries(): void {
   const now = Date.now();
@@ -65,34 +88,45 @@ export function rateLimit(options: RateLimitOptions = {}) {
   const windowMs = options.windowMs || DEFAULT_WINDOW_MS;
   const maxRequests = options.maxRequests || DEFAULT_MAX_REQUESTS;
   const keyGenerator = options.keyGenerator || ipKeyGenerator;
+  const scope = String(options.scope || 'default').trim() || 'default';
 
   return async function rateLimitMiddleware(
     request: Request,
     next: (request: Request) => Promise<Response>
   ): Promise<Response> {
-    cleanupStaleEntries();
     const key = keyGenerator(request);
     const now = Date.now();
-    const windowStart = now - windowMs;
+    let count = 0;
+    let resetAt = now + windowMs;
 
-    let record = rateLimitMap.get(key);
-    if (!record || record.windowStart < windowStart) {
-      record = { count: 0, windowStart: now, lastAccessed: now };
-      rateLimitMap.set(key, record);
+    if (isUpstashConfigured()) {
+      try {
+        const shared = await incrementFixedWindowCounter(
+          `morpheus:web-rate-limit:${scope}:${windowMs}:${key}`,
+          windowMs
+        );
+        count = shared.current;
+        resetAt = now + Math.max(shared.ttlMs, 0);
+      } catch {
+        const local = incrementLocalCounter(key, windowMs, now);
+        count = local.count;
+        resetAt = local.resetAt;
+      }
     } else {
-      record.lastAccessed = now;
+      const local = incrementLocalCounter(key, windowMs, now);
+      count = local.count;
+      resetAt = local.resetAt;
     }
 
-    record.count += 1;
+    const remaining = Math.max(0, maxRequests - count);
+    const resetTime = new Date(resetAt).toISOString();
 
-    const remaining = Math.max(0, maxRequests - record.count);
-    const resetTime = new Date(record.windowStart + windowMs).toISOString();
-
-    if (record.count > maxRequests) {
+    if (count > maxRequests) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - now) / 1000));
       return new Response(
         JSON.stringify({
           error: 'Too many requests',
-          retryAfter: Math.ceil(windowMs / 1000),
+          retryAfter: retryAfterSeconds,
         }),
         {
           status: 429,
@@ -101,7 +135,7 @@ export function rateLimit(options: RateLimitOptions = {}) {
             'X-RateLimit-Limit': String(maxRequests),
             'X-RateLimit-Remaining': '0',
             'X-RateLimit-Reset': resetTime,
-            'Retry-After': String(Math.ceil(windowMs / 1000)),
+            'Retry-After': String(retryAfterSeconds),
           },
         }
       );

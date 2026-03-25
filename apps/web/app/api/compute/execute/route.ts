@@ -4,8 +4,10 @@ import {
   shouldUseControlPlaneFallback,
 } from '@/lib/control-plane';
 import { proxyToPhala } from '@/lib/phala';
+import { createRateLimitedHandler } from '@/lib/rate-limit';
 
-export async function POST(request: Request) {
+const handlePost = createRateLimitedHandler(
+async function POST(request: Request) {
   const body = await request.text();
   let parsed;
   try {
@@ -36,4 +38,10 @@ export async function POST(request: Request) {
       requestPayload: parsed,
     }
   );
+},
+{ scope: 'compute_execute', maxRequests: 20, windowMs: 60_000 }
+);
+
+export async function POST(request: Request) {
+  return handlePost(request);
 }
