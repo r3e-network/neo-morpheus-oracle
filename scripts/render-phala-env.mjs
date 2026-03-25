@@ -8,6 +8,7 @@ import {
 
 const repoRoot = process.cwd();
 const rootEnvPath = path.resolve(repoRoot, '.env');
+const rootEnvLocalPath = path.resolve(repoRoot, '.env.local');
 
 function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {};
@@ -55,12 +56,16 @@ function parseDotEnv(raw) {
 }
 
 async function readLocalEnv() {
-  try {
-    const raw = await fs.readFile(rootEnvPath, 'utf8');
-    return parseDotEnv(raw);
-  } catch {
-    return {};
+  const merged = {};
+  for (const filePath of [rootEnvPath, rootEnvLocalPath]) {
+    try {
+      const raw = await fs.readFile(filePath, 'utf8');
+      Object.assign(merged, parseDotEnv(raw));
+    } catch {
+      // ignore missing env file
+    }
   }
+  return merged;
 }
 
 async function readExistingOutputEnv(filePath) {
