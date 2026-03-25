@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
 import { recordOperationLog } from '@/lib/operation-logs';
+import { createRateLimitedHandler } from '@/lib/rate-limit';
 import {
   getServerSupabaseClient,
   resolveProjectIdBySlug,
@@ -36,7 +37,8 @@ function normalizeHash160(value: unknown) {
   return /^[0-9a-f]{40}$/.test(raw) ? `0x${raw}` : '';
 }
 
-export async function POST(request: Request) {
+const handlePost = createRateLimitedHandler(
+async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const ciphertext = trimString(body?.ciphertext);
   const targetChain = trimString(body?.target_chain || body?.targetChain || 'neo_n3');
@@ -142,4 +144,10 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ error: message }, { status: 500 });
   }
+},
+{ scope: 'confidential_store', maxRequests: 20, windowMs: 60_000 }
+);
+
+export async function POST(request: Request) {
+  return handlePost(request);
 }

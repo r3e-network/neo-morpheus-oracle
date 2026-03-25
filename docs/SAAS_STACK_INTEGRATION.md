@@ -29,6 +29,9 @@ This repository already uses or is prepared to use the following managed service
 - Phala worker request guards:
   - [workers/phala-worker/src/platform/upstash.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/phala-worker/src/platform/upstash.js)
   - [workers/phala-worker/src/platform/request-guards.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/phala-worker/src/platform/request-guards.js)
+- Web app shared rate limit fallback:
+  - [apps/web/lib/upstash.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/lib/upstash.ts)
+  - [apps/web/lib/rate-limit.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/lib/rate-limit.ts)
 - Cloudflare control plane env template already includes Upstash:
   - [deploy/cloudflare/morpheus-control-plane/vars.example.env](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/vars.example.env)
 
@@ -94,7 +97,10 @@ Recommended for sourcemaps and release management:
 
 ### Checkly
 
-Not yet deployed from this repo, but recommended for ongoing synthetic verification.
+Scaffolded monitoring definitions live in:
+
+- [monitoring/checkly/README.md](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/checkly/README.md)
+- [monitoring/checkly/checks.example.json](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/checkly/checks.example.json)
 
 Needed if you want Codex to wire deployment automation for browser/API checks:
 

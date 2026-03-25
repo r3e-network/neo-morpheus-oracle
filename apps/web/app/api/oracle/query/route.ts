@@ -6,6 +6,7 @@ import {
 import { resolveProviderAwarePayload } from '@/lib/provider-configs';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { proxyToPhala } from '@/lib/phala';
+import { createRateLimitedHandler } from '@/lib/rate-limit';
 
 function badRequest(message: string, status = 400) {
   return Response.json({ error: message }, { status });
@@ -15,7 +16,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-export async function POST(request: Request) {
+const handlePost = createRateLimitedHandler(
+async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   if (!isPlainObject(body)) {
     await recordOperationLog({
@@ -75,4 +77,10 @@ export async function POST(request: Request) {
     });
     return badRequest(error instanceof Error ? error.message : String(error));
   }
+},
+{ scope: 'oracle_query', maxRequests: 30, windowMs: 60_000 }
+);
+
+export async function POST(request: Request) {
+  return handlePost(request);
 }
