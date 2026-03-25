@@ -1,39 +1,52 @@
+import { WorkflowEntrypoint } from './workflow-runtime.mjs';
+
 const JOB_ROUTE_CONFIG = {
   '/oracle/query': {
+    delivery: 'queue',
     queue: 'oracle_request',
     binding: 'MORPHEUS_ORACLE_REQUEST_QUEUE',
   },
   '/oracle/smart-fetch': {
+    delivery: 'queue',
     queue: 'oracle_request',
     binding: 'MORPHEUS_ORACLE_REQUEST_QUEUE',
   },
   '/compute/execute': {
+    delivery: 'queue',
     queue: 'oracle_request',
     binding: 'MORPHEUS_ORACLE_REQUEST_QUEUE',
   },
   '/neodid/bind': {
+    delivery: 'queue',
     queue: 'oracle_request',
     binding: 'MORPHEUS_ORACLE_REQUEST_QUEUE',
   },
   '/neodid/action-ticket': {
+    delivery: 'queue',
     queue: 'oracle_request',
     binding: 'MORPHEUS_ORACLE_REQUEST_QUEUE',
   },
   '/neodid/recovery-ticket': {
+    delivery: 'queue',
     queue: 'oracle_request',
     binding: 'MORPHEUS_ORACLE_REQUEST_QUEUE',
   },
   '/feeds/tick': {
+    delivery: 'queue',
     queue: 'feed_tick',
     binding: 'MORPHEUS_FEED_TICK_QUEUE',
   },
   '/callbacks/broadcast': {
+    delivery: 'workflow',
     queue: 'callback_broadcast',
-    binding: 'MORPHEUS_CALLBACK_BROADCAST_QUEUE',
+    workflowBinding: 'CALLBACK_BROADCAST_WORKFLOW',
+    workflowName: 'callback_broadcast',
   },
   '/automation/execute': {
+    delivery: 'workflow',
     queue: 'automation_execute',
-    binding: 'MORPHEUS_AUTOMATION_EXECUTE_QUEUE',
+    workflowBinding: 'AUTOMATION_EXECUTE_WORKFLOW',
+    workflowName: 'automation_execute',
   },
 };
 
@@ -57,6 +70,14 @@ const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'dead_lettered', '
 const DEFAULT_REQUEUE_LIMIT = 50;
 const REQUEUE_GRACE_MS = 60_000;
 const DEFAULT_STALE_PROCESSING_MS = 10 * 60_000;
+const ACTIVE_WORKFLOW_STATUSES = new Set([
+  'queued',
+  'running',
+  'paused',
+  'waiting',
+  'waitingforpause',
+]);
+const SUCCESSFUL_WORKFLOW_STATUSES = new Set(['complete']);
 
 function json(status, body, headers = {}) {
   return new Response(JSON.stringify(body), {
@@ -174,6 +195,70 @@ function resolveJobMetadata(routePath, payload) {
   };
 }
 
+function isWorkflowBindingAvailable(env, bindingName) {
+  const binding = env?.[bindingName];
+  return Boolean(binding && typeof binding.create === 'function' && typeof binding.get === 'function');
+}
+
+function isWorkflowRouteConfig(config) {
+  return config?.delivery === 'workflow';
+}
+
+function normalizeWorkflowStatus(details) {
+  const raw =
+    typeof details === 'string'
+      ? details
+      : typeof details?.status === 'string'
+        ? details.status
+        : '';
+  return raw.toLowerCase().replace(/[^a-z]/g, '');
+}
+
+async function loadWorkflowInstanceDetails(env, jobConfig, instanceId) {
+  if (!isWorkflowRouteConfig(jobConfig)) return null;
+  if (!isWorkflowBindingAvailable(env, jobConfig.workflowBinding)) return null;
+  const binding = env[jobConfig.workflowBinding];
+  const instance = await binding.get(instanceId);
+  return {
+    id: instance.id,
+    details: typeof instance.status === 'function' ? await instance.status() : null,
+  };
+}
+
+function buildWorkflowInstanceId(job, jobConfig) {
+  const dispatchCount = Math.max(
+    Number(job?.metadata?.workflow_dispatch_count || 0) + 1,
+    1
+  );
+  return `${jobConfig.workflowName}:${job.network}:${job.id}:${dispatchCount}`;
+}
+
+async function dispatchWorkflowInstance(env, job, jobConfig) {
+  if (!jobConfig?.workflowBinding || !jobConfig?.workflowName) {
+    throw new Error(`route ${job.route} is not configured for workflows`);
+  }
+  const binding = env[jobConfig.workflowBinding];
+  if (!binding || typeof binding.create !== 'function') {
+    throw new Error(`workflow binding ${jobConfig.workflowBinding} is not configured`);
+  }
+  const instanceId = buildWorkflowInstanceId(job, jobConfig);
+  const instance = await binding.create({
+    id: instanceId,
+    params: {
+      job_id: job.id,
+      network: job.network,
+      payload: job.payload || {},
+    },
+  });
+  return {
+    id: instance.id,
+    details: typeof instance.status === 'function' ? await instance.status() : null,
+    workflow_binding: jobConfig.workflowBinding,
+    workflow_name: jobConfig.workflowName,
+    workflow_dispatch_count: Math.max(Number(job?.metadata?.workflow_dispatch_count || 0) + 1, 1),
+  };
+}
+
 function validateAuth(request, env) {
   const configured = trimString(
     env.MORPHEUS_CONTROL_PLANE_API_KEY || env.MORPHEUS_OPERATOR_API_KEY
@@ -277,7 +362,7 @@ async function loadJob(env, jobId, network) {
 async function listRecoverableJobs(env, network, limit, staleProcessingMs) {
   const response = await supabaseFetch(
     env,
-    `/morpheus_control_plane_jobs?network=eq.${network}&select=*&status=in.(queued,processing)&order=created_at.asc&limit=${limit}`
+    `/morpheus_control_plane_jobs?network=eq.${network}&select=*&status=in.(queued,processing,failed,dispatched)&order=created_at.asc&limit=${limit}`
   );
   if (!response.ok) {
     throw new Error(`recoverable job list failed: ${response.status} ${await response.text()}`);
@@ -286,6 +371,8 @@ async function listRecoverableJobs(env, network, limit, staleProcessingMs) {
   const nowMs = Date.now();
   return (Array.isArray(rows) ? rows : []).filter((job) => {
     const status = normalizeJobStatus(job.status);
+    const jobConfig = JOB_ROUTE_CONFIG[job.route];
+    const workflowManaged = isWorkflowRouteConfig(jobConfig);
     if (status === 'queued') {
       const runAfterMs = parseTimestampMs(job.run_after);
       const updatedMs = parseTimestampMs(job.updated_at);
@@ -295,6 +382,16 @@ async function listRecoverableJobs(env, network, limit, staleProcessingMs) {
     }
     if (status === 'processing') {
       return isStaleProcessing(job, nowMs, staleProcessingMs);
+    }
+    if (status === 'failed' && workflowManaged) {
+      const updatedMs = parseTimestampMs(job.updated_at);
+      if (updatedMs && nowMs - updatedMs < REQUEUE_GRACE_MS) return false;
+      return true;
+    }
+    if (status === 'dispatched' && workflowManaged) {
+      const updatedMs = parseTimestampMs(job.updated_at);
+      if (!updatedMs) return false;
+      return nowMs - updatedMs >= staleProcessingMs;
     }
     return false;
   });
@@ -314,6 +411,98 @@ async function requeueJob(env, job) {
     throw new Error(`route ${job.route} is not configured`);
   }
   const nowIso = new Date().toISOString();
+  if (isWorkflowRouteConfig(jobConfig)) {
+    const existingWorkflowInstanceId = trimString(job?.metadata?.workflow_instance_id || '');
+    if (existingWorkflowInstanceId) {
+      try {
+        const existingWorkflow = await loadWorkflowInstanceDetails(
+          env,
+          jobConfig,
+          existingWorkflowInstanceId
+        );
+        const workflowStatus = normalizeWorkflowStatus(existingWorkflow?.details);
+        if (ACTIVE_WORKFLOW_STATUSES.has(workflowStatus)) {
+          const patchedStatus = workflowStatus === 'queued' ? 'dispatched' : 'processing';
+          await patchJob(env, job.id, job.network, {
+            status: patchedStatus,
+            error: null,
+            metadata: {
+              ...(job.metadata || {}),
+              workflow_name: jobConfig.workflowName,
+              workflow_binding: jobConfig.workflowBinding,
+              workflow_instance_id: existingWorkflow.id,
+              workflow_status: existingWorkflow.details || null,
+              workflow_last_checked_at: nowIso,
+            },
+          });
+          return {
+            action: 'workflow_active',
+            workflow_instance_id: existingWorkflow.id,
+            workflow_status: existingWorkflow.details || null,
+          };
+        }
+        if (SUCCESSFUL_WORKFLOW_STATUSES.has(workflowStatus)) {
+          await patchJob(env, job.id, job.network, {
+            status: 'succeeded',
+            result:
+              existingWorkflow?.details &&
+              typeof existingWorkflow.details === 'object' &&
+              'output' in existingWorkflow.details
+                ? existingWorkflow.details.output
+                : job.result || null,
+            error: null,
+            completed_at: nowIso,
+            metadata: {
+              ...(job.metadata || {}),
+              workflow_name: jobConfig.workflowName,
+              workflow_binding: jobConfig.workflowBinding,
+              workflow_instance_id: existingWorkflow.id,
+              workflow_status: existingWorkflow.details || null,
+              workflow_last_checked_at: nowIso,
+            },
+          });
+          return {
+            action: 'workflow_complete',
+            workflow_instance_id: existingWorkflow.id,
+            workflow_status: existingWorkflow.details || null,
+          };
+        }
+      } catch (error) {
+        job = {
+          ...job,
+          metadata: {
+            ...(job.metadata || {}),
+            workflow_status_check_error: error instanceof Error ? error.message : String(error),
+          },
+        };
+      }
+    }
+
+    const workflow = await dispatchWorkflowInstance(env, job, jobConfig);
+    await patchJob(env, job.id, job.network, {
+      status: 'dispatched',
+      error: null,
+      run_after: null,
+      started_at: null,
+      completed_at: null,
+      metadata: {
+        ...(job.metadata || {}),
+        last_requeued_at: nowIso,
+        requeue_source: 'control-plane-recover',
+        workflow_name: workflow.workflow_name,
+        workflow_binding: workflow.workflow_binding,
+        workflow_instance_id: workflow.id,
+        workflow_status: workflow.details || null,
+        workflow_dispatch_count: workflow.workflow_dispatch_count,
+      },
+    });
+    return {
+      action: 'workflow_redispatched',
+      workflow_instance_id: workflow.id,
+      workflow_status: workflow.details || null,
+    };
+  }
+
   await patchJob(env, job.id, job.network, {
     status: 'dispatched',
     error: null,
@@ -339,6 +528,9 @@ async function requeueJob(env, job) {
     created_at: job.created_at,
     requeued_at: nowIso,
   });
+  return {
+    action: 'queue_requeued',
+  };
 }
 
 function getExecutionPlaneConfig(env, network) {
@@ -693,211 +885,6 @@ async function processExecutionJob(message, env) {
   }
 }
 
-async function processAutomationExecuteJob(message, env) {
-  const body = message.body && typeof message.body === 'object' ? message.body : {};
-  const jobId = trimString(body.job_id);
-  const network = trimString(body.network) === 'mainnet' ? 'mainnet' : 'testnet';
-  if (!jobId) {
-    message.ack();
-    return;
-  }
-  const job = await loadJob(env, jobId, network);
-  if (!job) {
-    message.ack();
-    return;
-  }
-  const nowMs = Date.now();
-  const staleProcessingMs = resolveStaleProcessingMs(env);
-  const jobStatus = normalizeJobStatus(job.status);
-  if (TERMINAL_JOB_STATUSES.has(jobStatus)) {
-    message.ack();
-    return;
-  }
-  if (jobStatus === 'processing' && !isStaleProcessing(job, nowMs, staleProcessingMs)) {
-    message.ack();
-    return;
-  }
-  if (jobStatus === 'queued') {
-    const runAfterMs = parseTimestampMs(job.run_after);
-    if (runAfterMs && runAfterMs > nowMs) {
-      const delaySeconds = Math.min(Math.max(Math.ceil((runAfterMs - nowMs) / 1000), 1), 300);
-      message.retry({ delaySeconds });
-      return;
-    }
-  }
-  const attempts = Number(message.attempts || 1);
-  await patchJob(env, jobId, network, {
-    status: 'processing',
-    retry_count: Math.max(attempts - 1, 0),
-    started_at: job.started_at || new Date().toISOString(),
-  }).catch(() => null);
-
-  const automationId = trimString(job.payload?.automation_id || job.payload?.id || '');
-  if (!automationId) {
-    await patchJob(env, jobId, network, {
-      status: 'failed',
-      error: 'automation_id is required',
-      completed_at: new Date().toISOString(),
-    }).catch(() => null);
-    message.ack();
-    return;
-  }
-
-  try {
-    const signer = resolveNeoN3BackendSigner(env, network);
-    const result = await callAppBackend(env, '/api/internal/control-plane/automation-execute', {
-      automation_id: automationId,
-      network,
-      ...signer,
-    });
-    if (result.ok) {
-      await patchJob(env, jobId, network, {
-        status: 'succeeded',
-        result: result.body,
-        error: null,
-        completed_at: new Date().toISOString(),
-        metadata: {
-          ...(job.metadata || {}),
-          backend_status: result.status,
-          backend_url: result.backend_url,
-        },
-      }).catch(() => null);
-      message.ack();
-      return;
-    }
-
-    if (!isRetryableStatus(result.status)) {
-      await patchJob(env, jobId, network, {
-        status: 'failed',
-        result: result.body,
-        error:
-          trimString(result.body?.error || result.body?.message || '') ||
-          `automation execution failed with status ${result.status}`,
-        completed_at: new Date().toISOString(),
-      }).catch(() => null);
-      message.ack();
-      return;
-    }
-
-    const delaySeconds = computeRetryDelaySeconds(attempts, env);
-    await patchJob(env, jobId, network, {
-      status: 'queued',
-      error:
-        trimString(result.body?.error || result.body?.message || '') ||
-        `automation execution temporarily failed with status ${result.status}`,
-      retry_count: attempts,
-      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-    }).catch(() => null);
-    message.retry({ delaySeconds });
-  } catch (error) {
-    const delaySeconds = computeRetryDelaySeconds(attempts, env);
-    await patchJob(env, jobId, network, {
-      status: 'queued',
-      error: error instanceof Error ? error.message : String(error),
-      retry_count: attempts,
-      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-    }).catch(() => null);
-    message.retry({ delaySeconds });
-  }
-}
-
-async function processCallbackBroadcastJob(message, env) {
-  const body = message.body && typeof message.body === 'object' ? message.body : {};
-  const jobId = trimString(body.job_id);
-  const network = trimString(body.network) === 'mainnet' ? 'mainnet' : 'testnet';
-  if (!jobId) {
-    message.ack();
-    return;
-  }
-  const job = await loadJob(env, jobId, network);
-  if (!job) {
-    message.ack();
-    return;
-  }
-  const nowMs = Date.now();
-  const staleProcessingMs = resolveStaleProcessingMs(env);
-  const jobStatus = normalizeJobStatus(job.status);
-  if (TERMINAL_JOB_STATUSES.has(jobStatus)) {
-    message.ack();
-    return;
-  }
-  if (jobStatus === 'processing' && !isStaleProcessing(job, nowMs, staleProcessingMs)) {
-    message.ack();
-    return;
-  }
-  if (jobStatus === 'queued') {
-    const runAfterMs = parseTimestampMs(job.run_after);
-    if (runAfterMs && runAfterMs > nowMs) {
-      const delaySeconds = Math.min(Math.max(Math.ceil((runAfterMs - nowMs) / 1000), 1), 300);
-      message.retry({ delaySeconds });
-      return;
-    }
-  }
-  const attempts = Number(message.attempts || 1);
-  await patchJob(env, jobId, network, {
-    status: 'processing',
-    retry_count: Math.max(attempts - 1, 0),
-    started_at: job.started_at || new Date().toISOString(),
-  }).catch(() => null);
-
-  try {
-    const signer = resolveNeoN3BackendSigner(env, network);
-    const result = await callAppBackend(env, '/api/internal/control-plane/callback-broadcast', {
-      ...job.payload,
-      network,
-      ...signer,
-    });
-    if (result.ok) {
-      await patchJob(env, jobId, network, {
-        status: 'succeeded',
-        result: result.body,
-        error: null,
-        completed_at: new Date().toISOString(),
-        metadata: {
-          ...(job.metadata || {}),
-          backend_status: result.status,
-          backend_url: result.backend_url,
-        },
-      }).catch(() => null);
-      message.ack();
-      return;
-    }
-
-    if (!isRetryableStatus(result.status)) {
-      await patchJob(env, jobId, network, {
-        status: 'failed',
-        result: result.body,
-        error:
-          trimString(result.body?.error || result.body?.message || '') ||
-          `callback broadcast failed with status ${result.status}`,
-        completed_at: new Date().toISOString(),
-      }).catch(() => null);
-      message.ack();
-      return;
-    }
-
-    const delaySeconds = computeRetryDelaySeconds(attempts, env);
-    await patchJob(env, jobId, network, {
-      status: 'queued',
-      error:
-        trimString(result.body?.error || result.body?.message || '') ||
-        `callback broadcast temporarily failed with status ${result.status}`,
-      retry_count: attempts,
-      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-    }).catch(() => null);
-    message.retry({ delaySeconds });
-  } catch (error) {
-    const delaySeconds = computeRetryDelaySeconds(attempts, env);
-    await patchJob(env, jobId, network, {
-      status: 'queued',
-      error: error instanceof Error ? error.message : String(error),
-      retry_count: attempts,
-      run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-    }).catch(() => null);
-    message.retry({ delaySeconds });
-  }
-}
-
 async function processFeedTickJob(message, env) {
   const body = message.body && typeof message.body === 'object' ? message.body : {};
   const jobId = trimString(body.job_id);
@@ -1009,6 +996,196 @@ async function processFeedTickJob(message, env) {
   }
 }
 
+export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
+  async run(event, step) {
+    const payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
+    const jobId = trimString(payload.job_id || '');
+    const network = trimString(payload.network) === 'mainnet' ? 'mainnet' : 'testnet';
+    if (!jobId) {
+      throw new Error('job_id is required');
+    }
+
+    const job = await step.do('load callback broadcast job', async () => loadJob(this.env, jobId, network));
+    if (!job) {
+      throw new Error(`job not found: ${jobId}`);
+    }
+
+    await step.do('mark callback broadcast processing', async () =>
+      patchJob(this.env, jobId, network, {
+        status: 'processing',
+        error: null,
+        started_at: job.started_at || new Date().toISOString(),
+        metadata: {
+          ...(job.metadata || {}),
+          workflow_name: 'callback_broadcast',
+          workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
+          workflow_runtime: 'cloudflare-workflows',
+        },
+      })
+    );
+
+    try {
+      const signer = resolveNeoN3BackendSigner(this.env, network);
+      const result = await step.do(
+        'execute callback broadcast',
+        {
+          retries: { limit: 5, delay: '30 seconds', backoff: 'exponential' },
+        },
+        async () =>
+          callAppBackend(this.env, '/api/internal/control-plane/callback-broadcast', {
+            ...(job.payload || {}),
+            network,
+            ...signer,
+          })
+      );
+
+      if (!result.ok) {
+        throw new Error(
+          trimString(result.body?.error || result.body?.message || '') ||
+            `callback broadcast failed with status ${result.status}`
+        );
+      }
+
+      await step.do('mark callback broadcast success', async () =>
+        patchJob(this.env, jobId, network, {
+          status: 'succeeded',
+          result: result.body,
+          error: null,
+          completed_at: new Date().toISOString(),
+          metadata: {
+            ...(job.metadata || {}),
+            backend_status: result.status,
+            backend_url: result.backend_url,
+            workflow_name: 'callback_broadcast',
+            workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
+            workflow_runtime: 'cloudflare-workflows',
+          },
+        })
+      );
+
+      return {
+        ok: true,
+        workflow: 'callback_broadcast',
+        job_id: jobId,
+        network,
+        result: result.body,
+      };
+    } catch (error) {
+      await step.do('mark callback broadcast failure', async () =>
+        patchJob(this.env, jobId, network, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+          completed_at: new Date().toISOString(),
+          metadata: {
+            ...(job.metadata || {}),
+            workflow_name: 'callback_broadcast',
+            workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
+            workflow_runtime: 'cloudflare-workflows',
+          },
+        })
+      );
+      throw error;
+    }
+  }
+}
+
+export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
+  async run(event, step) {
+    const payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
+    const jobId = trimString(payload.job_id || '');
+    const network = trimString(payload.network) === 'mainnet' ? 'mainnet' : 'testnet';
+    if (!jobId) {
+      throw new Error('job_id is required');
+    }
+
+    const job = await step.do('load automation execute job', async () => loadJob(this.env, jobId, network));
+    if (!job) {
+      throw new Error(`job not found: ${jobId}`);
+    }
+
+    await step.do('mark automation execute processing', async () =>
+      patchJob(this.env, jobId, network, {
+        status: 'processing',
+        error: null,
+        started_at: job.started_at || new Date().toISOString(),
+        metadata: {
+          ...(job.metadata || {}),
+          workflow_name: 'automation_execute',
+          workflow_binding: 'AUTOMATION_EXECUTE_WORKFLOW',
+          workflow_runtime: 'cloudflare-workflows',
+        },
+      })
+    );
+
+    try {
+      const automationId = trimString(job.payload?.automation_id || job.payload?.id || '');
+      if (!automationId) {
+        throw new Error('automation_id is required');
+      }
+      const signer = resolveNeoN3BackendSigner(this.env, network);
+      const result = await step.do(
+        'execute automation queueing',
+        {
+          retries: { limit: 5, delay: '30 seconds', backoff: 'exponential' },
+        },
+        async () =>
+          callAppBackend(this.env, '/api/internal/control-plane/automation-execute', {
+            automation_id: automationId,
+            network,
+            ...signer,
+          })
+      );
+
+      if (!result.ok) {
+        throw new Error(
+          trimString(result.body?.error || result.body?.message || '') ||
+            `automation execute failed with status ${result.status}`
+        );
+      }
+
+      await step.do('mark automation execute success', async () =>
+        patchJob(this.env, jobId, network, {
+          status: 'succeeded',
+          result: result.body,
+          error: null,
+          completed_at: new Date().toISOString(),
+          metadata: {
+            ...(job.metadata || {}),
+            backend_status: result.status,
+            backend_url: result.backend_url,
+            workflow_name: 'automation_execute',
+            workflow_binding: 'AUTOMATION_EXECUTE_WORKFLOW',
+            workflow_runtime: 'cloudflare-workflows',
+          },
+        })
+      );
+
+      return {
+        ok: true,
+        workflow: 'automation_execute',
+        job_id: jobId,
+        network,
+        result: result.body,
+      };
+    } catch (error) {
+      await step.do('mark automation execute failure', async () =>
+        patchJob(this.env, jobId, network, {
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+          completed_at: new Date().toISOString(),
+          metadata: {
+            ...(job.metadata || {}),
+            workflow_name: 'automation_execute',
+            workflow_binding: 'AUTOMATION_EXECUTE_WORKFLOW',
+            workflow_runtime: 'cloudflare-workflows',
+          },
+        })
+      );
+      throw error;
+    }
+  }
+}
+
 export default {
   async fetch(request, env) {
     const authFailure = validateAuth(request, env);
@@ -1032,8 +1209,16 @@ export default {
         queues: {
           oracle_request: Boolean(env.MORPHEUS_ORACLE_REQUEST_QUEUE),
           feed_tick: Boolean(env.MORPHEUS_FEED_TICK_QUEUE),
-          callback_broadcast: Boolean(env.MORPHEUS_CALLBACK_BROADCAST_QUEUE),
-          automation_execute: Boolean(env.MORPHEUS_AUTOMATION_EXECUTE_QUEUE),
+        },
+        workflows: {
+          callback_broadcast: isWorkflowBindingAvailable(env, 'CALLBACK_BROADCAST_WORKFLOW'),
+          automation_execute: isWorkflowBindingAvailable(env, 'AUTOMATION_EXECUTE_WORKFLOW'),
+        },
+        delivery: {
+          oracle_request: 'queue',
+          feed_tick: 'queue',
+          callback_broadcast: 'workflow',
+          automation_execute: 'workflow',
         },
       });
     }
@@ -1047,15 +1232,24 @@ export default {
         const staleProcessingMs = resolveStaleProcessingMs(env);
         const jobs = await listRecoverableJobs(env, routing.network, limit, staleProcessingMs);
         const requeued = [];
+        const skipped = [];
         const failed = [];
         for (const job of jobs) {
           try {
-            await requeueJob(env, job);
-            requeued.push({
+            const outcome = await requeueJob(env, job);
+            const entry = {
               id: job.id,
               route: job.route,
               previous_status: job.status,
-            });
+              action: outcome?.action || 'queue_requeued',
+              workflow_instance_id: outcome?.workflow_instance_id || null,
+              workflow_status: outcome?.workflow_status || null,
+            };
+            if (entry.action === 'queue_requeued' || entry.action === 'workflow_redispatched') {
+              requeued.push(entry);
+            } else {
+              skipped.push(entry);
+            }
           } catch (error) {
             failed.push({
               id: job.id,
@@ -1069,8 +1263,10 @@ export default {
           network: routing.network,
           scanned: jobs.length,
           requeued_count: requeued.length,
+          skipped_count: skipped.length,
           failed_count: failed.length,
           requeued,
+          skipped,
           failed,
         });
       } catch (error) {
@@ -1083,6 +1279,28 @@ export default {
       try {
         const job = await loadJob(env, jobMatch[1], routing.network);
         if (!job) return json(404, { error: 'job not found' });
+        const jobConfig = JOB_ROUTE_CONFIG[job.route];
+        if (
+          job?.metadata?.workflow_instance_id &&
+          isWorkflowRouteConfig(jobConfig)
+        ) {
+          try {
+            const workflow = await loadWorkflowInstanceDetails(
+              env,
+              jobConfig,
+              job.metadata.workflow_instance_id
+            );
+            return json(200, {
+              ...job,
+              workflow: {
+                instance_id: workflow.id,
+                status: workflow.details,
+              },
+            });
+          } catch {
+            // fall back to stored job only
+          }
+        }
         return json(200, job);
       } catch (error) {
         return json(500, { error: error instanceof Error ? error.message : String(error) });
@@ -1126,6 +1344,7 @@ export default {
         ingress_route: url.pathname,
         source: 'cloudflare-control-plane',
         client_ip: getClientIp(request),
+        delivery_mode: jobConfig.delivery || 'queue',
       },
       retry_count: 0,
       created_at: createdAt,
@@ -1134,21 +1353,38 @@ export default {
 
     try {
       const inserted = await insertJob(env, baseRecord);
-      await enqueueJob(env, jobConfig.binding, {
-        job_id: jobId,
-        network: routing.network,
-        queue: jobConfig.queue,
-        route: routing.routePath,
-        payload,
-        target_chain: metadata.target_chain,
-        project_slug: metadata.project_slug,
-        request_id: metadata.request_id,
-        created_at: createdAt,
-      });
-      const updated =
-        (await patchJob(env, jobId, routing.network, {
-          status: 'dispatched',
-        }).catch(() => null)) || inserted;
+      let updated = inserted;
+      if (isWorkflowRouteConfig(jobConfig)) {
+        const workflow = await dispatchWorkflowInstance(env, inserted, jobConfig);
+        updated =
+          (await patchJob(env, jobId, routing.network, {
+            status: 'dispatched',
+            metadata: {
+              ...(inserted.metadata || {}),
+              workflow_name: workflow.workflow_name,
+              workflow_binding: workflow.workflow_binding,
+              workflow_instance_id: workflow.id,
+              workflow_status: workflow.details || null,
+              workflow_dispatch_count: workflow.workflow_dispatch_count,
+            },
+          }).catch(() => null)) || inserted;
+      } else {
+        await enqueueJob(env, jobConfig.binding, {
+          job_id: jobId,
+          network: routing.network,
+          queue: jobConfig.queue,
+          route: routing.routePath,
+          payload,
+          target_chain: metadata.target_chain,
+          project_slug: metadata.project_slug,
+          request_id: metadata.request_id,
+          created_at: createdAt,
+        });
+        updated =
+          (await patchJob(env, jobId, routing.network, {
+            status: 'dispatched',
+          }).catch(() => null)) || inserted;
+      }
       return json(202, updated);
     } catch (error) {
       await patchJob(env, jobId, routing.network, {
@@ -1171,14 +1407,6 @@ export default {
       }
       if (batch.queue === 'morpheus-feed-tick') {
         await processFeedTickJob(message, env);
-        continue;
-      }
-      if (batch.queue === 'morpheus-callback-broadcast') {
-        await processCallbackBroadcastJob(message, env);
-        continue;
-      }
-      if (batch.queue === 'morpheus-automation-execute') {
-        await processAutomationExecuteJob(message, env);
         continue;
       }
       message.ack();

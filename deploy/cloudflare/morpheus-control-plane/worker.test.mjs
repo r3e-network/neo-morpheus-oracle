@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import worker from './worker.mjs';
+import worker, {
+  AutomationExecuteWorkflow,
+  CallbackBroadcastWorkflow,
+} from './worker.mjs';
 
 function createEnv(overrides = {}) {
   const oracleMessages = [];
   const feedMessages = [];
-  const callbackMessages = [];
-  const automationMessages = [];
   return {
     SUPABASE_URL: 'https://supabase.test',
     SUPABASE_SECRET_KEY: 'service-role-key',
@@ -28,18 +29,6 @@ function createEnv(overrides = {}) {
       sent: feedMessages,
       async send(message) {
         feedMessages.push(message);
-      },
-    },
-    MORPHEUS_CALLBACK_BROADCAST_QUEUE: {
-      sent: callbackMessages,
-      async send(message) {
-        callbackMessages.push(message);
-      },
-    },
-    MORPHEUS_AUTOMATION_EXECUTE_QUEUE: {
-      sent: automationMessages,
-      async send(message) {
-        automationMessages.push(message);
       },
     },
     ...overrides,
@@ -166,6 +155,48 @@ function createQueueMessage(body, attempts = 1) {
     retry(options = {}) {
       this.retried = true;
       this.retryDelaySeconds = options.delaySeconds || null;
+    },
+  };
+}
+
+function createWorkflowBinding(initialStatus = { status: 'queued' }) {
+  const created = [];
+  const instances = new Map();
+  return {
+    created,
+    async create({ id, params }) {
+      const details = { ...initialStatus };
+      instances.set(id, details);
+      created.push({ id, params, details });
+      return {
+        id,
+        async status() {
+          return instances.get(id);
+        },
+      };
+    },
+    async get(id) {
+      if (!instances.has(id)) {
+        throw new Error(`workflow instance not found: ${id}`);
+      }
+      return {
+        id,
+        async status() {
+          return instances.get(id);
+        },
+      };
+    },
+    setStatus(id, details) {
+      instances.set(id, { ...(instances.get(id) || {}), ...details });
+    },
+  };
+}
+
+function createWorkflowStep() {
+  return {
+    async do(_label, optionsOrCallback, maybeCallback) {
+      const callback = typeof optionsOrCallback === 'function' ? optionsOrCallback : maybeCallback;
+      return callback();
     },
   };
 }
@@ -310,7 +341,41 @@ test('oracle_request consumer falls back to the next execution runtime when the 
   assert.equal(state.jobs.get('job-oracle-fallback')?.status, 'succeeded');
 });
 
-test('callback_broadcast consumer forwards jobs to app backend callback route', async () => {
+test('control plane dispatches callback_broadcast through workflows and persists instance metadata', async () => {
+  const callbackWorkflow = createWorkflowBinding({ status: 'queued' });
+  const env = createEnv({
+    CALLBACK_BROADCAST_WORKFLOW: callbackWorkflow,
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/callbacks/broadcast', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        target_chain: 'neo_n3',
+        request_id: '42',
+        success: true,
+        result: '{"ok":true}',
+        verification_signature: 'abcd',
+      }),
+    }),
+    env
+  );
+
+  assert.equal(response.status, 202);
+  const body = await response.json();
+  assert.equal(callbackWorkflow.created.length, 1);
+  assert.equal(body.status, 'dispatched');
+  assert.equal(body.metadata.workflow_name, 'callback_broadcast');
+  assert.match(String(body.metadata.workflow_instance_id || ''), /^callback_broadcast:testnet:/);
+});
+
+test('callback_broadcast workflow executes app backend callback route', async () => {
   const env = createEnv();
   const state = createState();
   global.fetch = createFetchMock(state);
@@ -331,21 +396,25 @@ test('callback_broadcast consumer forwards jobs to app backend callback route', 
     metadata: {},
   });
 
-  const message = createQueueMessage({
-    job_id: 'job-callback',
-    network: 'testnet',
-    queue: 'callback_broadcast',
-  });
-  await worker.queue({ queue: 'morpheus-callback-broadcast', messages: [message] }, env);
+  const workflow = new CallbackBroadcastWorkflow({}, env);
+  const result = await workflow.run(
+    {
+      payload: {
+        job_id: 'job-callback',
+        network: 'testnet',
+      },
+    },
+    createWorkflowStep()
+  );
 
-  assert.equal(message.acked, true);
+  assert.equal(result.ok, true);
   assert.equal(state.backendCalls.length, 1);
   assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/callback-broadcast');
   assert.equal(state.backendCalls[0].body.wif, 'testnet-updater-wif');
   assert.equal(state.jobs.get('job-callback')?.status, 'succeeded');
 });
 
-test('automation_execute consumer forwards jobs to app backend automation route', async () => {
+test('automation_execute workflow executes app backend automation route', async () => {
   const env = createEnv();
   const state = createState();
   global.fetch = createFetchMock(state);
@@ -362,14 +431,18 @@ test('automation_execute consumer forwards jobs to app backend automation route'
     metadata: {},
   });
 
-  const message = createQueueMessage({
-    job_id: 'job-automation',
-    network: 'testnet',
-    queue: 'automation_execute',
-  });
-  await worker.queue({ queue: 'morpheus-automation-execute', messages: [message] }, env);
+  const workflow = new AutomationExecuteWorkflow({}, env);
+  const result = await workflow.run(
+    {
+      payload: {
+        job_id: 'job-automation',
+        network: 'testnet',
+      },
+    },
+    createWorkflowStep()
+  );
 
-  assert.equal(message.acked, true);
+  assert.equal(result.ok, true);
   assert.equal(state.backendCalls.length, 1);
   assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/automation-execute');
   assert.equal(state.backendCalls[0].body.wif, 'testnet-updater-wif');
@@ -437,6 +510,54 @@ test('jobs/recover requeues stale queued and processing jobs', async () => {
   assert.equal(state.jobs.get('job-stale-processing')?.status, 'dispatched');
   assert.match(String(state.jobs.get('job-old-queued')?.metadata?.last_requeued_at || ''), /\d{4}-\d{2}-\d{2}T/);
   assert.equal(state.jobs.get('job-future')?.status, 'queued');
+});
+
+test('jobs/recover preserves active workflow instances instead of redispatching them', async () => {
+  const callbackWorkflow = createWorkflowBinding({ status: 'running' });
+  const env = createEnv({
+    CALLBACK_BROADCAST_WORKFLOW: callbackWorkflow,
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  const workflowInstanceId = 'callback_broadcast:testnet:job-callback-active:1';
+  callbackWorkflow.setStatus(workflowInstanceId, { status: 'running' });
+  state.jobs.set('job-callback-active', {
+    id: 'job-callback-active',
+    network: 'testnet',
+    queue: 'callback_broadcast',
+    route: '/callbacks/broadcast',
+    status: 'dispatched',
+    payload: {
+      target_chain: 'neo_n3',
+      request_id: '42',
+      success: true,
+    },
+    metadata: {
+      workflow_name: 'callback_broadcast',
+      workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
+      workflow_instance_id: workflowInstanceId,
+      workflow_dispatch_count: 1,
+    },
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/jobs/recover', {
+      method: 'POST',
+      headers: { authorization: 'Bearer control-plane-key' },
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.requeued_count, 0);
+  assert.equal(body.skipped_count, 1);
+  assert.equal(body.skipped[0].action, 'workflow_active');
+  assert.equal(callbackWorkflow.created.length, 0);
+  assert.equal(state.jobs.get('job-callback-active')?.status, 'processing');
 });
 
 test('oracle_request consumer defers queued jobs until run_after', async () => {

@@ -1,88 +1,57 @@
-# Cloudflare Workflows Migration Plan
+# Cloudflare Workflows Cutover
 
-This document captures the recommended next SaaS replacement step for reducing
-custom control-plane orchestration logic.
+This document records the current production design after the control-plane
+workflow cutover.
 
-## Why Workflows
+## Final Split
 
-The current control-plane worker already implements:
+- Cloudflare Queues:
+  - `oracle_request`
+  - `feed_tick`
+- Cloudflare Workflows:
+  - `callback_broadcast`
+  - `automation_execute`
 
-- durable-ish job state in Supabase
-- queue dispatch
-- explicit retry_count / run_after handling
-- stale processing recovery
-- operator-driven `/jobs/recover`
+## Why This Split
 
-Cloudflare Workflows can replace a meaningful subset of this operational
-complexity with:
+Queues remain on the core confidential-execution path because they are already
+simple, fast, and close to the TEE runtime boundary.
 
-- durable step execution
-- persisted execution state
-- built-in retry semantics
-- instance-level observability
+Workflows own the orchestration-heavy lanes because they remove the most custom
+code while improving durability:
 
-Official docs:
+- durable retries
+- persisted instance state
+- per-instance inspection
+- smaller local recovery surface
 
-- https://developers.cloudflare.com/workflows/
-- https://developers.cloudflare.com/workflows/build/workers-api/
-- https://developers.cloudflare.com/workflows/build/trigger-workflows/
-- https://developers.cloudflare.com/workflows/build/rules-of-workflows/
+## What Was Removed
 
-## First migration targets
+The standalone `deploy/cloudflare/morpheus-workflows` scaffold and the old
+queue-based callback/automation consumers were removed. The active design is a
+single control-plane worker with native workflow bindings.
 
-### 1. callback_broadcast
+## Recovery Model
 
-Why first:
+`POST /<network>/jobs/recover` now follows this order for workflow-backed jobs:
 
-- clear terminal success/failure
-- easy to retry safely
-- naturally modeled as a single durable step
+1. inspect the existing workflow instance if one is recorded
+2. keep the existing instance when it is still active
+3. mark the job succeeded when the workflow already completed
+4. create a new workflow instance only when the old one is no longer usable
 
-### 2. automation_execute
+This keeps the control plane simple while avoiding unnecessary duplicate
+dispatch.
 
-Why second:
+## Source Of Truth
 
-- orchestration-heavy
-- already has scheduling / retry semantics
-- reduces custom `run_after` state handling
+- Supabase remains the durable request ledger
+- Cloudflare Workflows are the orchestration runtime
+- Phala CVM remains the confidential execution plane
 
-## Not first
+## Relevant Files
 
-### oracle_request
-
-Do not migrate first.
-
-Reasons:
-
-- it is the core product path
-- touches confidential execution plane
-- highest blast radius
-
-### feed_tick
-
-Do not migrate first.
-
-Reasons:
-
-- already stable enough
-- periodic task is lower value to migrate than callback / automation orchestration
-
-## Current scaffold
-
-First-stage code scaffold:
-
-- [deploy/cloudflare/morpheus-workflows/worker.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-workflows/worker.ts)
-- [deploy/cloudflare/morpheus-workflows/wrangler.example.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-workflows/wrangler.example.toml)
-- [deploy/cloudflare/morpheus-workflows/README.md](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-workflows/README.md)
-
-## Practical next step
-
-Add a feature flag in the existing control-plane worker:
-
-- if disabled: keep current queue path
-- if enabled for selected routes:
-  - create Workflow instance using stable `job_id`
-  - write workflow instance id into existing Supabase job metadata
-  - let Workflow handle retries and step execution
-
-This lets you migrate incrementally without a hard cutover.
+- [deploy/cloudflare/morpheus-control-plane/worker.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/worker.mjs)
+- [deploy/cloudflare/morpheus-control-plane/workflow-runtime.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/workflow-runtime.mjs)
+- [deploy/cloudflare/morpheus-control-plane/wrangler.example.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/wrangler.example.toml)
+- [deploy/cloudflare/morpheus-control-plane/README.md](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/README.md)
