@@ -34,7 +34,7 @@ if (!apiKey || !accountId) {
 }
 
 const options = parseArgs(process.argv.slice(2));
-const response = await fetch('https://api.checklyhq.com/v1/checks', {
+const response = await fetch('https://api.checklyhq.com/v1/checks?limit=100', {
   headers: {
     'X-Checkly-Account': accountId,
     Authorization: `Bearer ${apiKey}`,

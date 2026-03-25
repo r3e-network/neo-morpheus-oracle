@@ -111,7 +111,7 @@ const desiredChecks = [
   },
 ];
 
-const existing = await api('/checks');
+const existing = await api('/checks?limit=100');
 const existingByName = new Map(
   (Array.isArray(existing) ? existing : []).map((check) => [String(check.name || ''), check])
 );
