@@ -38,7 +38,13 @@ These API checks can now be created directly from this repo:
 - `morpheus-oracle-testnet-health`
 - `morpheus-oracle-mainnet-health`
 - `morpheus-oracle-testnet-public-key`
+- `morpheus-oracle-testnet-providers`
+- `morpheus-oracle-testnet-feed-catalog`
+- `morpheus-oracle-testnet-neodid-providers`
 - `morpheus-oracle-mainnet-public-key`
+- `morpheus-oracle-mainnet-providers`
+- `morpheus-oracle-mainnet-feed-catalog`
+- `morpheus-oracle-mainnet-neodid-providers`
 - `morpheus-oracle-testnet-info`
 - `morpheus-oracle-mainnet-info`
 - `morpheus-control-testnet-health-auth-gate`
@@ -46,7 +52,13 @@ These API checks can now be created directly from this repo:
 - `morpheus-edge-testnet-health`
 - `morpheus-edge-mainnet-health`
 - `morpheus-edge-testnet-public-key`
+- `morpheus-edge-testnet-providers`
+- `morpheus-edge-testnet-feed-catalog`
+- `morpheus-edge-testnet-neodid-providers`
 - `morpheus-edge-mainnet-public-key`
+- `morpheus-edge-mainnet-providers`
+- `morpheus-edge-mainnet-feed-catalog`
+- `morpheus-edge-mainnet-neodid-providers`
 - `morpheus-edge-testnet-info`
 - `morpheus-edge-mainnet-info`
 

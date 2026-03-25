@@ -55,6 +55,21 @@ const desiredChecks = [
     expectedStatus: '200',
   },
   {
+    name: 'morpheus-oracle-testnet-providers',
+    url: 'https://oracle.meshmini.app/testnet/providers',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-oracle-testnet-feed-catalog',
+    url: 'https://oracle.meshmini.app/testnet/feeds/catalog',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-oracle-testnet-neodid-providers',
+    url: 'https://oracle.meshmini.app/testnet/neodid/providers',
+    expectedStatus: '200',
+  },
+  {
     name: 'morpheus-oracle-testnet-info',
     url: 'https://oracle.meshmini.app/testnet/info',
     expectedStatus: '200',
@@ -62,6 +77,21 @@ const desiredChecks = [
   {
     name: 'morpheus-oracle-mainnet-public-key',
     url: 'https://oracle.meshmini.app/mainnet/oracle/public-key',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-oracle-mainnet-providers',
+    url: 'https://oracle.meshmini.app/mainnet/providers',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-oracle-mainnet-feed-catalog',
+    url: 'https://oracle.meshmini.app/mainnet/feeds/catalog',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-oracle-mainnet-neodid-providers',
+    url: 'https://oracle.meshmini.app/mainnet/neodid/providers',
     expectedStatus: '200',
   },
   {
@@ -95,6 +125,21 @@ const desiredChecks = [
     expectedStatus: '200',
   },
   {
+    name: 'morpheus-edge-testnet-providers',
+    url: 'https://edge.meshmini.app/testnet/providers',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-testnet-feed-catalog',
+    url: 'https://edge.meshmini.app/testnet/feeds/catalog',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-testnet-neodid-providers',
+    url: 'https://edge.meshmini.app/testnet/neodid/providers',
+    expectedStatus: '200',
+  },
+  {
     name: 'morpheus-edge-testnet-info',
     url: 'https://edge.meshmini.app/testnet/info',
     expectedStatus: '200',
@@ -102,6 +147,21 @@ const desiredChecks = [
   {
     name: 'morpheus-edge-mainnet-public-key',
     url: 'https://edge.meshmini.app/mainnet/oracle/public-key',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-mainnet-providers',
+    url: 'https://edge.meshmini.app/mainnet/providers',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-mainnet-feed-catalog',
+    url: 'https://edge.meshmini.app/mainnet/feeds/catalog',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-mainnet-neodid-providers',
+    url: 'https://edge.meshmini.app/mainnet/neodid/providers',
     expectedStatus: '200',
   },
   {
