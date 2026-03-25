@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 
+import { emitBetterStackOperationLog } from './betterstack-log-sink';
 import {
   getServerSupabaseClient,
   resolveProjectIdBySlug,
@@ -192,6 +193,25 @@ export async function recordOperationLog(input: OperationLogInput) {
       response_payload:
         input.responsePayload === undefined ? null : compactJsonValue(input.responsePayload),
       error: trimString(input.error || '') || null,
+      metadata: compactJsonValue(metadata),
+    });
+
+    emitBetterStackOperationLog({
+      route: input.route,
+      method: input.method.toUpperCase(),
+      category: input.category,
+      network,
+      target_chain: targetChain,
+      project_slug: projectSlug || null,
+      request_id: requestId || null,
+      operation_id: operationId,
+      status:
+        input.httpStatus && input.httpStatus >= 200 && input.httpStatus < 400 ? 'ok' : 'error',
+      http_status: input.httpStatus || null,
+      error: trimString(input.error || '') || null,
+      request_payload: compactJsonValue(input.requestPayload),
+      response_payload:
+        input.responsePayload === undefined ? null : compactJsonValue(input.responsePayload),
       metadata: compactJsonValue(metadata),
     });
 
