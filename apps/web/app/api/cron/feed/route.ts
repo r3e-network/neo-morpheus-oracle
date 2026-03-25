@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   }
 
   if (!appConfig.phalaApiUrl) {
-    const body = { error: 'MORPHEUS_RUNTIME_URL or PHALA_API_URL is not configured' };
+    const body = { error: 'MORPHEUS_RUNTIME_URL is not configured' };
     await recordOperationLog({
       route: '/api/cron/feed',
       method: 'GET',

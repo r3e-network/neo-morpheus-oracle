@@ -802,7 +802,7 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.match(config.phala.apiUrl, /^http:\/\/phala-worker:8080,/);
-    assert.match(config.phala.apiUrl, /https:\/\/morpheus-testnet\.meshmini\.app/);
+    assert.match(config.phala.apiUrl, /https:\/\/oracle\.meshmini\.app\/testnet/);
     assert.match(config.phala.apiUrl, /https:\/\/edge\.meshmini\.app\/testnet/);
   } finally {
     if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;

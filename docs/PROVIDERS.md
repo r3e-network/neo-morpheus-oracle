@@ -78,7 +78,7 @@ Management endpoint:
 
 Recommended production protection:
 
-- set `MORPHEUS_PROVIDER_CONFIG_API_KEY` or a legacy fallback `ADMIN_CONSOLE_API_KEY`
+- set `MORPHEUS_PROVIDER_CONFIG_API_KEY`
 - send it via `x-admin-api-key` or `Authorization: Bearer ...`
 
 The dashboard includes a Provider Configs panel that can manage these records directly.

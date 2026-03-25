@@ -31,14 +31,10 @@ If one of these is wrong, the system usually stops working.
   English: Optional network-scoped runtime URLs when you want explicit mainnet/testnet separation.
   中文：可选的分网络 runtime 地址，用于显式区分 mainnet/testnet。
 
-- legacy `PHALA_API_URL`
-  English: Backward-compatible alias for the runtime URL.
-  中文：runtime 地址的向后兼容旧别名。
-
 - `MORPHEUS_RUNTIME_TOKEN`
 - `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
-  English: Authentication secret for the runtime. Prefer `MORPHEUS_RUNTIME_TOKEN`; older aliases still work.
-  中文：runtime 的鉴权密钥。优先使用 `MORPHEUS_RUNTIME_TOKEN`；旧别名仍兼容。
+  English: Authentication secret for the runtime. Prefer `MORPHEUS_RUNTIME_TOKEN`.
+  中文：runtime 的鉴权密钥。优先使用 `MORPHEUS_RUNTIME_TOKEN`。
 
 ### Edge Hardening / 边缘防护
 
@@ -332,11 +328,11 @@ They do not usually change trust assumptions.
   中文：Oracle 拉取外部数据时的超时。
 
 - `ORACLE_SCRIPT_TIMEOUT_MS`
-  English: Timeout for legacy JS oracle scripts.
+  English: Timeout for JS oracle scripts.
   中文：旧 JS Oracle 脚本的超时。
 
 - `COMPUTE_SCRIPT_TIMEOUT_MS`
-  English: Timeout for legacy JS compute scripts.
+  English: Timeout for JS compute scripts.
   中文：旧 JS Compute 脚本的超时。
 
 - `MORPHEUS_WASM_TIMEOUT_MS`
@@ -418,7 +414,7 @@ These are intentionally left unset in production unless you explicitly want the 
 
 ## Usually Safe To Ignore / 大多数时候你可以忽略
 
-These exist for internal defaults, compatibility, or diagnostics.
+These exist for internal defaults or diagnostics.
 
 这些变量主要是为了兼容、诊断或内部默认值。
 

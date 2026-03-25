@@ -24,7 +24,7 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
         ? [appConfig.phalaApiUrl]
         : [];
   if (candidateUrls.length === 0) {
-    throw new Error('MORPHEUS_RUNTIME_URL or PHALA_API_URL is not configured');
+    throw new Error('MORPHEUS_RUNTIME_URL is not configured');
   }
 
   const explicitTargetChain = trimString(options.target_chain || '');

@@ -67,6 +67,8 @@ export function OverviewTab({ setOutput }: any) {
           `>> Oracle fee: ${requestFee}`,
           `>> Feed pairs tracked: ${recordCount}`,
           `>> Phala app id: ${appId}`,
+          `>> Oracle attestation: ${NETWORKS.selected.oracleAttestationExplorerUrl || 'unpublished'}`,
+          `>> Datafeed attestation: ${NETWORKS.selected.datafeedAttestationExplorerUrl || 'unpublished'}`,
         ].join('\n')
       );
     } catch (error) {
@@ -289,6 +291,51 @@ export function OverviewTab({ setOutput }: any) {
               <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                 {dstack?.client_kind || 'dstack'}{' '}
                 {dstack?.compose_hash ? `· ${String(dstack.compose_hash).slice(0, 12)}...` : ''}
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                  marginTop: '0.75rem',
+                  fontSize: '0.72rem',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {NETWORKS.neo_n3.oracleAttestationExplorerUrl ? (
+                  <a
+                    href={NETWORKS.neo_n3.oracleAttestationExplorerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      color: 'var(--neo-green)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Oracle CVM
+                    <ExternalLink size={12} />
+                  </a>
+                ) : null}
+                {NETWORKS.neo_n3.datafeedAttestationExplorerUrl ? (
+                  <a
+                    href={NETWORKS.neo_n3.datafeedAttestationExplorerUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      color: 'var(--accent-blue)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Datafeed CVM
+                    <ExternalLink size={12} />
+                  </a>
+                ) : null}
               </div>
             </div>
           </div>

@@ -28,7 +28,7 @@ function isRetryableStatus(status: number) {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
-const RUNTIME_URL_ERROR = 'MORPHEUS_RUNTIME_URL or PHALA_API_URL is not configured';
+const RUNTIME_URL_ERROR = 'MORPHEUS_RUNTIME_URL is not configured';
 
 export async function proxyToPhala(
   path: string,

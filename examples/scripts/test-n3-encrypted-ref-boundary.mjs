@@ -98,13 +98,13 @@ async function ensureRequestFeeCredit(
   oracleHash,
   requiredRequests
 ) {
-  const currentCredit = BigInt(
+  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
+  const requiredCredit = requestFee * BigInt(requiredRequests);
+  let currentCredit = BigInt(
     (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
       { type: 'Hash160', value: `0x${account.scriptHash}` },
     ])) || '0'
   );
-  const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee', [])) || '0');
-  const requiredCredit = requestFee * BigInt(requiredRequests);
   if (requestFee <= 0n || currentCredit >= requiredCredit) {
     return {
       request_fee: requestFee.toString(),
@@ -118,36 +118,53 @@ async function ensureRequestFeeCredit(
     networkMagic,
     account,
   });
-  const deficit = requiredCredit - currentCredit;
-  const txid = await gas.invoke('transfer', [
-    sc.ContractParam.hash160(`0x${account.scriptHash}`),
-    sc.ContractParam.hash160(oracleHash),
-    sc.ContractParam.integer(deficit.toString()),
-    sc.ContractParam.any(null),
-  ]);
-  const appLog = await waitForApplicationLog(rpcClient, txid);
-  const execution = appLog?.executions?.[0];
-  const vmState = String(execution?.vmstate || execution?.state || '');
-  assertCondition(
-    vmState.includes('HALT'),
-    `request fee top-up failed: ${execution?.exception || vmState || txid}`
-  );
-
-  const deadline = Date.now() + 60000;
-  while (Date.now() < deadline) {
-    const updatedCredit = BigInt(
+  let totalDeposited = 0n;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    currentCredit = BigInt(
       (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
         { type: 'Hash160', value: `0x${account.scriptHash}` },
       ])) || '0'
     );
-    if (updatedCredit >= requiredCredit) {
+    if (currentCredit >= requiredCredit) {
       return {
         request_fee: requestFee.toString(),
-        current_credit: updatedCredit.toString(),
-        deposit_amount: deficit.toString(),
+        current_credit: currentCredit.toString(),
+        deposit_amount: totalDeposited.toString(),
       };
     }
-    await sleep(2000);
+
+    const deficit = requiredCredit - currentCredit;
+    const txid = await gas.invoke('transfer', [
+      sc.ContractParam.hash160(`0x${account.scriptHash}`),
+      sc.ContractParam.hash160(oracleHash),
+      sc.ContractParam.integer(deficit.toString()),
+      sc.ContractParam.any(null),
+    ]);
+    totalDeposited += deficit;
+    const appLog = await waitForApplicationLog(rpcClient, txid);
+    const execution = appLog?.executions?.[0];
+    const vmState = String(execution?.vmstate || execution?.state || '');
+    assertCondition(
+      vmState.includes('HALT'),
+      `request fee top-up failed: ${execution?.exception || vmState || txid}`
+    );
+
+    const deadline = Date.now() + 180000;
+    while (Date.now() < deadline) {
+      currentCredit = BigInt(
+        (await invokeRead(rpcClient, oracleHash, 'feeCreditOf', [
+          { type: 'Hash160', value: `0x${account.scriptHash}` },
+        ])) || '0'
+      );
+      if (currentCredit >= requiredCredit) {
+        return {
+          request_fee: requestFee.toString(),
+          current_credit: currentCredit.toString(),
+          deposit_amount: totalDeposited.toString(),
+        };
+      }
+      await sleep(2000);
+    }
   }
 
   throw new Error('timed out waiting for Neo N3 request fee credit');
@@ -333,29 +350,6 @@ async function insertEncryptedSecret({
   }
   const rows = await response.json();
   return Array.isArray(rows) ? rows[0] : rows;
-}
-
-async function loadReusableEncryptedPatch({ supabaseUrl, serviceRoleKey }) {
-  const response = await fetch(
-    `${supabaseUrl.replace(/\/$/, '')}/rest/v1/morpheus_encrypted_secrets?select=id,ciphertext,metadata,created_at&order=created_at.desc&limit=20`,
-    {
-      headers: {
-        apikey: serviceRoleKey,
-        authorization: `Bearer ${serviceRoleKey}`,
-        accept: 'application/json',
-      },
-    }
-  );
-  if (!response.ok) return null;
-  const rows = await response.json().catch(() => []);
-  const matched = Array.isArray(rows)
-    ? rows.find(
-        (row) =>
-          trimString(row?.metadata?.source || '') === 'examples.test.n3.encrypted-ref-boundary' &&
-          trimString(row?.ciphertext || '')
-      )
-    : null;
-  return trimString(matched?.ciphertext || '') || null;
 }
 
 async function runPhalaRemoteShell(
@@ -639,14 +633,12 @@ async function main() {
 
   const feeStatus = await refreshRequesterCredit(20);
 
-  const encryptedPatch =
-    (await loadReusableEncryptedPatch({ supabaseUrl, serviceRoleKey })) ||
-    (await buildRemoteEncryptedPatch(
-      JSON.stringify({
-        provider_uid: 'encrypted-ref-gh-001',
-        claim_value: 'ref-bound-pass',
-      })
-    ));
+  const encryptedPatch = await buildRemoteEncryptedPatch(
+    JSON.stringify({
+      provider_uid: 'encrypted-ref-gh-001',
+      claim_value: 'ref-bound-pass',
+    })
+  );
 
   const matchingSecret = await insertEncryptedSecret({
     supabaseUrl,

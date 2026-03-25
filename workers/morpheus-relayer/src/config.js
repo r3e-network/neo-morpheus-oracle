@@ -98,13 +98,9 @@ function resolveNetworkName() {
 }
 
 function resolvePublicRuntimeCandidates(network, registry) {
-  const networkDomain =
-    network === 'mainnet'
-      ? 'https://morpheus-mainnet.meshmini.app'
-      : 'https://morpheus-testnet.meshmini.app';
   return uniqueOrdered([
     trimString(registry.phala?.public_api_url || ''),
-    networkDomain,
+    `https://oracle.meshmini.app/${network}`,
     `https://edge.meshmini.app/${network}`,
   ]);
 }

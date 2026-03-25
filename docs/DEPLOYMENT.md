@@ -5,8 +5,8 @@
 - `.env.example`
 - `.env.development.example`
 - `.env.production.example`
-- `config/networks/mainnet.json` for canonical mainnet addresses, domains, CVM id, and public Phala endpoint
-- `config/networks/testnet.json` for canonical testnet addresses, domains, CVM id, and public Phala endpoint
+- `config/networks/mainnet.json` for canonical mainnet addresses, domains, CVM ids, attestation explorers, and runtime URLs
+- `config/networks/testnet.json` for canonical testnet addresses, domains, CVM ids, attestation explorers, and runtime URLs
 - `deploy/phala/morpheus.mainnet.env` generated from `npm run render:phala-env:mainnet`
 - `deploy/phala/morpheus.testnet.env` generated from `npm run render:phala-env:testnet`
 - `docs/ENVIRONMENT.md` for bilingual variable explanations and operator guidance
@@ -32,7 +32,7 @@ Required env vars:
 - optional Coinbase spot provider requires no secret
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SECRET_KEY` preferred, or legacy `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SECRET_KEY`
 - recommended for NeoDID Web3Auth production login:
   - `WEB3AUTH_CLIENT_SECRET`
   - `NEXT_PUBLIC_WEB3AUTH_NETWORK`
@@ -71,27 +71,26 @@ Deploy `workers/phala-worker` to Phala with:
 - optional `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH` / `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH` to override relayer derived key paths
 - optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle X25519 transport key storage
 - optional `PHALA_ORACLE_KEYSTORE_PATH` to control where the sealed Oracle transport key is persisted (default `/data/morpheus/oracle-key.json` inside the shared CVM volume)
-- current mainnet public endpoint: `https://morpheus-mainnet.meshmini.app`
-- current testnet public endpoint: `https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network`
+- current mainnet Oracle runtime endpoint: `https://oracle.meshmini.app/mainnet`
+- current testnet Oracle runtime endpoint: `https://oracle.meshmini.app/testnet`
+- Oracle CVM attestation explorer: `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+- DataFeed CVM attestation explorer: `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
 - web verifier API: `/api/attestation/verify`
 - demo verifier flow: `/api/attestation/demo` and `/verifier`
 
 ## Phala CVM Topology
 
-Recommended first deployment:
+Recommended production deployment:
 
-- 1 `Confidential VM`
-- 2 containers inside it: `phala-worker` + `morpheus-relayer`
-
-Recommended production split:
-
-- **testnet validation CVM**: `Small TDX`, app id `28294e89d490924b79c85cdee057ce55723b3d56`
-- **mainnet production CVM**: `Large TDX`, app id `ddff154546fe22d15b65667156dd4b7c611e6093`
+- 2 `Confidential VM`s, split by runtime role
+- **Oracle CVM**: `oracle-morpheus-neo-r3e` / `ddff154546fe22d15b65667156dd4b7c611e6093`
+- **DataFeed CVM**: `datafeed-morpheus-neo-r3e` / `28294e89d490924b79c85cdee057ce55723b3d56`
+- each CVM runs multiple containers internally, but public/runtime topology is defined by role rather than by network
 
 Tracked Phala descriptors:
 
-- `phala.testnet.toml`
-- `phala.mainnet.toml`
+- `phala.request-hub.toml`
+- `phala.feed-hub.toml`
 
 Generated local env files:
 
@@ -137,7 +136,7 @@ Current production scope:
 
 Required env vars:
 
-- `MORPHEUS_RUNTIME_URL` preferred, or legacy `PHALA_API_URL`
+- `MORPHEUS_RUNTIME_URL`
 - `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
 - `MORPHEUS_NETWORK`
 - `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`

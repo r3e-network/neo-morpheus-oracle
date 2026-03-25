@@ -17,7 +17,3 @@ zone_name = "meshmini.app"
 [[routes]]
 pattern = "oracle.meshmini.app/*"
 zone_name = "meshmini.app"
-
-[[routes]]
-pattern = "morpheus-testnet.meshmini.app/*"
-zone_name = "meshmini.app"

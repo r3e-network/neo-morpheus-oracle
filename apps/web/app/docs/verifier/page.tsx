@@ -2,8 +2,14 @@
 
 import { CheckCircle, Shield } from 'lucide-react';
 import Link from 'next/link';
+import { networkRegistry } from '@/lib/networks';
 
 export default function DocsVerifier() {
+  const oracleAttestationExplorer =
+    networkRegistry.mainnet.phala?.oracle_attestation_explorer_url || '';
+  const datafeedAttestationExplorer =
+    networkRegistry.mainnet.phala?.datafeed_attestation_explorer_url || '';
+
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
@@ -149,6 +155,31 @@ export default function DocsVerifier() {
           verification pass outside the built-in web verifier.
         </li>
       </ol>
+
+      <h2>Published CVM Explorers</h2>
+      <p>
+        Morpheus now runs with role-specialized Phala CVMs. The Oracle request/response runtime and
+        the DataFeed runtime have separate published explorer pages, and those pages are the
+        canonical public attestation anchors for both mainnet and testnet traffic.
+      </p>
+      <ul>
+        <li>
+          Oracle request CVM: <code>ddff154546fe22d15b65667156dd4b7c611e6093</code>{' '}
+          {oracleAttestationExplorer ? (
+            <a href={oracleAttestationExplorer} target="_blank" rel="noreferrer">
+              {oracleAttestationExplorer}
+            </a>
+          ) : null}
+        </li>
+        <li>
+          DataFeed CVM: <code>28294e89d490924b79c85cdee057ce55723b3d56</code>{' '}
+          {datafeedAttestationExplorer ? (
+            <a href={datafeedAttestationExplorer} target="_blank" rel="noreferrer">
+              {datafeedAttestationExplorer}
+            </a>
+          ) : null}
+        </li>
+      </ul>
 
       <div
         style={{

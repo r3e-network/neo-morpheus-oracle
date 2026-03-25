@@ -218,3 +218,62 @@ test('persistGuardResult caches idempotent responses for repeated relay requests
   assert.equal(second.response.status, 200);
   assert.deepEqual(await second.response.json(), { ok: true, txid: '0x1234' });
 });
+
+test('oracle request idempotency differentiates encrypted params and scripts', async () => {
+  installUpstashMock();
+  process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+  process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
+
+  const { applyRequestGuards } = await import('./request-guards.js');
+  const makeRequest = (payload) =>
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test',
+        'cf-connecting-ip': '203.0.113.10',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+  const basePayload = {
+    url: 'https://postman-echo.com/get?probe=neo-morpheus',
+    target_chain: 'neo_n3',
+  };
+  const firstPayload = {
+    ...basePayload,
+    encrypted_params: 'ciphertext-a',
+  };
+  const secondPayload = {
+    ...basePayload,
+    encrypted_params: 'ciphertext-b',
+  };
+  const scriptedPayload = {
+    ...basePayload,
+    encrypted_params: 'ciphertext-a',
+    script: 'function process(data) { return data.args.probe; }',
+  };
+
+  const first = await applyRequestGuards({
+    request: makeRequest(firstPayload),
+    path: '/oracle/query',
+    payload: firstPayload,
+  });
+  const second = await applyRequestGuards({
+    request: makeRequest(secondPayload),
+    path: '/oracle/query',
+    payload: secondPayload,
+  });
+  const third = await applyRequestGuards({
+    request: makeRequest(scriptedPayload),
+    path: '/oracle/query',
+    payload: scriptedPayload,
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(third.ok, true);
+  assert.notEqual(first.idempotency.lockKey, second.idempotency.lockKey);
+  assert.notEqual(first.idempotency.lockKey, third.idempotency.lockKey);
+});

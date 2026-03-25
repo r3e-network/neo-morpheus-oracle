@@ -1,6 +1,6 @@
 'use client';
 
-import { Globe, Copy, Check } from 'lucide-react';
+import { Globe, Copy, Check, ExternalLink } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { networkRegistry, getSelectedNetworkKey } from '@/lib/networks';
 
@@ -18,14 +18,49 @@ export default function DocsNetworks() {
     const testnet = networkRegistry.testnet;
     return [
       {
-        label: 'Public API',
+        label: 'Oracle Runtime URL',
         mainnet: normalizeValue(mainnet.phala?.public_api_url, 'unassigned'),
         testnet: normalizeValue(testnet.phala?.public_api_url, 'unassigned'),
       },
       {
-        label: 'Phala CVM',
+        label: 'Edge Runtime URL',
+        mainnet: normalizeValue(mainnet.phala?.edge_public_url, 'unassigned'),
+        testnet: normalizeValue(testnet.phala?.edge_public_url, 'unassigned'),
+      },
+      {
+        label: 'Control Plane URL',
+        mainnet: normalizeValue(mainnet.phala?.control_plane_url, 'unassigned'),
+        testnet: normalizeValue(testnet.phala?.control_plane_url, 'unassigned'),
+      },
+      {
+        label: 'Oracle CVM ID',
         mainnet: normalizeValue(mainnet.phala?.cvm_id, 'unassigned'),
         testnet: normalizeValue(testnet.phala?.cvm_id, 'unassigned'),
+      },
+      {
+        label: 'Oracle CVM Name',
+        mainnet: normalizeValue(mainnet.phala?.cvm_name, 'unassigned'),
+        testnet: normalizeValue(testnet.phala?.cvm_name, 'unassigned'),
+      },
+      {
+        label: 'Oracle Attestation Explorer',
+        mainnet: normalizeValue(mainnet.phala?.oracle_attestation_explorer_url, 'unassigned'),
+        testnet: normalizeValue(testnet.phala?.oracle_attestation_explorer_url, 'unassigned'),
+      },
+      {
+        label: 'Datafeed CVM ID',
+        mainnet: normalizeValue(mainnet.phala?.datafeed_cvm_id, 'unassigned'),
+        testnet: normalizeValue(testnet.phala?.datafeed_cvm_id, 'unassigned'),
+      },
+      {
+        label: 'Datafeed CVM Name',
+        mainnet: normalizeValue(mainnet.phala?.datafeed_cvm_name, 'unassigned'),
+        testnet: normalizeValue(testnet.phala?.datafeed_cvm_name, 'unassigned'),
+      },
+      {
+        label: 'Datafeed Attestation Explorer',
+        mainnet: normalizeValue(mainnet.phala?.datafeed_attestation_explorer_url, 'unassigned'),
+        testnet: normalizeValue(testnet.phala?.datafeed_attestation_explorer_url, 'unassigned'),
       },
       {
         label: 'Neo N3 RPC',
@@ -182,9 +217,31 @@ export default function DocsNetworks() {
 
   const renderValue = (value: string) => {
     const isEmpty = value === 'unassigned' || value === 'unpublished';
+    const isUrl = /^https?:\/\//i.test(value);
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <span style={{ color: isEmpty ? 'var(--text-muted)' : 'var(--neo-green)' }}>{value}</span>
+        {isUrl && !isEmpty ? (
+          <a
+            href={value}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'var(--neo-green)',
+              textDecoration: 'none',
+              wordBreak: 'break-all',
+            }}
+          >
+            <span>{value}</span>
+            <ExternalLink size={13} />
+          </a>
+        ) : (
+          <span style={{ color: isEmpty ? 'var(--text-muted)' : 'var(--neo-green)' }}>
+            {value}
+          </span>
+        )}
         {copyBtn(value)}
       </div>
     );
@@ -235,8 +292,8 @@ export default function DocsNetworks() {
       >
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           Source of truth: <code>config/networks/mainnet.json</code> and{' '}
-          <code>config/networks/testnet.json</code>. The Phala launcher ids live in{' '}
-          <code>phala.mainnet.toml</code> and <code>phala.testnet.toml</code>.
+          <code>config/networks/testnet.json</code>. The current role-split Phala launchers live in{' '}
+          <code>phala.request-hub.toml</code> and <code>phala.feed-hub.toml</code>.
         </p>
       </div>
 

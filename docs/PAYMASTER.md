@@ -155,7 +155,7 @@ Validated service-side facts:
 - target chain: `neo_n3`
 - allowed AA target contract: `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`
 - allowed method: `executeUserOp`
-- CVM app id: `28294e89d490924b79c85cdee057ce55723b3d56`
+- Oracle CVM app id: `ddff154546fe22d15b65667156dd4b7c611e6093`
 
 Validated end-to-end flow:
 

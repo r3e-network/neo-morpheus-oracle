@@ -163,7 +163,7 @@ Fixed in scripts, worker, relayer, and Phala env generation:
 
 - network-scoped Neo N3 signer resolution now prefers `NEO_TESTNET_WIF` when `MORPHEUS_NETWORK=testnet`
 - generated Phala env files are now split into `morpheus.mainnet.env` and `morpheus.testnet.env`
-- `phala.mainnet.toml` and `phala.testnet.toml` now bind each CVM to the correct generated env file
+- `phala.request-hub.toml` and `phala.feed-hub.toml` now bind each role-split CVM to the correct generated env file
 - frontend runtime defaults now resolve the selected network's Phala endpoint from `config/networks/*.json`
 
 Security impact:

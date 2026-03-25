@@ -132,6 +132,23 @@ It does not:
 - fully validate Intel / TDX certificate chains
 - independently validate platform trust roots
 
+## 6. Published Morpheus CVM Explorers
+
+The current production topology is role-split, not network-split:
+
+- Oracle request/response CVM:
+  - `oracle-morpheus-neo-r3e`
+  - app id `ddff154546fe22d15b65667156dd4b7c611e6093`
+  - explorer `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+- DataFeed CVM:
+  - `datafeed-morpheus-neo-r3e`
+  - app id `28294e89d490924b79c85cdee057ce55723b3d56`
+  - explorer `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+
+Both mainnet and testnet Oracle traffic now terminate at the Oracle CVM and differ only by the
+network selected in the request path or payload. Feed synchronization runs on the dedicated
+DataFeed CVM.
+
 ## 中文说明
 
 ### 1. 当前 `attestation_hash` 的含义
@@ -196,3 +213,16 @@ It does not:
 ### 4. 当前 verifier 的边界
 
 当前 verifier 是“应用层验证”，不是完整的 TDX 证书链验证。
+
+### 5. 当前公开的 Phala Explorer
+
+当前生产拓扑是按角色拆分，不是按网络拆分：
+
+- Oracle 请求/响应 CVM
+  - 名称：`oracle-morpheus-neo-r3e`
+  - app id：`ddff154546fe22d15b65667156dd4b7c611e6093`
+  - explorer：`https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+- DataFeed CVM
+  - 名称：`datafeed-morpheus-neo-r3e`
+  - app id：`28294e89d490924b79c85cdee057ce55723b3d56`
+  - explorer：`https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
