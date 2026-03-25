@@ -8,7 +8,8 @@
     "once": "node src/cli.js once",
     "metrics": "node src/cli.js metrics",
     "metrics:prom": "node src/cli.js metrics:prom",
-    "check": "node --check src/cli.js",
+    "serve:metrics": "node src/cli.js serve:metrics",
+    "check": "node --check src/cli.js && node --check src/metrics-server.js",
     "test": "node --test relayer.test.mjs"
   },
   "dependencies": {

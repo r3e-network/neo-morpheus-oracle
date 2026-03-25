@@ -23,6 +23,7 @@
     "once:relayer": "npm --prefix workers/morpheus-relayer run once",
     "metrics:relayer": "npm --prefix workers/morpheus-relayer run metrics",
     "metrics:relayer:prom": "npm --prefix workers/morpheus-relayer run metrics:prom",
+    "start:relayer:metrics": "npm --prefix workers/morpheus-relayer run serve:metrics",
     "publish:oracle-key": "node scripts/publish-oracle-public-key.mjs",
     "publish:oracle-key:neox": "node scripts/publish-oracle-public-key-neox.mjs",
     "publish:oracle-verifier-key": "node scripts/publish-oracle-verifier-key.mjs",

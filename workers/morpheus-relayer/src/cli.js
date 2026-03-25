@@ -1,5 +1,6 @@
 import { createRelayerConfig } from './config.js';
 import { createLogger } from './logger.js';
+import { startMetricsServer } from './metrics-server.js';
 import { renderPrometheusMetrics } from './prometheus.js';
 import { runRelayerLoop, runRelayerOnce } from './relayer.js';
 import { loadRelayerState, snapshotMetrics } from './state.js';
@@ -18,6 +19,8 @@ if (mode === 'loop') {
 } else if (mode === 'metrics:prom') {
   const state = loadRelayerState(config.stateFile);
   process.stdout.write(renderPrometheusMetrics(snapshotMetrics(state)));
+} else if (mode === 'serve:metrics') {
+  startMetricsServer(config, logger);
 } else {
   const result = await runRelayerOnce({ config, logger });
   console.log(JSON.stringify(result, null, 2));
