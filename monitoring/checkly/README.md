@@ -41,6 +41,10 @@ These API checks can now be created directly from this repo:
 - `morpheus-oracle-mainnet-public-key`
 - `morpheus-control-testnet-health-auth-gate`
 - `morpheus-control-mainnet-health-auth-gate`
+- `morpheus-edge-testnet-health`
+- `morpheus-edge-mainnet-health`
+- `morpheus-edge-testnet-public-key`
+- `morpheus-edge-mainnet-public-key`
 
 Seed command:
 
