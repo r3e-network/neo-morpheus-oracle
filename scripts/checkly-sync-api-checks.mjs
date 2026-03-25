@@ -69,6 +69,26 @@ const desiredChecks = [
     url: 'https://control.meshmini.app/mainnet/health',
     expectedStatus: '401',
   },
+  {
+    name: 'morpheus-edge-testnet-health',
+    url: 'https://edge.meshmini.app/testnet/health',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-mainnet-health',
+    url: 'https://edge.meshmini.app/mainnet/health',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-testnet-public-key',
+    url: 'https://edge.meshmini.app/testnet/oracle/public-key',
+    expectedStatus: '200',
+  },
+  {
+    name: 'morpheus-edge-mainnet-public-key',
+    url: 'https://edge.meshmini.app/mainnet/oracle/public-key',
+    expectedStatus: '200',
+  },
 ];
 
 const existing = await api('/checks');
