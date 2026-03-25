@@ -31,6 +31,37 @@ This folder defines the recommended synthetic checks for the Morpheus stack.
 4. `oracle-public-key`
    - `GET /api/oracle/public-key`
 
+## Current Seeded Checks
+
+These API checks can now be created directly from this repo:
+
+- `morpheus-oracle-testnet-health`
+- `morpheus-oracle-mainnet-health`
+- `morpheus-oracle-testnet-public-key`
+- `morpheus-oracle-mainnet-public-key`
+- `morpheus-control-testnet-health-auth-gate`
+- `morpheus-control-mainnet-health-auth-gate`
+
+Seed command:
+
+```bash
+npm run sync:checkly
+```
+
+List current checks:
+
+```bash
+npm run check:checkly
+```
+
+## Browser Checks
+
+Browser checks are not seeded yet because the AA public site domain is not reliably resolvable from the current runtime environment.
+Once the canonical public URLs are confirmed, add them to:
+
+- [checks.example.json](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/checkly/checks.example.json)
+- [checkly-sync-api-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-sync-api-checks.mjs) or a dedicated browser-check sync script
+
 ## Required Values
 
 - `CHECKLY_API_KEY`

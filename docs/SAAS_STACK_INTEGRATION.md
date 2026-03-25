@@ -103,6 +103,8 @@ Scaffolded monitoring definitions live in:
 - [monitoring/checkly/checks.example.json](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/checkly/checks.example.json)
 - current account introspection script:
   - [scripts/checkly-list-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-list-checks.mjs)
+- current API check seeding script:
+  - [scripts/checkly-sync-api-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-sync-api-checks.mjs)
 
 Needed if you want Codex to wire deployment automation for browser/API checks:
 
