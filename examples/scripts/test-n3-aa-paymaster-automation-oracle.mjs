@@ -1,6 +1,6 @@
 import { createRequire } from 'node:module';
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -31,6 +31,7 @@ const {
 const relayModule =
   await import('/Users/jinghuiliao/git/neo-abstract-account/frontend/api/relay-transaction.js');
 const relayHandler = relayModule.default;
+let localPaymasterHandlerPromise = null;
 
 const GAS_HASH = CONST.NATIVE_CONTRACT_HASH.GasToken;
 const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38';
@@ -40,7 +41,7 @@ const PAYMASTER_ACCOUNT_ID =
   process.env.PAYMASTER_ACCOUNT_ID || '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56';
 const PAYMASTER_DAPP_ID = process.env.MORPHEUS_PAYMASTER_DAPP_ID || 'demo-dapp';
 const PAYMASTER_APP_ID =
-  process.env.MORPHEUS_PAYMASTER_APP_ID || '28294e89d490924b79c85cdee057ce55723b3d56';
+  process.env.MORPHEUS_PAYMASTER_APP_ID || 'ddff154546fe22d15b65667156dd4b7c611e6093';
 const PHALA_SSH_RETRIES = Math.max(1, Number(process.env.PHALA_SSH_RETRIES || 3));
 
 function assertCondition(condition, message) {
@@ -334,50 +335,118 @@ async function runPhalaRemoteShell(
   { maxBuffer = 10 * 1024 * 1024 } = {}
 ) {
   let lastError = null;
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'aa-paymaster-automation-'));
+  const localScriptPath = path.join(tempDir, 'remote.sh');
+  await writeFile(localScriptPath, shellScript, { mode: 0o700 });
+
   for (let attempt = 1; attempt <= PHALA_SSH_RETRIES; attempt += 1) {
-    for (const args of [
-      trimString(apiToken)
-        ? ['ssh', '--api-token', apiToken, appId, '--', `sh -lc ${shellQuote(shellScript)}`]
-        : null,
-      ['ssh', appId, '--', `sh -lc ${shellQuote(shellScript)}`],
-    ].filter(Boolean)) {
-      try {
-        return await execFileAsync('phala', args, { maxBuffer });
-      } catch (error) {
-        lastError = error;
-      }
+    const remoteScriptPath = `/tmp/aa-paymaster-automation-${Date.now()}-${attempt}.sh`;
+    try {
+      await execFileAsync(
+        'phala',
+        ['cp', '--api-token', apiToken, localScriptPath, `${appId}:${remoteScriptPath}`],
+        { maxBuffer }
+      );
+      const result = await execFileAsync(
+        'phala',
+        ['ssh', '--api-token', apiToken, appId, '--', 'sh', remoteScriptPath],
+        { maxBuffer }
+      );
+      await execFileAsync(
+        'phala',
+        ['ssh', '--api-token', apiToken, appId, '--', 'rm', '-f', remoteScriptPath],
+        { maxBuffer }
+      ).catch(() => {});
+      await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      return result;
+    } catch (error) {
+      lastError = error;
     }
     if (attempt < PHALA_SSH_RETRIES) {
       await sleep(1500 * attempt);
     }
   }
+  await rm(tempDir, { recursive: true, force: true }).catch(() => {});
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+async function callLocalPaymasterAuthorize(apiToken, body) {
+  if (!localPaymasterHandlerPromise) {
+    localPaymasterHandlerPromise = import(new URL('../../workers/phala-worker/src/worker.js', import.meta.url));
+  }
+  const workerModule = await localPaymasterHandlerPromise;
+  const localHandler = workerModule.default;
+  const req = new Request('http://local/paymaster/authorize', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${apiToken}`,
+      'x-phala-token': apiToken,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const res = await localHandler(req);
+  const text = await res.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = { raw: text };
+  }
+  if (!res.ok) {
+    throw new Error(`paymaster authorize failed: ${res.status} ${JSON.stringify(parsed)}`);
+  }
+  return parsed;
 }
 
 async function callPaymasterAuthorize(endpoint, apiToken, body) {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(new Error('paymaster http timeout')), 12_000);
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${apiToken}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(`paymaster authorize failed: ${response.status} ${JSON.stringify(payload)}`);
+    let lastHttpError = null;
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(
+        () => controller.abort(new Error('paymaster http timeout')),
+        12_000
+      );
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${apiToken}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (response.ok) {
+          clearTimeout(timeout);
+          return payload;
+        }
+        if (response.status === 429 && attempt < 5) {
+          lastHttpError = new Error(
+            `paymaster authorize failed: ${response.status} ${JSON.stringify(payload)}`
+          );
+          await sleep(1500 * attempt);
+          continue;
+        }
+        throw new Error(`paymaster authorize failed: ${response.status} ${JSON.stringify(payload)}`);
+      } finally {
+        clearTimeout(timeout);
+      }
     }
-    return payload;
+    throw lastHttpError || new Error('paymaster authorize failed after retries');
   } catch (networkError) {
     logStage(
       'public paymaster endpoint unavailable, falling back to CVM shell',
       String(networkError?.message || networkError)
     );
+    try {
+      logStage('attempting local paymaster handler fallback');
+      return await callLocalPaymasterAuthorize(apiToken, body);
+    } catch (localError) {
+      logStage('local paymaster handler fallback failed', String(localError?.message || localError));
+    }
     let lastError = networkError;
     const shellScript = `
 set -e
@@ -922,7 +991,8 @@ async function main() {
   const RPC_URL = trimString(
     deployment.rpc_url || process.env.TESTNET_RPC_URL || 'https://testnet1.neo.coz.io:443'
   );
-  const PAYMASTER_API_TOKEN = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '';
+  const PAYMASTER_API_TOKEN =
+    process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '';
   const SUPABASE_URL =
     process.env.SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -936,11 +1006,14 @@ async function main() {
     '';
   const PAYMASTER_ENDPOINT = trimString(
     process.env.MORPHEUS_PAYMASTER_TESTNET_ENDPOINT ||
-      'https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network/paymaster/authorize'
+      'https://oracle.meshmini.app/testnet/paymaster/authorize'
   );
 
   assertCondition(TEST_WIF, 'TEST_WIF or compatible pinned Neo N3 signer is required');
-  assertCondition(PAYMASTER_API_TOKEN, 'PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
+  assertCondition(
+    PAYMASTER_API_TOKEN,
+    'MORPHEUS_RUNTIME_TOKEN, PHALA_API_TOKEN, or PHALA_SHARED_SECRET is required'
+  );
   assertCondition(SUPABASE_URL && SUPABASE_KEY, 'Supabase secret or service-role env is required');
 
   const oracleHash = normalizeHash160(deployment.oracle_hash || '');

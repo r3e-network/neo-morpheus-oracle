@@ -75,6 +75,26 @@ async function loadDeploymentRegistry(network) {
   }
 }
 
+async function loadEnvSnapshot(filePath) {
+  const text = await fs.readFile(filePath, 'utf8');
+  const snapshot = {};
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = trimString(line);
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+    const separatorIndex = trimmed.indexOf('=');
+    const key = trimString(trimmed.slice(0, separatorIndex));
+    let value = trimmed.slice(separatorIndex + 1);
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    snapshot[key] = value;
+  }
+  return snapshot;
+}
+
 async function invokeRead(rpcClient, contractHash, method, params = []) {
   const result = await rpcClient.invokeFunction(contractHash, method, params);
   if (String(result.state || '').toUpperCase() === 'FAULT') {
@@ -87,7 +107,9 @@ const requestedNetwork = trimString(process.env.MORPHEUS_NETWORK || '');
 await loadDotEnv();
 const network =
   trimString(requestedNetwork || process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
-await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${network}.env`), { override: true });
+const selectedPhalaEnvPath = path.resolve('deploy', 'phala', `morpheus.${network}.env`);
+await loadDotEnv(selectedPhalaEnvPath, { override: true });
+const signerEnvSnapshot = await loadEnvSnapshot(selectedPhalaEnvPath);
 
 const registry = await loadRegistry(network);
 const deployments = await loadDeploymentRegistry(network);
@@ -128,8 +150,8 @@ const callbackHash = normalizeHash160(
         registryCallbackHash ||
         ''
 );
-const expectedUpdater = resolvePinnedNeoN3UpdaterHash(network, process.env);
-const expectedVerifierPublicKey = resolvePinnedNeoN3VerifierPublicKey(network, process.env);
+const expectedUpdater = resolvePinnedNeoN3UpdaterHash(network, signerEnvSnapshot);
+const expectedVerifierPublicKey = resolvePinnedNeoN3VerifierPublicKey(network, signerEnvSnapshot);
 
 if (!rpcUrl) throw new Error('NEO_RPC_URL is required');
 if (!oracleHash) throw new Error('MorpheusOracle hash is required');

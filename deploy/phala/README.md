@@ -41,6 +41,8 @@ Use the existing two CVMs by **role**, not by network:
 
 - **feed hub / small CVM**: `28294e89d490924b79c85cdee057ce55723b3d56`
 - **request hub / large CVM**: `ddff154546fe22d15b65667156dd4b7c611e6093`
+- **feed hub name**: `datafeed-morpheus-neo-r3e`
+- **request hub name**: `oracle-morpheus-neo-r3e`
 
 Public routing:
 
@@ -51,7 +53,10 @@ Public routing:
 - Cloudflare edge routes:
   - `https://edge.meshmini.app/mainnet/*`
   - `https://edge.meshmini.app/testnet/*`
-  - `https://morpheus-testnet.meshmini.app/*`
+- published Oracle attestation explorer:
+  - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+- published DataFeed attestation explorer:
+  - `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
 
 Tracked launcher files:
 

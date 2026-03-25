@@ -286,6 +286,16 @@ const consumer = new experimental.SmartContract(consumerHash, {
   networkMagic,
   account,
 });
+const validationRunId = trimString(process.env.EXAMPLE_RUN_ID || '') || Date.now().toString(36);
+
+function applyRunScope(payload, caseId) {
+  return {
+    ...payload,
+    project_slug: trimString(payload?.project_slug || '') || `privacy-matrix-${validationRunId}-${caseId}`,
+    request_source:
+      trimString(payload?.request_source || '') || `privacy-matrix:${validationRunId}:${caseId}`,
+  };
+}
 
 const cases = [
   {
@@ -511,6 +521,8 @@ let totalDeposited = 0n;
 for (const testCase of cases) {
   console.log(`Running ${network} privacy case ${testCase.id}...`);
   const prepared = await testCase.prepare();
+  prepared.publicPayload = applyRunScope(prepared.publicPayload, testCase.id);
+  prepared.payloadText = JSON.stringify(prepared.publicPayload);
   const feeStatus = await ensureRequestFeeCredit(
     account,
     rpcUrl,

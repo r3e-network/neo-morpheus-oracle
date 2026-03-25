@@ -18,19 +18,20 @@ This project gives the Neo blockchain the same thing: **truth**.
 - **Frontend / control plane**: Next.js, deployable to Vercel
 - **State / auth / encrypted secret storage**: Supabase
 - **Edge hardening**: optional Cloudflare Worker gateway + Upstash Redis guards
-- **Trusted execution**: Phala TEE worker
-  - **Mainnet CVM**: `ddff154546fe22d15b65667156dd4b7c611e6093`
-  - **Mainnet endpoint**: [https://morpheus-mainnet.meshmini.app](https://morpheus-mainnet.meshmini.app)
-  - **Testnet CVM**: `28294e89d490924b79c85cdee057ce55723b3d56`
-  - **Testnet endpoint**: [https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network](https://28294e89d490924b79c85cdee057ce55723b3d56-3000.dstack-pha-prod9.phala.network)
+- **Trusted execution**: Phala TEE worker split by runtime role
+  - **Oracle CVM**: `oracle-morpheus-neo-r3e` / `ddff154546fe22d15b65667156dd4b7c611e6093`
+  - **Oracle runtime**: [https://oracle.meshmini.app/mainnet](https://oracle.meshmini.app/mainnet) and [https://oracle.meshmini.app/testnet](https://oracle.meshmini.app/testnet)
+  - **Oracle attestation explorer**: [https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093](https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093)
+  - **Datafeed CVM**: `datafeed-morpheus-neo-r3e` / `28294e89d490924b79c85cdee057ce55723b3d56`
+  - **Datafeed attestation explorer**: [https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56](https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56)
 - **Chains**: Neo N3 is the active supported runtime path right now. Neo X artifacts remain in-repo but are not the active production target.
 
 ## Network Registry
 
 - `config/networks/mainnet.json` is the canonical mainnet registry.
 - `config/networks/testnet.json` is the canonical testnet registry.
-- `phala.mainnet.toml` targets the mainnet Phala CVM.
-- `phala.testnet.toml` targets the testnet Phala CVM.
+- `phala.request-hub.toml` targets the Oracle request/response CVM.
+- `phala.feed-hub.toml` targets the isolated DataFeed CVM.
 - `deploy/phala/morpheus.mainnet.env` and `deploy/phala/morpheus.testnet.env` are generated ignored local runtime env files.
 
 ## Production Usage Model
@@ -48,7 +49,7 @@ This project gives the Neo blockchain the same thing: **truth**.
 - `apps/web` — Vercel-ready Next.js frontend and API proxy layer
 - `workers/phala-worker` — Phala TEE worker runtime
 - `workers/morpheus-relayer` — async chain listener and callback relayer for Neo N3
-- `contracts` — Neo N3 Morpheus oracle + callback + datafeed contracts, plus legacy Neo X reference artifacts
+- `contracts` — Neo N3 Morpheus oracle + callback + datafeed contracts, plus Neo X reference artifacts
 - `packages/shared` — shared types and chain metadata
 - `supabase/migrations` — schema, RLS policies, and built-in compute catalog seeds
 - `docs` — architecture, async privacy Oracle spec, and deployment notes
@@ -142,11 +143,9 @@ These commands are the current live Neo N3 testnet regression path for:
 - `docs/DEPLOYMENT.md`
 - `docs/ENVIRONMENT.md`
 - `docs/TESTNET_RUNBOOK.md`
-- `docs/CONTROL_PLANE_REFACTOR_2026-03-20.md`
-- `docs/CONTROL_PLANE_DEPLOY_RUNBOOK_2026-03-20.md`
-- `docs/RELIABILITY_NOTES_2026-03-20.md`
 - `docs/SECURITY_AUDIT.md`
 - `docs/ATTESTATION_SPEC.md`
+- `docs/PHALA_DUAL_CVM_ATTESTATION_REGISTRY.md`
 - `docs/HPKE_X25519_MIGRATION.md`
 - `deploy/phala/README.md`
 - verifier page: `/verifier`

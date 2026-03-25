@@ -28,14 +28,10 @@ function networkScopedEnv(baseKey: string) {
 const defaultPhalaApiCandidates = [
   networkScopedEnv('MORPHEUS_RUNTIME_URL'),
   trimString(process.env.MORPHEUS_RUNTIME_URL || ''),
-  process.env.PHALA_API_URL || '',
   networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL'),
   trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || ''),
-  process.env.NEXT_PUBLIC_PHALA_API_URL || '',
   defaultPhalaApiUrl,
-  selectedNetworkKey === 'mainnet'
-    ? 'https://morpheus-mainnet.meshmini.app'
-    : 'https://morpheus-testnet.meshmini.app',
+  `https://oracle.meshmini.app/${selectedNetworkKey}`,
   `https://edge.meshmini.app/${selectedNetworkKey}`,
 ]
   .map((value) => value.trim())
@@ -50,8 +46,6 @@ export const appConfig = {
     trimString(process.env.MORPHEUS_RUNTIME_URL || '') ||
     networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL') ||
     trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || '') ||
-    process.env.PHALA_API_URL ||
-    process.env.NEXT_PUBLIC_PHALA_API_URL ||
     defaultPhalaApiUrl,
   phalaApiUrls: [...new Set(defaultPhalaApiCandidates)],
   phalaToken:

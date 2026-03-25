@@ -11,7 +11,9 @@ Current Neo N3 anchors:
 
 | Item                     | Mainnet                                                                              | Testnet                                                                                |
 | ------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Phala public API         | `https://morpheus-mainnet.meshmini.app` | `https://morpheus-testnet.meshmini.app` |
+| Oracle runtime API       | `https://oracle.meshmini.app/mainnet` | `https://oracle.meshmini.app/testnet` |
+| Oracle attestation explorer | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
+| Datafeed attestation explorer | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` |
 | `MorpheusOracle`         | `0x017520f068fd602082fe5572596185e62a4ad991` via `oracle.morpheus.neo`               | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                           |
 | `OracleCallbackConsumer` | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                         | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`                                           |
 | `MorpheusDataFeed`       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`            | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                           |
@@ -25,7 +27,7 @@ Interpretation rules:
 - testnet example/demo contracts are not the same as the canonical production callback consumer
 - blank / unpublished registry fields mean there is no shared stable publication yet, not that a temporary internal deployment never existed
 - `UnifiedSmartWalletV3` is the canonical AA product/runtime label even if a raw deployed manifest string carries a historical or deployment-specific suffix
-- `smartwallet.neo` is the canonical AA mainnet domain, while `aa.morpheus.neo` is maintained as a compatibility alias to the same clean AA address
+- `smartwallet.neo` is the canonical AA mainnet domain, while `aa.morpheus.neo` is an additional alias to the same clean AA address
 - AA verifier plugin addresses are deployment-specific and should not be inferred from the core AA contract hash
 
 ## Canonical Request Path

@@ -226,9 +226,9 @@ assert(
 );
 assert(
   deploymentDocText.includes('NeoDIDRegistry') &&
-    deploymentDocText.includes('phala.mainnet.toml') &&
-    deploymentDocText.includes('phala.testnet.toml'),
-  'docs/DEPLOYMENT.md must document NeoDID anchors and both Phala environment descriptors'
+    deploymentDocText.includes('phala.request-hub.toml') &&
+    deploymentDocText.includes('phala.feed-hub.toml'),
+  'docs/DEPLOYMENT.md must document NeoDID anchors and both role-split Phala descriptors'
 );
 assert(
   securityAuditText.includes('public DID resolver') ||

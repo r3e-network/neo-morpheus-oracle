@@ -24,11 +24,17 @@ const continueOnFailure =
   args.has('--continue-on-failure') || process.env.CONTINUE_ON_FAILURE === '1';
 const runAaSuite = args.has('--run-aa') || process.env.RUN_AA_V3_SUITE === '1';
 const skipAaSuite = args.has('--skip-aa');
+const referenceHeavyStages =
+  args.has('--reference-heavy-stages') ||
+  process.env.ATTACK_REGRESSION_REFERENCE_HEAVY_STAGES === '1';
+const referenceAllStages =
+  args.has('--reference-all-stages') ||
+  process.env.ATTACK_REGRESSION_REFERENCE_ALL_STAGES === '1';
 const aaRepoRoot = path.resolve(repoRoot, '..', 'neo-abstract-account');
 const aaSdkRoot = path.resolve(aaRepoRoot, 'sdk/js');
 const aaSuiteLatestPath = path.resolve(
   aaRepoRoot,
-  'sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json'
+  'sdk/docs/reports/v3-testnet-validation-suite.latest.json'
 );
 const overrideTestWif = trimString(process.env.TEST_WIF || '');
 const testnetRpcUrl = trimString(
@@ -437,6 +443,13 @@ function normalizeSignal(signal) {
   return signal ? String(signal) : null;
 }
 
+function isTransientStageFailure(output = '') {
+  const text = String(output || '');
+  return /EADDRNOTAVAIL|ECONNRESET|ETIMEDOUT|fetch failed|socket hang up|network error|EAI_AGAIN|ECONNREFUSED|temporarily unavailable/i.test(
+    text
+  );
+}
+
 function makeStage(
   id,
   title,
@@ -491,17 +504,30 @@ if (!skipAaSuite) {
 }
 
 stages.push(
-  makeStage(
-    'callback_boundary',
-    'Oracle callback injection boundary',
-    'node',
-    [path.resolve(repoRoot, 'examples/scripts/test-n3-callback-boundary.mjs')],
-    repoRoot,
-    'examples/deployments/n3-callback-boundary.testnet.latest.json',
-    summarizeCallbackBoundary,
-    sharedTestnetEnv,
-    null
-  ),
+  ...(referenceAllStages
+    ? [
+        {
+          id: 'callback_boundary',
+          title: 'Oracle callback injection boundary',
+          kind: 'reference',
+          cwd: repoRoot,
+          reportPath: stageReportPath('examples/deployments/n3-callback-boundary.testnet.latest.json'),
+          summarize: summarizeCallbackBoundary,
+        },
+      ]
+    : [
+        makeStage(
+          'callback_boundary',
+          'Oracle callback injection boundary',
+          'node',
+          [path.resolve(repoRoot, 'examples/scripts/test-n3-callback-boundary.mjs')],
+          repoRoot,
+          'examples/deployments/n3-callback-boundary.testnet.latest.json',
+          summarizeCallbackBoundary,
+          sharedTestnetEnv,
+          null
+        ),
+      ]),
   {
     id: 'neodid_registry_boundary',
     title: 'NeoDID registry JSON ticket boundary',
@@ -520,39 +546,79 @@ stages.push(
     reportPath: stageReportPath('examples/deployments/n3-neodid-registry-v1.testnet.latest.json'),
     summarize: summarizeNeoDidRegistryV1,
   },
-  makeStage(
-    'encrypted_ref_boundary',
-    'Encrypted ref requester/callback binding boundary',
-    'node',
-    [path.resolve(repoRoot, 'examples/scripts/test-n3-encrypted-ref-boundary.mjs')],
-    repoRoot,
-    'examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json',
-    summarizeEncryptedRefBoundary,
-    sharedTestnetEnv,
-    null
-  ),
-  makeStage(
-    'fulfillment_replay',
-    'Fulfillment replay boundary',
-    'node',
-    [path.resolve(repoRoot, 'examples/scripts/test-n3-fulfillment-replay-isolated.mjs')],
-    repoRoot,
-    'examples/deployments/n3-fulfillment-replay.testnet.latest.json',
-    summarizeFulfillmentReplay,
-    sharedTestnetEnv,
-    null
-  ),
-  makeStage(
-    'aa_session_oracle_boundary',
-    'AA session-key downstream Oracle boundary',
-    'node',
-    [path.resolve(repoRoot, 'examples/scripts/test-n3-aa-session-oracle-boundary.mjs')],
-    repoRoot,
-    'examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json',
-    summarizeAaSessionOracleBoundary,
-    sharedTestnetEnv,
-    null
-  ),
+  ...(referenceAllStages
+    ? [
+        {
+          id: 'encrypted_ref_boundary',
+          title: 'Encrypted ref requester/callback binding boundary',
+          kind: 'reference',
+          cwd: repoRoot,
+          reportPath: stageReportPath(
+            'examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json'
+          ),
+          summarize: summarizeEncryptedRefBoundary,
+        },
+        {
+          id: 'fulfillment_replay',
+          title: 'Fulfillment replay boundary',
+          kind: 'reference',
+          cwd: repoRoot,
+          reportPath: stageReportPath(
+            'examples/deployments/n3-fulfillment-replay.testnet.latest.json'
+          ),
+          summarize: summarizeFulfillmentReplay,
+        },
+      ]
+    : [
+        makeStage(
+          'encrypted_ref_boundary',
+          'Encrypted ref requester/callback binding boundary',
+          'node',
+          [path.resolve(repoRoot, 'examples/scripts/test-n3-encrypted-ref-boundary.mjs')],
+          repoRoot,
+          'examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json',
+          summarizeEncryptedRefBoundary,
+          sharedTestnetEnv,
+          null
+        ),
+        makeStage(
+          'fulfillment_replay',
+          'Fulfillment replay boundary',
+          'node',
+          [path.resolve(repoRoot, 'examples/scripts/test-n3-fulfillment-replay-isolated.mjs')],
+          repoRoot,
+          'examples/deployments/n3-fulfillment-replay.testnet.latest.json',
+          summarizeFulfillmentReplay,
+          sharedTestnetEnv,
+          null
+        ),
+      ]),
+  ...(referenceHeavyStages
+    ? [
+        {
+          id: 'aa_session_oracle_boundary',
+          title: 'AA session-key downstream Oracle boundary',
+          kind: 'reference',
+          cwd: repoRoot,
+          reportPath: stageReportPath(
+            'examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json'
+          ),
+          summarize: summarizeAaSessionOracleBoundary,
+        },
+      ]
+    : [
+        makeStage(
+          'aa_session_oracle_boundary',
+          'AA session-key downstream Oracle boundary',
+          'node',
+          [path.resolve(repoRoot, 'examples/scripts/test-n3-aa-session-oracle-boundary.mjs')],
+          repoRoot,
+          'examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json',
+          summarizeAaSessionOracleBoundary,
+          sharedTestnetEnv,
+          null
+        ),
+      ]),
   {
     id: 'aa_callback_replay_boundary',
     title: 'AA-bound callback replay boundary',
@@ -573,17 +639,32 @@ stages.push(
     ),
     summarize: summarizeAaRecoveryCrossAccountBoundary,
   },
-  makeStage(
-    'aa_paymaster_automation_oracle',
-    'AA paymaster automation Oracle proof',
-    'node',
-    [path.resolve(repoRoot, 'examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs')],
-    repoRoot,
-    'examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json',
-    summarizeAaPaymasterAutomationOracle,
-    sharedTestnetEnv,
-    null
-  ),
+  ...(referenceHeavyStages
+    ? [
+        {
+          id: 'aa_paymaster_automation_oracle',
+          title: 'AA paymaster automation Oracle proof',
+          kind: 'reference',
+          cwd: repoRoot,
+          reportPath: stageReportPath(
+            'examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json'
+          ),
+          summarize: summarizeAaPaymasterAutomationOracle,
+        },
+      ]
+    : [
+        makeStage(
+          'aa_paymaster_automation_oracle',
+          'AA paymaster automation Oracle proof',
+          'node',
+          [path.resolve(repoRoot, 'examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs')],
+          repoRoot,
+          'examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json',
+          summarizeAaPaymasterAutomationOracle,
+          sharedTestnetEnv,
+          null
+        ),
+      ]),
   {
     id: 'automation_cancel_race',
     title: 'Automation cancellation race',
@@ -631,7 +712,7 @@ function printStagePlan(stage) {
 
 async function runCommandStage(stage) {
   let lastResult = null;
-  const attempts = Math.max(Number(stage.retries || 0), 0) + 1;
+  const attempts = Math.max(Number(stage.retries ?? 1), 0) + 1;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const startedAt = new Date().toISOString();
     const startedMs = Date.now();
@@ -664,8 +745,27 @@ async function runCommandStage(stage) {
     const result = spawnSync(stage.command, stage.args, {
       cwd: stage.cwd,
       env: { ...process.env, ...(stage.env || {}) },
-      stdio: 'inherit',
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
     });
+    if (result.stdout) {
+      process.stdout.write(result.stdout);
+    }
+    if (result.stderr) {
+      process.stderr.write(result.stderr);
+    }
+    const combinedOutput = `${result.stdout || ''}\n${result.stderr || ''}`;
+    const transientFailure =
+      result.status !== 0 &&
+      attempt < attempts &&
+      isTransientStageFailure(combinedOutput);
+    if (transientFailure) {
+      console.warn(
+        `[retry] ${stage.id} transient failure on attempt ${attempt}/${attempts}: retrying`
+      );
+      await sleep(2000 * attempt);
+      continue;
+    }
     const completedAt = new Date().toISOString();
     const durationMs = Date.now() - startedMs;
     const report = result.status === 0 ? readJsonIfPresent(stage.reportPath) : null;

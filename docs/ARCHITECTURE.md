@@ -84,7 +84,7 @@
 - privacy oracle and privacy compute share one trusted runtime
 - NeoDID public DID resolution stays separate from private bind / ticket issuance
 - Neo N3 is the only active supported execution target right now
-- Neo X artifacts remain in-repo as legacy/reference code, but they are not the current production path
+- Neo X artifacts remain in-repo as reference code, but they are not the current production path
 
 ## Provider Registry
 

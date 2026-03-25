@@ -2,7 +2,7 @@
   "generated_at": "2026-03-17T15:28:47.676Z",
   "network": "testnet",
   "aa_suite": {
-    "report_path": "../neo-abstract-account/sdk/docs/reports/2026-03-14-v3-testnet-validation-suite.latest.json",
+    "report_path": "../neo-abstract-account/sdk/docs/reports/v3-testnet-validation-suite.latest.json",
     "stages": [
       {
         "id": "smoke",
@@ -36,7 +36,7 @@
       }
     },
     "plugin_matrix": {
-      "reportPath": "sdk/docs/reports/2026-03-13-v3-testnet-plugin-matrix.1773760991823.json",
+      "reportPath": "../neo-abstract-account/sdk/docs/reports/v3-testnet-plugin-matrix.latest.json",
       "core": "0x1e3767bde710932db1e66ffbebf452e24e664584",
       "mockTarget": "0xdb161689a758489bb848079e428fc6ffaa73a633",
       "scenarios": [
@@ -56,7 +56,7 @@
       ]
     },
     "paymaster_policy": {
-      "reportPath": "sdk/docs/reports/2026-03-14-v3-testnet-paymaster-policy.1773761210768.json",
+      "reportPath": "../neo-abstract-account/sdk/docs/reports/v3-testnet-paymaster-policy.latest.json",
       "policyId": "testnet-aa",
       "accountId": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
       "approvalDigest": "4e6f87401838f21de14798e50a6eee0182c5a0877fd8461a306cb686254c1d49",
@@ -77,7 +77,7 @@
       "policyId": "testnet-aa",
       "approvalDigest": "1f2f0ffe978ababa1488a3b329fb7331aa14b8c87a12c4277977a8c160e29276",
       "attestationHash": "f7ab98517618ab5cb9acf2e3455dc4236cb6186e077159051cb10b32199bc090",
-      "appId": "28294e89d490924b79c85cdee057ce55723b3d56",
+      "appId": "ddff154546fe22d15b65667156dd4b7c611e6093",
       "vmstate": "HALT",
       "stack": [
         {

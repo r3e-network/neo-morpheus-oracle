@@ -1,4 +1,0 @@
-# Testnet validation CVM with ingress and split pricefeed/request relayers
-id = "28294e89d490924b79c85cdee057ce55723b3d56"
-compose_file = "deploy/phala/docker-compose.ingress.ui.split-relayer.yml"
-env_file = "deploy/phala/morpheus.testnet.env"

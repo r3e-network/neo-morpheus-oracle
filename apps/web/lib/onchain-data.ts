@@ -13,6 +13,14 @@ export const NETWORKS = {
     label: SELECTED_NETWORK_LABEL,
     phalaApiUrl: selectedNetwork.phala?.public_api_url || '',
     phalaCvmId: selectedNetwork.phala?.cvm_id || '',
+    phalaCvmName: selectedNetwork.phala?.cvm_name || '',
+    phalaEdgeUrl: selectedNetwork.phala?.edge_public_url || '',
+    phalaControlPlaneUrl: selectedNetwork.phala?.control_plane_url || '',
+    oracleAttestationExplorerUrl: selectedNetwork.phala?.oracle_attestation_explorer_url || '',
+    datafeedCvmId: selectedNetwork.phala?.datafeed_cvm_id || '',
+    datafeedCvmName: selectedNetwork.phala?.datafeed_cvm_name || '',
+    datafeedAttestationExplorerUrl:
+      selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
   },
   neo_x: {
     name: selectedNetwork.network === 'mainnet' ? 'Neo X Mainnet' : 'Neo X Testnet',
@@ -44,6 +52,14 @@ export const NETWORKS = {
     exampleFeedReader: selectedNetwork.neo_n3?.examples?.feed_reader || '',
     phalaApiUrl: selectedNetwork.phala?.public_api_url || '',
     phalaCvmId: selectedNetwork.phala?.cvm_id || '',
+    phalaCvmName: selectedNetwork.phala?.cvm_name || '',
+    phalaEdgeUrl: selectedNetwork.phala?.edge_public_url || '',
+    phalaControlPlaneUrl: selectedNetwork.phala?.control_plane_url || '',
+    oracleAttestationExplorerUrl: selectedNetwork.phala?.oracle_attestation_explorer_url || '',
+    datafeedCvmId: selectedNetwork.phala?.datafeed_cvm_id || '',
+    datafeedCvmName: selectedNetwork.phala?.datafeed_cvm_name || '',
+    datafeedAttestationExplorerUrl:
+      selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
     explorer:
       selectedNetwork.network === 'mainnet'
         ? 'https://neotube.io/contract/'

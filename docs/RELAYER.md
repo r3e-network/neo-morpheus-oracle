@@ -37,7 +37,7 @@ npm --prefix workers/morpheus-relayer run metrics
 
 ## Required env
 
-- `MORPHEUS_RUNTIME_URL` preferred, or legacy `PHALA_API_URL`
+- `MORPHEUS_RUNTIME_URL`
 - `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
 - `MORPHEUS_NETWORK` (`testnet` or `mainnet`)
 - `NEO_RPC_URL`
@@ -49,7 +49,7 @@ Archived Neo X variables are intentionally omitted here because they are not par
 If direct worker-side provider default resolution is needed during relayer processing, also set:
 
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`
-- `SUPABASE_SECRET_KEY` preferred, or legacy `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SECRET_KEY`
 
 ## Reliability Model
 

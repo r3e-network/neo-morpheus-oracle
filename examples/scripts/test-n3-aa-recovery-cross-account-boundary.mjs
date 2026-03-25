@@ -505,7 +505,7 @@ async function main() {
     process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''
   );
   const phalaAppId = trimString(
-    process.env.MORPHEUS_PAYMASTER_APP_ID || '28294e89d490924b79c85cdee057ce55723b3d56'
+    process.env.MORPHEUS_PAYMASTER_APP_ID || 'ddff154546fe22d15b65667156dd4b7c611e6093'
   );
   const verifierPubkey =
     JSON.parse(

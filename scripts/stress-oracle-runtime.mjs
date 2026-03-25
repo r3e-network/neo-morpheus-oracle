@@ -95,9 +95,7 @@ function resolveBaseUrl(explicitTargetUrl, network) {
   if (network === 'testnet' && trimString(localEnv.MORPHEUS_TESTNET_CUSTOM_DOMAIN)) {
     return `https://${trimString(localEnv.MORPHEUS_TESTNET_CUSTOM_DOMAIN).replace(/^https?:\/\//, '')}`;
   }
-  return network === 'mainnet'
-    ? 'https://morpheus-mainnet.meshmini.app'
-    : 'https://morpheus-testnet.meshmini.app';
+  return `https://oracle.meshmini.app/${network === 'testnet' ? 'testnet' : 'mainnet'}`;
 }
 
 function buildPresetFactory(name, network) {

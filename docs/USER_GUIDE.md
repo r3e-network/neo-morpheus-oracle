@@ -18,7 +18,7 @@ Important production rule:
 - Each request currently costs `0.01 GAS`-equivalent.
 - Neo N3 supports prepaid fee credits, including contract-sponsored payment.
 - Neo N3 is the only active supported runtime path right now.
-- Neo X examples remain in-repo as legacy/reference material and should not be treated as the current production integration path.
+- Neo X examples remain in-repo as reference material and should not be treated as the current production integration path.
 
 ## Canonical Network Registry
 
@@ -31,7 +31,9 @@ Current Neo N3 anchors:
 
 | Item                   | Mainnet                                                                              | Testnet                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Public API             | `https://morpheus-mainnet.meshmini.app` | `https://morpheus-testnet.meshmini.app` |
+| Oracle Runtime URL     | `https://oracle.meshmini.app/mainnet` | `https://oracle.meshmini.app/testnet` |
+| Oracle Attestation Explorer | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
+| DataFeed Attestation Explorer | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` |
 | MorpheusOracle         | `0x017520f068fd602082fe5572596185e62a4ad991`                                         | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                           |
 | OracleCallbackConsumer | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                         | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`                                           |
 | MorpheusDataFeed       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                         | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                           |
@@ -52,7 +54,7 @@ Operational notes:
 - testnet NeoDID registry remains unpublished in the shared registry until a stable shared deployment is intentionally promoted
 - `UnifiedSmartWalletV3` is the stable AA runtime name; raw deployment manifest suffixes are internal deployment metadata rather than user-facing contract names
 - mainnet AA ecosystem contracts are also published under `smartwallet.neo` subdomains such as `core.smartwallet.neo`, `web3auth.smartwallet.neo`, and `recovery.smartwallet.neo`
-- `aa.morpheus.neo` now resolves to the same canonical mainnet AA address as `smartwallet.neo`; treat it as a compatibility alias, not the primary public name
+- `aa.morpheus.neo` now resolves to the same canonical mainnet AA address as `smartwallet.neo`; treat it as an additional alias, not the primary public name
 
 ## 1. Concepts
 
