@@ -7,6 +7,7 @@ import {
 } from '@/lib/control-plane';
 import { parseFeedProviders, parseFeedSymbols } from '@/lib/feed-defaults';
 import { runFeedSyncJob } from '@/lib/feed-sync';
+import { sendHeartbeat } from '@/lib/heartbeat';
 import { recordOperationLog } from '@/lib/operation-logs';
 
 function isAuthorized(request: Request) {
@@ -113,6 +114,17 @@ export async function GET(request: Request) {
   }
 
   const finalBody = await runFeedSyncJob(feedTickPayload);
+  const heartbeatPayload = {
+    route: '/api/cron/feed',
+    ok: Boolean(finalBody.ok),
+    target_chain: 'neo_n3',
+    symbols: symbols.length,
+  };
+  if (finalBody.ok) {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL || '', heartbeatPayload);
+  } else {
+    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL || '', heartbeatPayload);
+  }
   await recordOperationLog({
     route: '/api/cron/feed',
     method: 'GET',

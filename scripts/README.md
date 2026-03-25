@@ -34,6 +34,8 @@
 - `npm --prefix workers/morpheus-relayer run once`
 - `npm --prefix workers/morpheus-relayer run start`
 - `npm --prefix workers/morpheus-relayer run metrics`
+- `npm --prefix workers/morpheus-relayer run metrics:prom`
+- `npm run metrics:relayer:prom`
 - `npm run start:testnet-rng-local`
 - `workers/morpheus-relayer/Dockerfile`
 - `workers/phala-worker/Dockerfile`
@@ -50,6 +52,8 @@ Notes:
 - `MORPHEUS_RELAYER_MODE=feed_only` can be used for a dedicated pricefeed relayer instance
 - `MORPHEUS_RELAYER_INSTANCE_ID` can be set to make durable-queue claim ownership explicit in logs and job metadata
 - `MORPHEUS_DURABLE_QUEUE_ENABLED=true` persists fresh chain events into `morpheus_relayer_jobs` before checkpoints advance
+- `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL` and related heartbeat URLs can be used to ping Better Stack from cron and relayer success/failure paths
+- `npm run metrics:relayer:prom` renders Prometheus text for Grafana Cloud or any Prometheus-compatible scraper / push bridge
 
 ## Expected env vars
 
