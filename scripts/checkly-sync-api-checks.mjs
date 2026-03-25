@@ -38,163 +38,215 @@ async function api(pathname, init = {}) {
   return payload;
 }
 
+function statusAssertion(target) {
+  return {
+    source: 'STATUS_CODE',
+    comparison: 'EQUALS',
+    target: String(target),
+    property: '',
+    regex: '',
+  };
+}
+
+function jsonAssertion(property, comparison, target = '') {
+  return {
+    source: 'JSON_BODY',
+    comparison,
+    target: String(target),
+    property,
+    regex: '',
+  };
+}
+
+function textAssertion(comparison, target) {
+  return {
+    source: 'TEXT_BODY',
+    comparison,
+    target: String(target),
+    property: '',
+    regex: '',
+  };
+}
+
 const desiredChecks = [
   {
     name: 'morpheus-oracle-testnet-health',
     url: 'https://oracle.meshmini.app/testnet/health',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.status', 'EQUALS', 'ok')],
   },
   {
     name: 'morpheus-oracle-mainnet-health',
     url: 'https://oracle.meshmini.app/mainnet/health',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.status', 'EQUALS', 'ok')],
   },
   {
     name: 'morpheus-oracle-testnet-public-key',
     url: 'https://oracle.meshmini.app/testnet/oracle/public-key',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.algorithm', 'EQUALS', 'X25519-HKDF-SHA256-AES-256-GCM'),
+    ],
   },
   {
     name: 'morpheus-oracle-testnet-providers',
     url: 'https://oracle.meshmini.app/testnet/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-oracle-testnet-feed-catalog',
     url: 'https://oracle.meshmini.app/testnet/feeds/catalog',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.pairs', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-oracle-testnet-neodid-providers',
     url: 'https://oracle.meshmini.app/testnet/neodid/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-oracle-testnet-info',
     url: 'https://oracle.meshmini.app/testnet/info',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.dstack.app_id', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-oracle-mainnet-public-key',
     url: 'https://oracle.meshmini.app/mainnet/oracle/public-key',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.algorithm', 'EQUALS', 'X25519-HKDF-SHA256-AES-256-GCM'),
+    ],
   },
   {
     name: 'morpheus-oracle-mainnet-providers',
     url: 'https://oracle.meshmini.app/mainnet/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-oracle-mainnet-feed-catalog',
     url: 'https://oracle.meshmini.app/mainnet/feeds/catalog',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.pairs', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-oracle-mainnet-neodid-providers',
     url: 'https://oracle.meshmini.app/mainnet/neodid/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-oracle-mainnet-info',
     url: 'https://oracle.meshmini.app/mainnet/info',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.dstack.app_id', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-control-testnet-health-auth-gate',
     url: 'https://control.meshmini.app/testnet/health',
-    expectedStatus: '401',
+    frequency: 120,
+    assertions: [statusAssertion(401), textAssertion('CONTAINS', 'unauthorized')],
   },
   {
     name: 'morpheus-control-mainnet-health-auth-gate',
     url: 'https://control.meshmini.app/mainnet/health',
-    expectedStatus: '401',
+    frequency: 120,
+    assertions: [statusAssertion(401), textAssertion('CONTAINS', 'unauthorized')],
   },
   {
     name: 'morpheus-edge-testnet-health',
     url: 'https://edge.meshmini.app/testnet/health',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.status', 'EQUALS', 'ok')],
   },
   {
     name: 'morpheus-edge-mainnet-health',
     url: 'https://edge.meshmini.app/mainnet/health',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.status', 'EQUALS', 'ok')],
   },
   {
     name: 'morpheus-edge-testnet-public-key',
     url: 'https://edge.meshmini.app/testnet/oracle/public-key',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.algorithm', 'EQUALS', 'X25519-HKDF-SHA256-AES-256-GCM'),
+    ],
   },
   {
     name: 'morpheus-edge-testnet-providers',
     url: 'https://edge.meshmini.app/testnet/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-edge-testnet-feed-catalog',
     url: 'https://edge.meshmini.app/testnet/feeds/catalog',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.pairs', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-edge-testnet-neodid-providers',
     url: 'https://edge.meshmini.app/testnet/neodid/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-edge-testnet-info',
     url: 'https://edge.meshmini.app/testnet/info',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.dstack.app_id', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-edge-mainnet-public-key',
     url: 'https://edge.meshmini.app/mainnet/oracle/public-key',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.algorithm', 'EQUALS', 'X25519-HKDF-SHA256-AES-256-GCM'),
+    ],
   },
   {
     name: 'morpheus-edge-mainnet-providers',
     url: 'https://edge.meshmini.app/mainnet/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-edge-mainnet-feed-catalog',
     url: 'https://edge.meshmini.app/mainnet/feeds/catalog',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.pairs', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-edge-mainnet-neodid-providers',
     url: 'https://edge.meshmini.app/mainnet/neodid/providers',
-    expectedStatus: '200',
+    frequency: 360,
+    assertions: [statusAssertion(200), jsonAssertion('$.providers', 'NOT_EMPTY')],
   },
   {
     name: 'morpheus-edge-mainnet-info',
     url: 'https://edge.meshmini.app/mainnet/info',
-    expectedStatus: '200',
+    frequency: 120,
+    assertions: [statusAssertion(200), jsonAssertion('$.dstack.app_id', 'NOT_EMPTY')],
   },
 ];
 
-const existing = await api('/checks?limit=100');
-const existingByName = new Map(
-  (Array.isArray(existing) ? existing : []).map((check) => [String(check.name || ''), check])
-);
-
-const created = [];
-const skipped = [];
-
-for (const spec of desiredChecks) {
-  if (existingByName.has(spec.name)) {
-    skipped.push({
-      name: spec.name,
-      id: existingByName.get(spec.name)?.id || null,
-    });
-    continue;
-  }
-
-  const payload = {
+function buildApiPayload(spec) {
+  return {
     name: spec.name,
     checkType: 'API',
     activated: true,
     muted: false,
     shouldFail: false,
-    frequency: 10,
+    frequency: spec.frequency,
     locations: ['us-east-1'],
     degradedResponseTime: 5000,
     maxResponseTime: 20000,
@@ -208,15 +260,35 @@ for (const spec of desiredChecks) {
       bodyType: 'NONE',
       headers: [],
       queryParameters: [],
-      assertions: [
-        {
-          source: 'STATUS_CODE',
-          comparison: 'EQUALS',
-          target: spec.expectedStatus,
-        },
-      ],
+      assertions: spec.assertions,
     },
   };
+}
+
+const existing = await api('/checks?limit=100');
+const existingByName = new Map(
+  (Array.isArray(existing) ? existing : []).map((check) => [String(check.name || ''), check])
+);
+
+const created = [];
+const updated = [];
+
+for (const spec of desiredChecks) {
+  const payload = buildApiPayload(spec);
+  const existingCheck = existingByName.get(spec.name);
+
+  if (existingCheck) {
+    const check = await api(`/checks/${existingCheck.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    updated.push({
+      name: spec.name,
+      id: check?.id || existingCheck.id,
+      frequency: spec.frequency,
+    });
+    continue;
+  }
 
   const check = await api('/checks/api', {
     method: 'POST',
@@ -226,7 +298,7 @@ for (const spec of desiredChecks) {
     name: spec.name,
     id: check?.id || null,
     url: spec.url,
-    expected_status: spec.expectedStatus,
+    frequency: spec.frequency,
   });
 }
 
@@ -236,8 +308,8 @@ console.log(
       account_id: accountId,
       project_name: projectName,
       created,
-      skipped,
-      total_checks_after: (Array.isArray(existing) ? existing.length : 0) + created.length,
+      updated,
+      total_checks_after: desiredChecks.length,
     },
     null,
     2
