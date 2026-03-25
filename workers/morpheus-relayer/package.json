@@ -9,7 +9,7 @@
     "metrics": "node src/cli.js metrics",
     "metrics:prom": "node src/cli.js metrics:prom",
     "serve:metrics": "node src/cli.js serve:metrics",
-    "check": "node --check src/cli.js && node --check src/metrics-server.js",
+    "check": "node --check src/cli.js && node --check src/metrics-server.js && node --check src/betterstack-log-sink.js",
     "test": "node --test relayer.test.mjs"
   },
   "dependencies": {

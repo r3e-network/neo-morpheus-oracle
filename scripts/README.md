@@ -40,6 +40,10 @@
 - `npm run start:relayer:metrics`
 - `npm run check:betterstack`
 - `npm run sync:betterstack`
+- `npm run check:betterstack:monitors`
+- `npm run sync:betterstack:monitors`
+- `npm run check:betterstack:sources`
+- `npm run sync:betterstack:sources`
 - `npm run start:testnet-rng-local`
 - `workers/morpheus-relayer/Dockerfile`
 - `workers/phala-worker/Dockerfile`
@@ -57,6 +61,7 @@ Notes:
 - `MORPHEUS_RELAYER_INSTANCE_ID` can be set to make durable-queue claim ownership explicit in logs and job metadata
 - `MORPHEUS_DURABLE_QUEUE_ENABLED=true` persists fresh chain events into `morpheus_relayer_jobs` before checkpoints advance
 - `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL` and related heartbeat URLs can be used to ping Better Stack from cron and relayer success/failure paths
+- `MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST` and `MORPHEUS_BETTERSTACK_LOG_SOURCE_TOKEN` enable optional relayer log shipping into Better Stack Telemetry
 - `npm run metrics:relayer:prom` renders Prometheus text for Grafana Cloud or any Prometheus-compatible scraper / push bridge
 - `npm --prefix workers/morpheus-relayer run serve:metrics` exposes `/metrics` and `/healthz` over HTTP for Prometheus / Grafana Alloy scraping
 

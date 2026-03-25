@@ -71,6 +71,8 @@
     "sync:betterstack": "node scripts/betterstack-sync-heartbeats.mjs",
     "check:betterstack:monitors": "node scripts/betterstack-list-monitors.mjs",
     "sync:betterstack:monitors": "node scripts/betterstack-sync-monitors.mjs",
+    "check:betterstack:sources": "node scripts/betterstack-list-sources.mjs",
+    "sync:betterstack:sources": "node scripts/betterstack-sync-sources.mjs",
     "smoke:control-plane": "node scripts/smoke-control-plane.mjs",
     "stress:runtime": "node scripts/stress-oracle-runtime.mjs",
     "backup:system": "node scripts/backup-system-state.mjs",
