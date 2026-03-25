@@ -139,6 +139,8 @@ Scaffolded monitoring definitions live in:
   - [scripts/checkly-list-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-list-checks.mjs)
 - current API check seeding script:
   - [scripts/checkly-sync-api-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-sync-api-checks.mjs)
+- current SaaS inventory export:
+  - [scripts/export-saas-inventory.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/export-saas-inventory.mjs)
 
 Needed if you want Codex to wire deployment automation for browser/API checks:
 
@@ -176,6 +178,15 @@ Current seeded heartbeats:
 - `morpheus-relayer`
 - `morpheus-relayer-feed`
 
+Current seeded monitors:
+
+- `morpheus-oracle-testnet-health`
+- `morpheus-oracle-mainnet-health`
+- `morpheus-edge-testnet-health`
+- `morpheus-edge-mainnet-health`
+- `morpheus-aa-home`
+- `morpheus-aa-identity`
+
 Current seeded telemetry source:
 
 - `morpheus-operations-http`
@@ -205,6 +216,27 @@ npm run metrics:relayer:prom
 4. Checkly
 5. Better Stack
 6. Grafana Cloud
+
+## Inventory Export
+
+To snapshot the currently wired SaaS resources from this workspace:
+
+```bash
+npm run export:saas
+```
+
+Optional file output:
+
+```bash
+node scripts/export-saas-inventory.mjs --output docs/reports/saas-inventory.latest.json
+```
+
+As of this workspace state, the live SaaS inventory includes:
+
+- Checkly: `28` checks
+- Better Stack: `4` heartbeats
+- Better Stack: `7` monitors
+- Better Stack Telemetry: `1` source
 
 ## Official References
 

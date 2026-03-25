@@ -44,6 +44,7 @@
 - `npm run sync:betterstack:monitors`
 - `npm run check:betterstack:sources`
 - `npm run sync:betterstack:sources`
+- `npm run export:saas`
 - `npm run start:testnet-rng-local`
 - `workers/morpheus-relayer/Dockerfile`
 - `workers/phala-worker/Dockerfile`

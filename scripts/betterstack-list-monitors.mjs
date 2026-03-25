@@ -2,7 +2,7 @@ import { betterStackApi, loadBetterStackEnv } from './betterstack-lib.mjs';
 
 await loadBetterStackEnv();
 
-const response = await betterStackApi('/monitors?page=1');
+const response = await betterStackApi('/monitors?page=1&per_page=100');
 const rows = Array.isArray(response?.data) ? response.data : [];
 
 console.log(
