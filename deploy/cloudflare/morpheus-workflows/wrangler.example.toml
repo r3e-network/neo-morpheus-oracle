@@ -1,0 +1,17 @@
+name = "morpheus-workflows"
+main = "worker.ts"
+compatibility_date = "2026-03-25"
+
+[vars]
+MORPHEUS_APP_BACKEND_URL = ""
+MORPHEUS_APP_BACKEND_TOKEN = ""
+
+[[workflows]]
+name = "morpheus-callback-broadcast-workflow"
+binding = "CALLBACK_BROADCAST_WORKFLOW"
+class_name = "CallbackBroadcastWorkflow"
+
+[[workflows]]
+name = "morpheus-automation-execute-workflow"
+binding = "AUTOMATION_EXECUTE_WORKFLOW"
+class_name = "AutomationExecuteWorkflow"
