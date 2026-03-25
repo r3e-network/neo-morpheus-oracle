@@ -143,6 +143,8 @@ Notes:
 - Neo N3 signer identities are pinned in `config/signer-identities.json`; role drift now fails validation instead of silently switching addresses
 - testnet renderers default the verifier signer to `NEO_TESTNET_WIF` unless you explicitly set a dedicated verifier key, and they default `PHALA_USE_DERIVED_KEYS=false` so the explicit testnet signer is not shadowed by a dstack-derived key
 - testnet renderers also default `MORPHEUS_RELAYER_NEO_N3_SCAN_MODE=request_cursor` because the public testnet `n3index_notifications` feed can lag far behind the current tip
+- `MORPHEUS_BETTERSTACK_*` URLs can be set to ping Better Stack from cron and relayer success/failure paths
+- `npm --prefix workers/morpheus-relayer run metrics:prom` exports Prometheus text that can be scraped or bridged into Grafana Cloud
 
 3. Copy `docker-compose.yml`, the selected generated env file (`morpheus.mainnet.env` or `morpheus.testnet.env`), and optionally `Caddyfile` into the CVM
 4. Fill or review the selected env file against `morpheus.env.example`
@@ -210,6 +212,8 @@ For the current `deploy/phala/docker-compose.ui.yml`, the Phala UI only needs th
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `MORPHEUS_RUNTIME_CONFIG_JSON`
+- optional `MORPHEUS_BETTERSTACK_*` heartbeat URLs
+- optional `GRAFANA_CLOUD_PROMETHEUS_*` values if you want the deployment env to carry Grafana-related metadata alongside the relayer
 
 Everything else now lives inside `MORPHEUS_RUNTIME_CONFIG_JSON`.
 
