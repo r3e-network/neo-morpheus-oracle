@@ -7,6 +7,7 @@ This document is a single “resume point” for the MeshMini workspace. It inve
 - external services (Cloudflare/Upstash/Supabase/TEE runtime)
 - environment variables (names, scopes, where to set them)
 - validation commands / regression entrypoints
+- workspace-level orchestration entrypoints
 
 ## Security Rules (Read First)
 
@@ -33,6 +34,37 @@ Local paths (typical dev workspace):
   - Abstract Account contracts + UI + server routes for relaying/ops, plus SDK test matrix.
 - `neo-miniapps-platform`
   - Miniapps host platform + admin console + individual miniapps; integrates AA + oracle services.
+
+## Validation Orchestration
+
+Validation is now layered consistently across the workspace.
+
+Repo-local entrypoints:
+
+- `neo-morpheus-oracle`
+  - `npm run test:testnet:local-gates`
+  - `npm run test:testnet:live`
+  - `npm run test:testnet:full`
+- `neo-abstract-account`
+  - `bash scripts/run_local_validation_gates.sh`
+  - `bash scripts/run_live_testnet_validation.sh`
+  - `bash scripts/run_full_testnet_validation.sh`
+- `neo-miniapps-platform`
+  - `npm run test:testnet:local-gates`
+  - `npm run test:testnet:live`
+  - `npm run test:testnet:full-stack`
+
+Workspace-level entrypoints from `neo-morpheus-oracle`:
+
+- `npm run test:workspace:local`
+- `npm run test:workspace:live`
+- `npm run test:workspace:full`
+
+Operational rule:
+
+- use `local` first
+- use `live` when validating testnet integration or regressions
+- use `full` only when you intentionally want both layers in sequence
 
 ## Public Domains / Routing
 
