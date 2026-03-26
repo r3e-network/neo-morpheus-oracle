@@ -8,11 +8,18 @@ The current system is materially stronger than earlier iterations and is operati
 
 However, one protocol-level finding remains open and should be treated as the primary unresolved security issue before claiming a fully hardened production posture.
 
+Current architecture assumptions in scope:
+
+- Cloudflare owns public ingress, orchestration, and recovery outside the TEE
+- Supabase owns durable job and operational state
+- the Oracle CVM handles request/response oracle, compute, NeoDID, and paymaster authorization
+- the DataFeed CVM stays isolated so continuous price publication is not starved by interactive work
+
 ## Scope
 
 - Neo N3 contracts
 - Neo X contracts
-- Phala worker privacy Oracle and compute execution paths
+- confidential Oracle runtime privacy Oracle and compute execution paths
 - NeoDID bind / ticket issuance and public DID resolution surfaces
 - Relayer callback fulfillment path
 - Web admin/control-plane surfaces

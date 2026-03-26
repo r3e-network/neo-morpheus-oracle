@@ -4,10 +4,17 @@ This guide explains how to use the four main Morpheus capabilities:
 
 - **Privacy Compute**
 - **Privacy Oracle**
-- **PriceFeed / DataFeed**
+- **Datafeeds**
 - **NeoDID**
 
 It also explains how to inspect supported built-in providers and feed pairs, and how to use the public NeoDID DID resolver.
+
+Current architecture note:
+
+- Cloudflare owns public ingress, control-plane routing, queue/workflow orchestration, and recovery.
+- Supabase owns durable request, job, automation, and feed state.
+- The Oracle CVM handles request/response oracle, compute, and NeoDID execution for both mainnet and testnet.
+- The DataFeed CVM is isolated so continuous market-data publication is not blocked by interactive workloads.
 
 Important production rule:
 
@@ -29,28 +36,28 @@ Always treat these files as the source of truth before copying an address into a
 
 Current Neo N3 anchors:
 
-| Item                   | Mainnet                                                                              | Testnet                                                                                |
-| ---------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Oracle Runtime URL     | `https://oracle.meshmini.app/mainnet` | `https://oracle.meshmini.app/testnet` |
-| Oracle Attestation Explorer | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
+| Item                          | Mainnet                                                                         | Testnet                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Oracle Runtime URL            | `https://oracle.meshmini.app/mainnet`                                           | `https://oracle.meshmini.app/testnet`                                           |
+| Oracle Attestation Explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
 | DataFeed Attestation Explorer | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` |
-| MorpheusOracle         | `0x017520f068fd602082fe5572596185e62a4ad991`                                         | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                           |
-| OracleCallbackConsumer | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                         | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`                                           |
-| MorpheusDataFeed       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                         | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                           |
-| AbstractAccount        | `0x9742b4ed62a84a886f404d36149da6147528ee33`                                         | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                           |
-| AA Web3AuthVerifier    | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                         | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                           |
-| AA RecoveryVerifier    | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                         | deployment-specific                                                                    |
-| NeoDIDRegistry         | `0xb81f31ea81e279793b30411b82c2e82078b63105`                                         | unpublished                                                                            |
-| Oracle NNS             | `oracle.morpheus.neo`                                                                | unassigned                                                                             |
-| DataFeed NNS           | `pricefeed.morpheus.neo`                                                             | unassigned                                                                             |
-| AA NNS                 | `smartwallet.neo`                                                                    | unassigned                                                                             |
-| AA alias NNS           | `aa.morpheus.neo`                                                                    | unassigned                                                                             |
-| NeoDID NNS             | `neodid.morpheus.neo`                                                                | unassigned                                                                             |
+| MorpheusOracle                | `0x017520f068fd602082fe5572596185e62a4ad991`                                    | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
+| OracleCallbackConsumer        | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
+| MorpheusDataFeed              | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                    | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
+| AbstractAccount               | `0x9742b4ed62a84a886f404d36149da6147528ee33`                                    | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                    |
+| AA Web3AuthVerifier           | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
+| AA RecoveryVerifier           | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                    | deployment-specific                                                             |
+| NeoDIDRegistry                | `0xb81f31ea81e279793b30411b82c2e82078b63105`                                    | unpublished                                                                     |
+| Oracle NNS                    | `oracle.morpheus.neo`                                                           | unassigned                                                                      |
+| DataFeed NNS                  | `pricefeed.morpheus.neo`                                                        | unassigned                                                                      |
+| AA NNS                        | `smartwallet.neo`                                                               | unassigned                                                                      |
+| AA alias NNS                  | `aa.morpheus.neo`                                                               | unassigned                                                                      |
+| NeoDID NNS                    | `neodid.morpheus.neo`                                                           | unassigned                                                                      |
 
 Operational notes:
 
-- the canonical testnet callback contract for shared infra is `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`
-- the testnet example consumer used by live validation probes is `0x8c506f224d82e67200f20d9d5361f767f0756e3b`
+- the canonical testnet callback contract for shared infra is `0x8c506f224d82e67200f20d9d5361f767f0756e3b`
+- the current testnet example consumer used by live validation probes resolves to the same shared deployment
 - testnet NeoDID registry remains unpublished in the shared registry until a stable shared deployment is intentionally promoted
 - `UnifiedSmartWalletV3` is the stable AA runtime name; raw deployment manifest suffixes are internal deployment metadata rather than user-facing contract names
 - mainnet AA ecosystem contracts are also published under `smartwallet.neo` subdomains such as `core.smartwallet.neo`, `web3auth.smartwallet.neo`, and `recovery.smartwallet.neo`
@@ -79,12 +86,13 @@ Typical cases:
 - run a script on sensitive API output
 - return only a boolean / score / filtered result on-chain
 
-### PriceFeed / DataFeed
+### Datafeeds
 
 Use Morpheus datafeeds as operator-synchronized on-chain price storage that user contracts read directly.
 
 Important properties:
 
+- feed publication runs on the isolated DataFeed CVM
 - all feed pairs are normalized to `*-USD`
 - Morpheus does **not** aggregate or medianize providers
 - each provider is stored independently on-chain as `PROVIDER:PAIR`
@@ -349,7 +357,7 @@ Then place only the short reference on-chain:
 }
 ```
 
-## 4. PriceFeed / DataFeed Usage
+## 4. Datafeeds Usage
 
 ### Query supported feed pairs
 

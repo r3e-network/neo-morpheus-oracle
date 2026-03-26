@@ -253,8 +253,12 @@ assert(
   'core docs pages still contain stale v1.0.2 version markers'
 );
 assert(
-  versionedDocsText.includes('v1.0.3') || versionedDocsText.includes('REVISION 1.0.3'),
-  'core docs pages should expose v1.0.3 version markers'
+  !versionedDocsText.includes('v1.0.3') && !versionedDocsText.includes('REVISION 1.0.3'),
+  'core docs pages should not expose stale hard-coded v1.0.3 markers'
+);
+assert(
+  versionedDocsText.includes('CURRENT DESIGN'),
+  'core docs pages should expose a stable current-design marker'
 );
 
 console.log(
@@ -266,7 +270,7 @@ console.log(
       network_registries_checked: 2,
       stale_fragments_checked: forbiddenFragments.length,
       neodid_fragments_checked: requiredNeoDidFragments.length,
-      version_markers_checked: 2,
+      version_markers_checked: 3,
       extended_doc_checks: 5,
     },
     null,

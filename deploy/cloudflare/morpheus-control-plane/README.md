@@ -1,19 +1,14 @@
 # Morpheus Control Plane
 
-Cloudflare Worker fronting the first two layers of the refactor:
-
-1. stateless control plane
-2. durable orchestration ingress
-
-The confidential execution plane remains on the existing Phala CVM.
+Cloudflare Worker that owns the public control layer and durable orchestration layer for Morpheus. Confidential execution stays on the Phala CVMs.
 
 ## Responsibilities
 
-- expose `/mainnet/*` and `/testnet/*` async ingress routes
+- expose `/mainnet/*` and `/testnet/*` ingress routes
 - validate/authenticate requests before dispatch
 - persist job envelopes into `morpheus_control_plane_jobs`
-- send core confidential-execution jobs to Cloudflare Queues
-- send callback/automation orchestration jobs to Cloudflare Workflows
+- send execution-bound jobs to Cloudflare Queues
+- send orchestration-heavy jobs to Cloudflare Workflows
 - expose `GET /<network>/jobs/<job_id>` for status polling
 - expose `POST /<network>/jobs/recover` for operator-driven recovery of stale jobs
 
@@ -41,15 +36,13 @@ Current runtime split:
 
 - queue-backed:
   - `oracle_request`: forwards supported execution routes to the
-  existing confidential execution plane
+    existing confidential execution plane
   - `feed_tick`: forwards feed-sync execution to the confidential execution plane
 - workflow-backed:
   - `callback_broadcast`: durable workflow around signed callback broadcast
   - `automation_execute`: durable workflow around automation queueing
 
-The older queue-based callback/automation path has been removed. These two
-lanes now use Workflows directly to reduce custom retry code and shrink the
-operational surface area.
+The older queue-based callback and automation path is gone. These lanes now use native Workflows.
 
 ## Recovery Model
 
@@ -64,7 +57,7 @@ successful pass:
 - stale `processing` jobs and overdue `queued` jobs can be recovered with
   `POST /<network>/jobs/recover`
 
-This is mainly for post-outage recovery. A typical operator flow is:
+This is primarily for post-outage recovery. A typical operator flow is:
 
 ```bash
 curl -X POST \
@@ -109,7 +102,7 @@ Example env template:
 - [vars.example.env](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/vars.example.env)
 - [wrangler.meshmini.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/wrangler.meshmini.toml)
 
-Current production route target:
+Current production target:
 
 - `https://control.meshmini.app`
 

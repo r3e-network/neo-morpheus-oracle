@@ -2,11 +2,17 @@
 
 ## Purpose
 
-Morpheus Paymaster is a policy-gated sponsorship service exposed by the Phala worker at:
+Morpheus Paymaster is a policy-gated sponsorship service exposed by the Oracle runtime at:
 
 - `POST /paymaster/authorize`
 
 It is intended to sponsor pre-approved Neo N3 Abstract Account operations without exposing a global open faucet.
+
+Current production architecture:
+
+- ingress, auth, rate limit, and recovery stay outside the TEE
+- the Oracle CVM executes the confidential authorization path
+- mainnet and testnet share the same Oracle CVM and differ only by network-scoped policy variables and request metadata
 
 Current runtime scope:
 

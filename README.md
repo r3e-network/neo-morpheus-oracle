@@ -1,114 +1,111 @@
 # neo-morpheus-oracle
 
-**Morpheus Oracle / 墨菲斯网络** is a standalone privacy Oracle network for the Neo ecosystem.
+`neo-morpheus-oracle` is a Neo N3-first confidential oracle stack. The current production design keeps ingress, orchestration, and durability outside the TEE, and reserves confidential VMs for execution only.
 
-Morpheus is the mentor who gives Neo the truth pill in _The Matrix_.
-This project gives the Neo blockchain the same thing: **truth**.
+## Current Design
 
-## Core Modules
+1. **Cloudflare edge gateway**
+   - public edge entry
+   - cache for safe GET routes
+   - optional abuse controls
+2. **Cloudflare control plane**
+   - `POST /mainnet/*` and `POST /testnet/*` ingress
+   - auth, validation, rate limit, recovery
+   - Cloudflare Queues for `oracle_request` and `feed_tick`
+   - Cloudflare Workflows for `callback_broadcast` and `automation_execute`
+3. **Supabase durable state**
+   - request records
+   - control-plane jobs
+   - relayer jobs
+   - automation runs
+   - feed snapshots
+   - encrypted refs and operation logs
+4. **Confidential execution plane**
+   - **Oracle CVM**: `oracle-morpheus-neo-r3e` / `ddff154546fe22d15b65667156dd4b7c611e6093`
+   - **DataFeed CVM**: `datafeed-morpheus-neo-r3e` / `28294e89d490924b79c85cdee057ce55723b3d56`
+   - Oracle handles confidential request/response work for both mainnet and testnet
+   - DataFeed is isolated so continuous price updates are never blocked by slower request workloads
 
-- **Privacy Oracle** — fetches private or public external data inside Phala TEE
-- **Privacy Compute** — runs built-in high-cost compute functions and programmable scripts
-- **Datafeed** — operator-synchronized on-chain market data stored with the global `1 USD = 1,000,000` integer scale
-- **Paymaster** — policy-gated sponsorship authorization for AA / relayer / bundler integrations
-- **Relay + Signing** — currently productionized for **Neo N3**
+## Canonical Endpoints
 
-## Runtime Model
+- Oracle runtime:
+  - `https://oracle.meshmini.app/mainnet`
+  - `https://oracle.meshmini.app/testnet`
+- Edge gateway:
+  - `https://edge.meshmini.app/mainnet`
+  - `https://edge.meshmini.app/testnet`
+- Control plane:
+  - `https://control.meshmini.app/mainnet`
+  - `https://control.meshmini.app/testnet`
+- Oracle attestation explorer:
+  - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+- DataFeed attestation explorer:
+  - `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
 
-- **Frontend / control plane**: Next.js, deployable to Vercel
-- **State / auth / encrypted secret storage**: Supabase
-- **Edge hardening**: optional Cloudflare Worker gateway + Upstash Redis guards
-- **Trusted execution**: Phala TEE worker split by runtime role
-  - **Oracle CVM**: `oracle-morpheus-neo-r3e` / `ddff154546fe22d15b65667156dd4b7c611e6093`
-  - **Oracle runtime**: [https://oracle.meshmini.app/mainnet](https://oracle.meshmini.app/mainnet) and [https://oracle.meshmini.app/testnet](https://oracle.meshmini.app/testnet)
-  - **Oracle attestation explorer**: [https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093](https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093)
-  - **Datafeed CVM**: `datafeed-morpheus-neo-r3e` / `28294e89d490924b79c85cdee057ce55723b3d56`
-  - **Datafeed attestation explorer**: [https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56](https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56)
-- **Chains**: Neo N3 is the active supported runtime path right now. Neo X artifacts remain in-repo but are not the active production target.
+## Active Scope
+
+- Neo N3 is the active supported production path.
+- Neo X code remains in-repo as archived reference material only.
+- Network selection is path-based and config-based, not CVM-based.
+- Pricefeeds are operator-driven and highest priority.
+- Oracle and compute requests are asynchronous and callback-based.
 
 ## Network Registry
 
 - `config/networks/mainnet.json` is the canonical mainnet registry.
 - `config/networks/testnet.json` is the canonical testnet registry.
-- `phala.request-hub.toml` targets the Oracle request/response CVM.
-- `phala.feed-hub.toml` targets the isolated DataFeed CVM.
-- `deploy/phala/morpheus.mainnet.env` and `deploy/phala/morpheus.testnet.env` are generated ignored local runtime env files.
+- `phala.request-hub.toml` points to the Oracle CVM launcher.
+- `phala.feed-hub.toml` points to the DataFeed CVM launcher.
+- `deploy/phala/morpheus.mainnet.env` and `deploy/phala/morpheus.testnet.env` are generated local env files and must remain uncommitted.
 
-## Production Usage Model
+## Repository Layout
 
-- End users use Oracle and Compute through on-chain requests plus callback fulfillment.
-- Datafeed sync is operator-only. User contracts read the synchronized on-chain feed state directly.
-- Request fee is `0.01 GAS`-equivalent per request.
-- Neo N3 supports prepaid request credits, including contract-sponsored fee payment.
-- Neo N3 is the active supported runtime path. Neo X remains in-repo as reference code only.
-- Async Oracle fulfillment signatures are produced by the worker `oracle_verifier` role. On testnet, the generated Phala env reuses `NEO_TESTNET_WIF` and disables derived-signing override by default; on mainnet, a dedicated verifier signer is recommended.
-- Testnet relayer deployments should prefer `MORPHEUS_RELAYER_NEO_N3_SCAN_MODE=request_cursor` instead of relying on the public `n3index_notifications` feed.
+- `apps/web` — Next.js dashboard, docs, explorer, and backend routes used by the control plane
+- `workers/phala-worker` — confidential execution runtime
+- `workers/morpheus-relayer` — on-chain async bridge and callback relayer
+- `deploy/cloudflare` — edge gateway and control-plane workers
+- `contracts` — Neo N3 contracts plus Neo X reference artifacts
+- `supabase/migrations` — schema, policies, control-plane jobs, relayer durability
+- `docs` — canonical architecture, deployment, operations, validation, and specs
+- `scripts` — deployment, verification, SaaS sync, and operator helpers
 
-## Project Layout
+## Built-In Compute
 
-- `apps/web` — Vercel-ready Next.js frontend and API proxy layer
-- `workers/phala-worker` — Phala TEE worker runtime
-- `workers/morpheus-relayer` — async chain listener and callback relayer for Neo N3
-- `contracts` — Neo N3 Morpheus oracle + callback + datafeed contracts, plus Neo X reference artifacts
-- `packages/shared` — shared types and chain metadata
-- `supabase/migrations` — schema, RLS policies, and built-in compute catalog seeds
-- `docs` — architecture, async privacy Oracle spec, and deployment notes
-- `scripts` — operational helpers such as publishing Oracle public keys on-chain
+The compute catalog currently exposes built-ins for:
 
-## Built-in Compute Functions
+- hashes and signature verification
+- modular arithmetic and matrix/vector math
+- Merkle helpers
+- ZKP planning and Groth16 verification helpers
+- FHE planning helpers
+- privacy masking and noise helpers
 
-The Morpheus compute module ships with a built-in catalog that users can call directly through `/compute/functions` and `/compute/execute`.
-It covers hashes, RSA verification, modular arithmetic, matrix/vector operations, Merkle roots, ZKP planning/digests, FHE planning, and privacy helpers.
-It now also includes Groth16 verification helpers plus a dedicated `zkp.zerc20.single_withdraw.verify` preflight helper for privacy-transaction circuits.
-
-These are intended as the first layer of built-ins; you can later plug in external ZKP/FHE runtimes behind the same function registry.
-
-Paymaster note:
-
-- `paymaster/authorize` is a separate sponsorship service.
-- It is not tied to any specific ZKP circuit.
-- zERC20 proof verification is available as a standalone compute builtin and can be composed into app-specific sponsorship policy outside the paymaster core.
-
-Built-in providers now include `twelvedata`, `binance-spot`, and `coinbase-spot`.
+The catalog is designed so additional runtimes can be added later without changing the on-chain request model.
 
 ## Quick Start
 
 ```bash
 npm install
 cp .env.development.example .env.local
-npm --prefix workers/phala-worker test
-npm --prefix workers/morpheus-relayer test
-npm --prefix apps/web run dev
+npm run test:worker
+npm run test:relayer
+npm run dev:web
 ```
 
-## Edge Hardening
+## Core Verification Commands
 
-The current repo now includes first-party edge hardening scaffolding for:
+```bash
+npm run test:worker
+npm run test:relayer
+npm run test:control-plane
+npm run build:web
+npm run smoke:control-plane
+npm run smoke:n3
+npm run check:signers
+MORPHEUS_NETWORK=testnet npm run verify:n3
+```
 
-- `Upstash Redis` request guards on the Phala worker origin
-- `Cloudflare Worker` gateway proxying and caching
-- optional `Turnstile` checks on abuse-prone routes
-
-Relevant files:
-
-- `workers/phala-worker/src/platform/upstash.js`
-- `workers/phala-worker/src/platform/request-guards.js`
-- `deploy/cloudflare/morpheus-edge-gateway/worker.mjs`
-- `deploy/cloudflare/morpheus-edge-gateway/README.md`
-- `scripts/verify-cloudflare-token.mjs`
-- `scripts/verify-edge-gateway.mjs`
-
-Current live edge gateway:
-
-- `https://edge.meshmini.app`
-
-Current live gateway mode:
-
-- Cloudflare Worker in front of the testnet Phala worker
-- `Turnstile` enforcement enabled for `/paymaster/authorize`, `/relay/transaction`, `/compute/execute`, and `/vrf/random`
-- `Upstash Redis` edge-side rate-limit support configured
-
-## Validation Commands
+Targeted regression commands:
 
 ```bash
 npm run examples:test:n3:callback-boundary
@@ -120,33 +117,24 @@ npm run examples:test:n3:aa-session-oracle-boundary
 npm run examples:test:n3:attack-regression
 ```
 
-These commands are the current live Neo N3 testnet regression path for:
-
-- Oracle callback-injection rejection
-- NeoDID ticket registry mismatch and compact-ticket replay protection
-- `encrypted_params_ref` requester / callback binding enforcement
-- fulfillment-signature replay rejection
-- AA session-key downstream Oracle boundary enforcement
-- automation duplicate-queue suppression
-- consolidated AA + NeoDID + Oracle integrated attack regression
-
-## Docs
+## Documentation
 
 - `docs/ARCHITECTURE.md`
-- `docs/USER_GUIDE.md`
-- `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
-- `docs/BUILTIN_COMPUTE.md`
-- `docs/PAYMASTER.md`
-- `docs/EXAMPLES.md` — bilingual end-to-end calling patterns for Oracle, Compute, encrypted params, WASM, and pricefeeds, with Neo N3 as the current supported path
-- `docs/PROVIDERS.md`
-- `docs/RELAYER.md`
 - `docs/DEPLOYMENT.md`
+- `docs/OPERATIONS.md`
+- `docs/VALIDATION.md`
 - `docs/ENVIRONMENT.md`
-- `docs/TESTNET_RUNBOOK.md`
-- `docs/SECURITY_AUDIT.md`
+- `docs/ASYNC_PRIVACY_ORACLE_SPEC.md`
 - `docs/ATTESTATION_SPEC.md`
+- `docs/USER_GUIDE.md`
+- `docs/RELAYER.md`
+- `docs/PROVIDERS.md`
+- `docs/PAYMASTER.md`
+- `docs/BUILTIN_COMPUTE.md`
+- `docs/EXAMPLES.md`
+- `docs/SECURITY_AUDIT.md`
+- `docs/SAAS_STACK_INTEGRATION.md`
 - `docs/PHALA_DUAL_CVM_ATTESTATION_REGISTRY.md`
-- `docs/HPKE_X25519_MIGRATION.md`
 - `deploy/phala/README.md`
-- verifier page: `/verifier`
+- verifier UI: `/verifier`
 - verifier demo API: `/api/attestation/demo`

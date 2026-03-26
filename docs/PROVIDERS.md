@@ -5,6 +5,12 @@ Morpheus Oracle supports two provider modes:
 - **Built-in providers** — selected by `provider` and configured per project in Supabase
 - **Custom source requests** — user-supplied `url`, optional encrypted token/payload, and optional compute script
 
+Current production architecture:
+
+- provider configuration and project defaults are resolved outside the TEE first when possible
+- the Oracle runtime executes only the confidential fetch or compute step
+- DataFeed publication uses the same provider registry model but a separate runtime lane
+
 ## Built-in Providers
 
 Current built-ins:
@@ -85,7 +91,7 @@ The dashboard includes a Provider Configs panel that can manage these records di
 
 ## Request-Time Resolution
 
-Both the web API layer and the Phala worker can resolve provider defaults from Supabase when `project_slug` and `provider` are present.
+Both the web API layer and the Oracle runtime can resolve provider defaults from Supabase when `project_slug` and `provider` are present.
 
 The web API layer resolves provider defaults **before** proxying to Phala:
 

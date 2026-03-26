@@ -238,9 +238,7 @@ export default function DocsNetworks() {
             <ExternalLink size={13} />
           </a>
         ) : (
-          <span style={{ color: isEmpty ? 'var(--text-muted)' : 'var(--neo-green)' }}>
-            {value}
-          </span>
+          <span style={{ color: isEmpty ? 'var(--text-muted)' : 'var(--neo-green)' }}>{value}</span>
         )}
         {copyBtn(value)}
       </div>
@@ -277,9 +275,9 @@ export default function DocsNetworks() {
       >
         Canonical mainnet and testnet publication status for Morpheus Oracle, DataFeed, NeoDID, and
         AA integration anchors. The selected runtime is <code>{selectedKey}</code>, but this page
-        shows both networks side-by-side so addresses and domains do not get mixed. User-facing AA
-        naming stays stable as <code>UnifiedSmartWalletV3</code>; raw deployment manifest strings
-        are treated as low-level audit metadata instead of product labels.
+        shows both networks side-by-side so addresses and domains do not get mixed. Oracle and
+        DataFeed CVMs are shared across both networks; the network boundary is path-driven and
+        config-driven rather than VM-driven.
       </p>
 
       <div
@@ -293,7 +291,8 @@ export default function DocsNetworks() {
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           Source of truth: <code>config/networks/mainnet.json</code> and{' '}
           <code>config/networks/testnet.json</code>. The current role-split Phala launchers live in{' '}
-          <code>phala.request-hub.toml</code> and <code>phala.feed-hub.toml</code>.
+          <code>phala.request-hub.toml</code> and <code>phala.feed-hub.toml</code>, while runtime
+          selection happens through <code>/mainnet/*</code> and <code>/testnet/*</code>.
         </p>
       </div>
 
@@ -378,6 +377,7 @@ export default function DocsNetworks() {
             <code>AA runtime label</code> is the canonical product name; raw manifest-name suffixes
             stay in low-level deployment logs only.
           </li>
+          <li>Oracle and DataFeed CVM ids intentionally match across mainnet and testnet rows.</li>
           <li>
             Mainnet AA ecosystem contracts are now also published under <code>smartwallet.neo</code>{' '}
             subdomains for direct verifier / hook discovery.

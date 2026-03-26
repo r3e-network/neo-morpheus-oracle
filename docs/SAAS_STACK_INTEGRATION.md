@@ -1,259 +1,198 @@
 # SaaS Stack Integration
 
-This repository already uses or is prepared to use the following managed services:
+Morpheus is intentionally SaaS-heavy outside the TEE. The goal is to minimize self-managed control-plane code and reserve the confidential VMs for execution only.
 
-1. Cloudflare Workers + Queues + Workflows
-2. Upstash Redis
-3. Sentry
-4. Checkly
-5. Better Stack
-6. Grafana Cloud
+## Current Managed Stack
 
-## What Is Already Wired
+1. **Cloudflare**
+   - edge gateway
+   - control plane
+   - queues
+   - workflows
+   - DNS / routes
+2. **Upstash Redis**
+   - shared rate limiting
+   - idempotency and replay suppression helpers
+3. **Supabase**
+   - durable job and application state
+4. **Vercel**
+   - web UI and backend routes
+5. **Sentry**
+   - browser and server error tracking
+6. **Checkly**
+   - API and browser synthetics
+7. **Better Stack**
+   - heartbeats, uptime, telemetry shipping
+8. **Grafana Cloud**
+   - optional deep relayer metrics only
+
+## Ownership Boundaries
 
 ### Cloudflare
 
-- Edge gateway worker:
-  - [deploy/cloudflare/morpheus-edge-gateway/worker.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-edge-gateway/worker.mjs)
-- Control plane worker:
-  - [deploy/cloudflare/morpheus-control-plane/worker.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/worker.mjs)
-- Queue bindings:
-  - `morpheus-oracle-request`
-  - `morpheus-feed-tick`
-- Workflow bindings:
-  - `CALLBACK_BROADCAST_WORKFLOW`
-  - `AUTOMATION_EXECUTE_WORKFLOW`
-- Example Wrangler config:
-  - [deploy/cloudflare/morpheus-control-plane/wrangler.example.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/wrangler.example.toml)
-  - [deploy/cloudflare/morpheus-edge-gateway/wrangler.example.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-edge-gateway/wrangler.example.toml)
+Cloudflare owns the first two layers of the production design:
 
-Current control-plane split:
-
-- Queues stay on the core execution path:
+- edge ingress
+- control-plane auth and validation
+- queue-backed execution lanes:
   - `oracle_request`
   - `feed_tick`
-- Workflows own the orchestration-heavy lanes:
+- workflow-backed orchestration lanes:
   - `callback_broadcast`
   - `automation_execute`
 
-### Upstash
+Key files:
 
-- Phala worker request guards:
-  - [workers/phala-worker/src/platform/upstash.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/phala-worker/src/platform/upstash.js)
-  - [workers/phala-worker/src/platform/request-guards.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/phala-worker/src/platform/request-guards.js)
-- Web app shared rate limit fallback:
-  - [apps/web/lib/upstash.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/lib/upstash.ts)
-  - [apps/web/lib/rate-limit.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/lib/rate-limit.ts)
-- Cloudflare control plane env template already includes Upstash:
-  - [deploy/cloudflare/morpheus-control-plane/vars.example.env](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/vars.example.env)
-
-### Sentry
-
-- Next.js web app instrumentation:
-  - [apps/web/instrumentation.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/instrumentation.ts)
-  - [apps/web/instrumentation-client.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/instrumentation-client.ts)
-  - [apps/web/sentry.server.config.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/sentry.server.config.ts)
-  - [apps/web/sentry.edge.config.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/sentry.edge.config.ts)
-  - [apps/web/.env.example](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/.env.example)
-
-### Better Stack
-
-- Cron heartbeat hooks:
-  - [apps/web/app/api/cron/feed/route.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/app/api/cron/feed/route.ts)
-  - [apps/web/app/api/cron/health/route.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/app/api/cron/health/route.ts)
-- Relayer heartbeat hooks:
-  - [workers/morpheus-relayer/src/heartbeat.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/heartbeat.js)
-  - [workers/morpheus-relayer/src/relayer.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/relayer.js)
-- Better Stack management scripts:
-  - [scripts/betterstack-list-heartbeats.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-list-heartbeats.mjs)
-  - [scripts/betterstack-sync-heartbeats.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-sync-heartbeats.mjs)
-  - [scripts/betterstack-list-monitors.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-list-monitors.mjs)
-  - [scripts/betterstack-sync-monitors.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-sync-monitors.mjs)
-  - [scripts/betterstack-list-sources.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-list-sources.mjs)
-  - [scripts/betterstack-sync-sources.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/betterstack-sync-sources.mjs)
-  - [workers/morpheus-relayer/src/betterstack-log-sink.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/betterstack-log-sink.js)
-
-### Grafana Cloud
-
-- Relayer Prometheus text export:
-  - [workers/morpheus-relayer/src/prometheus.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/prometheus.js)
-  - [workers/morpheus-relayer/src/cli.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/cli.js)
-- Relayer HTTP metrics server:
-  - [workers/morpheus-relayer/src/metrics-server.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/morpheus-relayer/src/metrics-server.js)
-  - [deploy/systemd/morpheus-relayer-metrics.service](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/systemd/morpheus-relayer-metrics.service)
-- Grafana Alloy scrape template:
-  - [monitoring/grafana/alloy.relayer.example.alloy](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/grafana/alloy.relayer.example.alloy)
-  - [monitoring/grafana/README.md](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/grafana/README.md)
-  - [deploy/systemd/grafana-alloy.service](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/systemd/grafana-alloy.service)
-- Root helper command:
-  - `npm run metrics:relayer:prom`
-
-## What You Still Need To Provide
-
-### Cloudflare
-
-Required if you want Codex to finish worker deployment and route binding:
-
-- `CLOUDFLARE_API_TOKEN`
-  - Needs permissions for Workers, Queues, Routes, and Zone DNS updates for the target zone.
-- `CLOUDFLARE_ACCOUNT_ID`
-- `CLOUDFLARE_ZONE_ID`
-- The target hostname plan:
-  - `control.meshmini.app`
-  - `edge.meshmini.app`
-  - any additional `*.meshmini.app` worker routes you want bound
-
-Optional but recommended:
-
-- Separate deploy token for production
-- Separate deploy token for test environment
+- `deploy/cloudflare/morpheus-edge-gateway/worker.mjs`
+- `deploy/cloudflare/morpheus-control-plane/worker.mjs`
+- `deploy/cloudflare/morpheus-control-plane/workflow-runtime.mjs`
 
 ### Upstash Redis
 
-Required if you want shared cross-instance rate limits, idempotency, or cached request guards:
+Upstash is the shared external memory for:
+
+- edge and backend rate limits
+- replay-safe locks
+- request-guard helpers
+
+Key files:
+
+- `workers/phala-worker/src/platform/upstash.js`
+- `workers/phala-worker/src/platform/request-guards.js`
+- `apps/web/lib/upstash.ts`
+- `apps/web/lib/rate-limit.ts`
+
+### Sentry
+
+Sentry is the primary application error tracker for the Next.js surface.
+
+Key files:
+
+- `apps/web/instrumentation.ts`
+- `apps/web/instrumentation-client.ts`
+- `apps/web/sentry.server.config.ts`
+- `apps/web/sentry.edge.config.ts`
+
+### Checkly
+
+Checkly owns active synthetic verification for:
+
+- oracle web
+- control plane
+- edge gateway
+- selected AA frontend surfaces
+
+Key files:
+
+- `monitoring/checkly/README.md`
+- `scripts/checkly-sync-api-checks.mjs`
+- `scripts/checkly-sync-browser-checks.mjs`
+
+### Better Stack
+
+Better Stack is the preferred operations layer for:
+
+- cron heartbeats
+- relayer heartbeats
+- public uptime monitors
+- log shipping / telemetry
+
+Key files:
+
+- `scripts/betterstack-sync-heartbeats.mjs`
+- `scripts/betterstack-sync-monitors.mjs`
+- `scripts/betterstack-sync-sources.mjs`
+- `workers/morpheus-relayer/src/betterstack-log-sink.js`
+
+### Grafana Cloud
+
+Grafana Cloud is optional. It exists for deeper relayer metrics when Better Stack heartbeats and telemetry are not enough.
+
+Key files:
+
+- `workers/morpheus-relayer/src/prometheus.js`
+- `workers/morpheus-relayer/src/metrics-server.js`
+- `monitoring/grafana/README.md`
+
+## Recommended Default Stack
+
+For the current project size and operational goals:
+
+- use **Sentry** for exceptions
+- use **Checkly** for synthetic health
+- use **Better Stack** for uptime, heartbeats, and telemetry
+- keep **Grafana Cloud** disabled unless you need lower-level relayer metrics
+
+That gives a simpler and cheaper default than running self-managed Prometheus infrastructure.
+
+## Required Credentials By Service
+
+### Cloudflare
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CLOUDFLARE_ZONE_ID`
+
+### Upstash
 
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
 
-Current code paths that use it:
-
-- Phala worker request guards
-- fixed-window rate limit
-- idempotent response cache
-- replay lock suppression
-
 ### Sentry
 
-Required for runtime error + tracing collection:
-
 - `NEXT_PUBLIC_SENTRY_DSN`
-  - browser events
 - `SENTRY_DSN`
-  - server / route handler / edge events
-
-Recommended for sourcemaps and release management:
-
-- `SENTRY_ORG`
-- `SENTRY_PROJECT`
-- `SENTRY_AUTH_TOKEN`
-- `SENTRY_ENVIRONMENT`
-- `SENTRY_TRACES_SAMPLE_RATE`
+- recommended:
+  - `SENTRY_ORG`
+  - `SENTRY_PROJECT`
+  - `SENTRY_AUTH_TOKEN`
+  - `SENTRY_ENVIRONMENT`
 
 ### Checkly
-
-Scaffolded monitoring definitions live in:
-
-- [monitoring/checkly/README.md](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/checkly/README.md)
-- [monitoring/checkly/checks.example.json](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/checkly/checks.example.json)
-- current account introspection script:
-  - [scripts/checkly-list-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-list-checks.mjs)
-- current API check seeding script:
-  - [scripts/checkly-sync-api-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-sync-api-checks.mjs)
-- current SaaS inventory export:
-  - [scripts/export-saas-inventory.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/export-saas-inventory.mjs)
-
-Needed if you want Codex to wire deployment automation for browser/API checks:
 
 - `CHECKLY_API_KEY`
 - `CHECKLY_ACCOUNT_ID`
 - `CHECKLY_PROJECT_NAME`
-- target URLs for:
-  - AA frontend
-  - oracle web frontend
-  - control plane health
-  - edge gateway health
 
 ### Better Stack
 
-Optional but recommended if you want heartbeat-style uptime validation for scheduled jobs and relayer loops:
-
-- `MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL`
-- `MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL`
-- `MORPHEUS_BETTERSTACK_CRON_HEALTH_HEARTBEAT_URL`
-- `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL`
-- `MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL`
-- `MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL`
-- `MORPHEUS_BETTERSTACK_CONTROL_FEED_HEARTBEAT_URL`
-- `MORPHEUS_BETTERSTACK_CONTROL_FEED_FAILURE_URL`
-- `MORPHEUS_BETTERSTACK_CONTROL_CALLBACK_FAILURE_URL`
-- `MORPHEUS_BETTERSTACK_CONTROL_AUTOMATION_HEARTBEAT_URL`
-- `MORPHEUS_BETTERSTACK_CONTROL_AUTOMATION_FAILURE_URL`
+- heartbeat URLs
 - `MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST`
 - `MORPHEUS_BETTERSTACK_LOG_SOURCE_TOKEN`
 
-Current seeded heartbeats:
-
-- `morpheus-cron-feed`
-- `morpheus-cron-health`
-- `morpheus-relayer`
-- `morpheus-relayer-feed`
-
-Current seeded monitors:
-
-- `morpheus-oracle-testnet-health`
-- `morpheus-oracle-mainnet-health`
-- `morpheus-edge-testnet-health`
-- `morpheus-edge-mainnet-health`
-- `morpheus-aa-home`
-- `morpheus-aa-identity`
-
-Current seeded telemetry source:
-
-- `morpheus-operations-http`
-
 ### Grafana Cloud
-
-Optional if you want hosted Prometheus / dashboards for relayer internals:
 
 - `GRAFANA_CLOUD_PROMETHEUS_PUSH_URL`
 - `GRAFANA_CLOUD_PROMETHEUS_USERNAME`
 - `GRAFANA_CLOUD_PROMETHEUS_API_KEY`
-- `MORPHEUS_RELAYER_METRICS_HOST`
-- `MORPHEUS_RELAYER_METRICS_PORT`
-- `MORPHEUS_RELAYER_METRICS_PATH`
 
-Current export command:
+## Sync Commands
 
 ```bash
-npm run metrics:relayer:prom
-```
-
-## Recommended Rollout Order
-
-1. Cloudflare Workers + Queues
-2. Upstash Redis
-3. Sentry
-4. Checkly
-5. Better Stack
-6. Grafana Cloud
-
-## Inventory Export
-
-To snapshot the currently wired SaaS resources from this workspace:
-
-```bash
+npm run sync:checkly
+npm run sync:checkly:browser
+npm run sync:betterstack
+npm run sync:betterstack:monitors
+npm run sync:betterstack:sources
 npm run export:saas
 ```
 
-Optional file output:
+## Rollout Order
 
-```bash
-node scripts/export-saas-inventory.mjs --output docs/reports/saas-inventory.latest.json
-```
+1. Cloudflare
+2. Upstash
+3. Supabase
+4. Sentry
+5. Checkly
+6. Better Stack
+7. Grafana Cloud only if needed
 
-As of this workspace state, the live SaaS inventory includes:
-
-- Checkly: `28` checks
-- Better Stack: `4` heartbeats
-- Better Stack: `7` monitors
-- Better Stack Telemetry: `1` source
-
-## Official References
+## References
 
 - Cloudflare Queues: https://developers.cloudflare.com/queues/
-- Cloudflare Durable Objects: https://developers.cloudflare.com/durable-objects/
+- Cloudflare Workflows: https://developers.cloudflare.com/workflows/
 - Upstash Redis: https://upstash.com/docs/redis/overall/getstarted
-- Sentry for Next.js: https://docs.sentry.io/platforms/javascript/guides/nextjs/
+- Sentry Next.js: https://docs.sentry.io/platforms/javascript/guides/nextjs/
 - Checkly docs: https://www.checklyhq.com/docs/
 - Better Stack Uptime: https://betterstack.com/docs/uptime/
 - Grafana Cloud: https://grafana.com/docs/grafana-cloud/

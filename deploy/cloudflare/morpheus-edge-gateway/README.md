@@ -1,12 +1,12 @@
 # Morpheus Edge Gateway
 
-Cloudflare Worker gateway for `neo-morpheus-oracle`.
+Cloudflare Worker gateway for the public Morpheus execution surface.
 
 ## Responsibilities
 
-- front public Phala worker endpoints
+- front public Oracle runtime endpoints
 - apply Cloudflare-native rate limiting before origin traffic reaches the CVM
-- verify Turnstile on abuse-prone endpoints
+- optionally verify Turnstile on abuse-prone endpoints
 - cache safe GET responses such as:
   - `/health`
   - `/providers`
@@ -43,7 +43,7 @@ Example:
 - `/mainnet/oracle/query`
 - `/testnet/paymaster/authorize`
 
-Only the current public runtime domains are retained:
+Current public runtime domains:
 
 - `oracle.meshmini.app/*`
 - `edge.meshmini.app/*`

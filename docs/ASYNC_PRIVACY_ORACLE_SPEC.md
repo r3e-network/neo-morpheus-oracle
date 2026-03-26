@@ -9,26 +9,34 @@ The canonical deployment registry lives in:
 
 Current Neo N3 anchors:
 
-| Item                     | Mainnet                                                                              | Testnet                                                                                |
-| ------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Oracle runtime API       | `https://oracle.meshmini.app/mainnet` | `https://oracle.meshmini.app/testnet` |
-| Oracle attestation explorer | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
+| Item                          | Mainnet                                                                         | Testnet                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Oracle runtime API            | `https://oracle.meshmini.app/mainnet`                                           | `https://oracle.meshmini.app/testnet`                                           |
+| Oracle attestation explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
 | Datafeed attestation explorer | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` |
-| `MorpheusOracle`         | `0x017520f068fd602082fe5572596185e62a4ad991` via `oracle.morpheus.neo`               | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                           |
-| `OracleCallbackConsumer` | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                         | `0x6af95dac2c55d4af01f657c86b83583b6dd2fabe`                                           |
-| `MorpheusDataFeed`       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`            | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                           |
-| `AbstractAccount`        | `0x9742b4ed62a84a886f404d36149da6147528ee33` via `smartwallet.neo`                   | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                           |
-| `AA Web3AuthVerifier`    | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                         | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                           |
-| `AA RecoveryVerifier`    | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                         | deployment-specific                                                                    |
-| `NeoDIDRegistry`         | `0xb81f31ea81e279793b30411b82c2e82078b63105` via `neodid.morpheus.neo`               | unpublished in the shared registry                                                     |
+| `MorpheusOracle`              | `0x017520f068fd602082fe5572596185e62a4ad991` via `oracle.morpheus.neo`          | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
+| `OracleCallbackConsumer`      | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
+| `MorpheusDataFeed`            | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`       | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
+| `AbstractAccount`             | `0x9742b4ed62a84a886f404d36149da6147528ee33` via `smartwallet.neo`              | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                    |
+| `AA Web3AuthVerifier`         | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
+| `AA RecoveryVerifier`         | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                    | deployment-specific                                                             |
+| `NeoDIDRegistry`              | `0xb81f31ea81e279793b30411b82c2e82078b63105` via `neodid.morpheus.neo`          | unpublished in the shared registry                                              |
 
 Interpretation rules:
 
-- testnet example/demo contracts are not the same as the canonical production callback consumer
+- testnet example/demo contracts may differ from the canonical callback consumer; always trust `config/networks/*.json` instead of older examples
 - blank / unpublished registry fields mean there is no shared stable publication yet, not that a temporary internal deployment never existed
 - `UnifiedSmartWalletV3` is the canonical AA product/runtime label even if a raw deployed manifest string carries a historical or deployment-specific suffix
 - `smartwallet.neo` is the canonical AA mainnet domain, while `aa.morpheus.neo` is an additional alias to the same clean AA address
 - AA verifier plugin addresses are deployment-specific and should not be inferred from the core AA contract hash
+
+Architecture note:
+
+- Cloudflare control-plane ingress, queues, and workflows stay outside the TEE.
+- Supabase remains the durable source of truth for accepted jobs and recovery.
+- The Oracle CVM handles request/response execution for both mainnet and testnet.
+- The DataFeed CVM remains isolated for continuous feed publication.
+- network selection is path-based and payload-based, not CVM-based
 
 ## Canonical Request Path
 
@@ -36,9 +44,9 @@ Interpretation rules:
 2. Client encrypts a secret locally.
 3. Contract calls `Request(requestType, payload, callbackContract, callbackMethod)` on `MorpheusOracle`.
 4. `OracleRequested` is emitted on-chain.
-5. Morpheus dispatcher validates the event and forwards it to the Phala worker.
-6. Phala executes fetch-only, private fetch, public compute, or private compute.
-7. Dispatcher calls `FulfillRequest(requestId, success, result, error)`.
+5. The relayer validates and persists the event, then forwards it to the Oracle runtime.
+6. The Oracle runtime executes fetch-only, private fetch, public compute, or private compute.
+7. The relayer calls `FulfillRequest(requestId, success, result, error)`.
 8. Callback executes in the consumer contract.
 
 NeoDID identity flows now also fit this same path when the request type is one of:

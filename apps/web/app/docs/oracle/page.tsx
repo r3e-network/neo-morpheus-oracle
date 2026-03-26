@@ -21,7 +21,7 @@ export default function DocsOracle() {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          CORE SERVICE v1.0.3
+          CORE SERVICE
         </span>
       </div>
       <h1>Privacy Oracle</h1>

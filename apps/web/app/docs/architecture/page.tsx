@@ -2,6 +2,25 @@
 
 import { Layers, ArrowRight } from 'lucide-react';
 
+const layers = [
+  {
+    title: '1. On-Chain Interface',
+    body: 'Neo N3 contracts own request submission, fee accounting, callback routing, and verifier-checked fulfillment.',
+  },
+  {
+    title: '2. Serverless Control Plane',
+    body: 'Cloudflare Workers, Queues, and Workflows own ingress, validation, throttling, queueing, orchestration, and recovery.',
+  },
+  {
+    title: '3. Durable State',
+    body: 'Supabase stores request records, relayer jobs, control-plane jobs, automation state, feed snapshots, and logs.',
+  },
+  {
+    title: '4. Confidential Execution',
+    body: 'Role-split Oracle and DataFeed CVMs handle confidential execution only. Oracle serves request/response work; DataFeed serves publication only.',
+  },
+];
+
 export default function DocsArchitecture() {
   return (
     <div className="fade-in">
@@ -17,16 +36,15 @@ export default function DocsArchitecture() {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          TECHNICAL SPEC v1.0.3
+          TECHNICAL SPEC
         </span>
       </div>
       <h1>System Architecture</h1>
 
       <p>
-        The Morpheus protocol is designed as an asynchronous, high-integrity bridge between
-        deterministic blockchain environments and the non-deterministic Web2 world. It utilizes a
-        three-plane architecture to ensure that sensitive data remains confidential while results
-        are cryptographically verifiable.
+        Morpheus uses a four-layer production design. The confidential boundary is narrow: only
+        decryption, private fetch, private compute, NeoDID private flows, and attested result
+        creation enter the TEE.
       </p>
 
       <div
@@ -48,7 +66,7 @@ export default function DocsArchitecture() {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          LOGICAL DATA FLOW
+          LOGICAL FLOW
         </div>
         <div
           style={{
@@ -56,233 +74,91 @@ export default function DocsArchitecture() {
             justifyContent: 'space-between',
             alignItems: 'center',
             gap: '1rem',
+            flexWrap: 'wrap',
           }}
         >
-          <div
-            style={{
-              padding: '1rem',
-              border: '1px solid var(--neo-green)',
-              borderRadius: '4px',
-              fontSize: '0.8rem',
-              width: '120px',
-            }}
-          >
-            Neo N3 Contracts
-          </div>
-          <ArrowRight size={16} color="var(--text-muted)" />
-          <div
-            style={{
-              padding: '1rem',
-              border: '1px solid var(--accent-purple)',
-              borderRadius: '4px',
-              fontSize: '0.8rem',
-              width: '120px',
-            }}
-          >
-            Async Relayer
-          </div>
-          <ArrowRight size={16} color="var(--text-muted)" />
-          <div
-            style={{
-              padding: '1rem',
-              border: '1px solid var(--neo-green)',
-              background: 'var(--neo-green-dim)',
-              borderRadius: '4px',
-              fontSize: '0.8rem',
-              width: '120px',
-              fontWeight: 800,
-            }}
-          >
-            Phala TEE Worker
-          </div>
+          {['Neo N3 Contracts', 'Control Plane', 'Durable State', 'Oracle / DataFeed CVMs'].map(
+            (label, index) => (
+              <div
+                key={label}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  flex: '1 1 180px',
+                  justifyContent: 'center',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '1rem',
+                    border: '1px solid var(--neo-green)',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem',
+                    minWidth: '140px',
+                    background: index === 3 ? 'var(--neo-green-dim)' : 'transparent',
+                    fontWeight: index === 3 ? 800 : 500,
+                  }}
+                >
+                  {label}
+                </div>
+                {index < 3 ? <ArrowRight size={16} color="var(--text-muted)" /> : null}
+              </div>
+            )
+          )}
         </div>
       </div>
 
-      <h2>The Three Core Planes</h2>
+      <h2>The Four Layers</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', margin: '2rem 0' }}>
+        {layers.map((layer) => (
+          <div
+            key={layer.title}
+            style={{
+              padding: '1.5rem',
+              background: '#000',
+              border: '1px solid var(--border-dim)',
+              borderRadius: '4px',
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: '0.75rem' }}>{layer.title}</h3>
+            <p style={{ marginBottom: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              {layer.body}
+            </p>
+          </div>
+        ))}
+      </div>
 
-      <h3>1. On-Chain Control Plane</h3>
-      <p>
-        The entrance and exit points of the protocol. <code>MorpheusOracle</code> contracts on Neo
-        handle request queuing, prepaid fee accounting, and final callback execution. The
-        independent <code>NeoDIDRegistry</code> anchors privacy-preserving identity bindings and
-        action-ticket consumption without being merged into the Oracle contract.
-      </p>
+      <h2>Runtime Roles</h2>
       <ul>
         <li>
-          <strong>N3 Implementation:</strong> C# contracts with native <code>Oracle</code> service
-          integration.
+          <strong>Oracle CVM:</strong> request/response oracle, compute, NeoDID, confidential
+          signing, and attested result generation.
         </li>
         <li>
-          <strong>Current support stance:</strong> Neo N3 is the active integration path. Any Neo X
-          artifacts in-repo are archived reference code, not the current production route.
+          <strong>DataFeed CVM:</strong> isolated feed publication lane with higher operational
+          priority.
+        </li>
+        <li>
+          <strong>Shared topology:</strong> mainnet and testnet use the same Oracle and DataFeed
+          CVMs and differ by path prefix and config.
         </li>
       </ul>
 
-      <h3>2. Asynchronous Relayer Plane</h3>
-      <p>
-        A robust middleware layer responsible for event monitoring and transaction management. It
-        ensures that every request is accounted for and that TEE-signed results are successfully
-        delivered back to the source chain.
-      </p>
-      <div
-        style={{
-          padding: '1.5rem',
-          background: '#000',
-          borderLeft: '3px solid var(--accent-purple)',
-          margin: '2rem 0',
-          borderRadius: '0 4px 4px 0',
-        }}
-      >
-        <p
-          style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}
-        >
-          <strong>Blind Relaying:</strong> The relayer only transports ciphertext payloads,
-          metadata, and signed result envelopes. It never needs the decrypted request contents.
-        </p>
-      </div>
-
-      <h3>3. Phala TEE Runtime Plane</h3>
-      <p>
-        The "Brain" of the protocol. Running inside Phala's attested TEE runtime, this environment
-        provides:
-      </p>
-      <ul style={{ listStyleType: 'none', paddingLeft: 0 }}>
-        <li style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem' }}>
-          <span style={{ color: 'var(--neo-green)' }}>✓</span>
-          <div>
-            <strong>Confidentiality:</strong> Decryption happens strictly in hardware-protected
-            memory.
-          </div>
-        </li>
-        <li style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem' }}>
-          <span style={{ color: 'var(--neo-green)' }}>✓</span>
-          <div>
-            <strong>Isolation:</strong> User scripts and WASM modules are time-bounded and
-            sandboxed.
-          </div>
-        </li>
-        <li style={{ marginBottom: '1rem', display: 'flex', gap: '0.75rem' }}>
-          <span style={{ color: 'var(--neo-green)' }}>✓</span>
-          <div>
-            <strong>Attestation:</strong> Every response is cryptographically bound to the hardware
-            instance.
-          </div>
-        </li>
+      <h2>Trust And Recovery Model</h2>
+      <ul>
+        <li>Clients seal secrets before submission.</li>
+        <li>Control plane and relayer never decrypt sealed payloads.</li>
+        <li>Accepted jobs are persisted to Supabase-backed durable state.</li>
+        <li>Queues and Workflows recover stale jobs instead of assuming single-pass success.</li>
+        <li>Pricefeeds stay isolated so interactive bursts do not stall market updates.</li>
       </ul>
 
-      <div
-        style={{
-          padding: '1.5rem',
-          background: '#000',
-          borderLeft: '3px solid var(--neo-green)',
-          margin: '2rem 0',
-          borderRadius: '0 4px 4px 0',
-        }}
-      >
-        <p
-          style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}
-        >
-          <strong>NeoDID overlay:</strong> the same runtime now verifies Web3Auth JWTs inside the
-          enclave and exposes a W3C DID resolver. Public DID documents reveal the service topology
-          and verifier material only; private claims stay encrypted or off-chain.
-        </p>
-      </div>
-
-      <h2>Security & Verification Model</h2>
+      <h2>Support Stance</h2>
       <p>
-        Morpheus operates on a <strong>Trust-but-Verify</strong> model. Contracts verify the relayed
-        fulfillment signature, while applications can additionally inspect TEE attestation metadata
-        for stronger assurance.
+        Neo N3 is the active supported production path. Neo X artifacts remain in-repo only as
+        archived reference material and should not be treated as the default integration path.
       </p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '2rem' }}>
-        <div
-          style={{
-            padding: '1.5rem',
-            background: '#000',
-            border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
-          }}
-        >
-          <h4
-            style={{
-              fontSize: '0.85rem',
-              fontWeight: 800,
-              color: 'var(--text-primary)',
-              marginBottom: '0.5rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            1. Fast Verification (On-Chain)
-          </h4>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-            Contracts verify the fulfillment against the Oracle verification key configured in the
-            registry contract.
-          </p>
-        </div>
-        <div
-          style={{
-            padding: '1.5rem',
-            background: '#000',
-            border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
-          }}
-        >
-          <h4
-            style={{
-              fontSize: '0.85rem',
-              fontWeight: 800,
-              color: 'var(--text-primary)',
-              marginBottom: '0.5rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}
-          >
-            2. High Assurance (Off-Chain)
-          </h4>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-            DApps can inspect <code>app_id</code>, <code>compose_hash</code>,{' '}
-            <code>instance_id</code>, and <code>report_data</code> through the attestation verifier,
-            and can resolve the public NeoDID service DID to retrieve the current verifier JWK and
-            registry endpoints.
-          </p>
-        </div>
-      </div>
-
-      <div
-        style={{
-          marginTop: '4rem',
-          padding: '2rem',
-          background: '#000',
-          borderTop: '1px solid var(--border-dim)',
-        }}
-      >
-        <h4
-          style={{
-            fontSize: '0.9rem',
-            fontWeight: 800,
-            marginBottom: '0.75rem',
-            color: '#fff',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-          }}
-        >
-          Developer Note
-        </h4>
-        <p
-          style={{
-            fontSize: '0.9rem',
-            marginBottom: 0,
-            color: 'var(--text-secondary)',
-            lineHeight: 1.6,
-          }}
-        >
-          To reduce unnecessary chain writes, Morpheus evaluates the full feed catalog once per
-          minute and batches all pairs whose live move exceeds the 0.1% chain-relative threshold
-          into a single Neo N3 transaction.
-        </p>
-      </div>
     </div>
   );
 }

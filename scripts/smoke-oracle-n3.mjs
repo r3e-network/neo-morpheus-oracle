@@ -394,12 +394,30 @@ const callbackTimeoutMs = Math.max(
   120000
 );
 const explicitRequestWif = trimString(process.env.MORPHEUS_SMOKE_REQUEST_WIF || '');
-const requestSecret =
-  explicitRequestWif ||
-  trimString(process.env.NEO_N3_WIF || '') ||
-  trimString(process.env.NEO_TESTNET_WIF || '') ||
-  trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF || '') ||
-  trimString(process.env.PHALA_NEO_N3_WIF || '');
+const preferredRequestSecrets =
+  network === 'mainnet'
+    ? [
+        trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET || ''),
+        trimString(process.env.NEO_N3_WIF_MAINNET || ''),
+        trimString(process.env.PHALA_NEO_N3_WIF_MAINNET || ''),
+        trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF || ''),
+        trimString(process.env.NEO_N3_WIF || ''),
+        trimString(process.env.PHALA_NEO_N3_WIF || ''),
+        trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET || ''),
+        trimString(process.env.NEO_TESTNET_WIF || ''),
+        trimString(process.env.PHALA_NEO_N3_WIF_TESTNET || ''),
+      ]
+    : [
+        trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET || ''),
+        trimString(process.env.NEO_TESTNET_WIF || ''),
+        trimString(process.env.PHALA_NEO_N3_WIF_TESTNET || ''),
+        trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF || ''),
+        trimString(process.env.NEO_N3_WIF || ''),
+        trimString(process.env.PHALA_NEO_N3_WIF || ''),
+        trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET || ''),
+        trimString(process.env.PHALA_NEO_N3_WIF_MAINNET || ''),
+      ];
+const requestSecret = explicitRequestWif || preferredRequestSecrets.find((value) => value) || '';
 const requestSigner = requestSecret ? materializeNeoN3Secret(requestSecret) : null;
 const updaterEnv = { ...process.env };
 if (explicitRequestWif) {

@@ -2,11 +2,15 @@
 
 `workers/morpheus-relayer` is the async request/response bridge for Morpheus Oracle.
 
+In the current production architecture, the relayer sits between the on-chain request surface and
+the confidential execution plane. It persists chain-originated work before checkpoint advancement
+and routes execution to the correct runtime lane.
+
 It closes the loop:
 
 1. Oracle request is emitted on-chain
 2. Relayer detects the event
-3. Relayer forwards the payload to the Phala worker
+3. Relayer forwards the payload to the Oracle or DataFeed runtime
 4. Relayer calls `fulfillRequest(...)` back on the Oracle contract
 5. Callback consumer receives the result
 

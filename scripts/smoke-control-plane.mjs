@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { loadDotEnv } from './lib-env.mjs';
 import {
@@ -31,6 +32,19 @@ function resolveControlPlaneUrl(network) {
   const defaultDomain = trimString(process.env.MORPHEUS_CONTROL_PLANE_DOMAIN || '');
   if (defaultDomain) return `https://${defaultDomain.replace(/\/$/, '')}`;
   throw new Error('MORPHEUS_CONTROL_PLANE_URL is required');
+}
+
+async function loadNetworkRegistry(selectedNetwork) {
+  try {
+    return JSON.parse(
+      await fs.readFile(
+        path.resolve(repoRoot, 'config', 'networks', `${selectedNetwork}.json`),
+        'utf8'
+      )
+    );
+  } catch {
+    return null;
+  }
 }
 
 function resolveControlPlaneToken() {
@@ -108,6 +122,12 @@ await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 await loadDotEnv(path.resolve(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`), {
   override: false,
 });
+
+if (!trimString(process.env.MORPHEUS_CONTROL_PLANE_URL || '')) {
+  const networkRegistry = await loadNetworkRegistry(network);
+  const registryUrl = trimString(networkRegistry?.phala?.control_plane_url || '');
+  if (registryUrl) process.env.MORPHEUS_CONTROL_PLANE_URL = registryUrl;
+}
 
 const controlPlaneUrl = resolveControlPlaneUrl(network);
 const controlPlaneToken = resolveControlPlaneToken();
