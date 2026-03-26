@@ -16,6 +16,16 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isCloudflareRateLimited(response) {
+  const raw = String(response?.body?.raw || '');
+  return (
+    response?.status === 429 &&
+    (/Error 1027/i.test(raw) ||
+      /temporarily rate limited/i.test(raw) ||
+      /Cloudflare Workers/i.test(raw))
+  );
+}
+
 function resolveNetwork() {
   return trimString(process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
     ? 'mainnet'
@@ -140,15 +150,32 @@ const queryPayload = {
   dedupe_key: `smoke-control-plane-${network}-${Date.now()}`,
 };
 
-const accepted = await callControlPlane(
-  controlPlaneUrl,
-  network,
-  controlPlaneToken,
-  '/oracle/query',
-  queryPayload
+let accepted = null;
+const acceptanceAttempts = Math.max(
+  Number(process.env.MORPHEUS_CONTROL_PLANE_SMOKE_ACCEPT_RETRIES || 4),
+  1
 );
+for (let attempt = 1; attempt <= acceptanceAttempts; attempt += 1) {
+  accepted = await callControlPlane(
+    controlPlaneUrl,
+    network,
+    controlPlaneToken,
+    '/oracle/query',
+    queryPayload
+  );
+  if (!isCloudflareRateLimited(accepted) || attempt >= acceptanceAttempts) break;
+  console.warn(
+    `[control-plane-smoke] Cloudflare rate limit while accepting job, retrying (${attempt}/${acceptanceAttempts})...`
+  );
+  await sleep(5000 * attempt);
+}
 
 if (accepted.status !== 202 || !trimString(accepted.body?.id || '')) {
+  if (isCloudflareRateLimited(accepted)) {
+    throw new Error(
+      `control plane is currently rate limited by Cloudflare plan limits: ${accepted.status} ${JSON.stringify(accepted.body)}`
+    );
+  }
   throw new Error(
     `control plane did not accept job: ${accepted.status} ${JSON.stringify(accepted.body)}`
   );
