@@ -44,11 +44,19 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $run_local -eq 1 ]]; then
-  bash "$SCRIPT_DIR/run_workspace_local_validation.sh" "${scope_args[@]}"
+  if [[ ${#scope_args[@]} -gt 0 ]]; then
+    bash "$SCRIPT_DIR/run_workspace_local_validation.sh" "${scope_args[@]}"
+  else
+    bash "$SCRIPT_DIR/run_workspace_local_validation.sh"
+  fi
 fi
 
 if [[ $run_live -eq 1 ]]; then
-  bash "$SCRIPT_DIR/run_workspace_live_validation.sh" "${scope_args[@]}"
+  if [[ ${#scope_args[@]} -gt 0 ]]; then
+    bash "$SCRIPT_DIR/run_workspace_live_validation.sh" "${scope_args[@]}"
+  else
+    bash "$SCRIPT_DIR/run_workspace_live_validation.sh"
+  fi
 fi
 
 echo ""
