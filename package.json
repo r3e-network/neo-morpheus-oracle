@@ -84,6 +84,9 @@
     "check:signers": "node scripts/check-neo-signers.mjs",
     "check:phala-env": "node scripts/check-phala-env.mjs",
     "test:control-plane": "node --test deploy/cloudflare/morpheus-control-plane/worker.test.mjs",
+    "test:testnet:local-gates": "bash scripts/run_local_validation_gates.sh",
+    "test:testnet:live": "bash scripts/run_live_testnet_validation.sh",
+    "test:testnet:full": "bash scripts/run_full_testnet_validation.sh",
     "compile:neox": "npm --prefix contracts/neox run compile",
     "test:neox": "npm --prefix contracts/neox test"
   },
