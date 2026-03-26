@@ -15,6 +15,47 @@ npm run check:signers
 MORPHEUS_NETWORK=testnet npm run verify:n3
 ```
 
+## Workspace Validation Layers
+
+The workspace now exposes validation at two levels:
+
+### Repo-local layers
+
+- `neo-morpheus-oracle`
+  - `npm run test:testnet:local-gates`
+  - `npm run test:testnet:live`
+  - `npm run test:testnet:full`
+- `neo-abstract-account`
+  - `bash scripts/run_local_validation_gates.sh`
+  - `bash scripts/run_live_testnet_validation.sh`
+  - `bash scripts/run_full_testnet_validation.sh`
+- `neo-miniapps-platform`
+  - `npm run test:testnet:local-gates`
+  - `npm run test:testnet:live`
+  - `npm run test:testnet:full-stack`
+
+### Workspace-level layers
+
+From `neo-morpheus-oracle`:
+
+```bash
+npm run test:workspace:local
+npm run test:workspace:live
+npm run test:workspace:full
+```
+
+These orchestrators call the repo-local layers across:
+
+- `neo-morpheus-oracle`
+- `neo-abstract-account`
+- `neo-miniapps-platform`
+
+Recommended usage:
+
+- use `workspace:local` for code and config changes
+- use `workspace:live` for testnet smoke and cross-repo integration
+- use `workspace:full` only when you intentionally want the full local + live stack
+
 ## Targeted Neo N3 Regression Paths
 
 ```bash
@@ -65,3 +106,4 @@ npm run export:saas
 - pinned signer identities match expected addresses
 - testnet smoke and verify flows pass end to end
 - no documentation pages or explorer pages reference removed topology or stale routes
+- workspace validation can be run in layered `local / live / full` mode without reintroducing manual cross-repo sequencing
