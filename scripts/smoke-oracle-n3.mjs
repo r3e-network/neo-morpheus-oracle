@@ -19,6 +19,26 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitForTransactionExecution(rpcClient, txid, timeoutMs = 120000) {
+  const normalized = String(txid).startsWith('0x') ? String(txid) : `0x${txid}`;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const appLog = await rpcClient.getApplicationLog(normalized);
+      const execution = appLog?.executions?.[0];
+      if (execution) {
+        return {
+          txid: normalized,
+          vmstate: String(execution.vmstate || execution.state || ''),
+          exception: execution.exception || null,
+        };
+      }
+    } catch {}
+    await sleep(2000);
+  }
+  throw new Error(`timed out waiting for transaction ${normalized}`);
+}
+
 function decodeBase64String(raw) {
   const text = trimString(raw);
   if (!text) return '';
@@ -158,12 +178,19 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
     account,
   });
   const deficit = requestFee - currentCredit;
-  await gas.invoke('transfer', [
+  const depositTxid = await gas.invoke('transfer', [
     sc.ContractParam.hash160(`0x${account.scriptHash}`),
     sc.ContractParam.hash160(oracleHash),
     sc.ContractParam.integer(deficit.toString()),
     sc.ContractParam.any(null),
   ]);
+  const depositExecution = await waitForTransactionExecution(rpcClient, depositTxid);
+  if (!depositExecution.vmstate.includes('HALT')) {
+    throw new Error(
+      depositExecution.exception ||
+        `Neo N3 request fee deposit faulted for ${depositExecution.txid} (${depositExecution.vmstate})`
+    );
+  }
 
   const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
@@ -178,11 +205,14 @@ async function ensureRequestFeeCredit(account, rpcUrl, networkMagic, rpcClient, 
         funded: true,
         deposit_amount: deficit.toString(),
         current_credit: updatedCredit.toString(),
+        deposit_txid: depositExecution.txid,
       };
     }
     await sleep(2000);
   }
-  throw new Error('timed out waiting for Neo N3 request fee credit');
+  throw new Error(
+    `timed out waiting for Neo N3 request fee credit after deposit tx ${depositExecution.txid}`
+  );
 }
 
 async function ensureAccountGasBalance({
@@ -220,12 +250,19 @@ async function ensureAccountGasBalance({
     account: fundingAccount,
   });
 
-  await gas.invoke('transfer', [
+  const topupTxid = await gas.invoke('transfer', [
     sc.ContractParam.hash160(`0x${fundingAccount.scriptHash}`),
     sc.ContractParam.hash160(`0x${normalizedTarget}`),
     sc.ContractParam.integer(transferAmount.toString()),
     sc.ContractParam.any(null),
   ]);
+  const topupExecution = await waitForTransactionExecution(rpcClient, topupTxid);
+  if (!topupExecution.vmstate.includes('HALT')) {
+    throw new Error(
+      topupExecution.exception ||
+        `GAS top-up faulted for ${topupExecution.txid} (${topupExecution.vmstate})`
+    );
+  }
 
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -241,13 +278,14 @@ async function ensureAccountGasBalance({
         previous_balance_gas: toGasString(current),
         current_balance_gas: toGasString(updated),
         min_gas: toGasString(minGasRaw),
+        topup_txid: topupExecution.txid,
       };
     }
     await sleep(2000);
   }
 
   throw new Error(
-    `timed out waiting for GAS top-up on ${`0x${normalizedTarget}`} (target >= ${toGasString(minGasRaw)} GAS)`
+    `timed out waiting for GAS top-up on ${`0x${normalizedTarget}`} after tx ${topupExecution.txid} (target >= ${toGasString(minGasRaw)} GAS)`
   );
 }
 
