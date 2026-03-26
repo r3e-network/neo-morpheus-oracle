@@ -87,6 +87,9 @@
     "test:testnet:local-gates": "bash scripts/run_local_validation_gates.sh",
     "test:testnet:live": "bash scripts/run_live_testnet_validation.sh",
     "test:testnet:full": "bash scripts/run_full_testnet_validation.sh",
+    "test:workspace:local": "bash scripts/run_workspace_local_validation.sh",
+    "test:workspace:live": "bash scripts/run_workspace_live_validation.sh",
+    "test:workspace:full": "bash scripts/run_workspace_full_validation.sh",
     "compile:neox": "npm --prefix contracts/neox run compile",
     "test:neox": "npm --prefix contracts/neox test"
   },
