@@ -62,7 +62,15 @@ cd "$REPO_ROOT"
 if [[ $run_control_plane -eq 1 ]]; then
   echo ""
   echo "=== Control Plane Testnet Smoke ==="
+  set +e
   npm run smoke:control-plane
+  control_plane_status=$?
+  set -e
+  if [[ $control_plane_status -eq 75 ]]; then
+    echo "[control-plane-smoke] skipped as inconclusive due to Cloudflare Workers plan rate limiting." >&2
+  elif [[ $control_plane_status -ne 0 ]]; then
+    exit $control_plane_status
+  fi
 fi
 
 if [[ $run_oracle -eq 1 ]]; then
