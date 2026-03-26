@@ -1,92 +1,149 @@
 # Morpheus Oracle Architecture
 
-## Topology
+## Production Topology
 
 ```text
-[ Developer / User / Oracle Client ]
+[ dApp / operator / automation client ]
         |
-        | 1. encrypts optional secret with Oracle public key
+        | encrypt optional secrets locally
         v
-[ Neo N3 Contract ]
-        |
-        | 2. Request(... payload, callbackContract, callbackMethod)
-        v
-[ MorpheusOracle Event ]
-        |
-        | 3. dispatcher listens for OracleRequested
-        v
-[ Morpheus Dispatcher ]
-        |
-        | 4. forwards request to Phala worker
-        v
-[ Morpheus Phala Worker ]
-  - privacy oracle
-  - privacy compute
-  - datafeed
-  - neodid / did resolver metadata
-  - vrf
-  - signing / relay
-        |
-        | 5. returns derived result
-        v
-[ Dispatcher fulfills callback ]
-        |
-        | 6. fulfillRequest(...)
-        v
-[ User Contract Callback ]
+[ Neo N3 contracts ] -----------------------------+
+        |                                         |
+        | async request / feed read               | callback fulfillment
+        v                                         |
+[ relayer durable intake ]                        |
+        |                                         |
+        | persist + retry + recover               |
+        v                                         |
+[ Cloudflare control plane ]                      |
+  - auth / validation                             |
+  - rate limiting                                 |
+  - job persistence                               |
+  - queue / workflow dispatch                     |
+        |                                         |
+        +--------------------------+--------------+
+                                   |
+                                   v
+                       [ confidential execution plane ]
+                       - Oracle CVM: request / response / compute / NeoDID
+                       - DataFeed CVM: continuous feed publication
+                                   |
+                                   v
+                           [ signed / attested result ]
+                                   |
+                                   v
+                        [ relayer broadcast + contract callback ]
 ```
 
-## Modules
+## Four Layers
 
-### 1. Privacy Oracle
+### 1. Serverless ingress and control
 
-- plain fetch
-- private fetch with encrypted secret
-- programmable fetch + compute
-- Neo N3 result envelopes
+Cloudflare Workers provide:
 
-### 2. Privacy Compute
+- `/mainnet/*` and `/testnet/*` API ingress
+- request authentication and validation
+- per-lane throttling and recovery endpoints
+- operator-facing health and job status routes
 
-- built-in compute registry
-- script execution for custom workloads
-- intended extension point for ZKP and FHE backends
+This layer is intentionally stateless except for the job records it writes to Supabase.
 
-### 3. Datafeed
+### 2. Durable orchestration
 
-- signed price quote APIs
-- Neo N3 feed contract storage
-- feed snapshots and telemetry stored in Supabase
+Morpheus uses managed Cloudflare primitives instead of custom in-TEE schedulers:
 
-### 4. Relay / Signing
+- **Queues**
+  - `oracle_request`
+  - `feed_tick`
+- **Workflows**
+  - `callback_broadcast`
+  - `automation_execute`
 
-- Neo N3 message signing and tx relay
-- chain-aware output envelopes for callback use
+This keeps orchestration outside the TEE while still preserving retry and recovery semantics.
 
-### 5. NeoDID
+### 3. Durable state
 
-- independent `NeoDIDRegistry` contract on Neo N3
-- Oracle-routed request types: `neodid_bind`, `neodid_action_ticket`, `neodid_recovery_ticket`
-- Web3Auth JWT verification happens inside the TEE
-- public W3C DID resolver exposes service topology and verifier key without disclosing private claims
+Supabase is the durable source of truth for:
 
-## Deployment Model
+- request records
+- encrypted refs and secret metadata
+- control-plane jobs
+- relayer jobs
+- automation jobs and runs
+- feed snapshots
+- operation logs
 
-- `apps/web` -> Vercel
-- Supabase -> hosted Postgres / Auth / Storage
-- `workers/phala-worker` -> Phala TEE
-- `contracts` -> Morpheus gateway and callback consumer contracts for Neo deployment
+Durability lives here, not in transient worker memory.
 
-## Design Rules
+### 4. Confidential execution
+
+The confidential boundary is intentionally narrow.
+
+Only these operations enter the TEE:
+
+- decrypting sealed payloads
+- private HTTP fetches
+- private compute and JS/WASM execution
+- NeoDID private ticket flows
+- confidential signing and attested result creation
+
+Everything else stays outside.
+
+## Runtime Roles
+
+### Oracle CVM
+
+- name: `oracle-morpheus-neo-r3e`
+- app id: `ddff154546fe22d15b65667156dd4b7c611e6093`
+- role: request/response oracle, compute, NeoDID, paymaster-related confidential logic
+- public paths:
+  - `https://oracle.meshmini.app/mainnet`
+  - `https://oracle.meshmini.app/testnet`
+
+### DataFeed CVM
+
+- name: `datafeed-morpheus-neo-r3e`
+- app id: `28294e89d490924b79c85cdee057ce55723b3d56`
+- role: isolated feed publication lane
+- priority: highest; feed publication must not be starved by interactive workloads
+
+## Request/Response Flow
+
+1. The client seals optional confidential fields with the Oracle X25519 public key.
+2. A Neo N3 contract submits an async Morpheus request.
+3. The relayer persists the event before it advances checkpoints.
+4. The Oracle runtime executes the confidential job.
+5. The runtime returns a signed result envelope and optional attestation metadata.
+6. The relayer submits the callback transaction on-chain.
+
+## DataFeed Flow
+
+1. A control-plane or operator tick enters the `feed_tick` lane.
+2. The DataFeed CVM fetches and normalizes source data.
+3. Only materially changed quantized prices are prepared for publication.
+4. The relayer publishes the update to `MorpheusDataFeed`.
+5. Feed snapshots and operational telemetry are recorded in Supabase.
+
+## Network Model
+
+- Mainnet and testnet share the same Oracle CVM.
+- Mainnet and testnet share the same DataFeed CVM.
+- Network selection is passed as runtime metadata and path prefix, not by provisioning separate CVMs per network.
+- The Oracle execution plane is network-aware but topology-neutral.
+
+This keeps runtime behavior consistent and reduces operational drift.
+
+## Trust Boundaries
 
 - secrets are encrypted before leaving the client boundary
-- dispatcher never decrypts secrets
-- Phala returns derived results only
-- privacy oracle and privacy compute share one trusted runtime
-- NeoDID public DID resolution stays separate from private bind / ticket issuance
-- Neo N3 is the only active supported execution target right now
-- Neo X artifacts remain in-repo as reference code, but they are not the current production path
+- control plane, edge gateway, and relayer never decrypt payloads
+- TEE outputs derived results only
+- pricefeed publishing is isolated from request/response execution
+- signer identities are pinned and checked before deployment
+- public attestation anchors are the published Oracle and DataFeed Phala explorer pages
 
-## Provider Registry
+## Support Stance
 
-Morpheus exposes a shared built-in provider registry used by both Privacy Oracle and DataFeed.
-The first built-in source is `twelvedata`, and the model remains extensible for more providers or user-supplied URLs.
+- Neo N3 is the active supported path.
+- Neo X code remains in-repo only as reference material.
+- New documentation, examples, and validation flows should treat Neo N3 as canonical.

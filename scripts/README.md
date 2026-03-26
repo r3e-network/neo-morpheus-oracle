@@ -1,43 +1,73 @@
 # Scripts
 
-## Neo N3 contracts
+## Deployment And Verification
+
+### Neo N3
 
 - `node scripts/deploy-service-gateway.mjs`
 - `node scripts/deploy-callback-consumer.mjs`
 - `node scripts/setup-morpheus.mjs`
 - `npm run publish:oracle-key`
+- `npm run publish:oracle-verifier-key`
 - `npm run write:addresses`
 - `npm run verify:n3`
-- `npm run set:updater:n3`
 - `npm run smoke:n3`
+- `npm run set:updater:n3`
 - `node scripts/upgrade-morpheus-oracle.mjs`
+- `npm run upgrade:datafeed:n3`
+
+### Runtime env rendering
+
 - `npm run render:phala-env`
 - `npm run render:phala-env:mainnet`
 - `npm run render:phala-env:testnet`
+- `npm run render:phala-hub-env`
 - `npm run check:signers`
 - `npm run check:phala-env`
+- `npm run check:control-plane`
+- `npm run check:control-plane:strict`
 
-## Neo X contracts
+### Control plane and runtime smoke
 
-- `node scripts/deploy-neox-contracts.mjs`
-- `node scripts/setup-neox-addresses.mjs`
-- `node scripts/publish-oracle-public-key-neox.mjs`
-- `npm run verify:neox`
-- `npm run smoke:neox`
-
-## Unified smoke
-
+- `npm run smoke:control-plane`
 - `npm run smoke:all`
 
-## Relayer
+## Validation Suites
 
-- `npm --prefix workers/morpheus-relayer run once`
-- `npm --prefix workers/morpheus-relayer run start`
-- `npm --prefix workers/morpheus-relayer run metrics`
-- `npm --prefix workers/morpheus-relayer run metrics:prom`
-- `npm --prefix workers/morpheus-relayer run serve:metrics`
+- `npm run test:worker`
+- `npm run test:relayer`
+- `npm run test:control-plane`
+- `npm run build:web`
+- `npm run examples:test:n3`
+- `npm run examples:test:n3:privacy`
+- `npm run examples:test:n3:automation`
+- `npm run examples:test:n3:callback-boundary`
+- `npm run examples:test:n3:neodid-registry-boundary`
+- `npm run examples:test:n3:encrypted-ref-boundary`
+- `npm run examples:test:n3:fulfillment-replay`
+- `npm run examples:test:n3:aa-session-oracle-boundary`
+- `npm run examples:test:n3:attack-regression`
+
+## Relayer Operations
+
+- `npm run once:relayer`
+- `npm run start:relayer`
+- `npm run metrics:relayer`
 - `npm run metrics:relayer:prom`
 - `npm run start:relayer:metrics`
+- `npm run stress:runtime`
+
+Important relayer notes:
+
+- `MORPHEUS_RELAYER_MODE=requests_only` for the Oracle CVM
+- `MORPHEUS_RELAYER_MODE=feed_only` for the DataFeed CVM
+- `MORPHEUS_RELAYER_INSTANCE_ID` makes queue ownership explicit
+- `MORPHEUS_DURABLE_QUEUE_ENABLED=true` persists chain events before checkpoint advance
+
+## SaaS Sync
+
+- `npm run sync:checkly`
+- `npm run sync:checkly:browser`
 - `npm run check:betterstack`
 - `npm run sync:betterstack`
 - `npm run check:betterstack:monitors`
@@ -45,51 +75,31 @@
 - `npm run check:betterstack:sources`
 - `npm run sync:betterstack:sources`
 - `npm run export:saas`
-- `npm run start:testnet-rng-local`
-- `workers/morpheus-relayer/Dockerfile`
-- `workers/phala-worker/Dockerfile`
-- `deploy/systemd/morpheus-relayer.service`
-- `deploy/phala/docker-compose.yml`
-- `deploy/phala/morpheus.env.example`
-- `deploy/phala/README.md`
 
-Notes:
+## Archived Neo X Reference Commands
 
-- `npm run render:phala-env` now aliases mainnet generation
-- `npm run check:signers` audits pinned Neo N3 worker / relayer / updater / oracle_verifier identities across local and generated env files
-- `npm run check:phala-env` validates `deploy/phala/morpheus.<network>.env`
-- `MORPHEUS_RELAYER_MODE=feed_only` can be used for a dedicated pricefeed relayer instance
-- `MORPHEUS_RELAYER_INSTANCE_ID` can be set to make durable-queue claim ownership explicit in logs and job metadata
-- `MORPHEUS_DURABLE_QUEUE_ENABLED=true` persists fresh chain events into `morpheus_relayer_jobs` before checkpoints advance
-- `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL` and related heartbeat URLs can be used to ping Better Stack from cron and relayer success/failure paths
-- `MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST` and `MORPHEUS_BETTERSTACK_LOG_SOURCE_TOKEN` enable optional relayer log shipping into Better Stack Telemetry
-- `npm run metrics:relayer:prom` renders Prometheus text for Grafana Cloud or any Prometheus-compatible scraper / push bridge
-- `npm --prefix workers/morpheus-relayer run serve:metrics` exposes `/metrics` and `/healthz` over HTTP for Prometheus / Grafana Alloy scraping
+Neo X remains reference-only:
 
-## Expected env vars
+- `node scripts/deploy-neox-contracts.mjs`
+- `node scripts/setup-neox-addresses.mjs`
+- `node scripts/publish-oracle-public-key-neox.mjs`
+- `npm run verify:neox`
+- `npm run smoke:neox`
 
-- `NEO_N3_WIF` (preferred)
+## Expected Environment
+
+- `NEO_N3_WIF`
 - legacy `NEO_TESTNET_WIF`
 - `NEO_RPC_URL`
 - `NEO_NETWORK_MAGIC`
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
 - `CONTRACT_MORPHEUS_DATAFEED_HASH`
-- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
-- `CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS`
-- `CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS`
 - optional `MORPHEUS_UPDATER_HASH`
 
-### Local testnet RNG isolation
+## Local Testnet RNG Loop
 
-Use these when you need a known-good local `rng` fulfillment loop on Neo N3
-testnet:
-
-- `npm run set:updater:n3`
-- `npm run start:testnet-rng-local`
-
-Expected env:
-
-- `TESTNET_WIF` or `NEO_TESTNET_WIF`
-- `UPDATER_WIF` or `MORPHEUS_RELAYER_NEO_N3_WIF`
-- `MORPHEUS_UPDATER_HASH` when switching the Oracle updater
+```bash
+npm run set:updater:n3
+npm run start:testnet-rng-local
+```

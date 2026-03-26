@@ -49,8 +49,8 @@ export function DeveloperHub() {
             margin: '0 auto 2rem',
           }}
         >
-          Master the Morpheus matrix. From sealed payload construction and callback routing to
-          automation and attestation review.
+          Reference the current Morpheus stack, from sealed payload construction and callback
+          routing to workflow orchestration and attestation review.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

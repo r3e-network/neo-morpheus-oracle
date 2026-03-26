@@ -51,7 +51,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: '/docs/r/AA_SOCIAL_RECOVERY', label: 'AA Social Recovery', icon: Shield },
         { href: '/docs/oracle', label: 'Privacy Oracle', icon: Shield },
         { href: '/docs/compute', label: 'Enclave Compute', icon: Cpu },
-        { href: '/docs/datafeeds', label: 'Data Matrix', icon: LineChart },
+        { href: '/docs/datafeeds', label: 'Datafeeds', icon: LineChart },
         { href: '/docs/feed-status', label: 'Feed Status', icon: Activity },
         { href: '/docs/r/USER_GUIDE', label: 'User Guide', icon: Book },
       ],
@@ -73,24 +73,13 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: '/docs/r/PROVIDERS', label: 'Supported Providers', icon: Boxes },
         { href: '/docs/r/DEPLOYMENT', label: 'Deployment Node', icon: Boxes },
         { href: '/docs/r/ENVIRONMENT', label: 'Environment Setup', icon: Zap },
+        { href: '/docs/r/OPERATIONS', label: 'Operations', icon: Activity },
+        { href: '/docs/r/VALIDATION', label: 'Validation', icon: CheckCircle },
         { href: '/docs/r/PAYMASTER', label: 'Paymaster', icon: CheckCircle },
         { href: '/docs/r/RELAYER', label: 'Relayer', icon: Activity },
-        {
-          href: '/docs/r/CONTROL_PLANE_REFACTOR_2026-03-20',
-          label: 'Control Plane Refactor',
-          icon: ClipboardList,
-        },
-        {
-          href: '/docs/r/CONTROL_PLANE_DEPLOY_RUNBOOK_2026-03-20',
-          label: 'Control Plane Deploy Runbook',
-          icon: ClipboardList,
-        },
-        {
-          href: '/docs/r/RELIABILITY_NOTES_2026-03-20',
-          label: 'Reliability Notes',
-          icon: CheckCircle,
-        },
         { href: '/docs/r/ASYNC_PRIVACY_ORACLE_SPEC', label: 'Async Privacy Spec', icon: Shield },
+        { href: '/docs/r/ATTESTATION_SPEC', label: 'Attestation Spec', icon: CheckCircle },
+        { href: '/docs/r/SAAS_STACK_INTEGRATION', label: 'SaaS Stack', icon: Boxes },
         { href: '/docs/r/NEODID_DID_METHOD', label: 'NeoDID DID Method Spec', icon: Fingerprint },
         { href: '/docs/r/AA_SOCIAL_RECOVERY', label: 'AA Social Recovery Spec', icon: Fingerprint },
         { href: '/docs/r/SECURITY_AUDIT', label: 'Security Audit', icon: Shield },
@@ -471,7 +460,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                     letterSpacing: '0.1em',
                   }}
                 >
-                  REVISION 1.0.3
+                  CURRENT DESIGN
                 </span>
                 <span
                   style={{
@@ -480,7 +469,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                     fontFamily: 'var(--font-mono)',
                   }}
                 >
-                  LAST UPDATED: 2026-03-12
+                  UPDATED FOR DUAL-CVM ARCHITECTURE
                 </span>
               </div>
               <div>

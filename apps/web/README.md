@@ -1,8 +1,15 @@
 # Morpheus Web
 
-This is the Vercel-ready frontend and API proxy for Morpheus Oracle.
+`apps/web` is the public dashboard, docs site, explorer, and backend route layer for Morpheus.
 
-## Exposed API routes
+It serves four roles:
+
+1. public documentation and explorer UI
+2. developer launchpad for Oracle, compute, feeds, and verifier flows
+3. backend routes used directly by operators and by the control plane
+4. attestation verification and network-registry presentation
+
+## Public API surface
 
 - `/api/oracle/public-key`
 - `/api/oracle/query`
@@ -10,5 +17,24 @@ This is the Vercel-ready frontend and API proxy for Morpheus Oracle.
 - `/api/compute/functions`
 - `/api/compute/execute`
 - `/api/feeds/[symbol]`
-- `/api/sign/payload` (admin-only)
-- `/api/relay/transaction` (admin-only)
+- `/api/feeds/status`
+- `/api/runtime/health`
+- `/api/runtime/info`
+- `/api/attestation/demo`
+- `/api/attestation/verify`
+
+## Operator / internal routes
+
+- `/api/internal/control-plane/feed-tick`
+- `/api/internal/control-plane/callback-broadcast`
+- `/api/internal/control-plane/automation-execute`
+- `/api/provider-configs`
+- `/api/sign/payload`
+- `/api/relay/transaction`
+
+## Validation
+
+```bash
+npm --prefix apps/web test
+npm --prefix apps/web run build
+```

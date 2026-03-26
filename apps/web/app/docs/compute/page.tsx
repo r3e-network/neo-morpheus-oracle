@@ -18,7 +18,7 @@ export default function DocsCompute() {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          EXTENDED SERVICE v1.0.3
+          EXTENDED SERVICE
         </span>
       </div>
       <h1>Enclave Compute</h1>

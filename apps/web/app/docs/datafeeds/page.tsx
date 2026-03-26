@@ -26,15 +26,15 @@ export default function DocsDatafeeds() {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          CORE SERVICE v1.0.3
+          CORE SERVICE
         </span>
       </div>
-      <h1>Data Matrix</h1>
+      <h1>Datafeeds</h1>
 
       <p>
-        Morpheus Data Matrix provides high-frequency, TEE-verified price feeds synchronized directly
-        to {NETWORKS.neo_n3.name}. These feeds are designed for synchronous consumption by DeFi
-        protocols, lending platforms, algorithmic strategies, and FX / commodity aware contracts.
+        Morpheus Datafeeds provide high-integrity price records synchronized directly to{' '}
+        {NETWORKS.neo_n3.name}. Feed publication is isolated onto the dedicated DataFeed CVM so
+        market updates are not delayed by slower request/response workloads.
       </p>
 
       <h2>Operational Architecture</h2>
@@ -43,13 +43,24 @@ export default function DocsDatafeeds() {
         state. They operate on an automated operator pipeline:
       </p>
       <ol>
-        <li>Prover network nodes fetch multi-source quotes inside the TEE.</li>
-        <li>Price normalization and aggregation occur in hardware-protected memory.</li>
-        <li>The TEE signs the consolidated update.</li>
+        <li>The control plane or scheduler triggers a feed tick.</li>
+        <li>The dedicated DataFeed CVM fetches and normalizes source quotes.</li>
+        <li>Only materially changed quantized values are prepared for publication.</li>
         <li>
-          The Relayer pushes the update to the on-chain <code>MorpheusDataFeed</code> registry.
+          The relayer pushes the update to the on-chain <code>MorpheusDataFeed</code> registry.
         </li>
       </ol>
+
+      <div
+        className="card-industrial"
+        style={{ marginTop: '2rem', padding: '1.5rem', borderLeft: '4px solid var(--neo-green)' }}
+      >
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
+          The DataFeed CVM is the highest-priority Morpheus runtime lane. It stays separate from
+          Oracle request/response execution so continuous price publication remains stable under
+          bursty load.
+        </p>
+      </div>
 
       <h2>Supported Assets</h2>
       <div

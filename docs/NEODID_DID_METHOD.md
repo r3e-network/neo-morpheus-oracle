@@ -1,10 +1,15 @@
 # NeoDID DID Method
 
-Date: `2026-03-12`
-
 This document defines the public W3C DID method exposed by Morpheus NeoDID.
 
 本文定义 Morpheus NeoDID 对外暴露的 W3C DID method。
+
+Current production architecture:
+
+- DID resolution is public and stays outside the TEE
+- bind / ticket issuance stays on the Oracle request/response path
+- the Oracle CVM executes private verification work for both mainnet and testnet
+- the DataFeed CVM is unrelated to DID issuance and remains isolated for market-data publication
 
 ## 1. Scope / 范围
 

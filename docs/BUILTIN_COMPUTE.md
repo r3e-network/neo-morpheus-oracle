@@ -2,6 +2,13 @@
 
 Morpheus Compute exposes built-in heavy functions through `POST /compute/execute`.
 
+Current production architecture:
+
+- control-plane ingress and orchestration stay outside the TEE
+- confidential execution happens on the Oracle CVM
+- mainnet and testnet share the same compute runtime and differ only by network metadata
+- DataFeed publication does not share this execution lane
+
 ## Request Shape
 
 ```json
@@ -131,7 +138,7 @@ Takes `value` and `scale` (default 1.0).
 ## Notes
 
 These built-ins are the first production-facing layer of Morpheus Compute.
-They are intentionally designed so that later Phala worker profiles can replace the internal implementation with real external ZKP / FHE engines while preserving the API surface.
+They are intentionally designed so that later Oracle runtime profiles can replace the internal implementation with real external ZKP / FHE engines while preserving the API surface.
 
 Current runtime hardening also enforces:
 

@@ -1,241 +1,248 @@
 # Deployment
 
-## Environment Templates
+## Canonical Production Topology
 
-- `.env.example`
-- `.env.development.example`
-- `.env.production.example`
-- `config/networks/mainnet.json` for canonical mainnet addresses, domains, CVM ids, attestation explorers, and runtime URLs
-- `config/networks/testnet.json` for canonical testnet addresses, domains, CVM ids, attestation explorers, and runtime URLs
-- `deploy/phala/morpheus.mainnet.env` generated from `npm run render:phala-env:mainnet`
-- `deploy/phala/morpheus.testnet.env` generated from `npm run render:phala-env:testnet`
-- `docs/ENVIRONMENT.md` for bilingual variable explanations and operator guidance
+Morpheus now deploys by responsibility, not by network.
 
-Recommended operator rule:
+| Layer                  | Service                  | Current role                                                    |
+| ---------------------- | ------------------------ | --------------------------------------------------------------- |
+| Edge                   | Cloudflare gateway       | public ingress, caching, optional abuse controls                |
+| Control                | Cloudflare control plane | auth, validation, job persistence, queue/workflow dispatch      |
+| App                    | Vercel `apps/web`        | docs, explorer, backend APIs used by control plane              |
+| State                  | Supabase                 | jobs, relayer state, automation, feed snapshots, encrypted refs |
+| Confidential execution | Oracle CVM               | request/response oracle, compute, NeoDID, confidential signing  |
+| Confidential execution | DataFeed CVM             | isolated feed publication lane                                  |
+
+## Source Of Truth
+
+- `config/networks/mainnet.json`
+- `config/networks/testnet.json`
+- `docs/ENVIRONMENT.md`
+- `deploy/phala/README.md`
+
+Recommended operator rules:
 
 - keep one root secret set in `.env`
-- render dedicated runtime env files per network
-- never reuse the testnet generated env file on the mainnet CVM or vice versa
-- set `MORPHEUS_ACTIVE_CHAINS=neo_n3` while the production rollout remains Neo N3-only
+- render dedicated Phala env files per network
+- keep `MORPHEUS_ACTIVE_CHAINS=neo_n3` for production
+- never treat separate CVMs as separate networks; networks are selected by path and config
 
-## Frontend
+## Step 1: Apply Supabase
 
-Deploy `apps/web` to Vercel.
+Apply migrations in order:
 
-Required env vars:
-
-- `NEXT_PUBLIC_MORPHEUS_NETWORK` (`mainnet` or `testnet`)
-- `MORPHEUS_RUNTIME_URL` preferred, or network-scoped `MORPHEUS_MAINNET_RUNTIME_URL` / `MORPHEUS_TESTNET_RUNTIME_URL`
-- `MORPHEUS_RUNTIME_TOKEN` preferred, or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
-- `TWELVEDATA_API_KEY` for the TwelveData built-in provider
-- `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`
-- optional Coinbase spot provider requires no secret
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SECRET_KEY`
-- recommended for NeoDID Web3Auth production login:
-  - `WEB3AUTH_CLIENT_SECRET`
-  - `NEXT_PUBLIC_WEB3AUTH_NETWORK`
-- optional but recommended in production: `MORPHEUS_PROVIDER_CONFIG_API_KEY` or `ADMIN_CONSOLE_API_KEY`
-- optional and recommended for scoped admin separation:
-  - `MORPHEUS_PROVIDER_CONFIG_API_KEY`
-  - `MORPHEUS_RELAYER_ADMIN_API_KEY`
-  - `MORPHEUS_SIGNING_ADMIN_API_KEY`
-  - `MORPHEUS_RELAY_ADMIN_API_KEY`
-  - `MORPHEUS_OPERATOR_API_KEY`
-- optional datafeed defaults: `MORPHEUS_FEED_PROJECT_SLUG`, `MORPHEUS_FEED_PROVIDER`
-- public NeoDID endpoints exposed by the frontend:
-  - `/api/neodid/resolve`
-  - `/launchpad/neodid-live`
-  - `/launchpad/neodid-resolver`
-
-## Phala Worker
-
-Deploy `workers/phala-worker` to Phala with:
-
-- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
-- `NEO_RPC_URL`
-- `MORPHEUS_ACTIVE_CHAINS=neo_n3`
-- `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
-- `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` if direct worker calls should resolve project provider defaults
-- `SUPABASE_SECRET_KEY` (preferred) or `SUPABASE_SERVICE_ROLE_KEY` for worker-side provider-config lookup
-- `WEB3AUTH_CLIENT_ID` for in-TEE Web3Auth JWT audience verification
-- optional `WEB3AUTH_JWKS_URL` to override the default Web3Auth JWKS endpoint
-- optional `ORACLE_TIMEOUT` for upstream fetch timeout (for example `20s`)
-- optional `ORACLE_SCRIPT_TIMEOUT_MS` for privacy Oracle script execution timeout
-- optional `COMPUTE_SCRIPT_TIMEOUT_MS` for compute script execution timeout
-- optional `PHALA_USE_DERIVED_KEYS=true` to derive worker and relayer signing keys from tappd/dstack when explicit keys are omitted
-- optional `PHALA_EMIT_ATTESTATION=true` to attach dstack quotes in worker responses
-- optional `PHALA_DSTACK_ENDPOINT` to override the dstack endpoint (defaults to `/var/run/dstack.sock` when mounted)
-- optional `PHALA_DSTACK_NEO_N3_KEY_PATH` / `PHALA_DSTACK_NEOX_KEY_PATH` to override worker derived key paths
-- optional `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH` / `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH` to override relayer derived key paths
-- optional `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH` to control the wrapping-key path for stable Oracle X25519 transport key storage
-- optional `PHALA_ORACLE_KEYSTORE_PATH` to control where the sealed Oracle transport key is persisted (default `/data/morpheus/oracle-key.json` inside the shared CVM volume)
-- current mainnet Oracle runtime endpoint: `https://oracle.meshmini.app/mainnet`
-- current testnet Oracle runtime endpoint: `https://oracle.meshmini.app/testnet`
-- Oracle CVM attestation explorer: `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
-- DataFeed CVM attestation explorer: `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
-- web verifier API: `/api/attestation/verify`
-- demo verifier flow: `/api/attestation/demo` and `/verifier`
-
-## Phala CVM Topology
-
-Recommended production deployment:
-
-- 2 `Confidential VM`s, split by runtime role
-- **Oracle CVM**: `oracle-morpheus-neo-r3e` / `ddff154546fe22d15b65667156dd4b7c611e6093`
-- **DataFeed CVM**: `datafeed-morpheus-neo-r3e` / `28294e89d490924b79c85cdee057ce55723b3d56`
-- each CVM runs multiple containers internally, but public/runtime topology is defined by role rather than by network
-
-Tracked Phala descriptors:
-
-- `phala.request-hub.toml`
-- `phala.feed-hub.toml`
-
-Generated local env files:
-
-- `deploy/phala/morpheus.testnet.env`
-- `deploy/phala/morpheus.mainnet.env`
-
-Sizing guidance:
-
-- `Small TDX` → dedicated testnet validation only
-- `Medium TDX` → current mainnet baseline
-- `Large TDX` → upgrade path for higher production traffic
-
-Deployment files:
-
-- `workers/phala-worker/Dockerfile`
-- `workers/morpheus-relayer/Dockerfile`
-- `deploy/phala/docker-compose.yml`
-- `deploy/phala/Caddyfile`
-- `deploy/phala/morpheus.env.example`
-- `deploy/phala/README.md`
-- `scripts/render-phala-env.mjs`
-- `scripts/check-phala-env.mjs`
-
-Recommended render commands:
-
-```bash
-npm run render:phala-env:mainnet
-npm run render:phala-env:testnet
-```
-
-Compatibility note:
-
-- `npm run render:phala-env` now intentionally aliases mainnet generation.
-
-## Morpheus Relayer
-
-Run `workers/morpheus-relayer` as the async bridge that watches `OracleRequested` events and calls `fulfillRequest` back on-chain.
-
-Current production scope:
-
-- Neo N3 is the active supported chain.
-- Keep `MORPHEUS_ACTIVE_CHAINS=neo_n3` unless you are explicitly validating Neo X in an isolated environment.
-
-Required env vars:
-
-- `MORPHEUS_RUNTIME_URL`
-- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
-- `MORPHEUS_NETWORK`
-- `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
-- `MORPHEUS_RELAYER_NEOX_PRIVATE_KEY`
-- `CONTRACT_MORPHEUS_ORACLE_HASH`
-- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
-
-Optional:
-
-- `MORPHEUS_RELAYER_POLL_INTERVAL_MS`
-- `MORPHEUS_RELAYER_CONCURRENCY`
-- `MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK`
-- `MORPHEUS_RELAYER_MAX_RETRIES`
-- `MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS`
-- `MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS`
-- `MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE`
-- `MORPHEUS_RELAYER_DEAD_LETTER_LIMIT`
-- `MORPHEUS_RELAYER_LOG_FORMAT`
-- `MORPHEUS_RELAYER_LOG_LEVEL`
-- `MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS`
-- `MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS`
-- `MORPHEUS_RELAYER_NEO_N3_START_BLOCK`
-- `MORPHEUS_RELAYER_NEO_X_START_BLOCK`
-- `MORPHEUS_RELAYER_STATE_FILE`
-- `MORPHEUS_AUTOMATION_ENABLED`
-- `MORPHEUS_AUTOMATION_BATCH_SIZE`
-- `MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK`
-- `MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS`
-
-## Supabase
-
-Apply, in order:
-
-- `supabase/migrations/0001_morpheus_schema.sql`
-- `supabase/migrations/0002_morpheus_policies_and_seeds.sql`
-- `supabase/migrations/0003_provider_configs.sql`
-- `supabase/migrations/0004_relayer_ops.sql`
-- `supabase/migrations/0005_operation_logs.sql`
-- `supabase/migrations/0006_automation.sql`
-- `supabase/migrations/0007_system_backups.sql`
-- `supabase/migrations/0008_network_isolation.sql`
+1. `supabase/migrations/0001_morpheus_schema.sql`
+2. `supabase/migrations/0002_morpheus_policies_and_seeds.sql`
+3. `supabase/migrations/0003_provider_configs.sql`
+4. `supabase/migrations/0004_relayer_ops.sql`
+5. `supabase/migrations/0005_operation_logs.sql`
+6. `supabase/migrations/0006_automation.sql`
+7. `supabase/migrations/0007_system_backups.sql`
+8. `supabase/migrations/0008_network_isolation.sql`
+9. `supabase/migrations/0009_relayer_durable_queue_indexes.sql`
+10. `supabase/migrations/0010_control_plane_jobs.sql`
 
 Optional:
 
 - `supabase/seed.sql`
 
-## Supabase Recording Model
+Key durable tables:
 
-Current persistence behavior:
+- `morpheus_requests`
+- `morpheus_feed_snapshots`
+- `morpheus_relayer_jobs`
+- `morpheus_automation_jobs`
+- `morpheus_automation_runs`
+- `morpheus_control_plane_jobs`
+- `morpheus_operation_logs`
 
-- relayer runs and jobs are recorded in `morpheus_relayer_runs` and `morpheus_relayer_jobs`
-- web/API operations are recorded in `morpheus_operation_logs`
-- encrypted request fields such as `encrypted_params`, `encrypted_input`, `encrypted_payload`, and `encrypted_inputs.*` are stored directly as ciphertext in `morpheus_encrypted_secrets`
-- plaintext secret-like keys are redacted before operation-log persistence
-- automation registrations are stored in `morpheus_automation_jobs`
-- automation queue attempts are stored in `morpheus_automation_runs`
+## Step 2: Deploy The Web App
 
-Network isolation behavior:
+Deploy `apps/web` to Vercel.
 
-- Supabase rows are now scoped by `network` (`mainnet` or `testnet`) for projects, encrypted secrets, relayer state, automation state, operation logs, feed snapshots, request records, and system backups
-- `morpheus_projects` is now unique on `(network, slug)`, so `demo` can exist independently on mainnet and testnet
-- provider config lookup resolves `project_slug + network`, not just `project_slug`
-- relayer admin APIs and attestation lookup now default to the current network and do not mix cross-network rows
+Required environment:
 
-## Contracts
+- `NEXT_PUBLIC_MORPHEUS_NETWORK`
+- `MORPHEUS_RUNTIME_URL` or network-scoped runtime URLs
+- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SECRET_KEY`
+- `TWELVEDATA_API_KEY`
 
-Build and deploy the Morpheus gateway contracts from `contracts/`.
-Use `config/networks/testnet.json` and `config/networks/mainnet.json` as the canonical address registry files.
+Recommended production environment:
 
-Core contracts:
+- `MORPHEUS_CONTROL_PLANE_URL`
+- `MORPHEUS_CONTROL_PLANE_API_KEY`
+- `MORPHEUS_PROVIDER_CONFIG_API_KEY`
+- `MORPHEUS_RELAYER_ADMIN_API_KEY`
+- `MORPHEUS_SIGNING_ADMIN_API_KEY`
+- `MORPHEUS_RELAY_ADMIN_API_KEY`
+- `MORPHEUS_OPERATOR_API_KEY`
+- `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`
+- `WEB3AUTH_CLIENT_SECRET`
+- `NEXT_PUBLIC_WEB3AUTH_NETWORK`
 
-- Neo N3: `MorpheusOracle`, `OracleCallbackConsumer`, `MorpheusDataFeed`, `NeoDIDRegistry`, `AbstractAccount`
-- Neo X: `MorpheusOracleX`, `OracleCallbackConsumerX`, `MorpheusDataFeedX`
+## Step 3: Deploy Cloudflare Edge
 
-The intended logic is consistent across both chains:
+Deploy `deploy/cloudflare/morpheus-edge-gateway`.
 
-- privacy oracle requests
-- off-chain privacy compute through oracle/compute worker modules
-- datafeed storage and updater-controlled publication
-- NeoDID bind / action-ticket / recovery-ticket issuance through the Oracle callback path
-- automation registration, execution queueing, and callback fulfillment
+Required bindings:
 
-Published Neo N3 service anchors are tracked in `config/networks/mainnet.json`, including:
+- `MORPHEUS_ORIGIN_URL`
+- `MORPHEUS_MAINNET_ORIGIN_URL`
+- `MORPHEUS_TESTNET_ORIGIN_URL`
+- `MORPHEUS_ORIGIN_TOKEN`
 
-- `oracle.morpheus.neo`
-- `pricefeed.morpheus.neo`
-- `neodid.morpheus.neo`
-- `smartwallet.neo`
+Optional:
 
-Provider control-plane notes:
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+- `TURNSTILE_SECRET_KEY`
+- `MORPHEUS_RATE_LIMITER`
 
-- built-in provider metadata lives in the worker provider registry
-- project-level provider defaults live in Supabase `morpheus_provider_configs`
-- the web dashboard can manage provider configs through `/api/provider-configs`
+Current public pattern:
 
-## Optional On-Chain Key Publication
+- `https://edge.meshmini.app/mainnet/*`
+- `https://edge.meshmini.app/testnet/*`
 
-After the Phala worker is live, publish the active Oracle encryption key to your gateway contract:
+## Step 4: Deploy Cloudflare Control Plane
+
+Deploy `deploy/cloudflare/morpheus-control-plane`.
+
+Required bindings:
+
+- `MORPHEUS_ORACLE_REQUEST_QUEUE`
+- `MORPHEUS_FEED_TICK_QUEUE`
+- `CALLBACK_BROADCAST_WORKFLOW`
+- `AUTOMATION_EXECUTE_WORKFLOW`
+
+Required secrets:
+
+- `SUPABASE_URL`
+- `SUPABASE_SECRET_KEY` or `SUPABASE_SERVICE_ROLE_KEY`
+
+Recommended:
+
+- `MORPHEUS_CONTROL_PLANE_API_KEY`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+- `MORPHEUS_MAINNET_EXECUTION_BASE_URL`
+- `MORPHEUS_TESTNET_EXECUTION_BASE_URL`
+- `MORPHEUS_EXECUTION_TOKEN`
+- `MORPHEUS_APP_BACKEND_URL`
+- `MORPHEUS_APP_BACKEND_TOKEN`
+
+Current public pattern:
+
+- `https://control.meshmini.app/mainnet/*`
+- `https://control.meshmini.app/testnet/*`
+
+## Step 5: Render Phala Runtime Envs
+
+Generate fresh env files before each deployment:
+
+```bash
+npm run render:phala-env:mainnet
+npm run render:phala-env:testnet
+npm run render:phala-hub-env
+npm run check:signers
+npm run check:phala-env
+```
+
+Notes:
+
+- `npm run render:phala-env` aliases mainnet generation
+- signer drift should fail deployment review
+- generated env files stay local and uncommitted
+
+## Step 6: Deploy The CVMs
+
+### Oracle CVM
+
+- name: `oracle-morpheus-neo-r3e`
+- app id: `ddff154546fe22d15b65667156dd4b7c611e6093`
+- role: request/response, compute, NeoDID, confidential signing
+- baseline size: `Large TDX`
+
+### DataFeed CVM
+
+- name: `datafeed-morpheus-neo-r3e`
+- app id: `28294e89d490924b79c85cdee057ce55723b3d56`
+- role: feed publication only
+- baseline size: `Small TDX`
+
+Tracked launchers:
+
+- `phala.request-hub.toml`
+- `phala.feed-hub.toml`
+
+Deployment files:
+
+- `deploy/phala/docker-compose.request-hub.yml`
+- `deploy/phala/docker-compose.feed-hub.yml`
+- `workers/phala-worker/Dockerfile`
+- `workers/morpheus-relayer/Dockerfile`
+
+## Step 7: Configure The Relayer Modes
+
+The relayer is split by role:
+
+- Oracle CVM: `MORPHEUS_RELAYER_MODE=requests_only`
+- DataFeed CVM: `MORPHEUS_RELAYER_MODE=feed_only`
+
+Important relayer durability settings:
+
+- `MORPHEUS_DURABLE_QUEUE_ENABLED=true`
+- `MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED=true`
+- `MORPHEUS_RELAYER_INSTANCE_ID`
+- `MORPHEUS_RELAYER_NEO_N3_SCAN_MODE=request_cursor` on testnet
+
+## Step 8: Publish Keys And Verify
+
+After the runtime is live:
 
 ```bash
 npm run publish:oracle-key
+npm run publish:oracle-verifier-key
+npm run smoke:control-plane
+npm run smoke:n3
+MORPHEUS_NETWORK=testnet npm run verify:n3
 ```
+
+If you are deploying a new updater path:
+
+```bash
+npm run set:updater:n3
+```
+
+## Current Service Anchors
+
+- Oracle runtime:
+  - `https://oracle.meshmini.app/mainnet`
+  - `https://oracle.meshmini.app/testnet`
+- Edge gateway:
+  - `https://edge.meshmini.app/mainnet`
+  - `https://edge.meshmini.app/testnet`
+- Control plane:
+  - `https://control.meshmini.app/mainnet`
+  - `https://control.meshmini.app/testnet`
+- Oracle attestation explorer:
+  - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+- DataFeed attestation explorer:
+  - `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+- Neo N3 service anchors:
+  - `oracle.morpheus.neo`
+  - `pricefeed.morpheus.neo`
+  - `neodid.morpheus.neo`
+  - `smartwallet.neo`
+- NeoDID anchor contract:
+  - `NeoDIDRegistry`
+  - published in `config/networks/mainnet.json`
+
+## Operational Notes
+
+- DataFeed is isolated so price updates keep their own execution lane.
+- Mainnet and testnet share the same Oracle and DataFeed CVMs.
+- Network separation happens in config and request metadata, not in VM topology.
+- Neo N3 remains the only supported production chain.

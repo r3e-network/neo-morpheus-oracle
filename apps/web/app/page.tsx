@@ -18,29 +18,29 @@ const features = [
   {
     icon: Shield,
     iconColor: 'var(--neo-green)',
-    title: 'Phala TEE Runtime',
+    title: 'Role-Split Confidential Runtimes',
     description:
-      'Data is processed inside attested confidential VM hardware. Operators and infrastructure do not receive the plaintext request contents.',
+      'Oracle request/response execution and continuous datafeeds run on separate attested CVMs so private jobs and feed publication do not contend for the same lane.',
   },
   {
     icon: Cpu,
     iconColor: 'var(--accent-blue)',
-    title: 'Verifiable Compute',
+    title: 'Confidential Execution',
     description:
-      'Run complex JS/WASM logic on private data off-chain. The TEE signs the result, providing cryptographic proof of correct execution.',
+      'Run JS/WASM workloads and private fetches inside the confidential runtime, then return signed result envelopes and optional attestation metadata.',
   },
   {
     icon: Lock,
     iconColor: 'var(--text-primary)',
-    title: 'Confidential Fetch',
+    title: 'Sealed Payload Transport',
     description:
-      'API keys, function arguments, and custom scripts can be sealed locally with X25519 + HKDF-SHA256 + AES-256-GCM before the on-chain request is submitted.',
+      'Secrets are sealed locally with X25519 + HKDF-SHA256 + AES-256-GCM before they ever leave the client boundary.',
   },
 ];
 
 const stats = [
   { label: 'Oracle Fee', value: '0.01', subvalue: 'GAS per request' },
-  { label: 'TEE Network', value: '24/7', subvalue: 'Attested workers' },
+  { label: 'Runtime Split', value: '2', subvalue: 'Role-specialized CVMs' },
   { label: 'Feed Pairs', value: '35+', subvalue: 'Supported symbols' },
 ];
 
@@ -78,13 +78,13 @@ export default function HomePage() {
                 fontFamily: 'var(--font-mono)',
               }}
             >
-              PROOF OF MACHINE TRUST
+              DUAL-CVM CONFIDENTIAL STACK
             </span>
           </div>
 
           <h1 className="hero-title">
-            Hardware-Secured <br />
-            <span className="text-gradient">Privacy Matrix</span>
+            Confidential Oracle <br />
+            <span className="text-gradient">for Neo N3</span>
           </h1>
 
           <p
@@ -96,8 +96,8 @@ export default function HomePage() {
               lineHeight: 1.7,
             }}
           >
-            The decentralized prover network for confidential oracle callbacks, sealed compute, and
-            high-integrity pricefeeds on Neo N3.
+            Serverless ingress, durable orchestration, isolated datafeeds, and attested
+            request-response execution for Neo N3.
           </p>
 
           <div
@@ -162,7 +162,7 @@ export default function HomePage() {
       <section style={{ padding: '6rem 0', borderTop: '1px solid var(--border-dim)' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-            <h2 className="section-title">Silicon-Level Security</h2>
+            <h2 className="section-title">Execution Model</h2>
             <p
               style={{
                 color: 'var(--text-secondary)',
@@ -170,7 +170,7 @@ export default function HomePage() {
                 fontFamily: 'var(--font-mono)',
               }}
             >
-              CRYPTOGRAPHY MEETS HARDWARE ISOLATION
+              CONTROL PLANE OUTSIDE, CONFIDENTIAL EXECUTION INSIDE
             </p>
           </div>
 
@@ -238,10 +238,10 @@ export default function HomePage() {
                     fontFamily: 'var(--font-mono)',
                   }}
                 >
-                  ON-CHAIN REALITY
+                  ISOLATED DATAFEED LANE
                 </span>
               </div>
-              <h2 className="section-title">Decentralized Datafeeds</h2>
+              <h2 className="section-title">Isolated Datafeeds</h2>
               <p
                 style={{
                   color: 'var(--text-secondary)',
@@ -250,10 +250,10 @@ export default function HomePage() {
                   lineHeight: 1.7,
                 }}
               >
-                Access synchronized price pairs stored directly on {NETWORKS.neo_n3.name}. Prices
-                use a global <code>1 USD = 1,000,000</code> integer scale, and updates are scanned
-                every 60 seconds and only published when movement versus the current quantized
-                on-chain value exceeds 0.1%.
+                Access synchronized price pairs stored directly on {NETWORKS.neo_n3.name}. Feed
+                publication runs on the dedicated DataFeed CVM, uses a global{' '}
+                <code>1 USD = 1,000,000</code> integer scale, scans every 60 seconds, and only
+                publishes when movement versus the current quantized on-chain value exceeds 0.1%.
               </p>
 
               <div
@@ -266,8 +266,8 @@ export default function HomePage() {
               >
                 {[
                   'Native Neo N3 C# contract integration',
-                  'Phala app id, compose hash, and attestation metadata',
-                  'Oracle callback workflow with custom URL and encrypted params',
+                  'Role-split Oracle and DataFeed attestation anchors',
+                  'Encrypted callbacks with replay and boundary protections',
                 ].map((item) => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <CheckCircle2 size={18} color="var(--text-primary)" />
@@ -444,14 +444,15 @@ public static void Execute() {
               fontSize: '1.05rem',
             }}
           >
-            Join the next generation of privacy-preserving decentralized infrastructure.
+            Build on a production design that separates ingress, durability, and confidential
+            execution cleanly.
           </p>
           <Link
             href="/explorer"
             className="btn-ata"
             style={{ padding: '1rem 3rem', fontSize: '0.9rem' }}
           >
-            Enter the Matrix
+            Open Explorer
           </Link>
         </div>
       </section>

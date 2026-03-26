@@ -12,13 +12,13 @@ export const metadata = {
     default: 'Morpheus Oracle',
     template: '%s | Morpheus Oracle',
   },
-  description: 'Privacy Oracle, privacy compute, and datafeed network for Neo N3.',
+  description: 'Confidential oracle, compute, and isolated datafeed infrastructure for Neo N3.',
   icons: {
     icon: '/logo.svg',
   },
   openGraph: {
     title: 'Morpheus Oracle',
-    description: 'Truth infrastructure for Neo N3.',
+    description: 'Confidential oracle infrastructure for Neo N3.',
     images: ['/og-card.svg'],
   },
 };

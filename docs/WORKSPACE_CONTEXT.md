@@ -28,7 +28,7 @@ This document is a single “resume point” for the MeshMini workspace. It inve
 Local paths (typical dev workspace):
 
 - `neo-morpheus-oracle`
-  - Oracle system: control plane (Cloudflare Workers), durable ingress queues (Cloudflare Queues), app backend + UI (Vercel/Next.js), and the confidential execution plane (TEE worker runtime).
+  - Oracle system: edge gateway + control plane (Cloudflare Workers), durable orchestration (Queues + Workflows), app backend + UI (Vercel/Next.js), and the confidential execution plane (TEE worker runtime).
 - `neo-abstract-account`
   - Abstract Account contracts + UI + server routes for relaying/ops, plus SDK test matrix.
 - `neo-miniapps-platform`
@@ -59,12 +59,13 @@ Origins can be:
 
 These are configured as worker vars (non-secret) and can be rotated without code changes.
 
-## Architecture: Four-Layer Model (Current Target)
+## Architecture: Four-Layer Model (Current Production Design)
 
 1. **Serverless Control Plane** (Cloudflare Workers)
    - API ingress, auth, validation, rate limiting, health, job enqueue, job status query.
-2. **Durable Queue / Orchestration** (Cloudflare Queues)
-   - `oracle-request`, `feed-tick`, `callback-broadcast`, `automation-execute`
+2. **Durable Queue / Orchestration** (Cloudflare Queues + Workflows)
+   - queues: `oracle-request`, `feed-tick`
+   - workflows: `callback-broadcast`, `automation-execute`
    - retry/backoff/dead-letter strategy
    - guarantees “do not drop requests”
 3. **Durable State** (Supabase)

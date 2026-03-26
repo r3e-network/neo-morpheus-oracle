@@ -24,7 +24,7 @@ export default function DocsVerifier() {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          SECURITY SPEC v1.0.3
+          SECURITY SPEC
         </span>
       </div>
       <h1>Attestation & Security</h1>
@@ -202,8 +202,8 @@ export default function DocsVerifier() {
           VERIFIER TOOL
         </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          Morpheus provides a built-in <strong>Attestation Verifier</strong> in the Matrix Explorer.
-          You can paste any worker response to validate its hardware proof instantly.
+          Morpheus provides a built-in <strong>Attestation Verifier</strong> in the Explorer. You
+          can paste any worker response to validate its hardware proof instantly.
         </p>
         <Link
           href="/verifier"
