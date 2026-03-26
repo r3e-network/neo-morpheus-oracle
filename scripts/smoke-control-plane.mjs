@@ -26,6 +26,60 @@ function isCloudflareRateLimited(response) {
   );
 }
 
+async function writeRateLimitedArtifacts({
+  generatedAt,
+  network,
+  controlPlaneUrl,
+  accepted,
+}) {
+  const jsonReport = {
+    generated_at: generatedAt,
+    network,
+    control_plane_url: controlPlaneUrl,
+    route: '/oracle/query',
+    accepted,
+    status: 'rate_limited',
+  };
+
+  const markdownReport = [
+    '# Control Plane Smoke',
+    '',
+    `Date: ${generatedAt}`,
+    '',
+    '## Scope',
+    '',
+    'Submit a single `/oracle/query` job through the Cloudflare control plane and wait for the durable job state to reach a terminal status.',
+    '',
+    '## Result',
+    '',
+    `- Network: \`${network}\``,
+    `- Control plane: \`${controlPlaneUrl}\``,
+    `- Accepted status: \`${accepted.status}\``,
+    '- Terminal status: `rate_limited`',
+    '',
+    '## Note',
+    '',
+    'Cloudflare Workers plan limits blocked the smoke request before job acceptance. This is an operational capacity condition, not a contract or application logic fault.',
+    '',
+  ].join('\n');
+
+  const artifacts = await writeValidationArtifacts({
+    baseName: 'control-plane-smoke',
+    network,
+    generatedAt,
+    jsonReport,
+    markdownReport,
+  });
+
+  console.log(
+    jsonPretty({
+      ...artifacts,
+      accepted_status: accepted.status,
+      terminal_status: 'rate_limited',
+    })
+  );
+}
+
 function resolveNetwork() {
   return trimString(process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
     ? 'mainnet'
@@ -172,9 +226,14 @@ for (let attempt = 1; attempt <= acceptanceAttempts; attempt += 1) {
 
 if (accepted.status !== 202 || !trimString(accepted.body?.id || '')) {
   if (isCloudflareRateLimited(accepted)) {
-    throw new Error(
-      `control plane is currently rate limited by Cloudflare plan limits: ${accepted.status} ${JSON.stringify(accepted.body)}`
-    );
+    const generatedAt = new Date().toISOString();
+    await writeRateLimitedArtifacts({
+      generatedAt,
+      network,
+      controlPlaneUrl,
+      accepted,
+    });
+    process.exit(75);
   }
   throw new Error(
     `control plane did not accept job: ${accepted.status} ${JSON.stringify(accepted.body)}`
