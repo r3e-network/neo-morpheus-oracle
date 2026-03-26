@@ -54,16 +54,56 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+WORKSPACE_CONTEXT_JSON="$(
+  node "$ORACLE_ROOT/scripts/resolve-workspace-validation-context.mjs" testnet
+)"
+WORKSPACE_REQUEST_WIF="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_test_wif')"
+WORKSPACE_REQUEST_PRIVATE_KEY="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_test_private_key')"
+WORKSPACE_RELAYER_WIF="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_runtime_relayer_wif')"
+WORKSPACE_RELAYER_PRIVATE_KEY="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_runtime_relayer_private_key')"
+WORKSPACE_UPDATER_WIF="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_runtime_updater_wif')"
+WORKSPACE_UPDATER_PRIVATE_KEY="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_runtime_updater_private_key')"
+WORKSPACE_VERIFIER_WIF="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_runtime_verifier_wif')"
+WORKSPACE_VERIFIER_PRIVATE_KEY="$(printf '%s' "$WORKSPACE_CONTEXT_JSON" | jq -r '.actors.oracle_runtime_verifier_private_key')"
+
 if [[ $run_oracle -eq 1 ]]; then
   echo ""
   echo "=== Oracle Live Validation ==="
-  (cd "$ORACLE_ROOT" && bash scripts/run_live_testnet_validation.sh --smoke-only)
+  oracle_args=(--smoke-only)
+  if [[ $run_miniapps -eq 1 ]]; then
+    oracle_args=(--control-plane-only)
+  fi
+  if [[ -n "$WORKSPACE_REQUEST_WIF" && "$WORKSPACE_REQUEST_WIF" != "null" ]]; then
+    (
+      cd "$ORACLE_ROOT" && \
+      MORPHEUS_SMOKE_REQUEST_WIF="$WORKSPACE_REQUEST_WIF" \
+      NEO_TESTNET_WIF="$WORKSPACE_REQUEST_WIF" \
+      NEO_N3_WIF="$WORKSPACE_REQUEST_WIF" \
+      MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET="$WORKSPACE_RELAYER_WIF" \
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET="$WORKSPACE_RELAYER_PRIVATE_KEY" \
+      MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET="$WORKSPACE_UPDATER_WIF" \
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET="$WORKSPACE_UPDATER_PRIVATE_KEY" \
+      MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET="$WORKSPACE_VERIFIER_WIF" \
+      MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET="$WORKSPACE_VERIFIER_PRIVATE_KEY" \
+      PHALA_ORACLE_VERIFIER_WIF_TESTNET="$WORKSPACE_VERIFIER_WIF" \
+      PHALA_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET="$WORKSPACE_VERIFIER_PRIVATE_KEY" \
+      bash scripts/run_live_testnet_validation.sh "${oracle_args[@]}"
+    )
+  else
+    (cd "$ORACLE_ROOT" && bash scripts/run_live_testnet_validation.sh "${oracle_args[@]}")
+  fi
 fi
 
 if [[ $run_aa -eq 1 ]]; then
-  echo ""
-  echo "=== AA Live Validation ==="
-  (cd "$AA_ROOT" && bash scripts/run_live_testnet_validation.sh --smoke-only)
+  if [[ $run_miniapps -eq 1 ]]; then
+    echo ""
+    echo "=== AA Live Validation ==="
+    echo "[aa-live] skipped because miniapps direct testnet validation already covers the AA paymaster relay path." >&2
+  else
+    echo ""
+    echo "=== AA Live Validation ==="
+    (cd "$AA_ROOT" && bash scripts/run_live_testnet_validation.sh --smoke-only)
+  fi
 fi
 
 if [[ $run_miniapps -eq 1 ]]; then
