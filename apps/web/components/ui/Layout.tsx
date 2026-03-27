@@ -14,7 +14,7 @@ type NavItem = {
 };
 
 const mainNavItems: NavItem[] = [
-  { label: 'Network', href: '/explorer' },
+  { label: 'Explorer', href: '/explorer' },
   { label: 'Launchpad', href: '/launchpad' },
   { label: 'Feed Status', href: '/docs/feed-status' },
   { label: 'Docs', href: '/docs' },

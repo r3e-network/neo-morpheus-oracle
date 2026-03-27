@@ -61,7 +61,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       items: [
         { href: '/docs/networks', label: 'Networks & Contracts', icon: Layers },
         { href: '/docs/api-reference', label: 'API Reference', icon: Code2 },
-        { href: '/docs/verifier', label: 'Attestation Spec', icon: CheckCircle },
+        { href: '/docs/verifier', label: 'Verifier Guide', icon: CheckCircle },
         { href: '/docs/faq', label: 'FAQ & Troubleshooting', icon: HelpCircle },
       ],
     },
@@ -71,7 +71,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: '/docs/r/EXAMPLES', label: 'Examples Portfolio', icon: Code2 },
         { href: '/docs/r/BUILTIN_COMPUTE', label: 'Built-in Compute', icon: Cpu },
         { href: '/docs/r/PROVIDERS', label: 'Supported Providers', icon: Boxes },
-        { href: '/docs/r/DEPLOYMENT', label: 'Deployment Node', icon: Boxes },
+        { href: '/docs/r/DEPLOYMENT', label: 'Deployment', icon: Boxes },
         { href: '/docs/r/ENVIRONMENT', label: 'Environment Setup', icon: Zap },
         { href: '/docs/r/OPERATIONS', label: 'Operations', icon: Activity },
         { href: '/docs/r/VALIDATION', label: 'Validation', icon: CheckCircle },
@@ -136,34 +136,20 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
               borderRadius: '4px',
               padding: '0.4rem 0.8rem',
               gap: '8px',
-              cursor: 'pointer',
+              cursor: 'default',
               transition: 'border-color 0.2s',
               marginRight: '1rem',
+              opacity: 0.78,
             }}
             className="hover-search"
           >
             <Search size={14} color="var(--text-muted)" />
             <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              Search documentation...
-            </span>
-            <span
-              style={{
-                marginLeft: '1.5rem',
-                padding: '0.15rem 0.35rem',
-                background: 'rgba(255,255,255,0.05)',
-                border: '1px solid var(--border-dim)',
-                borderRadius: '2px',
-                fontSize: '0.65rem',
-                color: 'var(--text-dim)',
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-              }}
-            >
-              ⌘K
+              Search documentation (coming soon)
             </span>
           </div>
           <Link href="/explorer" className="nav-link">
-            Network Explorer
+            Explorer
           </Link>
           <a
             href="https://github.com/r3e-network/neo-morpheus-oracle"

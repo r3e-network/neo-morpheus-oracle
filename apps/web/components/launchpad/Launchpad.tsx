@@ -35,7 +35,7 @@ const journeys = [
       },
       {
         title: 'Build and encrypt',
-        desc: 'Use Starter Studio or Explorer Oracle tab to seal sensitive fields locally.',
+        desc: 'Use Starter Studio or Explorer > Oracle Payload to seal sensitive fields locally.',
         href: '/docs/studio',
         label: 'Starter Studio',
       },
@@ -74,7 +74,7 @@ const journeys = [
       },
       {
         title: 'Generate package',
-        desc: 'Use Starter Studio or Explorer Compute tab to generate a compute payload.',
+        desc: 'Use Starter Studio or Explorer > Enclave Sandbox to generate a compute payload.',
         href: '/docs/studio',
         label: 'Starter Studio',
       },

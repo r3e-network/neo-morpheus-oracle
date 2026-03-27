@@ -123,7 +123,7 @@ export default function HomePage() {
               }}
             >
               <Activity size={14} style={{ display: 'inline', marginRight: '8px' }} />
-              Network Status
+              Explorer
             </Link>
             <Link
               href="/docs"
