@@ -186,12 +186,12 @@ export default function DocsNeoDidPage() {
       <CodeBlock
         language="bash"
         title="Resolver"
-        code={`curl "https://neo-morpheus-oracle-web.vercel.app/api/neodid/resolve?did=${encodeURIComponent(DEFAULT_NEODID_SERVICE_DID)}"`}
+        code={`curl "https://oracle.meshmini.app/mainnet/neodid/resolve?did=${encodeURIComponent(DEFAULT_NEODID_SERVICE_DID)}"`}
       />
 
       <CodeBlock
         language="json"
-        title="GET /api/neodid/resolve?did=did:morpheus:neo_n3:service:neodid"
+        title="GET /mainnet/neodid/resolve?did=did:morpheus:neo_n3:service:neodid"
         code={`{
   "didResolutionMetadata": {
     "contentType": "application/ld+json;profile=\\"https://w3id.org/did-resolution\\""
