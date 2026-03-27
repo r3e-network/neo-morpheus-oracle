@@ -273,11 +273,11 @@ AA 恢复验证器应把：
 ## 10. Example / 示例
 
 ```bash
-curl "https://neo-morpheus-oracle-web.vercel.app/api/neodid/resolve?did=did:morpheus:neo_n3:service:neodid"
+curl "https://oracle.meshmini.app/mainnet/neodid/resolve?did=did:morpheus:neo_n3:service:neodid"
 ```
 
 ```bash
-curl "https://neo-morpheus-oracle-web.vercel.app/api/neodid/resolve?did=did:morpheus:neo_n3:aa:aa-social-recovery-demo&format=document"
+curl "https://oracle.meshmini.app/mainnet/neodid/resolve?did=did:morpheus:neo_n3:aa:aa-social-recovery-demo&format=document"
 ```
 
 ## 11. Implementation Notes / 实现说明
