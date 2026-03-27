@@ -123,6 +123,9 @@ export function stableStringify(value) {
 }
 
 export function resolveMaxBytes(value, fallbackBytes = 0, minBytes = 1024) {
+  if (value === undefined || value === null || String(value).trim() === '') {
+    return Math.max(fallbackBytes, minBytes);
+  }
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return Math.max(fallbackBytes, minBytes);
   return Math.max(Math.trunc(numeric), minBytes);

@@ -327,6 +327,10 @@ They do not usually change trust assumptions.
   English: Upstream fetch timeout for Oracle requests.
   中文：Oracle 拉取外部数据时的超时。
 
+- `ORACLE_MAX_PROVIDER_BODY_BYTES`
+  English: Maximum response size for built-in provider fetches such as TwelveData / Coinbase / Binance. Use this when provider-side HTML or verbose JSON errors exceed the stricter generic upstream cap.
+  中文：内建 provider（例如 TwelveData / Coinbase / Binance）响应体的最大字节数。当 provider 侧返回较大的 HTML 或详细 JSON 错误时，可用它覆盖更严格的通用上限。
+
 - `ORACLE_SCRIPT_TIMEOUT_MS`
   English: Timeout for JS oracle scripts.
   中文：旧 JS Oracle 脚本的超时。

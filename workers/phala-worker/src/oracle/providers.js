@@ -205,6 +205,14 @@ export function __resetProviderRuntimeCachesForTests() {
   providerResponseInFlight.clear();
 }
 
+function resolveProviderResponseMaxBodyBytes() {
+  return resolveMaxBytes(
+    env('ORACLE_MAX_PROVIDER_BODY_BYTES'),
+    64 * 1024,
+    4096
+  );
+}
+
 async function fetchSupabaseRows(table, query) {
   const restConfig = getSupabaseRestConfig();
   if (!restConfig) return null;
@@ -522,11 +530,7 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
           signal: controller.signal,
         });
 
-        const maxBodyBytes = resolveMaxBytes(
-          env('ORACLE_MAX_UPSTREAM_BODY_BYTES'),
-          256 * 1024,
-          4096
-        );
+        const maxBodyBytes = resolveProviderResponseMaxBodyBytes();
         const text = await (async () => {
           if (!response.body || typeof response.body.getReader !== 'function') {
             const body = await response.text();

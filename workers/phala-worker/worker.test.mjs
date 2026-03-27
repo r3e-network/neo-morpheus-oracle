@@ -2331,6 +2331,41 @@ test('oracle smart fetch rejects oversized upstream responses', async () => {
   assert.match(body.error, /upstream response exceeds max size/i);
 });
 
+test('builtin providers are not constrained by the generic upstream body cap', async () => {
+  process.env.ORACLE_MAX_UPSTREAM_BODY_BYTES = '128';
+  delete process.env.ORACLE_MAX_PROVIDER_BODY_BYTES;
+  global.fetch = async (url) => {
+    assert.match(String(url), /api\.twelvedata\.com\/price/);
+    return new Response(
+      JSON.stringify({
+        price: '2.673',
+        padding: 'x'.repeat(6000),
+      }),
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }
+    );
+  };
+
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        provider: 'twelvedata',
+        symbol: 'NEO-USD',
+        json_path: 'price',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
+  delete process.env.ORACLE_MAX_UPSTREAM_BODY_BYTES;
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.result, '2.673');
+});
+
 test('compute script enforces timeout', async () => {
   const res = await handler(
     new Request('http://local/compute/execute', {
