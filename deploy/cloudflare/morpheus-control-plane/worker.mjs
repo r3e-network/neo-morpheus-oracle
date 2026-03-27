@@ -605,6 +605,17 @@ function isRetryableStatus(status) {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
+function isRetryableExecutionBody(body) {
+  const text = JSON.stringify(body || {}).toLowerCase();
+  return (
+    text.includes('runtime_unavailable') ||
+    text.includes('fetch failed') ||
+    text.includes('timed out') ||
+    text.includes('upstream returned http 5') ||
+    text.includes('provider response exceeds max size')
+  );
+}
+
 async function fetchJsonWithTimeout(url, init = {}, timeoutMs = 30000) {
   const controller = new AbortController();
   const timer = setTimeout(
@@ -663,7 +674,10 @@ async function callExecutionPlane(env, job) {
         body,
         execution_base_url: baseUrl,
       };
-      if (response.ok || !isRetryableStatus(response.status)) {
+      if (
+        response.ok ||
+        (!isRetryableStatus(response.status) && !isRetryableExecutionBody(body))
+      ) {
         return lastResponse;
       }
     } catch (error) {
@@ -713,7 +727,10 @@ async function callExecutionFeedPlane(env, job) {
         body,
         execution_base_url: baseUrl,
       };
-      if (response.ok || !isRetryableStatus(response.status)) {
+      if (
+        response.ok ||
+        (!isRetryableStatus(response.status) && !isRetryableExecutionBody(body))
+      ) {
         return lastResponse;
       }
     } catch (error) {

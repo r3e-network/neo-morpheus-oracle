@@ -341,6 +341,45 @@ test('oracle_request consumer falls back to the next execution runtime when the 
   assert.equal(state.jobs.get('job-oracle-fallback')?.status, 'succeeded');
 });
 
+test('oracle_request consumer falls back when the first runtime wraps a retryable upstream failure in a 400', async () => {
+  const env = createEnv({
+    MORPHEUS_TESTNET_EXECUTION_BASE_URL: 'https://exec-a.test,https://exec-b.test',
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.executionResponses.push(
+    jsonResponse(400, { error: 'provider response exceeds max size of 4096 bytes' }),
+    jsonResponse(200, { ok: true, route: '/oracle/query', result: 'execution-ok' }),
+  );
+
+  state.jobs.set('job-oracle-fallback-wrapped', {
+    id: 'job-oracle-fallback-wrapped',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'dispatched',
+    payload: {
+      request_id: 'pool-test-2',
+      symbol: 'TWELVEDATA:NEO-USD',
+      target_chain: 'neo_n3',
+    },
+    metadata: {},
+  });
+
+  const message = createQueueMessage({
+    job_id: 'job-oracle-fallback-wrapped',
+    network: 'testnet',
+    queue: 'oracle_request',
+  });
+  await worker.queue({ queue: 'morpheus-oracle-request', messages: [message] }, env);
+
+  assert.equal(message.acked, true);
+  assert.equal(state.executionCalls.length, 2);
+  assert.notEqual(state.executionCalls[0].origin, state.executionCalls[1].origin);
+  assert.equal(state.jobs.get('job-oracle-fallback-wrapped')?.status, 'succeeded');
+});
+
 test('control plane dispatches callback_broadcast through workflows and persists instance metadata', async () => {
   const callbackWorkflow = createWorkflowBinding({ status: 'queued' });
   const env = createEnv({
