@@ -13,6 +13,7 @@ if (mode === 'loop') {
   await runRelayerLoop({ config, logger });
 } else if (mode === 'metrics') {
   const state = loadRelayerState(config.stateFile);
+  // eslint-disable-next-line no-console -- cli output for metrics mode
   console.log(
     JSON.stringify({ state_file: config.stateFile, metrics: snapshotMetrics(state) }, null, 2)
   );
@@ -23,5 +24,6 @@ if (mode === 'loop') {
   startMetricsServer(config, logger);
 } else {
   const result = await runRelayerOnce({ config, logger });
+  // eslint-disable-next-line no-console -- cli output for once mode
   console.log(JSON.stringify(result, null, 2));
 }

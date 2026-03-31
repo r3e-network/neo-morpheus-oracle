@@ -1,3 +1,6 @@
+import { json, trimString, getClientIp } from '@neo-morpheus-oracle/shared/utils.js';
+import { applyUpstashRateLimit } from '@neo-morpheus-oracle/shared/rate-limit.js';
+
 const CACHE_RULES = [
   { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/health'), ttl: 15 },
   { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/providers'), ttl: 60 },
@@ -29,17 +32,6 @@ const UPSTASH_ROUTE_LIMITS = {
   vrf: { limit: 15, windowMs: 60_000 },
   'oracle-query': { limit: 30, windowMs: 60_000 },
 };
-
-function json(status, body, headers = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json', ...headers },
-  });
-}
-
-function trimString(value) {
-  return String(value || '').trim();
-}
 
 function stripLeadingSlash(value) {
   return String(value || '').replace(/^\/+/, '');
@@ -85,15 +77,6 @@ function resolveNetworkRoute(url, env) {
       ''
     ),
   };
-}
-
-function getClientIp(request) {
-  return (
-    trimString(request.headers.get('cf-connecting-ip')) ||
-    trimString(request.headers.get('x-real-ip')) ||
-    trimString(request.headers.get('x-forwarded-for')).split(',')[0] ||
-    'unknown'
-  );
 }
 
 function shouldProtectWithTurnstile(pathname) {
@@ -176,7 +159,7 @@ async function verifyTurnstile(request, env) {
 async function applyNativeRateLimit(request, env, routeKey) {
   if (isTrustedAutomationRequest(request, env)) return null;
   if (!env.MORPHEUS_RATE_LIMITER || typeof env.MORPHEUS_RATE_LIMITER.limit !== 'function') {
-    return applyUpstashRateLimit(request, env, routeKey);
+    return applyUpstashRateLimitImpl(request, env, routeKey);
   }
   const verdict = await env.MORPHEUS_RATE_LIMITER.limit({
     key: `${routeKey}:${getClientIp(request)}`,
@@ -200,50 +183,26 @@ function routeLimitConfig(routeKey, env) {
   };
 }
 
-async function upstashPipeline(env, commands) {
-  const url = trimString(env.UPSTASH_REDIS_REST_URL).replace(/\/$/, '');
-  const token = trimString(env.UPSTASH_REDIS_REST_TOKEN);
-  if (!url || !token) return null;
-  const response = await fetch(`${url}/pipeline`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${token}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(commands),
-  });
-  if (!response.ok) {
-    throw new Error(`upstash pipeline failed (${response.status})`);
-  }
-  return response.json();
-}
-
-async function applyUpstashRateLimit(request, env, routeKey) {
+async function applyUpstashRateLimitImpl(request, env, routeKey) {
   if (isTrustedAutomationRequest(request, env)) return null;
   const config = routeLimitConfig(routeKey, env);
   if (!config) return null;
-  const redisUrl = trimString(env.UPSTASH_REDIS_REST_URL);
-  const redisToken = trimString(env.UPSTASH_REDIS_REST_TOKEN);
-  if (!redisUrl || !redisToken) return null;
 
   const key = `morpheus:edge:ratelimit:${routeKey}:${getClientIp(request)}`;
-  const result = await upstashPipeline(env, [
-    ['INCR', key],
-    ['PTTL', key],
-  ]);
-  const count = Number(result?.[0]?.result || 0);
-  let ttl = Number(result?.[1]?.result || -1);
-  if (count <= 1 || ttl < 0) {
-    await upstashPipeline(env, [['PEXPIRE', key, String(config.windowMs)]]);
-    ttl = config.windowMs;
-  }
-  if (count <= config.limit) return null;
+  const result = await applyUpstashRateLimit(env, key, {
+    max: config.limit,
+    windowMs: config.windowMs,
+  });
 
-  return json(
-    429,
-    { error: 'rate_limit_exceeded', route: routeKey },
-    { 'retry-after': String(Math.max(Math.ceil(ttl / 1000), 1)) }
-  );
+  if (!result) return null;
+  if (result.allowed === false) {
+    return json(
+      429,
+      { error: 'rate_limit_exceeded', route: routeKey },
+      { 'retry-after': String(result.retryAfter) }
+    );
+  }
+  return json(503, { error: 'rate_limit_backend_unavailable' });
 }
 
 function buildOriginRequest(request, env) {

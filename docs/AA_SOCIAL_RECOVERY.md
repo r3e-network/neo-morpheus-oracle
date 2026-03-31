@@ -1,8 +1,8 @@
 # AA Social Recovery / AA 社交恢复集成方案
 
-This document defines the recommended integration between `neo-abstract-account` and Morpheus `NeoDID + Privacy Oracle`.
+This document defines the recommended integration between `neo-abstract-account` and Morpheus `NeoDID + MiniApp OS`.
 
-本文定义 `neo-abstract-account` 与 Morpheus `NeoDID + 隐私预言机` 的标准集成方案。
+本文定义 `neo-abstract-account` 与 Morpheus `NeoDID + MiniApp OS` 的标准集成方案。
 
 ## Goal / 目标
 
@@ -21,17 +21,18 @@ Why:
 - `neo-abstract-account` already supports per-account custom verifiers through `setVerifierContract`.
 - Recovery logic remains isolated from the main wallet execution engine.
 - NeoDID master nullifiers and action nullifiers map naturally to recovery factors and one-time recovery approvals.
-- Oracle, NeoDID, and AA can all share one callback-oriented request model.
+- The shared MiniApp OS kernel can own IO, fee sponsorship, inbox delivery, and callback compatibility while NeoDID and AA keep their domain logic isolated.
 - AA integrations may publicly namespace a recovery identity as `did:morpheus:neo_n3:aa:<account-id>` while still requiring a private NeoDID recovery ticket for actual authorization.
 
 ## Component Roles / 组件职责
 
-### 1. Morpheus Oracle
+### 1. Morpheus MiniApp OS Kernel
 
-- Receives on-chain requests through `MorpheusOracle.request(...)`
-- Emits `OracleRequested`
+- Receives on-chain requests through the shared kernel contract
+- Accepts both native kernel requests and legacy compatibility requests such as `MorpheusOracle.request(...)`
+- Emits the kernel request event
 - Relayer forwards the payload to the Phala worker
-- Always fulfills the request with success or failure callback
+- Always fulfills the request into the system inbox, with optional external callback adapter delivery when configured
 
 ### 2. NeoDID Worker
 
@@ -61,7 +62,7 @@ Why:
 
 ## Canonical Request Types / 标准请求类型
 
-These request types can now be routed through the Morpheus oracle request pipeline:
+These request types can now be routed through the Morpheus kernel request pipeline:
 
 - `neodid_bind`
 - `neodid_action_ticket`
@@ -71,10 +72,11 @@ This means AA recovery no longer needs a side-channel worker call. The preferred
 
 这意味着 AA 恢复不需要旁路调用 worker。生产环境推荐路径是：
 
-1. User contract or recovery coordinator calls `MorpheusOracle.request("neodid_recovery_ticket", payload, callbackContract, callbackMethod)`.
-2. Morpheus relayer routes the request to `/neodid/recovery-ticket`.
-3. TEE signs the recovery ticket.
-4. Callback stores or forwards the ticket to the AA recovery verifier flow.
+1. User contract or recovery coordinator submits a kernel request for `neodid_recovery_ticket`.
+2. The legacy-compatible path may still call `MorpheusOracle.request("neodid_recovery_ticket", payload, callbackContract, callbackMethod)` during migration.
+3. Morpheus relayer routes the request to `/neodid/recovery-ticket`.
+4. TEE signs the recovery ticket.
+5. The kernel inbox stores the result, and optional callback adapters may store or forward the ticket to the AA recovery verifier flow.
 
 ## Recovery Ticket Schema / 恢复票据结构
 
@@ -230,7 +232,7 @@ Recommended production model:
 
 1. User loses access to the original owner wallet.
 2. User chooses a new owner address `newOwner`.
-3. User requests one or more `neodid_recovery_ticket` approvals through Morpheus Oracle.
+3. User requests one or more `neodid_recovery_ticket` approvals through the Morpheus MiniApp OS kernel.
 4. Each successful factor submits one ticket to the verifier.
 5. The verifier marks each `action_nullifier` as used and counts unique approved `master_nullifier` factors.
 6. Once threshold is reached, the verifier opens a pending recovery timelock.

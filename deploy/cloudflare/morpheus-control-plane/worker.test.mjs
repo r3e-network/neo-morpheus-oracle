@@ -1,10 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import worker, {
-  AutomationExecuteWorkflow,
-  CallbackBroadcastWorkflow,
-} from './worker.mjs';
+import worker, { AutomationExecuteWorkflow, CallbackBroadcastWorkflow } from './worker.mjs';
 
 function createEnv(overrides = {}) {
   const oracleMessages = [];
@@ -98,7 +95,9 @@ function createFetchMock(state) {
             .filter(Boolean);
           rows = rows.filter((row) => statuses.includes(String(row.status || '')));
         }
-        rows.sort((left, right) => String(left.created_at || '').localeCompare(String(right.created_at || '')));
+        rows.sort((left, right) =>
+          String(left.created_at || '').localeCompare(String(right.created_at || ''))
+        );
         const limit = Number(target.searchParams.get('limit') || rows.length);
         return jsonResponse(200, rows.slice(0, limit));
       }
@@ -118,11 +117,14 @@ function createFetchMock(state) {
         body: parseRequestBody(init),
         headers: Object.fromEntries(new Headers(init.headers || {}).entries()),
       });
-      return state.executionResponses.shift() || jsonResponse(200, {
-        ok: true,
-        route: target.pathname,
-        result: 'execution-ok',
-      });
+      return (
+        state.executionResponses.shift() ||
+        jsonResponse(200, {
+          ok: true,
+          route: target.pathname,
+          result: 'execution-ok',
+        })
+      );
     }
 
     if (target.origin === 'https://app.test') {
@@ -131,10 +133,13 @@ function createFetchMock(state) {
         body: parseRequestBody(init),
         headers: Object.fromEntries(new Headers(init.headers || {}).entries()),
       });
-      return state.backendResponses.shift() || jsonResponse(200, {
-        ok: true,
-        route: target.pathname,
-      });
+      return (
+        state.backendResponses.shift() ||
+        jsonResponse(200, {
+          ok: true,
+          route: target.pathname,
+        })
+      );
     }
 
     throw new Error(`unexpected fetch ${target}`);
@@ -239,6 +244,28 @@ test('control plane enqueues oracle request jobs and persists dispatched status'
   assert.equal(state.jobs.get(body.id)?.status, 'dispatched');
 });
 
+test('health route exposes compatibility queues and kernel lanes', async () => {
+  const env = createEnv();
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/health', {
+      method: 'GET',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+      },
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.queues.oracle_request, true);
+  assert.equal(body.workflows.callback_broadcast, false);
+  assert.equal(body.kernel_lanes.oracle_request, 'request_dispatch');
+  assert.equal(body.kernel_lanes.feed_tick, 'shared_resource_sync');
+  assert.equal(body.kernel_lanes.callback_broadcast, 'callback_adapter_broadcast');
+  assert.equal(body.kernel_lanes.automation_execute, 'automation_orchestration');
+});
+
 test('oracle_request consumer forwards jobs to confidential execution plane', async () => {
   const env = createEnv();
   const state = createState();
@@ -311,7 +338,7 @@ test('oracle_request consumer falls back to the next execution runtime when the 
 
   state.executionResponses.push(
     jsonResponse(503, { error: 'runtime_unavailable' }),
-    jsonResponse(200, { ok: true, route: '/oracle/query', result: 'execution-ok' }),
+    jsonResponse(200, { ok: true, route: '/oracle/query', result: 'execution-ok' })
   );
 
   state.jobs.set('job-oracle-fallback', {
@@ -350,7 +377,7 @@ test('oracle_request consumer falls back when the first runtime wraps a retryabl
 
   state.executionResponses.push(
     jsonResponse(400, { error: 'provider response exceeds max size of 4096 bytes' }),
-    jsonResponse(200, { ok: true, route: '/oracle/query', result: 'execution-ok' }),
+    jsonResponse(200, { ok: true, route: '/oracle/query', result: 'execution-ok' })
   );
 
   state.jobs.set('job-oracle-fallback-wrapped', {
@@ -547,7 +574,10 @@ test('jobs/recover requeues stale queued and processing jobs', async () => {
   assert.equal(env.MORPHEUS_FEED_TICK_QUEUE.sent.length, 1);
   assert.equal(state.jobs.get('job-old-queued')?.status, 'dispatched');
   assert.equal(state.jobs.get('job-stale-processing')?.status, 'dispatched');
-  assert.match(String(state.jobs.get('job-old-queued')?.metadata?.last_requeued_at || ''), /\d{4}-\d{2}-\d{2}T/);
+  assert.match(
+    String(state.jobs.get('job-old-queued')?.metadata?.last_requeued_at || ''),
+    /\d{4}-\d{2}-\d{2}T/
+  );
   assert.equal(state.jobs.get('job-future')?.status, 'queued');
 });
 

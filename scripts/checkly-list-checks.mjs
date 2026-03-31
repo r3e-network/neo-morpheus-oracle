@@ -44,20 +44,28 @@ const response = await fetch('https://api.checklyhq.com/v1/checks?limit=100', {
 
 const payload = await response.json().catch(() => null);
 if (!response.ok) {
-  console.error(JSON.stringify(payload || { error: `Checkly API failed (${response.status})` }, null, 2));
+  console.error(
+    JSON.stringify(payload || { error: `Checkly API failed (${response.status})` }, null, 2)
+  );
   process.exit(1);
 }
 
 const checks = Array.isArray(payload) ? payload : [];
-console.log(JSON.stringify({
-  account_id: accountId,
-  total_checks: checks.length,
-  checks: checks.slice(0, options.limit).map((check) => ({
-    id: check.id || null,
-    name: check.name || null,
-    type: check.checkType || check.type || null,
-    activated: check.activated ?? null,
-    locations: Array.isArray(check.locations) ? check.locations : [],
-    tags: Array.isArray(check.tags) ? check.tags : [],
-  })),
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      account_id: accountId,
+      total_checks: checks.length,
+      checks: checks.slice(0, options.limit).map((check) => ({
+        id: check.id || null,
+        name: check.name || null,
+        type: check.checkType || check.type || null,
+        activated: check.activated ?? null,
+        locations: Array.isArray(check.locations) ? check.locations : [],
+        tags: Array.isArray(check.tags) ? check.tags : [],
+      })),
+    },
+    null,
+    2
+  )
+);

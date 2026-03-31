@@ -9,23 +9,31 @@ This guide explains how to use the four main Morpheus capabilities:
 
 It also explains how to inspect supported built-in providers and feed pairs, and how to use the public NeoDID DID resolver.
 
+The on-chain N3 model now follows `miniapp-os + miniapps`:
+
+- `MorpheusOracle` is the shared kernel contract
+- built-in modules provide common fetch / compute / identity / shared resource capabilities
+- miniapps should focus on business logic instead of reimplementing generic request plumbing
+- `OracleCallbackConsumer` is an optional external adapter, not the canonical callback surface
+
 Current architecture note:
 
 - Cloudflare owns public ingress, control-plane routing, queue/workflow orchestration, and recovery.
 - Supabase owns durable request, job, automation, and feed state.
-- The Oracle CVM handles request/response oracle, compute, and NeoDID execution for both mainnet and testnet.
-- The DataFeed CVM is isolated so continuous market-data publication is not blocked by interactive workloads.
+- The Oracle CVM handles built-in fetch/query, compute, and NeoDID execution for both mainnet and testnet.
+- The DataFeed CVM is isolated so continuous shared resource publication is not blocked by interactive workloads.
 
 Important production rule:
 
-- End users should use Oracle and Compute through the on-chain Morpheus Oracle contracts plus callback fulfillment.
-- End users should use NeoDID bind / action / recovery flows through the on-chain Morpheus Oracle contracts plus callback fulfillment.
+- End users should use Oracle and Compute through the on-chain Morpheus kernel contract plus async fulfillment.
+- End users should use NeoDID bind / action / recovery flows through the same shared kernel contract.
 - The direct HTTP routes in this guide are for local development, operator workflows, and payload debugging.
-- `datafeed` sync is operator-only. User contracts read synchronized on-chain feed records directly.
+- `datafeed` sync is operator-only. User contracts read synchronized on-chain shared resource records directly.
 - Each request currently costs `0.01 GAS`-equivalent.
 - Neo N3 supports prepaid fee credits, including contract-sponsored payment.
 - Neo N3 is the only active supported runtime path right now.
 - Neo X examples remain in-repo as reference material and should not be treated as the current production integration path.
+- Some route names and examples still use legacy oracle-shaped naming for compatibility.
 
 ## Canonical Network Registry
 
@@ -41,9 +49,9 @@ Current Neo N3 anchors:
 | Oracle Runtime URL            | `https://oracle.meshmini.app/mainnet`                                           | `https://oracle.meshmini.app/testnet`                                           |
 | Oracle Attestation Explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
 | DataFeed Attestation Explorer | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` |
-| MorpheusOracle                | `0x017520f068fd602082fe5572596185e62a4ad991`                                    | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
-| OracleCallbackConsumer        | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
-| MorpheusDataFeed              | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                    | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
+| MorpheusOracle Kernel         | `0x017520f068fd602082fe5572596185e62a4ad991`                                    | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
+| OracleCallbackConsumer Opt.   | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
+| MorpheusDataFeed Module       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                    | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
 | AbstractAccount               | `0x9742b4ed62a84a886f404d36149da6147528ee33`                                    | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                    |
 | AA Web3AuthVerifier           | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
 | AA RecoveryVerifier           | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                    | deployment-specific                                                             |
@@ -56,8 +64,8 @@ Current Neo N3 anchors:
 
 Operational notes:
 
-- the canonical testnet callback contract for shared infra is `0x8c506f224d82e67200f20d9d5361f767f0756e3b`
-- the current testnet example consumer used by live validation probes resolves to the same shared deployment
+- the canonical testnet optional callback adapter for shared infra is `0x8c506f224d82e67200f20d9d5361f767f0756e3b`
+- the current testnet example consumer used by live validation probes resolves to the same shared optional adapter deployment
 - testnet NeoDID registry remains unpublished in the shared registry until a stable shared deployment is intentionally promoted
 - `UnifiedSmartWalletV3` is the stable AA runtime name; raw deployment manifest suffixes are internal deployment metadata rather than user-facing contract names
 - mainnet AA ecosystem contracts are also published under `smartwallet.neo` subdomains such as `core.smartwallet.neo`, `web3auth.smartwallet.neo`, and `recovery.smartwallet.neo`
@@ -88,7 +96,7 @@ Typical cases:
 
 ### Datafeeds
 
-Use Morpheus datafeeds as operator-synchronized on-chain price storage that user contracts read directly.
+Use Morpheus datafeeds as the primary shared numeric resource registry that user contracts read directly.
 
 Important properties:
 
@@ -108,7 +116,7 @@ Use NeoDID when you need privacy-preserving identity binding, unlinkable action 
 
 Important properties:
 
-- production identity issuance still enters through the Oracle request + callback path
+- production identity issuance still enters through the shared kernel request + async fulfillment path
 - the public DID resolver exposes service topology and verifier material, not private claims
 - `provider_uid`, JWT claims, master nullifiers, and action nullifiers remain private
 - Web3Auth JWT verification happens inside the TEE for `provider = "web3auth"`
@@ -117,7 +125,7 @@ Important properties:
 ## 2. Privacy Compute Usage
 
 These direct `/compute/*` HTTP examples are for development and operator testing. In production, the same payloads
-should be carried through the on-chain request + callback path.
+should be carried through the on-chain kernel request path.
 
 ### Built-in functions
 
@@ -222,12 +230,12 @@ Example confidential builtin call:
 }
 ```
 
-The worker decrypts that JSON object inside the TEE, merges it into the request, executes it, and returns the callback-ready result envelope.
+The worker decrypts that JSON object inside the TEE, merges it into the request, executes it, and returns the kernel-ready result envelope.
 
 ## 3. Privacy Oracle Usage
 
 These direct `/oracle/*` HTTP examples are also development/operator paths. End-user dApps should submit the payload
-through the Oracle contract and wait for the callback result.
+through the shared kernel contract and wait for async fulfillment. The route names remain legacy compatibility names for built-in module lanes.
 
 There are two main paths.
 
@@ -521,7 +529,8 @@ Neo X read methods are intentionally omitted here because Neo X is not part of t
 ## 5. NeoDID Usage
 
 These direct `/neodid/*` HTTP examples are development/operator paths. In production, the same payloads should be
-submitted on-chain through `MorpheusOracle.request(...)` with:
+be submitted on-chain through the shared kernel request path. The legacy-compatible
+`MorpheusOracle.request(...)` flow remains available with:
 
 - `neodid_bind`
 - `neodid_action_ticket`

@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { resolveKernelIntent } from './router.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -100,7 +101,12 @@ async function supabaseRequest(table, method, payload, options = {}) {
     headers.Prefer = prefer.join(',');
   }
 
-  const response = await fetch(url.toString(), { method, headers, body });
+  const response = await fetch(url.toString(), {
+    method,
+    headers,
+    body,
+    signal: AbortSignal.timeout(15_000),
+  });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
     throw new Error(`supabase ${table} ${method} failed: ${response.status} ${text}`.trim());
@@ -264,6 +270,7 @@ export async function fetchRelayerJobsByStatuses(statuses, chain = null, limit =
 }
 
 export function buildRelayerJobRecord(event, details = {}) {
+  const kernelIntent = resolveKernelIntent(event.requestType);
   return {
     network: details.network || event.network || resolveSupabaseNetwork(),
     event_key: details.event_key,
@@ -278,7 +285,17 @@ export function buildRelayerJobRecord(event, details = {}) {
     last_error: details.last_error || null,
     next_retry_at: details.next_retry_at || null,
     worker_status: details.worker_status ?? null,
-    worker_response: details.worker_response ?? null,
+    worker_response:
+      details.worker_response && typeof details.worker_response === 'object'
+        ? {
+            ...details.worker_response,
+            kernel_intent: {
+              module_id: kernelIntent.moduleId,
+              operation: kernelIntent.operation,
+              legacy_request_type: kernelIntent.legacyRequestType,
+            },
+          }
+        : details.worker_response ?? null,
     fulfill_tx: details.fulfill_tx ?? null,
     event,
     updated_at: new Date().toISOString(),

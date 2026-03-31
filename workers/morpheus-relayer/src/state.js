@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { resolveKernelIntent } from './router.js';
 
 function defaultChainState() {
   return {
@@ -89,7 +90,11 @@ export function loadRelayerState(filePath) {
 
 export function saveRelayerState(filePath, state) {
   state.updated_at = new Date().toISOString();
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+  }
   fs.writeFileSync(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 }
 
@@ -200,6 +205,7 @@ export function enqueueRetryItem(state, chain, event, options = {}) {
 export function recordProcessedEvent(state, chain, event, status, meta = {}, limits = {}) {
   const chainState = state[chain];
   const key = buildEventKey(event);
+  const kernelIntent = resolveKernelIntent(event.requestType);
   if (!chainState.processed_records[key]) {
     chainState.processed_order.push(key);
   }
@@ -208,6 +214,8 @@ export function recordProcessedEvent(state, chain, event, status, meta = {}, lim
     status,
     request_id: String(event.requestId || '0'),
     request_type: String(event.requestType || ''),
+    module_id: kernelIntent.moduleId,
+    operation: kernelIntent.operation,
     tx_hash: String(event.txHash || ''),
     block_number: Number(event.blockNumber ?? 0),
     completed_at: new Date().toISOString(),
@@ -219,6 +227,8 @@ export function recordProcessedEvent(state, chain, event, status, meta = {}, lim
       key,
       request_id: String(event.requestId || '0'),
       request_type: String(event.requestType || ''),
+      module_id: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
       chain,
       event,
       exhausted_at: new Date().toISOString(),

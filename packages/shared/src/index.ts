@@ -5,6 +5,11 @@ export type ControlPlaneQueue =
   | 'feed_tick'
   | 'callback_broadcast'
   | 'automation_execute';
+export type ControlPlaneKernelLane =
+  | 'request_dispatch'
+  | 'shared_resource_sync'
+  | 'callback_adapter_broadcast'
+  | 'automation_orchestration';
 export type ControlPlaneJobStatus =
   | 'queued'
   | 'dispatching'
@@ -56,6 +61,15 @@ export const controlPlaneRouteQueues: Record<ControlPlaneRoute, ControlPlaneQueu
   '/feeds/tick': 'feed_tick',
   '/callbacks/broadcast': 'callback_broadcast',
   '/automation/execute': 'automation_execute',
+};
+
+// Public route paths and queue names remain compatibility-oriented. Internally these map to
+// broader MiniApp OS runtime lanes so the same infrastructure can serve many miniapps.
+export const controlPlaneQueueKernelLanes: Record<ControlPlaneQueue, ControlPlaneKernelLane> = {
+  oracle_request: 'request_dispatch',
+  feed_tick: 'shared_resource_sync',
+  callback_broadcast: 'callback_adapter_broadcast',
+  automation_execute: 'automation_orchestration',
 };
 
 export type OraclePayload = {
@@ -123,3 +137,8 @@ export const providerConfigSchemaHints: Record<string, unknown> = {
     symbol: 'NEO-USD',
   },
 };
+
+// Re-export utilities for TypeScript consumers
+export { json, trimString, parseTimestampMs, getClientIp, stableStringify } from './utils.js';
+export { applyUpstashRateLimit } from './rate-limit.js';
+export type { UpstashRateLimitConfig, UpstashRateLimitResult } from './rate-limit.js';

@@ -5,17 +5,23 @@ function resolveCandidateApiUrls(apiUrl) {
     .filter(Boolean);
 }
 
+const DEFAULT_PHALA_TIMEOUT_MS = 30000;
+
 export async function callPhala(config, path, payload, options = {}) {
   const candidateApiUrls = resolveCandidateApiUrls(config.phala.apiUrl);
-  if (candidateApiUrls.length === 0)
+  if (candidateApiUrls.length === 0) {
     throw new Error('MORPHEUS_RUNTIME_URL or PHALA_API_URL is not configured');
+  }
   const headers = new Headers({ 'content-type': 'application/json' });
   if (config.phala.token) {
     headers.set('authorization', `Bearer ${config.phala.token}`);
     headers.set('x-phala-token', config.phala.token);
   }
 
-  const timeoutMs = Math.max(Number(options.timeoutMs || config.phala.timeoutMs || 30000), 1000);
+  const timeoutMs = Math.max(
+    Number(options.timeoutMs || config.phala.timeoutMs || DEFAULT_PHALA_TIMEOUT_MS),
+    1000
+  );
   let lastError = null;
 
   for (const apiBaseUrl of candidateApiUrls) {

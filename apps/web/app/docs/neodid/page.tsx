@@ -73,9 +73,9 @@ export default function DocsNeoDidPage() {
           can act through disposable accounts without global linkability.
         </li>
         <li>
-          <strong>Oracle-Only Execution:</strong> production binds, action tickets, and recovery
-          tickets enter through <code>MorpheusOracle.request(...)</code> and come back through
-          callbacks.
+          <strong>Kernel-Managed Execution:</strong> production binds, action tickets, and recovery
+          tickets enter through the shared Morpheus kernel, land in the system inbox, and can also
+          be mirrored through optional callback adapters for compatibility.
         </li>
         <li>
           <strong>Public DID Layer:</strong> a resolver exposes the W3C DID document for the service
@@ -292,8 +292,8 @@ public class NeoDIDRegistry : SmartContract
       <h2>Oracle Request Types</h2>
       <p>
         Preferred production usage is on-chain, not direct worker invocation. These request types go
-        through
-        <code> MorpheusOracle.request(...)</code> and are fulfilled asynchronously:
+        through the shared kernel. The legacy-compatible path still uses
+        <code> MorpheusOracle.request(...)</code> and is fulfilled asynchronously:
       </p>
       <ul>
         <li>

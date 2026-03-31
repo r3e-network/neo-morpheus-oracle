@@ -155,9 +155,10 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
       <p>
         Once the transaction is mined, the <strong>Morpheus Relayer</strong> detects the event,
         forwards the encrypted payload to the Phala TEE, and then submits a callback transaction
-        back to your contract containing the signed result envelope. If the upstream fetch or
-        compute fails, the request should still finalize with a failure callback instead of being
-        silently dropped.
+        back to the shared kernel containing the signed result envelope. The kernel persists the
+        canonical inbox record first, and optional external callback adapters can mirror that
+        result into custom contracts. If the upstream fetch or compute fails, the request should
+        still finalize with a failure result instead of being silently dropped.
       </p>
 
       <div
@@ -195,8 +196,8 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
             lineHeight: 1.6,
           }}
         >
-          You don&apos;t need to write or deploy your own Consumer contract to test Morpheus. The
-          selected {NETWORKS.neo_n3.name} example callback consumer is{' '}
+          You don&apos;t need to write or deploy your own contract-specific callback bridge to test
+          Morpheus. The selected {NETWORKS.neo_n3.name} optional example callback adapter is{' '}
           <code
             style={{
               color: 'var(--neo-green)',
@@ -222,7 +223,8 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
         >
           <strong>1. Submit Request:</strong> Generate your JSON payload using the{' '}
           <strong>Dashboard Oracle Builder</strong>. Then, invoke <code>request</code> on the
-          MorpheusOracle (<code>{NETWORKS.neo_n3.oracle}</code>) directly using NeoLine or Neo-CLI:
+          shared kernel contract (<code>{NETWORKS.neo_n3.oracle}</code>) directly using NeoLine or
+          Neo-CLI:
         </p>
         <ul
           style={{
@@ -241,7 +243,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
             Arg 3 (Hash160): <code>{exampleConsumer}</code>
           </li>
           <li>
-            Arg 4 (String): <code>"onOracleResult"</code>
+            Arg 4 (String): <code>"onOracleResult"</code> for the compatibility adapter path
           </li>
           <li style={{ marginTop: '0.5rem' }}>
             <strong style={{ color: '#fff' }}>Fee:</strong> Attach exactly <code>0.01 GAS</code> to
@@ -257,9 +259,9 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
           }}
         >
           <strong>2. Read Result:</strong> Check your transaction to get the <code>requestId</code>.
-          Wait about 60 seconds, then perform a read-only invoke of{' '}
-          <code>getCallback(requestId)</code> on the consumer script hash above to view your
-          completely executed result envelope!
+          Wait about 60 seconds, then read the kernel-managed result path or perform a read-only
+          invoke of <code>getCallback(requestId)</code> on the optional adapter script hash above
+          to view your completed result envelope.
         </p>
       </div>
 

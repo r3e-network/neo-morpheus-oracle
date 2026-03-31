@@ -6,14 +6,12 @@ import {
   NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
   resolvePinnedNeoN3Role,
-} from '../../../scripts/lib-neo-signers.mjs';
+} from './lib/neo-signers.js';
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
+const DEFAULT_PHALA_TIMEOUT_MS = 30000;
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '../../..');
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function parseList(value) {
   const raw = trimString(value);
@@ -258,7 +256,7 @@ export function createRelayerConfig() {
     phala: {
       apiUrl: resolvePhalaApiUrls(network, registry),
       token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
-      timeoutMs: Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || 30000),
+      timeoutMs: Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_PHALA_TIMEOUT_MS),
     },
     neo_n3: {
       scanMode:

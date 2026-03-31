@@ -18,22 +18,28 @@ export const BUILTIN_PROVIDER_CATALOG = [
   {
     id: 'twelvedata',
     category: 'market-data',
-    description: 'Direct TwelveData market data source. No aggregation, no smoothing.',
+    description:
+      'Direct TwelveData market data source for shared fetch/query and resource publication lanes. No aggregation, no smoothing.',
     supports: ['oracle', 'datafeed'],
+    kernel_supports: ['oracle.fetch', 'feed.publish'],
     auth: 'apikey',
   },
   {
     id: 'binance-spot',
     category: 'market-data',
-    description: 'Direct Binance spot ticker endpoint. No aggregation, no smoothing.',
+    description:
+      'Direct Binance spot ticker endpoint for shared fetch/query and resource publication lanes. No aggregation, no smoothing.',
     supports: ['oracle', 'datafeed'],
+    kernel_supports: ['oracle.fetch', 'feed.publish'],
     auth: 'none',
   },
   {
     id: 'coinbase-spot',
     category: 'market-data',
-    description: 'Direct Coinbase spot price endpoint. No aggregation, no smoothing.',
+    description:
+      'Direct Coinbase spot price endpoint for shared fetch/query and resource publication lanes. No aggregation, no smoothing.',
     supports: ['oracle', 'datafeed'],
+    kernel_supports: ['oracle.fetch', 'feed.publish'],
     auth: 'none',
   },
 ];
@@ -231,6 +237,7 @@ async function fetchSupabaseRows(table, query) {
       authorization: `Bearer ${restConfig.apiKey}`,
       accept: 'application/json',
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {

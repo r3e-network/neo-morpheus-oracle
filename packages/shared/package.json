@@ -2,5 +2,15 @@
   "name": "@neo-morpheus-oracle/shared",
   "private": true,
   "version": "0.1.0",
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.js"
+    },
+    "./utils": "./src/utils.js",
+    "./rate-limit": "./src/rate-limit.js"
+  },
+  "main": "./src/index.js",
+  "types": "./src/index.ts"
 }

@@ -50,6 +50,14 @@
 - Pricefeeds are operator-driven and highest priority.
 - Oracle and compute requests are asynchronous and callback-based.
 
+## On-Chain MiniApp OS
+
+- `MorpheusOracle` keeps its legacy deployment name, but the contract role is now a shared MiniApp OS kernel.
+- The kernel owns miniapp registration, module registration, capability grants, request routing, inbox delivery, fee credits, and generic app state.
+- `MorpheusDataFeed` is treated as a built-in shared numeric resource module.
+- `OracleCallbackConsumer` is now an optional external adapter for advanced integrations, not a mandatory per-miniapp primitive.
+- The intended integration model is `miniapp-os + miniapps`: generic concerns stay in the system, while miniapps focus on business logic and configuration.
+
 ## Network Registry
 
 - `config/networks/mainnet.json` is the canonical mainnet registry.
@@ -64,7 +72,7 @@
 - `workers/phala-worker` — confidential execution runtime
 - `workers/morpheus-relayer` — on-chain async bridge and callback relayer
 - `deploy/cloudflare` — edge gateway and control-plane workers
-- `contracts` — Neo N3 contracts plus Neo X reference artifacts
+- `contracts` — Neo N3 MiniApp OS kernel, built-in modules, and Neo X reference artifacts
 - `supabase/migrations` — schema, policies, control-plane jobs, relayer durability
 - `docs` — canonical architecture, deployment, operations, validation, and specs
 - `scripts` — deployment, verification, SaaS sync, and operator helpers
@@ -120,6 +128,7 @@ npm run examples:test:n3:attack-regression
 ## Documentation
 
 - `docs/ARCHITECTURE.md`
+- `docs/MINIAPP_OS_AUDIT.md`
 - `docs/DEPLOYMENT.md`
 - `docs/OPERATIONS.md`
 - `docs/VALIDATION.md`

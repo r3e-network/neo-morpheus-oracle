@@ -86,7 +86,14 @@ console.log(
       total_heartbeats: finalRows.length,
       env_mapping: Object.fromEntries(
         finalRows
-          .filter((row) => ['morpheus-cron-feed', 'morpheus-cron-health', 'morpheus-relayer', 'morpheus-relayer-feed'].includes(String(row.attributes?.name || '')))
+          .filter((row) =>
+            [
+              'morpheus-cron-feed',
+              'morpheus-cron-health',
+              'morpheus-relayer',
+              'morpheus-relayer-feed',
+            ].includes(String(row.attributes?.name || ''))
+          )
           .flatMap((row) => {
             const name = String(row.attributes?.name || '');
             const url = String(row.attributes?.url || '');

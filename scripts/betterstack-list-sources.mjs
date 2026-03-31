@@ -1,4 +1,7 @@
-import { betterStackTelemetryApi, loadBetterStackTelemetryEnv } from './betterstack-telemetry-lib.mjs';
+import {
+  betterStackTelemetryApi,
+  loadBetterStackTelemetryEnv,
+} from './betterstack-telemetry-lib.mjs';
 
 await loadBetterStackTelemetryEnv();
 

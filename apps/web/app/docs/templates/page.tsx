@@ -154,10 +154,11 @@ export default function DocsTemplates() {
           Oracle contract: <code>{NETWORKS.neo_n3.oracle}</code>
         </p>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '0.75rem' }}>
-          Universal callback consumer: <code>{universalConsumer}</code>
+          Optional universal callback adapter: <code>{universalConsumer}</code>
         </p>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: 0 }}>
-          Call <code>request(requestType, payload, callbackContract, callbackMethod)</code> with
+          The shared kernel inbox is canonical. If you still want an external adapter for testing,
+          call <code>request(requestType, payload, callbackContract, callbackMethod)</code> with
           callback target <code>{universalConsumer}</code>, callback method{' '}
           <code>onOracleResult</code>, and attach exactly <code>0.01 GAS</code>.
         </p>

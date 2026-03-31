@@ -33,11 +33,7 @@ async function api(pathname, init = {}) {
     ...(init.headers || {}),
   };
 
-  const args = [
-    '-sS',
-    '-X',
-    method,
-  ];
+  const args = ['-sS', '-X', method];
 
   for (const [key, value] of Object.entries(headers)) {
     args.push('-H', `${key}: ${value}`);

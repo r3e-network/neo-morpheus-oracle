@@ -143,8 +143,107 @@ export function normalizeRequestType(value) {
     .replace(/[\s-]+/g, '_');
 }
 
+export function resolveKernelIntent(requestType) {
+  const normalized = normalizeRequestType(requestType);
+
+  if (normalized.includes('paymaster')) {
+    return {
+      legacyRequestType: normalized,
+      moduleId: 'paymaster.authorize',
+      operation: normalized || 'authorize',
+      workerRoute: '/paymaster/authorize',
+      operatorOnly: false,
+    };
+  }
+
+  if (normalized.includes('compute')) {
+    return {
+      legacyRequestType: normalized,
+      moduleId: 'compute.run',
+      operation: normalized || 'compute',
+      workerRoute: '/compute/execute',
+      operatorOnly: false,
+    };
+  }
+
+  if (normalized.includes('feed')) {
+    return {
+      legacyRequestType: normalized,
+      moduleId: 'feed.publish',
+      operation: normalized || 'feed',
+      workerRoute: '/oracle/feed',
+      operatorOnly: true,
+    };
+  }
+
+  if (normalized === 'rng' || normalized.includes('vrf') || normalized.includes('random')) {
+    return {
+      legacyRequestType: normalized,
+      moduleId: 'random.generate',
+      operation: normalized || 'random',
+      workerRoute: '/vrf/random',
+      operatorOnly: false,
+    };
+  }
+
+  if (normalized.startsWith('neodid')) {
+    if (normalized.includes('zklogin')) {
+      return {
+        legacyRequestType: normalized,
+        moduleId: 'identity.verify',
+        operation: normalized,
+        workerRoute: '/neodid/zklogin-ticket',
+        operatorOnly: false,
+      };
+    }
+    if (normalized.includes('recovery')) {
+      return {
+        legacyRequestType: normalized,
+        moduleId: 'identity.verify',
+        operation: normalized,
+        workerRoute: '/neodid/recovery-ticket',
+        operatorOnly: false,
+      };
+    }
+    if (normalized.includes('action')) {
+      return {
+        legacyRequestType: normalized,
+        moduleId: 'identity.verify',
+        operation: normalized,
+        workerRoute: '/neodid/action-ticket',
+        operatorOnly: false,
+      };
+    }
+    return {
+      legacyRequestType: normalized,
+      moduleId: 'identity.verify',
+      operation: normalized || 'neodid_bind',
+      workerRoute: '/neodid/bind',
+      operatorOnly: false,
+    };
+  }
+
+  if (normalized.startsWith('automation_')) {
+    return {
+      legacyRequestType: normalized,
+      moduleId: 'automation.run',
+      operation: normalized,
+      workerRoute: '/automation/execute',
+      operatorOnly: false,
+    };
+  }
+
+  return {
+    legacyRequestType: normalized,
+    moduleId: 'oracle.fetch',
+    operation: normalized || 'privacy_oracle',
+    workerRoute: '/oracle/smart-fetch',
+    operatorOnly: false,
+  };
+}
+
 export function isOperatorOnlyRequestType(value) {
-  return normalizeRequestType(value).includes('feed');
+  return resolveKernelIntent(value).operatorOnly;
 }
 
 export function decodePayloadText(rawPayload) {
@@ -157,28 +256,20 @@ export function decodePayloadText(rawPayload) {
   }
 }
 
-export function resolveWorkerRoute(requestType, payload) {
-  const normalized = normalizeRequestType(requestType);
-  if (normalized.includes('paymaster')) return '/paymaster/authorize';
-  if (normalized.includes('compute')) return '/compute/execute';
-  if (normalized.includes('feed')) return '/oracle/feed';
-  if (normalized === 'rng' || normalized.includes('vrf') || normalized.includes('random'))
-    return '/vrf/random';
-  if (normalized.startsWith('neodid')) {
-    if (normalized.includes('zklogin')) return '/neodid/zklogin-ticket';
-    if (normalized.includes('recovery')) return '/neodid/recovery-ticket';
-    if (normalized.includes('action')) return '/neodid/action-ticket';
-    return '/neodid/bind';
-  }
-  return '/oracle/smart-fetch';
+export function resolveWorkerRoute(requestType, _payload) {
+  return resolveKernelIntent(requestType).workerRoute;
 }
 
 export function buildWorkerPayload(chain, requestType, payload, requestId, context = {}) {
+  const kernelIntent = resolveKernelIntent(requestType);
   return {
     ...payload,
     request_id: String(requestId),
     request_source: `morpheus-relayer:${chain}`,
     target_chain: payload.target_chain || chain,
+    legacy_request_type: kernelIntent.legacyRequestType,
+    kernel_module_id: kernelIntent.moduleId,
+    kernel_operation: kernelIntent.operation,
     requester: context.requester || payload.requester || '',
     callback_contract: context.callbackContract || payload.callback_contract || '',
     callback_method: context.callbackMethod || payload.callback_method || '',
@@ -357,7 +448,7 @@ function buildBusinessResult(requestType, workerBody) {
 }
 
 function compactEnvelope(requestType, workerResponse) {
-  const normalized = normalizeRequestType(requestType);
+  const kernelIntent = resolveKernelIntent(requestType);
   const workerBody =
     workerResponse?.body && typeof workerResponse.body === 'object'
       ? workerResponse.body
@@ -365,9 +456,11 @@ function compactEnvelope(requestType, workerResponse) {
 
   return {
     version: 'morpheus-result/v1',
-    request_type: normalized,
+    request_type: kernelIntent.legacyRequestType,
+    module_id: kernelIntent.moduleId,
+    operation: kernelIntent.operation,
     success: Boolean(workerResponse?.ok),
-    result: buildBusinessResult(normalized, workerBody),
+    result: buildBusinessResult(kernelIntent.legacyRequestType, workerBody),
     verification: buildVerificationEnvelope(workerBody),
   };
 }

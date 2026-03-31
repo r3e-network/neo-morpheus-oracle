@@ -8,37 +8,48 @@ using Neo.SmartContract.Framework.Services;
 
 namespace MorpheusOracle.Contracts
 {
-    public delegate void OracleCallbackReceivedHandler(BigInteger requestId, string requestType, bool success, string error);
+    public delegate void MiniAppResultReceivedHandler(BigInteger requestId, string appId, string moduleId, string operation, bool success, string error);
     public delegate void AdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
-    public delegate void OracleChangedHandler(UInt160 oldOracle, UInt160 newOracle);
+    public delegate void KernelChangedHandler(UInt160 oldKernel, UInt160 newKernel);
 
     /// <summary>
-    /// Minimal callback sink used to receive and persist Morpheus Oracle results.
+    /// Optional external adapter for advanced integrations that still want a dedicated callback contract.
     /// </summary>
     /// <remarks>
-    /// This example contract demonstrates the expected callback pattern: set a trusted Oracle
-    /// contract, accept only that caller, and store callback payloads by request id for later read
-    /// access or downstream processing.
+    /// The MiniApp OS inbox is now the canonical callback surface. This contract remains available as
+    /// a thin bridge for apps that still need contract-local storage or custom follow-up logic.
     /// </remarks>
     [DisplayName("OracleCallbackConsumer")]
     [ManifestExtra("Author", "Morpheus Oracle")]
-    [ManifestExtra("Version", "1.0.0")]
-    [ManifestExtra("Description", "Minimal callback consumer for MorpheusOracle verification")]
+    [ManifestExtra("Version", "2.0.0")]
+    [ManifestExtra("Description", "Optional external callback adapter for the Morpheus MiniApp OS")]
     [ContractPermission("*", "*")]
     public partial class OracleCallbackConsumer : SmartContract
     {
         private static readonly byte[] PREFIX_ADMIN = new byte[] { 0x01 };
-        private static readonly byte[] PREFIX_ORACLE = new byte[] { 0x02 };
+        private static readonly byte[] PREFIX_KERNEL = new byte[] { 0x02 };
         private static readonly byte[] PREFIX_CALLBACK = new byte[] { 0x10 };
 
-        [DisplayName("OracleCallbackReceived")]
-        public static event OracleCallbackReceivedHandler OnOracleCallbackReceived;
+        public struct CallbackRecord
+        {
+            public string AppId;
+            public string ModuleId;
+            public string Operation;
+            public UInt160 Requester;
+            public bool Success;
+            public ByteString Result;
+            public string Error;
+            public BigInteger ReceivedAt;
+        }
+
+        [DisplayName("MiniAppResultReceived")]
+        public static event MiniAppResultReceivedHandler OnMiniAppResultReceived;
 
         [DisplayName("AdminChanged")]
         public static event AdminChangedHandler OnAdminChanged;
 
-        [DisplayName("OracleChanged")]
-        public static event OracleChangedHandler OnOracleChanged;
+        [DisplayName("KernelChanged")]
+        public static event KernelChangedHandler OnKernelChanged;
 
         public static void _deploy(object data, bool update)
         {
@@ -53,51 +64,132 @@ namespace MorpheusOracle.Contracts
         }
 
         [Safe]
-        public static UInt160 Oracle()
+        public static UInt160 Kernel()
         {
-            return (UInt160)Storage.Get(Storage.CurrentContext, PREFIX_ORACLE);
+            return (UInt160)Storage.Get(Storage.CurrentContext, PREFIX_KERNEL);
         }
+
+        // Legacy alias kept for migration.
+        [Safe]
+        public static UInt160 Oracle() => Kernel();
 
         public static void SetAdmin(UInt160 newAdmin)
         {
             ValidateAdmin();
             ExecutionEngine.Assert(newAdmin != null && newAdmin.IsValid, "invalid");
+
             UInt160 oldAdmin = Admin();
             Storage.Put(Storage.CurrentContext, PREFIX_ADMIN, newAdmin);
             OnAdminChanged(oldAdmin, newAdmin);
         }
 
-        /// <summary>
-        /// Sets the Oracle contract allowed to call <c>OnOracleResult</c>.
-        /// </summary>
-        public static void SetOracle(UInt160 oracle)
+        public static void SetKernel(UInt160 kernel)
         {
             ValidateAdmin();
-            ExecutionEngine.Assert(oracle != null && oracle.IsValid, "invalid");
-            UInt160 oldOracle = Oracle();
-            Storage.Put(Storage.CurrentContext, PREFIX_ORACLE, oracle);
-            OnOracleChanged(oldOracle, oracle);
+            ExecutionEngine.Assert(kernel != null && kernel.IsValid, "invalid");
+
+            UInt160 oldKernel = Kernel();
+            Storage.Put(Storage.CurrentContext, PREFIX_KERNEL, kernel);
+            OnKernelChanged(oldKernel, kernel);
         }
 
-        /// <summary>
-        /// Receives a callback from the configured Oracle contract and stores it under the request id.
-        /// </summary>
+        // Legacy alias kept for migration.
+        public static void SetOracle(UInt160 oracle)
+        {
+            SetKernel(oracle);
+        }
+
+        public static void OnMiniAppResult(BigInteger requestId, string appId, string moduleId, string operation, UInt160 requester, bool success, ByteString result, string error)
+        {
+            ValidateKernel();
+            StoreCallback(
+                requestId,
+                appId ?? "",
+                moduleId ?? "",
+                operation ?? "",
+                requester,
+                success,
+                result ?? (ByteString)"",
+                error ?? ""
+            );
+        }
+
+        // Legacy adapter so old integrations keep working while they move to onMiniAppResult.
         public static void OnOracleResult(BigInteger requestId, string requestType, bool success, ByteString result, string error)
         {
-            ValidateOracle();
+            ValidateKernel();
+            StoreCallback(
+                requestId,
+                "legacy",
+                requestType ?? "",
+                requestType ?? "",
+                null,
+                success,
+                result ?? (ByteString)"",
+                error ?? ""
+            );
+        }
 
-            byte[] key = Helper.Concat(PREFIX_CALLBACK, (ByteString)requestId.ToByteArray());
-            Storage.Put(Storage.CurrentContext, key, StdLib.Serialize(new object[] { requestType, success, result, error }));
-            OnOracleCallbackReceived(requestId, requestType, success, error);
+        [Safe]
+        public static CallbackRecord GetCallbackRecord(BigInteger requestId)
+        {
+            ByteString data = Storage.Get(Storage.CurrentContext, BuildCallbackKey(requestId));
+            if (data == null)
+            {
+                return new CallbackRecord
+                {
+                    AppId = "",
+                    ModuleId = "",
+                    Operation = "",
+                    Requester = null,
+                    Success = false,
+                    Result = (ByteString)"",
+                    Error = "",
+                    ReceivedAt = 0
+                };
+            }
+
+            return (CallbackRecord)StdLib.Deserialize(data);
         }
 
         [Safe]
         public static object[] GetCallback(BigInteger requestId)
         {
-            byte[] key = Helper.Concat(PREFIX_CALLBACK, (ByteString)requestId.ToByteArray());
-            ByteString data = Storage.Get(Storage.CurrentContext, key);
-            if (data == null) return new object[] { };
-            return (object[])StdLib.Deserialize(data);
+            CallbackRecord record = GetCallbackRecord(requestId);
+            return new object[]
+            {
+                record.AppId,
+                record.ModuleId,
+                record.Operation,
+                record.Requester,
+                record.Success,
+                record.Result,
+                record.Error,
+                record.ReceivedAt
+            };
+        }
+
+        private static void StoreCallback(BigInteger requestId, string appId, string moduleId, string operation, UInt160 requester, bool success, ByteString result, string error)
+        {
+            CallbackRecord record = new CallbackRecord
+            {
+                AppId = appId,
+                ModuleId = moduleId,
+                Operation = operation,
+                Requester = requester,
+                Success = success,
+                Result = result,
+                Error = error,
+                ReceivedAt = Runtime.Time
+            };
+
+            Storage.Put(Storage.CurrentContext, BuildCallbackKey(requestId), StdLib.Serialize(record));
+            OnMiniAppResultReceived(requestId, appId, moduleId, operation, success, error);
+        }
+
+        private static byte[] BuildCallbackKey(BigInteger requestId)
+        {
+            return Helper.Concat(PREFIX_CALLBACK, (ByteString)requestId.ToByteArray());
         }
 
         private static void ValidateAdmin()
@@ -107,11 +199,11 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(Runtime.CheckWitness(admin), "unauthorized");
         }
 
-        private static void ValidateOracle()
+        private static void ValidateKernel()
         {
-            UInt160 oracle = Oracle();
-            ExecutionEngine.Assert(oracle != null && oracle.IsValid, "oracle not set");
-            ExecutionEngine.Assert(Runtime.CallingScriptHash == oracle, "unauthorized caller");
+            UInt160 kernel = Kernel();
+            ExecutionEngine.Assert(kernel != null && kernel.IsValid, "kernel not set");
+            ExecutionEngine.Assert(Runtime.CallingScriptHash == kernel, "unauthorized caller");
         }
     }
 }

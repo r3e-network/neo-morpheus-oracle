@@ -2,6 +2,9 @@
 
 Cloudflare Worker that owns the public control layer and durable orchestration layer for Morpheus. Confidential execution stays on the Phala CVMs.
 
+The public route names remain compatibility-oriented, but internally this worker should be read as
+the dispatch/orchestration layer for shared MiniApp OS module lanes.
+
 ## Responsibilities
 
 - expose `/mainnet/*` and `/testnet/*` ingress routes
@@ -37,10 +40,14 @@ Current runtime split:
 - queue-backed:
   - `oracle_request`: forwards supported execution routes to the
     existing confidential execution plane
+    - kernel lane: `request_dispatch`
   - `feed_tick`: forwards feed-sync execution to the confidential execution plane
+    - kernel lane: `shared_resource_sync`
 - workflow-backed:
   - `callback_broadcast`: durable workflow around signed callback broadcast
+    - kernel lane: `callback_adapter_broadcast`
   - `automation_execute`: durable workflow around automation queueing
+    - kernel lane: `automation_orchestration`
 
 The older queue-based callback and automation path is gone. These lanes now use native Workflows.
 

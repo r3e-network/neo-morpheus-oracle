@@ -48,10 +48,7 @@ export function renderPrometheusMetrics(metrics = {}) {
     if (line) lines.push(line);
   }
 
-  const gauges = [
-    'last_feed_sync_duration_ms',
-    'last_tick_duration_ms',
-  ];
+  const gauges = ['last_feed_sync_duration_ms', 'last_tick_duration_ms'];
   for (const name of gauges) {
     const line = metricLine(`morpheus_relayer_${name}`, Number(metrics[name] || 0));
     if (line) lines.push(line);
@@ -67,7 +64,7 @@ export function renderPrometheusMetrics(metrics = {}) {
 
   for (const [field, metricName] of Object.entries(timestampGauges)) {
     const seconds = parseIsoToUnixSeconds(metrics[field]);
-    const line = seconds == null ? null : metricLine(metricName, seconds);
+    const line = seconds === null ? null : metricLine(metricName, seconds);
     if (line) lines.push(line);
   }
 

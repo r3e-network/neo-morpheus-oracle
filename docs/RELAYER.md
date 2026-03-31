@@ -1,6 +1,6 @@
 # Relayer
 
-`workers/morpheus-relayer` is the async request/response bridge for Morpheus Oracle.
+`workers/morpheus-relayer` is the async request/response bridge for the Morpheus MiniApp OS kernel.
 
 In the current production architecture, the relayer sits between the on-chain request surface and
 the confidential execution plane. It persists chain-originated work before checkpoint advancement
@@ -8,11 +8,12 @@ and routes execution to the correct runtime lane.
 
 It closes the loop:
 
-1. Oracle request is emitted on-chain
+1. MiniApp OS kernel request is emitted on-chain
 2. Relayer detects the event
-3. Relayer forwards the payload to the Oracle or DataFeed runtime
-4. Relayer calls `fulfillRequest(...)` back on the Oracle contract
-5. Callback consumer receives the result
+3. Relayer forwards the payload to the appropriate built-in module lane
+4. Relayer calls `fulfillRequest(...)` back on the kernel contract
+5. The kernel persists the canonical inbox item
+6. Optional external callback adapters receive the result when configured
 
 ## Supported chains
 
@@ -21,14 +22,25 @@ It closes the loop:
 
 ## Request routing
 
+The relayer is still migrating from legacy `requestType` routing to the kernel's
+`miniapp + module + operation` model.
+
+Today it effectively maps legacy request taxonomy onto built-in module lanes:
+
 The relayer maps `requestType` plus payload shape to worker routes:
 
-- `compute` → `/compute/execute`
-- `datafeed` / `pricefeed` / `feed` → `/oracle/feed`
+- `compute` → built-in compute module → `/compute/execute`
+- `datafeed` / `pricefeed` / `feed` → built-in shared resource module → `/oracle/feed`
 - `vrf` / `random` → `/vrf/random`
-- `privacy_oracle` and other Oracle requests → `/oracle/smart-fetch`
+- `privacy_oracle` and other legacy Oracle request types → built-in fetch/query module → `/oracle/smart-fetch`
 - `datafeed` / `pricefeed` / `feed` → `/oracle/feed` internally for operator sync only
 - The relayer prefers the compact smart-fetch response over raw query output
+
+Long-term target:
+
+- requests should be interpreted as kernel requests
+- built-in modules should remain reusable across many registered miniapps
+- miniapps should not need their own generic relayer plumbing
 
 ## Commands
 
@@ -88,7 +100,7 @@ Checkpoint note:
 
 Neo N3 txproxy note:
 
-- the Neo N3 txproxy allowlist now permits both `fulfillRequest` and `queueAutomationRequest` on the Morpheus Oracle contract so automation executions can be queued on-chain
+- the Neo N3 txproxy allowlist now permits both `fulfillRequest` and `queueAutomationRequest` on the Morpheus kernel contract so automation executions can be queued on-chain through the compatibility path
 
 ## Supabase Persistence
 

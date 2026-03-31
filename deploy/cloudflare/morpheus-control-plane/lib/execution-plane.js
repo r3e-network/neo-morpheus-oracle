@@ -1,0 +1,270 @@
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
+
+const EXECUTION_PLANE_ROUTES = new Set([
+  '/oracle/query',
+  '/oracle/smart-fetch',
+  '/compute/execute',
+  '/neodid/bind',
+  '/neodid/action-ticket',
+  '/neodid/recovery-ticket',
+]);
+
+function stableExecutionPoolIndex(seed, size) {
+  if (!size || size <= 1) return 0;
+  const text = trimString(seed || '');
+  if (!text) return 0;
+  let hash = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  }
+  return hash % size;
+}
+
+function orderExecutionBaseUrls(baseUrls, seed) {
+  const urls = Array.isArray(baseUrls) ? baseUrls.filter(Boolean) : [];
+  if (urls.length <= 1) return urls;
+  const start = stableExecutionPoolIndex(seed, urls.length);
+  return [...urls.slice(start), ...urls.slice(0, start)];
+}
+
+function getExecutionPlaneConfig(env, network) {
+  const normalized = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  const baseUrl = trimString(
+    env[`MORPHEUS_${normalized}_EXECUTION_BASE_URL`] || env.MORPHEUS_EXECUTION_BASE_URL || ''
+  );
+  const token = trimString(
+    env[`MORPHEUS_${normalized}_EXECUTION_TOKEN`] ||
+      env.MORPHEUS_EXECUTION_TOKEN ||
+      env.PHALA_API_TOKEN ||
+      env.PHALA_SHARED_SECRET ||
+      ''
+  );
+  if (!baseUrl) {
+    throw new Error(`execution base URL is not configured for network ${network}`);
+  }
+  return {
+    baseUrls: baseUrl
+      .split(',')
+      .map((entry) => trimString(entry).replace(/\/$/, ''))
+      .filter(Boolean),
+    token,
+  };
+}
+
+function resolveNeoN3FeedSigner(env, network) {
+  const upper = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  const wif = trimString(
+    env[`MORPHEUS_${upper}_FEED_NEO_N3_WIF`] ||
+      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_WIF`] ||
+      env.MORPHEUS_FEED_NEO_N3_WIF ||
+      env.MORPHEUS_RELAYER_NEO_N3_WIF ||
+      ''
+  );
+  const privateKey = trimString(
+    env[`MORPHEUS_${upper}_FEED_NEO_N3_PRIVATE_KEY`] ||
+      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_PRIVATE_KEY`] ||
+      env.MORPHEUS_FEED_NEO_N3_PRIVATE_KEY ||
+      env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY ||
+      ''
+  );
+  return {
+    ...(wif ? { wif } : {}),
+    ...(privateKey ? { private_key: privateKey } : {}),
+  };
+}
+
+function resolveNeoN3BackendSigner(env, network) {
+  return resolveNeoN3FeedSigner(env, network);
+}
+
+function isRetryableStatus(status) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+function isRetryableExecutionBody(body) {
+  const text = JSON.stringify(body || {}).toLowerCase();
+  return (
+    text.includes('runtime_unavailable') ||
+    text.includes('fetch failed') ||
+    text.includes('timed out') ||
+    text.includes('upstream returned http 5') ||
+    text.includes('provider response exceeds max size')
+  );
+}
+
+async function fetchJsonWithTimeout(url, init = {}, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(new Error(`request timed out after ${timeoutMs}ms`)),
+    timeoutMs
+  );
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let body = text;
+    try {
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      body = { raw: text };
+    }
+    return { response, body };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callExecutionPlane(env, job) {
+  if (!EXECUTION_PLANE_ROUTES.has(job.route)) {
+    throw new Error(`route ${job.route} is not mapped to the confidential execution plane`);
+  }
+  const execution = getExecutionPlaneConfig(env, job.network);
+  const headers = new Headers({ 'content-type': 'application/json' });
+  if (execution.token) {
+    headers.set('authorization', `Bearer ${execution.token}`);
+    headers.set('x-phala-token', execution.token);
+  }
+  const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
+  let lastError = null;
+  let lastResponse = null;
+  const orderedBaseUrls = orderExecutionBaseUrls(
+    execution.baseUrls,
+    job.request_id || job.id || job.dedupe_key || ''
+  );
+  for (const baseUrl of orderedBaseUrls) {
+    try {
+      const { response, body } = await fetchJsonWithTimeout(
+        `${baseUrl}${job.route}`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(job.payload || {}),
+        },
+        timeoutMs
+      );
+      lastResponse = {
+        ok: response.ok,
+        status: response.status,
+        body,
+        execution_base_url: baseUrl,
+      };
+      if (response.ok || (!isRetryableStatus(response.status) && !isRetryableExecutionBody(body))) {
+        return lastResponse;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  if (lastResponse) return lastResponse;
+  throw new Error(lastError || 'execution plane unavailable');
+}
+
+async function callExecutionFeedPlane(env, job) {
+  const execution = getExecutionPlaneConfig(env, job.network);
+  const signer = resolveNeoN3FeedSigner(env, job.network);
+  if (!signer.wif && !signer.private_key) {
+    throw new Error(`Neo N3 updater signer is not configured for ${job.network}`);
+  }
+  const headers = new Headers({ 'content-type': 'application/json' });
+  if (execution.token) {
+    headers.set('authorization', `Bearer ${execution.token}`);
+    headers.set('x-phala-token', execution.token);
+  }
+  const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
+  let lastError = null;
+  let lastResponse = null;
+  const orderedBaseUrls = orderExecutionBaseUrls(
+    execution.baseUrls,
+    job.request_id || job.id || job.symbol || job.payload?.symbol || ''
+  );
+  for (const baseUrl of orderedBaseUrls) {
+    try {
+      const { response, body } = await fetchJsonWithTimeout(
+        `${baseUrl}/oracle/feed`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            ...(job.payload || {}),
+            ...signer,
+            wait: false,
+          }),
+        },
+        timeoutMs
+      );
+      lastResponse = {
+        ok: response.ok,
+        status: response.status,
+        body,
+        execution_base_url: baseUrl,
+      };
+      if (response.ok || (!isRetryableStatus(response.status) && !isRetryableExecutionBody(body))) {
+        return lastResponse;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  if (lastResponse) return lastResponse;
+  throw new Error(lastError || 'feed execution plane unavailable');
+}
+
+function getAppBackendConfig(env) {
+  const baseUrl = trimString(env.MORPHEUS_APP_BACKEND_URL || '');
+  const token = trimString(
+    env.MORPHEUS_APP_BACKEND_TOKEN ||
+      env.MORPHEUS_CONTROL_PLANE_API_KEY ||
+      env.MORPHEUS_OPERATOR_API_KEY ||
+      ''
+  );
+  if (!baseUrl) {
+    throw new Error('MORPHEUS_APP_BACKEND_URL is not configured');
+  }
+  return {
+    baseUrl: baseUrl.replace(/\/$/, ''),
+    token,
+  };
+}
+
+async function callAppBackend(env, path, payload) {
+  const backend = getAppBackendConfig(env);
+  const headers = new Headers({ 'content-type': 'application/json' });
+  if (backend.token) {
+    headers.set('authorization', `Bearer ${backend.token}`);
+    headers.set('x-admin-api-key', backend.token);
+  }
+  const timeoutMs = Math.max(Number(env.MORPHEUS_APP_BACKEND_TIMEOUT_MS || 30000), 1000);
+  const { response, body } = await fetchJsonWithTimeout(
+    `${backend.baseUrl}${path}`,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload || {}),
+    },
+    timeoutMs
+  );
+  return {
+    ok: response.ok,
+    status: response.status,
+    body,
+    backend_url: backend.baseUrl,
+  };
+}
+
+export {
+  EXECUTION_PLANE_ROUTES,
+  stableExecutionPoolIndex,
+  orderExecutionBaseUrls,
+  getExecutionPlaneConfig,
+  resolveNeoN3FeedSigner,
+  resolveNeoN3BackendSigner,
+  isRetryableStatus,
+  isRetryableExecutionBody,
+  fetchJsonWithTimeout,
+  callExecutionPlane,
+  callExecutionFeedPlane,
+  callAppBackend,
+  getAppBackendConfig,
+};
