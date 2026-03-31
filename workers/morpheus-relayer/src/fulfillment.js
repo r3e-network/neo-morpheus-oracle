@@ -55,6 +55,40 @@ export function isTerminalConfigurationError(message) {
   );
 }
 
+/**
+ * Classify an error as transient (network/rate-limit), permanent (auth/not-found),
+ * or unknown to guide retry decisions.  Transient errors are always retried;
+ * permanent errors skip straight to the dead-letter / finalize path.
+ */
+export function classifyError(err) {
+  const msg = normalizeErrorMessage(err).toLowerCase();
+  if (isAlreadyFulfilledError(msg)) return 'settled';
+  if (isTerminalConfigurationError(msg)) return 'permanent';
+  if (
+    msg.includes('etimedout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('econnreset') ||
+    msg.includes('rate limit') ||
+    msg.includes('socket hang up') ||
+    msg.includes('503') ||
+    msg.includes('502') ||
+    msg.includes('504') ||
+    msg.includes('network') ||
+    msg.includes('timed out') ||
+    msg.includes('unavailable')
+  )
+    return 'transient';
+  if (
+    msg.includes('not found') ||
+    msg.includes('fault') ||
+    msg.includes('unauthorized') ||
+    msg.includes('forbidden') ||
+    msg.includes('invalid')
+  )
+    return 'permanent';
+  return 'unknown';
+}
+
 export function computeRetryDelayMs(config, attempts) {
   return Math.min(config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0), config.retryMaxDelayMs);
 }
@@ -558,7 +592,11 @@ export async function processEvent(config, state, persistState, logger, event, r
       };
     }
 
-    const retry = scheduleRetry(state, event.chain, event, message, config);
+    const errorClass = classifyError(message);
+    const forceDead = errorClass === 'permanent';
+    const retry = forceDead
+      ? { status: 'exhausted', key: eventKey, attempts: attempts + 1, error: message }
+      : scheduleRetry(state, event.chain, event, message, config);
 
     if (retry.status === 'exhausted') {
       incrementMetric(state, 'retries_exhausted_total');
@@ -681,6 +719,7 @@ export async function processEvent(config, state, persistState, logger, event, r
         event_key: eventKey,
         attempts: retry.item.attempts,
         retry_at: retry.item.next_retry_at,
+        error_class: errorClass,
         error: message,
       },
       'Scheduled Morpheus oracle request retry'
@@ -688,6 +727,7 @@ export async function processEvent(config, state, persistState, logger, event, r
     return {
       event,
       error: message,
+      error_class: errorClass,
       retry_status: 'scheduled',
       event_key: eventKey,
       attempts: retry.item.attempts,

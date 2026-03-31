@@ -21,6 +21,8 @@ export { CallbackBroadcastWorkflow, AutomationExecuteWorkflow };
 
 export default {
   async fetch(request, env) {
+    const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
+    const rid = { 'x-request-id': requestId };
     const authFailure = validateAuth(request, env);
     if (authFailure) return authFailure;
 
@@ -37,7 +39,7 @@ export default {
 
     if (routing.routePath === '/jobs/recover') {
       if (request.method !== 'POST') {
-        return json(405, { error: 'method_not_allowed' });
+        return json(405, { error: 'method_not_allowed' }, rid);
       }
       try {
         const limit = resolveRequeueLimit(env);
@@ -80,9 +82,9 @@ export default {
           requeued,
           skipped,
           failed,
-        });
+        }, rid);
       } catch (error) {
-        return json(500, { error: error instanceof Error ? error.message : String(error) });
+        return json(500, { error: error instanceof Error ? error.message : String(error) }, rid);
       }
     }
 
@@ -90,7 +92,7 @@ export default {
     if (request.method === 'GET' && jobMatch) {
       try {
         const job = await loadJob(env, jobMatch[1], routing.network);
-        if (!job) return json(404, { error: 'job not found' });
+        if (!job) return json(404, { error: 'job not found' }, rid);
         const jobConfig = JOB_ROUTE_CONFIG[job.route];
         if (job?.metadata?.workflow_instance_id && isWorkflowRouteConfig(jobConfig)) {
           try {
@@ -105,23 +107,23 @@ export default {
                 instance_id: workflow.id,
                 status: workflow.details,
               },
-            });
+            }, rid);
           } catch {
             // fall back to stored job only
           }
         }
-        return json(200, job);
+        return json(200, job, rid);
       } catch (error) {
-        return json(500, { error: error instanceof Error ? error.message : String(error) });
+        return json(500, { error: error instanceof Error ? error.message : String(error) }, rid);
       }
     }
 
     const jobConfig = JOB_ROUTE_CONFIG[routing.routePath];
     if (!jobConfig) {
-      return json(404, { error: 'not found', path: routing.routePath });
+      return json(404, { error: 'not found', path: routing.routePath }, rid);
     }
     if (request.method !== 'POST') {
-      return json(405, { error: 'method_not_allowed' });
+      return json(405, { error: 'method_not_allowed' }, rid);
     }
 
     const rateLimited = await applyRateLimit(request, env, jobConfig.queue);
@@ -132,7 +134,7 @@ export default {
     try {
       payload = rawBody ? JSON.parse(rawBody) : {};
     } catch {
-      return json(400, { error: 'invalid JSON body' });
+      return json(400, { error: 'invalid JSON body' }, rid);
     }
 
     const metadata = resolveJobMetadata(routing.routePath, payload);
@@ -154,6 +156,7 @@ export default {
         source: 'cloudflare-control-plane',
         client_ip: getClientIp(request),
         delivery_mode: jobConfig.delivery || 'queue',
+        request_id: requestId,
       },
       retry_count: 0,
       created_at: createdAt,
@@ -194,7 +197,7 @@ export default {
             status: 'dispatched',
           }).catch(() => null)) || inserted;
       }
-      return json(202, updated);
+      return json(202, updated, rid);
     } catch (error) {
       await patchJob(env, jobId, routing.network, {
         status: 'failed',
@@ -204,7 +207,7 @@ export default {
       return json(503, {
         error: error instanceof Error ? error.message : String(error),
         job_id: jobId,
-      });
+      }, rid);
     }
   },
 

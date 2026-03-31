@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { keccak256, toUtf8Bytes } from 'ethers';
 import { getPublic, sign } from '@toruslabs/eccrypto';
 
+import { apiError } from '@/lib/api-helpers';
 import { recordOperationLog } from '@/lib/operation-logs';
 
 function trimString(value: unknown) {
@@ -85,6 +86,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 'ORIGIN_DATA_FAILED', 500);
   }
 }

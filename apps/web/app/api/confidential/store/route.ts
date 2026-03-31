@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 
+import { apiError } from '@/lib/api-helpers';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { createRateLimitedHandler } from '@/lib/rate-limit';
 import {
@@ -53,18 +54,15 @@ async function POST(request: Request) {
   const boundCallbackContract = normalizeHash160(body?.callback_contract || body?.callbackContract);
 
   if (!ciphertext) {
-    return NextResponse.json({ error: 'ciphertext is required' }, { status: 400 });
+    return apiError('ciphertext is required', 'MISSING_CIPHERTEXT', 400);
   }
   if (targetChain !== 'neo_n3') {
-    return NextResponse.json({ error: 'target_chain must be neo_n3' }, { status: 400 });
+    return apiError('target_chain must be neo_n3', 'UNSUPPORTED_CHAIN', 400);
   }
 
   const supabase = getServerSupabaseClient();
   if (!supabase) {
-    return NextResponse.json(
-      { error: 'Supabase server client is not configured' },
-      { status: 500 }
-    );
+    return apiError('Supabase server client is not configured', 'SUPABASE_NOT_CONFIGURED', 500);
   }
 
   try {
@@ -142,7 +140,7 @@ async function POST(request: Request) {
       httpStatus: 500,
       error: message,
     });
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(message, 'SECRET_STORE_FAILED', 500);
   }
 },
 { scope: 'confidential_store', maxRequests: 20, windowMs: 60_000 }
