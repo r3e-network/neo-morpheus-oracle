@@ -1,4 +1,4 @@
-import http from 'http';
+import http from 'node:http';
 import handler from './worker.js';
 
 const port = Number(
