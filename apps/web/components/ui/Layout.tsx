@@ -18,6 +18,7 @@ const mainNavItems: NavItem[] = [
   { label: 'Launchpad', href: '/launchpad' },
   { label: 'Feed Status', href: '/docs/feed-status' },
   { label: 'Docs', href: '/docs' },
+  { label: 'Status', href: '/status' },
 ];
 
 type LayoutProps = {

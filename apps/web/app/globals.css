@@ -302,8 +302,13 @@ body {
 
 /* --- Responsive --- */
 @media (max-width: 1024px) {
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
   .container { padding: 0 1.5rem; }
+}
+
+@media (min-width: 640px) and (max-width: 1024px) {
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
@@ -311,6 +316,16 @@ body {
   .hero-title { font-size: clamp(2.5rem, 10vw, 4rem); }
   .section-title { font-size: clamp(1.75rem, 5vw, 2.5rem); }
   .navbar { padding: 0 1rem; }
+}
+
+/* --- Focus Visible (keyboard accessibility) --- */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--neo-green);
+  outline-offset: 2px;
 }
 
 /* --- Skeleton Animation --- */
@@ -375,3 +390,28 @@ body {
 .stagger-2 { animation: slideUpFade 0.6s 0.1s forwards; opacity: 0; }
 .stagger-3 { animation: slideUpFade 0.6s 0.15s forwards; opacity: 0; }
 .stagger-4 { animation: slideUpFade 0.6s 0.2s forwards; opacity: 0; }
+
+/* --- Loading Spinner --- */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
+
+/* --- Selection --- */
+::selection {
+  background: rgba(0, 255, 163, 0.2);
+  color: #fff;
+}
+
+/* --- Disabled State --- */
+button:disabled,
+.btn:disabled,
+.btn-ata:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* --- Utility: min-h-screen --- */
+.min-h-screen { min-height: 100vh; }
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1; }

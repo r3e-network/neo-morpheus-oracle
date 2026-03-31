@@ -113,6 +113,7 @@ export function RelayerOpsPanel() {
           <div className="form-group">
             <label className="form-label">Relayer Admin Key</label>
             <input
+              className="neo-input"
               type="password"
               value={adminApiKey}
               onChange={(event) => setAdminApiKey(event.target.value)}
@@ -284,6 +285,7 @@ export function RelayerOpsPanel() {
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Event Key</label>
               <input
+                className="neo-input"
                 value={selectedEventKey}
                 onChange={(event) => setSelectedEventKey(event.target.value)}
                 placeholder="0x..."
