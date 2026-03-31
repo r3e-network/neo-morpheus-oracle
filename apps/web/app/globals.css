@@ -328,6 +328,189 @@ select:focus-visible {
   outline-offset: 2px;
 }
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Docs Content — Professional Typography & Visuals
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* Heading hierarchy */
+.docs-content h1 {
+  font-size: clamp(2.25rem, 4.5vw, 3rem);
+  font-weight: 900;
+  margin-bottom: 1.5rem;
+  color: #fff;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.docs-content h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-top: 4rem;
+  margin-bottom: 1.25rem;
+  color: #fff;
+  border-bottom: 1px solid rgba(0, 255, 163, 0.12);
+  padding-bottom: 0.75rem;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  font-size: 1.25rem;
+}
+.docs-content h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  color: #fff;
+}
+.docs-content h4 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+/* Body text */
+.docs-content p {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
+  max-width: 720px;
+}
+
+/* Lists */
+.docs-content ul,
+.docs-content ol {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  padding-left: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.docs-content li {
+  margin-bottom: 0.625rem;
+}
+.docs-content li::marker {
+  color: var(--neo-green);
+}
+
+/* Inline code pills */
+.docs-content p code,
+.docs-content li code,
+.docs-content td code {
+  background: rgba(0, 255, 163, 0.06);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--neo-green);
+  border: 1px solid rgba(0, 255, 163, 0.15);
+}
+
+/* Code blocks (pre) rendered by markdown */
+.docs-content pre {
+  background: #0d1117 !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+}
+.docs-content pre code {
+  background: transparent;
+  padding: 0;
+  border: none;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  font-family: var(--font-mono);
+}
+
+/* Blockquotes / Callouts */
+.docs-content blockquote {
+  border-left: 3px solid var(--neo-green);
+  background: rgba(0, 255, 163, 0.02);
+  padding: 1.25rem 1.5rem;
+  margin: 2rem 0;
+  border-radius: 0 4px 4px 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.docs-content blockquote p {
+  margin-bottom: 0;
+}
+.docs-content blockquote strong {
+  color: var(--neo-green);
+}
+
+/* Strong text */
+.docs-content strong {
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Links */
+.docs-content a {
+  color: var(--neo-green);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(0, 255, 163, 0.25);
+  transition: border-color 0.2s;
+}
+.docs-content a:hover {
+  border-bottom-color: var(--neo-green);
+}
+
+/* Tables */
+.docs-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.docs-content thead th {
+  background: rgba(0, 255, 163, 0.04);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-dim);
+}
+.docs-content tbody td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+.docs-content tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.01);
+}
+.docs-content tbody tr:hover {
+  background: rgba(0, 255, 163, 0.02);
+}
+
+/* Horizontal rules */
+.docs-content hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 163, 0.15), transparent);
+  margin: 3rem 0;
+}
+
+/* Images */
+.docs-content img {
+  max-width: 100%;
+  border-radius: 4px;
+  border: 1px solid var(--border-dim);
+  margin: 2rem 0;
+}
+
+/* Card hover states for docs links */
+.docs-content .card-industrial:hover {
+  border-color: rgba(0, 255, 163, 0.3);
+}
+
 /* --- Skeleton Animation --- */
 @keyframes shimmer {
   0% { background-position: 200% 0; }

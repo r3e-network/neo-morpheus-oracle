@@ -43,10 +43,10 @@ export function CodeBlock({
       style={{
         position: 'relative',
         margin: '1.5rem 0',
-        borderRadius: '4px',
+        borderRadius: '6px',
         overflow: 'hidden',
-        border: '1px solid var(--border-dim)',
-        background: '#0a0a0a',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
+        background: '#0d1117',
       }}
     >
       <div
@@ -55,8 +55,8 @@ export function CodeBlock({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '0.5rem 1rem',
-          background: '#111',
-          borderBottom: '1px solid #222',
+          background: 'rgba(255, 255, 255, 0.02)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
           gap: '1rem',
         }}
       >
