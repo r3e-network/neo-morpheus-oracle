@@ -10,7 +10,7 @@
     "metrics:prom": "node src/cli.js metrics:prom",
     "serve:metrics": "node src/cli.js serve:metrics",
     "check": "node --check src/cli.js && node --check src/metrics-server.js && node --check src/betterstack-log-sink.js",
-    "test": "node --test relayer.test.mjs"
+    "test": "node --test relayer.test.mjs src/lib/neo-signers.test.mjs src/fulfillment.test.mjs src/queue.test.mjs"
   },
   "dependencies": {
     "@cityofzion/neon-js": "^5.8.1",

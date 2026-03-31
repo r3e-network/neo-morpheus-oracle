@@ -37,8 +37,8 @@ export async function loadNeoXContext(payload = {}, { required = false, requireR
   const privateKey = await resolveNeoXPrivateKey(payload, { required });
   if (!privateKey) return null;
 
-  const rpcUrl = trimString(payload.rpc_url) || env('NEO_X_RPC_URL', 'NEOX_RPC_URL', 'EVM_RPC_URL');
-  if (requireRpc && !rpcUrl) throw new Error('NEO_X_RPC_URL is required for Neo X relay');
+  const rpcUrl = trimString(payload.rpc_url) || env('NEOX_RPC_URL', 'EVM_RPC_URL');
+  if (requireRpc && !rpcUrl) throw new Error('NEOX_RPC_URL is required for Neo X relay');
 
   const provider = rpcUrl ? new JsonRpcProvider(rpcUrl) : null;
   const wallet = provider ? new EvmWallet(privateKey, provider) : new EvmWallet(privateKey);

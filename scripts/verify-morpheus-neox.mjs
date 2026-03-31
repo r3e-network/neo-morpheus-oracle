@@ -51,7 +51,7 @@ const CALLBACK_ABI = ['function oracle() view returns (address)'];
 const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
 const registry = await loadRegistry(network);
 const rpcUrl = trimString(
-  process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || registry.neo_x?.rpc_url || ''
+  process.env.NEOX_RPC_URL || registry.neo_x?.rpc_url || ''
 );
 const oracleAddress = normalizeAddress(
   process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS ||

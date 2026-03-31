@@ -37,7 +37,7 @@ async function updateRegistry(network, rpcUrl, chainId, addresses) {
 }
 
 const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
-const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || '');
+const rpcUrl = trimString(process.env.NEOX_RPC_URL || '');
 const chainId = Number(process.env.NEOX_CHAIN_ID || process.env.NEO_X_CHAIN_ID || 12227332);
 const deployerPrivateKey = trimString(
   process.env.NEOX_PRIVATE_KEY || process.env.PHALA_NEOX_PRIVATE_KEY || ''

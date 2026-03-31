@@ -56,7 +56,7 @@ async function waitForCallback(consumer, requestId, timeoutMs = 120000) {
   throw new Error(`timed out waiting for Neo X callback ${requestId}`);
 }
 
-const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || '');
+const rpcUrl = trimString(process.env.NEOX_RPC_URL || '');
 const chainId = Number(process.env.NEOX_CHAIN_ID || process.env.NEO_X_CHAIN_ID || 12227332);
 const privateKey = trimString(
   process.env.NEOX_PRIVATE_KEY ||

@@ -15,7 +15,6 @@ const originalNeoN3Key = process.env.PHALA_NEO_N3_PRIVATE_KEY;
 const originalNeoXKey = process.env.PHALA_NEOX_PRIVATE_KEY;
 const originalNeoRpc = process.env.NEO_RPC_URL;
 const originalNeoXRpc = process.env.NEOX_RPC_URL;
-const originalNeoXRpcAlt = process.env.NEO_X_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
 const originalTwelveData = process.env.TWELVEDATA_API_KEY;
 const originalNeoXDataFeedAddress = process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS;
@@ -39,7 +38,6 @@ process.env.PHALA_NEOX_PRIVATE_KEY =
   '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.NEOX_RPC_URL = '';
-process.env.NEO_X_RPC_URL = '';
 process.env.EVM_RPC_URL = '';
 process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
 process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '';
@@ -62,7 +60,6 @@ const WORKER_TEST_ENV_KEEP = new Set([
   'PHALA_NEOX_PRIVATE_KEY',
   'NEO_RPC_URL',
   'NEOX_RPC_URL',
-  'NEO_X_RPC_URL',
   'EVM_RPC_URL',
   'TWELVEDATA_API_KEY',
   'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
@@ -1138,7 +1135,6 @@ test.after(() => {
   process.env.PHALA_NEOX_PRIVATE_KEY = originalNeoXKey;
   process.env.NEO_RPC_URL = originalNeoRpc;
   process.env.NEOX_RPC_URL = originalNeoXRpc;
-  process.env.NEO_X_RPC_URL = originalNeoXRpcAlt;
   process.env.EVM_RPC_URL = originalEvmRpc;
   process.env.TWELVEDATA_API_KEY = originalTwelveData;
   process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = originalNeoXDataFeedAddress;
