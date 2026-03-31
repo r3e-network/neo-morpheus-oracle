@@ -15,6 +15,8 @@ if (clientSentryDsn) {
       enabled: true,
       sendDefaultPii: false,
     });
+  }).catch((e) => {
+    console.warn('[sentry] client instrumentation failed to load:', e instanceof Error ? e.message : String(e));
   });
 }
 
