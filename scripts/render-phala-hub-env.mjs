@@ -113,5 +113,21 @@ const lines = [
 ];
 
 await fs.mkdir(path.dirname(outputPath), { recursive: true });
-await fs.writeFile(outputPath, `${lines.join('\n')}\n`, 'utf8');
+const rendered = `${lines.join('\n')}\n`;
+await fs.writeFile(outputPath, rendered, 'utf8');
+
+const requiredKeys = [
+  'PHALA_SHARED_SECRET',
+  'SUPABASE_URL',
+  'SUPABASE_SECRET_KEY',
+  'MAINNET_RUNTIME_CONFIG_JSON',
+  'TESTNET_RUNTIME_CONFIG_JSON',
+];
+for (const key of requiredKeys) {
+  if (!rendered.includes(key + '=') || rendered.includes(key + '=\n')) {
+    console.error(`WARN: ${key} appears empty in rendered env`);
+    process.exitCode = 1;
+  }
+}
+
 console.log(JSON.stringify({ output: path.relative(repoRoot, outputPath) }, null, 2));
