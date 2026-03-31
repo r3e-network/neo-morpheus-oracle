@@ -26,7 +26,7 @@ export async function GET(request: Request, context: { params: Promise<{ jobId: 
     .maybeSingle();
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: 'failed to load job' }, { status: 500 });
   }
   if (!data) {
     return Response.json({ error: 'job not found' }, { status: 404 });
