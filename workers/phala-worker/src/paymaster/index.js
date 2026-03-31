@@ -134,6 +134,7 @@ async function invokeNeoRead(rpcUrl, contractHash, method, args = []) {
       method: 'invokefunction',
       params: [contractHash, method, args],
     }),
+    signal: AbortSignal.timeout(15_000),
   });
   const data = await response.json();
   if (data.error) {

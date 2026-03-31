@@ -23,6 +23,7 @@ async function upstashRequest(pathname, { method = 'GET', body = null } = {}) {
       ...(body ? { 'content-type': 'application/json' } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
+    signal: AbortSignal.timeout(10_000),
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {

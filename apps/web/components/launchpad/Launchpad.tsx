@@ -24,7 +24,7 @@ const journeys = [
     title: 'Privacy Oracle',
     icon: Shield,
     summary:
-      'Fetch outside data, optionally hide secrets, optionally run a reduction, then return a callback.',
+      'Use the shared kernel fetch module to pull outside data, optionally hide secrets, optionally run a reduction, then read the system inbox or an optional callback adapter.',
     requestType: 'privacy_oracle / oracle',
     steps: [
       {
@@ -41,13 +41,13 @@ const journeys = [
       },
       {
         title: 'Submit on-chain',
-        desc: `Call ${NETWORKS.neo_n3.oracle} with callback method onOracleResult and prepaid 0.01 GAS credit.`,
+        desc: `Call the shared kernel at ${NETWORKS.neo_n3.oracle}; legacy callback-method flows still work, but the system inbox is canonical.`,
         href: '/explorer',
         label: 'Open Explorer',
       },
       {
         title: 'Read callback',
-        desc: `Query your own consumer, or use the universal test consumer ${NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer}.`,
+        desc: `Read the kernel-managed result path first, or use the optional universal adapter ${NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer} during migration/testing.`,
         href: '/docs/quickstart',
         label: 'Quickstart',
       },
@@ -63,7 +63,8 @@ const journeys = [
     id: 'compute',
     title: 'Privacy Compute',
     icon: Cpu,
-    summary: 'Run built-in compute or custom JS/WASM inside the enclave, then return a callback.',
+    summary:
+      'Run built-in compute or custom JS/WASM inside the enclave through the shared kernel, then read the system inbox or an optional callback adapter.',
     requestType: 'compute',
     steps: [
       {
@@ -80,13 +81,13 @@ const journeys = [
       },
       {
         title: 'Submit on-chain',
-        desc: `Call ${NETWORKS.neo_n3.oracle} with requestType = compute and prepaid 0.01 GAS credit.`,
+        desc: `Call ${NETWORKS.neo_n3.oracle} with the shared compute module path; legacy requestType = compute remains available for compatibility.`,
         href: '/explorer',
         label: 'Open Explorer',
       },
       {
         title: 'Read callback',
-        desc: 'Read getCallback(requestId) from your consumer after the relayer fulfills the request.',
+        desc: 'Read the kernel inbox or, if you configured one, getCallback(requestId) from your optional adapter after fulfillment.',
         href: '/docs/quickstart',
         label: 'Quickstart',
       },
@@ -103,7 +104,7 @@ const journeys = [
     title: `Zero-Code ${NETWORKS.neo_n3.environmentLabel} Test`,
     icon: Lock,
     summary:
-      'Use the universal callback consumer to test the system without deploying your own contract first.',
+      'Use the optional universal callback adapter to test the system without deploying your own contract-specific bridge first.',
     requestType: 'privacy_oracle / compute',
     steps: [
       {
@@ -114,7 +115,7 @@ const journeys = [
       },
       {
         title: 'Use the universal consumer',
-        desc: `Keep callback hash = ${NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer} and callback method = onOracleResult.`,
+        desc: `Use optional adapter hash = ${NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer} and callback method = onOracleResult only if you want external callback storage instead of the canonical kernel inbox.`,
         href: '/docs/templates',
         label: 'Templates',
       },
@@ -132,7 +133,7 @@ const journeys = [
       },
       {
         title: 'Read and verify',
-        desc: 'Call getCallback(requestId), then paste the result into the verifier.',
+        desc: 'Read the kernel result path or call getCallback(requestId) on the optional adapter, then paste the result into the verifier.',
         href: '/verifier',
         label: 'Open Verifier',
       },
@@ -183,7 +184,7 @@ const journeys = [
     title: 'NeoDID',
     icon: Fingerprint,
     summary:
-      'Bind Web2 or exchange identities, resolve a W3C DID document, issue unlinkable action tickets, and mint AA recovery tickets through the same Morpheus callback pipeline.',
+      'Bind Web2 or exchange identities, resolve a W3C DID document, issue unlinkable action tickets, and mint AA recovery tickets through the same shared kernel pipeline.',
     requestType: 'neodid_bind / neodid_action_ticket / neodid_recovery_ticket',
     steps: [
       {
@@ -212,7 +213,7 @@ const journeys = [
       },
       {
         title: 'Submit on-chain',
-        desc: 'Send neodid_bind, neodid_action_ticket, or neodid_recovery_ticket through MorpheusOracle.request and wait for callback fulfillment.',
+        desc: 'Submit neodid_bind, neodid_action_ticket, or neodid_recovery_ticket through the shared kernel; legacy MorpheusOracle.request remains a compatibility path.',
         href: '/docs/neodid',
         label: 'Oracle Flow',
       },

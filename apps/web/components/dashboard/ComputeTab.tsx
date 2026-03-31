@@ -928,8 +928,8 @@ BigInteger requestId = (BigInteger)Contract.Call(
                     2. Read the emitted <code>requestId</code>.
                   </div>
                   <div>
-                    3. Query your callback consumer&apos;s <code>getCallback(requestId)</code> or
-                    use the template below.
+                    3. Read the kernel-managed result path first, or query your optional callback
+                    adapter&apos;s <code>getCallback(requestId)</code> and use the template below.
                   </div>
                 </div>
               </div>

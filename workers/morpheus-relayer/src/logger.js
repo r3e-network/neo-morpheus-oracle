@@ -36,6 +36,7 @@ function writeLog(format, level, message, payload) {
   };
   if (format === 'text') {
     const suffix = payload && Object.keys(payload).length ? ` ${JSON.stringify(payload)}` : '';
+    // eslint-disable-next-line no-console -- logger writes to stdout
     console.log(`[${time}] ${level.toUpperCase()} ${message}${suffix}`);
     enqueueBetterStackLog({
       service: 'morpheus-relayer',
@@ -45,6 +46,7 @@ function writeLog(format, level, message, payload) {
     return;
   }
 
+  // eslint-disable-next-line no-console -- logger writes to stdout
   console.log(JSON.stringify(structured));
   enqueueBetterStackLog({
     service: 'morpheus-relayer',

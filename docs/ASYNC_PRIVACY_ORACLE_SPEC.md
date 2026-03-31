@@ -1,4 +1,13 @@
-# Async Privacy Oracle Spec
+# Async Privacy Request Spec
+
+This spec still uses some legacy "oracle" naming because the active runtime routes and payload
+shapes have not been fully renamed yet. On Neo N3, the on-chain model is now a shared
+`miniapp-os + miniapps` kernel:
+
+- `MorpheusOracle` is the kernel contract
+- built-in modules provide common fetch / compute / identity capabilities
+- `OracleCallbackConsumer` is an optional external adapter, not the canonical callback surface
+- legacy `Request(...)` and `RequestFromCallback(...)` remain as compatibility shims
 
 ## Canonical Network Registry
 
@@ -14,9 +23,9 @@ Current Neo N3 anchors:
 | Oracle runtime API            | `https://oracle.meshmini.app/mainnet`                                           | `https://oracle.meshmini.app/testnet`                                           |
 | Oracle attestation explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
 | Datafeed attestation explorer | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` |
-| `MorpheusOracle`              | `0x017520f068fd602082fe5572596185e62a4ad991` via `oracle.morpheus.neo`          | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
-| `OracleCallbackConsumer`      | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
-| `MorpheusDataFeed`            | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`       | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
+| `MorpheusOracle` kernel       | `0x017520f068fd602082fe5572596185e62a4ad991` via `oracle.morpheus.neo`          | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
+| `OracleCallbackConsumer` opt. | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
+| `MorpheusDataFeed` module     | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`       | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
 | `AbstractAccount`             | `0x9742b4ed62a84a886f404d36149da6147528ee33` via `smartwallet.neo`              | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                    |
 | `AA Web3AuthVerifier`         | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
 | `AA RecoveryVerifier`         | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                    | deployment-specific                                                             |
@@ -24,7 +33,7 @@ Current Neo N3 anchors:
 
 Interpretation rules:
 
-- testnet example/demo contracts may differ from the canonical callback consumer; always trust `config/networks/*.json` instead of older examples
+- testnet example/demo contracts may differ from the shared optional callback adapter; always trust `config/networks/*.json` instead of older examples
 - blank / unpublished registry fields mean there is no shared stable publication yet, not that a temporary internal deployment never existed
 - `UnifiedSmartWalletV3` is the canonical AA product/runtime label even if a raw deployed manifest string carries a historical or deployment-specific suffix
 - `smartwallet.neo` is the canonical AA mainnet domain, while `aa.morpheus.neo` is an additional alias to the same clean AA address
@@ -34,20 +43,22 @@ Architecture note:
 
 - Cloudflare control-plane ingress, queues, and workflows stay outside the TEE.
 - Supabase remains the durable source of truth for accepted jobs and recovery.
-- The Oracle CVM handles request/response execution for both mainnet and testnet.
-- The DataFeed CVM remains isolated for continuous feed publication.
+- The Oracle CVM handles built-in confidential module execution for both mainnet and testnet.
+- The DataFeed CVM remains isolated for continuous shared resource publication.
 - network selection is path-based and payload-based, not CVM-based
+- route naming is still partly oracle-shaped, but the on-chain contract boundary is now kernel-oriented
 
 ## Canonical Request Path
 
 1. Client reads the Oracle public key.
 2. Client encrypts a secret locally.
-3. Contract calls `Request(requestType, payload, callbackContract, callbackMethod)` on `MorpheusOracle`.
-4. `OracleRequested` is emitted on-chain.
-5. The relayer validates and persists the event, then forwards it to the Oracle runtime.
-6. The Oracle runtime executes fetch-only, private fetch, public compute, or private compute.
-7. The relayer calls `FulfillRequest(requestId, success, result, error)`.
-8. Callback executes in the consumer contract.
+3. Contract calls `Request(requestType, payload, callbackContract, callbackMethod)` on `MorpheusOracle`, or uses the newer kernel registration path when available.
+4. A kernel request event is emitted on-chain.
+5. The relayer validates and persists the event, then forwards it to the correct built-in module lane.
+6. The runtime executes fetch-only, private fetch, public compute, or private compute.
+7. The relayer calls `FulfillRequest(requestId, success, result, error, verificationSignature)`.
+8. The kernel stores the canonical inbox item.
+9. If a callback adapter contract was configured, it receives the forwarded result as an optional integration surface.
 
 NeoDID identity flows now also fit this same path when the request type is one of:
 
@@ -119,6 +130,7 @@ For large Web3Auth JWT payloads, use the short-reference form instead of embeddi
 - `script` and `script_base64` are interchangeable aliases
 - `script_ref` lets the worker fetch the script body from a Neo N3 contract getter so the on-chain request only carries a small reference
 - `callback_contract` and `callback_method` are on-chain request arguments, not JSON payload fields
+- kernel-native miniapp integrations may eventually bypass explicit callback adapters and read from the system inbox directly
 - `target_chain` is currently `neo_n3` in the active supported path
 - Neo X request fields remain in older examples and in-repo reference code, but they are not the active production route
 - confidential payload transport uses `X25519-HKDF-SHA256-AES-256-GCM`
@@ -232,10 +244,11 @@ The relayer normalizes successful worker output into a chain-ready result envelo
 ```
 
 This normalized JSON is UTF-8 encoded and passed as the `result` bytes of `FulfillRequest(...)`.
+The kernel stores that payload in its inbox even when no external callback adapter is used.
 
-## Callback Consumer Interpretation
+## Result Interpretation
 
-Consumers should interpret the callback payload as:
+Miniapps and optional callback adapters should interpret the result payload as:
 
 - a UTF-8 JSON object
 - versioned by `version`

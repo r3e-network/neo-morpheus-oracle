@@ -26,12 +26,7 @@ function isCloudflareRateLimited(response) {
   );
 }
 
-async function writeRateLimitedArtifacts({
-  generatedAt,
-  network,
-  controlPlaneUrl,
-  accepted,
-}) {
+async function writeRateLimitedArtifacts({ generatedAt, network, controlPlaneUrl, accepted }) {
   const jsonReport = {
     generated_at: generatedAt,
     network,

@@ -128,12 +128,12 @@ If one of these is wrong, the system usually stops working.
   中文：Neo N3 的 MorpheusOracle 合约地址。
 
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
-  English: Neo N3 callback consumer contract hash.
-  中文：Neo N3 callback consumer 合约地址。
+  English: Optional Neo N3 external callback adapter contract hash. The kernel inbox is canonical; this is only needed for integrations that still want a dedicated callback bridge.
+  中文：可选的 Neo N3 外部 callback adapter 合约地址。系统 inbox 才是标准路径；只有仍然需要独立 callback bridge 的集成才需要它。
 
 - `CONTRACT_MORPHEUS_DATAFEED_HASH`
-  English: Neo N3 datafeed contract hash.
-  中文：Neo N3 datafeed 合约地址。
+  English: Neo N3 shared numeric resource module contract hash.
+  中文：Neo N3 共享数值资源模块合约地址。
 
 - `PHALA_NEO_N3_PRIVATE_KEY` or `PHALA_NEO_N3_WIF`
   English: Worker-side Neo N3 signing material.
@@ -176,12 +176,12 @@ If one of these is wrong, the system usually stops working.
   中文：Neo X 的 MorpheusOracleX 合约地址。
 
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS`
-  English: Neo X callback consumer contract address.
-  中文：Neo X callback consumer 合约地址。
+  English: Optional Neo X external callback adapter contract address.
+  中文：可选的 Neo X 外部 callback adapter 合约地址。
 
 - `CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS`
-  English: Neo X datafeed contract address.
-  中文：Neo X datafeed 合约地址。
+  English: Neo X shared numeric resource module contract address.
+  中文：Neo X 共享数值资源模块合约地址。
 
 - `PHALA_NEOX_PRIVATE_KEY`
   English: Worker-side Neo X signing key.

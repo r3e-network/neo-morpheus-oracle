@@ -1,15 +1,15 @@
-# Morpheus Oracle Architecture
+# Morpheus MiniApp OS Architecture
 
 ## Production Topology
 
 ```text
-[ dApp / operator / automation client ]
+[ dApp / operator / automation client / registered miniapp ]
         |
         | encrypt optional secrets locally
         v
-[ Neo N3 contracts ] -----------------------------+
+[ Neo N3 MiniApp OS kernel + built-in modules ] --+
         |                                         |
-        | async request / feed read               | callback fulfillment
+        | async kernel request / shared reads     | inbox delivery / optional adapter callback
         v                                         |
 [ relayer durable intake ]                        |
         |                                         |
@@ -25,15 +25,21 @@
                                    |
                                    v
                        [ confidential execution plane ]
-                       - Oracle CVM: request / response / compute / NeoDID
-                       - DataFeed CVM: continuous feed publication
+                       - Oracle CVM: built-in fetch / compute / NeoDID modules
+                       - DataFeed CVM: continuous shared resource publication
                                    |
                                    v
                            [ signed / attested result ]
                                    |
                                    v
-                        [ relayer broadcast + contract callback ]
+                        [ relayer broadcast + kernel inbox write ]
 ```
+
+Compatibility note:
+
+- several off-chain routes still use legacy `/oracle/*` naming
+- the on-chain N3 contract model is now a shared `miniapp-os + miniapps` kernel
+- optional external callback adapters still exist, but the kernel inbox is canonical
 
 ## Four Layers
 
@@ -45,6 +51,7 @@ Cloudflare Workers provide:
 - request authentication and validation
 - per-lane throttling and recovery endpoints
 - operator-facing health and job status routes
+- runtime access to built-in module lanes that can be shared across many miniapps
 
 This layer is intentionally stateless except for the job records it writes to Supabase.
 
@@ -60,6 +67,7 @@ Morpheus uses managed Cloudflare primitives instead of custom in-TEE schedulers:
   - `automation_execute`
 
 This keeps orchestration outside the TEE while still preserving retry and recovery semantics.
+Queue names remain partly oracle-shaped today for compatibility with existing runtime code.
 
 ### 3. Durable state
 
@@ -95,7 +103,7 @@ Everything else stays outside.
 
 - name: `oracle-morpheus-neo-r3e`
 - app id: `ddff154546fe22d15b65667156dd4b7c611e6093`
-- role: request/response oracle, compute, NeoDID, paymaster-related confidential logic
+- role: built-in confidential module lane for fetch/query, compute, NeoDID, and paymaster-related logic
 - public paths:
   - `https://oracle.meshmini.app/mainnet`
   - `https://oracle.meshmini.app/testnet`
@@ -104,24 +112,25 @@ Everything else stays outside.
 
 - name: `datafeed-morpheus-neo-r3e`
 - app id: `28294e89d490924b79c85cdee057ce55723b3d56`
-- role: isolated feed publication lane
+- role: isolated built-in shared resource publication lane
 - priority: highest; feed publication must not be starved by interactive workloads
 
 ## Request/Response Flow
 
-1. The client seals optional confidential fields with the Oracle X25519 public key.
-2. A Neo N3 contract submits an async Morpheus request.
+1. The client seals optional confidential fields with the runtime X25519 public key.
+2. A registered or compatibility-mode Neo N3 contract submits an async kernel request.
 3. The relayer persists the event before it advances checkpoints.
-4. The Oracle runtime executes the confidential job.
+4. The appropriate built-in module lane executes the confidential job.
 5. The runtime returns a signed result envelope and optional attestation metadata.
-6. The relayer submits the callback transaction on-chain.
+6. The relayer fulfills the request on-chain.
+7. The kernel stores the canonical inbox item and optionally notifies an external adapter contract.
 
 ## DataFeed Flow
 
 1. A control-plane or operator tick enters the `feed_tick` lane.
 2. The DataFeed CVM fetches and normalizes source data.
 3. Only materially changed quantized prices are prepared for publication.
-4. The relayer publishes the update to `MorpheusDataFeed`.
+4. The relayer publishes the update to `MorpheusDataFeed`, which acts as a shared numeric resource registry.
 5. Feed snapshots and operational telemetry are recorded in Supabase.
 
 ## Network Model
@@ -130,6 +139,7 @@ Everything else stays outside.
 - Mainnet and testnet share the same DataFeed CVM.
 - Network selection is passed as runtime metadata and path prefix, not by provisioning separate CVMs per network.
 - The Oracle execution plane is network-aware but topology-neutral.
+- Built-in module lanes are reusable across many registered miniapps.
 
 This keeps runtime behavior consistent and reduces operational drift.
 

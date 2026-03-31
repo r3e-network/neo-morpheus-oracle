@@ -78,11 +78,9 @@ const mainnetEnv = await readEnvFile(path.resolve(repoRoot, 'deploy/phala/morphe
 const testnetEnv = await readEnvFile(path.resolve(repoRoot, 'deploy/phala/morpheus.testnet.env'));
 const envs = [localEnv, rootEnv, mainnetEnv, testnetEnv];
 
-const requestHubDomain = pick(
-  envs,
-  'MORPHEUS_REQUEST_HUB_CUSTOM_DOMAIN',
-  'MORPHEUS_SHARED_CUSTOM_DOMAIN'
-) || 'morpheus-hub.meshmini.app';
+const requestHubDomain =
+  pick(envs, 'MORPHEUS_REQUEST_HUB_CUSTOM_DOMAIN', 'MORPHEUS_SHARED_CUSTOM_DOMAIN') ||
+  'morpheus-hub.meshmini.app';
 
 const lines = [
   '# Generated from deploy/phala/morpheus.mainnet.env and morpheus.testnet.env; do not edit.',
@@ -100,23 +98,14 @@ const lines = [
   '',
   line('UPSTASH_REDIS_REST_URL', pick(envs, 'UPSTASH_REDIS_REST_URL')),
   line('UPSTASH_REDIS_REST_TOKEN', pick(envs, 'UPSTASH_REDIS_REST_TOKEN')),
-  line(
-    'MORPHEUS_UPSTASH_GUARDS_ENABLED',
-    pick(envs, 'MORPHEUS_UPSTASH_GUARDS_ENABLED') || 'true'
-  ),
-  line(
-    'MORPHEUS_UPSTASH_FAIL_CLOSED',
-    pick(envs, 'MORPHEUS_UPSTASH_FAIL_CLOSED') || 'false'
-  ),
+  line('MORPHEUS_UPSTASH_GUARDS_ENABLED', pick(envs, 'MORPHEUS_UPSTASH_GUARDS_ENABLED') || 'true'),
+  line('MORPHEUS_UPSTASH_FAIL_CLOSED', pick(envs, 'MORPHEUS_UPSTASH_FAIL_CLOSED') || 'false'),
   '',
   line('CLOUDFLARE_DNS_API_TOKEN', pick(envs, 'CLOUDFLARE_DNS_API_TOKEN')),
   line('CERTBOT_EMAIL', pick(envs, 'CERTBOT_EMAIL')),
   line('MORPHEUS_CUSTOM_DOMAIN', requestHubDomain),
   line('MORPHEUS_INGRESS_PORT', pick(envs, 'MORPHEUS_INGRESS_PORT') || '443'),
-  line(
-    'MORPHEUS_INGRESS_SET_CAA',
-    pick(envs, 'MORPHEUS_INGRESS_SET_CAA') || 'false'
-  ),
+  line('MORPHEUS_INGRESS_SET_CAA', pick(envs, 'MORPHEUS_INGRESS_SET_CAA') || 'false'),
   '',
   line('MAINNET_RUNTIME_CONFIG_JSON', trimString(mainnetEnv.MORPHEUS_RUNTIME_CONFIG_JSON)),
   line('TESTNET_RUNTIME_CONFIG_JSON', trimString(testnetEnv.MORPHEUS_RUNTIME_CONFIG_JSON)),

@@ -60,9 +60,7 @@ function resolveRuntimeUrl({ network, morpheusEnv, morpheusLocalEnv }) {
   }
 
   const customDomainKey =
-    network === 'mainnet'
-      ? 'MORPHEUS_MAINNET_CUSTOM_DOMAIN'
-      : 'MORPHEUS_TESTNET_CUSTOM_DOMAIN';
+    network === 'mainnet' ? 'MORPHEUS_MAINNET_CUSTOM_DOMAIN' : 'MORPHEUS_TESTNET_CUSTOM_DOMAIN';
   const customDomain = trimString(morpheusLocalEnv[customDomainKey]);
   if (customDomain) {
     return /^https?:\/\//i.test(customDomain) ? customDomain : `https://${customDomain}`;
@@ -137,9 +135,10 @@ function resolveNetworkSignerMaterial({ network, morpheusEnv, wifKeys, privateKe
 }
 
 function main() {
-  const network = trimString(process.argv[2] || process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
-    ? 'mainnet'
-    : 'testnet';
+  const network =
+    trimString(process.argv[2] || process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
+      ? 'mainnet'
+      : 'testnet';
 
   const miniappsEnvFile = process.env.MINIAPP_ENV_FILE || path.join(miniappsRoot, '.env');
   const morpheusEnvFile = process.env.MORPHEUS_ENV_FILE || path.join(oracleRoot, '.env');

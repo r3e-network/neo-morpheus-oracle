@@ -1,6 +1,7 @@
 const queue = [];
 let flushTimer = null;
 let inFlight = false;
+let queueLocked = false;
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -14,7 +15,10 @@ function resolveConfig() {
     url: `https://${ingestingHost}`,
     sourceToken,
     batchSize: Math.max(Number(process.env.MORPHEUS_BETTERSTACK_LOG_BATCH_SIZE || 20), 1),
-    flushIntervalMs: Math.max(Number(process.env.MORPHEUS_BETTERSTACK_LOG_FLUSH_INTERVAL_MS || 2000), 250),
+    flushIntervalMs: Math.max(
+      Number(process.env.MORPHEUS_BETTERSTACK_LOG_FLUSH_INTERVAL_MS || 2000),
+      250
+    ),
     timeoutMs: Math.max(Number(process.env.MORPHEUS_BETTERSTACK_LOG_TIMEOUT_MS || 2000), 250),
     maxQueue: Math.max(Number(process.env.MORPHEUS_BETTERSTACK_LOG_MAX_QUEUE || 500), 10),
   };
@@ -24,7 +28,9 @@ async function flush() {
   const config = resolveConfig();
   if (!config || inFlight || queue.length === 0) return;
   inFlight = true;
+  queueLocked = true;
   const batch = queue.splice(0, config.batchSize);
+  queueLocked = false;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
 
@@ -63,6 +69,8 @@ function scheduleFlush() {
 export function enqueueBetterStackLog(record) {
   const config = resolveConfig();
   if (!config) return;
+
+  if (queueLocked) return; // Drop logs during flush batch extraction to prevent race condition
 
   queue.push({
     dt: new Date().toISOString(),

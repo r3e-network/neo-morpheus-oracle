@@ -78,7 +78,7 @@ export default function DocsNetworks() {
         testnet: normalizeValue(testnet.neo_n3?.contracts?.morpheus_oracle, 'unassigned'),
       },
       {
-        label: 'OracleCallbackConsumer',
+        label: 'OracleCallbackConsumer (optional)',
         mainnet: normalizeValue(mainnet.neo_n3?.contracts?.oracle_callback_consumer, 'unassigned'),
         testnet: normalizeValue(testnet.neo_n3?.contracts?.oracle_callback_consumer, 'unassigned'),
       },
@@ -366,8 +366,8 @@ export default function DocsNetworks() {
         </p>
         <ul style={{ marginTop: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
           <li>
-            <code>OracleCallbackConsumer</code> is the production callback sink contract configured
-            in the network registry.
+            <code>OracleCallbackConsumer</code> is an optional external callback adapter published
+            in the network registry. The shared kernel inbox is the canonical result path.
           </li>
           <li>
             <code>Example consumer</code> and <code>Feed reader example</code> are validation/demo

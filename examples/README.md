@@ -2,6 +2,16 @@
 
 This directory contains copy-pasteable examples for the most common Morpheus workflows.
 
+The architectural default is now `miniapp-os + miniapps`:
+
+- the shared system kernel owns generic request plumbing
+- built-in modules expose common capabilities
+- miniapps should focus on business logic and configuration
+
+Some examples still exercise legacy oracle-shaped compatibility shims such as
+`Request(...)` and `onOracleResult`. Treat those as migration examples rather than the
+preferred long-term integration surface.
+
 Structure:
 
 - `browser-encryption/` — browser-side encryption helpers
@@ -16,7 +26,8 @@ Suggested usage:
 
 1. Read the matching payload template under `payloads/`.
 2. Encrypt any secret fields with the helpers under `browser-encryption/` or `node-encryption/`.
-3. Use the matching contract example under `contracts/` to issue the request from chain.
+3. Use the matching contract example under `contracts/` to issue the request from chain or to
+   integrate with the shared kernel using a thin adapter.
 4. Use the modules under `wasm/` when you want stronger isolation than custom JS.
 
 Live deploy/test:
@@ -29,7 +40,7 @@ Live deploy/test:
 - `npm run examples:test:n3:automation`
 - `npm run examples:test:feed-source`
 - `npm run examples:all`
-- `examples:all` runs `examples/scripts/deploy-and-test-all.mjs`, which compiles the Neo N3 and Neo X example contracts, deploys them to testnet, allowlists the callback consumer, and runs live oracle / encrypted compute / custom URL oracle / on-chain feed read flows.
+- `examples:all` runs `examples/scripts/deploy-and-test-all.mjs`, which compiles the Neo N3 and Neo X example contracts, deploys migration-oriented adapter contracts to testnet, configures the optional callback bridge where needed, and runs live oracle / encrypted compute / custom URL oracle / on-chain feed read flows.
 - Deployment addresses are recorded under `examples/deployments/testnet.json`.
 - The per-chain `examples:test:*` scripts rerun the live checks against the latest recorded deployment addresses without redeploying.
 
@@ -38,7 +49,7 @@ Network-aware validation:
 - `examples:test:n3:privacy` now writes:
   - `examples/deployments/n3-privacy-validation.<network>.latest.json`
   - optional local markdown summary (not kept in git)
-- pricefeed synchronization is operator-managed and automatic; end-user contracts should read the on-chain feed registry directly instead of trying to trigger feed publication.
+- pricefeed synchronization is operator-managed and automatic; end-user contracts should read the on-chain shared resource registry directly instead of trying to trigger feed publication.
 
 Per-script report outputs:
 

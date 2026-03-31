@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { relayNeoN3Invocation } from '../../phala-worker/src/chain/index.js';
-import { experimental, rpc as neonRpc, sc, u, wallet as neonWallet } from '@cityofzion/neon-js';
+import { experimental, sc, u, wallet as neonWallet } from '@cityofzion/neon-js';
 import { deriveRelayerNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './dstack.js';
 
 function trimString(value) {
@@ -23,15 +23,24 @@ function isPrintableText(text) {
   return typeof text === 'string' && /^[\x09\x0a\x0d\x20-\x7e]*$/.test(text);
 }
 
+const RPC_TIMEOUT_MS = 30_000;
+
 async function neoRpcCall(rpcUrl, method, params = []) {
-  const response = await fetch(rpcUrl, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-  });
-  const body = await response.json();
-  if (body.error) throw new Error(body.error.message || `${method} failed`);
-  return body.result;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+  try {
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: controller.signal,
+    });
+    const body = await response.json();
+    if (body.error) throw new Error(body.error.message || `${method} failed`);
+    return body.result;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function decodeNeoItem(item) {
@@ -108,6 +117,7 @@ export async function getNeoN3IndexedBlock(config) {
 
   const response = await fetch(url.toString(), {
     headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
@@ -197,6 +207,7 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
 
   const response = await fetch(url.toString(), {
     headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
@@ -264,11 +275,11 @@ export async function scanNeoN3OracleRequestsById(config, fromRequestId, toReque
       payloadText,
       callbackContract,
       callbackMethod,
-      requester,
-      _statusCode,
+      requester, // statusCode
+      ,
       createdAtMs,
-      fulfilledAtMs,
-      _success,
+      fulfilledAtMs, // success
+      ,
       resultText,
       errorText,
     ] = decoded;
@@ -310,12 +321,6 @@ function base64ToHex(value) {
   return Buffer.from(raw, 'base64').toString('hex');
 }
 
-function encodeHexByteArrayParamValue(value) {
-  const raw = trimString(value).replace(/^0x/i, '');
-  if (!raw) return '';
-  return Buffer.from(raw, 'hex').toString('base64');
-}
-
 async function resolveNeoN3UpdaterPayload(config) {
   if (config.neo_n3.updaterWif) {
     return { wif: config.neo_n3.updaterWif };
@@ -347,7 +352,6 @@ export async function fulfillNeoN3Request(
     networkMagic: config.neo_n3.networkMagic,
     account: signerAccount,
   });
-  const rpcClient = new neonRpc.RPCClient(config.neo_n3.rpcUrl);
   const resultHex = trimString(resultBytesBase64)
     ? base64ToHex(resultBytesBase64)
     : Buffer.from(String(result || ''), 'utf8').toString('hex');
@@ -370,11 +374,10 @@ export async function fulfillNeoN3Request(
     const execution = appLog?.executions?.[0];
     if (execution?.vmstate) vmState = execution.vmstate;
     if (execution?.exception) exception = execution.exception;
-  } catch {
-    const appLog = await rpcClient.getApplicationLog(txHash).catch(() => null);
-    const execution = appLog?.executions?.[0];
-    if (execution?.vmstate) vmState = execution.vmstate;
-    if (execution?.exception) exception = execution.exception;
+  } catch (error) {
+    // Best-effort: ignore RPC call failure for application log
+    vmState = 'UNKNOWN';
+    exception = error instanceof Error ? error.message : String(error);
   }
   return {
     request_id: buildNeoN3RelayRequestId('fulfill', requestId),

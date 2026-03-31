@@ -14,17 +14,17 @@ namespace MorpheusOracle.Contracts
     public delegate void UpdaterChangedHandler(UInt160 oldUpdater, UInt160 newUpdater);
 
     /// <summary>
-    /// On-chain synchronized storage for Morpheus price and data feed records.
+    /// On-chain synchronized storage for Morpheus shared numeric resources.
     /// </summary>
     /// <remarks>
-    /// Operators write normalized feed values here after off-chain collection and verification.
-    /// Application contracts should read from this contract directly instead of querying external
-    /// APIs at runtime.
+    /// Price feeds remain the primary built-in use case, but the registry is intentionally generic
+    /// enough for any operator-maintained numeric resource snapshots that multiple miniapps can
+    /// compose over without deploying dedicated storage contracts.
     /// </remarks>
     [DisplayName("MorpheusDataFeed")]
     [ManifestExtra("Author", "Morpheus Oracle")]
-    [ManifestExtra("Version", "1.0.0")]
-    [ManifestExtra("Description", "Oracle-only datafeed contract for Morpheus Oracle")]
+    [ManifestExtra("Version", "2.0.0")]
+    [ManifestExtra("Description", "Shared numeric resource registry for the Morpheus MiniApp OS")]
     public class MorpheusDataFeed : SmartContract
     {
         private static readonly byte[] PREFIX_ADMIN = new byte[] { 0x01 };
@@ -172,6 +172,14 @@ namespace MorpheusOracle.Contracts
         }
 
         /// <summary>
+        /// Generic alias for shared numeric resources.
+        /// </summary>
+        public static void UpdateResource(string resourceId, BigInteger version, BigInteger value, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
+        {
+            UpdateFeed(resourceId, version, value, timestamp, attestationHash, sourceSetId);
+        }
+
+        /// <summary>
         /// Batch writes multiple feed records in one transaction.
         /// </summary>
         public static void UpdateFeeds(string[] pairs, BigInteger[] roundIds, BigInteger[] prices, BigInteger[] timestamps, ByteString[] attestationHashes, BigInteger[] sourceSetIds)
@@ -197,6 +205,14 @@ namespace MorpheusOracle.Contracts
             }
         }
 
+        /// <summary>
+        /// Generic batch alias for shared numeric resources.
+        /// </summary>
+        public static void UpdateResources(string[] resourceIds, BigInteger[] versions, BigInteger[] values, BigInteger[] timestamps, ByteString[] attestationHashes, BigInteger[] sourceSetIds)
+        {
+            UpdateFeeds(resourceIds, versions, values, timestamps, attestationHashes, sourceSetIds);
+        }
+
         [Safe]
         public static FeedRecord GetLatest(string pair)
         {
@@ -209,6 +225,12 @@ namespace MorpheusOracle.Contracts
         }
 
         [Safe]
+        public static FeedRecord GetResource(string resourceId)
+        {
+            return GetLatest(resourceId);
+        }
+
+        [Safe]
         public static FeedRecord[] GetAllFeedRecords()
         {
             string[] pairs = GetAllPairs();
@@ -218,6 +240,12 @@ namespace MorpheusOracle.Contracts
                 records[index] = GetLatest(pairs[index]);
             }
             return records;
+        }
+
+        [Safe]
+        public static FeedRecord[] GetAllResources()
+        {
+            return GetAllFeedRecords();
         }
 
         public static void Update(ByteString nefFile, string manifest)

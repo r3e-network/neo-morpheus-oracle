@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { __resetProviderRuntimeCachesForTests, fetchProviderJSON } from './providers.js';
+import {
+  __resetProviderRuntimeCachesForTests,
+  fetchProviderJSON,
+  listBuiltinProviders,
+} from './providers.js';
 
 const originalFetch = global.fetch;
 const originalProviderCacheTtl = process.env.MORPHEUS_PROVIDER_RESPONSE_CACHE_TTL_MS;
@@ -88,4 +92,16 @@ test('fetchProviderJSON retries transient upstream failures before succeeding', 
   assert.equal(result.status, 200);
   assert.equal(calls, 2);
   assert.equal(result.data?.price, '42.00');
+});
+
+test('builtin provider catalog exposes kernel lane compatibility metadata', () => {
+  const providers = listBuiltinProviders();
+  assert.ok(Array.isArray(providers));
+  assert.ok(providers.length >= 3);
+  for (const provider of providers) {
+    assert.ok(Array.isArray(provider.supports));
+    assert.ok(Array.isArray(provider.kernel_supports));
+    assert.ok(provider.kernel_supports.includes('oracle.fetch'));
+    assert.ok(provider.kernel_supports.includes('feed.publish'));
+  }
 });

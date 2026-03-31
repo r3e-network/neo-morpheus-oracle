@@ -67,10 +67,12 @@ function resolveExecutionRequestType(payload) {
     execution.request_type || payload.execution_request_type || ''
   );
   if (!requestType) throw new Error('execution.request_type is required');
-  if (requestType.includes('feed'))
+  if (requestType.includes('feed')) {
     throw new Error('automation execution request_type cannot be datafeed');
-  if (requestType.startsWith('automation_'))
+  }
+  if (requestType.startsWith('automation_')) {
     throw new Error('automation execution request_type cannot be an automation control type');
+  }
   return requestType;
 }
 
@@ -157,8 +159,9 @@ function buildInitialTrigger(trigger) {
 }
 
 function buildAutomationJobFromPayload(event, payload) {
-  if (!isPlainObject(payload))
+  if (!isPlainObject(payload)) {
     throw new Error('automation registration payload must be a JSON object');
+  }
   const trigger = isPlainObject(payload.trigger) ? payload.trigger : null;
   if (!trigger) throw new Error('trigger is required');
 
@@ -375,10 +378,12 @@ function evaluatePriceThreshold(job, record, nowMs, defaultCooldownMs) {
   let due = false;
   if (comparator === 'gte') due = current >= threshold;
   if (comparator === 'lte') due = current <= threshold;
-  if (comparator === 'cross_above')
+  if (comparator === 'cross_above') {
     due = previous !== null && previous < threshold && current >= threshold;
-  if (comparator === 'cross_below')
+  }
+  if (comparator === 'cross_below') {
     due = previous !== null && previous > threshold && current <= threshold;
+  }
 
   return {
     due,
@@ -508,6 +513,9 @@ async function queueAutomationExecution(config, job, deps = {}) {
       job.callback_method,
       requestId
     );
+  }
+  if (job.chain !== 'neo_n3') {
+    throw new Error(`Invalid automation job chain: ${job.chain}`);
   }
   return queueNeoN3(
     config,

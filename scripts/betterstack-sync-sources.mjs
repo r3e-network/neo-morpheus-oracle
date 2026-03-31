@@ -1,4 +1,7 @@
-import { betterStackTelemetryApi, loadBetterStackTelemetryEnv } from './betterstack-telemetry-lib.mjs';
+import {
+  betterStackTelemetryApi,
+  loadBetterStackTelemetryEnv,
+} from './betterstack-telemetry-lib.mjs';
 
 await loadBetterStackTelemetryEnv();
 
@@ -27,7 +30,8 @@ for (const source of desired) {
     updated.push({
       id: result?.data?.id || current.id,
       name: source.name,
-      ingesting_host: result?.data?.attributes?.ingesting_host || current.attributes?.ingesting_host || null,
+      ingesting_host:
+        result?.data?.attributes?.ingesting_host || current.attributes?.ingesting_host || null,
       token: result?.data?.attributes?.token || current.attributes?.token || null,
     });
     continue;
@@ -59,7 +63,8 @@ console.log(
       total_sources: finalRows.length,
       env_mapping: operationsSource
         ? {
-            MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST: operationsSource.attributes?.ingesting_host || '',
+            MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST:
+              operationsSource.attributes?.ingesting_host || '',
             MORPHEUS_BETTERSTACK_LOG_SOURCE_TOKEN: operationsSource.attributes?.token || '',
           }
         : {},

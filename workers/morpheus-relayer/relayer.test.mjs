@@ -13,6 +13,7 @@ import {
   encodeFulfillmentResult,
   isOperatorOnlyRequestType,
   normalizeRequestType,
+  resolveKernelIntent,
   resolveWorkerRoute,
 } from './src/router.js';
 import { callPhala } from './src/phala.js';
@@ -122,10 +123,42 @@ test('resolveWorkerRoute routes compute, feed, vrf, and oracle payloads', () => 
   assert.equal(resolveWorkerRoute('privacy_oracle', {}), '/oracle/smart-fetch');
 });
 
+test('resolveKernelIntent maps legacy request types to kernel module and operation', () => {
+  assert.deepEqual(resolveKernelIntent('privacy_oracle'), {
+    legacyRequestType: 'privacy_oracle',
+    moduleId: 'oracle.fetch',
+    operation: 'privacy_oracle',
+    workerRoute: '/oracle/smart-fetch',
+    operatorOnly: false,
+  });
+  assert.deepEqual(resolveKernelIntent('compute'), {
+    legacyRequestType: 'compute',
+    moduleId: 'compute.run',
+    operation: 'compute',
+    workerRoute: '/compute/execute',
+    operatorOnly: false,
+  });
+  assert.deepEqual(resolveKernelIntent('datafeed'), {
+    legacyRequestType: 'datafeed',
+    moduleId: 'feed.publish',
+    operation: 'datafeed',
+    workerRoute: '/oracle/feed',
+    operatorOnly: true,
+  });
+});
+
 test('isOperatorOnlyRequestType flags feed sync requests', () => {
   assert.equal(isOperatorOnlyRequestType('datafeed'), true);
   assert.equal(isOperatorOnlyRequestType('price-feed'), true);
   assert.equal(isOperatorOnlyRequestType('privacy_oracle'), false);
+});
+
+test('buildWorkerPayload carries kernel intent alongside legacy request fields', () => {
+  const payload = buildWorkerPayload('neo_n3', 'neodid_recovery_ticket', { foo: 'bar' }, '77');
+  assert.equal(payload.request_id, '77');
+  assert.equal(payload.legacy_request_type, 'neodid_recovery_ticket');
+  assert.equal(payload.kernel_module_id, 'identity.verify');
+  assert.equal(payload.kernel_operation, 'neodid_recovery_ticket');
 });
 
 test('isAutomationControlRequestType detects automation registration flows', () => {
@@ -419,6 +452,9 @@ test('buildWorkerPayload injects relayer metadata', () => {
       request_id: '42',
       request_source: 'morpheus-relayer:neo_n3',
       target_chain: 'neo_n3',
+      legacy_request_type: 'privacy_oracle',
+      kernel_module_id: 'oracle.fetch',
+      kernel_operation: 'privacy_oracle',
       requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       callback_method: 'onOracleResult',
@@ -544,6 +580,8 @@ test('buildOnchainResultEnvelope normalizes verification metadata', () => {
 
   assert.equal(envelope.version, 'morpheus-result/v1');
   assert.equal(envelope.request_type, 'vrf');
+  assert.equal(envelope.module_id, 'random.generate');
+  assert.equal(envelope.operation, 'vrf');
   assert.equal(envelope.result.randomness, '1234');
   assert.equal(envelope.verification.output_hash, 'deadbeef');
   assert.equal(typeof envelope.verification.tee_attestation.quote_hash, 'string');
@@ -573,6 +611,8 @@ test('buildOnchainResultEnvelope preserves neodid recovery ticket fields', () =>
   });
 
   assert.equal(envelope.request_type, 'neodid_recovery_ticket');
+  assert.equal(envelope.module_id, 'identity.verify');
+  assert.equal(envelope.operation, 'neodid_recovery_ticket');
   assert.equal(envelope.result.account_id, 'aa-test-01');
   assert.equal(envelope.result.new_owner, '0x89b05cac00804648c666b47ecb1c57bc185821b7');
   assert.equal(
@@ -606,6 +646,8 @@ test('buildOnchainResultEnvelope compacts oversized privacy oracle payloads', ()
 
   const encoded = JSON.stringify(envelope);
   assert.ok(encoded.length < 900);
+  assert.equal(envelope.module_id, 'oracle.fetch');
+  assert.equal(envelope.operation, 'privacy_oracle');
   assert.equal(envelope.result.result, '42');
   assert.equal(envelope.result.result_source, 'extracted_value');
   assert.equal(typeof envelope.verification.tee_attestation.quote_hash, 'string');
@@ -623,6 +665,9 @@ test('state tracks processed events and metrics snapshot', () => {
   };
   recordProcessedEvent(state, 'neo_n3', event, 'fulfilled', { attempts: 1 }, retryConfig);
   assert.equal(hasProcessedEvent(state, 'neo_n3', event), true);
+  const record = state.neo_n3.processed_records[buildEventKey(event)];
+  assert.equal(record.module_id, 'oracle.fetch');
+  assert.equal(record.operation, 'privacy_oracle');
   const metrics = snapshotMetrics(state);
   assert.equal(metrics.retry_queue_sizes.neo_n3, 0);
   assert.equal(metrics.checkpoints.neo_n3, null);

@@ -1,4 +1,4 @@
-# MeshMini Workspace Context (Oracle + AA + Miniapps)
+# MeshMini Workspace Context (MiniApp OS + AA + Miniapps)
 
 This document is a single “resume point” for the MeshMini workspace. It inventories:
 
@@ -29,11 +29,11 @@ This document is a single “resume point” for the MeshMini workspace. It inve
 Local paths (typical dev workspace):
 
 - `neo-morpheus-oracle`
-  - Oracle system: edge gateway + control plane (Cloudflare Workers), durable orchestration (Queues + Workflows), app backend + UI (Vercel/Next.js), and the confidential execution plane (TEE worker runtime).
+  - MiniApp OS runtime: edge gateway + control plane (Cloudflare Workers), durable orchestration (Queues + Workflows), app backend + UI (Vercel/Next.js), confidential execution plane (TEE worker runtime), and the Neo N3 on-chain kernel plus built-in modules.
 - `neo-abstract-account`
   - Abstract Account contracts + UI + server routes for relaying/ops, plus SDK test matrix.
 - `neo-miniapps-platform`
-  - Miniapps host platform + admin console + individual miniapps; integrates AA + oracle services.
+  - Miniapps host platform + admin console + individual miniapps; integrates AA + Morpheus MiniApp OS services.
 
 ## Validation Orchestration
 
@@ -68,7 +68,7 @@ Operational rule:
 
 ## Public Domains / Routing
 
-### Cloudflare Workers (Oracle)
+### Cloudflare Workers (MiniApp OS Runtime)
 
 This workspace uses **one hostname** + explicit network prefixes:
 
@@ -92,6 +92,17 @@ Origins can be:
 These are configured as worker vars (non-secret) and can be rotated without code changes.
 
 ## Architecture: Four-Layer Model (Current Production Design)
+
+The N3 contract layer now follows a shared `miniapp-os + miniapps` model:
+
+- `MorpheusOracle` is the shared kernel contract
+- shared concerns such as IO, request routing, inbox delivery, and fee credits stay in the system
+- `MorpheusDataFeed` acts as a built-in shared numeric resource module
+- `OracleCallbackConsumer` is an optional external adapter, not the canonical callback surface
+
+The off-chain runtime still keeps several oracle-shaped route names for compatibility. When you
+see `/oracle/*` in this repo, interpret it as a built-in system module lane unless a file
+explicitly says otherwise.
 
 1. **Serverless Control Plane** (Cloudflare Workers)
    - API ingress, auth, validation, rate limiting, health, job enqueue, job status query.
@@ -175,7 +186,7 @@ Legend:
 - **Vercel Env**: set on the Vercel project environment
 - **Local Env**: `.env` file for local runs only
 
-### 1) Oracle: Cloudflare Edge Gateway (`deploy/cloudflare/morpheus-edge-gateway`)
+### 1) MiniApp OS: Cloudflare Edge Gateway (`deploy/cloudflare/morpheus-edge-gateway`)
 
 Where:
 
@@ -201,7 +212,7 @@ Notes:
 - Unified routing uses `/mainnet/...` and `/testnet/...`.
 - Safe GET caching is enabled for endpoints like `/health`, `/providers`, `/feeds/catalog`, `/feeds/price/*`, `/oracle/public-key`.
 
-### 2) Oracle: Cloudflare Control Plane (`deploy/cloudflare/morpheus-control-plane`)
+### 2) MiniApp OS: Cloudflare Control Plane (`deploy/cloudflare/morpheus-control-plane`)
 
 Where:
 
@@ -236,6 +247,7 @@ Optional secrets/vars:
 
 Implemented routes:
 
+- Current route names are compatibility-oriented; conceptually these are built-in kernel modules.
 - `POST /<network>/oracle/query`
 - `POST /<network>/oracle/smart-fetch`
 - `POST /<network>/compute/execute`
@@ -253,7 +265,7 @@ Validation helpers:
 - `npm run check:control-plane` (required bindings + Supabase only)
 - `npm run check:control-plane:strict` (full production config)
 
-### 3) Oracle: App Backend + Web UI (`apps/web`)
+### 3) MiniApp OS: App Backend + Web UI (`apps/web`)
 
 Where:
 
