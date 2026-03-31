@@ -116,6 +116,30 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
               overflowY: 'auto',
             }}
           >
+            {providers.length === 0 && (
+              <div
+                style={{
+                  padding: '3rem 1.5rem',
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <Info size={24} style={{ marginBottom: '0.75rem', opacity: 0.5 }} />
+                <div
+                  style={{
+                    fontSize: '0.85rem',
+                    fontFamily: 'var(--font-mono)',
+                    fontWeight: 600,
+                  }}
+                >
+                  No providers loaded yet.
+                </div>
+                <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', lineHeight: 1.6 }}>
+                  Provider data is fetched when you switch to this tab. If no data appears, the API
+                  may be unavailable.
+                </div>
+              </div>
+            )}
             {providers.map((p) => (
               <div
                 key={p.id}

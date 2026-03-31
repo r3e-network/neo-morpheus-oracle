@@ -22,55 +22,114 @@ export default function GlobalError({
           minHeight: '100vh',
           display: 'grid',
           placeItems: 'center',
-          background: '#050816',
-          color: '#f8fafc',
-          fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+          background: '#000000',
+          color: '#ffffff',
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
       >
         <div
           style={{
-            width: 'min(560px, calc(100vw - 32px))',
-            padding: 32,
-            borderRadius: 20,
-            border: '1px solid rgba(148, 163, 184, 0.2)',
-            background: 'rgba(15, 23, 42, 0.78)',
-            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)',
+            width: 'min(540px, calc(100vw - 32px))',
+            textAlign: 'center',
           }}
         >
-          <p
+          <div
             style={{
-              margin: 0,
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              color: '#38bdf8',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '8px 20px',
+              background: 'rgba(239, 68, 68, 0.05)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: '4px',
+              marginBottom: '2rem',
             }}
           >
-            Morpheus Oracle
-          </p>
-          <h1 style={{ margin: '12px 0 10px', fontSize: 28, lineHeight: 1.15 }}>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: '0.15em',
+                textTransform: 'uppercase',
+                color: '#ef4444',
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              }}
+            >
+              SYSTEM ERROR
+            </span>
+          </div>
+          <h1
+            style={{
+              margin: '0 0 12px',
+              fontSize: 'clamp(2rem, 5vw, 3rem)',
+              fontWeight: 800,
+              letterSpacing: '-0.04em',
+              lineHeight: 1.1,
+            }}
+          >
             Something went wrong
           </h1>
-          <p style={{ margin: 0, color: '#cbd5e1', lineHeight: 1.7 }}>
-            The failure was captured for investigation. You can retry the current route without
-            leaving the app.
-          </p>
-          <button
-            onClick={() => reset()}
+          <p
             style={{
-              marginTop: 20,
-              border: 0,
-              borderRadius: 999,
-              padding: '12px 18px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              background: '#22c55e',
-              color: '#04110a',
+              margin: '0 auto 2rem',
+              color: '#a1a1aa',
+              lineHeight: 1.7,
+              fontSize: '1rem',
+              maxWidth: '420px',
             }}
           >
-            Retry
-          </button>
+            An unexpected error occurred. The failure has been captured for investigation. You can
+            retry the current route without leaving the application.
+          </p>
+          {error?.digest && (
+            <p
+              style={{
+                margin: '0 0 2rem',
+                fontSize: '0.75rem',
+                color: '#52525b',
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              }}
+            >
+              Digest: {error.digest}
+            </p>
+          )}
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => reset()}
+              style={{
+                border: 0,
+                borderRadius: '2px',
+                padding: '0.85rem 2rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: '#ffffff',
+                color: '#000000',
+                fontSize: '0.8rem',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Retry
+            </button>
+            <a
+              href="/"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0.85rem 2rem',
+                border: '1px solid #333333',
+                borderRadius: '2px',
+                color: '#ffffff',
+                textDecoration: 'none',
+                fontWeight: 700,
+                fontSize: '0.8rem',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+              }}
+            >
+              Go Home
+            </a>
+          </div>
         </div>
       </body>
     </html>

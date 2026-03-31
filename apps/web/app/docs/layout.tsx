@@ -502,6 +502,9 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             background: #000;
             box-shadow: 20px 0 50px rgba(0,0,0,0.5);
           }
+          .docs-sidebar.open {
+            transform: translateX(0);
+          }
           .docs-content { padding: 2rem !important; }
           .hide-mobile { display: none; }
         }

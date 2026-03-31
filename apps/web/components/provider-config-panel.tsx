@@ -59,6 +59,7 @@ export function ProviderConfigPanel() {
   const [adminApiKey, setAdminApiKey] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const exampleConfig = useMemo(
     () =>
@@ -126,6 +127,7 @@ export function ProviderConfigPanel() {
           <div className="form-group">
             <label className="form-label">Project Slug</label>
             <input
+              className="neo-input"
               value={projectSlug}
               onChange={(event) => setProjectSlug(event.target.value)}
               placeholder="demo"
@@ -134,6 +136,7 @@ export function ProviderConfigPanel() {
           <div className="form-group">
             <label className="form-label">Admin API Key</label>
             <input
+              className="neo-input"
               type="password"
               value={adminApiKey}
               onChange={(event) => setAdminApiKey(event.target.value)}
@@ -146,6 +149,7 @@ export function ProviderConfigPanel() {
           <div className="form-group">
             <label className="form-label">Provider ID</label>
             <input
+              className="neo-input"
               value={providerId}
               list="builtin-provider-ids"
               onChange={(event) => setProviderId(event.target.value)}
@@ -173,9 +177,11 @@ export function ProviderConfigPanel() {
         <div className="form-group">
           <label className="form-label">Configuration JSON</label>
           <textarea
+            className="code-editor"
             value={configJson}
             onChange={(event) => setConfigJson(event.target.value)}
             placeholder={exampleConfig}
+            style={{ minHeight: '120px' }}
           />
         </div>
 
@@ -220,23 +226,43 @@ export function ProviderConfigPanel() {
           <button className="btn btn-outline" onClick={() => refresh()}>
             Refresh
           </button>
-          <button
-            className="btn btn-ghost"
-            style={{ color: 'var(--error)' }}
-            onClick={async () => {
-              const body = await callJSON(
-                `/api/provider-configs?project_slug=${encodeURIComponent(projectSlug)}&provider_id=${encodeURIComponent(providerId)}`,
-                {
-                  method: 'DELETE',
-                  adminApiKey,
-                }
-              );
-              setMessage(JSON.stringify(body, null, 2));
-              await refresh();
-            }}
-          >
-            Delete
-          </button>
+          {confirmDelete ? (
+            <div style={{ display: 'flex', gap: '0.5rem', gridColumn: 'span 1' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ color: '#ef4444', flex: 1, border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                onClick={async () => {
+                  const body = await callJSON(
+                    `/api/provider-configs?project_slug=${encodeURIComponent(projectSlug)}&provider_id=${encodeURIComponent(providerId)}`,
+                    {
+                      method: 'DELETE',
+                      adminApiKey,
+                    }
+                  );
+                  setMessage(JSON.stringify(body, null, 2));
+                  setConfirmDelete(false);
+                  await refresh();
+                }}
+              >
+                Confirm Delete
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ color: 'var(--text-secondary)' }}
+                onClick={() => setConfirmDelete(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-ghost"
+              style={{ color: '#ef4444' }}
+              onClick={() => setConfirmDelete(true)}
+            >
+              Delete
+            </button>
+          )}
         </div>
 
         <div className="terminal-panel" style={{ marginTop: '1rem' }}>
