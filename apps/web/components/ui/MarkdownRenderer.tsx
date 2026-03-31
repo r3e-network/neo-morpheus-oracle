@@ -38,12 +38,11 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                 style={{
                   overflowX: 'auto',
                   marginBottom: '2.5rem',
-                  background: '#000',
                   border: '1px solid var(--border-dim)',
                   borderRadius: '4px',
                 }}
               >
-                <table style={{ width: '100%', borderCollapse: 'collapse' }} {...props}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: 'transparent' }} {...props}>
                   {children}
                 </table>
               </div>
@@ -53,12 +52,15 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             return (
               <th
                 style={{
-                  padding: '1rem',
+                  padding: '0.75rem 1rem',
                   textAlign: 'left',
                   borderBottom: '1px solid var(--border-dim)',
-                  background: 'rgba(255,255,255,0.02)',
+                  background: 'rgba(0, 255, 163, 0.04)',
                   color: '#fff',
-                  fontSize: '0.85rem',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
                 }}
                 {...props}
               >
@@ -70,8 +72,8 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
             return (
               <td
                 style={{
-                  padding: '1rem',
-                  borderBottom: '1px solid var(--border-dim)',
+                  padding: '0.75rem 1rem',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
                   color: 'var(--text-secondary)',
                   fontSize: '0.85rem',
                 }}
