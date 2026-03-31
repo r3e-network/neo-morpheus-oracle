@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { experimental, rpc as neoRpc, tx, u, wallet as neoWallet } from '@cityofzion/neon-js';
 import {
   NEO_N3_SIGNER_ENV_KEYS,

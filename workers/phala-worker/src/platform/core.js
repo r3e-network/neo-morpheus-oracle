@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 
 export const SUPPORTED_ORACLE_TARGET_CHAINS = new Set(['neo_n3', 'neo_x']);
 export const DEFAULT_NEO_NETWORK_MAGIC = 894710606;
