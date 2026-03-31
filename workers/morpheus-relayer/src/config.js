@@ -279,7 +279,7 @@ export function createRelayerConfig() {
       updaterPrivateKey: updaterSigner.materialized?.private_key || '',
     },
     neo_x: {
-      rpcUrl: env('NEOX_RPC_URL', 'NEO_X_RPC_URL') || trimString(registry.neo_x?.rpc_url || ''),
+      rpcUrl: env('NEOX_RPC_URL') || trimString(registry.neo_x?.rpc_url || ''),
       chainId: Number(
         env('NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID') || registry.neo_x?.chain_id || 12227332
       ),

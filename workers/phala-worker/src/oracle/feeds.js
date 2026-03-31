@@ -535,7 +535,7 @@ async function loadOnchainFeedRecords(
     }
     if (targetChain === 'neo_x') {
       return await fetchNeoXFeedRecords(
-        trimString(neoXRpcUrl) || trimString(env('NEO_X_RPC_URL', 'NEOX_RPC_URL', 'EVM_RPC_URL')),
+        trimString(neoXRpcUrl) || trimString(env('NEOX_RPC_URL', 'EVM_RPC_URL')),
         dataFeedAddress
       );
     }

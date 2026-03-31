@@ -67,7 +67,7 @@ const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testne
 const registry = await readDeploymentRegistry(network);
 const deployment = registry.neo_x || {};
 const rpcUrl = trimString(
-  process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || deployment.rpc_url || ''
+  process.env.NEOX_RPC_URL || deployment.rpc_url || ''
 );
 const privateKey = trimString(
   process.env.NEOX_PRIVATE_KEY || process.env.PHALA_NEOX_PRIVATE_KEY || ''

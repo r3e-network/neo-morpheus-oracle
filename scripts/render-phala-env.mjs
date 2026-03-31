@@ -355,8 +355,7 @@ const runtimeConfig = {
   MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: relayerSigner.privateKey,
   NEOX_RPC_URL: resolveRegistryBackedValue(
     registry.neo_x?.rpc_url || 'https://neoxt4seed1.ngd.network',
-    'NEOX_RPC_URL',
-    'NEO_X_RPC_URL'
+    'NEOX_RPC_URL'
   ),
   NEOX_CHAIN_ID: resolveRegistryBackedValue(
     String(registry.neo_x?.chain_id || 12227332),

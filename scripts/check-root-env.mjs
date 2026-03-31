@@ -135,7 +135,7 @@ for (const [section, groups] of Object.entries(required)) {
 
 if (report.mode.neo_x_enabled) {
   const neoxRequired = [
-    ['NEOX_RPC_URL', 'NEO_X_RPC_URL'],
+    ['NEOX_RPC_URL'],
     ['NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID'],
     ['CONTRACT_MORPHEUS_ORACLE_X_ADDRESS'],
     ['CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS'],

@@ -25,7 +25,8 @@ import {
 } from './state.js';
 import { claimDurableJobForProcessing, maybeUpsertJob } from './queue.js';
 
-export { normalizeErrorMessage } from './feed-sync.js';
+import { normalizeErrorMessage } from './feed-sync.js';
+export { normalizeErrorMessage };
 
 export function trimOnchainErrorMessage(value, maxLength = 240) {
   const text = normalizeErrorMessage(value).trim();

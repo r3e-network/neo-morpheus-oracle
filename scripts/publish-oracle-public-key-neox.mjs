@@ -15,7 +15,7 @@ const phalaToken = trimString(
     process.env.PHALA_SHARED_SECRET ||
     ''
 );
-const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || '');
+const rpcUrl = trimString(process.env.NEOX_RPC_URL || '');
 const privateKey = trimString(
   process.env.NEOX_PRIVATE_KEY || process.env.PHALA_NEOX_PRIVATE_KEY || ''
 );

@@ -301,7 +301,7 @@ export async function fetchOnchainOraclePublicKey(targetChain) {
   if (!chain) throw new Error('targetChain is required');
 
   if (chain === 'neo_x') {
-    const rpcUrl = trimString(process.env.NEOX_RPC_URL || process.env.NEO_X_RPC_URL || '');
+    const rpcUrl = trimString(process.env.NEOX_RPC_URL || '');
     const oracleAddress = normalizeAddress(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS || '');
     if (!rpcUrl) throw new Error('NEOX_RPC_URL is required');
     if (!oracleAddress) throw new Error('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS is required');
