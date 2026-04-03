@@ -230,8 +230,7 @@ async function resolveNeoDidSalt(payload = {}) {
     const keyPath = configuredPath || 'morpheus/neodid/nullifier/v1';
     return await deriveKeyBytes(keyPath, 'neodid-nullifier-salt');
   } catch {
-    const info = await getDstackInfo({ required: false }).catch(() => null);
-    return Buffer.from(sha256Hex(`neodid:${info?.app_id || 'fallback'}`), 'hex');
+    throw new Error('NeoDID salt unavailable: set NEODID_SECRET_SALT env var or ensure dstack is available');
   }
 }
 

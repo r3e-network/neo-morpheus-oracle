@@ -126,7 +126,11 @@ export function addAllow(allowlist, contractHash, ...methods) {
   allowlist.set(normalized, current);
 }
 
+let allowlistCache = { timestamp: 0, result: null };
+
 export function buildTxProxyAllowlist() {
+  const now = Date.now();
+  if (allowlistCache.result && now - allowlistCache.timestamp < 60_000) return allowlistCache.result;
   const allowlist = parseTxProxyAllowlist(env('TXPROXY_ALLOWLIST'));
   addAllow(
     allowlist,
@@ -150,6 +154,7 @@ export function buildTxProxyAllowlist() {
     env('CONTRACT_GAS_HASH') || '0xd2a4cff31913016155e38e474a2c06d08be276cf',
     'transfer'
   );
+  allowlistCache = { timestamp: now, result: allowlist };
   return allowlist;
 }
 

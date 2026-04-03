@@ -9,13 +9,20 @@ import {
   trimString,
 } from '../platform/core.js';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
-import { deriveNeoN3PrivateKeyHex, shouldUseDerivedKeys } from '../platform/dstack.js';
+import { deriveNeoN3PrivateKeyHex, maybeBuildDstackAttestation, shouldUseDerivedKeys } from '../platform/dstack.js';
 import {
   NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
   reportPinnedNeoN3Role,
   resolvePinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
+
+function resolveKeySource(payload = {}) {
+  if (trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif)) {
+    return 'caller';
+  }
+  return 'worker';
+}
 
 function resolveOracleVerifierRole(payload = {}) {
   const explicit = trimString(payload.dstack_key_role || payload.key_role || '');
@@ -68,6 +75,7 @@ function resolveNeoN3WorkerKey(payload = {}) {
 }
 
 const seenRequestIds = new Map();
+const MAX_SEEN_REQUEST_IDS = 50_000;
 
 export function pruneSeenRequestIds() {
   const cutoff = Date.now() - REPLAY_WINDOW_MS;
@@ -78,6 +86,11 @@ export function pruneSeenRequestIds() {
 
 export function rememberRequestId(requestId) {
   pruneSeenRequestIds();
+  if (seenRequestIds.size >= MAX_SEEN_REQUEST_IDS) {
+    const entries = [...seenRequestIds.entries()].sort((a, b) => a[1] - b[1]);
+    const toDelete = Math.ceil(entries.length * 0.25);
+    for (let i = 0; i < toDelete; i++) seenRequestIds.delete(entries[i][0]);
+  }
   if (seenRequestIds.has(requestId)) return false;
   seenRequestIds.set(requestId, Date.now());
   return true;
@@ -107,6 +120,7 @@ export function resolveSigningBytes(payload) {
 }
 
 export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
+  const keySource = resolveKeySource(payload);
   const useOracleVerifierRole = resolveOracleVerifierRole(payload);
   const requestScopedKey =
     trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif);
@@ -141,6 +155,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
     public_key: account.publicKey,
     address: account.address,
     script_hash: `0x${account.scriptHash}`,
+    key_source: keySource,
   };
 }
 
@@ -168,9 +183,14 @@ async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
 }
 
 export async function buildSignedResultEnvelope(result, payload = {}) {
+  const keySource =
+    trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif)
+      ? 'caller'
+      : 'worker';
   const payloadBytes = Buffer.from(stableStringify(result), 'utf8');
   const outputHash = sha256Hex(payloadBytes);
   const signature = await maybeSignWorkerNeoN3Bytes(payloadBytes, payload);
+  const teeAttestation = await maybeBuildDstackAttestation(payload, outputHash, keySource);
   return {
     output_hash: outputHash,
     attestation_hash: outputHash,
@@ -178,6 +198,8 @@ export async function buildSignedResultEnvelope(result, payload = {}) {
     public_key: signature?.public_key || null,
     signer_address: signature?.address || null,
     signer_script_hash: signature?.script_hash || null,
+    key_source: keySource,
+    tee_attestation: teeAttestation,
   };
 }
 

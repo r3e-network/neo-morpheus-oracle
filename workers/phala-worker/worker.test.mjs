@@ -44,6 +44,7 @@ process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '';
 process.env.SUPABASE_URL = '';
 process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
+process.env.MORPHEUS_ALLOW_EPHEMERAL_KEY = 'true';
 process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0x017520f068fd602082fe5572596185e62a4ad991';
 process.env.NEODID_SECRET_SALT = 'worker-test-neodid-salt';
 process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';

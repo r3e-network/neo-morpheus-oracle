@@ -1,4 +1,4 @@
-import fs from 'node:fs/promises';
+import { readFile as fsReadFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { createCipheriv, createDecipheriv, randomBytes, webcrypto } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -7,6 +7,7 @@ import {
   decodeBase64,
   enforceSerializedSizeLimit,
   env,
+  normalizeBoolean,
   normalizeMorpheusNetwork,
   parseDurationMs,
   resolveMaxBytes,
@@ -137,7 +138,7 @@ async function generateX25519KeyMaterial() {
 
 async function ensureDirectory(filePath) {
   const directory = path.dirname(filePath);
-  await fs.mkdir(directory, { recursive: true });
+  await mkdir(directory, { recursive: true });
 }
 
 function resolveAbsoluteKeystorePath(filePath) {
@@ -150,6 +151,9 @@ async function deriveOracleWrapKey() {
     trimString(env('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH')) ||
     'morpheus/oracle/encryption/wrap/v1';
   const bytes = await deriveKeyBytes(keyPath, 'oracle-encryption-wrap');
+  if (bytes.length < 32) {
+    throw new Error(`oracle wrap key derivation produced ${bytes.length} bytes, expected at least 32`);
+  }
   return Buffer.from(bytes).subarray(0, 32);
 }
 
@@ -179,7 +183,7 @@ async function loadStableOracleKeyMaterial() {
   const wrapKey = await deriveOracleWrapKey();
 
   try {
-    const raw = await fs.readFile(keystorePath, 'utf8');
+    const raw = await fsReadFile(keystorePath, 'utf8');
     const parsed = JSON.parse(raw);
     if (!trimString(parsed.public_key_raw) || !parsed.sealed_private_key) {
       throw new Error('legacy or malformed X25519 keystore');
@@ -192,19 +196,15 @@ async function loadStableOracleKeyMaterial() {
   const generated = await generateX25519KeyMaterial();
   const sealedPrivateKey = encryptPrivateKey(generated.privateKeyPkcs8Bytes, wrapKey);
   await ensureDirectory(keystorePath);
-  await fs.writeFile(
-    keystorePath,
-    JSON.stringify(
-      {
-        algorithm: ORACLE_ENVELOPE_ALGORITHM,
-        version: ORACLE_ENVELOPE_VERSION,
-        public_key_raw: generated.publicKeyRawBytes.toString('base64'),
-        sealed_private_key: sealedPrivateKey,
-      },
-      null,
-      2
-    )
-  );
+  const keystoreData = {
+    algorithm: ORACLE_ENVELOPE_ALGORITHM,
+    version: ORACLE_ENVELOPE_VERSION,
+    public_key_raw: generated.publicKeyRawBytes.toString('base64'),
+    sealed_private_key: sealedPrivateKey,
+  };
+  const tmpPath = keystorePath + '.tmp';
+  await writeFile(tmpPath, JSON.stringify(keystoreData, null, 2));
+  await rename(tmpPath, keystorePath);
   return formatKeyMaterial({
     publicKeyRawBytes: generated.publicKeyRawBytes,
     privateKeyPkcs8Bytes: generated.privateKeyPkcs8Bytes,
@@ -541,6 +541,10 @@ export async function ensureOracleKeyMaterial(payload = {}) {
         return await loadStableOracleKeyMaterial();
       } catch {
         // fall back to ephemeral in-memory key material
+      }
+
+      if (!normalizeBoolean(env('MORPHEUS_ALLOW_EPHEMERAL_KEY'), false)) {
+        throw new Error('oracle key material unavailable: no configured key, dstack sealed keystore, or ephemeral key not allowed');
       }
 
       const generated = await generateX25519KeyMaterial();

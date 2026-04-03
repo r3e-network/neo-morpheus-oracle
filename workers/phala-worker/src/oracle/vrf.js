@@ -16,5 +16,6 @@ export async function handleVrf(payload) {
     tee_attestation: teeAttestation,
     verification: buildVerificationEnvelope(signed, teeAttestation),
     timestamp: Math.floor(Date.now() / 1000),
+    vrf_method: 'csprng-signed',
   });
 }

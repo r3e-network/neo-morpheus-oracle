@@ -41,9 +41,12 @@ function parseRuntimeConfigJson(raw) {
 }
 
 function getRuntimeConfigForNetwork(network) {
-  const normalizedNetwork = String(network || '').trim().toLowerCase() === 'mainnet'
-    ? 'mainnet'
-    : 'testnet';
+  const normalizedNetwork =
+    String(network || '')
+      .trim()
+      .toLowerCase() === 'mainnet'
+      ? 'mainnet'
+      : 'testnet';
   if (runtimeConfigByNetworkCache.has(normalizedNetwork)) {
     return runtimeConfigByNetworkCache.get(normalizedNetwork);
   }
@@ -67,14 +70,19 @@ export function env(...names) {
 }
 
 export function normalizeMorpheusNetwork(value, fallback = 'testnet') {
-  const normalized = String(value || '').trim().toLowerCase();
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase();
   if (normalized === 'mainnet' || normalized === 'testnet') return normalized;
   return fallback === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
 export function resolvePayloadNetwork(payload = {}, fallback = 'testnet') {
   return normalizeMorpheusNetwork(
-    payload?.network || payload?.morpheus_network || payload?.runtime_network || payload?.environment,
+    payload?.network ||
+      payload?.morpheus_network ||
+      payload?.runtime_network ||
+      payload?.environment,
     fallback
   );
 }
@@ -230,6 +238,60 @@ export function parseDurationMs(value, fallbackMs = 0) {
   const unit = match[2];
   const scale = unit === 'ms' ? 1 : unit === 's' ? 1000 : 60_000;
   return Math.max(Math.round(amount * scale), 0);
+}
+
+// --- Security: timeout cap for user-controlled durations (M-10) ---
+export const MAX_USER_TIMEOUT_MS = 30_000;
+
+export function cappedDurationMs(value, fallbackMs = 0, maxMs = MAX_USER_TIMEOUT_MS) {
+  return Math.min(parseDurationMs(value, fallbackMs), maxMs);
+}
+
+// --- Security: SSRF-safe URL validation for RPC endpoints (M-08, H-07) ---
+export function validateRpcUrl(rawUrl) {
+  const url = trimString(rawUrl);
+  if (!url) return url;
+  const parsedUrl = new URL(url);
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    throw new Error('RPC URL must use http or https');
+  }
+  const host = parsedUrl.hostname.toLowerCase();
+  if (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    host === '0.0.0.0' ||
+    host.endsWith('.local') ||
+    host === '169.254.169.254' ||
+    host.startsWith('10.') ||
+    host.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  ) {
+    throw new Error('private/internal RPC URLs not allowed');
+  }
+  return url;
+}
+
+// --- Security: sanitize error messages before returning to caller (M-06) ---
+// Blacklist approach: pass through unless error matches sensitive patterns.
+const SENSITIVE_PATTERNS = [
+  /private[_ ]?key/i,
+  /secret[_ ]?key/i,
+  /signing[_ ]?key/i,
+  /^Error:\s*0x[0-9a-f]{20,}/im,
+  /wif\b.*\bKx?\w{30,}/i,
+  /\/home\/|^\/(?:usr|etc|var|tmp)\//,
+  /node_modules/,
+  /\.js:\d+:\d+/,
+  /^Error:\s*[0-9a-f]{64}\b/im,
+];
+
+export function sanitizeErrorMessage(error) {
+  if (!(error instanceof Error)) return String(error).slice(0, 200);
+  const msg = error.message;
+  if (SENSITIVE_PATTERNS.some((p) => p.test(msg))) return 'internal error';
+  return msg.slice(0, 200);
 }
 
 export function assertUntrustedScriptsEnabled() {

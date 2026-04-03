@@ -7,6 +7,7 @@ let dstackClientPromise;
 let dstackInfoPromise;
 let dstackClientFactoryForTests = null;
 const derivedKeyCache = new Map();
+const MAX_DERIVED_KEY_CACHE_SIZE = 64;
 
 function normalizeBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
@@ -16,6 +17,18 @@ function normalizeBoolean(value, fallback = false) {
 
 export function shouldUseDerivedKeys(payload = {}) {
   return normalizeBoolean(payload.use_derived_keys ?? env('PHALA_USE_DERIVED_KEYS'), false);
+}
+
+export function validateKeyRole(role) {
+  if (typeof role !== 'string' || role.length === 0 || role.length > 64) {
+    throw new Error('invalid key role: must be 1-64 alphanumeric/dash/underscore chars');
+  }
+  if (/[/\\]/.test(role) || role.includes('..')) {
+    throw new Error('invalid key role: must be 1-64 alphanumeric/dash/underscore chars');
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(role)) {
+    throw new Error('invalid key role: must be 1-64 alphanumeric/dash/underscore chars');
+  }
 }
 
 export function shouldEmitAttestation(payload = {}) {
@@ -99,6 +112,10 @@ export async function deriveKeyBytes(path, purpose = '') {
   if (!keyPath) throw new Error('derived key path required');
   const cacheKey = `${keyPath}:${purpose}`;
   if (!derivedKeyCache.has(cacheKey)) {
+    if (derivedKeyCache.size >= MAX_DERIVED_KEY_CACHE_SIZE) {
+      const oldestKey = derivedKeyCache.keys().next().value;
+      derivedKeyCache.delete(oldestKey);
+    }
     derivedKeyCache.set(
       cacheKey,
       (async () => {
@@ -122,12 +139,14 @@ function normalizePrivateKeyHex(buffer, label) {
 }
 
 export async function deriveNeoN3PrivateKeyHex(role = 'worker') {
+  validateKeyRole(role);
   const configuredPath = trimString(env('PHALA_DSTACK_NEO_N3_KEY_PATH'));
   const keyPath = configuredPath || `morpheus/neo-n3/${role}/signing/v1`;
   return normalizePrivateKeyHex(await deriveKeyBytes(keyPath, 'neo-n3-signing'), `neo-n3:${role}`);
 }
 
 export async function deriveNeoXPrivateKeyHex(role = 'worker') {
+  validateKeyRole(role);
   const configuredPath = trimString(env('PHALA_DSTACK_NEOX_KEY_PATH'));
   const keyPath = configuredPath || `morpheus/neo-x/${role}/signing/v1`;
   return normalizePrivateKeyHex(await deriveKeyBytes(keyPath, 'neo-x-signing'), `neo-x:${role}`);
@@ -195,7 +214,8 @@ export async function buildDstackAttestation(reportInput, { required = false } =
   };
 }
 
-export async function maybeBuildDstackAttestation(payload, reportInput) {
+export async function maybeBuildDstackAttestation(payload, reportInput, keySource) {
+  if (keySource === 'caller') return null;
   if (!shouldEmitAttestation(payload)) return null;
   try {
     return await buildDstackAttestation(reportInput, { required: false });

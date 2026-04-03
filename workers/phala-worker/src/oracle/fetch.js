@@ -7,6 +7,7 @@ import {
   parseDurationMs,
   resolveMaxBytes,
   trimString,
+  cappedDurationMs,
 } from '../platform/core.js';
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from './providers.js';
 import { buildSignedResultEnvelope, buildVerificationEnvelope } from '../chain/index.js';
@@ -130,9 +131,10 @@ export async function performOracleFetch(payload) {
   const { payload: resolvedPayload } = await resolveProviderPayload(payload, {
     fallbackProviderId: !payload.url && payload.symbol ? 'twelvedata' : undefined,
   });
-  const timeoutMs = parseDurationMs(
+  const timeoutMs = cappedDurationMs(
     resolvedPayload.oracle_timeout_ms || resolvedPayload.fetch_timeout_ms || env('ORACLE_TIMEOUT'),
-    20000
+    20000,
+    30_000
   );
   const maxBodyBytes = resolveMaxBytes(env('ORACLE_MAX_UPSTREAM_BODY_BYTES'), 256 * 1024, 4096);
 

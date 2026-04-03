@@ -1,10 +1,13 @@
 import { JsonRpcProvider, Wallet as EvmWallet } from 'ethers';
 import {
   DEFAULT_WAIT_TIMEOUT_MS,
+  cappedDurationMs,
   env,
+  normalizeBoolean,
   sha256Hex,
   stableStringify,
   trimString,
+  validateRpcUrl,
 } from '../platform/core.js';
 import { resolveSigningBytes } from './signing.js';
 import { deriveNeoXPrivateKeyHex, shouldUseDerivedKeys } from '../platform/dstack.js';
@@ -37,7 +40,7 @@ export async function loadNeoXContext(payload = {}, { required = false, requireR
   const privateKey = await resolveNeoXPrivateKey(payload, { required });
   if (!privateKey) return null;
 
-  const rpcUrl = trimString(payload.rpc_url) || env('NEOX_RPC_URL', 'EVM_RPC_URL');
+  const rpcUrl = validateRpcUrl(trimString(payload.rpc_url) || env('NEOX_RPC_URL', 'EVM_RPC_URL'));
   if (requireRpc && !rpcUrl) throw new Error('NEOX_RPC_URL is required for Neo X relay');
 
   const provider = rpcUrl ? new JsonRpcProvider(rpcUrl) : null;
@@ -82,6 +85,46 @@ export function normalizeEvmTransaction(payload) {
 }
 
 export async function relayNeoXTransaction(payload) {
+  // C-04: Restrict relay targets unless explicitly unrestricted
+  const unrestricted = normalizeBoolean(env('NEOX_RELAY_UNRESTRICTED'), false);
+  if (
+    !unrestricted &&
+    !payload.raw_transaction &&
+    !payload.raw_tx &&
+    !payload.signed_tx &&
+    !payload.tx_hex
+  ) {
+    // Only restrict when we're constructing the tx (not raw relay)
+    const txReq =
+      payload.transaction && typeof payload.transaction === 'object'
+        ? payload.transaction
+        : payload;
+    const toAddr = trimString(txReq.to).toLowerCase();
+    const value = normalizeBigIntLike(txReq.value);
+
+    // Value cap — default 0 (no value transfer)
+    const maxValue = BigInt(env('NEOX_MAX_RELAY_VALUE') || '0');
+    if (value && value > maxValue) {
+      throw new Error(
+        `Neo X relay: value (${value}) exceeds cap (${maxValue}); set NEOX_MAX_RELAY_VALUE to increase`
+      );
+    }
+
+    // Receiver allowlist
+    const allowedReceivers = env('NEOX_RELAY_ALLOWED_RECEIVERS');
+    if (allowedReceivers) {
+      const allowSet = new Set(
+        allowedReceivers
+          .split(',')
+          .map((s) => trimString(s).toLowerCase())
+          .filter(Boolean)
+      );
+      if (allowSet.size > 0 && !allowSet.has(toAddr)) {
+        throw new Error(`Neo X relay: to address not in NEOX_RELAY_ALLOWED_RECEIVERS`);
+      }
+    }
+  }
+
   const context = await loadNeoXContext(payload, {
     required: true,
     requireRpc: payload.broadcast !== false || !!payload.raw_transaction,
@@ -118,7 +161,7 @@ export async function relayNeoXTransaction(payload) {
     receipt = await context.provider.waitForTransaction(
       txHash,
       Number(payload.confirmations) || 1,
-      Number(payload.timeout_ms) || DEFAULT_WAIT_TIMEOUT_MS
+      cappedDurationMs(payload.timeout_ms, DEFAULT_WAIT_TIMEOUT_MS, 120_000)
     );
   }
   return {
