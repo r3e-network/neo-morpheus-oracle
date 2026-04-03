@@ -319,3 +319,17 @@ export function resolveWasmModuleBase64(payload) {
     return trimString(payload.module_base64);
   return '';
 }
+
+export function requestLog(level, event, data = {}) {
+  const entry = {
+    ts: new Date().toISOString(),
+    level,
+    event,
+    ...data,
+  };
+  const line = JSON.stringify(entry);
+  if (level === 'error') console.error(line);
+  else if (level === 'warn') console.warn(line);
+  else console.log(line);
+  return entry;
+}

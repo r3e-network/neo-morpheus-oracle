@@ -3,6 +3,7 @@ import path from 'node:path';
 import { Interface } from 'ethers';
 import { env, json, parseDurationMs, strip0x, trimString } from '../platform/core.js';
 import { maybeBuildDstackAttestation } from '../platform/dstack.js';
+import { aggregateQuotes } from './aggregation.js';
 import {
   buildSignedResultEnvelope,
   buildVerificationEnvelope,
@@ -672,12 +673,21 @@ export async function fetchPriceQuotes(symbol, options = {}) {
     }
   }
 
+  const aggregation =
+    quotes.length >= 2
+      ? aggregateQuotes(
+          quotes.map((q) => ({ provider: q.provider, price: Number(q.price), timestamp: q.timestamp })),
+          { method: trimString(options.aggregation_method || env('MORPHEUS_AGGREGATION_METHOD') || 'median').toLowerCase() === 'trimmed-mean' ? 'trimmed-mean' : 'median' }
+        )
+      : null;
+
   return {
     pair:
       providers.length === 1 ? getFeedStoragePair(providers[0], normalizedPair) : normalizedPair,
     providers_requested: providers,
     quotes,
     errors,
+    ...(aggregation ? { aggregation } : {}),
   };
 }
 
@@ -688,7 +698,8 @@ export async function handleFeedsPrice(symbol, options = {}) {
     if ((explicitProvider && explicitProvider !== 'all') || inferredProvider) {
       return json(200, await fetchPriceQuote(symbol, options));
     }
-    return json(200, await fetchPriceQuotes(symbol, options));
+    const result = await fetchPriceQuotes(symbol, options);
+    return json(200, result);
   } catch (error) {
     return json(502, { error: error instanceof Error ? error.message : String(error) });
   }
@@ -911,6 +922,7 @@ export async function handleOracleFeed(payload) {
   const syncResults = [];
   const batchUpdates = [];
   const errors = [];
+  const aggregations = {};
 
   const dataFeedHash =
     targetChain === 'neo_n3'
@@ -939,6 +951,9 @@ export async function handleOracleFeed(payload) {
         errors: quoteSet.errors,
       });
       continue;
+    }
+    if (quoteSet.aggregation) {
+      aggregations[symbol] = quoteSet.aggregation;
     }
     for (const quote of quoteSet.quotes) {
       const storagePair = getFeedStoragePair(quote.provider, quote.pair);
@@ -1059,6 +1074,7 @@ export async function handleOracleFeed(payload) {
     batch_tx: batchTx,
     sync_results: syncResults,
     errors,
+    ...(Object.keys(aggregations).length > 0 ? { aggregations } : {}),
   });
 }
 

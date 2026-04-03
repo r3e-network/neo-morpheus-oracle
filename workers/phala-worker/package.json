@@ -6,8 +6,8 @@
   "scripts": {
     "bundle": "node src/worker.js",
     "start": "node src/server.js",
-    "check": "node --check src/capabilities.js && node --check src/worker.js && node --check src/server.js && node --check src/platform/upstash.js && node --check src/platform/request-guards.js && node --check src/platform/request-guards.test.mjs && node --check src/platform/overload-guard.js && node --check src/platform/overload-guard.test.mjs && node --check src/oracle/feeds.test.mjs && node --check src/oracle/providers.test.mjs && node --check src/workflow.test.mjs",
-    "test": "node --test worker.test.mjs && node --test src/capabilities.test.mjs && node --test src/workflow.test.mjs && node --test src/platform/request-guards.test.mjs && node --test src/platform/overload-guard.test.mjs && node --test src/oracle/feeds.test.mjs && node --test src/oracle/providers.test.mjs"
+    "check": "node --check src/capabilities.js && node --check src/worker.js && node --check src/server.js && node --check src/platform/upstash.js && node --check src/platform/request-guards.js && node --check src/platform/request-guards.test.mjs && node --check src/platform/overload-guard.js && node --check src/platform/overload-guard.test.mjs && node --check src/platform/circuit-breaker.js && node --check src/platform/circuit-breaker.test.mjs && node --check src/oracle/aggregation.js && node --check src/oracle/aggregation.test.mjs && node --check src/oracle/feeds.test.mjs && node --check src/oracle/providers.test.mjs && node --check src/workflow.test.mjs",
+    "test": "node --test worker.test.mjs && node --test src/capabilities.test.mjs && node --test src/workflow.test.mjs && node --test src/platform/request-guards.test.mjs && node --test src/platform/overload-guard.test.mjs && node --test src/platform/circuit-breaker.test.mjs && node --test src/oracle/aggregation.test.mjs && node --test src/oracle/feeds.test.mjs && node --test src/oracle/providers.test.mjs"
   },
   "dependencies": {
     "@cityofzion/neon-js": "^5.8.1",

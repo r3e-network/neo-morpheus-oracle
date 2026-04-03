@@ -1,4 +1,4 @@
-import { json, sanitizeErrorMessage } from './platform/core.js';
+import { json, requestLog, sanitizeErrorMessage } from './platform/core.js';
 import { requireAuth } from './platform/auth.js';
 import { buildDstackAttestation, getDstackInfo } from './platform/dstack.js';
 import { acquireOverloadSlot, snapshotOverloadState } from './platform/overload-guard.js';
@@ -70,7 +70,14 @@ export default async function handler(request) {
       const resolved = resolveCapability(path, payload);
       let response;
       if (resolved) {
+        const start = Date.now();
+        requestLog('info', 'request', { capability: resolved.capability.id, method: request.method, path });
         response = await resolved.capability.handler({ path, url, payload, request });
+        requestLog('info', 'response', {
+          capability: resolved.capability.id,
+          status: response.status,
+          latency_ms: Date.now() - start,
+        });
       } else {
         response = json(404, { error: 'not found', path });
       }

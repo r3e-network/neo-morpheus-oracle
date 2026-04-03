@@ -8,11 +8,35 @@ import {
   stableStringify,
   trimString,
 } from '../platform/core.js';
+import { CircuitBreaker } from '../platform/circuit-breaker.js';
 
 const PROVIDER_CONFIG_CACHE_TTL_MS = 30_000;
 const providerConfigCache = new Map();
 const providerResponseCache = new Map();
 const providerResponseInFlight = new Map();
+
+// Per-provider circuit breakers
+const providerBreakers = new Map();
+
+function getOrCreateBreaker(providerId) {
+  const id = normalizeProviderId(providerId);
+  if (!providerBreakers.has(id)) {
+    providerBreakers.set(id, new CircuitBreaker(id, {
+      failureThreshold: Number(env('MORPHEUS_PROVIDER_FAILURE_THRESHOLD')) || 3,
+      resetTimeoutMs: Number(env('MORPHEUS_PROVIDER_RESET_TIMEOUT_MS')) || 60_000,
+      halfOpenMax: 1,
+    }));
+  }
+  return providerBreakers.get(id);
+}
+
+export function getProviderHealth() {
+  const result = {};
+  for (const [id, breaker] of providerBreakers) {
+    result[id] = breaker.getState();
+  }
+  return result;
+}
 
 export const BUILTIN_PROVIDER_CATALOG = [
   {
@@ -507,6 +531,12 @@ function detectProviderPayloadError(requestSpec, response, data) {
 }
 
 export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
+  const providerId = normalizeProviderId(requestSpec.provider || '');
+  const breaker = providerId ? getOrCreateBreaker(providerId) : null;
+  if (breaker && !breaker.allow()) {
+    throw new Error(`provider ${providerId} circuit breaker is open`);
+  }
+
   const cacheKey = buildProviderCacheKey(requestSpec);
   const cacheTtlMs = resolveProviderResponseCacheTtlMs();
   const cached = cacheKey ? providerResponseCache.get(cacheKey) : null;
@@ -622,7 +652,14 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
         value: cloneProviderResult(result),
       });
     }
+    if (breaker) {
+      if (result.ok) breaker.recordSuccess();
+      else breaker.recordFailure();
+    }
     return cloneProviderResult(result);
+  } catch (error) {
+    if (breaker) breaker.recordFailure();
+    throw error;
   } finally {
     if (cacheKey) {
       providerResponseInFlight.delete(cacheKey);
