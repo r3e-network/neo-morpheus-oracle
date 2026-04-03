@@ -651,5 +651,5 @@ test('workflow: every capability registered in the registry resolves and handles
   }
 
   // Verify feature count matches capabilities
-  assert.equal(features.length, 24, 'should have 24 registered capabilities');
+  assert.equal(features.length, 25, 'should have 25 registered capabilities');
 });

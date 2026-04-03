@@ -23,7 +23,7 @@ import {
   handleNeoDidZkLoginTicket,
 } from './neodid/index.js';
 import { handlePaymasterAuthorize } from './paymaster/index.js';
-import { handleProvidersList } from './oracle/providers.js';
+import { handleProvidersList, getProviderHealth } from './oracle/providers.js';
 
 // ---------------------------------------------------------------------------
 // Thin wrapper handlers for inline logic previously in worker.js
@@ -75,6 +75,15 @@ async function handleOracleQuery({ payload }) {
 
 async function handleOracleSmartFetch({ payload }) {
   return json(200, await buildOracleResponse(payload, 'smart-fetch'));
+}
+
+async function handleOracleHeartbeat() {
+  const providers = getProviderHealth();
+  return json(200, {
+    status: 'ok',
+    providers,
+    timestamp: Math.floor(Date.now() / 1000),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +153,12 @@ const CAPABILITIES = [
     paths: [{ match: '/oracle/public-key' }],
     featurePath: 'oracle/public-key',
     handler: handleOraclePublicKey,
+  },
+  {
+    id: 'oracle_heartbeat',
+    paths: [{ match: '/oracle/heartbeat' }],
+    featurePath: 'oracle/heartbeat',
+    handler: () => handleOracleHeartbeat(),
   },
   {
     id: 'oracle_query',
