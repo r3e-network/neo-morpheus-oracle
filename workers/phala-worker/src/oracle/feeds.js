@@ -676,8 +676,19 @@ export async function fetchPriceQuotes(symbol, options = {}) {
   const aggregation =
     quotes.length >= 2
       ? aggregateQuotes(
-          quotes.map((q) => ({ provider: q.provider, price: Number(q.price), timestamp: q.timestamp })),
-          { method: trimString(options.aggregation_method || env('MORPHEUS_AGGREGATION_METHOD') || 'median').toLowerCase() === 'trimmed-mean' ? 'trimmed-mean' : 'median' }
+          quotes.map((q) => ({
+            provider: q.provider,
+            price: Number(q.price),
+            timestamp: q.timestamp,
+          })),
+          {
+            method:
+              trimString(
+                options.aggregation_method || env('MORPHEUS_AGGREGATION_METHOD') || 'median'
+              ).toLowerCase() === 'trimmed-mean'
+                ? 'trimmed-mean'
+                : 'median',
+          }
         )
       : null;
 
