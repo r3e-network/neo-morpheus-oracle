@@ -21,7 +21,10 @@ export function trimmedMean(values, trimPct = 0.1) {
   return trimmed.reduce((sum, v) => sum + v, 0) / trimmed.length;
 }
 
-export function aggregateQuotes(quotes, { method = 'median', maxDeviationPct = 25, minProviders = 1 } = {}) {
+export function aggregateQuotes(
+  quotes,
+  { method = 'median', maxDeviationPct = 25, minProviders = 1 } = {}
+) {
   if (!Array.isArray(quotes) || quotes.length === 0) {
     throw new Error('aggregateQuotes requires at least one quote');
   }
@@ -35,7 +38,9 @@ export function aggregateQuotes(quotes, { method = 'median', maxDeviationPct = 2
   }
 
   if (validQuotes.length < minProviders) {
-    throw new Error(`only ${validQuotes.length} providers available, minimum ${minProviders} required`);
+    throw new Error(
+      `only ${validQuotes.length} providers available, minimum ${minProviders} required`
+    );
   }
 
   const prices = validQuotes.map((q) => Number(q.price));
@@ -55,7 +60,7 @@ export function aggregateQuotes(quotes, { method = 'median', maxDeviationPct = 2
   // Two sources — average with deviation check
   if (prices.length === 2) {
     const avg = (prices[0] + prices[1]) / 2;
-    const deviation = Math.abs(prices[0] - prices[1]) / avg * 100;
+    const deviation = (Math.abs(prices[0] - prices[1]) / avg) * 100;
     if (deviation > maxDeviationPct) {
       // Can't determine which is the outlier with 2 sources — return the lower-priced one
       const idx = prices[0] <= prices[1] ? 0 : 1;
@@ -84,7 +89,7 @@ export function aggregateQuotes(quotes, { method = 'median', maxDeviationPct = 2
   const kept = [];
 
   for (let i = 0; i < prices.length; i++) {
-    const deviation = med > 0 ? Math.abs(prices[i] - med) / med * 100 : 0;
+    const deviation = med > 0 ? (Math.abs(prices[i] - med) / med) * 100 : 0;
     if (deviation > maxDeviationPct) {
       rejected.push(validQuotes[i]);
     } else {
@@ -110,7 +115,7 @@ export function aggregateQuotes(quotes, { method = 'median', maxDeviationPct = 2
   // Compute deviation among kept quotes
   const keptMed = median(keptPrices);
   const maxDeviation = keptPrices.reduce((max, p) => {
-    const dev = keptMed > 0 ? Math.abs(p - keptMed) / keptMed * 100 : 0;
+    const dev = keptMed > 0 ? (Math.abs(p - keptMed) / keptMed) * 100 : 0;
     return Math.max(max, dev);
   }, 0);
 

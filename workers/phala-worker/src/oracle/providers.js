@@ -21,11 +21,14 @@ const providerBreakers = new Map();
 function getOrCreateBreaker(providerId) {
   const id = normalizeProviderId(providerId);
   if (!providerBreakers.has(id)) {
-    providerBreakers.set(id, new CircuitBreaker(id, {
-      failureThreshold: Number(env('MORPHEUS_PROVIDER_FAILURE_THRESHOLD')) || 3,
-      resetTimeoutMs: Number(env('MORPHEUS_PROVIDER_RESET_TIMEOUT_MS')) || 60_000,
-      halfOpenMax: 1,
-    }));
+    providerBreakers.set(
+      id,
+      new CircuitBreaker(id, {
+        failureThreshold: Number(env('MORPHEUS_PROVIDER_FAILURE_THRESHOLD')) || 3,
+        resetTimeoutMs: Number(env('MORPHEUS_PROVIDER_RESET_TIMEOUT_MS')) || 60_000,
+        halfOpenMax: 1,
+      })
+    );
   }
   return providerBreakers.get(id);
 }
@@ -236,11 +239,7 @@ export function __resetProviderRuntimeCachesForTests() {
 }
 
 function resolveProviderResponseMaxBodyBytes() {
-  return resolveMaxBytes(
-    env('ORACLE_MAX_PROVIDER_BODY_BYTES'),
-    64 * 1024,
-    4096
-  );
+  return resolveMaxBytes(env('ORACLE_MAX_PROVIDER_BODY_BYTES'), 64 * 1024, 4096);
 }
 
 async function fetchSupabaseRows(table, query) {
@@ -612,11 +611,7 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
           provider_error: payloadError,
         };
 
-        if (
-          !result.ok &&
-          attempt + 1 < totalAttempts &&
-          isRetryableProviderStatus(result.status)
-        ) {
+        if (!result.ok && attempt + 1 < totalAttempts && isRetryableProviderStatus(result.status)) {
           await sleep(resolveProviderRetryDelayMs(attempt, result));
           continue;
         }

@@ -71,7 +71,11 @@ export default async function handler(request) {
       let response;
       if (resolved) {
         const start = Date.now();
-        requestLog('info', 'request', { capability: resolved.capability.id, method: request.method, path });
+        requestLog('info', 'request', {
+          capability: resolved.capability.id,
+          method: request.method,
+          path,
+        });
         response = await resolved.capability.handler({ path, url, payload, request });
         requestLog('info', 'response', {
           capability: resolved.capability.id,

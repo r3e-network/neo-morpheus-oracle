@@ -60,20 +60,15 @@ describe('aggregateQuotes', () => {
   });
 
   it('rejects divergent two-source quotes', () => {
-    const result = aggregateQuotes(
-      [baseQuote('a', 100), baseQuote('b', 200)],
-      { maxDeviationPct: 25 }
-    );
+    const result = aggregateQuotes([baseQuote('a', 100), baseQuote('b', 200)], {
+      maxDeviationPct: 25,
+    });
     assert.equal(result.confidence, 'low');
     assert.equal(result.providers_rejected.length, 1);
   });
 
   it('returns median for 3+ agreeing quotes', () => {
-    const result = aggregateQuotes([
-      baseQuote('a', 100),
-      baseQuote('b', 101),
-      baseQuote('c', 102),
-    ]);
+    const result = aggregateQuotes([baseQuote('a', 100), baseQuote('b', 101), baseQuote('c', 102)]);
     assert.equal(result.price, 101);
     assert.equal(result.confidence, 'high');
     assert.equal(result.method, 'median');
@@ -81,12 +76,7 @@ describe('aggregateQuotes', () => {
 
   it('rejects outlier quotes above maxDeviationPct', () => {
     const result = aggregateQuotes(
-      [
-        baseQuote('a', 100),
-        baseQuote('b', 101),
-        baseQuote('c', 102),
-        baseQuote('outlier', 500),
-      ],
+      [baseQuote('a', 100), baseQuote('b', 101), baseQuote('c', 102), baseQuote('outlier', 500)],
       { maxDeviationPct: 25 }
     );
     assert.ok(result.providers_rejected.includes('outlier'));
@@ -95,10 +85,10 @@ describe('aggregateQuotes', () => {
   });
 
   it('falls back to median when all quotes are rejected', () => {
-    const result = aggregateQuotes(
-      [baseQuote('a', 1), baseQuote('b', 1000)],
-      { maxDeviationPct: 10, minProviders: 1 }
-    );
+    const result = aggregateQuotes([baseQuote('a', 1), baseQuote('b', 1000)], {
+      maxDeviationPct: 10,
+      minProviders: 1,
+    });
     // With only 2 quotes diverging > 10%, returns lower
     assert.equal(result.confidence, 'low');
   });

@@ -4,10 +4,7 @@
  * States: CLOSED (healthy) → OPEN (failing) → HALF_OPEN (probing) → CLOSED
  */
 export class CircuitBreaker {
-  constructor(
-    name,
-    { failureThreshold = 3, resetTimeoutMs = 60_000, halfOpenMax = 1 } = {}
-  ) {
+  constructor(name, { failureThreshold = 3, resetTimeoutMs = 60_000, halfOpenMax = 1 } = {}) {
     this.name = name;
     this.failureThreshold = failureThreshold;
     this.resetTimeoutMs = resetTimeoutMs;
