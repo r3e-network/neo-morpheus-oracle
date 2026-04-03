@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { keccak256, toUtf8Bytes } from 'ethers';
 import {
   assertUntrustedScriptsEnabled,
+  cappedDurationMs,
   enforceSerializedSizeLimit,
   env,
   json,
@@ -212,7 +213,11 @@ function resolveZkpVerifyTimeoutMs() {
 }
 
 function resolveSnarkjsCommand() {
-  return trimString(env('MORPHEUS_SNARKJS_BIN', 'COMPUTE_SNARKJS_BIN')) || 'snarkjs';
+  const command = trimString(env('MORPHEUS_SNARKJS_BIN', 'COMPUTE_SNARKJS_BIN')) || 'snarkjs';
+  if (command.includes('..')) {
+    throw new Error('MORPHEUS_SNARKJS_BIN must not contain path traversal');
+  }
+  return command;
 }
 
 async function verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof) {
@@ -335,7 +340,7 @@ async function verifyZerc20SingleWithdraw(input = {}) {
 
   let proofVerified = null;
   if (input.skip_proof_verification === true) {
-    proofVerified = null;
+    proofVerified = 'skipped';
   } else if (input.verifying_key || input.verifyingKey) {
     const proof = input.proof;
     if (!proof || typeof proof !== 'object') {
@@ -356,14 +361,18 @@ async function verifyZerc20SingleWithdraw(input = {}) {
   }
 
   const statementsMatch = Object.values(checks).every((entry) => entry.ok);
-  return {
+  const result = {
     statement,
     public_signals: publicSignals,
     statement_hash: sha256Hex(stableStringify(statement)),
     checks,
     proof_verified: proofVerified,
-    is_valid: statementsMatch && (proofVerified === null || proofVerified === true),
+    is_valid: statementsMatch && (proofVerified === null || proofVerified === true || proofVerified === 'skipped'),
   };
+  if (proofVerified === 'skipped') {
+    result.warning = 'proof verification was skipped by caller';
+  }
+  return result;
 }
 
 export const BUILTIN_COMPUTE_CATALOG = [
@@ -638,13 +647,14 @@ export async function executeStandaloneCompute(payload) {
     const entryPoint =
       trimString(payload.wasm_entry || payload.wasm_entry_point || payload.entry_point || 'run') ||
       'run';
-    const timeoutMs = parseDurationMs(
+    const timeoutMs = cappedDurationMs(
       payload.wasm_timeout_ms ||
         payload.script_timeout_ms ||
         payload.compute_timeout_ms ||
         env('COMPUTE_WASM_TIMEOUT_MS', 'MORPHEUS_WASM_TIMEOUT_MS') ||
         30000,
-      30000
+      30000,
+      60_000
     );
     return {
       runtime: 'wasm',
@@ -671,9 +681,10 @@ export async function executeStandaloneCompute(payload) {
   if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(entryPoint)) {
     throw new Error('entry point must be a valid identifier');
   }
-  const timeoutMs = parseDurationMs(
+  const timeoutMs = cappedDurationMs(
     payload.script_timeout_ms || payload.compute_timeout_ms || env('COMPUTE_SCRIPT_TIMEOUT_MS'),
-    2000
+    2000,
+    60_000
   );
 
   return {

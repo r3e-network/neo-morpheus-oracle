@@ -1,4 +1,4 @@
-import { json } from './platform/core.js';
+import { json, sanitizeErrorMessage } from './platform/core.js';
 import { requireAuth } from './platform/auth.js';
 import { buildDstackAttestation, getDstackInfo } from './platform/dstack.js';
 import { acquireOverloadSlot, snapshotOverloadState } from './platform/overload-guard.js';
@@ -80,6 +80,6 @@ export default async function handler(request) {
       overload.release();
     }
   } catch (error) {
-    return json(400, { error: error instanceof Error ? error.message : String(error) });
+    return json(400, { error: sanitizeErrorMessage(error) });
   }
 }

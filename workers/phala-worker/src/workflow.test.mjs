@@ -28,6 +28,7 @@ process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
 process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0x017520f068fd602082fe5572596185e62a4ad991';
 process.env.NEODID_SECRET_SALT = 'workflow-test-salt';
 process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+process.env.MORPHEUS_ALLOW_EPHEMERAL_KEY = 'true';
 process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
 
 const baselineEnv = { ...process.env };

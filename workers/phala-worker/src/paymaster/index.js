@@ -225,6 +225,10 @@ async function evaluatePaymasterAuthorization(payload = {}) {
   const policy = resolvePaymasterPolicy(resolvePaymasterNetwork(payload));
   const normalized = normalizeVerdictPayload(payload);
 
+  const gasUnits = Number(payload.estimated_gas_units);
+  if (!Number.isFinite(gasUnits) || gasUnits < 1) {
+    return json(400, { error: 'estimated_gas_units must be a positive number' });
+  }
   if (!policy.enabled) {
     return buildDeniedVerdict(policy, normalized, 'paymaster disabled for network');
   }
@@ -242,9 +246,6 @@ async function evaluatePaymasterAuthorization(payload = {}) {
   }
   if (!normalized.method) {
     return buildDeniedVerdict(policy, normalized, 'method is required');
-  }
-  if (!Number.isFinite(normalized.estimated_gas_units) || normalized.estimated_gas_units <= 0) {
-    return buildDeniedVerdict(policy, normalized, 'estimated_gas_units must be positive');
   }
   if (policy.maxGasUnits > 0 && normalized.estimated_gas_units > policy.maxGasUnits) {
     return buildDeniedVerdict(policy, normalized, 'estimated gas exceeds network paymaster limit');

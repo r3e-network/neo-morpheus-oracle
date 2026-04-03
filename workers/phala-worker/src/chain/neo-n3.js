@@ -10,8 +10,11 @@ import {
   DEFAULT_POLL_INTERVAL_MS,
   DEFAULT_WAIT_TIMEOUT_MS,
   envForNetwork,
+  normalizeBoolean,
   resolvePayloadNetwork,
+  sanitizeErrorMessage,
   trimString,
+  validateRpcUrl,
 } from '../platform/core.js';
 import {
   allowlistAllows,
@@ -95,9 +98,9 @@ export function loadNeoN3Context(payload = {}, { required = false, requireRpc = 
     return null;
   }
 
-  const rpcUrl =
-    trimString(payload.rpc_url) ||
-    envForNetwork(network, 'NEO_RPC_URL');
+  const rpcUrl = validateRpcUrl(
+    trimString(payload.rpc_url) || envForNetwork(network, 'NEO_RPC_URL')
+  );
   if (requireRpc && !rpcUrl) throw new Error('NEO_RPC_URL is required for Neo N3 relay');
 
   const networkMagic = Number(
@@ -149,7 +152,9 @@ export async function relayNeoN3Invocation(payload) {
     if (!shouldSkipSimulation) {
       const signers = getNeoSigners(
         context.account,
-        payload.signer_scope || payload.scope || 'CalledByEntry'
+        normalizeBoolean(env('MORPHEUS_ALLOW_GLOBAL_SCOPE'), false)
+          ? payload.signer_scope || payload.scope || 'CalledByEntry'
+          : 'CalledByEntry'
       );
       simulation = await contract.testInvoke(method, params, signers);
       if (String(simulation?.state || '') === 'FAULT') {
@@ -247,6 +252,12 @@ export async function sponsorNeoN3Transaction(payload) {
     transaction.serialize().length / 2 +
     dummySignatures.reduce((sum, witness) => sum + witness.serialize().length / 2, 0);
   const calculatedFee = size * feePerByte + priorityFee;
+  const maxFeeGas = Number(env('MORPHEUS_MAX_SPONSOR_FEE_GAS') || 10);
+  if (calculatedFee > maxFeeGas * 100_000_000) {
+    throw new Error(
+      `sponsor network fee (${calculatedFee}) exceeds cap (${maxFeeGas} GAS); set MORPHEUS_MAX_SPONSOR_FEE_GAS to increase`
+    );
+  }
   transaction.networkFee = u.BigInteger.fromNumber(Math.floor(calculatedFee));
   transaction.sign(sponsorAccount, context.networkMagic);
 
@@ -283,6 +294,13 @@ export async function sponsorNeoN3Transaction(payload) {
 }
 
 export async function broadcastNeoN3RawTransaction(payload) {
+  if (!normalizeBoolean(env('MORPHEUS_ALLOW_RAW_BROADCAST'), false)) {
+    return {
+      target_chain: 'neo_n3',
+      status: 403,
+      error: 'raw broadcast requires MORPHEUS_ALLOW_RAW_BROADCAST=true',
+    };
+  }
   const context = loadNeoN3Context(payload, { required: false, requireRpc: true });
   const rpcClient = new neoRpc.RPCClient(context.rpcUrl);
   const txHashRaw = await rpcClient.sendRawTransaction(
