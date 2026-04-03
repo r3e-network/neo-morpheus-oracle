@@ -14,6 +14,7 @@ import {
   upstashGetJson,
   upstashSetJson,
 } from './upstash.js';
+import { resolveRouteName } from '../capabilities.js';
 
 function firstTruthy(...values) {
   for (const value of values) {
@@ -46,21 +47,6 @@ function isTrustedServiceRequest(request) {
     .map((value) => trimString(value))
     .filter(Boolean);
   return trusted.includes(token);
-}
-
-function resolveRouteName(path) {
-  if (path.endsWith('/paymaster/authorize')) return 'paymaster_authorize';
-  if (path.endsWith('/relay/transaction')) return 'relay_transaction';
-  if (path.endsWith('/txproxy/invoke')) return 'txproxy_invoke';
-  if (path.endsWith('/compute/execute')) return 'compute_execute';
-  if (path.endsWith('/vrf/random')) return 'vrf_random';
-  if (path.endsWith('/oracle/query')) return 'oracle_query';
-  if (path.endsWith('/oracle/smart-fetch')) return 'oracle_smart_fetch';
-  if (path.endsWith('/oracle/feed')) return 'oracle_feed';
-  if (path.endsWith('/neodid/action-ticket')) return 'neodid_action_ticket';
-  if (path.endsWith('/neodid/recovery-ticket')) return 'neodid_recovery_ticket';
-  if (path.endsWith('/neodid/zklogin-ticket')) return 'neodid_zklogin_ticket';
-  return '';
 }
 
 function routePolicy(name) {

@@ -1,22 +1,7 @@
 import { env, json, trimString } from './core.js';
+import { resolveRouteName as normalizeRouteName } from '../capabilities.js';
 
 const inFlightByRoute = new Map();
-
-function normalizeRouteName(path = '') {
-  if (path.endsWith('/paymaster/authorize')) return 'paymaster_authorize';
-  if (path.endsWith('/relay/transaction')) return 'relay_transaction';
-  if (path.endsWith('/txproxy/invoke')) return 'txproxy_invoke';
-  if (path.endsWith('/compute/execute')) return 'compute_execute';
-  if (path.endsWith('/vrf/random')) return 'vrf_random';
-  if (path.endsWith('/oracle/query')) return 'oracle_query';
-  if (path.endsWith('/oracle/smart-fetch')) return 'oracle_smart_fetch';
-  if (path.endsWith('/oracle/feed')) return 'oracle_feed';
-  if (path.endsWith('/neodid/bind')) return 'neodid_bind';
-  if (path.endsWith('/neodid/action-ticket')) return 'neodid_action_ticket';
-  if (path.endsWith('/neodid/recovery-ticket')) return 'neodid_recovery_ticket';
-  if (path.endsWith('/neodid/zklogin-ticket')) return 'neodid_zklogin_ticket';
-  return '';
-}
 
 function defaultLimit(routeName) {
   switch (routeName) {

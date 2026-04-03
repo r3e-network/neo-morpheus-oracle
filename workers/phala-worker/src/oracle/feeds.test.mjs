@@ -125,6 +125,7 @@ test('handleOracleFeed persists Supabase snapshots without blocking pricefeed fl
   process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
   process.env.MORPHEUS_NETWORK = 'testnet';
   process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
   delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
 
   const snapshotWrites = [];
