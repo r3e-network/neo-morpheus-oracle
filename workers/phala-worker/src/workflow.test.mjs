@@ -362,6 +362,26 @@ test('workflow: POST /compute/execute runs merkle.root', async () => {
   assert.equal(body.result.root.length, 64);
 });
 
+
+test('workflow: POST /compute/execute returns a stable result envelope for workflow executions', async () => {
+  const res = await post('/compute/execute', {
+    workflow_id: 'compute.execute',
+    execution_id: 'exec-1',
+    network: 'testnet',
+    route: '/compute/execute',
+    mode: 'builtin',
+    function: 'hash.sha256',
+    input: { data: 'hello world' },
+  });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.version, '2026-04-tee-v1');
+  assert.equal(body.workflow_id, 'compute.execute');
+  assert.equal(body.execution_id, 'exec-1');
+  assert.equal(body.status, 'succeeded');
+  assert.ok(body.output.result.digest);
+});
+
 // ===========================================================================
 // WORKFLOW 14: Compute Jobs
 // ===========================================================================

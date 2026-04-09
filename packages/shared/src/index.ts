@@ -118,6 +118,43 @@ export type ComputeBuiltinFunction =
 
 export type BuiltinProviderId = 'twelvedata' | 'binance-spot' | 'coinbase-spot';
 
+export type WorkflowId =
+  | 'oracle.query'
+  | 'oracle.smart_fetch'
+  | 'feed.sync'
+  | 'automation.upkeep'
+  | 'compute.execute'
+  | 'neodid.bind'
+  | 'neodid.action_ticket'
+  | 'neodid.recovery_ticket'
+  | 'paymaster.authorize';
+
+export type WorkflowTriggerKind = 'request' | 'event' | 'scheduler';
+export type WorkflowDeliveryMode =
+  | 'api_response'
+  | 'shared_resource_sync'
+  | 'onchain_callback'
+  | 'kernel_inbox';
+
+export type WorkflowDefinition = {
+  id: WorkflowId;
+  version: number;
+  trigger: {
+    kind: WorkflowTriggerKind;
+    supported?: string[];
+  };
+  allowedNetworks: MorpheusNetwork[];
+  route: ControlPlaneRoute | '/paymaster/authorize';
+  capabilityId?: string;
+  confidentialSteps: string[];
+  policies: string[];
+  delivery: {
+    mode: WorkflowDeliveryMode;
+  };
+};
+
+export const RESULT_ENVELOPE_VERSION = '2026-04-tee-v1';
+
 export type ProviderConfig = {
   provider_id: BuiltinProviderId | string;
   enabled: boolean;
@@ -142,3 +179,8 @@ export const providerConfigSchemaHints: Record<string, unknown> = {
 export { json, trimString, parseTimestampMs, getClientIp, stableStringify } from './utils.js';
 export { applyUpstashRateLimit } from './rate-limit.js';
 export type { UpstashRateLimitConfig, UpstashRateLimitResult } from './rate-limit.js';
+export {
+  RESULT_ENVELOPE_VERSION,
+  getWorkflowDefinition,
+  listWorkflowDefinitions,
+} from './workflow-catalog.js';

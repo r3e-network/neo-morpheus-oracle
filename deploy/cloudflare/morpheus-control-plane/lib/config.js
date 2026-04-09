@@ -52,6 +52,12 @@ function resolveNetworkRoute(url) {
   };
 }
 
+function normalizeWorkflowVersion(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return null;
+  return Math.trunc(numeric);
+}
+
 function resolveJobMetadata(routePath, payload) {
   const body = payload && typeof payload === 'object' ? payload : {};
   return {
@@ -60,6 +66,16 @@ function resolveJobMetadata(routePath, payload) {
     request_id: trimString(body.request_id || body.oracle_request_id || '') || null,
     dedupe_key:
       trimString(body.dedupe_key || body.idempotency_key || body.request_id || '') || null,
+    workflow_id: trimString(body.workflow_id || body.workflowId || '') || null,
+    workflow_version: normalizeWorkflowVersion(body.workflow_version || body.workflowVersion),
+    execution_id:
+      trimString(
+        body.execution_id ||
+          body.executionId ||
+          body.workflow_execution_id ||
+          body.workflowExecutionId ||
+          ''
+      ) || null,
   };
 }
 

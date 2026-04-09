@@ -3,6 +3,24 @@ import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import { patchJob, loadJob } from './jobs.js';
 import { resolveNeoN3BackendSigner, callAppBackend } from './execution-plane.js';
 
+function normalizeWorkflowVersion(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 1;
+  return Math.trunc(numeric);
+}
+
+function resolveWorkflowContext(payload, job, fallbackWorkflowId) {
+  return {
+    workflowId: trimString(payload.workflow_id || job?.metadata?.workflow_id || fallbackWorkflowId),
+    workflowVersion: normalizeWorkflowVersion(
+      payload.workflow_version || job?.metadata?.workflow_version || 1
+    ),
+    executionId: trimString(payload.execution_id || job?.metadata?.execution_id || job?.id || ''),
+    legacyRoute:
+      trimString(payload.legacy_route || job?.metadata?.legacy_route || job?.route || '') || null,
+  };
+}
+
 export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
   async run(event, step) {
     const payload = event.payload && typeof event.payload === 'object' ? event.payload : {};
@@ -18,6 +36,7 @@ export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
     if (!job) {
       throw new Error(`job not found: ${jobId}`);
     }
+    const workflow = resolveWorkflowContext(payload, job, 'callback_broadcast');
 
     await step.do('mark callback broadcast processing', async () =>
       patchJob(this.env, jobId, network, {
@@ -29,6 +48,10 @@ export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
           workflow_name: 'callback_broadcast',
           workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
           workflow_runtime: 'cloudflare-workflows',
+          workflow_id: workflow.workflowId,
+          workflow_version: workflow.workflowVersion,
+          execution_id: workflow.executionId,
+          legacy_route: workflow.legacyRoute,
         },
       })
     );
@@ -44,6 +67,10 @@ export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
           callAppBackend(this.env, '/api/internal/control-plane/callback-broadcast', {
             ...(job.payload || {}),
             network,
+            workflow_id: workflow.workflowId,
+            workflow_version: workflow.workflowVersion,
+            execution_id: workflow.executionId,
+            legacy_route: workflow.legacyRoute,
             ...signer,
           })
       );
@@ -68,13 +95,17 @@ export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
             workflow_name: 'callback_broadcast',
             workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
             workflow_runtime: 'cloudflare-workflows',
+            workflow_id: workflow.workflowId,
+            workflow_version: workflow.workflowVersion,
+            execution_id: workflow.executionId,
+            legacy_route: workflow.legacyRoute,
           },
         })
       );
 
       return {
         ok: true,
-        workflow: 'callback_broadcast',
+        workflow: workflow.workflowId || 'callback_broadcast',
         job_id: jobId,
         network,
         result: result.body,
@@ -90,6 +121,10 @@ export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
             workflow_name: 'callback_broadcast',
             workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
             workflow_runtime: 'cloudflare-workflows',
+            workflow_id: workflow.workflowId,
+            workflow_version: workflow.workflowVersion,
+            execution_id: workflow.executionId,
+            legacy_route: workflow.legacyRoute,
           },
         })
       );
@@ -113,6 +148,7 @@ export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
     if (!job) {
       throw new Error(`job not found: ${jobId}`);
     }
+    const workflow = resolveWorkflowContext(payload, job, 'automation_execute');
 
     await step.do('mark automation execute processing', async () =>
       patchJob(this.env, jobId, network, {
@@ -124,6 +160,10 @@ export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
           workflow_name: 'automation_execute',
           workflow_binding: 'AUTOMATION_EXECUTE_WORKFLOW',
           workflow_runtime: 'cloudflare-workflows',
+          workflow_id: workflow.workflowId,
+          workflow_version: workflow.workflowVersion,
+          execution_id: workflow.executionId,
+          legacy_route: workflow.legacyRoute,
         },
       })
     );
@@ -143,6 +183,10 @@ export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
           callAppBackend(this.env, '/api/internal/control-plane/automation-execute', {
             automation_id: automationId,
             network,
+            workflow_id: workflow.workflowId,
+            workflow_version: workflow.workflowVersion,
+            execution_id: workflow.executionId,
+            legacy_route: workflow.legacyRoute,
             ...signer,
           })
       );
@@ -167,13 +211,17 @@ export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
             workflow_name: 'automation_execute',
             workflow_binding: 'AUTOMATION_EXECUTE_WORKFLOW',
             workflow_runtime: 'cloudflare-workflows',
+            workflow_id: workflow.workflowId,
+            workflow_version: workflow.workflowVersion,
+            execution_id: workflow.executionId,
+            legacy_route: workflow.legacyRoute,
           },
         })
       );
 
       return {
         ok: true,
-        workflow: 'automation_execute',
+        workflow: workflow.workflowId || 'automation_execute',
         job_id: jobId,
         network,
         result: result.body,
@@ -189,6 +237,10 @@ export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
             workflow_name: 'automation_execute',
             workflow_binding: 'AUTOMATION_EXECUTE_WORKFLOW',
             workflow_runtime: 'cloudflare-workflows',
+            workflow_id: workflow.workflowId,
+            workflow_version: workflow.workflowVersion,
+            execution_id: workflow.executionId,
+            legacy_route: workflow.legacyRoute,
           },
         })
       );

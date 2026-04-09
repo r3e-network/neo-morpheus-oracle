@@ -1,3 +1,4 @@
+import { getWorkflowDefinition } from '@neo-morpheus-oracle/shared';
 import { json } from './platform/core.js';
 import { getDerivedKeySummary } from './platform/dstack.js';
 import {
@@ -120,18 +121,21 @@ const CAPABILITIES = [
   },
   {
     id: 'neodid_bind',
+    workflow: getWorkflowDefinition('neodid.bind'),
     paths: [{ match: '/neodid/bind' }],
     featurePath: 'neodid/bind',
     handler: async ({ payload }) => handleNeoDidBind(payload),
   },
   {
     id: 'neodid_action_ticket',
+    workflow: getWorkflowDefinition('neodid.action_ticket'),
     paths: [{ match: '/neodid/action-ticket' }],
     featurePath: 'neodid/action-ticket',
     handler: async ({ payload }) => handleNeoDidActionTicket(payload),
   },
   {
     id: 'neodid_recovery_ticket',
+    workflow: getWorkflowDefinition('neodid.recovery_ticket'),
     paths: [{ match: '/neodid/recovery-ticket' }],
     featurePath: 'neodid/recovery-ticket',
     handler: async ({ payload }) => handleNeoDidRecoveryTicket(payload),
@@ -162,12 +166,14 @@ const CAPABILITIES = [
   },
   {
     id: 'oracle_query',
+    workflow: getWorkflowDefinition('oracle.query'),
     paths: [{ match: '/oracle/query' }],
     featurePath: 'oracle/query',
     handler: handleOracleQuery,
   },
   {
     id: 'oracle_smart_fetch',
+    workflow: getWorkflowDefinition('oracle.smart_fetch'),
     paths: [{ match: '/oracle/smart-fetch' }],
     featurePath: 'oracle/smart-fetch',
     handler: handleOracleSmartFetch,
@@ -198,6 +204,7 @@ const CAPABILITIES = [
   },
   {
     id: 'oracle_feed',
+    workflow: getWorkflowDefinition('feed.sync'),
     paths: [{ match: '/oracle/feed' }],
     actions: ['oracle_feed'],
     featurePath: 'oracle/feed',
@@ -225,6 +232,7 @@ const CAPABILITIES = [
   },
   {
     id: 'paymaster_authorize',
+    workflow: getWorkflowDefinition('paymaster.authorize'),
     paths: [{ match: '/paymaster/authorize' }],
     featurePath: 'paymaster/authorize',
     handler: async ({ payload }) => handlePaymasterAuthorize(payload),
@@ -237,6 +245,7 @@ const CAPABILITIES = [
   },
   {
     id: 'compute_execute',
+    workflow: getWorkflowDefinition('compute.execute'),
     paths: [{ match: '/compute/execute' }],
     featurePath: 'compute/execute',
     handler: async ({ payload }) => handleComputeExecute(payload),

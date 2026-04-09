@@ -63,6 +63,18 @@ describe('control-plane fail-open behavior', () => {
     });
   });
 
+
+  it('maps dispatchable routes to workflow runtime metadata', async () => {
+    const { getControlPlaneDispatchMetadata } = await import('../lib/control-plane');
+
+    expect(getControlPlaneDispatchMetadata('/automation/execute')).toEqual({
+      workflowId: 'automation.upkeep',
+      workflowVersion: 1,
+      envelopeVersion: '2026-04-tee-v1',
+    });
+    expect(getControlPlaneDispatchMetadata('/not-a-real-route')).toBeNull();
+  });
+
   it('does not fail-open healthy control-plane responses', async () => {
     vi.stubGlobal(
       'fetch',

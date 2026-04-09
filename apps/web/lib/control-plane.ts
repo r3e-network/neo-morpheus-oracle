@@ -1,4 +1,5 @@
 import { appConfig } from './config';
+import { getWorkflowDispatchMetadata } from './workflow-runtime';
 import { recordOperationLog } from './operation-logs';
 
 type ControlPlaneCategory =
@@ -59,6 +60,10 @@ export function shouldDispatchToControlPlane(path: string) {
   return Boolean(appConfig.controlPlaneUrl) && DISPATCHABLE_PATHS.has(path);
 }
 
+export function getControlPlaneDispatchMetadata(path: string) {
+  return getWorkflowDispatchMetadata(path);
+}
+
 export function shouldUseControlPlaneFallback(response: Response) {
   return trimString(response.headers.get('x-morpheus-control-plane-fail-open')) === '1';
 }
@@ -77,6 +82,11 @@ export async function dispatchToControlPlane(
 
   const headers = new Headers(init.headers || {});
   headers.set('content-type', headers.get('content-type') || 'application/json');
+  const dispatchMetadata = getControlPlaneDispatchMetadata(path);
+  if (dispatchMetadata) {
+    headers.set('x-morpheus-workflow-id', dispatchMetadata.workflowId);
+    headers.set('x-morpheus-workflow-version', String(dispatchMetadata.workflowVersion));
+  }
   if (appConfig.controlPlaneApiKey) {
     headers.set('authorization', `Bearer ${appConfig.controlPlaneApiKey}`);
     headers.set('x-admin-api-key', appConfig.controlPlaneApiKey);
@@ -120,6 +130,9 @@ export async function dispatchToControlPlane(
         upstream_path: path,
         control_plane: true,
         control_plane_url: controlPlaneUrl,
+        workflow_id: dispatchMetadata?.workflowId || null,
+        workflow_version: dispatchMetadata?.workflowVersion || null,
+        envelope_version: dispatchMetadata?.envelopeVersion || null,
         ...operation.metadata,
       },
     });

@@ -1,3 +1,5 @@
+import { classifyRiskSignal } from './risk-observer.js';
+
 /**
  * Generic circuit breaker for provider health tracking.
  *
@@ -63,12 +65,26 @@ export class CircuitBreaker {
   }
 
   getState() {
+    const failureRate =
+      this.state === 'open'
+        ? 1
+        : this.failures > 0
+          ? this.failures / Math.max(this.failures + this.successes, 1)
+          : 0;
+    const risk = classifyRiskSignal({
+      scope: 'provider',
+      scope_id: this.name,
+      failure_rate: failureRate,
+    });
     return {
       name: this.name,
       state: this.state,
       failures: this.failures,
       successes: this.successes,
       last_failure_at: this.lastFailureAt || null,
+      recommended_action: risk.action,
+      risk_scope: risk.scope,
+      risk_scope_id: risk.scope_id,
     };
   }
 }

@@ -13,6 +13,7 @@ import {
   handleAutomationControlRequest,
   isAutomationControlRequestType,
 } from './automation.js';
+import { buildUpkeepDispatch } from './automation-supervisor.js';
 import { fulfillNeoN3Request } from './neo-n3.js';
 import { fulfillNeoXRequest } from './neo-x.js';
 import {
@@ -186,8 +187,37 @@ async function finalizeFailedRequest(config, event, errorMessage) {
   };
 }
 
+function enrichAutomationExecutionPayload(event, payload) {
+  const normalizedRequestType = trimString(event?.requestType || '')
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  if (!normalizedRequestType.startsWith('automation_')) return payload;
+
+  const automationId = trimString(payload?.automation_id || '');
+  if (!automationId) return payload;
+
+  const dispatch = buildUpkeepDispatch({
+    chain: event.chain,
+    automation_id: automationId,
+    execution_id: trimString(payload.execution_id || '') || String(event.requestId || ''),
+    workflow_id: trimString(payload.workflow_id || 'automation.upkeep'),
+    request_id: trimString(payload.request_id || ''),
+    idempotency_key: trimString(payload.idempotency_key || ''),
+  });
+
+  return {
+    ...payload,
+    workflow_id: payload.workflow_id || dispatch.workflow_id,
+    workflow_version: payload.workflow_version || dispatch.workflow_version,
+    execution_id: payload.execution_id || dispatch.execution_id,
+    idempotency_key: payload.idempotency_key || dispatch.idempotency_key,
+    replay_window: payload.replay_window || dispatch.replay_window,
+    delivery_mode: payload.delivery_mode || dispatch.delivery_mode,
+  };
+}
+
 async function processOracleRequest(config, event) {
-  const payload = decodePayloadText(event.payloadText);
+  const payload = enrichAutomationExecutionPayload(event, decodePayloadText(event.payloadText));
   const kernelIntent = resolveKernelIntent(event.requestType);
   if (isAutomationControlRequestType(event.requestType)) {
     const automationResponse = await handleAutomationControlRequest(event, payload);

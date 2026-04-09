@@ -66,6 +66,21 @@ Operational rule:
 - use `live` when validating testnet integration or regressions
 - use `full` only when you intentionally want both layers in sequence
 
+## Generated Runtime Catalog Contract
+
+The typed workflow/runtime contract now has one canonical public export and two checked-in consumer projections:
+
+- `neo-morpheus-oracle/apps/web/public/morpheus-runtime-catalog.json`
+- `neo-miniapps-platform/apps/shared/constants/generated-morpheus-runtime-catalog.ts`
+- `neo-abstract-account/frontend/src/config/generatedMorpheusRuntimeCatalog.js`
+
+Validation commands that enforce this contract:
+
+- `node scripts/export-public-runtime-catalog.mjs --output apps/web/public/morpheus-runtime-catalog.json`
+- `node scripts/check-web-consistency.mjs`
+- `bash scripts/run_workspace_live_validation.sh`
+- `deploy/scripts/verify_cross_repo_testnet.sh` from `neo-miniapps-platform`
+
 ## Public Domains / Routing
 
 ### Cloudflare Workers (MiniApp OS Runtime)

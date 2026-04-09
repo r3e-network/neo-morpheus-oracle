@@ -65,6 +65,8 @@
 - `phala.request-hub.toml` points to the Oracle CVM launcher.
 - `phala.feed-hub.toml` points to the DataFeed CVM launcher.
 - `deploy/phala/morpheus.mainnet.env` and `deploy/phala/morpheus.testnet.env` are generated local env files and must remain uncommitted.
+- `scripts/export-public-network-registry.mjs` emits the canonical public network registry for consumer repos.
+- `scripts/export-public-runtime-catalog.mjs` emits the public workflow and envelope catalog for consumer repos.
 
 ## Repository Layout
 

@@ -244,6 +244,35 @@ test('control plane enqueues oracle request jobs and persists dispatched status'
   assert.equal(state.jobs.get(body.id)?.status, 'dispatched');
 });
 
+test('legacy route dispatches through typed workflow metadata', async () => {
+  const env = createEnv();
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/oracle/query', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        provider: 'coinbase-spot',
+        symbol: 'NEO-USD',
+      }),
+    }),
+    env
+  );
+
+  assert.equal(response.status, 202);
+  const body = await response.json();
+  assert.equal(body.metadata.workflow_id, 'oracle.query');
+  assert.equal(body.metadata.workflow_version, 1);
+  assert.match(String(body.metadata.execution_id || ''), /^[0-9a-f-]{36}$/i);
+  assert.equal(env.MORPHEUS_ORACLE_REQUEST_QUEUE.sent[0].workflow_id, 'oracle.query');
+  assert.equal(env.MORPHEUS_ORACLE_REQUEST_QUEUE.sent[0].execution_id, body.metadata.execution_id);
+});
+
 test('health route exposes compatibility queues and kernel lanes', async () => {
   const env = createEnv();
   const response = await worker.fetch(
