@@ -154,3 +154,18 @@ test('resolveCapability matches paths with arbitrary prefixes', () => {
   assert.ok(resolved, 'should resolve with /api/v1/ prefix');
   assert.equal(resolved.capability.id, 'vrf_random');
 });
+
+test('resolveCapability attaches workflow metadata for catalog-backed routes', () => {
+  const oracleQuery = resolveCapability('/oracle/query');
+  assert.ok(oracleQuery, 'should resolve oracle query capability');
+  assert.equal(oracleQuery.capability.workflow.id, 'oracle.query');
+  assert.equal(oracleQuery.capability.workflow.version, 1);
+
+  const paymaster = resolveCapability('/paymaster/authorize');
+  assert.ok(paymaster, 'should resolve paymaster capability');
+  assert.equal(paymaster.capability.workflow.id, 'paymaster.authorize');
+
+  const providers = resolveCapability('/providers');
+  assert.ok(providers, 'should resolve providers capability');
+  assert.equal(providers.capability.workflow, undefined);
+});

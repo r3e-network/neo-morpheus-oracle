@@ -1,2 +1,7 @@
 export { json, trimString, parseTimestampMs, getClientIp, stableStringify } from './utils.js';
 export { applyUpstashRateLimit } from './rate-limit.js';
+export {
+  RESULT_ENVELOPE_VERSION,
+  getWorkflowDefinition,
+  listWorkflowDefinitions,
+} from './workflow-catalog.js';

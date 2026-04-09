@@ -152,6 +152,16 @@ This keeps runtime behavior consistent and reduces operational drift.
 - signer identities are pinned and checked before deployment
 - public attestation anchors are the published Oracle and DataFeed Phala explorer pages
 
+## Generated Runtime Catalog Contract
+
+The public workflow contract is checked in as a generated artifact:
+
+- `apps/web/public/morpheus-runtime-catalog.json` is the canonical public export from the workflow registry
+- `neo-miniapps-platform/apps/shared/constants/generated-morpheus-runtime-catalog.ts` consumes the same catalog for host-app/runtime defaults
+- `neo-abstract-account/frontend/src/config/generatedMorpheusRuntimeCatalog.js` consumes the same catalog for AA runtime defaults and paymaster routing
+
+CI and workspace live validation must fail if the envelope version or workflow ids drift across those files.
+
 ## Support Stance
 
 - Neo N3 is the active supported path.

@@ -15,6 +15,7 @@ import {
   upstashSetJson,
 } from './upstash.js';
 import { resolveRouteName } from '../capabilities.js';
+import { evaluatePolicyDecision } from './policy-engine.js';
 
 function firstTruthy(...values) {
   for (const value of values) {
@@ -22,6 +23,40 @@ function firstTruthy(...values) {
     if (trimmed) return trimmed;
   }
   return '';
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function resolveRequestPolicyDecision(payload = {}) {
+  const explicit = isPlainObject(payload.policy_decision) ? payload.policy_decision : {};
+  const hasPolicySignals =
+    Object.keys(explicit).length > 0 ||
+    payload.provider_enabled !== undefined ||
+    payload.providerEnabled !== undefined ||
+    payload.require_attestation !== undefined ||
+    payload.requireAttestation !== undefined ||
+    payload.attestation_available !== undefined ||
+    payload.attestationAvailable !== undefined ||
+    payload.scope_paused !== undefined ||
+    payload.scopePaused !== undefined ||
+    payload.risk_action !== undefined ||
+    payload.paused_action !== undefined ||
+    payload.require_human_approval !== undefined ||
+    payload.requireHumanApproval !== undefined;
+
+  if (!hasPolicySignals) return null;
+
+  return evaluatePolicyDecision({
+    ...payload,
+    ...explicit,
+    workflow_id: explicit.workflow_id || payload.workflow_id || payload.workflowId || '',
+    workflowId: explicit.workflowId || payload.workflowId || '',
+    provider: explicit.provider || payload.provider || payload.provider_id || payload.providerId || '',
+    scope: explicit.scope || payload.scope || '',
+    scope_id: explicit.scope_id || explicit.scopeId || payload.scope_id || payload.scopeId || '',
+  });
 }
 
 function extractTrustedAuthToken(request) {
@@ -145,6 +180,12 @@ function deriveIdempotencyKey(routeName, payload = {}, request) {
   );
   if (explicit) return explicit;
 
+  const workflowId = firstTruthy(payload.workflow_id, payload.workflowId);
+  const executionId = firstTruthy(payload.execution_id, payload.executionId);
+  if (workflowId && executionId) {
+    return ['workflow', workflowId, executionId].join(':');
+  }
+
   const identity = payloadIdentity(payload);
   if (identity.operationHash) return identity.operationHash;
 
@@ -197,9 +238,26 @@ function buildLockKey(routeName, idempotencyKey) {
 
 export async function applyRequestGuards({ request, path, payload }) {
   const routeName = resolveRouteName(path);
+  const requestPolicyDecision = resolveRequestPolicyDecision(payload);
+  if (requestPolicyDecision && !requestPolicyDecision.allow) {
+    return {
+      ok: false,
+      routeName,
+      response: json(
+        requestPolicyDecision.httpStatus || 403,
+        {
+          error: 'policy_denied',
+          route: routeName,
+          reason: requestPolicyDecision.reason,
+          decision: requestPolicyDecision.decision,
+        }
+      ),
+    };
+  }
+
   const policy = routePolicy(routeName);
   if (!policy || !isUpstashEnabled()) {
-    return { ok: true, routeName };
+    return { ok: true, routeName, policyDecision: requestPolicyDecision };
   }
 
   if (!isTrustedServiceRequest(request)) {
@@ -263,6 +321,7 @@ export async function applyRequestGuards({ request, path, payload }) {
   return {
     ok: true,
     routeName,
+    policyDecision: requestPolicyDecision,
     idempotency: {
       responseCacheKey,
       lockKey,

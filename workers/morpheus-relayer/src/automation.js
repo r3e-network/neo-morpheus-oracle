@@ -12,6 +12,7 @@ import {
 } from './persistence.js';
 import { fetchNeoN3FeedRecord, queueNeoN3AutomationRequest } from './neo-n3.js';
 import { fetchNeoXFeedRecord, queueNeoXAutomationRequest } from './neo-x.js';
+import { buildUpkeepDispatch, buildUpkeepExecutionPayload } from './automation-supervisor.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -493,39 +494,85 @@ function classifyAutomationExecutionFailure(error) {
   };
 }
 
-function buildAutomationQueueRequestId(job) {
-  const nextExecutionCount = Number(job.execution_count || 0) + 1;
-  return `automation:${job.chain}:${job.automation_id}:${nextExecutionCount}`;
+function buildQueuedAutomationPatch(job, evaluation, nowMs, dispatch, queuedRequestId) {
+  let nextStatus = 'active';
+  let nextRunAt = job.next_run_at;
+  if (job.trigger_type === 'one_shot') {
+    nextStatus = 'completed';
+    nextRunAt = null;
+  } else if (job.trigger_type === 'interval') {
+    nextRunAt = computeNextIntervalRun(job, nowMs);
+  } else if (evaluation.patch?.next_run_at !== undefined) {
+    nextRunAt = evaluation.patch.next_run_at;
+  }
+  if (
+    job.max_executions !== null &&
+    job.max_executions !== undefined &&
+    dispatch.next_execution_count >= Number(job.max_executions)
+  ) {
+    nextStatus = 'completed';
+    nextRunAt = null;
+  }
+
+  return {
+    ...evaluation.patch,
+    execution_count: dispatch.next_execution_count,
+    last_run_at: new Date(nowMs).toISOString(),
+    last_queued_request_id: queuedRequestId || dispatch.request_id,
+    next_run_at: nextRunAt,
+    status: nextStatus,
+    last_error: null,
+  };
+}
+
+function buildQueuedAutomationTxRecord(queuedTx, dispatch) {
+  return {
+    ...(queuedTx || {}),
+    workflow_id: dispatch.workflow_id,
+    workflow_version: dispatch.workflow_version,
+    execution_id: dispatch.execution_id,
+    idempotency_key: dispatch.idempotency_key,
+    replay_window: dispatch.replay_window,
+    delivery_mode: dispatch.delivery_mode,
+  };
 }
 
 async function queueAutomationExecution(config, job, deps = {}) {
-  const payloadText = stringifyExecutionPayload(job.execution_payload || {});
-  const requestId = buildAutomationQueueRequestId(job);
+  const dispatch = buildUpkeepDispatch(job);
+  const payloadText = stringifyExecutionPayload(
+    buildUpkeepExecutionPayload(job.execution_payload || {}, dispatch)
+  );
   const queueNeoX = deps.queueNeoXAutomationRequest || queueNeoXAutomationRequest;
   const queueNeoN3 = deps.queueNeoN3AutomationRequest || queueNeoN3AutomationRequest;
   if (job.chain === 'neo_x') {
-    return queueNeoX(
+    return {
+      dispatch,
+      ...(await queueNeoX(
+        config,
+        job.requester,
+        job.execution_request_type,
+        payloadText,
+        job.callback_contract,
+        job.callback_method,
+        dispatch.request_id
+      )),
+    };
+  }
+  if (job.chain !== 'neo_n3') {
+    throw new Error(`Invalid automation job chain: ${job.chain}`);
+  }
+  return {
+    dispatch,
+    ...(await queueNeoN3(
       config,
       job.requester,
       job.execution_request_type,
       payloadText,
       job.callback_contract,
       job.callback_method,
-      requestId
-    );
-  }
-  if (job.chain !== 'neo_n3') {
-    throw new Error(`Invalid automation job chain: ${job.chain}`);
-  }
-  return queueNeoN3(
-    config,
-    job.requester,
-    job.execution_request_type,
-    payloadText,
-    job.callback_contract,
-    job.callback_method,
-    requestId
-  );
+      dispatch.request_id
+    )),
+  };
 }
 
 export async function processAutomationJobs(config, logger, deps = {}) {
@@ -563,50 +610,43 @@ export async function processAutomationJobs(config, logger, deps = {}) {
       }
 
       const queuedTx = await queueAutomationExecution(config, job, deps);
+      const dispatch = queuedTx?.dispatch || buildUpkeepDispatch(job);
+      const queuedRequestId = queuedTx?.request_id || dispatch.request_id;
+      const queueTxRecord = buildQueuedAutomationTxRecord(queuedTx, dispatch);
+
       if (queuedTx?.duplicate) {
+        await recordRun({
+          automation_id: job.automation_id,
+          queued_request_id: queuedRequestId,
+          chain: job.chain,
+          status: 'skipped',
+          trigger_reason: evaluation.triggerReason || job.trigger_type,
+          observed_value: evaluation.observedValue || null,
+          queue_tx: queueTxRecord,
+          error: null,
+        });
+        await patchJob(
+          job.automation_id,
+          buildQueuedAutomationPatch(job, evaluation, nowMs, dispatch, queuedRequestId)
+        );
         skipped += 1;
         continue;
       }
       await recordRun({
         automation_id: job.automation_id,
-        queued_request_id: queuedTx?.request_id || null,
+        queued_request_id: queuedRequestId,
         chain: job.chain,
         status: 'queued',
         trigger_reason: evaluation.triggerReason || job.trigger_type,
         observed_value: evaluation.observedValue || null,
-        queue_tx: queuedTx,
+        queue_tx: queueTxRecord,
         error: null,
       });
 
-      const nextExecutionCount = Number(job.execution_count || 0) + 1;
-      let nextStatus = 'active';
-      let nextRunAt = job.next_run_at;
-      if (job.trigger_type === 'one_shot') {
-        nextStatus = 'completed';
-        nextRunAt = null;
-      } else if (job.trigger_type === 'interval') {
-        nextRunAt = computeNextIntervalRun(job, nowMs);
-      } else if (evaluation.patch?.next_run_at !== undefined) {
-        nextRunAt = evaluation.patch.next_run_at;
-      }
-      if (
-        job.max_executions !== null &&
-        job.max_executions !== undefined &&
-        nextExecutionCount >= Number(job.max_executions)
-      ) {
-        nextStatus = 'completed';
-        nextRunAt = null;
-      }
-
-      await patchJob(job.automation_id, {
-        ...evaluation.patch,
-        execution_count: nextExecutionCount,
-        last_run_at: new Date(nowMs).toISOString(),
-        last_queued_request_id: queuedTx?.request_id || null,
-        next_run_at: nextRunAt,
-        status: nextStatus,
-        last_error: null,
-      });
+      await patchJob(
+        job.automation_id,
+        buildQueuedAutomationPatch(job, evaluation, nowMs, dispatch, queuedRequestId)
+      );
       queued += 1;
     } catch (error) {
       failed += 1;

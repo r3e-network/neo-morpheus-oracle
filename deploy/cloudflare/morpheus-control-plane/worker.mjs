@@ -15,6 +15,7 @@ import {
   loadWorkflowInstanceDetails,
 } from './lib/workflows.js';
 import { processExecutionJob, processFeedTickJob } from './lib/queue-consumer.js';
+import { buildWorkflowDispatchMetadata } from './lib/workflow-dispatch.js';
 import { CallbackBroadcastWorkflow, AutomationExecuteWorkflow } from './lib/workflows-impl.js';
 
 export { CallbackBroadcastWorkflow, AutomationExecuteWorkflow };
@@ -138,6 +139,16 @@ export default {
     }
 
     const metadata = resolveJobMetadata(routing.routePath, payload);
+    const workflowMetadata =
+      buildWorkflowDispatchMetadata(routing.routePath, { ...payload, ...metadata }, routing.network) ||
+      (metadata.workflow_id
+        ? {
+            workflow_id: metadata.workflow_id,
+            workflow_version: metadata.workflow_version || 1,
+            execution_id: metadata.execution_id || crypto.randomUUID(),
+            legacy_route: routing.routePath,
+          }
+        : null);
     const jobId = crypto.randomUUID();
     const createdAt = new Date().toISOString();
     const baseRecord = {
@@ -157,6 +168,7 @@ export default {
         client_ip: getClientIp(request),
         delivery_mode: jobConfig.delivery || 'queue',
         request_id: requestId,
+        ...(workflowMetadata || {}),
       },
       retry_count: 0,
       created_at: createdAt,
@@ -178,6 +190,10 @@ export default {
               workflow_instance_id: workflow.id,
               workflow_status: workflow.details || null,
               workflow_dispatch_count: workflow.workflow_dispatch_count,
+              workflow_id: workflow.workflow_id,
+              workflow_version: workflow.workflow_version,
+              execution_id: workflow.execution_id,
+              legacy_route: workflow.legacy_route,
             },
           }).catch(() => null)) || inserted;
       } else {
@@ -190,6 +206,7 @@ export default {
           target_chain: metadata.target_chain,
           project_slug: metadata.project_slug,
           request_id: metadata.request_id,
+          ...(workflowMetadata || {}),
           created_at: createdAt,
         });
         updated =

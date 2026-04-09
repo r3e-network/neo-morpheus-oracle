@@ -7,6 +7,10 @@ import {
   recordAutomationRunForBackend,
   resolveControlPlaneNetwork,
 } from '@/lib/neo-control-plane';
+import {
+  buildUpkeepDispatch,
+  buildUpkeepExecutionPayload,
+} from '../../../../../../../workers/morpheus-relayer/src/automation-supervisor.js';
 
 export const runtime = 'nodejs';
 
@@ -36,6 +40,51 @@ function readSignerMaterial(body: Record<string, unknown>) {
     ...(wif ? { wif } : {}),
     ...(private_key ? { private_key } : {}),
   };
+}
+
+function buildRouteUpkeepDispatch(
+  body: Record<string, unknown>,
+  job: Record<string, unknown>,
+  automationId: string
+) {
+  return buildUpkeepDispatch({
+    ...job,
+    automation_id: automationId,
+    workflow_id: trimString(body.workflow_id || body.workflowId || ''),
+    workflow_version: body.workflow_version || body.workflowVersion,
+    execution_id: trimString(body.execution_id || body.executionId || ''),
+    request_id: trimString(body.request_id || body.requestId || ''),
+    idempotency_key: trimString(body.idempotency_key || body.idempotencyKey || ''),
+    replay_window: trimString(body.replay_window || body.replayWindow || ''),
+    delivery_mode: trimString(body.delivery_mode || body.deliveryMode || ''),
+  });
+}
+
+function buildExecutionPayload(job: Record<string, unknown>, dispatch: ReturnType<typeof buildUpkeepDispatch>) {
+  const basePayload =
+    typeof job.execution_payload === 'string'
+      ? { raw_payload: job.execution_payload }
+      : isPlainObject(job.execution_payload)
+        ? job.execution_payload
+        : {};
+  return buildUpkeepExecutionPayload(basePayload, dispatch);
+}
+
+function buildQueueTxRecord(queueTx: Record<string, unknown>, dispatch: ReturnType<typeof buildUpkeepDispatch>) {
+  return {
+    ...queueTx,
+    workflow_id: dispatch.workflow_id,
+    workflow_version: dispatch.workflow_version,
+    execution_id: dispatch.execution_id,
+    idempotency_key: dispatch.idempotency_key,
+    replay_window: dispatch.replay_window,
+    delivery_mode: dispatch.delivery_mode,
+  };
+}
+
+function isDuplicateQueueError(error: unknown) {
+  const message = trimString(error instanceof Error ? error.message : String(error));
+  return /request[_ ]id already used/i.test(message);
 }
 
 export async function POST(request: Request) {
@@ -89,40 +138,91 @@ export async function POST(request: Request) {
       );
     }
 
-    const payloadText = JSON.stringify(
-      typeof job.execution_payload === 'string'
-        ? { raw_payload: job.execution_payload }
-        : job.execution_payload || {}
-    );
-    const requestId = `automation:${job.chain}:${automationId}:${Number(job.execution_count || 0) + 1}`;
+    const dispatch = buildRouteUpkeepDispatch(body, job, automationId);
+    const previousQueuedRequestId = trimString(job.last_queued_request_id || '');
+    if (previousQueuedRequestId && previousQueuedRequestId === dispatch.request_id) {
+      return Response.json({
+        ok: true,
+        network,
+        automation_id: automationId,
+        job_status: currentStatus,
+        queued: false,
+        duplicate: true,
+        reason: 'already-queued',
+        queue_tx: {
+          request_id: dispatch.request_id,
+          target_chain: 'neo_n3',
+          duplicate: true,
+        },
+        dispatch,
+      });
+    }
 
-    const queueTx = await queueNeoN3AutomationViaBackend({
-      network,
-      requester: trimString(job.requester || ''),
-      requestType: trimString(job.execution_request_type || ''),
-      payloadText,
-      callbackContract: trimString(job.callback_contract || ''),
-      callbackMethod: trimString(job.callback_method || ''),
-      requestId,
-      ...readSignerMaterial(body),
-    });
+    const payloadText = JSON.stringify(buildExecutionPayload(job, dispatch));
+
+    let queueTx;
+    try {
+      queueTx = await queueNeoN3AutomationViaBackend({
+        network,
+        requester: trimString(job.requester || ''),
+        requestType: trimString(job.execution_request_type || ''),
+        payloadText,
+        callbackContract: trimString(job.callback_contract || ''),
+        callbackMethod: trimString(job.callback_method || ''),
+        requestId: dispatch.request_id,
+        ...readSignerMaterial(body),
+      });
+    } catch (error) {
+      if (!isDuplicateQueueError(error)) throw error;
+      const duplicateTx = {
+        request_id: dispatch.request_id,
+        target_chain: 'neo_n3',
+        duplicate: true,
+      };
+      await recordAutomationRunForBackend(network, {
+        automation_id: automationId,
+        queued_request_id: dispatch.request_id,
+        chain: job.chain,
+        status: 'skipped',
+        trigger_reason: trimString(job.trigger_type || '') || 'manual_control_plane',
+        observed_value: null,
+        queue_tx: buildQueueTxRecord(duplicateTx, dispatch),
+        error: null,
+      }).catch(() => undefined);
+      await patchAutomationJobForBackend(network, automationId, {
+        execution_count: dispatch.next_execution_count,
+        last_run_at: new Date().toISOString(),
+        last_queued_request_id: dispatch.request_id,
+        last_error: null,
+      }).catch(() => undefined);
+      return Response.json({
+        ok: true,
+        network,
+        automation_id: automationId,
+        job_status: currentStatus,
+        queued: false,
+        duplicate: true,
+        reason: 'already-queued',
+        queue_tx: duplicateTx,
+        dispatch,
+      });
+    }
 
     await recordAutomationRunForBackend(network, {
       automation_id: automationId,
-      queued_request_id: queueTx.request_id || requestId,
+      queued_request_id: queueTx.request_id || dispatch.request_id,
       chain: job.chain,
       status: 'queued',
       trigger_reason: trimString(job.trigger_type || '') || 'manual_control_plane',
       observed_value: null,
-      queue_tx: queueTx,
+      queue_tx: buildQueueTxRecord(queueTx, dispatch),
       error: null,
     });
 
-    const nextExecutionCount = Number(job.execution_count || 0) + 1;
     await patchAutomationJobForBackend(network, automationId, {
-      execution_count: nextExecutionCount,
+      execution_count: dispatch.next_execution_count,
       last_run_at: new Date().toISOString(),
-      last_queued_request_id: queueTx.request_id || requestId,
+      last_queued_request_id: queueTx.request_id || dispatch.request_id,
       last_error: null,
     });
 
@@ -130,6 +230,8 @@ export async function POST(request: Request) {
       route: '/api/internal/control-plane/automation-execute',
       network,
       automation_id: automationId,
+      workflow_id: dispatch.workflow_id,
+      execution_id: dispatch.execution_id,
       queued: true,
     });
 
@@ -140,6 +242,7 @@ export async function POST(request: Request) {
       job_status: currentStatus,
       queued: true,
       queue_tx: queueTx,
+      dispatch,
     });
   } catch (error) {
     void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_CONTROL_AUTOMATION_FAILURE_URL || '', {

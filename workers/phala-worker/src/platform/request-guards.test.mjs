@@ -219,6 +219,63 @@ test('persistGuardResult caches idempotent responses for repeated relay requests
   assert.deepEqual(await second.response.json(), { ok: true, txid: '0x1234' });
 });
 
+test('workflow execution idempotency prefers workflow execution ids over payload hashes', async () => {
+  installUpstashMock();
+  process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+  process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
+
+  const { applyRequestGuards, persistGuardResult } = await import('./request-guards.js');
+  const makeRequest = (payload) =>
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test',
+        'cf-connecting-ip': '203.0.113.11',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+  const firstPayload = {
+    workflow_id: 'compute.execute',
+    execution_id: 'exec-1',
+    mode: 'builtin',
+    function: 'hash.sha256',
+    input: { data: 'hello world' },
+  };
+  const secondPayload = {
+    workflow_id: 'compute.execute',
+    execution_id: 'exec-1',
+    mode: 'builtin',
+    function: 'hash.sha256',
+    input: { data: 'mutated payload' },
+  };
+
+  const first = await applyRequestGuards({
+    request: makeRequest(firstPayload),
+    path: '/compute/execute',
+    payload: firstPayload,
+  });
+  assert.equal(first.ok, true);
+  await persistGuardResult(
+    first,
+    new Response(JSON.stringify({ ok: true, digest: '0xabc' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  );
+
+  const second = await applyRequestGuards({
+    request: makeRequest(secondPayload),
+    path: '/compute/execute',
+    payload: secondPayload,
+  });
+  assert.equal(second.ok, false);
+  assert.equal(second.cached, true);
+  assert.deepEqual(await second.response.json(), { ok: true, digest: '0xabc' });
+});
+
 test('oracle request idempotency differentiates encrypted params and scripts', async () => {
   installUpstashMock();
   process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
@@ -276,4 +333,41 @@ test('oracle request idempotency differentiates encrypted params and scripts', a
   assert.equal(third.ok, true);
   assert.notEqual(first.idempotency.lockKey, second.idempotency.lockKey);
   assert.notEqual(first.idempotency.lockKey, third.idempotency.lockKey);
+});
+
+
+test('applyRequestGuards denies requests that carry an explicit policy rejection', async () => {
+  installUpstashMock();
+  process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+  process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
+
+  const { applyRequestGuards } = await import('./request-guards.js');
+  const payload = {
+    workflow_id: 'oracle.query',
+    policy_decision: {
+      allow: false,
+      decision: 'deny',
+      reason: 'provider_disabled',
+    },
+  };
+  const request = new Request('http://local/oracle/query', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer test',
+      'cf-connecting-ip': '203.0.113.12',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const result = await applyRequestGuards({ request, path: '/oracle/query', payload });
+  assert.equal(result.ok, false);
+  assert.equal(result.response.status, 403);
+  assert.deepEqual(await result.response.json(), {
+    error: 'policy_denied',
+    route: 'oracle_query',
+    reason: 'provider_disabled',
+    decision: 'deny',
+  });
 });

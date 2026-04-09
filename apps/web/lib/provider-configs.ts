@@ -12,6 +12,14 @@ function normalizeProviderId(value: unknown) {
   return trimString(value).toLowerCase();
 }
 
+function normalizeBoolean(value: unknown, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const normalized = trimString(value).toLowerCase();
+  if (['1', 'true', 'yes', 'on', 'enabled'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off', 'disabled'].includes(normalized)) return false;
+  return fallback;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -37,6 +45,37 @@ function coerceObject(value: unknown) {
     }
   }
   return {};
+}
+
+function resolveProviderPolicyPayload(
+  payload: Record<string, unknown>,
+  providerId: string,
+  projectSlug: string,
+  providerConfig: { config?: unknown }
+) {
+  const config = coerceObject(providerConfig.config);
+  const requireAttestation = normalizeBoolean(
+    payload.require_attestation ?? config.require_attestation,
+    false
+  );
+  const existingPolicyDecision = coerceObject(payload.policy_decision);
+
+  return {
+    ...payload,
+    provider_enabled: true,
+    require_attestation: requireAttestation,
+    policy_decision: {
+      ...existingPolicyDecision,
+      allow: true,
+      decision: 'allow',
+      reason: 'allowed',
+      scope: 'provider',
+      scope_id: providerId,
+      provider_enabled: true,
+      require_attestation: requireAttestation,
+      project_slug: projectSlug,
+    },
+  };
 }
 
 export async function resolveProviderAwarePayload<T extends Record<string, unknown>>(
@@ -95,15 +134,20 @@ export async function resolveProviderAwarePayload<T extends Record<string, unkno
   }
 
   return {
-    payload: {
-      ...payload,
-      provider: String(payload.provider || providerId),
-      project_slug: projectSlug,
-      provider_params: {
-        ...coerceObject(providerConfig.config),
-        ...coerceObject(payload.provider_params),
+    payload: resolveProviderPolicyPayload(
+      {
+        ...payload,
+        provider: String(payload.provider || providerId),
+        project_slug: projectSlug,
+        provider_params: {
+          ...coerceObject(providerConfig.config),
+          ...coerceObject(payload.provider_params),
+        },
       },
-    },
+      providerId,
+      projectSlug,
+      providerConfig
+    ),
     providerConfig,
     projectSlug,
     providerId,

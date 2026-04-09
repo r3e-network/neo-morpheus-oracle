@@ -11,6 +11,53 @@ export type ProjectProviderConfigRecord = {
   updated_at?: string;
 };
 
+export type WorkflowExecutionStatus =
+  | 'queued'
+  | 'dispatched'
+  | 'processing'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'paused';
+
+export type PolicyDecisionStatus = 'allow' | 'deny' | 'review';
+export type RiskEventStatus = 'open' | 'acknowledged' | 'resolved';
+
+export type WorkflowExecutionRecord = {
+  network: MorpheusNetwork;
+  workflow_id: string;
+  execution_id: string;
+  ingress_route: string | null;
+  status: WorkflowExecutionStatus;
+  result_envelope_version: string;
+  metadata: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+  completed_at?: string | null;
+};
+
+export type PolicyDecisionRecord = {
+  network: MorpheusNetwork;
+  workflow_id?: string | null;
+  execution_id?: string | null;
+  scope: string;
+  decision: PolicyDecisionStatus;
+  reason?: string | null;
+  metadata: Record<string, unknown>;
+  created_at?: string;
+};
+
+export type RiskEventRecord = {
+  network: MorpheusNetwork;
+  scope: string;
+  scope_id: string;
+  status: RiskEventStatus;
+  action?: string | null;
+  metadata: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+};
+
 type CacheEntry<T> = {
   expiresAt: number;
   value: T;

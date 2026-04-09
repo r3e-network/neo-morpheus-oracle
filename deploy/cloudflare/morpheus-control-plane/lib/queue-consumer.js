@@ -3,8 +3,34 @@ import { loadJob, patchJob, normalizeJobStatus } from './jobs.js';
 import { resolveStaleProcessingMs, computeRetryDelaySeconds, isStaleProcessing } from './config.js';
 import { isRetryableStatus } from './execution-plane.js';
 import { callExecutionPlane, callExecutionFeedPlane } from './execution-plane.js';
+import {
+  buildWorkflowDispatchMetadata,
+  buildWorkflowExecutionPayload,
+} from './workflow-dispatch.js';
 
 const TERMINAL_JOB_STATUSES = new Set(['succeeded', 'failed', 'dead_lettered', 'cancelled']);
+
+function resolveWorkflowMetadata(job, network, fallbackExecutionId) {
+  return buildWorkflowDispatchMetadata(
+    job.route,
+    {
+      ...(job.metadata || {}),
+      ...(job.payload || {}),
+    },
+    network,
+    {
+      executionId: trimString(job?.metadata?.execution_id || fallbackExecutionId || ''),
+    }
+  );
+}
+
+function mergeJobMetadata(job, workflowMetadata, extra = {}) {
+  return {
+    ...(job.metadata || {}),
+    ...(workflowMetadata || {}),
+    ...extra,
+  };
+}
 
 async function processExecutionJob(message, env) {
   const body = message.body && typeof message.body === 'object' ? message.body : {};
@@ -42,20 +68,25 @@ async function processExecutionJob(message, env) {
   }
 
   const attempts = Number(message.attempts || 1);
+  const workflowMetadata = resolveWorkflowMetadata(job, network, jobId);
   await patchJob(env, jobId, network, {
     status: 'processing',
     retry_count: Math.max(attempts - 1, 0),
     started_at: job.started_at || new Date().toISOString(),
-    metadata: {
-      ...(job.metadata || {}),
+    metadata: mergeJobMetadata(job, workflowMetadata, {
       queue_message_id: message.id,
       queue_attempts: attempts,
       queue_name: body.queue || 'oracle_request',
-    },
+    }),
   }).catch(() => null);
 
   try {
-    const result = await callExecutionPlane(env, job);
+    const result = await callExecutionPlane(env, {
+      ...job,
+      payload: buildWorkflowExecutionPayload(job.route, job.payload || {}, job.metadata || {}, network, {
+        executionId: workflowMetadata?.execution_id || jobId,
+      }),
+    });
     if (result.ok) {
       await patchJob(env, jobId, network, {
         status: 'succeeded',
@@ -63,11 +94,10 @@ async function processExecutionJob(message, env) {
         error: null,
         completed_at: new Date().toISOString(),
         run_after: null,
-        metadata: {
-          ...(job.metadata || {}),
+        metadata: mergeJobMetadata(job, workflowMetadata, {
           execution_status: result.status,
           execution_base_url: result.execution_base_url,
-        },
+        }),
       }).catch(() => null);
       message.ack();
       return;
@@ -82,11 +112,10 @@ async function processExecutionJob(message, env) {
           `execution failed with status ${result.status}`,
         completed_at: new Date().toISOString(),
         run_after: null,
-        metadata: {
-          ...(job.metadata || {}),
+        metadata: mergeJobMetadata(job, workflowMetadata, {
           execution_status: result.status,
           execution_base_url: result.execution_base_url,
-        },
+        }),
       }).catch(() => null);
       message.ack();
       return;
@@ -101,11 +130,10 @@ async function processExecutionJob(message, env) {
         `execution temporarily failed with status ${result.status}`,
       retry_count: attempts,
       run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-      metadata: {
-        ...(job.metadata || {}),
+      metadata: mergeJobMetadata(job, workflowMetadata, {
         execution_status: result.status,
         execution_base_url: result.execution_base_url,
-      },
+      }),
     }).catch(() => null);
     message.retry({ delaySeconds });
   } catch (error) {
@@ -116,10 +144,9 @@ async function processExecutionJob(message, env) {
       error: error instanceof Error ? error.message : String(error),
       retry_count: attempts,
       run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-      metadata: {
-        ...(job.metadata || {}),
+      metadata: mergeJobMetadata(job, workflowMetadata, {
         last_queue_error: error instanceof Error ? error.message : String(error),
-      },
+      }),
     }).catch(() => null);
     message.retry({ delaySeconds });
   }
@@ -158,16 +185,25 @@ async function processFeedTickJob(message, env) {
     }
   }
   const attempts = Number(message.attempts || 1);
+  const workflowMetadata = resolveWorkflowMetadata(job, network, jobId);
   await patchJob(env, jobId, network, {
     status: 'processing',
     retry_count: Math.max(attempts - 1, 0),
     started_at: job.started_at || new Date().toISOString(),
+    metadata: mergeJobMetadata(job, workflowMetadata, {
+      queue_message_id: message.id,
+      queue_attempts: attempts,
+      queue_name: body.queue || 'feed_tick',
+    }),
   }).catch(() => null);
 
   try {
     const result = await callExecutionFeedPlane(env, {
       ...job,
       network,
+      payload: buildWorkflowExecutionPayload(job.route, job.payload || {}, job.metadata || {}, network, {
+        executionId: workflowMetadata?.execution_id || jobId,
+      }),
     });
     if (result.ok) {
       await patchJob(env, jobId, network, {
@@ -176,11 +212,10 @@ async function processFeedTickJob(message, env) {
         error: null,
         completed_at: new Date().toISOString(),
         run_after: null,
-        metadata: {
-          ...(job.metadata || {}),
+        metadata: mergeJobMetadata(job, workflowMetadata, {
           execution_status: result.status,
           execution_base_url: result.execution_base_url,
-        },
+        }),
       }).catch(() => null);
       message.ack();
       return;
@@ -195,11 +230,10 @@ async function processFeedTickJob(message, env) {
           `feed tick failed with status ${result.status}`,
         completed_at: new Date().toISOString(),
         run_after: null,
-        metadata: {
-          ...(job.metadata || {}),
+        metadata: mergeJobMetadata(job, workflowMetadata, {
           execution_status: result.status,
           execution_base_url: result.execution_base_url,
-        },
+        }),
       }).catch(() => null);
       message.ack();
       return;
@@ -213,11 +247,10 @@ async function processFeedTickJob(message, env) {
         `feed tick temporarily failed with status ${result.status}`,
       retry_count: attempts,
       run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-      metadata: {
-        ...(job.metadata || {}),
+      metadata: mergeJobMetadata(job, workflowMetadata, {
         execution_status: result.status,
         execution_base_url: result.execution_base_url,
-      },
+      }),
     }).catch(() => null);
     message.retry({ delaySeconds });
   } catch (error) {
@@ -227,10 +260,9 @@ async function processFeedTickJob(message, env) {
       error: error instanceof Error ? error.message : String(error),
       retry_count: attempts,
       run_after: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-      metadata: {
-        ...(job.metadata || {}),
+      metadata: mergeJobMetadata(job, workflowMetadata, {
         last_queue_error: error instanceof Error ? error.message : String(error),
-      },
+      }),
     }).catch(() => null);
     message.retry({ delaySeconds });
   }

@@ -99,6 +99,16 @@ describe('CircuitBreaker', () => {
     assert.equal(state.last_failure_at, null);
   });
 
+
+  it('getState includes the recommended risk action', () => {
+    const cb = new CircuitBreaker('coinbase-spot', { failureThreshold: 1 });
+    cb.recordFailure();
+    const state = cb.getState();
+    assert.equal(state.recommended_action, 'pause_scope');
+    assert.equal(state.risk_scope, 'provider');
+    assert.equal(state.risk_scope_id, 'coinbase-spot');
+  });
+
   it('records successes', () => {
     const cb = new CircuitBreaker('test');
     cb.recordSuccess();

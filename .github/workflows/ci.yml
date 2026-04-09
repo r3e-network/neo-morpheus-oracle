@@ -15,6 +15,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm install
+      - run: node scripts/export-public-runtime-catalog.mjs --output /tmp/morpheus-runtime-catalog.json >/dev/null
+      - run: cmp -s /tmp/morpheus-runtime-catalog.json apps/web/public/morpheus-runtime-catalog.json
+      - run: node scripts/check-web-consistency.mjs
       - run: npm run format:check
       - run: npm run lint
 

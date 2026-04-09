@@ -1,4 +1,5 @@
 import { getServerSupabaseClient, resolveSupabaseNetwork } from '@/lib/server-supabase';
+import { decorateControlPlaneJob } from '@/lib/workflow-runtime';
 
 function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -32,5 +33,5 @@ export async function GET(request: Request, context: { params: Promise<{ jobId: 
     return Response.json({ error: 'job not found' }, { status: 404 });
   }
 
-  return Response.json(data);
+  return Response.json(decorateControlPlaneJob(data as Record<string, unknown>));
 }
