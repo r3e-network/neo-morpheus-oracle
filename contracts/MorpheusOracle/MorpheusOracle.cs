@@ -34,6 +34,8 @@ namespace MorpheusOracle.Contracts
     public delegate void RequestFeeUpdatedHandler(BigInteger oldFee, BigInteger newFee);
     public delegate void RequestFeeDepositedHandler(UInt160 from, BigInteger amount, BigInteger creditBalance);
     public delegate void AccruedFeesWithdrawnHandler(UInt160 to, BigInteger amount);
+    public delegate void RequestExpiredHandler(BigInteger requestId, string appId, UInt160 requester, UInt160 sponsor, BigInteger refundAmount);
+    public delegate void RequestTTLUpdatedHandler(BigInteger oldTTL, BigInteger newTTL);
 
     /// <summary>
     /// Legacy deployment name retained for compatibility, now acting as the shared MiniApp OS kernel.
@@ -80,6 +82,7 @@ namespace MorpheusOracle.Contracts
         private static readonly byte[] PREFIX_APP_FULFILLED = new byte[] { 0x22 };
         private static readonly byte[] PREFIX_APP_INBOX = new byte[] { 0x23 };
         private static readonly byte[] PREFIX_APP_STATE = new byte[] { 0x24 };
+        private static readonly byte[] PREFIX_REQUEST_TTL = new byte[] { 0x25 };
         private static readonly byte[] FULFILLMENT_SIGNATURE_DOMAIN = new byte[] { 109, 105, 110, 105, 97, 112, 112, 45, 111, 115, 45, 102, 117, 108, 102, 105, 108, 108, 109, 101, 110, 116, 45, 118, 49 };
 
         private const int MAX_APP_ID_LENGTH = 64;
@@ -96,6 +99,12 @@ namespace MorpheusOracle.Contracts
         private const int MAX_STATE_VALUE_LENGTH = 4096;
         private const string CALLBACK_METHOD = "onMiniAppResult";
         private const long DEFAULT_REQUEST_FEE = 1_000_000;
+        /// <summary>
+        /// Default request TTL in milliseconds (1 hour = 3,600,000 ms).
+        /// Stale requests older than this can be expired to refund the fee credit.
+        /// Runtime.Time on Neo N3 is in milliseconds since epoch.
+        /// </summary>
+        private const long DEFAULT_REQUEST_TTL = 3_600_000;
 
         public struct MiniAppRecord
         {
@@ -202,6 +211,12 @@ namespace MorpheusOracle.Contracts
         [DisplayName("AccruedFeesWithdrawn")]
         public static event AccruedFeesWithdrawnHandler OnAccruedFeesWithdrawn;
 
+        [DisplayName("RequestExpired")]
+        public static event RequestExpiredHandler OnRequestExpired;
+
+        [DisplayName("RequestTTLUpdated")]
+        public static event RequestTTLUpdatedHandler OnRequestTTLUpdated;
+
         public static void _deploy(object data, bool update)
         {
             if (update) return;
@@ -279,6 +294,17 @@ namespace MorpheusOracle.Contracts
 
         [Safe]
         public static BigInteger RequestFee() => SystemRequestFee();
+
+        /// <summary>
+        /// Returns the configured request TTL in milliseconds.
+        /// Requests older than this TTL can be expired via ExpireStaleRequest.
+        /// </summary>
+        [Safe]
+        public static BigInteger RequestTTL()
+        {
+            ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_REQUEST_TTL);
+            return raw == null ? DEFAULT_REQUEST_TTL : (BigInteger)raw;
+        }
 
         [Safe]
         public static BigInteger FeeCreditOf(UInt160 requester)
@@ -554,6 +580,89 @@ namespace MorpheusOracle.Contracts
 
             Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, accrued - amount);
             OnAccruedFeesWithdrawn(to, amount);
+        }
+
+        /// <summary>
+        /// Configure the request TTL (in milliseconds).  Only the admin can change this.
+        /// </summary>
+        public static void SetRequestTTL(BigInteger ttlMs)
+        {
+            ValidateAdmin();
+            ExecutionEngine.Assert(ttlMs > 0, "TTL must be positive");
+
+            BigInteger oldTTL = RequestTTL();
+            Storage.Put(Storage.CurrentContext, PREFIX_REQUEST_TTL, ttlMs);
+            OnRequestTTLUpdated(oldTTL, ttlMs);
+        }
+
+        /// <summary>
+        /// Expire a stale pending request that has exceeded the configurable TTL.
+        /// When a request is expired:
+        ///   1. Its status is set to Failed with an expiry error message
+        ///   2. The fee credit that was consumed at submission time is refunded
+        ///      to the original sponsor (the account that paid)
+        ///   3. A RequestExpired event is emitted for off-chain tracking
+        ///
+        /// Security rationale: prevents fee credits from being locked forever if
+        /// the TEE worker or relayer fails to fulfill a request.  The admin,
+        /// updater, or an automation service can call this periodically.
+        /// </summary>
+        public static void ExpireStaleRequest(BigInteger requestId)
+        {
+            // Only admin or updater may expire requests to prevent griefing
+            UInt160 admin = Admin();
+            UInt160 updater = Updater();
+            bool isAdmin = admin != null && admin.IsValid && Runtime.CheckWitness(admin);
+            bool isUpdater = updater != null && updater.IsValid && Runtime.CheckWitness(updater);
+            ExecutionEngine.Assert(isAdmin || isUpdater, "unauthorized");
+
+            KernelRequest req = GetRequest(requestId);
+            ExecutionEngine.Assert(req.Id > 0, "request not found");
+            ExecutionEngine.Assert(req.Status == KernelRequestStatus.Pending, "request not pending");
+
+            // Check that the request has exceeded the configured TTL
+            BigInteger ttl = RequestTTL();
+            BigInteger age = Runtime.Time - req.CreatedAt;
+            ExecutionEngine.Assert(age > ttl, "request has not expired");
+
+            // Mark the request as failed with an expiry error
+            req.Status = KernelRequestStatus.Failed;
+            req.FulfilledAt = Runtime.Time;
+            req.Success = false;
+            req.Error = "request expired: TTL exceeded";
+            RequestMap().Put(requestId.ToByteArray(), StdLib.Serialize(req));
+
+            IncrementTotalFulfilled();
+            IncrementMiniAppFulfilled(req.AppId);
+
+            // Refund the fee credit to the sponsor who originally paid.
+            // This ensures fee credits are not permanently lost when requests
+            // go unfulfilled due to worker or relayer downtime.
+            BigInteger fee = SystemRequestFee();
+            if (fee > 0 && req.Sponsor != null && req.Sponsor.IsValid)
+            {
+                BigInteger currentCredit = FeeCreditOf(req.Sponsor);
+                RequestCreditMap().Put((byte[])req.Sponsor, currentCredit + fee);
+
+                // Reduce accrued fees since we are returning the fee
+                BigInteger accrued = AccruedRequestFees();
+                if (accrued >= fee)
+                {
+                    Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, accrued - fee);
+                }
+            }
+
+            OnRequestExpired(requestId, req.AppId, req.Requester, req.Sponsor, fee);
+            OnMiniAppRequestCompleted(
+                requestId,
+                req.AppId,
+                req.ModuleId,
+                req.Operation,
+                false,
+                ComputeResultHash((ByteString)""),
+                0,
+                req.Error
+            );
         }
 
         public static void RegisterSystemModule(string moduleId, string endpoint, string schemaHash)

@@ -95,13 +95,22 @@ export function computeRetryDelayMs(config, attempts) {
 }
 
 export async function signFulfillmentPayload(config, chain, fulfillment) {
+  // Pass chain + kernel envelope fields so the digest matches the on-chain
+  // contract's ComputeFulfillmentDigest (N3 uses appId/moduleId/operation;
+  // NeoX still uses legacy requestType).
   const digestBytes = buildFulfillmentDigestBytes(
     fulfillment.requestId,
     fulfillment.requestType,
     fulfillment.success,
     fulfillment.result,
     fulfillment.error,
-    fulfillment.result_bytes_base64 || ''
+    fulfillment.result_bytes_base64 || '',
+    {
+      chain,
+      appId: fulfillment.appId || '',
+      moduleId: fulfillment.moduleId || '',
+      operation: fulfillment.operation || '',
+    }
   );
   const response = await callPhala(config, '/sign/payload', {
     target_chain: chain,
@@ -142,9 +151,13 @@ async function fulfillNeoRequest(config, event, fulfillment, verification) {
 
 async function finalizeFailedRequest(config, event, errorMessage) {
   const safeError = trimOnchainErrorMessage(errorMessage);
+  const kernelIntent = resolveKernelIntent(event.requestType);
   const verification = await signFulfillmentPayload(config, event.chain, {
     requestId: event.requestId,
     requestType: event.requestType,
+    appId: event.appId || '',
+    moduleId: kernelIntent.moduleId,
+    operation: kernelIntent.operation,
     success: false,
     result: '',
     result_bytes_base64: '',
@@ -182,6 +195,9 @@ async function processOracleRequest(config, event) {
     const verification = await signFulfillmentPayload(config, event.chain, {
       requestId: event.requestId,
       requestType: event.requestType,
+      appId: event.appId || '',
+      moduleId: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
       success: fulfillment.success,
       result: fulfillment.result || '',
       result_bytes_base64: fulfillment.result_bytes_base64 || '',
@@ -219,6 +235,9 @@ async function processOracleRequest(config, event) {
     const verification = await signFulfillmentPayload(config, event.chain, {
       requestId: event.requestId,
       requestType: event.requestType,
+      appId: event.appId || '',
+      moduleId: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
       success: fulfillment.success,
       result: fulfillment.result || '',
       result_bytes_base64: fulfillment.result_bytes_base64 || '',
@@ -242,6 +261,9 @@ async function processOracleRequest(config, event) {
     const verification = await signFulfillmentPayload(config, event.chain, {
       requestId: event.requestId,
       requestType: event.requestType,
+      appId: event.appId || '',
+      moduleId: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
       success: false,
       result: '',
       result_bytes_base64: '',
@@ -293,6 +315,9 @@ async function processOracleRequest(config, event) {
   const verification = await signFulfillmentPayload(config, event.chain, {
     requestId: event.requestId,
     requestType: event.requestType,
+    appId: event.appId || '',
+    moduleId: kernelIntent.moduleId,
+    operation: kernelIntent.operation,
     success: fulfillment.success,
     result: fulfillment.result || '',
     result_bytes_base64: fulfillment.result_bytes_base64 || '',

@@ -353,6 +353,44 @@ function extractQuotePrice(response) {
   );
 }
 
+/**
+ * Extract the upstream data source timestamp from the provider API response.
+ * Using the provider's timestamp instead of the local clock prevents clock-skew
+ * issues and ensures the recorded timestamp reflects when the price was actually
+ * observed at the source (TwelveData, Binance, Coinbase), not when our worker
+ * happened to process it.
+ */
+function extractUpstreamTimestamp(response) {
+  // TwelveData: { "datetime": "2025-01-15 14:30:00" }
+  if (response.data?.datetime) {
+    const parsed = Date.parse(response.data.datetime);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  }
+  // TwelveData time_series: { "timestamp": 1705312200 }
+  if (response.data?.timestamp) {
+    const ts = Number(response.data.timestamp);
+    // Distinguish seconds from milliseconds (pre-2100 cutoff in seconds)
+    if (Number.isFinite(ts) && ts > 0) {
+      return new Date(ts < 4_102_444_800 ? ts * 1000 : ts).toISOString();
+    }
+  }
+  // Binance: { "time": 1705312200000 } (trade time in ms)
+  if (response.data?.time) {
+    const ts = Number(response.data.time);
+    if (Number.isFinite(ts) && ts > 0) {
+      return new Date(ts < 4_102_444_800 ? ts * 1000 : ts).toISOString();
+    }
+  }
+  // Coinbase: { "data": { "currency": "NEO", "amount": "12.34" } } - no timestamp field;
+  // fall back to response Date header if present
+  if (response.headers?.date) {
+    const parsed = Date.parse(response.headers.date);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  }
+  // Last resort: use local clock (safe fallback)
+  return new Date().toISOString();
+}
+
 function buildSyncPolicy(targetChain, payload = {}) {
   const thresholdCandidate =
     payload.feed_change_threshold_bps ?? env('MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
@@ -624,6 +662,9 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     multiplier: priceMultiplier,
   });
 
+  // Use the upstream provider's timestamp rather than local clock, so the
+  // recorded observation time reflects the data source, not worker processing.
+  const upstreamTimestamp = extractUpstreamTimestamp(response);
   const quote = {
     feed_id: `${provider}:${pair}`,
     pair: storagePair,
@@ -637,7 +678,7 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     price: String(price),
     decimals: FEED_PRICE_DECIMALS,
     price_scale_decimals: FEED_PRICE_DECIMALS,
-    timestamp: new Date().toISOString(),
+    timestamp: upstreamTimestamp,
     sources: [provider],
   };
   const signed = await buildSignedResultEnvelope(quote, resolvedPayload);
@@ -757,7 +798,13 @@ async function submitQuoteToN3(
       { type: 'String', value: storagePair },
       { type: 'Integer', value: roundId },
       { type: 'Integer', value: decimalToIntegerString(quote.price, quote.decimals) },
-      { type: 'Integer', value: String(Math.floor(Date.now() / 1000)) },
+      // Use provider's observation timestamp, not local clock
+      { type: 'Integer', value: String(
+        (() => {
+          const parsed = Date.parse(quote.timestamp);
+          return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : Math.floor(Date.now() / 1000);
+        })()
+      ) },
       { type: 'ByteArray', value: quote.attestation_hash },
       { type: 'Integer', value: String(sourceSetId) },
     ],
@@ -985,8 +1032,14 @@ export async function handleOracleFeed(payload) {
       const sourceSetId = Number(
         payload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0)
       );
-      const timestampSec = Math.floor(Date.now() / 1000);
-      const observedAtMs = Date.now();
+      // Derive the on-chain timestamp from the quote's upstream source timestamp
+      // so the data feed contract records when the price was observed at the
+      // provider, not when the relayer processed it (avoids clock-skew drift).
+      const quoteTimestampMs = Date.parse(quote.timestamp);
+      const timestampSec = Number.isFinite(quoteTimestampMs)
+        ? Math.floor(quoteTimestampMs / 1000)
+        : Math.floor(Date.now() / 1000);
+      const observedAtMs = Number.isFinite(quoteTimestampMs) ? quoteTimestampMs : Date.now();
 
       if (!decision.allow) {
         state.records[storagePair] = {
