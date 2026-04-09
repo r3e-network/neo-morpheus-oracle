@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto';
-const FULFILLMENT_SIGNATURE_DOMAIN = Buffer.from('morpheus-fulfillment-v2', 'utf8');
+// Neo N3 contract uses the v1 kernel domain with the full envelope (appId, moduleId, operation).
+// NeoX Solidity contract still uses the legacy v2 domain with requestType only.
+const FULFILLMENT_SIGNATURE_DOMAIN_N3 = Buffer.from('miniapp-os-fulfillment-v1', 'utf8');
+const FULFILLMENT_SIGNATURE_DOMAIN_NEOX = Buffer.from('morpheus-fulfillment-v2', 'utf8');
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -276,24 +279,57 @@ export function buildWorkerPayload(chain, requestType, payload, requestId, conte
   };
 }
 
+/**
+ * Build the fulfillment digest that must match the on-chain contract's
+ * ComputeFulfillmentDigest.  The Neo N3 kernel contract binds the signature
+ * to the full request envelope (appId, moduleId, operation) -- not just the
+ * legacy requestType -- so a signature cannot be replayed across different
+ * apps or modules.  The NeoX Solidity contract still uses the legacy format.
+ *
+ * Security rationale: covering the full envelope prevents an attacker from
+ * reusing a fulfillment signature meant for one (appId, moduleId, operation)
+ * tuple against a different request that shares the same requestId.
+ */
 export function buildFulfillmentDigestBytes(
   requestId,
   requestType,
   success,
   result,
   error,
-  resultBytesBase64 = ''
+  resultBytesBase64 = '',
+  { chain = 'neo_n3', appId = '', moduleId = '', operation = '' } = {}
 ) {
   const successByte = Buffer.from([success ? 1 : 0]);
   const resultBytes = trimString(resultBytesBase64)
     ? Buffer.from(trimString(resultBytesBase64), 'base64')
     : Buffer.from(String(result || ''), 'utf8');
+
+  if (chain === 'neo_x') {
+    // NeoX Solidity contract uses the legacy v2 domain with requestType.
+    return createHash('sha256')
+      .update(
+        Buffer.concat([
+          FULFILLMENT_SIGNATURE_DOMAIN_NEOX,
+          encodeUint256Bytes(requestId),
+          sha256Buffer(trimString(requestType || '')),
+          successByte,
+          sha256Buffer(resultBytes),
+          sha256Buffer(trimString(error || '')),
+        ])
+      )
+      .digest();
+  }
+
+  // Neo N3 kernel contract: domain + requestId + sha256(appId) + sha256(moduleId)
+  // + sha256(operation) + success + sha256(result) + sha256(error)
   return createHash('sha256')
     .update(
       Buffer.concat([
-        FULFILLMENT_SIGNATURE_DOMAIN,
+        FULFILLMENT_SIGNATURE_DOMAIN_N3,
         encodeUint256Bytes(requestId),
-        sha256Buffer(trimString(requestType || '')),
+        sha256Buffer(trimString(appId || '')),
+        sha256Buffer(trimString(moduleId || '')),
+        sha256Buffer(trimString(operation || '')),
         successByte,
         sha256Buffer(resultBytes),
         sha256Buffer(trimString(error || '')),
