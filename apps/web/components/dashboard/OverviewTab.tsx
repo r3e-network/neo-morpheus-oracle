@@ -8,6 +8,7 @@ import { getDeprecatedFeedInfo, getFeedDescriptor } from '@/lib/feed-defaults';
 import { Card } from '@/components/ui/Card';
 import { SkeletonStats } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
+import type { PublicRuntimeStatusSnapshot } from '@/lib/runtime-status';
 
 import { OverviewStats } from './OverviewStats';
 import { OverviewNetwork } from './OverviewNetwork';
@@ -23,7 +24,7 @@ type OnchainRecord = {
 
 export function OverviewTab({ setOutput }: any) {
   const [onchainState, setOnchainState] = useState<any>(null);
-  const [runtimeInfo, setRuntimeInfo] = useState<any>(null);
+  const [runtimeStatus, setRuntimeStatus] = useState<PublicRuntimeStatusSnapshot | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,23 +39,33 @@ export function OverviewTab({ setOutput }: any) {
     try {
       const [stateResponse, runtimeResponse] = await Promise.all([
         fetch('/api/onchain/state?limit=50'),
-        fetch('/api/runtime/info'),
+        fetch('/api/runtime/status'),
       ]);
       const [stateBody, runtimeBody] = await Promise.all([
         stateResponse.json().catch(() => ({})),
         runtimeResponse.json().catch(() => ({})),
       ]);
       setOnchainState(stateBody);
-      setRuntimeInfo(runtimeBody);
+      setRuntimeStatus(runtimeBody as PublicRuntimeStatusSnapshot);
 
       const recordCount = Number(stateBody?.neo_n3?.datafeed?.pair_count || 0);
       const requestFee = stateBody?.neo_n3?.oracle?.request_fee_display || '0.01 GAS';
-      const appId = runtimeBody?.dstack?.app_id || 'unavailable';
+      const appId = runtimeBody?.runtime?.info?.appId || 'unavailable';
+      const runtimeState = runtimeBody?.runtime?.status || 'unknown';
+      const executionPlane = runtimeBody?.catalog?.topology?.executionPlane || 'unknown';
+      const riskPlane = runtimeBody?.catalog?.topology?.riskPlane || 'unknown';
+      const triggerKinds = Array.isArray(runtimeBody?.catalog?.automation?.triggerKinds)
+        ? runtimeBody.catalog.automation.triggerKinds.join(', ')
+        : 'unknown';
       setOutput(
         [
           '>> Loaded Neo N3 on-chain state.',
           `>> Oracle fee: ${requestFee}`,
           `>> Feed pairs tracked: ${recordCount}`,
+          `>> Runtime status: ${runtimeState}`,
+          `>> Runtime execution plane: ${executionPlane}`,
+          `>> Runtime risk plane: ${riskPlane}`,
+          `>> Automation triggers: ${triggerKinds}`,
           `>> Phala app id: ${appId}`,
           `>> Oracle attestation: ${NETWORKS.selected.oracleAttestationExplorerUrl || 'unpublished'}`,
           `>> Datafeed attestation: ${NETWORKS.selected.datafeedAttestationExplorerUrl || 'unpublished'}`,
@@ -132,7 +143,13 @@ export function OverviewTab({ setOutput }: any) {
   }, [onchainState]);
 
   const oracleState = onchainState?.neo_n3?.oracle || null;
-  const dstack = runtimeInfo?.dstack || null;
+  const dstack = runtimeStatus?.runtime?.info
+    ? {
+        app_id: runtimeStatus.runtime.info.appId,
+        compose_hash: runtimeStatus.runtime.info.composeHash,
+        client_kind: runtimeStatus.runtime.info.clientKind,
+      }
+    : null;
   const configuredSyncedCount = DEFAULT_PAIRS.filter((pair) => recordsByPair.has(pair)).length;
   const selectedRecord = recordsByPair.get(selectedPair) || null;
   const selectedDescriptor = getFeedDescriptor(selectedPair);
@@ -186,7 +203,7 @@ export function OverviewTab({ setOutput }: any) {
                 Neo N3: Live
               </div>
               <div className="badge-outline" style={{ color: 'var(--text-muted)' }}>
-                Current Scope: N3 Only
+                Runtime: {runtimeStatus?.runtime?.status || 'unknown'}
               </div>
             </>
           )}
