@@ -14,6 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
+import { getPublicRuntimeStatusNotes, type PublicRuntimeStatusSnapshot } from '@/lib/runtime-status';
 
 type ServiceStatus = {
   name: string;
@@ -23,6 +24,7 @@ type ServiceStatus = {
   latencyMs: number | null;
   lastChecked: Date | null;
   detail?: string;
+  notes?: string[];
 };
 
 const SERVICE_CHECKS: Array<{ name: string; description: string; endpoint: string }> = [
@@ -33,8 +35,8 @@ const SERVICE_CHECKS: Array<{ name: string; description: string; endpoint: strin
   },
   {
     name: 'Oracle CVM Runtime',
-    description: 'Confidential oracle execution environment',
-    endpoint: '/api/runtime/health',
+    description: 'Canonical public runtime contract, health, and topology metadata',
+    endpoint: '/api/runtime/status',
   },
   {
     name: 'On-Chain State',
@@ -67,6 +69,13 @@ const statusLabels: Record<string, string> = {
   checking: 'Checking...',
 };
 
+function isRuntimeStatusSnapshot(value: unknown): value is PublicRuntimeStatusSnapshot {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  return 'runtime' in value && 'catalog' in value;
+}
+
 export default function StatusPage() {
   const [services, setServices] = useState<ServiceStatus[]>(
     SERVICE_CHECKS.map((s) => ({
@@ -90,6 +99,27 @@ export default function StatusPage() {
             signal: AbortSignal.timeout(10000),
           });
           const latencyMs = Math.round(performance.now() - start);
+          const contentType = response.headers.get('content-type') || '';
+          const body = contentType.includes('application/json')
+            ? await response.json().catch(() => null)
+            : null;
+          const runtimeSnapshot = isRuntimeStatusSnapshot(body) ? body : null;
+
+          if (runtimeSnapshot) {
+            return {
+              ...service,
+              status: runtimeSnapshot.runtime.status,
+              latencyMs,
+              lastChecked: new Date(),
+              detail:
+                runtimeSnapshot.runtime.status === 'operational'
+                  ? undefined
+                  : runtimeSnapshot.runtime.health.detail ||
+                    runtimeSnapshot.runtime.info.detail ||
+                    `HTTP ${response.status}`,
+              notes: getPublicRuntimeStatusNotes(runtimeSnapshot),
+            };
+          }
 
           if (response.ok) {
             return {
@@ -192,18 +222,18 @@ export default function StatusPage() {
         <p
           style={{
             color: 'var(--text-secondary)',
-            maxWidth: '600px',
+            maxWidth: '640px',
             fontSize: '1rem',
             lineHeight: 1.7,
             marginBottom: '2rem',
           }}
         >
-          Real-time health checks for Morpheus Oracle infrastructure services. This page
-          auto-refreshes every 30 seconds.
+          Real-time health checks for Morpheus Oracle infrastructure services and the public runtime
+          contract that exposes topology, risk, and automation metadata. This page auto-refreshes
+          every 30 seconds.
         </p>
       </div>
 
-      {/* Overall status banner */}
       <Card
         style={{
           marginBottom: '2rem',
@@ -278,7 +308,6 @@ export default function StatusPage() {
         </div>
       </Card>
 
-      {/* Service list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '2.5rem' }}>
         {services.map((service) => {
           const StatusIcon =
@@ -316,6 +345,19 @@ export default function StatusPage() {
                   >
                     {service.description}
                   </div>
+                  {service.notes?.map((note) => (
+                    <div
+                      key={note}
+                      style={{
+                        fontSize: '0.72rem',
+                        color: 'var(--text-muted)',
+                        fontFamily: 'var(--font-mono)',
+                        marginTop: '4px',
+                      }}
+                    >
+                      {note}
+                    </div>
+                  ))}
                   {service.detail && service.status !== 'operational' && (
                     <div
                       style={{
@@ -359,7 +401,6 @@ export default function StatusPage() {
         })}
       </div>
 
-      {/* Links */}
       <div
         style={{
           display: 'flex',

@@ -17,9 +17,14 @@ It serves four roles:
 - `/api/compute/functions`
 - `/api/compute/execute`
 - `/api/feeds/[symbol]`
+- `/api/feeds/catalog`
 - `/api/feeds/status`
-- `/api/runtime/health`
+- `/api/runtime/catalog`
+- `/api/runtime/status`
 - `/api/runtime/info`
+- `/api/runtime/health`
+- `/api/workflows`
+- `/api/policies`
 - `/api/attestation/demo`
 - `/api/attestation/verify`
 

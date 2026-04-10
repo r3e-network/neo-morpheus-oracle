@@ -33,9 +33,43 @@ function normalizeRoutePath(path: string) {
 
 export type PublicWorkflowCatalog = typeof runtimeCatalog;
 export type PublicWorkflowDefinition = PublicWorkflowCatalog['workflows'][number];
+export type PublicRuntimeCatalogSummary = {
+  envelope: PublicWorkflowCatalog['envelope'];
+  topology: PublicWorkflowCatalog['topology'];
+  risk: PublicWorkflowCatalog['risk'];
+  automation: PublicWorkflowCatalog['automation'];
+  workflows: {
+    count: number;
+    ids: string[];
+  };
+  links: {
+    catalog: '/api/runtime/catalog';
+    workflows: '/api/workflows';
+    policies: '/api/policies';
+  };
+};
 
 export function getPublicWorkflowCatalog(): PublicWorkflowCatalog {
   return clone(runtimeCatalog);
+}
+
+export function getPublicRuntimeCatalogSummary(): PublicRuntimeCatalogSummary {
+  const catalog = getPublicWorkflowCatalog();
+  return {
+    envelope: catalog.envelope,
+    topology: catalog.topology,
+    risk: catalog.risk,
+    automation: catalog.automation,
+    workflows: {
+      count: catalog.workflows.length,
+      ids: catalog.workflows.map((item) => item.id),
+    },
+    links: {
+      catalog: '/api/runtime/catalog',
+      workflows: '/api/workflows',
+      policies: '/api/policies',
+    },
+  };
 }
 
 export function getPublicPolicyCatalog() {
