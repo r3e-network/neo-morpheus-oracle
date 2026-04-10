@@ -2,6 +2,30 @@
   "envelope": {
     "version": "2026-04-tee-v1"
   },
+  "topology": {
+    "ingressPlane": "edge_gateway",
+    "orchestrationPlane": "control_plane",
+    "schedulerPlane": "control_plane",
+    "executionPlane": "tee_runtime",
+    "riskPlane": "independent_observer"
+  },
+  "risk": {
+    "observer": "independent_observer",
+    "actions": [
+      "observe",
+      "review",
+      "pause_scope"
+    ]
+  },
+  "automation": {
+    "workflowId": "automation.upkeep",
+    "triggerKinds": [
+      "interval",
+      "threshold"
+    ],
+    "route": "/automation/execute",
+    "deliveryMode": "onchain_callback"
+  },
   "networks": {
     "mainnet": {
       "network": "mainnet",
@@ -114,6 +138,12 @@
         "provider",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "api_response"
       }
@@ -135,6 +165,12 @@
         "provider",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "api_response"
       }
@@ -158,6 +194,12 @@
         "provider",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "shared_resource_sync"
       }
@@ -183,6 +225,12 @@
         "paymaster",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "onchain_callback"
       }
@@ -203,6 +251,12 @@
         "tenant",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "api_response"
       }
@@ -223,6 +277,12 @@
         "tenant",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "kernel_inbox"
       }
@@ -243,6 +303,12 @@
         "tenant",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "kernel_inbox"
       }
@@ -263,6 +329,12 @@
         "tenant",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "kernel_inbox"
       }
@@ -284,6 +356,12 @@
         "paymaster",
         "risk"
       ],
+      "execution": {
+        "orchestrationPlane": "control_plane",
+        "executionPlane": "tee_runtime",
+        "riskPlane": "independent_observer",
+        "teeRequired": true
+      },
       "delivery": {
         "mode": "api_response"
       }

@@ -1,5 +1,15 @@
 export const RESULT_ENVELOPE_VERSION = '2026-04-tee-v1';
 
+export const PUBLIC_RUNTIME_TOPOLOGY = Object.freeze({
+  ingressPlane: 'edge_gateway',
+  orchestrationPlane: 'control_plane',
+  schedulerPlane: 'control_plane',
+  executionPlane: 'tee_runtime',
+  riskPlane: 'independent_observer',
+});
+
+export const PUBLIC_RISK_ACTIONS = Object.freeze(['observe', 'review', 'pause_scope']);
+
 const WORKFLOW_DEFINITIONS = [
   {
     id: 'oracle.query',
@@ -102,7 +112,7 @@ const WORKFLOW_DEFINITIONS = [
 ];
 
 function cloneWorkflowDefinition(definition) {
-  if (!definition) return null;
+  if (definition == null) return null;
   return {
     ...definition,
     allowedNetworks: [...definition.allowedNetworks],
