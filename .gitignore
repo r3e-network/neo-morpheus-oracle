@@ -30,3 +30,7 @@ docs/*_20??-??-??.md
 examples/deployments/*.20??-??-??.json
 examples/deployments/control-plane-smoke.*.latest.json
 dist
+
+.worktrees/
+examples/contracts/n3/bin/
+examples/contracts/n3/obj/
