@@ -105,6 +105,10 @@ Current public pattern:
 
 - `https://edge.meshmini.app/mainnet/*`
 - `https://edge.meshmini.app/testnet/*`
+- `https://oracle.meshmini.app/mainnet/api/runtime/catalog`
+- `https://oracle.meshmini.app/mainnet/api/runtime/status`
+- `https://oracle.meshmini.app/testnet/api/runtime/catalog`
+- `https://oracle.meshmini.app/testnet/api/runtime/status`
 
 ## Step 4: Deploy Cloudflare Control Plane
 
@@ -221,6 +225,7 @@ npm run set:updater:n3
 - Oracle runtime:
   - `https://oracle.meshmini.app/mainnet`
   - `https://oracle.meshmini.app/testnet`
+  - public runtime contract: `/api/runtime/catalog`, `/api/runtime/status`
 - Edge gateway:
   - `https://edge.meshmini.app/mainnet`
   - `https://edge.meshmini.app/testnet`

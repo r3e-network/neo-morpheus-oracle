@@ -1,6 +1,12 @@
 export { json, trimString, parseTimestampMs, getClientIp, stableStringify } from './utils.js';
 export { applyUpstashRateLimit } from './rate-limit.js';
 export {
+  PUBLIC_RUNTIME_DISCOVERY_LINKS,
+  buildPublicRuntimeCatalogSummary,
+  buildPublicRuntimeStatusSnapshot,
+  getPublicRuntimeStatusNotes,
+} from './public-runtime.js';
+export {
   RESULT_ENVELOPE_VERSION,
   getWorkflowDefinition,
   listWorkflowDefinitions,

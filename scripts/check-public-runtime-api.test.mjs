@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { buildPublicRuntimeStatusSnapshot } from '../packages/shared/src/public-runtime.js';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const runtimeCatalog = JSON.parse(
@@ -9,42 +10,27 @@ const runtimeCatalog = JSON.parse(
 );
 
 function buildStatusSnapshot(catalog) {
-  return {
+  return buildPublicRuntimeStatusSnapshot({
+    catalog,
     checkedAt: '2026-04-10T00:00:00.000Z',
-    catalog: {
-      envelope: catalog.envelope,
-      topology: catalog.topology,
-      risk: catalog.risk,
-      automation: catalog.automation,
-      workflows: {
-        count: catalog.workflows.length,
-        ids: catalog.workflows.map((item) => item.id),
-      },
-      links: {
-        catalog: '/api/runtime/catalog',
-        workflows: '/api/workflows',
-        policies: '/api/policies',
-      },
+    health: {
+      ok: true,
+      status: 200,
+      body: { status: 'ok' },
     },
-    runtime: {
-      status: 'operational',
-      health: {
-        ok: true,
-        statusCode: 200,
-        state: 'ok',
-        detail: null,
-      },
-      info: {
-        ok: true,
-        statusCode: 200,
-        appId: 'app-123',
-        composeHash: 'compose-123',
-        clientKind: 'dstack',
+    info: {
+      ok: true,
+      status: 200,
+      body: {
         version: '1.2.3',
-        detail: null,
+        dstack: {
+          app_id: 'app-123',
+          compose_hash: 'compose-123',
+          client_kind: 'dstack',
+        },
       },
     },
-  };
+  });
 }
 
 test('validatePublicRuntimeApiContract accepts a valid runtime catalog and status pair', async () => {

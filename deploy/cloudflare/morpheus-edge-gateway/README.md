@@ -5,6 +5,7 @@ Cloudflare Worker gateway for the public Morpheus execution surface.
 ## Responsibilities
 
 - front public Oracle runtime endpoints
+- publish the canonical public runtime catalog and runtime status contract on /api/runtime/catalog and /api/runtime/status
 - apply Cloudflare-native rate limiting before origin traffic reaches the CVM
 - optionally verify Turnstile on abuse-prone endpoints
 - cache safe GET responses such as:
@@ -42,6 +43,8 @@ Example:
 - `/testnet/health`
 - `/mainnet/oracle/query`
 - `/testnet/paymaster/authorize`
+- `/mainnet/api/runtime/catalog`
+- `/testnet/api/runtime/status`
 
 Current public runtime domains:
 
