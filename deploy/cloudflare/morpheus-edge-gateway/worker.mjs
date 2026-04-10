@@ -1,5 +1,7 @@
-import { json, trimString, getClientIp } from '@neo-morpheus-oracle/shared/utils.js';
-import { applyUpstashRateLimit } from '@neo-morpheus-oracle/shared/rate-limit.js';
+import { json, trimString, getClientIp } from '@neo-morpheus-oracle/shared/utils';
+import { applyUpstashRateLimit } from '@neo-morpheus-oracle/shared/rate-limit';
+import { buildPublicRuntimeStatusSnapshot } from '../../../packages/shared/src/public-runtime.js';
+import runtimeCatalog from '../../../apps/web/public/morpheus-runtime-catalog.json' with { type: 'json' };
 
 const CACHE_RULES = [
   { match: (url, req) => req.method === 'GET' && url.pathname.endsWith('/health'), ttl: 15 },
@@ -231,6 +233,70 @@ function buildOriginRequest(request, env) {
   });
 }
 
+
+function matchPublicRuntimeRoute(path) {
+  if (path === '/api/runtime/catalog') return 'runtime-catalog';
+  if (path === '/api/runtime/status') return 'runtime-status';
+  return null;
+}
+
+function maybeParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text || null;
+  }
+}
+
+function decorateGatewayResponse(response, routing, routeKey) {
+  response.headers.set('x-morpheus-edge', 'cloudflare');
+  response.headers.set('x-morpheus-route', routeKey);
+  response.headers.set('x-morpheus-network', routing.network);
+  return response;
+}
+
+function buildOriginProbeRequest(request, routing, env, targetPath) {
+  if (!routing.originBaseUrl) {
+    throw new Error('origin URL is required for network ' + routing.network);
+  }
+
+  const headers = new Headers(request.headers);
+  headers.delete('host');
+  if (!headers.has('authorization') && trimString(env.MORPHEUS_ORIGIN_TOKEN)) {
+    headers.set('authorization', 'Bearer ' + trimString(env.MORPHEUS_ORIGIN_TOKEN));
+  }
+  headers.set('x-forwarded-proto', 'https');
+  headers.set('x-edge-route', new URL(request.url).pathname);
+  headers.set('x-morpheus-network', routing.network);
+
+  return new Request(routing.originBaseUrl + targetPath, {
+    method: 'GET',
+    headers,
+    redirect: 'follow',
+  });
+}
+
+async function readOriginRuntimeProbe(request, routing, env, targetPath) {
+  try {
+    const response = await fetch(buildOriginProbeRequest(request, routing, env, targetPath));
+    const text = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      body: maybeParseJson(text),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 503,
+      body: {
+        error: 'origin_unavailable',
+        message: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -246,6 +312,43 @@ export default {
         },
         default_network: routing.network,
       });
+    }
+
+    const publicRuntimeRoute = matchPublicRuntimeRoute(routing.forwardedPath);
+    if (publicRuntimeRoute === 'runtime-catalog') {
+      return decorateGatewayResponse(
+        Response.json(structuredClone(runtimeCatalog), {
+          headers: {
+            'cache-control': 'public, max-age=60, stale-while-revalidate=300',
+          },
+        }),
+        routing,
+        publicRuntimeRoute
+      );
+    }
+    if (publicRuntimeRoute === 'runtime-status') {
+      const checkedAt = new Date().toISOString();
+      const [health, info] = await Promise.all([
+        readOriginRuntimeProbe(request, routing, env, '/health'),
+        readOriginRuntimeProbe(request, routing, env, '/info'),
+      ]);
+      const snapshot = buildPublicRuntimeStatusSnapshot({
+        catalog: runtimeCatalog,
+        checkedAt,
+        health,
+        info,
+      });
+      const statusCode = snapshot.runtime.status === 'down' ? 503 : 200;
+      return decorateGatewayResponse(
+        Response.json(snapshot, {
+          status: statusCode,
+          headers: {
+            'cache-control': 'no-store',
+          },
+        }),
+        routing,
+        publicRuntimeRoute
+      );
     }
 
     const turnstileRequest =

@@ -82,6 +82,46 @@ const desiredChecks = [
     assertions: [statusAssertion(200), jsonAssertion('$.status', 'EQUALS', 'ok')],
   },
   {
+    name: 'morpheus-oracle-testnet-runtime-catalog',
+    url: 'https://oracle.meshmini.app/testnet/api/runtime/catalog',
+    frequency: 360,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.envelope.version', 'NOT_EMPTY'),
+      jsonAssertion('$.automation.workflowId', 'EQUALS', 'automation.upkeep'),
+    ],
+  },
+  {
+    name: 'morpheus-oracle-testnet-runtime-status',
+    url: 'https://oracle.meshmini.app/testnet/api/runtime/status',
+    frequency: 120,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.catalog.links.catalog', 'EQUALS', '/api/runtime/catalog'),
+      jsonAssertion('$.runtime.health.state', 'NOT_EMPTY'),
+    ],
+  },
+  {
+    name: 'morpheus-oracle-mainnet-runtime-catalog',
+    url: 'https://oracle.meshmini.app/mainnet/api/runtime/catalog',
+    frequency: 360,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.envelope.version', 'NOT_EMPTY'),
+      jsonAssertion('$.automation.workflowId', 'EQUALS', 'automation.upkeep'),
+    ],
+  },
+  {
+    name: 'morpheus-oracle-mainnet-runtime-status',
+    url: 'https://oracle.meshmini.app/mainnet/api/runtime/status',
+    frequency: 120,
+    assertions: [
+      statusAssertion(200),
+      jsonAssertion('$.catalog.links.catalog', 'EQUALS', '/api/runtime/catalog'),
+      jsonAssertion('$.runtime.health.state', 'NOT_EMPTY'),
+    ],
+  },
+  {
     name: 'morpheus-oracle-testnet-public-key',
     url: 'https://oracle.meshmini.app/testnet/oracle/public-key',
     frequency: 120,

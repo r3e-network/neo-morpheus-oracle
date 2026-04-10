@@ -18,6 +18,20 @@ const desired = [
     check_frequency: 300,
   },
   {
+    pronounceable_name: 'morpheus-oracle-testnet-runtime-status',
+    url: 'https://oracle.meshmini.app/testnet/api/runtime/status',
+    monitor_type: 'expected_status_code',
+    expected_status_codes: [200],
+    check_frequency: 300,
+  },
+  {
+    pronounceable_name: 'morpheus-oracle-mainnet-runtime-status',
+    url: 'https://oracle.meshmini.app/mainnet/api/runtime/status',
+    monitor_type: 'expected_status_code',
+    expected_status_codes: [200],
+    check_frequency: 300,
+  },
+  {
     pronounceable_name: 'morpheus-edge-testnet-health',
     url: 'https://edge.meshmini.app/testnet/health',
     monitor_type: 'expected_status_code',
