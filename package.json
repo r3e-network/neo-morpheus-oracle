@@ -91,7 +91,8 @@
     "test:workspace:live": "bash scripts/run_workspace_live_validation.sh",
     "test:workspace:full": "bash scripts/run_workspace_full_validation.sh",
     "compile:neox": "npm --prefix contracts/neox run compile",
-    "test:neox": "npm --prefix contracts/neox test"
+    "test:neox": "npm --prefix contracts/neox test",
+    "test:scripts": "node --test scripts/*.test.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.57.1",
