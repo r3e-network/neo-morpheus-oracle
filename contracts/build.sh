@@ -20,15 +20,11 @@ else
   exit 1
 fi
 
-for d in MorpheusOracle MorpheusDataFeed OracleCallbackConsumer; do
+for d in MorpheusOracle MorpheusDataFeed OracleCallbackConsumer NeoDIDRegistry; do
   if [ -f "$d/$d.csproj" ]; then
     echo "Building $d..."
     dotnet build "$d/$d.csproj" -c Release
-    if [ -x ~/.dotnet/tools/nccs ]; then
-      ~/.dotnet/tools/nccs "$d/$d.csproj" --generate-artifacts All --output ./build/ || echo "nccs skipped for $d"
-    else
-      echo "nccs not found; skipped artifact generation for $d"
-    fi
+    ~/.dotnet/tools/nccs "$d/$d.csproj" --generate-artifacts Source --output ./build/
   fi
 done
 

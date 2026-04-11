@@ -1,5 +1,6 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
+import { resolveCallbackWithLocalFallback } from './lib-smoke-oracle-fallback.mjs';
 import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -528,49 +529,54 @@ const txid = await oracle.invoke('request', [
 console.error(`Neo N3 smoke request txid: ${txid}`);
 
 const requestId = await waitForRequestId(rpcClient, txid, requestTimeoutMs);
-let callback;
-try {
-  callback = await waitForCallback(rpcClient, callbackHash, requestId, callbackTimeoutMs);
-} catch (error) {
-  console.error(
-    `Neo N3 smoke callback timeout for request ${requestId}, attempting local fulfill fallback...`
-  );
-  if (updaterAccount.scriptHash !== account.scriptHash) {
-    const fallbackTopup = await ensureAccountGasBalance({
+const callback = await resolveCallbackWithLocalFallback({
+  requestId,
+  callbackTimeoutMs,
+  waitForCallback: (timeoutMs) => waitForCallback(rpcClient, callbackHash, requestId, timeoutMs),
+  onTimeout: () => {
+    console.error(
+      `Neo N3 smoke callback timeout for request ${requestId}, attempting local fulfill fallback...`
+    );
+  },
+  beforeLocalFallback: async () => {
+    if (updaterAccount.scriptHash !== account.scriptHash) {
+      const fallbackTopup = await ensureAccountGasBalance({
+        rpcClient,
+        rpcUrl,
+        networkMagic,
+        fundingAccount: account,
+        targetScriptHash: updaterAccount.scriptHash,
+        minGasRaw: fallbackUpdaterMinGasRaw,
+        timeoutMs: 90000,
+      });
+      updaterGasTopup = {
+        ...(updaterGasTopup || {}),
+        on_fallback: fallbackTopup,
+      };
+    }
+    if (!updaterWif) {
+      const reason = updaterSigner.issues.length
+        ? updaterSigner.issues.join('; ')
+        : 'no pinned updater signer materialized';
+      throw new Error(
+        `Neo N3 smoke callback fallback unavailable because updater signer is not configured: ${reason}`
+      );
+    }
+  },
+  fulfillRequestLocally: async () => {
+    const resultText = JSON.stringify({ provider, symbol, price: '0', smoke_fallback: true });
+    await fulfillRequestLocally(
       rpcClient,
+      oracleHash,
+      updaterAccount,
       rpcUrl,
       networkMagic,
-      fundingAccount: account,
-      targetScriptHash: updaterAccount.scriptHash,
-      minGasRaw: fallbackUpdaterMinGasRaw,
-      timeoutMs: 90000,
-    });
-    updaterGasTopup = {
-      ...(updaterGasTopup || {}),
-      on_fallback: fallbackTopup,
-    };
-  }
-  if (!updaterWif) {
-    const reason = updaterSigner.issues.length
-      ? updaterSigner.issues.join('; ')
-      : 'no pinned updater signer materialized';
-    throw new Error(
-      `Neo N3 smoke callback fallback unavailable because updater signer is not configured: ${reason}`
+      requestId,
+      requestType,
+      resultText
     );
-  }
-  const resultText = JSON.stringify({ provider, symbol, price: '0', smoke_fallback: true });
-  await fulfillRequestLocally(
-    rpcClient,
-    oracleHash,
-    updaterAccount,
-    rpcUrl,
-    networkMagic,
-    requestId,
-    requestType,
-    resultText
-  );
-  callback = await waitForCallback(rpcClient, callbackHash, requestId, callbackTimeoutMs);
-}
+  },
+});
 const summary = {
   txid,
   request_id: requestId,
