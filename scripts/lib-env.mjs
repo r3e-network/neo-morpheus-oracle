@@ -5,7 +5,7 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function parseDotEnv(raw) {
+export function parseDotEnv(raw) {
   const out = {};
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
@@ -25,10 +25,27 @@ function parseDotEnv(raw) {
   return out;
 }
 
+async function readDotEnvFile(filePath) {
+  return parseDotEnv(await fs.readFile(filePath, 'utf8'));
+}
+
+export async function readMergedDotEnvFiles(filePaths = []) {
+  const merged = {};
+  for (const filePath of filePaths) {
+    if (!trimString(filePath)) continue;
+    try {
+      Object.assign(merged, await readDotEnvFile(filePath));
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      throw error;
+    }
+  }
+  return merged;
+}
+
 export async function loadDotEnv(envPath = path.resolve(process.cwd(), '.env'), options = {}) {
   try {
-    const raw = await fs.readFile(envPath, 'utf8');
-    const parsed = parseDotEnv(raw);
+    const parsed = await readDotEnvFile(envPath);
     const override = options.override ?? false;
     for (const [key, value] of Object.entries(parsed)) {
       if (override || !trimString(process.env[key])) {

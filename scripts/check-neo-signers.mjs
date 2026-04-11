@@ -1,36 +1,18 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { readMergedDotEnvFiles } from './lib-env.mjs';
 import { normalizeMorpheusNetwork, reportPinnedNeoN3Roles } from './lib-neo-signers.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function parseDotEnv(raw) {
-  const out = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const index = trimmed.indexOf('=');
-    if (index < 0) continue;
-    const key = trimmed.slice(0, index).trim();
-    let value = trimmed.slice(index + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    out[key] = value;
-  }
-  return out;
-}
-
-async function readDotEnv(filePath) {
+async function pathExists(filePath) {
   try {
-    return parseDotEnv(await fs.readFile(filePath, 'utf8'));
+    await fs.access(filePath);
+    return true;
   } catch (error) {
-    if (error?.code === 'ENOENT') return null;
+    if (error?.code === 'ENOENT') return false;
     throw error;
   }
 }
@@ -43,17 +25,23 @@ function parseRuntimeConfig(env) {
   }
 }
 
-async function buildReport(label, filePath, { allowMissing = false, network = '' } = {}) {
-  const env = await readDotEnv(filePath);
-  if (!env) {
+async function buildReport(label, filePaths, { allowMissing = false, network = '' } = {}) {
+  const envPaths = Array.isArray(filePaths) ? filePaths : [filePaths];
+  const exists = (await Promise.all(envPaths.map((filePath) => pathExists(filePath)))).some(
+    Boolean
+  );
+  if (!exists) {
     return {
       label,
-      env_path: filePath,
+      env_path: envPaths[0],
+      env_paths: envPaths,
       exists: false,
       ok: allowMissing,
       signers: [],
     };
   }
+
+  const env = await readMergedDotEnvFiles(envPaths);
   const runtimeConfig = parseRuntimeConfig(env);
   const resolvedNetwork = normalizeMorpheusNetwork(
     network || env.MORPHEUS_NETWORK || runtimeConfig.MORPHEUS_NETWORK || 'testnet'
@@ -74,7 +62,8 @@ async function buildReport(label, filePath, { allowMissing = false, network = ''
   }));
   return {
     label,
-    env_path: filePath,
+    env_path: envPaths[0],
+    env_paths: envPaths,
     exists: true,
     ok: signers.every((entry) => entry.ok),
     signers,
@@ -83,7 +72,9 @@ async function buildReport(label, filePath, { allowMissing = false, network = ''
 
 const repoRoot = process.cwd();
 const reports = await Promise.all([
-  buildReport('root_env', path.resolve(repoRoot, '.env'), { allowMissing: true }),
+  buildReport('root_env', [path.resolve(repoRoot, '.env'), path.resolve(repoRoot, '.env.local')], {
+    allowMissing: true,
+  }),
   buildReport('testnet_phala_env', path.resolve(repoRoot, 'deploy/phala/morpheus.testnet.env'), {
     allowMissing: false,
     network: 'testnet',
