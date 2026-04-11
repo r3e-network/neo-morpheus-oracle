@@ -1,31 +1,11 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
+import { readMergedDotEnvFiles } from './lib-env.mjs';
 import { reportPinnedNeoN3Roles, normalizeMorpheusNetwork } from './lib-neo-signers.mjs';
 
-const envPath = path.resolve(process.cwd(), '.env');
+const envPaths = [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '.env.local')];
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function parseDotEnv(raw) {
-  const out = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const index = trimmed.indexOf('=');
-    if (index < 0) continue;
-    const key = trimmed.slice(0, index).trim();
-    let value = trimmed.slice(index + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    out[key] = value;
-  }
-  return out;
 }
 
 function getValue(env, keys) {
@@ -40,8 +20,7 @@ function hasAny(env, keys) {
   return keys.some((key) => trimString(env[key]));
 }
 
-const raw = await fs.readFile(envPath, 'utf8');
-const env = parseDotEnv(raw);
+const env = await readMergedDotEnvFiles(envPaths);
 
 const required = {
   web_public: [
@@ -96,7 +75,8 @@ const required = {
 };
 
 const report = {
-  env_path: envPath,
+  env_path: envPaths[0],
+  env_paths: envPaths,
   missing: {},
   optional_recommendations: {},
   mode: {

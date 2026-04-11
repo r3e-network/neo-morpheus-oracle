@@ -3,9 +3,9 @@
     "testnet": {
       "roles": {
         "worker": {
-          "address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",
-          "script_hash": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
-          "public_key": "038c80a6a7fb694a78cdbf7eb91477cb0f7b6d372a5ca840b554c803fbc89c8769"
+          "address": "NiUs458jFbTH1DA3b9QyeDhMaD282h3iJg",
+          "script_hash": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+          "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4"
         },
         "relayer": {
           "address": "NiUs458jFbTH1DA3b9QyeDhMaD282h3iJg",
@@ -27,9 +27,9 @@
     "mainnet": {
       "roles": {
         "worker": {
-          "address": "NiUs458jFbTH1DA3b9QyeDhMaD282h3iJg",
-          "script_hash": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
-          "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4"
+          "address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",
+          "script_hash": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+          "public_key": "038c80a6a7fb694a78cdbf7eb91477cb0f7b6d372a5ca840b554c803fbc89c8769"
         },
         "relayer": {
           "address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",

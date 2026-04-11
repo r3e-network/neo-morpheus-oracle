@@ -38,10 +38,7 @@ before(() => {
 // Env isolation helpers
 // ---------------------------------------------------------------------------
 
-const ALL_SIGNER_ENV_KEYS = [
-  ...NEO_N3_SIGNER_ENV_KEYS,
-  'MORPHEUS_ALLOW_UNPINNED_SIGNERS',
-];
+const ALL_SIGNER_ENV_KEYS = [...NEO_N3_SIGNER_ENV_KEYS, 'MORPHEUS_ALLOW_UNPINNED_SIGNERS'];
 
 /** Save, clear, run fn, then restore all signer-related env vars. */
 function withCleanSignerEnv(fn) {
@@ -175,8 +172,20 @@ describe('getPinnedNeoN3Role', () => {
   it('returns pinned identity for known testnet roles', () => {
     const worker = getPinnedNeoN3Role('testnet', 'worker');
     assert.ok(worker, 'should find testnet worker');
-    assert.ok(worker.address || worker.script_hash || worker.public_key,
-      'pinned identity should have at least one identifier');
+    assert.ok(
+      worker.address || worker.script_hash || worker.public_key,
+      'pinned identity should have at least one identifier'
+    );
+  });
+
+  it('pins worker identities to the documented network-specific operators', () => {
+    const testnetWorker = getPinnedNeoN3Role('testnet', 'worker');
+    const mainnetWorker = getPinnedNeoN3Role('mainnet', 'worker');
+
+    assert.equal(testnetWorker.address, 'NiUs458jFbTH1DA3b9QyeDhMaD282h3iJg');
+    assert.equal(testnetWorker.script_hash, '0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7');
+    assert.equal(mainnetWorker.address, 'NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32');
+    assert.equal(mainnetWorker.script_hash, '0x6d0656f6dd91469db1c90cc1e574380613f43738');
   });
 
   it('returns pinned identity for known mainnet roles', () => {
