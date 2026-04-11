@@ -101,7 +101,22 @@
     "prettier": "^3.3.0"
   },
   "overrides": {
-    "h3": "1.15.9",
-    "socket.io-parser": "4.2.6"
+    "h3": {
+      ".": "1.15.9",
+      "defu": "6.1.7"
+    },
+    "socket.io-parser": "4.2.6",
+    "anymatch": {
+      "picomatch": "2.3.2"
+    },
+    "readdirp": {
+      "picomatch": "2.3.2"
+    },
+    "tinyglobby": {
+      "picomatch": "4.0.4",
+      "fdir": {
+        "picomatch": "4.0.4"
+      }
+    }
   }
 }
