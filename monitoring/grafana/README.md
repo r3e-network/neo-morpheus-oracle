@@ -17,12 +17,12 @@ npm run start:relayer:metrics
 
 Or via systemd:
 
-- [morpheus-relayer-metrics.service](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/systemd/morpheus-relayer-metrics.service)
-- [grafana-alloy.service](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/systemd/grafana-alloy.service)
+- [morpheus-relayer-metrics.service](../../deploy/systemd/morpheus-relayer-metrics.service)
+- [grafana-alloy.service](../../deploy/systemd/grafana-alloy.service)
 
 Template:
 
-- [alloy.relayer.example.alloy](/Users/jinghuiliao/git/neo-morpheus-oracle/monitoring/grafana/alloy.relayer.example.alloy)
+- [alloy.relayer.example.alloy](./alloy.relayer.example.alloy)
 
 Required remote-write environment:
 

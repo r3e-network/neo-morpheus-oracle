@@ -106,8 +106,8 @@ Optional:
 
 Example env template:
 
-- [vars.example.env](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/vars.example.env)
-- [wrangler.meshmini.toml](/Users/jinghuiliao/git/neo-morpheus-oracle/deploy/cloudflare/morpheus-control-plane/wrangler.meshmini.toml)
+- [vars.example.env](./vars.example.env)
+- [wrangler.meshmini.toml](./wrangler.meshmini.toml)
 
 Current production target:
 

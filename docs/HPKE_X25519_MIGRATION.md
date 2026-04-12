@@ -127,15 +127,15 @@ This fits within the existing contract storage shape and length bounds.
 The protocol cutover touches:
 
 - browser helper:
-  - [browser-encryption.ts](/Users/jinghuiliao/git/neo-morpheus-oracle/apps/web/lib/browser-encryption.ts)
+  - [browser-encryption.ts](../apps/web/lib/browser-encryption.ts)
 - worker key management and decryption:
-  - [crypto.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/phala-worker/src/oracle/crypto.js)
+  - [crypto.js](../workers/phala-worker/src/oracle/crypto.js)
 - worker public-key metadata:
-  - [worker.js](/Users/jinghuiliao/git/neo-morpheus-oracle/workers/phala-worker/src/worker.js)
+  - [worker.js](../workers/phala-worker/src/worker.js)
 - example helpers:
-  - [common.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/examples/scripts/common.mjs)
+  - [common.mjs](../examples/scripts/common.mjs)
 - mainnet validation matrix:
-  - [test-n3-privacy-matrix.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/examples/scripts/test-n3-privacy-matrix.mjs)
+  - [test-n3-privacy-matrix.mjs](../examples/scripts/test-n3-privacy-matrix.mjs)
 
 ## Mainnet Validation Scope
 

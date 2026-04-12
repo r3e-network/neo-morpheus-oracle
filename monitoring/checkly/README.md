@@ -79,7 +79,7 @@ npm run check:checkly
 Browser checks are not seeded yet because the AA public site domain is not reliably resolvable from the current runtime environment.
 AA browser checks are now scaffolded via:
 
-- [scripts/checkly-sync-browser-checks.mjs](/Users/jinghuiliao/git/neo-morpheus-oracle/scripts/checkly-sync-browser-checks.mjs)
+- [scripts/checkly-sync-browser-checks.mjs](../../scripts/checkly-sync-browser-checks.mjs)
 
 Current target:
 
