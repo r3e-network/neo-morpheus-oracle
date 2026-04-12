@@ -114,7 +114,7 @@ If you change env files, preserve these invariants:
 ### Oracle
 
 ```bash
-cd /Users/jinghuiliao/git/neo-morpheus-oracle
+cd <oracle-repo-root>
 npm run test:worker
 npm run test:relayer
 npm run test:control-plane
@@ -127,7 +127,7 @@ npm run once:relayer
 ### AA
 
 ```bash
-cd /Users/jinghuiliao/git/neo-abstract-account
+cd <abstract-account-repo-root>
 dotnet test neo-abstract-account.sln -c Release --nologo
 bash scripts/verify_repo.sh
 ```
@@ -135,14 +135,14 @@ bash scripts/verify_repo.sh
 ### Cross-repo direct testnet
 
 ```bash
-cd /Users/jinghuiliao/git/neo-miniapps-platform
+cd <miniapps-platform-repo-root>
 AA_TEST_WIF=... ORACLE_TEST_WIF=... NEO_TESTNET_WIF=... npm run test:testnet:direct
 ```
 
 ### Full-stack testnet
 
 ```bash
-cd /Users/jinghuiliao/git/neo-miniapps-platform
+cd <miniapps-platform-repo-root>
 AA_TEST_WIF=... ORACLE_TEST_WIF=... NEO_TESTNET_WIF=... npm run test:testnet:full-stack
 ```
 

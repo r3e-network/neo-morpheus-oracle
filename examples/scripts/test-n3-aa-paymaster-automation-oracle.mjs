@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { experimental, rpc as neoRpc, sc, tx, wallet, u, CONST } from '@cityofzion/neon-js';
 
@@ -20,16 +21,41 @@ import {
 
 const require = createRequire(import.meta.url);
 const execFileAsync = promisify(execFile);
+const scriptFilename = fileURLToPath(import.meta.url);
+const scriptDirectory = path.dirname(scriptFilename);
+const oracleRepoRoot = path.resolve(scriptDirectory, '..', '..');
+
+async function resolveAbstractAccountRepoRoot() {
+  const candidates = [
+    process.env.NEO_ABSTRACT_ACCOUNT_REPO,
+    path.resolve(oracleRepoRoot, '..', 'neo-abstract-account'),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const resolved = path.resolve(candidate);
+    try {
+      await readFile(path.join(resolved, 'sdk/js/src/metaTx.js'), 'utf8');
+      return resolved;
+    } catch {}
+  }
+
+  throw new Error(
+    'Unable to resolve neo-abstract-account checkout. Set NEO_ABSTRACT_ACCOUNT_REPO to the repo root.'
+  );
+}
+
+const aaRepoRoot = await resolveAbstractAccountRepoRoot();
 const { ethers } = require('ethers');
 const {
   buildV3UserOperationTypedData,
   sanitizeHex,
-} = require('/Users/jinghuiliao/git/neo-abstract-account/sdk/js/src/metaTx.js');
+} = require(path.join(aaRepoRoot, 'sdk/js/src/metaTx.js'));
 const {
   AbstractAccountClient,
-} = require('/Users/jinghuiliao/git/neo-abstract-account/sdk/js/src/index.js');
-const relayModule =
-  await import('/Users/jinghuiliao/git/neo-abstract-account/frontend/api/relay-transaction.js');
+} = require(path.join(aaRepoRoot, 'sdk/js/src/index.js'));
+const relayModule = await import(
+  pathToFileURL(path.join(aaRepoRoot, 'frontend/api/relay-transaction.js')).href
+);
 const relayHandler = relayModule.default;
 let localPaymasterHandlerPromise = null;
 
