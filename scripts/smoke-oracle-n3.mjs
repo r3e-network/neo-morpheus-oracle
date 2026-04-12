@@ -1,7 +1,8 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 import { resolveCallbackWithLocalFallback } from './lib-smoke-oracle-fallback.mjs';
-import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
+import { buildFulfillmentVerificationSignature, resolveFulfillmentSigningContext } from './lib-smoke-oracle-signing.mjs';
+import { buildOnchainResultEnvelope } from '../workers/morpheus-relayer/src/router.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {
@@ -106,6 +107,9 @@ function parseStackItem(item) {
     case 'bytestring':
     case 'bytearray':
       return decodeBase64String(item.value || '');
+    case 'array':
+    case 'struct':
+      return Array.isArray(item.value) ? item.value.map(parseStackItem) : [];
     default:
       return item.value ?? null;
   }
@@ -306,6 +310,54 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 60000) {
   throw new Error(`timed out waiting for OracleRequested for tx ${txid}`);
 }
 
+async function fetchRequestRecord(rpcClient, oracleHash, requestId) {
+  const response = await rpcClient.invokeFunction(oracleHash, 'getRequest', [
+    { type: 'Integer', value: String(requestId) },
+  ]);
+  if (String(response.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(response.exception || `getRequest faulted for ${requestId}`);
+  }
+  const decoded = parseStackItem(response.stack?.[0]);
+  if (!Array.isArray(decoded)) return null;
+  if (decoded.length >= 14) {
+    return {
+      request_shape: 'kernel',
+      request_id: String(decoded[0] ?? requestId),
+      app_id: String(decoded[1] ?? ''),
+      module_id: String(decoded[2] ?? ''),
+      operation: String(decoded[3] ?? ''),
+      payload_text: String(decoded[4] ?? ''),
+      requester: String(decoded[5] ?? ''),
+      sponsor: String(decoded[6] ?? ''),
+      callback_contract: String(decoded[7] ?? ''),
+      status: String(decoded[8] ?? ''),
+      created_at_ms: String(decoded[9] ?? ''),
+      fulfilled_at_ms: String(decoded[10] ?? ''),
+      success: Boolean(decoded[11]),
+      result_text: String(decoded[12] ?? ''),
+      error_text: String(decoded[13] ?? ''),
+    };
+  }
+  if (decoded.length >= 12) {
+    return {
+      request_shape: 'legacy',
+      request_id: String(decoded[0] ?? requestId),
+      request_type: String(decoded[1] ?? ''),
+      payload_text: String(decoded[2] ?? ''),
+      callback_contract: String(decoded[3] ?? ''),
+      callback_method: String(decoded[4] ?? ''),
+      requester: String(decoded[5] ?? ''),
+      status: String(decoded[6] ?? ''),
+      created_at_ms: String(decoded[7] ?? ''),
+      fulfilled_at_ms: String(decoded[8] ?? ''),
+      success: Boolean(decoded[9]),
+      result_text: String(decoded[10] ?? ''),
+      error_text: String(decoded[11] ?? ''),
+    };
+  }
+  return null;
+}
+
 async function waitForCallback(rpcClient, callbackHash, requestId, timeoutMs = 120000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -323,21 +375,22 @@ async function fulfillRequestLocally(
   rpcClient,
   oracleHash,
   account,
+  verificationAccount,
   rpcUrl,
   networkMagic,
   requestId,
   requestType,
-  resultText
+  resultText,
+  signingContext = {}
 ) {
-  const digestHex = buildFulfillmentDigestBytes(
+  const signature = buildFulfillmentVerificationSignature({
     requestId,
     requestType,
-    true,
+    success: true,
     resultText,
-    '',
-    ''
-  ).toString('hex');
-  const signature = wallet.sign(digestHex, account.privateKey);
+    signerPrivateKey: verificationAccount?.privateKey || '',
+    ...signingContext,
+  });
 
   const oracle = new experimental.SmartContract(oracleHash, {
     rpcAddress: rpcUrl,
@@ -469,6 +522,10 @@ const updaterSigner = reportPinnedNeoN3Role(network, 'updater', {
   allowMissing: true,
 });
 const updaterWif = updaterSigner.materialized?.wif || updaterSigner.materialized?.private_key || '';
+const verifierSigner = reportPinnedNeoN3Role(network, 'oracle_verifier', {
+  allowMissing: true,
+});
+const verifierSecret = verifierSigner.materialized?.wif || verifierSigner.materialized?.private_key || '';
 
 if (!requestSigner) {
   throw new Error(
@@ -487,6 +544,7 @@ if (script) payload.script = script;
 
 const account = new wallet.Account(requestSigner.wif || requestSigner.private_key);
 const updaterAccount = updaterWif ? new wallet.Account(updaterWif) : account;
+const verifierAccount = verifierSecret ? new wallet.Account(verifierSecret) : null;
 const oracle = new experimental.SmartContract(oracleHash, {
   rpcAddress: rpcUrl,
   networkMagic,
@@ -529,6 +587,8 @@ const txid = await oracle.invoke('request', [
 console.error(`Neo N3 smoke request txid: ${txid}`);
 
 const requestId = await waitForRequestId(rpcClient, txid, requestTimeoutMs);
+const requestRecord = await fetchRequestRecord(rpcClient, oracleHash, requestId);
+const fallbackSigningContext = resolveFulfillmentSigningContext({ requestRecord });
 const callback = await resolveCallbackWithLocalFallback({
   requestId,
   callbackTimeoutMs,
@@ -562,28 +622,53 @@ const callback = await resolveCallbackWithLocalFallback({
         `Neo N3 smoke callback fallback unavailable because updater signer is not configured: ${reason}`
       );
     }
+    if (!verifierAccount) {
+      const reason = verifierSigner.issues.length
+        ? verifierSigner.issues.join('; ')
+        : 'no pinned oracle verifier signer materialized';
+      throw new Error(
+        `Neo N3 smoke callback fallback unavailable because oracle verifier signer is not configured: ${reason}`
+      );
+    }
   },
   fulfillRequestLocally: async () => {
-    const resultText = JSON.stringify({ provider, symbol, price: '0', smoke_fallback: true });
+    const fallbackResultText = JSON.stringify(
+      buildOnchainResultEnvelope(requestType, {
+        ok: true,
+        body: {
+          provider,
+          symbol,
+          price: '0',
+          smoke_fallback: true,
+        },
+      })
+    );
     await fulfillRequestLocally(
       rpcClient,
       oracleHash,
       updaterAccount,
+      verifierAccount,
       rpcUrl,
       networkMagic,
       requestId,
       requestType,
-      resultText
+      fallbackResultText,
+      fallbackSigningContext
     );
   },
 });
 const summary = {
   txid,
   request_id: requestId,
+  request_record_shape: requestRecord?.request_shape || 'unknown',
   request_signer: account.address,
+  fallback_signing_context: fallbackSigningContext,
   fallback_updater_signer: updaterAccount.address,
   fallback_updater_ready: Boolean(updaterWif),
   fallback_updater_issues: updaterSigner.issues,
+  fallback_verifier_signer: verifierAccount?.address || null,
+  fallback_verifier_ready: Boolean(verifierAccount),
+  fallback_verifier_issues: verifierSigner.issues,
   fallback_updater_gas_topup: updaterGasTopup,
   gas_budget: gasBudget,
   request_fee: feeStatus.request_fee,
