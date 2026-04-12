@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
 import { rpc as neoRpc, wallet as neoWallet } from '@cityofzion/neon-js';
-import { Interface, Transaction } from 'ethers';
+import { Interface, Transaction, Wallet as EvmWallet } from 'ethers';
 import { exportJWK, SignJWT } from 'jose';
 
 const originalFetch = global.fetch;
@@ -79,7 +79,9 @@ for (const key of Object.keys(process.env)) {
     key === 'NEO_TESTNET_WIF' ||
     key === 'NEO_N3_WIF' ||
     key.startsWith('PHALA_NEO_N3_') ||
+    key.startsWith('PHALA_NEOX_') ||
     key.startsWith('MORPHEUS_RELAYER_NEO_N3_') ||
+    key.startsWith('MORPHEUS_RELAYER_NEOX_') ||
     key.startsWith('MORPHEUS_UPDATER_NEO_N3_') ||
     key.startsWith('MORPHEUS_ORACLE_VERIFIER_') ||
     key.startsWith('PHALA_ORACLE_VERIFIER_') ||
@@ -2644,6 +2646,104 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
   assert.ok(neoX.signature);
   assert.ok(neoX.address);
   assert.equal(neoX.mode, 'message');
+});
+
+test('sign-payload infers the Morpheus network from the request path for Neo N3 signing', async () => {
+  global.fetch = originalFetch;
+  const previousGenericKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  const previousTestnetKey = process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET;
+  const previousMainnetKey = process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
+  const testnetKey = '11'.repeat(32);
+  const mainnetKey = '22'.repeat(32);
+  const testnetAccount = new neoWallet.Account(testnetKey);
+  const mainnetAccount = new neoWallet.Account(mainnetKey);
+
+  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET = testnetKey;
+  process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET = mainnetKey;
+
+  try {
+    const mainnetRes = await handler(
+      new Request('http://local/mainnet/sign/payload', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ target_chain: 'neo_n3', message: 'hello mainnet' }),
+      })
+    );
+    assert.equal(mainnetRes.status, 200);
+    const mainnetBody = await mainnetRes.json();
+    assert.equal(mainnetBody.public_key, mainnetAccount.publicKey);
+    assert.equal(mainnetBody.address, mainnetAccount.address);
+
+    const testnetRes = await handler(
+      new Request('http://local/testnet/sign/payload', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ target_chain: 'neo_n3', message: 'hello testnet' }),
+      })
+    );
+    assert.equal(testnetRes.status, 200);
+    const testnetBody = await testnetRes.json();
+    assert.equal(testnetBody.public_key, testnetAccount.publicKey);
+    assert.equal(testnetBody.address, testnetAccount.address);
+  } finally {
+    if (previousGenericKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
+    else process.env.PHALA_NEO_N3_PRIVATE_KEY = previousGenericKey;
+
+    if (previousTestnetKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET;
+    else process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET = previousTestnetKey;
+
+    if (previousMainnetKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
+    else process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET = previousMainnetKey;
+  }
+});
+
+test('sign-payload resolves Neo X signing keys from the inferred request-path network', async () => {
+  global.fetch = originalFetch;
+  const previousGenericKey = process.env.PHALA_NEOX_PRIVATE_KEY;
+  const previousTestnetKey = process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET;
+  const previousMainnetKey = process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET;
+  const testnetKey = '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb';
+  const mainnetKey = '0x8b3a350cf5c34c9194ca3a545d67d9f17f61e2db8c10d4c58ca0c7d2219f4e62';
+  const testnetWallet = new EvmWallet(testnetKey);
+  const mainnetWallet = new EvmWallet(mainnetKey);
+
+  delete process.env.PHALA_NEOX_PRIVATE_KEY;
+  process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET = testnetKey;
+  process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET = mainnetKey;
+
+  try {
+    const mainnetRes = await handler(
+      new Request('http://local/mainnet/sign/payload', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ target_chain: 'neo_x', message: 'neo x mainnet' }),
+      })
+    );
+    assert.equal(mainnetRes.status, 200);
+    const mainnetBody = await mainnetRes.json();
+    assert.equal(mainnetBody.address, mainnetWallet.address);
+
+    const testnetRes = await handler(
+      new Request('http://local/testnet/sign/payload', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ target_chain: 'neo_x', message: 'neo x testnet' }),
+      })
+    );
+    assert.equal(testnetRes.status, 200);
+    const testnetBody = await testnetRes.json();
+    assert.equal(testnetBody.address, testnetWallet.address);
+  } finally {
+    if (previousGenericKey === undefined) delete process.env.PHALA_NEOX_PRIVATE_KEY;
+    else process.env.PHALA_NEOX_PRIVATE_KEY = previousGenericKey;
+
+    if (previousTestnetKey === undefined) delete process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET;
+    else process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET = previousTestnetKey;
+
+    if (previousMainnetKey === undefined) delete process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET;
+    else process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET = previousMainnetKey;
+  }
 });
 
 test('sign-payload can use the oracle_verifier signing role when configured', async () => {

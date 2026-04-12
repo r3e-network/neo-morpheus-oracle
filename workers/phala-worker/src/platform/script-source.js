@@ -1,6 +1,6 @@
 import { rpc as neoRpc } from '@cityofzion/neon-js';
 import { canonicalizeMethodName, normalizeContractHash, toNeoContractParam } from './allowlist.js';
-import { decodeBase64, env, normalizeTargetChain, resolveMaxBytes, trimString, validateRpcUrl } from './core.js';
+import { decodeBase64, env, envForNetwork, normalizeTargetChain, resolveMaxBytes, resolvePayloadNetwork, trimString, validateRpcUrl } from './core.js';
 
 function parseScriptStackItem(item, encoding = 'utf8') {
   if (!item || typeof item !== 'object') return '';
@@ -38,7 +38,10 @@ function normalizeScriptReference(payload = {}) {
         ? [{ type: 'String', value: scriptName }]
         : [];
   const userRpcUrl = trimString(explicit?.rpc_url || payload.rpc_url || '');
-  const resolvedRpcUrl = userRpcUrl ? validateRpcUrl(userRpcUrl) : trimString(env('NEO_RPC_URL'));
+  const network = resolvePayloadNetwork(payload, 'testnet');
+  const resolvedRpcUrl = userRpcUrl
+    ? validateRpcUrl(userRpcUrl)
+    : trimString(envForNetwork(network, 'NEO_RPC_URL'));
   return {
     target_chain: trimString(explicit?.target_chain || payload.target_chain || 'neo_n3'),
     rpc_url: resolvedRpcUrl,

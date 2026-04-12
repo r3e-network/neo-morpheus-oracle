@@ -1,11 +1,12 @@
 services:
-  mainnet-request-worker:
+  request-worker:
     image: ${MORPHEUS_PHALA_WORKER_IMAGE}
     restart: unless-stopped
     environment:
       PORT: 8080
       PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
       PHALA_API_TOKEN: ${PHALA_API_TOKEN}
+      PHALA_USE_DERIVED_KEYS: 'false'
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
@@ -15,42 +16,47 @@ services:
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN}
       MORPHEUS_UPSTASH_GUARDS_ENABLED: ${MORPHEUS_UPSTASH_GUARDS_ENABLED}
       MORPHEUS_UPSTASH_FAIL_CLOSED: ${MORPHEUS_UPSTASH_FAIL_CLOSED}
-      MORPHEUS_RUNTIME_CONFIG_JSON: ${MAINNET_RUNTIME_CONFIG_JSON}
-    expose:
-      - '8080'
-    volumes:
-      - /var/run/dstack.sock:/var/run/dstack.sock
-      - morpheus-request-data:/data
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
-        ]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-
-  testnet-request-worker:
-    image: ${MORPHEUS_PHALA_WORKER_IMAGE}
-    restart: unless-stopped
-    environment:
-      PORT: 8080
-      PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
-      PHALA_API_TOKEN: ${PHALA_API_TOKEN}
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL}
-      UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN}
-      MORPHEUS_UPSTASH_GUARDS_ENABLED: ${MORPHEUS_UPSTASH_GUARDS_ENABLED}
-      MORPHEUS_UPSTASH_FAIL_CLOSED: ${MORPHEUS_UPSTASH_FAIL_CLOSED}
-      MORPHEUS_RUNTIME_CONFIG_JSON: ${TESTNET_RUNTIME_CONFIG_JSON}
+      MORPHEUS_RUNTIME_CONFIG_JSON: ${SHARED_RUNTIME_CONFIG_JSON:-{}}
+      MAINNET_RUNTIME_CONFIG_JSON: ${MAINNET_RUNTIME_CONFIG_JSON}
+      TESTNET_RUNTIME_CONFIG_JSON: ${TESTNET_RUNTIME_CONFIG_JSON}
+      NEO_TESTNET_WIF: ${NEO_TESTNET_WIF:-}
+      NEO_N3_WIF: ${NEO_N3_WIF:-}
+      PHALA_NEO_N3_WIF: ${PHALA_NEO_N3_WIF:-}
+      PHALA_NEO_N3_PRIVATE_KEY: ${PHALA_NEO_N3_PRIVATE_KEY:-}
+      PHALA_NEO_N3_WIF_TESTNET: ${PHALA_NEO_N3_WIF_TESTNET:-}
+      PHALA_NEO_N3_PRIVATE_KEY_TESTNET: ${PHALA_NEO_N3_PRIVATE_KEY_TESTNET:-}
+      PHALA_NEO_N3_WIF_MAINNET: ${PHALA_NEO_N3_WIF_MAINNET:-}
+      PHALA_NEO_N3_PRIVATE_KEY_MAINNET: ${PHALA_NEO_N3_PRIVATE_KEY_MAINNET:-}
+      MORPHEUS_RELAYER_NEO_N3_WIF: ${MORPHEUS_RELAYER_NEO_N3_WIF:-}
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: ${MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY:-}
+      MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET: ${MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET:-}
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET: ${MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET:-}
+      MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET: ${MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET:-}
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET: ${MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET:-}
+      MORPHEUS_UPDATER_NEO_N3_WIF: ${MORPHEUS_UPDATER_NEO_N3_WIF:-}
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY: ${MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY:-}
+      MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET: ${MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET:-}
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET: ${MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET:-}
+      MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET: ${MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET:-}
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET: ${MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET:-}
+      MORPHEUS_ORACLE_VERIFIER_WIF: ${MORPHEUS_ORACLE_VERIFIER_WIF:-}
+      MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY: ${MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY:-}
+      MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET: ${MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET:-}
+      MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET: ${MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET:-}
+      MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET: ${MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET:-}
+      MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET: ${MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET:-}
+      PHALA_ORACLE_VERIFIER_WIF: ${PHALA_ORACLE_VERIFIER_WIF:-}
+      PHALA_ORACLE_VERIFIER_PRIVATE_KEY: ${PHALA_ORACLE_VERIFIER_PRIVATE_KEY:-}
+      PHALA_ORACLE_VERIFIER_WIF_TESTNET: ${PHALA_ORACLE_VERIFIER_WIF_TESTNET:-}
+      PHALA_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET: ${PHALA_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET:-}
+      PHALA_ORACLE_VERIFIER_WIF_MAINNET: ${PHALA_ORACLE_VERIFIER_WIF_MAINNET:-}
+      PHALA_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET: ${PHALA_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET:-}
+      MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY: ${MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY:-}
+      MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET: ${MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET:-}
+      MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET: ${MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET:-}
+      PHALA_ORACLE_VERIFIER_PUBLIC_KEY: ${PHALA_ORACLE_VERIFIER_PUBLIC_KEY:-}
+      PHALA_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET: ${PHALA_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET:-}
+      PHALA_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET: ${PHALA_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET:-}
     expose:
       - '8080'
     volumes:
@@ -73,9 +79,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on:
-      mainnet-request-worker:
-        condition: service_healthy
-      testnet-request-worker:
+      request-worker:
         condition: service_healthy
     ports:
       - '${MORPHEUS_PUBLIC_PORT:-3000}:8088'
@@ -93,28 +97,35 @@ services:
         }
 
         :8088 {
-          handle_path /testnet/* {
-            reverse_proxy testnet-request-worker:8080
+          handle /testnet/* {
+            reverse_proxy request-worker:8080 {
+              header_up X-Morpheus-Network testnet
+            }
           }
 
-          handle_path /mainnet/* {
-            reverse_proxy mainnet-request-worker:8080
+          handle /mainnet/* {
+            reverse_proxy request-worker:8080 {
+              header_up X-Morpheus-Network mainnet
+            }
           }
 
           handle {
-            reverse_proxy mainnet-request-worker:8080
+            reverse_proxy request-worker:8080 {
+              header_up X-Morpheus-Network testnet
+            }
           }
         }
         EOF
         exec caddy run --config /etc/caddy/Caddyfile
+
   mainnet-request-relayer:
     image: ${MORPHEUS_RELAYER_IMAGE}
     restart: unless-stopped
     depends_on:
-      mainnet-request-worker:
+      request-worker:
         condition: service_healthy
     environment:
-      PHALA_API_URL: http://mainnet-request-worker:8080
+      PHALA_API_URL: http://request-worker:8080
       PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
       PHALA_API_TOKEN: ${PHALA_API_TOKEN}
       SUPABASE_URL: ${SUPABASE_URL}
@@ -131,10 +142,10 @@ services:
     image: ${MORPHEUS_RELAYER_IMAGE}
     restart: unless-stopped
     depends_on:
-      testnet-request-worker:
+      request-worker:
         condition: service_healthy
     environment:
-      PHALA_API_URL: http://testnet-request-worker:8080
+      PHALA_API_URL: http://request-worker:8080
       PHALA_SHARED_SECRET: ${PHALA_SHARED_SECRET}
       PHALA_API_TOKEN: ${PHALA_API_TOKEN}
       SUPABASE_URL: ${SUPABASE_URL}

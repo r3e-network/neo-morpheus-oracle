@@ -143,6 +143,7 @@ export function createRelayerConfig() {
   const network = normalizeMorpheusNetwork(resolveNetworkName());
   const registry = loadNetworkRegistry(network);
   const mode = resolveRelayerMode(env('MORPHEUS_RELAYER_MODE') || 'combined');
+  const useDerivedKeys = parseBoolean(env('PHALA_USE_DERIVED_KEYS'), false);
   const hasSupabaseUrl = Boolean(
     env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL')
   );
@@ -174,6 +175,7 @@ export function createRelayerConfig() {
     repoRoot,
     network,
     mode,
+    useDerivedKeys,
     instanceId:
       trimString(env('MORPHEUS_RELAYER_INSTANCE_ID')) ||
       `${mode}:${network}:${trimString(os.hostname() || 'host')}:${process.pid}`,
@@ -257,6 +259,7 @@ export function createRelayerConfig() {
       apiUrl: resolvePhalaApiUrls(network, registry),
       token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
       timeoutMs: Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_PHALA_TIMEOUT_MS),
+      useDerivedKeys,
     },
     neo_n3: {
       scanMode:

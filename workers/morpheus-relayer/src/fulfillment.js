@@ -27,6 +27,7 @@ import {
 import { claimDurableJobForProcessing, maybeUpsertJob } from './queue.js';
 
 import { normalizeErrorMessage } from './feed-sync.js';
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 export { normalizeErrorMessage };
 
 export function trimOnchainErrorMessage(value, maxLength = 240) {
@@ -187,7 +188,7 @@ async function finalizeFailedRequest(config, event, errorMessage) {
   };
 }
 
-function enrichAutomationExecutionPayload(event, payload) {
+export function enrichAutomationExecutionPayload(event, payload) {
   const normalizedRequestType = trimString(event?.requestType || '')
     .toLowerCase()
     .replace(/[\s-]+/g, '_');

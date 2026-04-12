@@ -1,5 +1,5 @@
 import { sc, u, wallet as neoWallet } from '@cityofzion/neon-js';
-import { env, isHexString, strip0x, trimString } from './core.js';
+import { envForNetwork, isHexString, strip0x, trimString, resolvePayloadNetwork } from './core.js';
 
 export function normalizeNeoHash160(value) {
   const raw = trimString(value);
@@ -126,40 +126,60 @@ export function addAllow(allowlist, contractHash, ...methods) {
   allowlist.set(normalized, current);
 }
 
-let allowlistCache = { timestamp: 0, result: null };
+const allowlistCache = new Map();
 
-export function buildTxProxyAllowlist() {
+function resolveAllowlistNetwork(input) {
+  if (typeof input === 'string') {
+    return input.trim().toLowerCase() === 'mainnet' ? 'mainnet' : 'testnet';
+  }
+  return resolvePayloadNetwork(input || {}, 'testnet');
+}
+
+export function buildTxProxyAllowlist(networkInput = 'testnet') {
+  const network = resolveAllowlistNetwork(networkInput);
   const now = Date.now();
-  if (allowlistCache.result && now - allowlistCache.timestamp < 60_000) return allowlistCache.result;
-  const allowlist = parseTxProxyAllowlist(env('TXPROXY_ALLOWLIST'));
+  const cached = allowlistCache.get(network);
+  if (cached && now - cached.timestamp < 60_000) return cached.result;
+
+  const allowlist = parseTxProxyAllowlist(envForNetwork(network, 'TXPROXY_ALLOWLIST'));
   addAllow(
     allowlist,
-    env('CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'),
+    envForNetwork(network, 'CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'),
     'updateFeed',
     'updateFeeds',
     'update'
   );
-  addAllow(allowlist, env('CONTRACT_RANDOMNESSLOG_HASH'), 'record');
-  addAllow(allowlist, env('CONTRACT_AUTOMATIONANCHOR_HASH'), 'markExecuted');
+  addAllow(allowlist, envForNetwork(network, 'CONTRACT_RANDOMNESSLOG_HASH'), 'record');
   addAllow(
     allowlist,
-    env('CONTRACT_MORPHEUS_ORACLE_HASH'),
+    envForNetwork(network, 'CONTRACT_AUTOMATIONANCHOR_HASH'),
+    'markExecuted'
+  );
+  addAllow(
+    allowlist,
+    envForNetwork(network, 'CONTRACT_MORPHEUS_ORACLE_HASH'),
     'fulfillRequest',
     'queueAutomationRequest'
   );
-  addAllow(allowlist, env('CONTRACT_PAYMENTHUB_HASH'), 'pay');
-  addAllow(allowlist, env('CONTRACT_GOVERNANCE_HASH'), 'stake', 'unstake', 'vote');
+  addAllow(allowlist, envForNetwork(network, 'CONTRACT_PAYMENTHUB_HASH'), 'pay');
   addAllow(
     allowlist,
-    env('CONTRACT_GAS_HASH') || '0xd2a4cff31913016155e38e474a2c06d08be276cf',
+    envForNetwork(network, 'CONTRACT_GOVERNANCE_HASH'),
+    'stake',
+    'unstake',
+    'vote'
+  );
+  addAllow(
+    allowlist,
+    envForNetwork(network, 'CONTRACT_GAS_HASH') || '0xd2a4cff31913016155e38e474a2c06d08be276cf',
     'transfer'
   );
-  allowlistCache = { timestamp: now, result: allowlist };
+  allowlistCache.set(network, { timestamp: now, result: allowlist });
   return allowlist;
 }
 
-export function allowlistAllows(contractHash, method) {
-  const allowlist = buildTxProxyAllowlist();
+export function allowlistAllows(contractHash, method, networkInput = 'testnet') {
+  const allowlist = buildTxProxyAllowlist(networkInput);
   const entry = allowlist.get(normalizeContractHash(contractHash));
   if (!entry) return false;
   if (entry.allowAll) return true;
@@ -177,13 +197,14 @@ export function checkNeoIntentPolicy(payload) {
   const intent = trimString(payload.intent).toLowerCase();
   if (!intent) return null;
 
+  const network = resolveAllowlistNetwork(payload);
   const contractHash = normalizeContractHash(payload.contract_hash);
   const method = canonicalizeMethodName(payload.method);
   const gasHash = normalizeNeoHash160(
-    env('CONTRACT_GAS_HASH') || '0xd2a4cff31913016155e38e474a2c06d08be276cf'
+    envForNetwork(network, 'CONTRACT_GAS_HASH') || '0xd2a4cff31913016155e38e474a2c06d08be276cf'
   );
-  const paymentHubHash = normalizeNeoHash160(env('CONTRACT_PAYMENTHUB_HASH'));
-  const governanceHash = normalizeNeoHash160(env('CONTRACT_GOVERNANCE_HASH'));
+  const paymentHubHash = normalizeNeoHash160(envForNetwork(network, 'CONTRACT_PAYMENTHUB_HASH'));
+  const governanceHash = normalizeNeoHash160(envForNetwork(network, 'CONTRACT_GOVERNANCE_HASH'));
 
   switch (intent) {
     case 'gas-sponsor':

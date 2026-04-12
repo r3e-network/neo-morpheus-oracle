@@ -3,7 +3,9 @@ import {
   DEFAULT_WAIT_TIMEOUT_MS,
   cappedDurationMs,
   env,
+  envForNetwork,
   normalizeBoolean,
+  resolvePayloadNetwork,
   sha256Hex,
   stableStringify,
   trimString,
@@ -13,6 +15,7 @@ import { resolveSigningBytes } from './signing.js';
 import { deriveNeoXPrivateKeyHex, shouldUseDerivedKeys } from '../platform/dstack.js';
 
 async function resolveNeoXPrivateKey(payload = {}, { required = false } = {}) {
+  const network = resolvePayloadNetwork(payload);
   let privateKey = trimString(payload.private_key) || trimString(payload.signing_key);
   if (shouldUseDerivedKeys(payload)) {
     try {
@@ -22,7 +25,8 @@ async function resolveNeoXPrivateKey(payload = {}, { required = false } = {}) {
     }
   }
   if (!privateKey) {
-    privateKey = env(
+    privateKey = envForNetwork(
+      network,
       'PHALA_NEOX_PRIVATE_KEY',
       'NEO_X_PRIVATE_KEY',
       'NEOX_PRIVATE_KEY',
@@ -37,16 +41,21 @@ async function resolveNeoXPrivateKey(payload = {}, { required = false } = {}) {
 }
 
 export async function loadNeoXContext(payload = {}, { required = false, requireRpc = false } = {}) {
+  const network = resolvePayloadNetwork(payload);
   const privateKey = await resolveNeoXPrivateKey(payload, { required });
   if (!privateKey) return null;
 
-  const rpcUrl = validateRpcUrl(trimString(payload.rpc_url) || env('NEOX_RPC_URL', 'EVM_RPC_URL'));
+  const rpcUrl = validateRpcUrl(
+    trimString(payload.rpc_url) || envForNetwork(network, 'NEOX_RPC_URL', 'EVM_RPC_URL')
+  );
   if (requireRpc && !rpcUrl) throw new Error('NEOX_RPC_URL is required for Neo X relay');
 
   const provider = rpcUrl ? new JsonRpcProvider(rpcUrl) : null;
   const wallet = provider ? new EvmWallet(privateKey, provider) : new EvmWallet(privateKey);
   const chainIdRaw =
-    payload.chain_id ?? payload.chainId ?? env('NEO_X_CHAIN_ID', 'NEOX_CHAIN_ID', 'EVM_CHAIN_ID');
+    payload.chain_id ??
+    payload.chainId ??
+    envForNetwork(network, 'NEO_X_CHAIN_ID', 'NEOX_CHAIN_ID', 'EVM_CHAIN_ID');
   const chainId = chainIdRaw !== undefined && chainIdRaw !== '' ? Number(chainIdRaw) : undefined;
   return { wallet, provider, rpcUrl, chainId };
 }

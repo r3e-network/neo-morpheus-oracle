@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   classifyError,
   computeRetryDelayMs,
+  enrichAutomationExecutionPayload,
   isAlreadyFulfilledError,
   isTerminalConfigurationError,
   trimOnchainErrorMessage,
@@ -230,5 +231,34 @@ describe('computeRetryDelayMs', () => {
     assert.equal(computeRetryDelayMs(custom, 2), 1000);
     assert.equal(computeRetryDelayMs(custom, 4), 4000);
     assert.equal(computeRetryDelayMs(custom, 5), 5000); // capped
+  });
+});
+
+
+// ===================================================================
+// enrichAutomationExecutionPayload
+// ===================================================================
+
+describe('enrichAutomationExecutionPayload', () => {
+  it('enriches automation payloads without throwing and preserves explicit identifiers', () => {
+    const payload = enrichAutomationExecutionPayload(
+      {
+        chain: 'neo_n3',
+        requestType: 'automation_upkeep',
+        requestId: '42',
+      },
+      {
+        automation_id: 'job-7',
+        execution_id: 'custom-execution',
+        workflow_id: 'custom.workflow',
+        request_id: 'custom-request',
+        idempotency_key: 'custom-idempotency',
+      }
+    );
+
+    assert.equal(payload.execution_id, 'custom-execution');
+    assert.equal(payload.workflow_id, 'custom.workflow');
+    assert.equal(payload.request_id, 'custom-request');
+    assert.equal(payload.idempotency_key, 'custom-idempotency');
   });
 });

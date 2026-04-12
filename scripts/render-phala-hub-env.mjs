@@ -1,10 +1,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { NEO_N3_SIGNER_ENV_KEYS } from './lib-neo-signers.mjs';
 
 const repoRoot = process.cwd();
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function stableStringify(value) {
+  if (value === null || value === undefined) return 'null';
+  if (typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
+  return `{${entries
+    .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`)
+    .join(',')}}`;
 }
 
 function parseArgs(argv = process.argv.slice(2)) {
@@ -66,6 +77,63 @@ function pick(envs, ...keys) {
   return '';
 }
 
+function parseRuntimeConfig(env) {
+  const raw = trimString(env?.MORPHEUS_RUNTIME_CONFIG_JSON || '');
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function resolveRuntimeValue(key, fileEnv, runtimeConfig) {
+  const direct = trimString(fileEnv?.[key]);
+  if (direct) return direct;
+  const packed = runtimeConfig?.[key];
+  if (packed === undefined || packed === null) return '';
+  return String(packed).trim();
+}
+
+function buildSharedRuntimeConfig(mainnetRuntimeConfig, testnetRuntimeConfig) {
+  const shared = {};
+  const keys = new Set([
+    ...Object.keys(mainnetRuntimeConfig || {}),
+    ...Object.keys(testnetRuntimeConfig || {}),
+  ]);
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(mainnetRuntimeConfig, key)) continue;
+    if (!Object.prototype.hasOwnProperty.call(testnetRuntimeConfig, key)) continue;
+    if (stableStringify(mainnetRuntimeConfig[key]) !== stableStringify(testnetRuntimeConfig[key])) {
+      continue;
+    }
+    shared[key] = mainnetRuntimeConfig[key];
+  }
+  return shared;
+}
+
+function resolveSharedHubSignerValue(
+  key,
+  mainnetEnv,
+  testnetEnv,
+  mainnetRuntimeConfig,
+  testnetRuntimeConfig
+) {
+  if (key.endsWith('_MAINNET')) {
+    return resolveRuntimeValue(key.slice(0, -8), mainnetEnv, mainnetRuntimeConfig);
+  }
+  if (key.endsWith('_TESTNET')) {
+    return resolveRuntimeValue(key.slice(0, -8), testnetEnv, testnetRuntimeConfig);
+  }
+  if (key === 'NEO_N3_WIF') {
+    return resolveRuntimeValue(key, mainnetEnv, mainnetRuntimeConfig);
+  }
+  if (key === 'NEO_TESTNET_WIF') {
+    return resolveRuntimeValue(key, testnetEnv, testnetRuntimeConfig);
+  }
+  return '';
+}
+
 const args = parseArgs();
 const outputPath = path.resolve(
   repoRoot,
@@ -77,6 +145,9 @@ const localEnv = await readOptionalEnvFile(path.resolve(repoRoot, '.env.local'))
 const mainnetEnv = await readEnvFile(path.resolve(repoRoot, 'deploy/phala/morpheus.mainnet.env'));
 const testnetEnv = await readEnvFile(path.resolve(repoRoot, 'deploy/phala/morpheus.testnet.env'));
 const envs = [localEnv, rootEnv, mainnetEnv, testnetEnv];
+const mainnetRuntimeConfig = parseRuntimeConfig(mainnetEnv);
+const testnetRuntimeConfig = parseRuntimeConfig(testnetEnv);
+const sharedRuntimeConfig = buildSharedRuntimeConfig(mainnetRuntimeConfig, testnetRuntimeConfig);
 
 const requestHubDomain =
   pick(envs, 'MORPHEUS_REQUEST_HUB_CUSTOM_DOMAIN', 'MORPHEUS_SHARED_CUSTOM_DOMAIN') ||
@@ -109,6 +180,20 @@ const lines = [
   '',
   line('MAINNET_RUNTIME_CONFIG_JSON', trimString(mainnetEnv.MORPHEUS_RUNTIME_CONFIG_JSON)),
   line('TESTNET_RUNTIME_CONFIG_JSON', trimString(testnetEnv.MORPHEUS_RUNTIME_CONFIG_JSON)),
+  line('SHARED_RUNTIME_CONFIG_JSON', JSON.stringify(sharedRuntimeConfig)),
+  '',
+  ...NEO_N3_SIGNER_ENV_KEYS.map((key) =>
+    line(
+      key,
+      resolveSharedHubSignerValue(
+        key,
+        mainnetEnv,
+        testnetEnv,
+        mainnetRuntimeConfig,
+        testnetRuntimeConfig
+      )
+    )
+  ),
   '',
 ];
 
@@ -122,6 +207,7 @@ const requiredKeys = [
   'SUPABASE_SECRET_KEY',
   'MAINNET_RUNTIME_CONFIG_JSON',
   'TESTNET_RUNTIME_CONFIG_JSON',
+  'SHARED_RUNTIME_CONFIG_JSON',
 ];
 for (const key of requiredKeys) {
   if (!rendered.includes(key + '=') || rendered.includes(key + '=\n')) {
