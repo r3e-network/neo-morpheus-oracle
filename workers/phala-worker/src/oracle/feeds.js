@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Interface } from 'ethers';
-import { env, json, parseDurationMs, strip0x, trimString } from '../platform/core.js';
+import { env, envForNetwork, json, normalizeMorpheusNetwork, parseDurationMs, resolvePayloadNetwork, strip0x, trimString } from '../platform/core.js';
 import { maybeBuildDstackAttestation } from '../platform/dstack.js';
 import { aggregateQuotes } from './aggregation.js';
 import {
@@ -39,13 +39,31 @@ const DATAFEED_X_READ_INTERFACE = new Interface([
   'function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])',
 ]);
 
-let feedStateCache;
+const feedStateCache = new Map();
 
-function resolveSupabaseNetwork() {
-  return trimString(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet') ===
-    'mainnet'
-    ? 'mainnet'
-    : 'testnet';
+function resolveFeedNetwork(input = {}) {
+  return resolvePayloadNetwork(
+    input,
+    normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
+  );
+}
+
+function resolveFeedTargetChain(value = 'neo_n3') {
+  return trimString(value).toLowerCase() === 'neo_x' ? 'neo_x' : 'neo_n3';
+}
+
+function resolveFeedScope(input = {}, fallbackTargetChain = 'neo_n3') {
+  const source = input && typeof input === 'object' ? input : {};
+  return {
+    network: resolveFeedNetwork(source),
+    targetChain: resolveFeedTargetChain(
+      source.target_chain ?? source.targetChain ?? fallbackTargetChain
+    ),
+  };
+}
+
+function resolveSupabaseNetwork(input = {}) {
+  return resolveFeedScope(input).network;
 }
 
 function getSupabaseRestConfig() {
@@ -73,15 +91,17 @@ function isEnabled(rawValue, fallback = true) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 
-async function fetchLatestFeedSnapshots(limit = 250) {
+async function fetchLatestFeedSnapshots(limit = 250, scope = {}) {
   const restConfig = getSupabaseRestConfig();
   if (!restConfig) return [];
+  const resolvedScope = resolveFeedScope(scope);
   const url = new URL(`${restConfig.restUrl}/morpheus_feed_snapshots`);
   url.searchParams.set(
     'select',
     'symbol,target_chain,price,payload,attestation_hash,created_at,network'
   );
-  url.searchParams.set('network', `eq.${resolveSupabaseNetwork()}`);
+  url.searchParams.set('network', `eq.${resolvedScope.network}`);
+  url.searchParams.set('target_chain', `eq.${resolvedScope.targetChain}`);
   url.searchParams.set('order', 'created_at.desc');
   url.searchParams.set('limit', String(Math.max(limit, 1)));
   const response = await fetch(url.toString(), {
@@ -150,16 +170,95 @@ function applySnapshotRowsToFeedState(state, rows) {
   return state;
 }
 
+function getFeedStatePathBase() {
+  return trimString(env('MORPHEUS_FEED_STATE_PATH')) || DEFAULT_FEED_STATE_PATH;
+}
+
+function buildScopedFeedStatePath(basePath, network, targetChain) {
+  const ext = path.extname(basePath);
+  if (!ext) return `${basePath}.${network}.${targetChain}`;
+  return `${basePath.slice(0, -ext.length)}.${network}.${targetChain}${ext}`;
+}
+
+function getFeedStatePath(scope = {}) {
+  const resolvedScope = resolveFeedScope(scope);
+  return buildScopedFeedStatePath(
+    getFeedStatePathBase(),
+    resolvedScope.network,
+    resolvedScope.targetChain
+  );
+}
+
+function normalizeFeedState(state) {
+  const normalized = state && typeof state === 'object' ? state : {};
+  if (!normalized.records || typeof normalized.records !== 'object') {
+    normalized.records = {};
+  }
+  return normalized;
+}
+
+async function readFeedStateFile(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return normalizeFeedState(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+async function loadFeedState(scope = {}) {
+  const resolvedScope = resolveFeedScope(scope);
+  const statePath = getFeedStatePath(resolvedScope);
+  if (feedStateCache.has(statePath)) return feedStateCache.get(statePath);
+
+  let state = await readFeedStateFile(statePath);
+  if (!state) {
+    const legacyPath = getFeedStatePathBase();
+    if (legacyPath != statePath) {
+      state = await readFeedStateFile(legacyPath);
+    }
+  }
+  state = normalizeFeedState(state);
+
+  if (
+    isEnabled(env('MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED'), true) &&
+    Object.keys(state.records).length === 0
+  ) {
+    try {
+      const rows = await fetchLatestFeedSnapshots(250, resolvedScope);
+      state = applySnapshotRowsToFeedState(state, rows);
+    } catch {
+      // keep pricefeed startup independent from Supabase health
+    }
+  }
+
+  feedStateCache.set(statePath, state);
+  return state;
+}
+
+async function saveFeedState(state, scope = {}) {
+  const resolvedScope = resolveFeedScope(scope);
+  const statePath = getFeedStatePath(resolvedScope);
+  feedStateCache.set(statePath, state);
+  try {
+    await fs.mkdir(path.dirname(statePath), { recursive: true });
+    await fs.writeFile(statePath, `${JSON.stringify(state, null, 2)}
+`, 'utf8');
+  } catch {
+    // best effort only; feed sync still works without persistence
+  }
+}
+
 export function __resetFeedStateForTests() {
-  feedStateCache = undefined;
+  feedStateCache.clear();
 }
 
-export async function __loadFeedStateForTests() {
-  return loadFeedState();
+export async function __loadFeedStateForTests(scope = {}) {
+  return loadFeedState(scope);
 }
 
-export function __buildFeedSnapshotRowsForTests(targetChain, syncResults, state, batchTx) {
-  return buildFeedSnapshotRows(targetChain, syncResults, state, batchTx);
+export function __buildFeedSnapshotRowsForTests(targetChain, syncResults, state, batchTx, scope = {}) {
+  return buildFeedSnapshotRows(targetChain, syncResults, state, batchTx, scope);
 }
 
 export function normalizePairSymbol(rawSymbol) {
@@ -247,47 +346,8 @@ export function transformDecimalString(value, { transform = '', multiplier = 1 }
   return normalizeDecimalNumberString(numeric);
 }
 
-function getFeedStatePath() {
-  return trimString(env('MORPHEUS_FEED_STATE_PATH')) || DEFAULT_FEED_STATE_PATH;
-}
-
-async function loadFeedState() {
-  if (feedStateCache) return feedStateCache;
-  try {
-    const raw = await fs.readFile(getFeedStatePath(), 'utf8');
-    feedStateCache = JSON.parse(raw);
-  } catch {
-    feedStateCache = { records: {} };
-  }
-  if (!feedStateCache.records || typeof feedStateCache.records !== 'object') {
-    feedStateCache.records = {};
-  }
-  if (
-    isEnabled(env('MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED'), true) &&
-    Object.keys(feedStateCache.records).length === 0
-  ) {
-    try {
-      const rows = await fetchLatestFeedSnapshots();
-      feedStateCache = applySnapshotRowsToFeedState(feedStateCache, rows);
-    } catch {
-      // keep pricefeed startup independent from Supabase health
-    }
-  }
-  return feedStateCache;
-}
-
-async function saveFeedState(state) {
-  feedStateCache = state;
-  try {
-    await fs.mkdir(path.dirname(getFeedStatePath()), { recursive: true });
-    await fs.writeFile(getFeedStatePath(), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-  } catch {
-    // best effort only; feed sync still works without persistence
-  }
-}
-
-function buildFeedSnapshotRows(targetChain, syncResults, state, batchTx) {
-  const network = resolveSupabaseNetwork();
+function buildFeedSnapshotRows(targetChain, syncResults, state, batchTx, scope = {}) {
+  const resolvedScope = resolveFeedScope(scope, targetChain);
   const rows = [];
   for (const result of Array.isArray(syncResults) ? syncResults : []) {
     const storagePair = trimString(result?.storage_pair || '');
@@ -295,9 +355,9 @@ function buildFeedSnapshotRows(targetChain, syncResults, state, batchTx) {
     const quote = result?.quote && typeof result.quote === 'object' ? result.quote : null;
     const price = record?.price ?? record?.last_observed_price ?? quote?.price ?? null;
     rows.push({
-      network,
+      network: resolvedScope.network,
       symbol: storagePair || trimString(result?.pair || ''),
-      target_chain: targetChain,
+      target_chain: resolvedScope.targetChain,
       price,
       attestation_hash: trimString(record?.attestation_hash || quote?.attestation_hash || ''),
       payload: {
@@ -335,7 +395,8 @@ function resolveRequestedProviders(symbol, options = {}) {
   const explicitProvider = trimString(options.provider || options.source || '').toLowerCase();
   if (explicitProvider && explicitProvider !== 'all') return [explicitProvider];
 
-  const configured = parseProviderList(env('MORPHEUS_FEED_PROVIDERS'), []);
+  const network = resolveFeedNetwork(options);
+  const configured = parseProviderList(envForNetwork(network, 'MORPHEUS_FEED_PROVIDERS'), []);
   const available = getFeedProvidersForPair(symbol);
   if (configured.length > 0) {
     return configured.filter((provider) => available.length === 0 || available.includes(provider));
@@ -392,10 +453,11 @@ function extractUpstreamTimestamp(response) {
 }
 
 function buildSyncPolicy(targetChain, payload = {}) {
+  const network = resolveFeedScope(payload, targetChain).network;
   const thresholdCandidate =
-    payload.feed_change_threshold_bps ?? env('MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
+    payload.feed_change_threshold_bps ?? envForNetwork(network, 'MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
   const intervalCandidate =
-    payload.feed_min_update_interval_ms ?? env('MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
+    payload.feed_min_update_interval_ms ?? envForNetwork(network, 'MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
   const thresholdSource =
     thresholdCandidate === '' || thresholdCandidate === undefined || thresholdCandidate === null
       ? `${MAINNET_FEED_CHANGE_THRESHOLD_BPS}`
@@ -566,7 +628,7 @@ async function fetchNeoXFeedRecords(rpcUrl, contractAddress) {
 
 async function loadOnchainFeedRecords(
   targetChain,
-  { neoContext = null, neoXRpcUrl = null, dataFeedHash = null, dataFeedAddress = null } = {}
+  { network = 'testnet', neoContext = null, neoXRpcUrl = null, dataFeedHash = null, dataFeedAddress = null } = {}
 ) {
   try {
     if (targetChain === 'neo_n3') {
@@ -574,7 +636,7 @@ async function loadOnchainFeedRecords(
     }
     if (targetChain === 'neo_x') {
       return await fetchNeoXFeedRecords(
-        trimString(neoXRpcUrl) || trimString(env('NEOX_RPC_URL', 'EVM_RPC_URL')),
+        trimString(neoXRpcUrl) || trimString(envForNetwork(network, 'NEOX_RPC_URL', 'EVM_RPC_URL')),
         dataFeedAddress
       );
     }
@@ -763,13 +825,18 @@ function buildRoundId(previousRecord) {
 }
 
 function buildNeoN3RelaySigningPayload(payload = {}) {
+  const network = resolveFeedNetwork(payload);
   const signingKey = trimString(
     payload.private_key ||
       payload.signing_key ||
-      env('MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY')
+      envForNetwork(
+        network,
+        'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
+        'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'
+      )
   );
   const wif = trimString(
-    payload.wif || env('MORPHEUS_UPDATER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF')
+    payload.wif || envForNetwork(network, 'MORPHEUS_UPDATER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF')
   );
   return {
     ...(signingKey ? { private_key: signingKey } : {}),
@@ -918,8 +985,10 @@ async function submitQuoteToNeoX(
     `0x${strip0x(quote.attestation_hash || '0')}`.padEnd(66, '0'),
     BigInt(sourceSetId),
   ]);
+  const network = resolveFeedNetwork(payload);
   const updaterPrivateKey = trimString(
-    payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
+    payload.private_key ||
+      envForNetwork(network, 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
   );
   return relayNeoXTransaction({
     ...payload,
@@ -945,8 +1014,10 @@ async function submitQuotesToNeoX(dataFeedAddress, payload, updates) {
     updates.map((entry) => `0x${strip0x(entry.quote.attestation_hash || '0')}`.padEnd(66, '0')),
     updates.map((entry) => BigInt(entry.sourceSetId)),
   ]);
+  const network = resolveFeedNetwork(payload);
   const updaterPrivateKey = trimString(
-    payload.private_key || env('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
+    payload.private_key ||
+      envForNetwork(network, 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
   );
   return relayNeoXTransaction({
     ...payload,
@@ -972,11 +1043,13 @@ function resolveRequestedSymbols(payload = {}) {
 }
 
 export async function handleOracleFeed(payload) {
-  const targetChain = trimString(payload.target_chain || 'neo_n3').toLowerCase() || 'neo_n3';
-  const symbols = resolveRequestedSymbols(payload);
+  const scope = resolveFeedScope(payload, payload?.target_chain || payload?.targetChain || 'neo_n3');
+  const targetChain = scope.targetChain;
+  const scopedPayload = payload?.network ? payload : { ...payload, network: scope.network };
+  const symbols = resolveRequestedSymbols(scopedPayload);
 
-  const policy = buildSyncPolicy(targetChain, payload);
-  const state = await loadFeedState();
+  const policy = buildSyncPolicy(targetChain, scopedPayload);
+  const state = await loadFeedState(scope);
   const syncResults = [];
   const batchUpdates = [];
   const errors = [];
@@ -984,24 +1057,29 @@ export async function handleOracleFeed(payload) {
 
   const dataFeedHash =
     targetChain === 'neo_n3'
-      ? normalizeNeoHash160(env('CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'))
+      ? normalizeNeoHash160(
+          envForNetwork(scope.network, 'CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH')
+        )
       : null;
   const hasNeoN3DataFeedTarget =
     targetChain === 'neo_n3' && dataFeedHash && isConfiguredHash160(dataFeedHash);
   const neoContext = hasNeoN3DataFeedTarget
-    ? loadNeoN3Context(payload, { required: false, requireRpc: false })
+    ? loadNeoN3Context(scopedPayload, { required: false, requireRpc: false })
     : null;
   const dataFeedAddress =
-    targetChain === 'neo_x' ? trimString(env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS')) : null;
+    targetChain === 'neo_x'
+      ? trimString(envForNetwork(scope.network, 'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
+      : null;
   const onchainRecords = await loadOnchainFeedRecords(targetChain, {
+    network: scope.network,
     neoContext,
-    neoXRpcUrl: trimString(payload.rpc_url),
+    neoXRpcUrl: trimString(scopedPayload.rpc_url),
     dataFeedHash,
     dataFeedAddress,
   });
 
   for (const symbol of symbols) {
-    const quoteSet = await fetchPriceQuotes(symbol, payload);
+    const quoteSet = await fetchPriceQuotes(symbol, scopedPayload);
     if (quoteSet.quotes.length === 0) {
       errors.push({
         symbol,
@@ -1025,16 +1103,13 @@ export async function handleOracleFeed(payload) {
         quote,
         hasPreviousRecord ? previousRecord : null,
         policy,
-        Boolean(payload.force)
+        Boolean(scopedPayload.force)
       );
       const roundId =
-        trimString(payload.round_id) || buildRoundId(hasPreviousRecord ? previousRecord : null);
+        trimString(scopedPayload.round_id) || buildRoundId(hasPreviousRecord ? previousRecord : null);
       const sourceSetId = Number(
-        payload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0)
+        scopedPayload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0)
       );
-      // Derive the on-chain timestamp from the quote's upstream source timestamp
-      // so the data feed contract records when the price was observed at the
-      // provider, not when the relayer processed it (avoids clock-skew drift).
       const quoteTimestampMs = Date.parse(quote.timestamp);
       const timestampSec = Number.isFinite(quoteTimestampMs)
         ? Math.floor(quoteTimestampMs / 1000)
@@ -1088,9 +1163,14 @@ export async function handleOracleFeed(payload) {
   let batchTx = null;
   if (batchUpdates.length > 0) {
     if (hasNeoN3DataFeedTarget && neoContext) {
-      batchTx = await submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, batchUpdates);
+      batchTx = await submitQuotesToN3WithFallback(
+        dataFeedHash,
+        neoContext,
+        scopedPayload,
+        batchUpdates
+      );
     } else if (targetChain === 'neo_x' && dataFeedAddress) {
-      batchTx = await submitQuotesToNeoX(dataFeedAddress, payload, batchUpdates);
+      batchTx = await submitQuotesToNeoX(dataFeedAddress, scopedPayload, batchUpdates);
     }
   }
 
@@ -1119,9 +1199,9 @@ export async function handleOracleFeed(payload) {
     }
   }
 
-  await saveFeedState(state);
+  await saveFeedState(state, scope);
   if (isEnabled(env('MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED'), true)) {
-    const snapshotRows = buildFeedSnapshotRows(targetChain, syncResults, state, batchTx);
+    const snapshotRows = buildFeedSnapshotRows(targetChain, syncResults, state, batchTx, scope);
     try {
       await persistFeedSnapshots(snapshotRows);
     } catch {
@@ -1131,6 +1211,7 @@ export async function handleOracleFeed(payload) {
 
   return json(200, {
     mode: 'pricefeed',
+    network: scope.network,
     target_chain: targetChain,
     symbols,
     batch_submitted: batchUpdates.length > 0,

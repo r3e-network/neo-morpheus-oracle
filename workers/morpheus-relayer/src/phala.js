@@ -7,6 +7,26 @@ function resolveCandidateApiUrls(apiUrl) {
 
 const DEFAULT_PHALA_TIMEOUT_MS = 30000;
 
+function decorateWorkerPayload(config, payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  const derivedKeysEnabled = Boolean(config.phala?.useDerivedKeys ?? config.useDerivedKeys);
+  let nextPayload = payload;
+
+  if (!(payload.network || payload.morpheus_network || payload.runtime_network || payload.environment) && config.network) {
+    nextPayload = { ...nextPayload, network: config.network };
+  }
+
+  if (
+    derivedKeysEnabled &&
+    nextPayload.use_derived_keys === undefined &&
+    nextPayload.useDerivedKeys === undefined
+  ) {
+    nextPayload = { ...nextPayload, use_derived_keys: true };
+  }
+
+  return nextPayload;
+}
+
 export async function callPhala(config, path, payload, options = {}) {
   const candidateApiUrls = resolveCandidateApiUrls(config.phala.apiUrl);
   if (candidateApiUrls.length === 0) {
@@ -18,6 +38,7 @@ export async function callPhala(config, path, payload, options = {}) {
     headers.set('x-phala-token', config.phala.token);
   }
 
+  const requestPayload = decorateWorkerPayload(config, payload);
   const timeoutMs = Math.max(
     Number(options.timeoutMs || config.phala.timeoutMs || DEFAULT_PHALA_TIMEOUT_MS),
     1000
@@ -32,7 +53,7 @@ export async function callPhala(config, path, payload, options = {}) {
       const response = await fetch(`${apiBaseUrl}${path}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestPayload),
         signal: controller.signal,
       });
       const text = await response.text();

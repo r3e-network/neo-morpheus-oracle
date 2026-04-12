@@ -259,6 +259,72 @@ test('callPhala falls back to the next configured worker endpoint', async () => 
   }
 });
 
+test('callPhala injects the relayer network when the payload omits it', async () => {
+  const originalFetch = global.fetch;
+  try {
+    let postedBody = null;
+    global.fetch = async (_url, init) => {
+      postedBody = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const response = await callPhala(
+      {
+        network: 'mainnet',
+        phala: {
+          apiUrl: 'https://worker.test',
+          token: 'secret',
+          timeoutMs: 1000,
+        },
+      },
+      '/sign/payload',
+      { target_chain: 'neo_n3', message: 'hello' }
+    );
+
+    assert.equal(response.ok, true);
+    assert.equal(postedBody.network, 'mainnet');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('callPhala forwards the relayer derived-key preference to the worker', async () => {
+  const originalFetch = global.fetch;
+  try {
+    let postedBody = null;
+    global.fetch = async (_url, init) => {
+      postedBody = JSON.parse(String(init.body));
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const response = await callPhala(
+      {
+        network: 'testnet',
+        useDerivedKeys: true,
+        phala: {
+          apiUrl: 'https://worker.test',
+          token: 'secret',
+          timeoutMs: 1000,
+          useDerivedKeys: true,
+        },
+      },
+      '/sign/payload',
+      { target_chain: 'neo_n3', message: 'hello' }
+    );
+
+    assert.equal(response.ok, true);
+    assert.equal(postedBody.use_derived_keys, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('guardQueuedAutomationExecution blocks cancelled queued automation requests', async () => {
   const patchedRuns = [];
   const result = await guardQueuedAutomationExecution(
@@ -737,6 +803,20 @@ test('relayer config accepts derived-key mode for Neo N3 and Neo X', () => {
   assert.equal(hasNeoXRelayerConfig(config), true);
 
   process.env.PHALA_USE_DERIVED_KEYS = previous;
+});
+
+test('createRelayerConfig exposes the shared-worker derived-key preference', () => {
+  const previous = process.env.PHALA_USE_DERIVED_KEYS;
+  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.useDerivedKeys, true);
+    assert.equal(config.phala.useDerivedKeys, true);
+  } finally {
+    if (previous === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
+    else process.env.PHALA_USE_DERIVED_KEYS = previous;
+  }
 });
 
 test('createRelayerConfig exposes request cursor start ids', () => {

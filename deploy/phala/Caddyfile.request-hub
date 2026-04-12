@@ -4,15 +4,21 @@
 }
 
 :8088 {
-  handle_path /testnet/* {
-    reverse_proxy testnet-request-worker:8080
+  handle /testnet/* {
+    reverse_proxy request-worker:8080 {
+      header_up X-Morpheus-Network testnet
+    }
   }
 
-  handle_path /mainnet/* {
-    reverse_proxy mainnet-request-worker:8080
+  handle /mainnet/* {
+    reverse_proxy request-worker:8080 {
+      header_up X-Morpheus-Network mainnet
+    }
   }
 
   handle {
-    reverse_proxy mainnet-request-worker:8080
+    reverse_proxy request-worker:8080 {
+      header_up X-Morpheus-Network testnet
+    }
   }
 }

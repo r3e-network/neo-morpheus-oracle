@@ -85,10 +85,12 @@ test('loadFeedState bootstraps from Supabase snapshots when local state is empty
   process.env.SUPABASE_URL = 'https://supabase.test';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
   process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'true';
-  process.env.MORPHEUS_NETWORK = 'testnet';
+  delete process.env.MORPHEUS_NETWORK;
 
   global.fetch = async (url) => {
     assert.match(String(url), /morpheus_feed_snapshots/);
+    assert.match(String(url), /network=eq\.mainnet/);
+    assert.match(String(url), /target_chain=eq\.neo_x/);
     return new Response(
       JSON.stringify([
         {
@@ -109,7 +111,7 @@ test('loadFeedState bootstraps from Supabase snapshots when local state is empty
     );
   };
 
-  const state = await __loadFeedStateForTests();
+  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_x' });
   assert.equal(state.records['TWELVEDATA:NEO-USD'].price, '12.34');
   assert.equal(state.records['TWELVEDATA:NEO-USD'].provider, 'twelvedata');
 });
@@ -189,4 +191,94 @@ test('buildFeedSnapshotRows keeps relay metadata in snapshot payloads', () => {
   assert.equal(rows[0].symbol, 'TWELVEDATA:NEO-USD');
   assert.equal(rows[0].payload.relay_status, 'submitted');
   assert.deepEqual(rows[0].payload.anchored_tx, { txid: '0xabc' });
+});
+
+
+test('handleOracleFeed isolates feed state by Morpheus network in a shared worker', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-shared-network-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+
+  let requestCount = 0;
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (!value.includes('api.twelvedata.com')) {
+      throw new Error(`unexpected fetch ${value}`);
+    }
+    requestCount += 1;
+    return new Response(JSON.stringify({ price: requestCount === 1 ? '12.34' : '56.78' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const mainnetResponse = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+  });
+  assert.equal(mainnetResponse.status, 200);
+
+  const testnetResponse = await handleOracleFeed({
+    network: 'testnet',
+    target_chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+  });
+  assert.equal(testnetResponse.status, 200);
+
+  const mainnetState = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
+  const testnetState = await __loadFeedStateForTests({ network: 'testnet', targetChain: 'neo_n3' });
+  assert.equal(mainnetState.records['TWELVEDATA:NEO-USD'].price, '12.34');
+  assert.equal(testnetState.records['TWELVEDATA:NEO-USD'].price, '56.78');
+});
+
+test('handleOracleFeed isolates feed state by target chain inside one Morpheus network', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-shared-target-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS;
+
+  let requestCount = 0;
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (!value.includes('api.twelvedata.com')) {
+      throw new Error(`unexpected fetch ${value}`);
+    }
+    requestCount += 1;
+    return new Response(JSON.stringify({ price: requestCount === 1 ? '12.34' : '56.78' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const neoN3Response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+  });
+  assert.equal(neoN3Response.status, 200);
+
+  const neoXResponse = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_x',
+    symbols: ['NEO-USD'],
+  });
+  assert.equal(neoXResponse.status, 200);
+
+  const neoN3State = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
+  const neoXState = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_x' });
+  assert.equal(neoN3State.records['TWELVEDATA:NEO-USD'].price, '12.34');
+  assert.equal(neoXState.records['TWELVEDATA:NEO-USD'].price, '56.78');
 });

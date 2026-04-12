@@ -38,6 +38,30 @@ function handleHealth() {
   });
 }
 
+function normalizeRequestNetwork(value) {
+  const normalized = trimString(value).toLowerCase();
+  return normalized === 'mainnet' || normalized === 'testnet' ? normalized : '';
+}
+
+function inferRequestNetwork(path, request) {
+  const pathNetwork = normalizeRequestNetwork(path.split('/').filter(Boolean)[0] || '');
+  if (pathNetwork) return pathNetwork;
+  return normalizeRequestNetwork(request.headers.get('x-morpheus-network'));
+}
+
+function injectRequestNetwork(payload, request, path) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  if (
+    trimString(
+      payload.network || payload.morpheus_network || payload.runtime_network || payload.environment
+    )
+  ) {
+    return payload;
+  }
+  const network = inferRequestNetwork(path, request);
+  return network ? { ...payload, network } : payload;
+}
+
 function resolveExecutionPlan(resolved, path, payload) {
   const workflowId = trimString(
     payload.workflow_id || payload.workflowId || resolved?.capability?.workflow?.id || ''
@@ -90,10 +114,11 @@ async function wrapWorkflowResponse(response, executionPlan) {
 export default async function handler(request) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, '');
-  const payload =
+  const requestPayload =
     request.method === 'GET'
       ? Object.fromEntries(url.searchParams.entries())
       : await request.json().catch(() => ({}));
+  const payload = injectRequestNetwork(requestPayload, request, path);
 
   let executionPlan = null;
 

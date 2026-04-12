@@ -121,7 +121,7 @@ export async function relayNeoN3Invocation(payload) {
   const contractHash = normalizeContractHash(payload.contract_hash);
   const method = canonicalizeMethodName(payload.method);
   if (!method) throw new Error('method required');
-  if (!allowlistAllows(contractHash, method)) {
+  if (!allowlistAllows(contractHash, method, payload)) {
     return { status: 403, body: { error: 'contract/method not allowed' } };
   }
 
