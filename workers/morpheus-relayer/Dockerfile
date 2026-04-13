@@ -13,6 +13,8 @@ RUN npm ci --omit=dev
 
 COPY . .
 
+RUN mkdir -p /data && chown relayer /data
+
 USER relayer
 
 CMD ["npm", "--prefix", "workers/morpheus-relayer", "run", "start"]
