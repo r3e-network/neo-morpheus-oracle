@@ -877,6 +877,7 @@ async function submitQuoteToN3(
 ) {
   const invokeResult = await relayNeoN3Invocation({
     request_id: trimString(payload.request_id) || `pricefeed:${storagePair}:${Date.now()}`,
+    network: payload.network,
     contract_hash: dataFeedHash,
     method: 'updateFeed',
     params: [
@@ -907,6 +908,7 @@ async function submitQuoteToN3(
 async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
   const invokeResult = await relayNeoN3Invocation({
     request_id: trimString(payload.request_id) || `pricefeed:batch:${Date.now()}`,
+    network: payload.network,
     contract_hash: dataFeedHash,
     method: 'updateFeeds',
     params: [
