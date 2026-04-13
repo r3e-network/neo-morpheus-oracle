@@ -15,6 +15,8 @@
 - `npm run set:updater:n3`
 - `node scripts/upgrade-morpheus-oracle.mjs`
 - `npm run upgrade:datafeed:n3`
+- `npm run audit:feeds -- --network mainnet`
+- `npm run backfill:feeds -- --network mainnet`
 
 ### Runtime env rendering
 
