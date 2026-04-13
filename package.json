@@ -29,6 +29,8 @@
     "publish:oracle-verifier-key": "node scripts/publish-oracle-verifier-key.mjs",
     "publish:oracle-verifier-key:neox": "node scripts/publish-oracle-verifier-key-neox.mjs",
     "upgrade:datafeed:n3": "node scripts/upgrade-morpheus-datafeed.mjs",
+    "audit:feeds": "node scripts/audit-feed-freshness.mjs",
+    "backfill:feeds": "node scripts/backfill-feed-pairs.mjs",
     "write:addresses": "node scripts/write-address-registry.mjs",
     "verify:n3": "node scripts/verify-morpheus-n3.mjs",
     "set:updater:n3": "node scripts/set-neo-n3-updater.mjs",
