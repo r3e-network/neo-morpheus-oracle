@@ -17,6 +17,7 @@ export function getFeedSyncDelayMs(config, state, nowMs = Date.now()) {
 export function buildFeedSyncPayload(config, targetChain) {
   const payload = {
     target_chain: targetChain,
+    network: config.network,
     symbols: config.feedSync.symbols,
     project_slug: config.feedSync.projectSlug || undefined,
     feed_change_threshold_bps: config.feedSync.changeThresholdBps,
