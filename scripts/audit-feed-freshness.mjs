@@ -10,7 +10,7 @@ function trimString(value) {
 function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {
     network: 'all',
-    staleMinutes: 180,
+    staleMinutes: 720,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const current = argv[index];
@@ -38,7 +38,7 @@ async function main() {
       await buildFeedFreshnessReport({
         repoRoot,
         network,
-        staleMinutes: Number.isFinite(args.staleMinutes) ? args.staleMinutes : 180,
+        staleMinutes: Number.isFinite(args.staleMinutes) ? args.staleMinutes : 720,
       })
     );
   }

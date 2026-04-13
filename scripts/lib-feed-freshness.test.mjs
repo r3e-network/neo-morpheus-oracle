@@ -32,3 +32,12 @@ test('classifyFeedFreshness marks old observations stale', () => {
     stale: false,
   });
 });
+
+test('classifyFeedFreshness treats sub-12h observations as fresh under the default operator threshold', () => {
+  const nowMs = Date.parse('2026-04-13T12:00:00.000Z');
+  assert.deepEqual(classifyFeedFreshness('1776053621', nowMs, 720), {
+    iso: '2026-04-13T04:13:41.000Z',
+    age_min: 466,
+    stale: false,
+  });
+});
