@@ -17,6 +17,7 @@ import { hasNeoXRelayerConfig, getNeoXLatestBlock, scanNeoXOracleRequests } from
 import { getFeedSyncDelayMs, processFeedSync } from './feed-sync.js';
 export { buildFeedSyncPayload } from './feed-sync.js';
 export { getFeedSyncDelayMs } from './feed-sync.js';
+export { summarizeFeedSyncChainResult } from './feed-sync.js';
 export {
   getRequestCursorFloor,
   pruneRetryQueueBelowRequestFloor,
@@ -145,7 +146,16 @@ export async function runRelayerLoop(options = {}) {
   while (true) {
     try {
       const result = await runRelayerOnce({ config, logger });
-      logger.info({ metrics: result.metrics }, 'Relayer loop tick complete');
+      logger.info(
+        {
+          metrics: result.metrics,
+          feed_sync:
+            Array.isArray(result.feed_sync?.chains) && result.feed_sync.chains.length > 0
+              ? result.feed_sync.chains.map((entry) => entry.publication_summary || null)
+              : undefined,
+        },
+        'Relayer loop tick complete'
+      );
       const feedSyncDelayMs = getFeedSyncDelayMs(config, result.state, Date.now());
       const sleepMs =
         config.mode === 'feed_only'
