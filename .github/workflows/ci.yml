@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install
+      - run: npm ci
       - run: node scripts/export-public-runtime-catalog.mjs --output /tmp/morpheus-runtime-catalog.json >/dev/null
       - run: cmp -s /tmp/morpheus-runtime-catalog.json apps/web/public/morpheus-runtime-catalog.json
       - run: node scripts/check-web-consistency.mjs
@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm install
+      - run: npm ci
       - run: npm --prefix workers/phala-worker test
       - run: npm --prefix workers/morpheus-relayer test
       - run: npm --prefix apps/web test:run
