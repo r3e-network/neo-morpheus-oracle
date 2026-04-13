@@ -26,6 +26,7 @@ import {
   buildFeedSyncPayload,
   getRequestCursorFloor,
   getFeedSyncDelayMs,
+  summarizeFeedSyncChainResult,
   hydrateDurableQueue,
   persistFreshEventsToDurableQueue,
   pruneRetryQueueBelowRequestFloor,
@@ -1098,6 +1099,46 @@ test('getFeedSyncDelayMs uses the last feed-sync start time', () => {
 
   assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:00:10.000Z')), 55000);
   assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:01.000Z')), 4000);
+});
+
+test('summarizeFeedSyncChainResult exposes skipped publication reasons', () => {
+  const summary = summarizeFeedSyncChainResult({
+    target_chain: 'neo_n3',
+    api_url: 'http://mainnet-feed-worker:8080',
+    ok: true,
+    status: 200,
+    body: {
+      network: 'mainnet',
+      batch_submitted: false,
+      batch_count: 0,
+      sync_results: [
+        {
+          relay_status: 'skipped',
+          skip_reason: 'price-change-below-threshold',
+        },
+        {
+          relay_status: 'skipped',
+          skip_reason: 'price-change-below-threshold',
+        },
+      ],
+      errors: [],
+    },
+  });
+
+  assert.deepEqual(summary, {
+    target_chain: 'neo_n3',
+    api_url: 'http://mainnet-feed-worker:8080',
+    network: 'mainnet',
+    publication_state: 'skipped',
+    batch_submitted: false,
+    batch_count: 0,
+    submitted_pairs: 0,
+    skipped_pairs: 2,
+    error_count: 0,
+    skipped_reasons: {
+      'price-change-below-threshold': 2,
+    },
+  });
 });
 
 test('durable queue persists fresh chain events before checkpoint advancement', async () => {

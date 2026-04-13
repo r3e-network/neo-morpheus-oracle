@@ -40,6 +40,53 @@ export function buildFeedSyncPayload(config, targetChain) {
   return payload;
 }
 
+export function summarizeFeedSyncChainResult(chainResult = {}) {
+  const body = chainResult?.body && typeof chainResult.body === 'object' ? chainResult.body : {};
+  const syncResults = Array.isArray(body.sync_results) ? body.sync_results : [];
+  const errors = Array.isArray(body.errors) ? body.errors : [];
+  const skippedReasons = {};
+
+  let submittedPairs = 0;
+  let skippedPairs = 0;
+
+  for (const result of syncResults) {
+    const relayStatus = String(result?.relay_status || '').trim().toLowerCase();
+    if (relayStatus === 'submitted') {
+      submittedPairs += 1;
+      continue;
+    }
+    if (relayStatus === 'skipped') {
+      skippedPairs += 1;
+      const reason = String(result?.skip_reason || '').trim() || 'unknown';
+      skippedReasons[reason] = (skippedReasons[reason] || 0) + 1;
+    }
+  }
+
+  const errorCount =
+    errors.length +
+    (chainResult?.ok === false && typeof body.error === 'string' && body.error.trim() ? 1 : 0);
+
+  return {
+    target_chain: String(chainResult?.target_chain || ''),
+    api_url: String(chainResult?.api_url || ''),
+    network: String(body?.network || ''),
+    publication_state:
+      errorCount > 0
+        ? 'error'
+        : submittedPairs > 0
+          ? 'submitted'
+          : skippedPairs > 0
+            ? 'skipped'
+            : 'idle',
+    batch_submitted: Boolean(body?.batch_submitted),
+    batch_count: Number(body?.batch_count || 0),
+    submitted_pairs: submittedPairs,
+    skipped_pairs: skippedPairs,
+    error_count: errorCount,
+    skipped_reasons: skippedReasons,
+  };
+}
+
 export async function processFeedSync(config, state, logger) {
   if (!config.feedSync?.enabled) {
     return { enabled: false, chains: [] };
@@ -70,9 +117,17 @@ export async function processFeedSync(config, state, logger) {
       });
       chains.push({
         target_chain: targetChain,
+        api_url: timeoutAwareResponse.api_url,
         ok: timeoutAwareResponse.ok,
         status: timeoutAwareResponse.status,
         body: timeoutAwareResponse.body,
+        publication_summary: summarizeFeedSyncChainResult({
+          target_chain: targetChain,
+          api_url: timeoutAwareResponse.api_url,
+          ok: timeoutAwareResponse.ok,
+          status: timeoutAwareResponse.status,
+          body: timeoutAwareResponse.body,
+        }),
       });
       incrementMetric(
         state,
@@ -84,6 +139,12 @@ export async function processFeedSync(config, state, logger) {
         ok: false,
         status: 500,
         body: { error: normalizeErrorMessage(error) },
+        publication_summary: summarizeFeedSyncChainResult({
+          target_chain: targetChain,
+          ok: false,
+          status: 500,
+          body: { error: normalizeErrorMessage(error) },
+        }),
       });
       incrementMetric(state, 'feed_sync_error_total');
       logger.warn({ target_chain: targetChain, error }, 'Feed sync tick failed');

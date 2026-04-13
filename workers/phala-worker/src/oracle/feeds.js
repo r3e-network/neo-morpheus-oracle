@@ -22,6 +22,7 @@ import {
 import {
   applyFeedProviderDefaults,
   getDefaultFeedSymbols,
+  getFeedPairConfig,
   getFeedDisplaySymbol,
   normalizeFeedPairSymbol,
   getFeedProvidersForPair,
@@ -452,6 +453,19 @@ function extractUpstreamTimestamp(response) {
   return new Date().toISOString();
 }
 
+function resolvePairThresholdBps(storagePair, payload = {}, targetChain = 'neo_n3') {
+  const config = getFeedPairConfig(storagePair);
+  const raw =
+    config?.threshold_bps ??
+    config?.feed_change_threshold_bps ??
+    payload?.pair_feed_change_threshold_bps ??
+    payload?.feed_change_threshold_bps_by_pair?.[storagePair] ??
+    null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.max(parsed, 0);
+}
+
 function buildSyncPolicy(targetChain, payload = {}) {
   const network = resolveFeedScope(payload, targetChain).network;
   const thresholdCandidate =
@@ -472,6 +486,10 @@ function buildSyncPolicy(targetChain, payload = {}) {
     thresholdBps: Math.max(Number.isFinite(thresholdBps) ? thresholdBps : 0, 0),
     minUpdateIntervalMs: Math.max(minUpdateIntervalMs, 0),
   };
+}
+
+export function __resolvePairThresholdBpsForTests(storagePair, payload = {}, targetChain = 'neo_n3') {
+  return resolvePairThresholdBps(storagePair, payload, targetChain);
 }
 
 function computeChangeBps(previousPrice, nextPrice) {
@@ -1102,7 +1120,10 @@ export async function handleOracleFeed(payload) {
         storagePair,
         quote,
         hasPreviousRecord ? previousRecord : null,
-        policy,
+        {
+          ...policy,
+          thresholdBps: resolvePairThresholdBps(storagePair, scopedPayload, targetChain) ?? policy.thresholdBps,
+        },
         Boolean(scopedPayload.force)
       );
       const roundId =
