@@ -13,6 +13,8 @@ RUN npm ci --omit=dev
 
 COPY . .
 
+RUN mkdir -p /data && chown worker /data
+
 USER worker
 
 ENV PORT=8080
