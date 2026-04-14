@@ -650,18 +650,27 @@ async function loadOnchainFeedRecords(
 ) {
   try {
     if (targetChain === 'neo_n3') {
-      return await fetchNeoN3FeedRecords(neoContext?.rpcUrl, dataFeedHash);
+      return {
+        records: await fetchNeoN3FeedRecords(neoContext?.rpcUrl, dataFeedHash),
+        error: null,
+      };
     }
     if (targetChain === 'neo_x') {
-      return await fetchNeoXFeedRecords(
-        trimString(neoXRpcUrl) || trimString(envForNetwork(network, 'NEOX_RPC_URL', 'EVM_RPC_URL')),
-        dataFeedAddress
-      );
+      return {
+        records: await fetchNeoXFeedRecords(
+          trimString(neoXRpcUrl) || trimString(envForNetwork(network, 'NEOX_RPC_URL', 'EVM_RPC_URL')),
+          dataFeedAddress
+        ),
+        error: null,
+      };
     }
-  } catch {
-    // best effort; local state remains a valid fallback
+  } catch (error) {
+    return {
+      records: {},
+      error: error instanceof Error ? error.message : String(error),
+    };
   }
-  return {};
+  return { records: {}, error: null };
 }
 
 function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = false) {
@@ -1090,13 +1099,34 @@ export async function handleOracleFeed(payload) {
     targetChain === 'neo_x'
       ? trimString(envForNetwork(scope.network, 'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
       : null;
-  const onchainRecords = await loadOnchainFeedRecords(targetChain, {
+  const onchainFeedState = await loadOnchainFeedRecords(targetChain, {
     network: scope.network,
     neoContext,
     neoXRpcUrl: trimString(scopedPayload.rpc_url),
     dataFeedHash,
     dataFeedAddress,
   });
+  const onchainRecords = onchainFeedState.records;
+  if (
+    onchainFeedState.error &&
+    Object.keys(state.records || {}).length === 0 &&
+    !Boolean(scopedPayload.force)
+  ) {
+    return json(503, {
+      mode: 'pricefeed',
+      network: scope.network,
+      target_chain: targetChain,
+      symbols,
+      batch_submitted: false,
+      batch_count: 0,
+      sync_results: [],
+      errors: [
+        {
+          error: `on-chain baseline unavailable: ${onchainFeedState.error}`,
+        },
+      ],
+    });
+  }
 
   for (const symbol of symbols) {
     const quoteSet = await fetchPriceQuotes(symbol, scopedPayload);
