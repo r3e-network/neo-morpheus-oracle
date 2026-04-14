@@ -357,3 +357,45 @@ test('handleOracleFeed isolates feed state by target chain inside one Morpheus n
   assert.equal(neoN3State.records['TWELVEDATA:NEO-USD'].price, '12.34');
   assert.equal(neoXState.records['TWELVEDATA:NEO-USD'].price, '56.78');
 });
+
+test('handleOracleFeed fails closed when on-chain baseline is unavailable and local state is empty', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-baseline-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.NEO_RPC_URL = 'https://mainnet1.neo.coz.io:443';
+  process.env.CONTRACT_MORPHEUS_DATAFEED_HASH = '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY =
+    '1111111111111111111111111111111111111111111111111111111111111111';
+
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(String(url));
+    if (String(url).includes('api.twelvedata.com')) {
+      return new Response(JSON.stringify({ price: '2.723' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error('rpc baseline fetch failed');
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['TWELVEDATA:NEO-USD'],
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 503);
+  assert.equal(body.batch_submitted, false);
+  assert.equal(body.batch_count, 0);
+  assert.deepEqual(body.sync_results, []);
+  assert.match(body.errors[0].error, /baseline/i);
+  assert.ok(calls.some((entry) => entry.includes('mainnet1.neo.coz.io')));
+  assert.ok(!calls.some((entry) => entry.includes('api.twelvedata.com')));
+});
