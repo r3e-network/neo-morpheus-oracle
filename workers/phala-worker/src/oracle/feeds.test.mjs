@@ -148,10 +148,10 @@ test('handleOracleFeed honors pair-specific threshold overrides for mainnet pair
   const body = await response.json();
 
   assert.equal(response.status, 200);
-  assert.equal(body.batch_submitted, true);
+  assert.equal(body.batch_submitted, false);
   assert.equal(body.batch_count, 1);
   assert.equal(body.sync_results[0].relay_status, 'skipped');
-  assert.equal(body.sync_results[0].skip_reason, undefined);
+  assert.equal(body.sync_results[0].skip_reason, 'submission_unavailable');
 });
 
 test('loadFeedState bootstraps from Supabase snapshots when local state is empty', async () => {
@@ -309,8 +309,8 @@ test('handleOracleFeed isolates feed state by Morpheus network in a shared worke
 
   const mainnetState = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
   const testnetState = await __loadFeedStateForTests({ network: 'testnet', targetChain: 'neo_n3' });
-  assert.equal(mainnetState.records['TWELVEDATA:NEO-USD'].price, '12.34');
-  assert.equal(testnetState.records['TWELVEDATA:NEO-USD'].price, '56.78');
+  assert.equal(mainnetState.records['TWELVEDATA:NEO-USD'].last_observed_price, '12.34');
+  assert.equal(testnetState.records['TWELVEDATA:NEO-USD'].last_observed_price, '56.78');
 });
 
 test('handleOracleFeed isolates feed state by target chain inside one Morpheus network', async () => {
@@ -354,8 +354,8 @@ test('handleOracleFeed isolates feed state by target chain inside one Morpheus n
 
   const neoN3State = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
   const neoXState = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_x' });
-  assert.equal(neoN3State.records['TWELVEDATA:NEO-USD'].price, '12.34');
-  assert.equal(neoXState.records['TWELVEDATA:NEO-USD'].price, '56.78');
+  assert.equal(neoN3State.records['TWELVEDATA:NEO-USD'].last_observed_price, '12.34');
+  assert.equal(neoXState.records['TWELVEDATA:NEO-USD'].last_observed_price, '56.78');
 });
 
 test('handleOracleFeed fails closed when on-chain baseline is unavailable and local state is empty', async () => {
@@ -398,4 +398,74 @@ test('handleOracleFeed fails closed when on-chain baseline is unavailable and lo
   assert.match(body.errors[0].error, /baseline/i);
   assert.ok(calls.some((entry) => entry.includes('mainnet1.neo.coz.io')));
   assert.ok(!calls.some((entry) => entry.includes('api.twelvedata.com')));
+});
+
+test('handleOracleFeed does not mark local state as submitted when submission prerequisites are missing', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-submit-gap-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
+
+  const scopedStatePath = process.env.MORPHEUS_FEED_STATE_PATH.replace(/\.json$/, '.mainnet.neo_n3.json');
+  await fs.writeFile(
+    scopedStatePath,
+    JSON.stringify({
+      records: {
+        'TWELVEDATA:NEO-USD': {
+          storage_pair: 'TWELVEDATA:NEO-USD',
+          pair: 'TWELVEDATA:NEO-USD',
+          provider: 'twelvedata',
+          price: '2.694',
+          price_units: '2694000',
+          round_id: '1',
+          last_submitted_at_ms: 1000,
+          last_observed_price: '2.694',
+          last_observed_price_units: '2694000',
+          last_observed_at_ms: 1000,
+        },
+      },
+    }),
+    'utf8'
+  );
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (!value.includes('api.twelvedata.com')) {
+      throw new Error(`unexpected fetch ${value}`);
+    }
+    return new Response(JSON.stringify({ price: '2.900', timestamp: '2026-04-15T00:00:00.000Z' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['TWELVEDATA:NEO-USD'],
+    force: true,
+  });
+  const body = await response.json();
+  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
+  const record = state.records['TWELVEDATA:NEO-USD'];
+
+  assert.equal(response.status, 200);
+  assert.equal(body.batch_submitted, false);
+  assert.equal(body.batch_count, 1);
+  assert.match(body.errors[0].error, /datafeed contract hash is not configured/i);
+  assert.equal(body.sync_results[0].relay_status, 'skipped');
+  assert.equal(body.sync_results[0].skip_reason, 'submission_unavailable');
+  assert.equal(record.last_submitted_at_ms, 1000);
+  assert.equal(record.price, '2.694');
+  assert.equal(record.last_observed_price, '2.9');
 });

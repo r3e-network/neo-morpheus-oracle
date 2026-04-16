@@ -461,6 +461,7 @@ function resolvePairThresholdBps(storagePair, payload = {}, targetChain = 'neo_n
     payload?.pair_feed_change_threshold_bps ??
     payload?.feed_change_threshold_bps_by_pair?.[storagePair] ??
     null;
+  if (raw === '' || raw === undefined || raw === null) return null;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return null;
   return Math.max(parsed, 0);
@@ -488,8 +489,37 @@ function buildSyncPolicy(targetChain, payload = {}) {
   };
 }
 
+function normalizeBooleanLike(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const normalized = trimString(value).toLowerCase();
+  if (!normalized) return fallback;
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function resolveFeedSubmissionIssue(
+  targetChain,
+  { hasNeoN3DataFeedTarget = false, neoContext = null, dataFeedAddress = '' } = {}
+) {
+  if (targetChain === 'neo_n3') {
+    if (!hasNeoN3DataFeedTarget) return 'Neo N3 datafeed contract hash is not configured';
+    if (!neoContext) return 'Neo N3 signing key is not configured';
+    if (!trimString(neoContext.rpcUrl)) return 'NEO_RPC_URL is required for Neo N3 feed submission';
+    return '';
+  }
+
+  if (targetChain === 'neo_x') {
+    if (!trimString(dataFeedAddress)) return 'Neo X datafeed contract address is not configured';
+  }
+
+  return '';
+}
+
 export function __resolvePairThresholdBpsForTests(storagePair, payload = {}, targetChain = 'neo_n3') {
   return resolvePairThresholdBps(storagePair, payload, targetChain);
+}
+
+export function __buildSyncPolicyForTests(targetChain, payload = {}) {
+  return buildSyncPolicy(targetChain, payload);
 }
 
 function computeChangeBps(previousPrice, nextPrice) {
@@ -715,6 +745,16 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     candidate_price_units: nextPriceUnits,
     storage_key: storageKey,
   };
+}
+
+export function __shouldSubmitFeedForTests(
+  storageKey,
+  quote,
+  previousRecord,
+  policy,
+  force = false
+) {
+  return shouldSubmitFeed(storageKey, quote, previousRecord, policy, force);
 }
 
 async function resolveQuoteForProvider(symbol, options, provider) {
@@ -1078,6 +1118,10 @@ export async function handleOracleFeed(payload) {
   const symbols = resolveRequestedSymbols(scopedPayload);
 
   const policy = buildSyncPolicy(targetChain, scopedPayload);
+  const requireSubmission = normalizeBooleanLike(
+    scopedPayload.require_submission ?? scopedPayload.requireSubmission,
+    false
+  );
   const state = await loadFeedState(scope);
   const syncResults = [];
   const batchUpdates = [];
@@ -1200,6 +1244,7 @@ export async function handleOracleFeed(payload) {
         sourceSetId,
         timestampSec,
         observedAtMs,
+        previousRecord: hasPreviousRecord ? previousRecord : null,
       });
       syncResults.push({
         provider: quote.provider,
@@ -1214,8 +1259,21 @@ export async function handleOracleFeed(payload) {
   }
 
   let batchTx = null;
+  const submissionIssue =
+    batchUpdates.length > 0
+      ? resolveFeedSubmissionIssue(targetChain, {
+          hasNeoN3DataFeedTarget,
+          neoContext,
+          dataFeedAddress,
+        })
+      : '';
   if (batchUpdates.length > 0) {
-    if (hasNeoN3DataFeedTarget && neoContext) {
+    if (submissionIssue) {
+      errors.push({
+        target_chain: targetChain,
+        error: submissionIssue,
+      });
+    } else if (hasNeoN3DataFeedTarget && neoContext) {
       batchTx = await submitQuotesToN3WithFallback(
         dataFeedHash,
         neoContext,
@@ -1227,20 +1285,41 @@ export async function handleOracleFeed(payload) {
     }
   }
 
+  if (requireSubmission && batchUpdates.length > 0 && !batchTx && !submissionIssue) {
+    errors.push({
+      target_chain: targetChain,
+      error: 'feed batch submission returned no transaction metadata',
+    });
+  }
+
   for (const entry of batchUpdates) {
+    if (batchTx) {
+      state.records[entry.storagePair] = {
+        provider: entry.quote.provider,
+        pair: entry.quote.pair,
+        storage_pair: entry.storagePair,
+        price: entry.quote.price,
+        price_units: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
+        round_id: entry.roundId,
+        source_set_id: entry.sourceSetId,
+        last_submitted_at_ms: Date.now(),
+        last_observed_price: entry.quote.price,
+        last_observed_price_units: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
+        last_observed_at_ms: entry.observedAtMs,
+        attestation_hash: entry.quote.attestation_hash,
+        price_scale_decimals: FEED_PRICE_DECIMALS,
+      };
+      continue;
+    }
+
     state.records[entry.storagePair] = {
+      ...(entry.previousRecord || {}),
       provider: entry.quote.provider,
       pair: entry.quote.pair,
       storage_pair: entry.storagePair,
-      price: entry.quote.price,
-      price_units: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
-      round_id: entry.roundId,
-      source_set_id: entry.sourceSetId,
-      last_submitted_at_ms: Date.now(),
       last_observed_price: entry.quote.price,
       last_observed_price_units: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
       last_observed_at_ms: entry.observedAtMs,
-      attestation_hash: entry.quote.attestation_hash,
       price_scale_decimals: FEED_PRICE_DECIMALS,
     };
   }
@@ -1248,6 +1327,9 @@ export async function handleOracleFeed(payload) {
   for (const result of syncResults) {
     if (result.relay_status === 'queued') {
       result.relay_status = batchTx ? 'submitted' : 'skipped';
+      if (!batchTx) {
+        result.skip_reason = submissionIssue ? 'submission_unavailable' : 'submission_missing_tx';
+      }
       result.anchored_tx = batchTx;
     }
   }
@@ -1267,7 +1349,7 @@ export async function handleOracleFeed(payload) {
     network: scope.network,
     target_chain: targetChain,
     symbols,
-    batch_submitted: batchUpdates.length > 0,
+    batch_submitted: Boolean(batchTx),
     batch_count: batchUpdates.length,
     batch_tx: batchTx,
     sync_results: syncResults,

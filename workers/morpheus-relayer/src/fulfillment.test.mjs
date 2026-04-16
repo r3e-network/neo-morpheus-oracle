@@ -7,6 +7,7 @@ import {
   enrichAutomationExecutionPayload,
   isAlreadyFulfilledError,
   isTerminalConfigurationError,
+  resolveFulfillmentSigningContext,
   trimOnchainErrorMessage,
 } from './fulfillment.js';
 
@@ -231,6 +232,41 @@ describe('computeRetryDelayMs', () => {
     assert.equal(computeRetryDelayMs(custom, 2), 1000);
     assert.equal(computeRetryDelayMs(custom, 4), 4000);
     assert.equal(computeRetryDelayMs(custom, 5), 5000); // capped
+  });
+});
+
+// ===================================================================
+// resolveFulfillmentSigningContext
+// ===================================================================
+
+describe('resolveFulfillmentSigningContext', () => {
+  it('uses the legacy digest domain for legacy Neo N3 requests', () => {
+    assert.deepEqual(
+      resolveFulfillmentSigningContext('neo_n3', {
+        requestId: '4453',
+        requestType: 'privacy_oracle',
+        appId: '',
+        moduleId: '',
+        operation: '',
+      }),
+      { chain: 'neo_x', appId: '', moduleId: '', operation: '' }
+    );
+  });
+
+  it('preserves kernel digest context when app and module are present', () => {
+    assert.deepEqual(
+      resolveFulfillmentSigningContext('neo_n3', {
+        appId: 'miniapp-os',
+        moduleId: 'oracle.fetch',
+        operation: 'privacy_oracle',
+      }),
+      {
+        chain: 'neo_n3',
+        appId: 'miniapp-os',
+        moduleId: 'oracle.fetch',
+        operation: 'privacy_oracle',
+      }
+    );
   });
 });
 
