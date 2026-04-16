@@ -18,6 +18,7 @@ const originalNeoXRpc = process.env.NEOX_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
 const originalTwelveData = process.env.TWELVEDATA_API_KEY;
 const originalNeoXDataFeedAddress = process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS;
+const originalFeedStatePath = process.env.MORPHEUS_FEED_STATE_PATH;
 const originalSupabaseUrl = process.env.SUPABASE_URL;
 const originalSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const originalUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
@@ -41,6 +42,8 @@ process.env.NEOX_RPC_URL = '';
 process.env.EVM_RPC_URL = '';
 process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
 process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '';
+const workerTestFeedStateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-worker-feed-state-'));
+process.env.MORPHEUS_FEED_STATE_PATH = path.join(workerTestFeedStateDir, 'feed-state.json');
 process.env.SUPABASE_URL = '';
 process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
@@ -64,6 +67,7 @@ const WORKER_TEST_ENV_KEEP = new Set([
   'EVM_RPC_URL',
   'TWELVEDATA_API_KEY',
   'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
+  'MORPHEUS_FEED_STATE_PATH',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'PHALA_USE_DERIVED_KEYS',
@@ -123,21 +127,27 @@ function restoreBaselineEnv() {
   }
 }
 
-function restorePerTestState() {
+async function resetWorkerTestFeedStateDir() {
+  await fs.rm(workerTestFeedStateDir, { recursive: true, force: true });
+  await fs.mkdir(workerTestFeedStateDir, { recursive: true });
+}
+
+async function restorePerTestState() {
   global.fetch = originalFetch;
   restoreBaselineEnv();
+  await resetWorkerTestFeedStateDir();
   __resetDstackClientStateForTests();
   __resetOracleKeyMaterialForTests();
   __resetFeedStateForTests();
   __resetNeoDidStateForTests();
 }
 
-test.beforeEach(() => {
-  restorePerTestState();
+test.beforeEach(async () => {
+  await restorePerTestState();
 });
 
-test.afterEach(() => {
-  restorePerTestState();
+test.afterEach(async () => {
+  await restorePerTestState();
 });
 
 async function buildWeb3AuthFixture({
@@ -1141,6 +1151,7 @@ test.after(() => {
   process.env.EVM_RPC_URL = originalEvmRpc;
   process.env.TWELVEDATA_API_KEY = originalTwelveData;
   process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = originalNeoXDataFeedAddress;
+  process.env.MORPHEUS_FEED_STATE_PATH = originalFeedStatePath;
   process.env.SUPABASE_URL = originalSupabaseUrl;
   process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
   process.env.PHALA_USE_DERIVED_KEYS = originalUseDerivedKeys;

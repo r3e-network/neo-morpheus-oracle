@@ -96,7 +96,29 @@ export function computeRetryDelayMs(config, attempts) {
   return Math.min(config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0), config.retryMaxDelayMs);
 }
 
+export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
+  const normalizedChain = trimString(chain || '') || 'neo_n3';
+  const appId = trimString(fulfillment.appId || '');
+  const moduleId = trimString(fulfillment.moduleId || '');
+  const operation = trimString(fulfillment.operation || '');
+
+  // Legacy Neo N3 requests do not carry appId and still verify against the
+  // legacy digest domain, even though the relayer can infer a synthetic
+  // moduleId/operation from requestType.
+  if (normalizedChain === 'neo_n3' && !appId) {
+    return { chain: 'neo_x', appId: '', moduleId: '', operation: '' };
+  }
+
+  return {
+    chain: normalizedChain,
+    appId,
+    moduleId,
+    operation,
+  };
+}
+
 export async function signFulfillmentPayload(config, chain, fulfillment) {
+  const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
   // Pass chain + kernel envelope fields so the digest matches the on-chain
   // contract's ComputeFulfillmentDigest (N3 uses appId/moduleId/operation;
   // NeoX still uses legacy requestType).
@@ -107,12 +129,7 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
     fulfillment.result,
     fulfillment.error,
     fulfillment.result_bytes_base64 || '',
-    {
-      chain,
-      appId: fulfillment.appId || '',
-      moduleId: fulfillment.moduleId || '',
-      operation: fulfillment.operation || '',
-    }
+    digestContext
   );
   const response = await callPhala(config, '/sign/payload', {
     target_chain: chain,
@@ -130,25 +147,37 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
 }
 
 async function fulfillNeoRequest(config, event, fulfillment, verification) {
-  return event.chain === 'neo_n3'
-    ? await fulfillNeoN3Request(
-        config,
-        event.requestId,
-        fulfillment.success,
-        fulfillment.result,
-        fulfillment.error,
-        verification.signature,
-        fulfillment.result_bytes_base64
-      )
-    : await fulfillNeoXRequest(
-        config,
-        event.requestId,
-        fulfillment.success,
-        fulfillment.result,
-        fulfillment.error,
-        verification.signature,
-        fulfillment.result_bytes_base64
+  try {
+    return event.chain === 'neo_n3'
+      ? await fulfillNeoN3Request(
+          config,
+          event.requestId,
+          fulfillment.success,
+          fulfillment.result,
+          fulfillment.error,
+          verification.signature,
+          fulfillment.result_bytes_base64
+        )
+      : await fulfillNeoXRequest(
+          config,
+          event.requestId,
+          fulfillment.success,
+          fulfillment.result,
+          fulfillment.error,
+          verification.signature,
+          fulfillment.result_bytes_base64
+        );
+  } catch (error) {
+    const message = normalizeErrorMessage(error);
+    if (message.toLowerCase().includes('request not found') && event.chain === 'neo_n3') {
+      const oracleContract = trimString(config?.neo_n3?.oracleContract || '');
+      const rpcUrl = trimString(config?.neo_n3?.rpcUrl || '');
+      throw new Error(
+        `${message} [chain=${event.chain} request_id=${event.requestId} oracle_contract=${oracleContract} rpc_url=${rpcUrl}]`
       );
+    }
+    throw error;
+  }
 }
 
 async function finalizeFailedRequest(config, event, errorMessage) {
@@ -217,7 +246,7 @@ export function enrichAutomationExecutionPayload(event, payload) {
   };
 }
 
-async function processOracleRequest(config, event) {
+async function processOracleRequest(config, event, logger = null) {
   const payload = enrichAutomationExecutionPayload(event, decodePayloadText(event.payloadText));
   const kernelIntent = resolveKernelIntent(event.requestType);
   if (isAutomationControlRequestType(event.requestType)) {
@@ -356,6 +385,21 @@ async function processOracleRequest(config, event) {
   });
   const verificationDurationMs = Date.now() - verificationStartedAt;
 
+  logger?.info(
+    {
+      chain: event.chain,
+      request_id: event.requestId,
+      request_type: event.requestType,
+      route,
+      worker_status: workerResponse.status,
+      fulfillment_success: fulfillment.success,
+      result_bytes_base64_present: Boolean(fulfillment.result_bytes_base64),
+      result_length: typeof fulfillment.result === 'string' ? fulfillment.result.length : null,
+      error_text: fulfillment.error || '',
+    },
+    'Prepared oracle fulfillment payload'
+  );
+
   const fulfillStartedAt = Date.now();
   const tx = await fulfillNeoRequest(config, event, fulfillment, verification);
   const fulfillDurationMs = Date.now() - fulfillStartedAt;
@@ -434,7 +478,7 @@ export async function processEvent(config, state, persistState, logger, event, r
       incrementMetric(state, 'fulfill_failure_total');
     } else {
       incrementMetric(state, 'worker_calls_total');
-      result = await processOracleRequest(config, event);
+      result = await processOracleRequest(config, event, logger);
       if (!result.success) incrementMetric(state, 'worker_failures_total');
       incrementMetric(state, result.success ? 'fulfill_success_total' : 'fulfill_failure_total');
     }

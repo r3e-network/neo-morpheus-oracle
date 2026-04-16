@@ -16,6 +16,7 @@ services:
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN}
       MORPHEUS_UPSTASH_GUARDS_ENABLED: ${MORPHEUS_UPSTASH_GUARDS_ENABLED}
       MORPHEUS_UPSTASH_FAIL_CLOSED: ${MORPHEUS_UPSTASH_FAIL_CLOSED}
+      MORPHEUS_FEED_PAIR_REGISTRY_JSON: ${MORPHEUS_FEED_PAIR_REGISTRY_JSON:-}
       MORPHEUS_RUNTIME_CONFIG_JSON: ${SHARED_RUNTIME_CONFIG_JSON:-{}}
       MAINNET_RUNTIME_CONFIG_JSON: ${MAINNET_RUNTIME_CONFIG_JSON}
       TESTNET_RUNTIME_CONFIG_JSON: ${TESTNET_RUNTIME_CONFIG_JSON}
@@ -140,6 +141,7 @@ services:
       MORPHEUS_RUNTIME_CONFIG_JSON: ${MAINNET_RUNTIME_CONFIG_JSON}
       MORPHEUS_RELAYER_MODE: requests_only
       MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.mainnet.json
+      MORPHEUS_NETWORK: mainnet
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-request-data:/data
@@ -160,6 +162,7 @@ services:
       MORPHEUS_RUNTIME_CONFIG_JSON: ${TESTNET_RUNTIME_CONFIG_JSON}
       MORPHEUS_RELAYER_MODE: requests_only
       MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.testnet.json
+      MORPHEUS_NETWORK: testnet
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-request-data:/data
