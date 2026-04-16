@@ -1087,7 +1087,7 @@ test('resolveChainFromBlock advances from a valid checkpoint', () => {
   assert.equal(state.neo_n3.last_block, 8996666);
 });
 
-test('getFeedSyncDelayMs uses the last feed-sync start time', () => {
+test('getFeedSyncDelayMs uses the most recent feed-sync attempt time', () => {
   const config = {
     feedSync: {
       enabled: true,
@@ -1096,9 +1096,25 @@ test('getFeedSyncDelayMs uses the last feed-sync start time', () => {
   };
   const state = createEmptyRelayerState();
   state.metrics.last_feed_sync_success_at = '2026-03-10T13:00:05.000Z';
+  state.metrics.last_feed_sync_completed_at = '2026-03-10T13:00:20.000Z';
 
-  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:00:10.000Z')), 55000);
-  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:01.000Z')), 4000);
+  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:00:25.000Z')), 55000);
+  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:21.000Z')), 0);
+});
+
+test('getFeedSyncDelayMs backs off after failed sync attempts without a fresh success', () => {
+  const config = {
+    feedSync: {
+      enabled: true,
+      intervalMs: 60000,
+    },
+  };
+  const state = createEmptyRelayerState();
+  state.metrics.last_feed_sync_success_at = '2026-03-10T12:55:00.000Z';
+  state.metrics.last_feed_sync_completed_at = '2026-03-10T13:00:20.000Z';
+
+  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:00:25.000Z')), 55000);
+  assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:05.000Z')), 15000);
 });
 
 test('summarizeFeedSyncChainResult exposes skipped publication reasons', () => {

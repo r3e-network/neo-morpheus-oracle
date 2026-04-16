@@ -6,12 +6,16 @@ export function getFeedSyncDelayMs(config, state, nowMs = Date.now()) {
   const intervalMs = Math.max(Number(config.feedSync.intervalMs) || 0, 0);
   if (intervalMs <= 0) return 0;
 
-  const lastSuccessAt = state.metrics.last_feed_sync_success_at
-    ? new Date(state.metrics.last_feed_sync_success_at).getTime()
-    : 0;
-  if (!lastSuccessAt) return 0;
+  const lastAttemptAt = [
+    state.metrics.last_feed_sync_completed_at,
+    state.metrics.last_feed_sync_started_at,
+    state.metrics.last_feed_sync_success_at,
+  ]
+    .map((value) => (value ? new Date(value).getTime() : 0))
+    .find((value) => Number.isFinite(value) && value > 0);
+  if (!lastAttemptAt) return 0;
 
-  return Math.max(lastSuccessAt + intervalMs - nowMs, 0);
+  return Math.max(lastAttemptAt + intervalMs - nowMs, 0);
 }
 
 export function buildFeedSyncPayload(config, targetChain) {
