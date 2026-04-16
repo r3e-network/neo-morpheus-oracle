@@ -496,6 +496,18 @@ function normalizeBooleanLike(value, fallback = false) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 
+function resolveFeedMaxBatchPairs(targetChain, payload = {}) {
+  const network = resolveFeedScope(payload, targetChain).network;
+  const raw =
+    payload.feed_max_batch_pairs ??
+    payload.feedMaxBatchPairs ??
+    envForNetwork(network, 'MORPHEUS_FEED_MAX_BATCH_PAIRS');
+  if (raw === '' || raw === undefined || raw === null) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.max(Math.trunc(parsed), 1);
+}
+
 function resolveFeedSubmissionIssue(
   targetChain,
   { hasNeoN3DataFeedTarget = false, neoContext = null, dataFeedAddress = '' } = {}
@@ -1118,6 +1130,7 @@ export async function handleOracleFeed(payload) {
   const symbols = resolveRequestedSymbols(scopedPayload);
 
   const policy = buildSyncPolicy(targetChain, scopedPayload);
+  const maxBatchPairs = resolveFeedMaxBatchPairs(targetChain, scopedPayload);
   const requireSubmission = normalizeBooleanLike(
     scopedPayload.require_submission ?? scopedPayload.requireSubmission,
     false
@@ -1244,6 +1257,7 @@ export async function handleOracleFeed(payload) {
         sourceSetId,
         timestampSec,
         observedAtMs,
+        changeBps: decision.change_bps ?? Number.POSITIVE_INFINITY,
         previousRecord: hasPreviousRecord ? previousRecord : null,
       });
       syncResults.push({
@@ -1256,6 +1270,26 @@ export async function handleOracleFeed(payload) {
         quote,
       });
     }
+  }
+
+  let deferredBatchUpdates = [];
+  if (maxBatchPairs && batchUpdates.length > maxBatchPairs) {
+    const selectedStoragePairs = new Set(
+      [...batchUpdates]
+        .sort(
+          (left, right) =>
+            (Number(right.changeBps || 0) - Number(left.changeBps || 0)) ||
+            left.storagePair.localeCompare(right.storagePair)
+        )
+        .slice(0, maxBatchPairs)
+        .map((entry) => entry.storagePair)
+    );
+    deferredBatchUpdates = batchUpdates.filter((entry) => !selectedStoragePairs.has(entry.storagePair));
+    batchUpdates.splice(
+      0,
+      batchUpdates.length,
+      ...batchUpdates.filter((entry) => selectedStoragePairs.has(entry.storagePair))
+    );
   }
 
   let batchTx = null;
@@ -1324,8 +1358,30 @@ export async function handleOracleFeed(payload) {
     };
   }
 
+  for (const entry of deferredBatchUpdates) {
+    state.records[entry.storagePair] = {
+      ...(entry.previousRecord || {}),
+      provider: entry.quote.provider,
+      pair: entry.quote.pair,
+      storage_pair: entry.storagePair,
+      last_observed_price: entry.quote.price,
+      last_observed_price_units: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
+      last_observed_at_ms: entry.observedAtMs,
+      price_scale_decimals: FEED_PRICE_DECIMALS,
+    };
+  }
+
   for (const result of syncResults) {
     if (result.relay_status === 'queued') {
+      const deferred = deferredBatchUpdates.some(
+        (entry) => entry.storagePair === result.storage_pair
+      );
+      if (deferred) {
+        result.relay_status = 'skipped';
+        result.skip_reason = 'batch-limit-deferred';
+        result.anchored_tx = null;
+        continue;
+      }
       result.relay_status = batchTx ? 'submitted' : 'skipped';
       if (!batchTx) {
         result.skip_reason = submissionIssue ? 'submission_unavailable' : 'submission_missing_tx';

@@ -469,3 +469,98 @@ test('handleOracleFeed does not mark local state as submitted when submission pr
   assert.equal(record.price, '2.694');
   assert.equal(record.last_observed_price, '2.9');
 });
+
+test('handleOracleFeed caps submitted pairs per run and defers lower-drift updates', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-batch-cap-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_FEED_MAX_BATCH_PAIRS = '1';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
+
+  const scopedStatePath = process.env.MORPHEUS_FEED_STATE_PATH.replace(/\.json$/, '.mainnet.neo_n3.json');
+  await fs.writeFile(
+    scopedStatePath,
+    JSON.stringify({
+      records: {
+        'TWELVEDATA:NEO-USD': {
+          storage_pair: 'TWELVEDATA:NEO-USD',
+          pair: 'TWELVEDATA:NEO-USD',
+          provider: 'twelvedata',
+          price: '2.000',
+          price_units: '2000000',
+          round_id: '1',
+          last_submitted_at_ms: 1000,
+          last_observed_price: '2.000',
+          last_observed_price_units: '2000000',
+          last_observed_at_ms: 1000,
+        },
+        'TWELVEDATA:GAS-USD': {
+          storage_pair: 'TWELVEDATA:GAS-USD',
+          pair: 'TWELVEDATA:GAS-USD',
+          provider: 'twelvedata',
+          price: '3.000',
+          price_units: '3000000',
+          round_id: '1',
+          last_submitted_at_ms: 1000,
+          last_observed_price: '3.000',
+          last_observed_price_units: '3000000',
+          last_observed_at_ms: 1000,
+        },
+      },
+    }),
+    'utf8'
+  );
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.includes('NEO%2FUSD')) {
+      return new Response(JSON.stringify({ price: '3.000', timestamp: '2026-04-17T00:00:00.000Z' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (value.includes('GAS%2FUSD')) {
+      return new Response(JSON.stringify({ price: '3.150', timestamp: '2026-04-17T00:00:00.000Z' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['NEO-USD', 'GAS-USD'],
+    force: false,
+  });
+  const body = await response.json();
+  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
+
+  assert.equal(response.status, 200);
+  assert.equal(body.batch_count, 1);
+  assert.equal(body.batch_submitted, false);
+  assert.ok(body.errors.some((entry) => /datafeed contract hash is not configured/i.test(entry.error)));
+
+  const neoResult = body.sync_results.find((entry) => entry.storage_pair === 'TWELVEDATA:NEO-USD');
+  const gasResult = body.sync_results.find((entry) => entry.storage_pair === 'TWELVEDATA:GAS-USD');
+  assert.equal(neoResult.relay_status, 'skipped');
+  assert.equal(neoResult.skip_reason, 'submission_unavailable');
+  assert.equal(gasResult.relay_status, 'skipped');
+  assert.equal(gasResult.skip_reason, 'batch-limit-deferred');
+
+  assert.equal(state.records['TWELVEDATA:NEO-USD'].price, '2.000');
+  assert.equal(state.records['TWELVEDATA:NEO-USD'].last_observed_price, '3');
+  assert.equal(state.records['TWELVEDATA:GAS-USD'].price, '3.000');
+  assert.equal(state.records['TWELVEDATA:GAS-USD'].last_observed_price, '3.15');
+});
