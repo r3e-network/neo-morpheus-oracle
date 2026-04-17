@@ -1,0 +1,54 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { diffFeedRegistry, parseOnchainFeedRecords } from './lib-feed-registry-drift.mjs';
+
+test('parseOnchainFeedRecords decodes feed structs into comparable rows', () => {
+  const rows = parseOnchainFeedRecords(
+    {
+      type: 'Array',
+      value: [
+        {
+          type: 'Struct',
+          value: [
+            { type: 'ByteString', value: Buffer.from('TWELVEDATA:NEO-USD', 'utf8').toString('base64') },
+            { type: 'Integer', value: '7' },
+            { type: 'Integer', value: '2951000' },
+            { type: 'Integer', value: '1776386082' },
+            { type: 'ByteString', value: Buffer.from('abcd', 'utf8').toString('base64') },
+            { type: 'Integer', value: '1' },
+          ],
+        },
+      ],
+    },
+    Date.parse('2026-04-17T00:00:00.000Z'),
+    720
+  );
+
+  assert.deepEqual(rows, [
+    {
+      pair: 'TWELVEDATA:NEO-USD',
+      round_id: '7',
+      price: '2951000',
+      timestamp: '1776386082',
+      attestation_hash: 'abcd',
+      source_set_id: '1',
+      iso: '2026-04-17T00:34:42.000Z',
+      age_min: -35,
+      stale: false,
+    },
+  ]);
+});
+
+test('diffFeedRegistry identifies missing and extra on-chain pairs', () => {
+  const diff = diffFeedRegistry(
+    ['TWELVEDATA:NEO-USD', 'TWELVEDATA:GAS-USD'],
+    [
+      { pair: 'TWELVEDATA:NEO-USD' },
+      { pair: 'TWELVEDATA:1000FLM-USD' },
+    ]
+  );
+
+  assert.deepEqual(diff.missing_onchain_pairs, ['TWELVEDATA:GAS-USD']);
+  assert.deepEqual(diff.extra_onchain_pairs, ['TWELVEDATA:1000FLM-USD']);
+});
