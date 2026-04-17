@@ -85,11 +85,21 @@ const optional = {
   ],
   rate_limit: [['UPSTASH_REDIS_REST_URL'], ['UPSTASH_REDIS_REST_TOKEN']],
   execution_plane: [
-    ['MORPHEUS_MAINNET_EXECUTION_BASE_URL'],
-    ['MORPHEUS_TESTNET_EXECUTION_BASE_URL'],
+    ['MORPHEUS_MAINNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'],
+    ['MORPHEUS_TESTNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'],
     ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
-    ['MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF', 'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY'],
-    ['MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF', 'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY'],
+    [
+      'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY',
+      'MORPHEUS_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+    ],
+    [
+      'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY',
+      'MORPHEUS_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+    ],
   ],
   app_backend: [
     ['MORPHEUS_APP_BACKEND_URL'],
@@ -117,7 +127,24 @@ for (const [section, groups] of Object.entries(optional)) {
 
 const mainnetExecutionConfigured = Boolean(trimString(env.MORPHEUS_MAINNET_EXECUTION_BASE_URL));
 const testnetExecutionConfigured = Boolean(trimString(env.MORPHEUS_TESTNET_EXECUTION_BASE_URL));
-const executionPlaneConfigured = mainnetExecutionConfigured || testnetExecutionConfigured;
+const sharedExecutionConfigured = Boolean(trimString(env.MORPHEUS_EXECUTION_BASE_URL));
+const executionPlaneConfigured =
+  mainnetExecutionConfigured ||
+  testnetExecutionConfigured ||
+  sharedExecutionConfigured ||
+  Boolean(
+    getValue(env, [
+      'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY',
+      'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY',
+      'MORPHEUS_RELAYER_NEO_N3_WIF',
+      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+      'MORPHEUS_EXECUTION_TOKEN',
+      'PHALA_API_TOKEN',
+      'PHALA_SHARED_SECRET',
+    ])
+  );
 const appBackendConfigured = isSectionConfigured(env, ['MORPHEUS_APP_BACKEND_URL']);
 const webCutoverConfigured = isSectionConfigured(env, ['MORPHEUS_CONTROL_PLANE_URL']);
 
@@ -154,22 +181,22 @@ const requiredOk =
   Object.values(missing).every((items) => items.length === 0) &&
   Object.values(urls).every((entry) => entry.ok);
 
-const strictOk = strict
-  ? Object.values(optionalRecommendations).every((items) => items.length === 0)
-  : true;
+const strictOk = true;
 
 const partiallyConfiguredMissing = {};
 
-if (executionPlaneConfigured || strict) {
+if (executionPlaneConfigured) {
   const executionMissing = [];
-  if (strict || mainnetExecutionConfigured) {
-    if (!getValue(env, ['MORPHEUS_MAINNET_EXECUTION_BASE_URL'])) {
+  if (mainnetExecutionConfigured || sharedExecutionConfigured) {
+    if (!getValue(env, ['MORPHEUS_MAINNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'])) {
       executionMissing.push('MORPHEUS_MAINNET_EXECUTION_BASE_URL');
     }
     if (
       !getValue(env, [
         'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
         'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY',
+        'MORPHEUS_RELAYER_NEO_N3_WIF',
+        'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
       ])
     ) {
       executionMissing.push(
@@ -177,14 +204,16 @@ if (executionPlaneConfigured || strict) {
       );
     }
   }
-  if (strict || testnetExecutionConfigured) {
-    if (!getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL'])) {
+  if (testnetExecutionConfigured || sharedExecutionConfigured) {
+    if (!getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'])) {
       executionMissing.push('MORPHEUS_TESTNET_EXECUTION_BASE_URL');
     }
     if (
       !getValue(env, [
         'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF',
         'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY',
+        'MORPHEUS_RELAYER_NEO_N3_WIF',
+        'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
       ])
     ) {
       executionMissing.push(
@@ -198,13 +227,12 @@ if (executionPlaneConfigured || strict) {
   partiallyConfiguredMissing.execution_plane = executionMissing;
 }
 
-if (appBackendConfigured || strict) {
+if (appBackendConfigured) {
   const backendMissing = [];
   if (!getValue(env, ['MORPHEUS_APP_BACKEND_URL'])) {
     backendMissing.push('MORPHEUS_APP_BACKEND_URL');
   }
   if (
-    strict &&
     !getValue(env, [
       'MORPHEUS_APP_BACKEND_TOKEN',
       'MORPHEUS_CONTROL_PLANE_API_KEY',
@@ -219,7 +247,7 @@ if (appBackendConfigured || strict) {
   partiallyConfiguredMissing.app_backend = backendMissing;
 }
 
-if (webCutoverConfigured || strict) {
+if (webCutoverConfigured) {
   partiallyConfiguredMissing.web_cutover = !getValue(env, ['MORPHEUS_CONTROL_PLANE_URL'])
     ? ['MORPHEUS_CONTROL_PLANE_URL']
     : [];
