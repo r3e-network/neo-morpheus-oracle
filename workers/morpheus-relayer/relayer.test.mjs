@@ -697,7 +697,7 @@ test('buildOnchainResultEnvelope preserves neodid recovery ticket fields', () =>
     status: 200,
     body: {
       mode: 'neodid_recovery_ticket',
-      aa_contract: '0x017520f068fd602082fe5572596185e62a4ad991',
+      aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
       account_id: 'aa-test-01',
       new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
       recovery_nonce: '7',

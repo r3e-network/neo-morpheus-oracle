@@ -6,7 +6,7 @@
     "network_magic": 860833102,
     "deployer_address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",
     "deployer_script_hash": "6d0656f6dd91469db1c90cc1e574380613f43738",
-    "oracle_hash": "0x017520f068fd602082fe5572596185e62a4ad991",
+    "oracle_hash": "0x5b492098fc094c760402e01f7e0b631b939d2bea",
     "datafeed_hash": "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
     "abstract_account_hash": "0x9742b4ed62a84a886f404d36149da6147528ee33",
     "aa_web3auth_verifier_hash": "0xb4107cb2cb4bace0ebe15bc4842890734abe133a",
@@ -15,13 +15,13 @@
     "example_consumer_hash": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "example_feed_reader_hash": "0x11e454261c21a32f1c9262472ca72a3156f9051f",
     "allowlisted": true,
-    "consumer_oracle": "0x017520f068fd602082fe5572596185e62a4ad991",
+    "consumer_oracle": "0x5b492098fc094c760402e01f7e0b631b939d2bea",
     "aa_domain": "smartwallet.neo",
     "aa_alias_domain": "aa.morpheus.neo",
     "aa_address": "NQeYx3qhVboVNU4Yk2NZPXQtudTeCNmjFq",
     "morpheus_project_domains": {
       "oracle.morpheus.neo": {
-        "contract_hash": "0x017520f068fd602082fe5572596185e62a4ad991",
+        "contract_hash": "0x5b492098fc094c760402e01f7e0b631b939d2bea",
         "address": "NZD9U8EiZdTKf7mK7zAX9jEHRSNz6yvLWX",
         "txid": "0x940227a17122cc4a451c650b8159705ab27e4af60df23d7f84e0a7a7496cd31e"
       },

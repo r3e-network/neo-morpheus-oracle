@@ -3,7 +3,7 @@
   "network": "mainnet",
   "target_chain": "neo_n3",
   "consumer_hash": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
-  "oracle_hash": "0x017520f068fd602082fe5572596185e62a4ad991",
+  "oracle_hash": "0x5b492098fc094c760402e01f7e0b631b939d2bea",
   "request_fee": "1000000",
   "request_credit": "18000000",
   "request_credit_deposit": "17000000",
