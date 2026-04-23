@@ -32,17 +32,19 @@
           "public_key": "038c80a6a7fb694a78cdbf7eb91477cb0f7b6d372a5ca840b554c803fbc89c8769"
         },
         "relayer": {
-          "address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",
-          "script_hash": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
-          "public_key": "038c80a6a7fb694a78cdbf7eb91477cb0f7b6d372a5ca840b554c803fbc89c8769"
+          "address": "NMGtkqaWSCTxuuMx9Zx8HT7HzHNnve8uLf",
+          "script_hash": "0x1c4443389ab4eea3bc3715fd936345becf29ed0e",
+          "public_key": "039200a764e6aa80cc214c654836d8db373a95d1bb4e81975764a8e40a03f6eda6"
         },
         "updater": {
-          "address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",
-          "script_hash": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
-          "public_key": "038c80a6a7fb694a78cdbf7eb91477cb0f7b6d372a5ca840b554c803fbc89c8769"
+          "address": "NhPYsstBAzuecqYyg8JwSDnB6Et35fw73r",
+          "script_hash": "0x13314ea551ae127cb7ccc9a02f64106a34ff91eb",
+          "public_key": "03b5055d5182884644e8b27fe76fa691c08acbc38568361b941f283b6fded5b42d"
         },
         "oracle_verifier": {
-          "public_key": "038c80a6a7fb694a78cdbf7eb91477cb0f7b6d372a5ca840b554c803fbc89c8769"
+          "address": "NRFGK3vj9yz3hvx9QGmVL7tEZSbmWLH8v7",
+          "script_hash": "0x846cdf0c85aafd663f3ad5af17584bbdfcd37e3a",
+          "public_key": "03b8e849395076b0b17e204a86813e057d622acf9856ea8007287d5d4245b91318"
         }
       }
     }

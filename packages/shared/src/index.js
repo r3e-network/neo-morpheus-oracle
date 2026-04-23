@@ -1,4 +1,4 @@
-export { json, trimString, parseTimestampMs, getClientIp, stableStringify } from './utils.js';
+export { json, timingSafeCompare, trimString, parseTimestampMs, getClientIp, stableStringify } from './utils.js';
 export { applyUpstashRateLimit } from './rate-limit.js';
 export {
   PUBLIC_RUNTIME_DISCOVERY_LINKS,

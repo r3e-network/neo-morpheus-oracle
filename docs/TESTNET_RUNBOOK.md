@@ -95,7 +95,7 @@ npm --prefix apps/web run dev
 - `GET /api/oracle/public-key`
 - `GET /api/compute/functions`
 - `GET /api/feeds/NEO-USD`
-- `GET /api/provider-configs?project_slug=demo` with `x-admin-api-key` if configured
+- `GET /api/provider-configs?project_slug=morpheus` with `x-admin-api-key` if configured
 - `GET /api/relayer/metrics` with `x-admin-api-key` if configured
 - run one `compute` builtin call
 - run one `oracle smart-fetch` call with encrypted payload

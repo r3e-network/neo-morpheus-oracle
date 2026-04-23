@@ -359,7 +359,7 @@ test('handleOracleFeed fails closed when on-chain baseline is unavailable and lo
   process.env.NEO_RPC_URL = 'http://seed1.neo.org:10332';
   process.env.CONTRACT_MORPHEUS_DATAFEED_HASH = '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
   process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
-  process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY =
+  process.env.PHALA_NEO_N3_PRIVATE_KEY =
     '1111111111111111111111111111111111111111111111111111111111111111';
 
   const calls = [];

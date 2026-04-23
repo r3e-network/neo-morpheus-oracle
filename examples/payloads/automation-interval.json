@@ -1,5 +1,5 @@
 {
-  "project_slug": "demo",
+  "project_slug": "morpheus",
   "trigger": {
     "type": "interval",
     "interval_ms": 600000,

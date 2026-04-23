@@ -61,7 +61,7 @@ export const appConfig = {
     process.env.PHALA_API_TOKEN ||
     process.env.PHALA_SHARED_SECRET ||
     '',
-  feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || 'demo',
+  feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || 'morpheus',
   feedProvider: process.env.MORPHEUS_FEED_PROVIDER || 'twelvedata',
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',

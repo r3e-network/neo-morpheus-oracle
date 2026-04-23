@@ -43,6 +43,19 @@ export function getClientIp(request) {
 }
 
 /**
+ * Constant-time string comparison safe against timing attacks.
+ * Works in all JS runtimes (Node, Cloudflare Workers, Deno).
+ */
+export function timingSafeCompare(a, b) {
+  const sa = String(a || '');
+  const sb = String(b || '');
+  if (sa.length !== sb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < sa.length; i++) diff |= sa.charCodeAt(i) ^ sb.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
  * Deterministic JSON stringification shared across worker, relayer, and web
  * verification flows so digest calculations stay byte-for-byte aligned.
  */
