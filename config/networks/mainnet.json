@@ -44,7 +44,7 @@
       "multi_hook": "multihook.smartwallet.neo"
     },
     "contracts": {
-      "morpheus_oracle": "0x017520f068fd602082fe5572596185e62a4ad991",
+      "morpheus_oracle": "0x5b492098fc094c760402e01f7e0b631b939d2bea",
       "oracle_callback_consumer": "0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844",
       "morpheus_datafeed": "0x03013f49c42a14546c8bbe58f9d434c3517fccab",
       "abstract_account": "0x9742b4ed62a84a886f404d36149da6147528ee33",

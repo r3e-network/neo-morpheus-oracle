@@ -219,7 +219,7 @@ export const SECURITY_CONCEPTS = [
 ];
 
 export const CONTRACT_EXAMPLE = `// Neo N3 (selected environment)
-[ContractHash("0x017520f068fd602082fe5572596185e62a4ad991")]
+[ContractHash("0x5b492098fc094c760402e01f7e0b631b939d2bea")]
 public class MorpheusOracle : SmartContract
 {
     public static extern BigInteger Request(

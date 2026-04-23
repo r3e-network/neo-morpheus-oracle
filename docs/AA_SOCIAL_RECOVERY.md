@@ -94,7 +94,7 @@ This means AA recovery no longer needs a side-channel worker call. The preferred
   "recovery_nonce": "7",
   "expires_at": "1735689600",
   "provider": "github",
-  "action_id": "aa_recovery:neo_n3:0x017520f068fd602082fe5572596185e62a4ad991:aa-social-recovery-demo:0x89b05cac00804648c666b47ecb1c57bc185821b7:7",
+  "action_id": "aa_recovery:neo_n3:0x5b492098fc094c760402e01f7e0b631b939d2bea:aa-social-recovery-demo:0x89b05cac00804648c666b47ecb1c57bc185821b7:7",
   "master_nullifier": "0x...",
   "action_nullifier": "0x...",
   "digest": "0x...",
