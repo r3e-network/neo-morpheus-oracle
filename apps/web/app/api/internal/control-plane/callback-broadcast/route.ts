@@ -52,9 +52,7 @@ export async function POST(request: Request) {
 
   if (!requestId) return badRequest('request_id is required');
   if (!verificationSignature) return badRequest('verification_signature is required');
-  if (targetChain !== 'neo_n3' && targetChain !== 'neo_x') {
-    return badRequest('target_chain must be neo_n3 or neo_x');
-  }
+  if (targetChain !== 'neo_n3') return badRequest('target_chain must be neo_n3');
 
   const success =
     typeof body.success === 'boolean'
@@ -62,21 +60,16 @@ export async function POST(request: Request) {
       : trimString(body.success).toLowerCase() === 'true';
 
   try {
-    const result =
-      targetChain === 'neo_x'
-        ? (() => {
-            throw new Error('neo_x callback broadcast is not implemented in app backend yet');
-          })()
-        : await fulfillNeoN3RequestViaBackend({
-            network,
-            requestId,
-            success,
-            result: resultText,
-            error: errorText,
-            verificationSignature,
-            resultBytesBase64,
-            ...readSignerMaterial(body),
-          });
+    const result = await fulfillNeoN3RequestViaBackend({
+      network,
+      requestId,
+      success,
+      result: resultText,
+      error: errorText,
+      verificationSignature,
+      resultBytesBase64,
+      ...readSignerMaterial(body),
+    });
 
     return Response.json({
       ok: true,

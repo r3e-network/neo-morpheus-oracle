@@ -34,3 +34,6 @@ dist
 .worktrees/
 examples/contracts/n3/bin/
 examples/contracts/n3/obj/
+.omx/
+.ops-backups/
+.ops-backups/

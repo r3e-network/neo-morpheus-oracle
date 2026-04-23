@@ -35,6 +35,8 @@ test('parseOnchainFeedRecords decodes feed structs into comparable rows', () => 
       source_set_id: '1',
       iso: '2026-04-17T00:34:42.000Z',
       age_min: -35,
+      cadence: 'continuous',
+      threshold_min: 720,
       stale: false,
     },
   ]);

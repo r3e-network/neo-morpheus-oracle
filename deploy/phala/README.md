@@ -23,7 +23,7 @@ Morpheus uses **two role-specialized CVMs**.
 ### DataFeed CVM
 
 - name: `datafeed-morpheus-neo-r3e`
-- app id: `28294e89d490924b79c85cdee057ce55723b3d56`
+- app id: `ac5b6886a2832df36e479294206611652400178f`
 - baseline size: `Small TDX`
 - responsibilities:
   - feed synchronization
@@ -40,7 +40,7 @@ This split ensures pricefeeds keep running even when request/response traffic is
 - Oracle attestation explorer:
   - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
 - DataFeed attestation explorer:
-  - `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+  - `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
 
 Mainnet and testnet share the same Oracle and DataFeed CVMs. Network selection is path-based and config-based.
 
@@ -105,7 +105,7 @@ Prefer encrypted secrets in the dashboard over copying plaintext env files into 
 ### Option B: CLI
 
 ```bash
-phala deploy --cvm-id 28294e89d490924b79c85cdee057ce55723b3d56 --compose deploy/phala/docker-compose.feed-hub.yml -e deploy/phala/morpheus.hub.env --wait
+phala deploy --cvm-id ac5b6886a2832df36e479294206611652400178f --compose deploy/phala/docker-compose.feed-hub.yml -e deploy/phala/morpheus.hub.env --wait
 phala deploy --cvm-id ddff154546fe22d15b65667156dd4b7c611e6093 --compose deploy/phala/docker-compose.request-hub.yml -e deploy/phala/morpheus.hub.env --wait
 ```
 

@@ -19,10 +19,7 @@ process.env.PHALA_SHARED_SECRET = 'workflow-test-secret';
 process.env.PHALA_API_TOKEN = 'workflow-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
-process.env.PHALA_NEOX_PRIVATE_KEY =
-  '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
-process.env.NEOX_RPC_URL = '';
 process.env.EVM_RPC_URL = '';
 process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
 process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0x017520f068fd602082fe5572596185e62a4ad991';

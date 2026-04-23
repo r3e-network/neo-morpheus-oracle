@@ -1,9 +1,49 @@
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { fetchPriceQuote, decimalToIntegerString } from '../workers/phala-worker/src/oracle/index.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+const CONTINUOUS_FEED_PAIRS = new Set([
+  'TWELVEDATA:NEO-USD',
+  'TWELVEDATA:GAS-USD',
+  'TWELVEDATA:FLM-USD',
+  'TWELVEDATA:BTC-USD',
+  'TWELVEDATA:ETH-USD',
+  'TWELVEDATA:SOL-USD',
+  'TWELVEDATA:TRX-USD',
+  'TWELVEDATA:PAXG-USD',
+  'TWELVEDATA:USDT-USD',
+  'TWELVEDATA:USDC-USD',
+  'TWELVEDATA:BNB-USD',
+  'TWELVEDATA:XRP-USD',
+  'TWELVEDATA:DOGE-USD',
+]);
+
+export function classifyFeedCadence(pair) {
+  const normalized = normalizeFeedStoragePair(pair);
+  if (!normalized) return 'continuous';
+  if (CONTINUOUS_FEED_PAIRS.has(normalized)) return 'continuous';
+  return 'market_hours';
+}
+
+function inferProviderId(pair) {
+  const normalized = normalizeFeedStoragePair(pair);
+  if (normalized.startsWith('TWELVEDATA:')) return 'twelvedata';
+  if (normalized.startsWith('BINANCE-SPOT:')) return 'binance-spot';
+  if (normalized.startsWith('COINBASE-SPOT:')) return 'coinbase-spot';
+  return 'twelvedata';
+}
+
+function computeChangeBps(previousUnits, nextUnits) {
+  const previous = Number(previousUnits);
+  const next = Number(nextUnits);
+  if (!Number.isFinite(previous) || !Number.isFinite(next) || previous <= 0)
+    return Number.POSITIVE_INFINITY;
+  return Math.abs((next - previous) / previous) * 10_000;
 }
 
 export function parseDotEnv(raw) {
@@ -102,12 +142,22 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-export function classifyFeedFreshness(timestampSeconds, nowMs = Date.now(), staleMinutes = 180) {
+export function classifyFeedFreshness(
+  timestampSeconds,
+  nowMs = Date.now(),
+  staleMinutes = 180,
+  pair = ''
+) {
   const tsMs = Number(timestampSeconds) * 1000;
+  const cadence = classifyFeedCadence(pair);
+  const thresholdMinutes =
+    cadence === 'continuous' ? staleMinutes : Math.max(staleMinutes, 1440);
   if (!Number.isFinite(tsMs) || tsMs <= 0) {
     return {
       iso: null,
       age_min: null,
+      cadence,
+      threshold_min: thresholdMinutes,
       stale: true,
     };
   }
@@ -115,7 +165,9 @@ export function classifyFeedFreshness(timestampSeconds, nowMs = Date.now(), stal
   return {
     iso: new Date(tsMs).toISOString(),
     age_min: ageMin,
-    stale: ageMin > staleMinutes,
+    cadence,
+    threshold_min: thresholdMinutes,
+    stale: ageMin > thresholdMinutes,
   };
 }
 
@@ -135,6 +187,10 @@ export async function buildFeedFreshnessReport({
   const pairs = parseConfiguredFeedPairs(runtimeConfig);
   const rows = [];
 
+  if (trimString(runtimeConfig.TWELVEDATA_API_KEY || '') && !trimString(process.env.TWELVEDATA_API_KEY || '')) {
+    process.env.TWELVEDATA_API_KEY = trimString(runtimeConfig.TWELVEDATA_API_KEY);
+  }
+
   for (const pair of pairs) {
     const response = invokeNeoFunctionViaCurl(rpcUrl, datafeedHash, 'getLatest', [
       { type: 'String', value: pair },
@@ -148,16 +204,63 @@ export async function buildFeedFreshnessReport({
       timestamp: timestamp || '0',
       attestation_hash: attestationHash || '',
       source_set_id: sourceSetId || '0',
-      ...classifyFeedFreshness(timestamp || '0', Date.now(), staleMinutes),
+      ...classifyFeedFreshness(timestamp || '0', Date.now(), staleMinutes, decoded[0] || pair),
     });
   }
 
-  const stalePairs = rows.filter((entry) => entry.stale);
+  const stalePairs = [];
+  for (const row of rows) {
+    if (!row.stale) continue;
+    let staleReason = 'age_exceeded_threshold';
+    let actionable = true;
+    let providerQuote = null;
+    let providerError = null;
+
+    try {
+      providerQuote = await fetchPriceQuote(row.pair, {
+        network,
+        provider: inferProviderId(row.pair),
+      });
+      const providerUnits = decimalToIntegerString(providerQuote.price, providerQuote.decimals);
+      const changeBps = computeChangeBps(row.price, providerUnits);
+      row.provider_quote = {
+        price: providerQuote.price,
+        timestamp: providerQuote.timestamp,
+        price_units: providerUnits,
+        change_bps: changeBps,
+      };
+      if (changeBps < 10) {
+        staleReason = 'below_threshold';
+        actionable = false;
+      } else if (providerQuote.timestamp) {
+        const providerAge = classifyFeedFreshness(
+          Math.floor(new Date(providerQuote.timestamp).getTime() / 1000),
+          Date.now(),
+          staleMinutes,
+          row.pair
+        );
+        row.provider_quote.age_min = providerAge.age_min;
+        if (providerAge.stale) {
+          staleReason = 'upstream_source_stale';
+          actionable = false;
+        }
+      }
+    } catch (error) {
+      providerError = error instanceof Error ? error.message : String(error);
+      row.provider_error = providerError;
+    }
+
+    row.stale_reason = staleReason;
+    row.actionable = actionable;
+    stalePairs.push(row);
+  }
   return {
     network,
     total: rows.length,
     fresh: rows.length - stalePairs.length,
     stale: stalePairs.length,
+    actionable_stale: stalePairs.filter((entry) => entry.actionable).length,
+    benign_stale: stalePairs.filter((entry) => !entry.actionable).length,
     stale_minutes: staleMinutes,
     stale_pairs: stalePairs,
     rows,

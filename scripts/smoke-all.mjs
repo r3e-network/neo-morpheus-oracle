@@ -44,26 +44,16 @@ const shouldRunN3 = Boolean(
     'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'
   )
 );
-const shouldRunNeoX = Boolean(
-  trimString(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS) &&
-  trimString(process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS) &&
-  hasAny('NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY')
-);
-
 const summary = {
   neo_n3: null,
-  neo_x: null,
 };
 
 if (shouldRunN3) {
   summary.neo_n3 = await runNodeScript('scripts/smoke-oracle-n3.mjs');
 }
-if (shouldRunNeoX) {
-  summary.neo_x = await runNodeScript('scripts/smoke-oracle-neox.mjs');
-}
 
 console.log(JSON.stringify(summary, null, 2));
 
-if ((summary.neo_n3 && summary.neo_n3.code !== 0) || (summary.neo_x && summary.neo_x.code !== 0)) {
+if (summary.neo_n3 && summary.neo_n3.code !== 0) {
   process.exitCode = 1;
 }

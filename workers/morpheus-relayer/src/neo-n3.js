@@ -25,22 +25,84 @@ function isPrintableText(text) {
 
 const RPC_TIMEOUT_MS = 30_000;
 
-async function neoRpcCall(rpcUrl, method, params = []) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
-  try {
-    const response = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-      signal: controller.signal,
-    });
-    const body = await response.json();
-    if (body.error) throw new Error(body.error.message || `${method} failed`);
-    return body.result;
-  } finally {
-    clearTimeout(timer);
+function uniqueOrdered(values) {
+  return [...new Set(values.map((entry) => trimString(entry)).filter(Boolean))];
+}
+
+function getNeoN3RpcUrls(configOrRpcUrl) {
+  if (typeof configOrRpcUrl === 'string') return uniqueOrdered([configOrRpcUrl]);
+  return uniqueOrdered([
+    trimString(configOrRpcUrl?.neo_n3?.rpcUrl || ''),
+    ...(Array.isArray(configOrRpcUrl?.neo_n3?.rpcUrls) ? configOrRpcUrl.neo_n3.rpcUrls : []),
+  ]);
+}
+
+function promoteNeoN3RpcUrl(config, rpcUrl) {
+  const nextUrl = trimString(rpcUrl);
+  if (!nextUrl || !config?.neo_n3) return;
+  config.neo_n3.rpcUrl = nextUrl;
+  config.neo_n3.rpcUrls = uniqueOrdered([nextUrl, ...(config.neo_n3.rpcUrls || [])]);
+}
+
+function createNeoRpcError(rpcUrl, method, status, detail) {
+  const suffix = trimString(detail);
+  return new Error(
+    `Neo RPC ${method} failed via ${rpcUrl} (${status})${suffix ? `: ${suffix}` : ''}`
+  );
+}
+
+async function neoRpcCall(configOrRpcUrl, method, params = []) {
+  const rpcUrls = getNeoN3RpcUrls(configOrRpcUrl);
+  if (rpcUrls.length === 0) {
+    throw new Error(`Neo RPC ${method} failed: no RPC endpoint configured`);
   }
+
+  let lastError = null;
+  for (const rpcUrl of rpcUrls) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RPC_TIMEOUT_MS);
+    try {
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: controller.signal,
+      });
+      const rawBody = await response.text();
+      let body;
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        throw createNeoRpcError(rpcUrl, method, response.status, 'non-JSON response');
+      }
+      if (!response.ok) {
+        throw createNeoRpcError(
+          rpcUrl,
+          method,
+          response.status,
+          body?.error?.message || body?.message || response.statusText
+        );
+      }
+      if (body?.error) {
+        throw createNeoRpcError(rpcUrl, method, 200, body.error.message || `${method} failed`);
+      }
+      if (typeof configOrRpcUrl === 'object') {
+        promoteNeoN3RpcUrl(configOrRpcUrl, rpcUrl);
+      }
+      return body.result;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw lastError || new Error(`Neo RPC ${method} failed`);
+}
+
+async function ensureHealthyNeoN3Rpc(config) {
+  await neoRpcCall(config, 'getblockcount');
+  return trimString(config?.neo_n3?.rpcUrl || '');
 }
 
 export function decodeNeoItem(item) {
@@ -93,14 +155,14 @@ export function decodeNeoItem(item) {
 
 export function hasNeoN3RelayerConfig(config) {
   return Boolean(
-    config.neo_n3.rpcUrl &&
+    getNeoN3RpcUrls(config).length > 0 &&
     config.neo_n3.oracleContract &&
     (config.neo_n3.updaterWif || config.neo_n3.updaterPrivateKey || shouldUseDerivedKeys(config))
   );
 }
 
 export async function getNeoN3LatestBlock(config) {
-  const blockCount = await neoRpcCall(config.neo_n3.rpcUrl, 'getblockcount');
+  const blockCount = await neoRpcCall(config, 'getblockcount');
   return Number(blockCount) - 1;
 }
 
@@ -133,7 +195,7 @@ export async function getNeoN3IndexedBlock(config) {
 }
 
 export async function getNeoN3LatestRequestId(config) {
-  const result = await neoRpcCall(config.neo_n3.rpcUrl, 'invokefunction', [
+  const result = await neoRpcCall(config, 'invokefunction', [
     config.neo_n3.oracleContract,
     'getTotalRequests',
     [],
@@ -155,12 +217,12 @@ export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
   const targetContract = strip0x(config.neo_n3.oracleContract);
 
   for (let height = fromBlock; height <= toBlock; height += 1) {
-    const block = await neoRpcCall(config.neo_n3.rpcUrl, 'getblock', [height, 1]);
+    const block = await neoRpcCall(config, 'getblock', [height, 1]);
     const transactions = Array.isArray(block?.tx) ? block.tx : [];
     for (const transaction of transactions) {
       const txHash = transaction.txid || transaction.hash;
       if (!txHash) continue;
-      const appLog = await neoRpcCall(config.neo_n3.rpcUrl, 'getapplicationlog', [txHash]);
+      const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
       const executions = Array.isArray(appLog?.executions) ? appLog.executions : [];
       for (const execution of executions) {
         const notifications = Array.isArray(execution?.notifications)
@@ -257,7 +319,7 @@ export async function scanNeoN3OracleRequestsById(config, fromRequestId, toReque
   const out = [];
 
   for (let requestId = fromRequestId; requestId <= toRequestId; requestId += 1) {
-    const result = await neoRpcCall(config.neo_n3.rpcUrl, 'invokefunction', [
+    const result = await neoRpcCall(config, 'invokefunction', [
       config.neo_n3.oracleContract,
       'getRequest',
       [{ type: 'Integer', value: String(requestId) }],
@@ -343,6 +405,7 @@ export async function fulfillNeoN3Request(
   verificationSignature,
   resultBytesBase64 = ''
 ) {
+  await ensureHealthyNeoN3Rpc(config);
   const signerPayload = await resolveNeoN3UpdaterPayload(config);
   const signerAccount = signerPayload.wif
     ? new neonWallet.Account(signerPayload.wif)
@@ -370,7 +433,7 @@ export async function fulfillNeoN3Request(
   let vmState = 'HALT';
   let exception;
   try {
-    const appLog = await neoRpcCall(config.neo_n3.rpcUrl, 'getapplicationlog', [txHash]);
+    const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
     const execution = appLog?.executions?.[0];
     if (execution?.vmstate) vmState = execution.vmstate;
     if (execution?.exception) exception = execution.exception;
@@ -397,6 +460,7 @@ export async function queueNeoN3AutomationRequest(
   callbackMethod,
   requestIdOverride = ''
 ) {
+  await ensureHealthyNeoN3Rpc(config);
   const signerPayload = await resolveNeoN3UpdaterPayload(config);
   const requestId = trimString(requestIdOverride) || `automation:n3:${Date.now()}`;
   const invoke = await relayNeoN3Invocation({
@@ -430,7 +494,7 @@ export async function queueNeoN3AutomationRequest(
 }
 
 export async function fetchNeoN3FeedRecord(config, pair) {
-  const result = await neoRpcCall(config.neo_n3.rpcUrl, 'invokefunction', [
+  const result = await neoRpcCall(config, 'invokefunction', [
     config.neo_n3.datafeedContract,
     'getLatest',
     [{ type: 'String', value: pair }],

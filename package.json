@@ -9,6 +9,7 @@
   "scripts": {
     "lint": "eslint . --ext .js,.mjs,.ts,.tsx",
     "lint:fix": "eslint . --ext .js,.mjs,.ts,.tsx --fix",
+    "verify:repo": "bash scripts/verify_repo.sh",
     "format": "prettier --write \"**/*.{js,mjs,ts,tsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,ts,tsx,json,md,yml,yaml}\"",
     "dev:web": "npm --prefix apps/web run dev",
@@ -25,23 +26,17 @@
     "metrics:relayer:prom": "npm --prefix workers/morpheus-relayer run metrics:prom",
     "start:relayer:metrics": "npm --prefix workers/morpheus-relayer run serve:metrics",
     "publish:oracle-key": "node scripts/publish-oracle-public-key.mjs",
-    "publish:oracle-key:neox": "node scripts/publish-oracle-public-key-neox.mjs",
     "publish:oracle-verifier-key": "node scripts/publish-oracle-verifier-key.mjs",
-    "publish:oracle-verifier-key:neox": "node scripts/publish-oracle-verifier-key-neox.mjs",
     "upgrade:datafeed:n3": "node scripts/upgrade-morpheus-datafeed.mjs",
     "audit:feeds": "node scripts/audit-feed-freshness.mjs",
     "audit:feeds:drift": "node scripts/audit-feed-registry-drift.mjs",
+    "check:feeds:freshness": "node scripts/check-feed-freshness.mjs",
     "backfill:feeds": "node scripts/backfill-feed-pairs.mjs",
     "write:addresses": "node scripts/write-address-registry.mjs",
     "verify:n3": "node scripts/verify-morpheus-n3.mjs",
     "set:updater:n3": "node scripts/set-neo-n3-updater.mjs",
     "smoke:n3": "node scripts/smoke-oracle-n3.mjs",
-    "verify:neox": "node scripts/verify-morpheus-neox.mjs",
-    "smoke:neox": "node scripts/smoke-oracle-neox.mjs",
     "smoke:all": "node scripts/smoke-all.mjs",
-    "examples:deploy:neox": "node examples/scripts/deploy-neox-examples.mjs",
-    "examples:test:neox": "node examples/scripts/test-neox-examples.mjs",
-    "examples:test:neox:builtins": "node examples/scripts/test-neox-builtins.mjs",
     "examples:deploy:n3": "node examples/scripts/deploy-n3-examples.mjs",
     "examples:test:n3": "node examples/scripts/test-n3-examples.mjs",
     "examples:test:n3:neodid": "node examples/scripts/test-n3-neodid-oracle-matrix.mjs",
@@ -82,6 +77,7 @@
     "backup:system": "node scripts/backup-system-state.mjs",
     "start:testnet-rng-local": "bash scripts/run-testnet-rng-local.sh",
     "check:env": "node scripts/check-root-env.mjs",
+    "check:audit:root": "node scripts/check-root-audit-allowlist.mjs",
     "check:control-plane": "node scripts/check-control-plane-env.mjs",
     "check:control-plane:strict": "node scripts/check-control-plane-env.mjs --strict",
     "check:signers": "node scripts/check-neo-signers.mjs",
@@ -93,8 +89,6 @@
     "test:workspace:local": "bash scripts/run_workspace_local_validation.sh",
     "test:workspace:live": "bash scripts/run_workspace_live_validation.sh",
     "test:workspace:full": "bash scripts/run_workspace_full_validation.sh",
-    "compile:neox": "npm --prefix contracts/neox run compile",
-    "test:neox": "npm --prefix contracts/neox test",
     "test:scripts": "node --test scripts/*.test.mjs"
   },
   "devDependencies": {
@@ -121,6 +115,6 @@
         "picomatch": "4.0.4"
       }
     },
-    "lodash": "4.17.21"
+    "lodash": "4.18.1"
   }
 }

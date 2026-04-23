@@ -6,16 +6,20 @@ import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import {
+  DEFAULT_REMOTE_COMMAND_TIMEOUT_MS,
   encodeUtf8Base64,
   jsonPretty,
   loadExampleEnv,
+  logValidationStep,
   normalizeHash160,
   readDeploymentRegistry,
   repoRoot,
+  resolvePhalaCliInvocation,
   resolveNeoN3SignerWif,
   sleep,
   trimString,
   writeValidationArtifacts,
+  writeSkippedValidationArtifacts,
 } from './common.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -25,6 +29,10 @@ const EXAMPLE_CONSUMER_ARTIFACT = 'UserConsumerN3OracleExample';
 const AA_REPO_ROOT = path.resolve(repoRoot, '..', 'neo-abstract-account');
 const RECOVERY_SOURCE_REF = '9cb7cca:contracts/recovery/MorpheusSocialRecoveryVerifier.Fixed.cs';
 const RECOVERY_CSPROJ_REF = '9cb7cca:contracts/recovery/MorpheusSocialRecoveryVerifier.csproj';
+const REMOTE_COMMAND_TIMEOUT_MS = Math.max(
+  Number(process.env.MORPHEUS_REMOTE_COMMAND_TIMEOUT_MS || DEFAULT_REMOTE_COMMAND_TIMEOUT_MS),
+  5000
+);
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -258,14 +266,34 @@ function shellQuote(value) {
 }
 
 async function runRemoteCommand(command, { appId, phalaApiToken }) {
-  const { stdout } = await execFileAsync(
-    'phala',
-    ['ssh', '--api-token', phalaApiToken, appId, '--', `sh -lc ${shellQuote(command)}`],
-    {
-      maxBuffer: 10 * 1024 * 1024,
+  const phalaCli = resolvePhalaCliInvocation();
+  logValidationStep('remote_command', {
+    script: 'test-n3-aa-recovery-cross-account-boundary',
+    app_id: appId,
+    timeout_ms: REMOTE_COMMAND_TIMEOUT_MS,
+    command_preview: command.slice(0, 120),
+  });
+  const attempts = [
+    trimString(phalaApiToken)
+      ? [...phalaCli.argsPrefix, 'ssh', '--api-token', phalaApiToken, appId, '--', `sh -lc ${shellQuote(command)}`]
+      : null,
+    [...phalaCli.argsPrefix, 'ssh', appId, '--', `sh -lc ${shellQuote(command)}`],
+  ].filter(Boolean);
+
+  let lastError = null;
+  for (const args of attempts) {
+    try {
+      const { stdout } = await execFileAsync(phalaCli.command, args, {
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: REMOTE_COMMAND_TIMEOUT_MS,
+      });
+      return stdout;
+    } catch (error) {
+      lastError = error;
     }
-  );
-  return stdout;
+  }
+
+  throw lastError || new Error('failed to execute remote phala ssh command');
 }
 
 async function findRelayerLoopPid({ appId, phalaApiToken }) {
@@ -491,6 +519,7 @@ function computeRecoveryActionId({
 }
 
 async function main() {
+  logValidationStep('boot', { script: 'test-n3-aa-recovery-cross-account-boundary' });
   await loadExampleEnv();
   const deployment = (await readDeploymentRegistry('testnet')).neo_n3 || {};
   const rpcUrl = trimString(deployment.rpc_url || 'https://testnet1.neo.coz.io:443');
@@ -520,6 +549,14 @@ async function main() {
   assertCondition(oracleHash, 'testnet oracle hash is required');
   assertCondition(consumerHash, 'testnet example consumer hash is required');
   assertCondition(trimString(verifierPubkey), 'NeoDID verifier public key is required');
+  logValidationStep('config', {
+    network: 'testnet',
+    rpc_url: rpcUrl,
+    oracle_hash: oracleHash,
+    consumer_hash: consumerHash,
+    aa_core_hash: aaCoreHash,
+    phala_app_id: phalaAppId,
+  });
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
@@ -799,6 +836,25 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
+  const message = error?.stack || error?.message || String(error);
+  if (/spawn phala ENOENT/i.test(message)) {
+    writeSkippedValidationArtifacts({
+      baseName: 'n3-aa-recovery-cross-account-boundary',
+      network: 'testnet',
+      title: 'N3 AA Recovery Cross-Account Boundary',
+      reason: 'phala-cli-not-installed',
+      details: { error: message },
+    })
+      .then((artifacts) => {
+        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
+        process.exit(0);
+      })
+      .catch((artifactError) => {
+        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
+        process.exit(1);
+      });
+    return;
+  }
+  console.error(message);
   process.exit(1);
 });

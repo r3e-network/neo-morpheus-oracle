@@ -172,7 +172,7 @@ export default function DocsVerifier() {
           ) : null}
         </li>
         <li>
-          DataFeed CVM: <code>28294e89d490924b79c85cdee057ce55723b3d56</code>{' '}
+          DataFeed CVM: <code>ac5b6886a2832df36e479294206611652400178f</code>{' '}
           {datafeedAttestationExplorer ? (
             <a href={datafeedAttestationExplorer} target="_blank" rel="noreferrer">
               {datafeedAttestationExplorer}

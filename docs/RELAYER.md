@@ -18,7 +18,6 @@ It closes the loop:
 ## Supported chains
 
 - Neo N3
-- Neo X code still exists in-repo as archived reference, but the active supported relayer path is Neo N3 only
 
 ## Request routing
 
@@ -60,7 +59,6 @@ npm --prefix workers/morpheus-relayer run metrics
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
 - `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
 
-Archived Neo X variables are intentionally omitted here because they are not part of the current supported operations path.
 
 If direct worker-side provider default resolution is needed during relayer processing, also set:
 

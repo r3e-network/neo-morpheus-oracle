@@ -102,5 +102,5 @@ async function encryptConfidentialJsonPatch(patchObject) {
 //   mode: "builtin",
 //   function: "math.modexp",
 //   input: { base: "2", exponent: "10", modulus: "17" },
-//   target_chain: "neo_x"
+//   target_chain: "neo_n3"
 // });

@@ -1,6 +1,5 @@
 import { wallet as neoWallet } from '@cityofzion/neon-js';
-import { Wallet as EvmWallet } from 'ethers';
-import { DstackClient, TappdClient } from '@phala/dstack-sdk';
+import { DstackClient, TappdClient } from '@neo-morpheus-oracle/shared/dstack-client';
 import { env, sha256Hex, stableStringify, trimString } from './core.js';
 
 let dstackClientPromise;
@@ -145,21 +144,12 @@ export async function deriveNeoN3PrivateKeyHex(role = 'worker') {
   return normalizePrivateKeyHex(await deriveKeyBytes(keyPath, 'neo-n3-signing'), `neo-n3:${role}`);
 }
 
-export async function deriveNeoXPrivateKeyHex(role = 'worker') {
-  validateKeyRole(role);
-  const configuredPath = trimString(env('PHALA_DSTACK_NEOX_KEY_PATH'));
-  const keyPath = configuredPath || `morpheus/neo-x/${role}/signing/v1`;
-  return normalizePrivateKeyHex(await deriveKeyBytes(keyPath, 'neo-x-signing'), `neo-x:${role}`);
-}
-
 export async function getDerivedKeySummary(role = 'worker') {
-  const [neoN3PrivateKey, neoXPrivateKey, info] = await Promise.all([
+  const [neoN3PrivateKey, info] = await Promise.all([
     deriveNeoN3PrivateKeyHex(role),
-    deriveNeoXPrivateKeyHex(role),
     getDstackInfo({ required: false }),
   ]);
   const neoN3Account = new neoWallet.Account(neoN3PrivateKey);
-  const neoXWallet = new EvmWallet(`0x${neoXPrivateKey}`);
   return {
     role,
     client_kind: info?.client_kind || null,
@@ -172,11 +162,6 @@ export async function getDerivedKeySummary(role = 'worker') {
       script_hash: `0x${neoN3Account.scriptHash}`,
       key_path:
         trimString(env('PHALA_DSTACK_NEO_N3_KEY_PATH')) || `morpheus/neo-n3/${role}/signing/v1`,
-    },
-    neo_x: {
-      address: neoXWallet.address,
-      key_path:
-        trimString(env('PHALA_DSTACK_NEOX_KEY_PATH')) || `morpheus/neo-x/${role}/signing/v1`,
     },
   };
 }

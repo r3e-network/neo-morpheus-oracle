@@ -2,7 +2,7 @@
   "updated_at": "2026-03-15T12:55:00Z",
   "neo_n3": {
     "deployed_at": "2026-03-10T05:38:43.340Z",
-    "rpc_url": "https://mainnet1.neo.coz.io:443",
+    "rpc_url": "http://seed1.neo.org:10332",
     "network_magic": 860833102,
     "deployer_address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",
     "deployer_script_hash": "6d0656f6dd91469db1c90cc1e574380613f43738",

@@ -22,7 +22,7 @@
    - encrypted refs and operation logs
 4. **Confidential execution plane**
    - **Oracle CVM**: `oracle-morpheus-neo-r3e` / `ddff154546fe22d15b65667156dd4b7c611e6093`
-   - **DataFeed CVM**: `datafeed-morpheus-neo-r3e` / `28294e89d490924b79c85cdee057ce55723b3d56`
+   - **DataFeed CVM**: `datafeed-morpheus-neo-r3e` / `ac5b6886a2832df36e479294206611652400178f`
    - Oracle handles confidential request/response work for both mainnet and testnet
    - DataFeed is isolated so continuous price updates are never blocked by slower request workloads
 
@@ -40,12 +40,11 @@
 - Oracle attestation explorer:
   - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
 - DataFeed attestation explorer:
-  - `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+  - `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
 
 ## Active Scope
 
 - Neo N3 is the active supported production path.
-- Neo X code remains in-repo as archived reference material only.
 - Network selection is path-based and config-based, not CVM-based.
 - Pricefeeds are operator-driven and highest priority.
 - Oracle and compute requests are asynchronous and callback-based.
@@ -74,7 +73,7 @@
 - `workers/phala-worker` — confidential execution runtime
 - `workers/morpheus-relayer` — on-chain async bridge and callback relayer
 - `deploy/cloudflare` — edge gateway and control-plane workers
-- `contracts` — Neo N3 MiniApp OS kernel, built-in modules, and Neo X reference artifacts
+- `contracts` — Neo N3 MiniApp OS kernel and built-in modules
 - `supabase/migrations` — schema, policies, control-plane jobs, relayer durability
 - `docs` — canonical architecture, deployment, operations, validation, and specs
 - `scripts` — deployment, verification, SaaS sync, and operator helpers
@@ -105,6 +104,8 @@ npm run dev:web
 ## Core Verification Commands
 
 ```bash
+npm run verify:repo
+npm run check:audit:root
 npm run test:worker
 npm run test:relayer
 npm run test:control-plane
@@ -114,6 +115,22 @@ npm run smoke:n3
 npm run check:signers
 MORPHEUS_NETWORK=testnet npm run verify:n3
 ```
+
+## Root Audit Baseline
+
+`npm run verify:repo` is the preferred local verification entrypoint for this repository.
+
+`npm run check:audit:root` is the canonical root production dependency audit gate.
+
+The current accepted root baseline is the explicitly excluded CityOfZion / Neon chain:
+
+- `@cityofzion/neon-js`
+- `@cityofzion/neon-core`
+- `@cityofzion/neon-api`
+- transitive `elliptic`
+- transitive `lodash`
+
+That command enforces no additional production vulnerabilities beyond the excluded CityOfZion baseline and fails if the excluded package set changes unexpectedly.
 
 Targeted regression commands:
 
@@ -143,7 +160,6 @@ npm run examples:test:n3:attack-regression
 - `docs/PAYMASTER.md`
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/EXAMPLES.md`
-- `docs/SECURITY_AUDIT.md`
 - `docs/SAAS_STACK_INTEGRATION.md`
 - `docs/PHALA_DUAL_CVM_ATTESTATION_REGISTRY.md`
 - `deploy/phala/README.md`

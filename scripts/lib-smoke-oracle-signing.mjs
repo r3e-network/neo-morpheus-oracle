@@ -24,7 +24,7 @@ export function resolveFulfillmentSigningContext({ requestRecord, defaultChain =
     };
   }
 
-  return { chain: 'neo_x' };
+  return { chain: 'legacy' };
 }
 
 export function buildFulfillmentDigestHex({

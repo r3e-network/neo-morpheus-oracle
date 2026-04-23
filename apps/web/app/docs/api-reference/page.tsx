@@ -36,9 +36,7 @@ export default function DocsApiReference() {
 
       <h2>1. Smart Contract Interface (Neo N3 C#)</h2>
       <p>
-        The active on-chain interface is the Neo N3 C# call pattern below. Neo X reference
-        interfaces are intentionally omitted from the public docs because they are not part of the
-        current supported path.
+        The active on-chain interface is the Neo N3 C# call pattern below.
       </p>
 
       <div

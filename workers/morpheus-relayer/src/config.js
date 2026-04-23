@@ -10,6 +10,16 @@ import {
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 const DEFAULT_PHALA_TIMEOUT_MS = 30000;
+const DEFAULT_NEO_N3_RPC_URLS = {
+  mainnet: [
+    'http://seed1.neo.org:10332',
+    'http://seed2.neo.org:10332',
+    'http://seed3.neo.org:10332',
+    'http://seed4.neo.org:10332',
+    'http://seed5.neo.org:10332',
+  ],
+  testnet: [],
+};
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '../../..');
 
@@ -24,7 +34,7 @@ function parseList(value) {
 
 function parseActiveChains(value) {
   const requested = parseList(value).map((entry) => entry.toLowerCase());
-  const filtered = requested.filter((entry) => entry === 'neo_n3' || entry === 'neo_x');
+  const filtered = requested.filter((entry) => entry === 'neo_n3');
   return filtered.length > 0 ? filtered : ['neo_n3'];
 }
 
@@ -37,6 +47,16 @@ function parseUrlList(value) {
 
 function uniqueOrdered(values) {
   return [...new Set(values.filter(Boolean))];
+}
+
+function resolveNeoN3RpcUrls(network, registry) {
+  return uniqueOrdered([
+    ...parseUrlList(env('NEO_RPC_URLS')),
+    ...parseUrlList(env('NEO_RPC_URL')),
+    ...parseUrlList(registry.neo_n3?.rpc_urls || []),
+    trimString(registry.neo_n3?.rpc_url || ''),
+    ...(DEFAULT_NEO_N3_RPC_URLS[network] || []),
+  ]);
 }
 
 function parseBoolean(value, fallback = false) {
@@ -134,7 +154,6 @@ function loadNetworkRegistry(networkName) {
     loadJsonFile(registryPath) || {
       network: networkName,
       neo_n3: { contracts: {} },
-      neo_x: { contracts: {} },
     }
   );
 }
@@ -142,6 +161,7 @@ function loadNetworkRegistry(networkName) {
 export function createRelayerConfig() {
   const network = normalizeMorpheusNetwork(resolveNetworkName());
   const registry = loadNetworkRegistry(network);
+  const neoN3RpcUrls = resolveNeoN3RpcUrls(network, registry);
   const mode = resolveRelayerMode(env('MORPHEUS_RELAYER_MODE') || 'combined');
   const useDerivedKeys = parseBoolean(env('PHALA_USE_DERIVED_KEYS'), false);
   const hasSupabaseUrl = Boolean(
@@ -236,22 +256,15 @@ export function createRelayerConfig() {
     logLevel: env('MORPHEUS_RELAYER_LOG_LEVEL', 'LOG_LEVEL') || 'info',
     confirmations: {
       neo_n3: Number(env('MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS') || 1),
-      neo_x: Number(env('MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS') || 1),
     },
     startRequestIds: {
       neo_n3: env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID')
         ? Number(env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID'))
         : null,
-      neo_x: env('MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID')
-        ? Number(env('MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID'))
-        : null,
     },
     startBlocks: {
       neo_n3: env('MORPHEUS_RELAYER_NEO_N3_START_BLOCK')
         ? Number(env('MORPHEUS_RELAYER_NEO_N3_START_BLOCK'))
-        : null,
-      neo_x: env('MORPHEUS_RELAYER_NEO_X_START_BLOCK')
-        ? Number(env('MORPHEUS_RELAYER_NEO_X_START_BLOCK'))
         : null,
     },
     stateFile,
@@ -270,7 +283,8 @@ export function createRelayerConfig() {
       startRequestId: env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID')
         ? Number(env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID'))
         : null,
-      rpcUrl: env('NEO_RPC_URL') || trimString(registry.neo_n3?.rpc_url || ''),
+      rpcUrl: neoN3RpcUrls[0] || '',
+      rpcUrls: neoN3RpcUrls,
       networkMagic: Number(env('NEO_NETWORK_MAGIC') || registry.neo_n3?.network_magic || 894710606),
       oracleContract:
         env('CONTRACT_MORPHEUS_ORACLE_HASH') ||
@@ -280,23 +294,6 @@ export function createRelayerConfig() {
         trimString(registry.neo_n3?.contracts?.morpheus_datafeed || ''),
       updaterWif: updaterSigner.materialized?.wif || '',
       updaterPrivateKey: updaterSigner.materialized?.private_key || '',
-    },
-    neo_x: {
-      rpcUrl: env('NEOX_RPC_URL') || trimString(registry.neo_x?.rpc_url || ''),
-      chainId: Number(
-        env('NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID') || registry.neo_x?.chain_id || 12227332
-      ),
-      oracleContract:
-        env('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS') ||
-        trimString(registry.neo_x?.contracts?.morpheus_oracle_x || ''),
-      datafeedContract:
-        env('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS') ||
-        trimString(registry.neo_x?.contracts?.morpheus_datafeed_x || ''),
-      updaterPrivateKey: env(
-        'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY',
-        'MORPHEUS_UPDATER_NEOX_PRIVATE_KEY',
-        'PHALA_NEOX_PRIVATE_KEY'
-      ),
     },
     metricsServer: {
       host: env('MORPHEUS_RELAYER_METRICS_HOST') || '127.0.0.1',

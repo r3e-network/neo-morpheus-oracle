@@ -26,7 +26,7 @@ async function main() {
     '';
   const rpcUrl =
     process.env.NEO_RPC_URL ||
-    (network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443');
+    (network === 'mainnet' ? 'http://seed1.neo.org:10332' : 'https://testnet1.neo.coz.io:443');
   const networkMagic = Number(
     process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606)
   );

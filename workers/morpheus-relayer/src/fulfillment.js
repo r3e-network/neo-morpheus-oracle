@@ -15,7 +15,6 @@ import {
 } from './automation.js';
 import { buildUpkeepDispatch } from './automation-supervisor.js';
 import { fulfillNeoN3Request } from './neo-n3.js';
-import { fulfillNeoXRequest } from './neo-x.js';
 import {
   buildEventKey,
   clearRetryItem,
@@ -25,6 +24,11 @@ import {
   scheduleRetry,
 } from './state.js';
 import { claimDurableJobForProcessing, maybeUpsertJob } from './queue.js';
+import {
+  reportPinnedNeoN3Role,
+  resolvePinnedNeoN3VerifierPublicKey,
+} from './lib/neo-signers.js';
+import { wallet as neonWallet } from '@cityofzion/neon-js';
 
 import { normalizeErrorMessage } from './feed-sync.js';
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
@@ -106,7 +110,7 @@ export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
   // legacy digest domain, even though the relayer can infer a synthetic
   // moduleId/operation from requestType.
   if (normalizedChain === 'neo_n3' && !appId) {
-    return { chain: 'neo_x', appId: '', moduleId: '', operation: '' };
+    return { chain: 'legacy', appId: '', moduleId: '', operation: '' };
   }
 
   return {
@@ -117,11 +121,52 @@ export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
   };
 }
 
+function normalizePublicKey(value) {
+  return trimString(value).replace(/^0x/i, '').toLowerCase();
+}
+
+function buildLocalNeoN3Account(keyMaterial = '') {
+  const raw = trimString(keyMaterial);
+  if (!raw) return null;
+  try {
+    return new neonWallet.Account(raw);
+  } catch {
+    return null;
+  }
+}
+
+function resolveLocalVerifierAccount(config) {
+  const expectedPublicKey = normalizePublicKey(
+    resolvePinnedNeoN3VerifierPublicKey(config.network, process.env)
+  );
+  const candidates = [];
+
+  const explicitVerifier = reportPinnedNeoN3Role(config.network, 'oracle_verifier', {
+    env: process.env,
+    allowMissing: true,
+  }).materialized;
+  if (explicitVerifier?.private_key) candidates.push(buildLocalNeoN3Account(explicitVerifier.private_key));
+  if (explicitVerifier?.wif) candidates.push(buildLocalNeoN3Account(explicitVerifier.wif));
+  if (config?.neo_n3?.updaterPrivateKey) candidates.push(buildLocalNeoN3Account(config.neo_n3.updaterPrivateKey));
+  if (config?.neo_n3?.updaterWif) candidates.push(buildLocalNeoN3Account(config.neo_n3.updaterWif));
+
+  const workerSigner = reportPinnedNeoN3Role(config.network, 'worker', {
+    env: process.env,
+    allowMissing: true,
+  }).materialized;
+  if (workerSigner?.private_key) candidates.push(buildLocalNeoN3Account(workerSigner.private_key));
+  if (workerSigner?.wif) candidates.push(buildLocalNeoN3Account(workerSigner.wif));
+
+  return candidates.find(
+    (account) => account && normalizePublicKey(account.publicKey) === expectedPublicKey
+  ) || null;
+}
+
 export async function signFulfillmentPayload(config, chain, fulfillment) {
   const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
   // Pass chain + kernel envelope fields so the digest matches the on-chain
-  // contract's ComputeFulfillmentDigest (N3 uses appId/moduleId/operation;
-  // NeoX still uses legacy requestType).
+  // contract's ComputeFulfillmentDigest. Legacy Neo N3 callbacks still use
+  // the requestType-based digest when appId/moduleId/operation are absent.
   const digestBytes = buildFulfillmentDigestBytes(
     fulfillment.requestId,
     fulfillment.requestType,
@@ -131,6 +176,18 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
     fulfillment.result_bytes_base64 || '',
     digestContext
   );
+  if (chain === 'neo_n3') {
+    const localVerifier = resolveLocalVerifierAccount(config);
+    if (localVerifier) {
+      return {
+        signature: neonWallet.sign(digestBytes.toString('hex'), localVerifier.privateKey),
+        public_key: localVerifier.publicKey,
+        address: localVerifier.address,
+        script_hash: `0x${localVerifier.scriptHash}`,
+        source: 'relayer_local',
+      };
+    }
+  }
   const response = await callPhala(config, '/sign/payload', {
     target_chain: chain,
     key_role: 'oracle_verifier',
@@ -148,25 +205,15 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
 
 async function fulfillNeoRequest(config, event, fulfillment, verification) {
   try {
-    return event.chain === 'neo_n3'
-      ? await fulfillNeoN3Request(
-          config,
-          event.requestId,
-          fulfillment.success,
-          fulfillment.result,
-          fulfillment.error,
-          verification.signature,
-          fulfillment.result_bytes_base64
-        )
-      : await fulfillNeoXRequest(
-          config,
-          event.requestId,
-          fulfillment.success,
-          fulfillment.result,
-          fulfillment.error,
-          verification.signature,
-          fulfillment.result_bytes_base64
-        );
+    return await fulfillNeoN3Request(
+      config,
+      event.requestId,
+      fulfillment.success,
+      fulfillment.result,
+      fulfillment.error,
+      verification.signature,
+      fulfillment.result_bytes_base64
+    );
   } catch (error) {
     const message = normalizeErrorMessage(error);
     if (message.toLowerCase().includes('request not found') && event.chain === 'neo_n3') {

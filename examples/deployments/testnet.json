@@ -1,21 +1,5 @@
 {
   "updated_at": "2026-03-15T12:04:00Z",
-  "neo_x": {
-    "deployed_at": "2026-03-10T04:18:24.219Z",
-    "rpc_url": "https://neoxt4seed1.ngd.network",
-    "chain_id": 12227332,
-    "deployer": "0xE864216cdE1390FF3D52d2784BF965AC6e74ae99",
-    "oracle_address": "0x740DADC4D2b8249c8b22B4F2793bd942605F1db5",
-    "datafeed_address": "0x2E35a79BEA7808EBb8B72279cB34c1A73F80339C",
-    "example_consumer_address": "0x678407CD071f5b392af0e2E1BA8E32ab490A5DD6",
-    "example_feed_reader_address": "0xeFf38227acf402E3B089d735dD6A40835E34f72c",
-    "allowlisted": true,
-    "transactions": {
-      "consumer_deploy": "0x760dc8cc2348ad79444ee111ffcf74596809e78abe8ccacb0a24c314d8042e26",
-      "feed_reader_deploy": "0x198347c551efa9aab17c69171997d68f699a931421e5a860a5466f88c687a0a8",
-      "allow_callback": "0x9211442fc0e43e25ad93cb320df6d70fc20c44ecebbe5c34f499988f08db08ae"
-    }
-  },
   "neo_n3": {
     "deployed_at": "2026-03-13T11:19:31.204Z",
     "rpc_url": "https://testnet1.neo.coz.io:443",

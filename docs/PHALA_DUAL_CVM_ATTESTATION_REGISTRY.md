@@ -14,8 +14,8 @@ split into two role-specialized confidential VMs.
     - `https://oracle.meshmini.app/testnet`
 - DataFeed runtime
   - CVM name: `datafeed-morpheus-neo-r3e`
-  - app id: `28294e89d490924b79c85cdee057ce55723b3d56`
-  - Phala explorer: `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+  - app id: `ac5b6886a2832df36e479294206611652400178f`
+  - Phala explorer: `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
 
 ## Interpretation
 

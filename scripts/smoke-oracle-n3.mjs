@@ -55,6 +55,27 @@ function tryParseJson(value) {
   }
 }
 
+function isTransientRpcError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /HTTP code 502|HTTP code 503|HTTP code 504|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed/i.test(
+    message
+  );
+}
+
+async function withRetries(label, task, attempts = 5) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientRpcError(error) || attempt === attempts) break;
+      await sleep(1000 * attempt);
+    }
+  }
+  throw new Error(`${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+}
+
 async function loadJsonIfExists(filePath) {
   try {
     return JSON.parse(await fs.readFile(filePath, 'utf8'));
@@ -64,6 +85,7 @@ async function loadJsonIfExists(filePath) {
   }
 }
 
+const requestedRpcUrl = trimString(process.env.NEO_RPC_URL || '');
 const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
 await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${network}.env`), { override: false });
 await loadDotEnv();
@@ -72,7 +94,7 @@ const deploymentRegistry = await loadJsonIfExists(
   path.resolve('examples', 'deployments', `${network}.json`)
 );
 const defaultRpcUrl =
-  network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443';
+  network === 'mainnet' ? 'http://seed1.neo.org:10332' : 'https://testnet1.neo.coz.io:443';
 const defaultNetworkMagic = network === 'mainnet' ? 860833102 : 894710606;
 
 function decodeCallbackArray(item) {
@@ -116,7 +138,9 @@ function parseStackItem(item) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
@@ -461,7 +485,7 @@ const rawCallbackHash = trimString(
 );
 
 const rpcUrl = trimString(
-  process.env.NEO_RPC_URL || networkConfig?.neo_n3?.rpc_url || defaultRpcUrl
+  requestedRpcUrl || process.env.NEO_RPC_URL || networkConfig?.neo_n3?.rpc_url || defaultRpcUrl
 );
 const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || networkConfig?.neo_n3?.network_magic || defaultNetworkMagic

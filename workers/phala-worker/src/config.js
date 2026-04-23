@@ -13,7 +13,7 @@ export function getActiveChains() {
   const chains = raw
     .split(',')
     .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => entry === 'neo_n3' || entry === 'neo_x');
+    .filter((entry) => entry === 'neo_n3');
   return chains.length > 0 ? chains : ['neo_n3'];
 }
 

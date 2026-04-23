@@ -50,7 +50,6 @@ export function createEmptyRelayerState() {
     version: 2,
     updated_at: null,
     neo_n3: defaultChainState(),
-    neo_x: defaultChainState(),
     metrics: defaultMetrics(),
   };
 }
@@ -77,7 +76,6 @@ export function loadRelayerState(filePath) {
       version: parsed?.version || 2,
       updated_at: parsed?.updated_at || null,
       neo_n3: normalizeChainState(parsed?.neo_n3),
-      neo_x: normalizeChainState(parsed?.neo_x),
       metrics: {
         ...defaultMetrics(),
         ...(parsed?.metrics && typeof parsed.metrics === 'object' ? parsed.metrics : {}),
@@ -134,19 +132,15 @@ export function snapshotMetrics(state) {
     ...state.metrics,
     retry_queue_sizes: {
       neo_n3: state.neo_n3.retry_queue.length,
-      neo_x: state.neo_x.retry_queue.length,
     },
     dead_letter_sizes: {
       neo_n3: state.neo_n3.dead_letters.length,
-      neo_x: state.neo_x.dead_letters.length,
     },
     checkpoints: {
       neo_n3: state.neo_n3.last_block,
-      neo_x: state.neo_x.last_block,
     },
     request_checkpoints: {
       neo_n3: state.neo_n3.last_request_id,
-      neo_x: state.neo_x.last_request_id,
     },
   };
 }

@@ -111,7 +111,7 @@ Everything else stays outside.
 ### DataFeed CVM
 
 - name: `datafeed-morpheus-neo-r3e`
-- app id: `28294e89d490924b79c85cdee057ce55723b3d56`
+- app id: `ac5b6886a2832df36e479294206611652400178f`
 - role: isolated built-in shared resource publication lane
 - priority: highest; feed publication must not be starved by interactive workloads
 
@@ -165,5 +165,4 @@ CI and workspace live validation must fail if the envelope version or workflow i
 ## Support Stance
 
 - Neo N3 is the active supported path.
-- Neo X code remains in-repo only as reference material.
 - New documentation, examples, and validation flows should treat Neo N3 as canonical.

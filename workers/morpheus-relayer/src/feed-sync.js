@@ -38,8 +38,6 @@ export function buildFeedSyncPayload(config, targetChain) {
   if (targetChain === 'neo_n3') {
     if (config.neo_n3?.updaterPrivateKey) payload.private_key = config.neo_n3.updaterPrivateKey;
     else if (config.neo_n3?.updaterWif) payload.wif = config.neo_n3.updaterWif;
-  } else if (targetChain === 'neo_x' && config.neo_x?.updaterPrivateKey) {
-    payload.private_key = config.neo_x.updaterPrivateKey;
   }
 
   return payload;

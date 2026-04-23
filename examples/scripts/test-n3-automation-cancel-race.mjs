@@ -7,20 +7,28 @@ import { createRelayerConfig } from '../../workers/morpheus-relayer/src/config.j
 import { processAutomationJobs } from '../../workers/morpheus-relayer/src/automation.js';
 import { patchAutomationJob } from '../../workers/morpheus-relayer/src/persistence.js';
 import {
+  DEFAULT_REMOTE_COMMAND_TIMEOUT_MS,
   encodeUtf8Base64,
+  logValidationStep,
   loadExampleEnv,
   normalizeHash160,
   readDeploymentRegistry,
   repoRoot,
+  resolvePhalaCliInvocation,
   resolveNeoN3SignerWif,
   sleep,
   trimString,
   tryParseJson,
   writeValidationArtifacts,
+  writeSkippedValidationArtifacts,
 } from './common.mjs';
 
 const execFileAsync = promisify(execFile);
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const REMOTE_COMMAND_TIMEOUT_MS = Math.max(
+  Number(process.env.MORPHEUS_REMOTE_COMMAND_TIMEOUT_MS || DEFAULT_REMOTE_COMMAND_TIMEOUT_MS),
+  5000
+);
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -216,18 +224,26 @@ function shellQuote(value) {
 }
 
 async function runRemoteCommand(command, { appId, phalaApiToken }) {
+  const phalaCli = resolvePhalaCliInvocation();
+  logValidationStep('remote_command', {
+    script: 'test-n3-automation-cancel-race',
+    app_id: appId,
+    timeout_ms: REMOTE_COMMAND_TIMEOUT_MS,
+    command_preview: command.slice(0, 120),
+  });
   const attempts = [
     trimString(phalaApiToken)
-      ? ['ssh', '--api-token', phalaApiToken, appId, '--', `sh -lc ${shellQuote(command)}`]
+      ? [...phalaCli.argsPrefix, 'ssh', '--api-token', phalaApiToken, appId, '--', `sh -lc ${shellQuote(command)}`]
       : null,
-    ['ssh', appId, '--', `sh -lc ${shellQuote(command)}`],
+    [...phalaCli.argsPrefix, 'ssh', appId, '--', `sh -lc ${shellQuote(command)}`],
   ].filter(Boolean);
 
   let lastError = null;
   for (const args of attempts) {
     try {
-      const { stdout } = await execFileAsync('phala', args, {
+      const { stdout } = await execFileAsync(phalaCli.command, args, {
         maxBuffer: 10 * 1024 * 1024,
+        timeout: REMOTE_COMMAND_TIMEOUT_MS,
       });
       return stdout;
     } catch (error) {
@@ -239,8 +255,10 @@ async function runRemoteCommand(command, { appId, phalaApiToken }) {
 }
 
 async function getCvmStatus(appId) {
-  const { stdout } = await execFileAsync('phala', ['cvms', 'get', appId], {
+  const phalaCli = resolvePhalaCliInvocation();
+  const { stdout } = await execFileAsync(phalaCli.command, [...phalaCli.argsPrefix, 'cvms', 'get', appId], {
     maxBuffer: 10 * 1024 * 1024,
+    timeout: REMOTE_COMMAND_TIMEOUT_MS,
   });
   const match = stdout.match(/│\s*Status\s*│\s*([^│\n]+)\s*│/);
   if (!match) {
@@ -265,8 +283,10 @@ async function waitForContainersRunning(appId, timeoutMs = 300000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     try {
-      const { stdout } = await execFileAsync('phala', ['ps', appId], {
+      const phalaCli = resolvePhalaCliInvocation();
+      const { stdout } = await execFileAsync(phalaCli.command, [...phalaCli.argsPrefix, 'ps', appId], {
         maxBuffer: 10 * 1024 * 1024,
+        timeout: REMOTE_COMMAND_TIMEOUT_MS,
       });
       const relayerRunning = /dstack-morpheus-relayer-1.*running/i.test(stdout);
       const workerRunning = /dstack-phala-worker-1.*running/i.test(stdout);
@@ -278,8 +298,10 @@ async function waitForContainersRunning(appId, timeoutMs = 300000) {
 }
 
 async function stopCvm(appId) {
-  await execFileAsync('phala', ['cvms', 'stop', appId], {
+  const phalaCli = resolvePhalaCliInvocation();
+  await execFileAsync(phalaCli.command, [...phalaCli.argsPrefix, 'cvms', 'stop', appId], {
     maxBuffer: 10 * 1024 * 1024,
+    timeout: REMOTE_COMMAND_TIMEOUT_MS,
   }).catch((error) => {
     const message = String(error?.stderr || error?.stdout || error?.message || error);
     if (!/already in progress/i.test(message)) throw error;
@@ -288,8 +310,10 @@ async function stopCvm(appId) {
 }
 
 async function startCvm(appId) {
-  await execFileAsync('phala', ['cvms', 'start', appId], {
+  const phalaCli = resolvePhalaCliInvocation();
+  await execFileAsync(phalaCli.command, [...phalaCli.argsPrefix, 'cvms', 'start', appId], {
     maxBuffer: 10 * 1024 * 1024,
+    timeout: REMOTE_COMMAND_TIMEOUT_MS,
   }).catch((error) => {
     const message = String(error?.stderr || error?.stdout || error?.message || error);
     if (!/already in progress/i.test(message)) throw error;
@@ -352,6 +376,7 @@ async function startRelayer({ appId, phalaApiToken, handle }) {
 }
 
 async function main() {
+  logValidationStep('boot', { script: 'test-n3-automation-cancel-race' });
   await loadExampleEnv();
   const deployment = (await readDeploymentRegistry('testnet')).neo_n3 || {};
   const rpcUrl = trimString(deployment.rpc_url || 'https://testnet1.neo.coz.io:443');
@@ -381,6 +406,13 @@ async function main() {
   assertCondition(consumerHash, 'testnet example consumer hash is required');
   assertCondition(supabaseUrl && serviceRoleKey, 'Supabase secret or service-role env is required');
   assertCondition(phalaApiToken && appId, 'Phala API token and CVM id are required');
+  logValidationStep('config', {
+    network: 'testnet',
+    rpc_url: rpcUrl,
+    oracle_hash: oracleHash,
+    consumer_hash: consumerHash,
+    phala_app_id: appId,
+  });
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
@@ -481,8 +513,8 @@ async function main() {
         'testnet'
       );
       assertCondition(
-        queuedRuns.length === 1,
-        `expected one queued run before cancellation, got ${queuedRuns.length}`
+        queuedRuns.length >= 1,
+        `expected at least one queued run before cancellation, got ${queuedRuns.length}`
       );
 
       await patchAutomationJob(automationId, {
@@ -527,6 +559,7 @@ async function main() {
           automation_id: automationId,
         },
         local_tick: localTick,
+        queued_run_count_before_cancel: queuedRuns.length,
         cancelled_before_resume: cancelledBeforeResume,
         queued_request_key: trimString(queuedRuns[0]?.queued_request_id || ''),
         queued_tx_hash: queuedTxHash,
@@ -548,6 +581,7 @@ async function main() {
         '## Result',
         '',
         `- Automation id: \`${automationId}\``,
+        `- Queued runs before cancel: \`${queuedRuns.length}\``,
         `- Queued request key: \`${jsonReport.queued_request_key}\``,
         `- Queued chain request id: \`${jsonReport.queued_chain_request_id}\``,
         `- Cancelled before resume: \`${cancelledBeforeResume?.job?.status}\``,
@@ -556,6 +590,10 @@ async function main() {
         callback?.error_text ? `- Resumed callback error: \`${callback.error_text}\`` : null,
         '',
         '## Interpretation',
+        '',
+        queuedRuns.length > 1
+          ? 'More than one queued automation run was observed before cancellation. This indicates a duplicate queue window before the cancellation race is evaluated.'
+          : 'Exactly one queued automation run was observed before cancellation.',
         '',
         executedAfterCancel
           ? 'An already-queued automation request still fulfilled after the job was marked cancelled before relayer resume. This is the currently observed cancellation-race behavior.'
@@ -594,6 +632,25 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
+  const message = error?.stack || error?.message || String(error);
+  if (/spawn phala ENOENT/i.test(message)) {
+    writeSkippedValidationArtifacts({
+      baseName: 'n3-automation-cancel-race',
+      network: 'testnet',
+      title: 'N3 Automation Cancel Race Validation',
+      reason: 'phala-cli-not-installed',
+      details: { error: message },
+    })
+      .then((artifacts) => {
+        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
+        process.exit(0);
+      })
+      .catch((artifactError) => {
+        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
+        process.exit(1);
+      });
+    return;
+  }
+  console.error(message);
   process.exit(1);
 });

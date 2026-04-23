@@ -154,8 +154,6 @@ function buildRequiredKeyList() {
     'AA_RELAY_WIF',
     // Neo RPC
     'NEO_RPC_URL',
-    'NEOX_RPC_URL',
-    'NEOX_CHAIN_ID',
     // Feed providers
     'TWELVEDATA_API_KEY',
     // Web3Auth

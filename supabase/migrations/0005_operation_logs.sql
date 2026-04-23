@@ -7,7 +7,7 @@ create table if not exists morpheus_operation_logs (
   project_id uuid references morpheus_projects(id) on delete set null,
   project_slug text,
   request_id text,
-  target_chain text check (target_chain in ('neo_n3', 'neo_x')),
+  target_chain text check (target_chain in ('neo_n3')),
   status text not null,
   http_status integer,
   request_payload jsonb not null default '{}'::jsonb,

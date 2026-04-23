@@ -27,11 +27,6 @@ const next = {
         '',
     },
   },
-  neo_x: {
-    ...current.neo_x,
-    rpc_url: process.env.NEOX_RPC_URL || current.neo_x?.rpc_url || '',
-    chain_id: Number(process.env.NEOX_CHAIN_ID || current.neo_x?.chain_id || 0),
-  },
 };
 
 await fs.writeFile(target, JSON.stringify(next, null, 2) + '\n');

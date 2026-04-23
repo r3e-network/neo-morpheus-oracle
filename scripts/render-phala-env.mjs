@@ -85,7 +85,7 @@ async function readNetworkRegistry(network) {
     );
     return JSON.parse(raw);
   } catch {
-    return { neo_n3: { contracts: {} }, neo_x: { contracts: {} } };
+    return { neo_n3: { contracts: {} } };
   }
 }
 
@@ -353,33 +353,6 @@ const runtimeConfig = {
   PHALA_ORACLE_VERIFIER_PRIVATE_KEY: verifierSigner.privateKey,
   MORPHEUS_RELAYER_NEO_N3_WIF: relayerSigner.wif,
   MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: relayerSigner.privateKey,
-  NEOX_RPC_URL: resolveRegistryBackedValue(
-    registry.neo_x?.rpc_url || 'https://neoxt4seed1.ngd.network',
-    'NEOX_RPC_URL'
-  ),
-  NEOX_CHAIN_ID: resolveRegistryBackedValue(
-    String(registry.neo_x?.chain_id || 12227332),
-    'NEOX_CHAIN_ID',
-    'NEO_X_CHAIN_ID'
-  ),
-  CONTRACT_MORPHEUS_ORACLE_X_ADDRESS: resolveRegistryBackedValue(
-    registry.neo_x?.contracts?.morpheus_oracle_x || '',
-    'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS'
-  ),
-  CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS: resolveRegistryBackedValue(
-    registry.neo_x?.contracts?.oracle_callback_consumer_x || '',
-    'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS'
-  ),
-  CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS: resolveRegistryBackedValue(
-    registry.neo_x?.contracts?.morpheus_datafeed_x || '',
-    'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'
-  ),
-  PHALA_NEOX_PRIVATE_KEY: get('PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY'),
-  MORPHEUS_RELAYER_NEOX_PRIVATE_KEY: get(
-    'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY',
-    'PHALA_NEOX_PRIVATE_KEY',
-    'NEOX_PRIVATE_KEY'
-  ),
   MORPHEUS_FEED_PROJECT_SLUG: get('MORPHEUS_FEED_PROJECT_SLUG') || 'demo',
   MORPHEUS_FEED_PROVIDER: get('MORPHEUS_FEED_PROVIDER') || 'twelvedata',
   MORPHEUS_FEED_PROVIDERS: get('MORPHEUS_FEED_PROVIDERS') || 'twelvedata',
@@ -438,12 +411,6 @@ const runtimeConfig = {
       defaultValue:
         network === 'mainnet' ? existingEnv.MORPHEUS_RELAYER_NEO_N3_START_BLOCK || '' : '',
     }) || '',
-  MORPHEUS_RELAYER_NEO_X_START_BLOCK:
-    resolveNetworkScopedValue('MORPHEUS_RELAYER_NEO_X_START_BLOCK', {
-      allowGeneric: network === 'mainnet',
-      defaultValue:
-        network === 'mainnet' ? existingEnv.MORPHEUS_RELAYER_NEO_X_START_BLOCK || '' : '',
-    }) || '',
   ORACLE_TIMEOUT: get('ORACLE_TIMEOUT') || '20s',
   ORACLE_MAX_PROVIDER_BODY_BYTES: get('ORACLE_MAX_PROVIDER_BODY_BYTES') || '65536',
   ORACLE_SCRIPT_TIMEOUT_MS: get('ORACLE_SCRIPT_TIMEOUT_MS') || '2000',
@@ -458,9 +425,7 @@ const runtimeConfig = {
   PHALA_EMIT_ATTESTATION: get('PHALA_EMIT_ATTESTATION') || 'true',
   PHALA_DSTACK_ENDPOINT: get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock',
   PHALA_DSTACK_NEO_N3_KEY_PATH: get('PHALA_DSTACK_NEO_N3_KEY_PATH'),
-  PHALA_DSTACK_NEOX_KEY_PATH: get('PHALA_DSTACK_NEOX_KEY_PATH'),
   PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH: get('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH'),
-  PHALA_DSTACK_RELAYER_NEOX_KEY_PATH: get('PHALA_DSTACK_RELAYER_NEOX_KEY_PATH'),
   PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH: get('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'),
   PHALA_ORACLE_KEYSTORE_PATH: resolveOracleKeystorePath(get),
   MORPHEUS_PAYMASTER_TESTNET_ENABLED: get('MORPHEUS_PAYMASTER_TESTNET_ENABLED'),
@@ -670,20 +635,6 @@ const lines = [
   line('MORPHEUS_RELAYER_NEO_N3_WIF', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_WIF),
   line('MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY),
   '',
-  line('NEOX_RPC_URL', runtimeConfig.NEOX_RPC_URL),
-  line('NEOX_CHAIN_ID', runtimeConfig.NEOX_CHAIN_ID),
-  line('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS', runtimeConfig.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS),
-  line(
-    'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS',
-    runtimeConfig.CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS
-  ),
-  line('CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS', runtimeConfig.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS),
-  line('PHALA_NEOX_PRIVATE_KEY', get('PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY')),
-  line(
-    'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY',
-    get('MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'NEOX_PRIVATE_KEY')
-  ),
-  '',
   line('MORPHEUS_FEED_PROJECT_SLUG', get('MORPHEUS_FEED_PROJECT_SLUG') || 'demo'),
   line('MORPHEUS_FEED_PROVIDER', get('MORPHEUS_FEED_PROVIDER') || 'twelvedata'),
   line('MORPHEUS_FEED_PROVIDERS', get('MORPHEUS_FEED_PROVIDERS') || 'twelvedata'),
@@ -754,7 +705,6 @@ const lines = [
   line('MORPHEUS_RELAYER_LOG_FORMAT', get('MORPHEUS_RELAYER_LOG_FORMAT', 'LOG_FORMAT') || 'json'),
   line('MORPHEUS_RELAYER_LOG_LEVEL', get('MORPHEUS_RELAYER_LOG_LEVEL', 'LOG_LEVEL') || 'info'),
   line('MORPHEUS_RELAYER_NEO_N3_START_BLOCK', get('MORPHEUS_RELAYER_NEO_N3_START_BLOCK') || ''),
-  line('MORPHEUS_RELAYER_NEO_X_START_BLOCK', get('MORPHEUS_RELAYER_NEO_X_START_BLOCK') || ''),
   line('ORACLE_TIMEOUT', get('ORACLE_TIMEOUT') || '20s'),
   line('ORACLE_MAX_PROVIDER_BODY_BYTES', get('ORACLE_MAX_PROVIDER_BODY_BYTES') || '65536'),
   line('ORACLE_SCRIPT_TIMEOUT_MS', get('ORACLE_SCRIPT_TIMEOUT_MS') || '2000'),
@@ -773,9 +723,7 @@ const lines = [
   line('PHALA_EMIT_ATTESTATION', get('PHALA_EMIT_ATTESTATION') || 'true'),
   line('PHALA_DSTACK_ENDPOINT', get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock'),
   line('PHALA_DSTACK_NEO_N3_KEY_PATH', get('PHALA_DSTACK_NEO_N3_KEY_PATH')),
-  line('PHALA_DSTACK_NEOX_KEY_PATH', get('PHALA_DSTACK_NEOX_KEY_PATH')),
   line('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH', get('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH')),
-  line('PHALA_DSTACK_RELAYER_NEOX_KEY_PATH', get('PHALA_DSTACK_RELAYER_NEOX_KEY_PATH')),
   line('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH', get('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH')),
   line('PHALA_ORACLE_KEYSTORE_PATH', resolveOracleKeystorePath(get)),
   line('MORPHEUS_PAYMASTER_TESTNET_ENABLED', get('MORPHEUS_PAYMASTER_TESTNET_ENABLED')),

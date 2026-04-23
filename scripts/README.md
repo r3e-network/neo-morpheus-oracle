@@ -36,6 +36,8 @@
 
 ## Validation Suites
 
+- `npm run verify:repo`
+- `npm run check:audit:root`
 - `npm run test:worker`
 - `npm run test:relayer`
 - `npm run test:control-plane`
@@ -49,6 +51,11 @@
 - `npm run examples:test:n3:fulfillment-replay`
 - `npm run examples:test:n3:aa-session-oracle-boundary`
 - `npm run examples:test:n3:attack-regression`
+
+Root audit note:
+
+- `npm run check:audit:root` accepts only the explicitly excluded CityOfZion / Neon dependency chain and fails on anything new.
+- `npm run verify:repo` is the preferred local verification entrypoint before wider live/testnet runs.
 
 ## Relayer Operations
 
@@ -77,16 +84,6 @@ Important relayer notes:
 - `npm run check:betterstack:sources`
 - `npm run sync:betterstack:sources`
 - `npm run export:saas`
-
-## Archived Neo X Reference Commands
-
-Neo X remains reference-only:
-
-- `node scripts/deploy-neox-contracts.mjs`
-- `node scripts/setup-neox-addresses.mjs`
-- `node scripts/publish-oracle-public-key-neox.mjs`
-- `npm run verify:neox`
-- `npm run smoke:neox`
 
 ## Expected Environment
 

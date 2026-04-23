@@ -285,9 +285,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
           }}
         >
           <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-            Public integration guidance is intentionally limited to Neo N3. Neo X reference snippets
-            are no longer shown in the main docs because they are not part of the currently
-            supported route.
+            Public integration guidance is intentionally limited to Neo N3.
           </p>
         </div>
       </div>

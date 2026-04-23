@@ -26,10 +26,6 @@ The design goal is:
   - specialized identity / nullifier verifier module
   - remains separate because its signature verification and replay constraints are domain-specific
 
-### Neo X
-
-Neo X remains archived reference material only in this repo.
-
 ## Kernel Model
 
 The kernel contract is expected to own the generic platform surface:

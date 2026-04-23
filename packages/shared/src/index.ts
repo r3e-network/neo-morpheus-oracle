@@ -1,4 +1,4 @@
-export type SupportedChain = 'neo_n3' | 'neo_x';
+export type SupportedChain = 'neo_n3';
 export type MorpheusNetwork = 'mainnet' | 'testnet';
 export type ControlPlaneQueue =
   | 'oracle_request'

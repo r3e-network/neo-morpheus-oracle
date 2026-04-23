@@ -1,45 +1,45 @@
 {
-  "generated_at": "2026-03-14T12:49:16.215Z",
+  "generated_at": "2026-04-18T03:58:43.500Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
-  "registry_hash": "0x848d71cae70fdcb98b380bbeb74ec56584a5a536",
+  "registry_hash": "0x2d8103ba1872a5deada9480c20ea7eab30a1bf61",
   "request_fee_status": {
     "request_fee": "1000000",
-    "requester_credit": "7000000",
+    "requester_credit": "19000000",
     "callback_credit": "1000000",
     "deposit_amount": "1000000",
-    "funding_txid": "0x529eb06627df24016422dfdfd2754bf359f905cd74c7df980ddee34400fed406",
-    "deposit_txid": "0x195b2c23c306a942464d51a7223693c130e7f8892af7d1b8116a8b60a17a46db"
+    "funding_txid": "0x0101f0653269ec466d1a5e41b602bbf5318c7e108715e839dd64e0470981810a",
+    "deposit_txid": "0x4290ec6dae317ea1a79dfad5d6599c2212a65ddb7cfbcf7421aabc10af55cd41"
   },
   "action_request": {
-    "txid": "0xc1154a054a229dc8d17ccf1cb7d0090ababdf47d244b8e22d2aac828919dc700",
-    "request_id": "2271",
+    "txid": "0xce57de1f3b783820f2fe2b60338c13353c9f0b641a57f69c5727fed3964f059c",
+    "request_id": "4498",
     "payload": {
       "provider": "github",
       "provider_uid": "alice-gh-registry-gap",
-      "disposable_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
-      "action_id": "vote:registry-gap:1773492498458"
+      "disposable_account": "0x69aa227309f35d7196d0d9f97fc22b33613a31eb",
+      "action_id": "vote:registry-gap:1776484609015"
     }
   },
   "callback_ticket": {
-    "disposable_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
-    "action_id": "vote:registry-gap:1773492498458",
-    "action_nullifier": "0x26db081adc2fe49a68c7ab50917bbae40e3dd991a1a595ea5356e97cb891d707",
-    "digest": "0xf1b1b2118d29ae11128fe9532c82daca9137dae1e3aaa06ee8504501b3279a42",
-    "verification_signature": "6b6995cceb896162e1e14410b6565a75d27055bd4fba766fac44fd5b876e5def482ec303f3e3ec139a3d6eaca4cfad93fe9a1844caf2605f658da3e4e8c2600a",
-    "verification_public_key": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917"
+    "disposable_account": "0x69aa227309f35d7196d0d9f97fc22b33613a31eb",
+    "action_id": "vote:registry-gap:1776484609015",
+    "action_nullifier": "0x73cdcd547edda5ef6496ac73d11e95198dafdb90a10677562ee5d238c38fe0ca",
+    "digest": "0x5dcb5527530a23f689cbe92ed4b5521958bebc6a13c8b8571b6f1edeb95a2d0f",
+    "verification_signature": "fb427d8aa266d1698ce1678cf6858f1f729d75c7baae49fc9427c8e4c30975e411dc57e9cf7b9eb39bbb901b858d16ce816de709c75899ca545c18a1b9e2b29c",
+    "verification_public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4"
   },
   "wrong_witness_preview": {
     "state": "FAULT",
     "exception": "at instruction 2188 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized"
   },
   "registry_probe": {
-    "deploy_txid": "0x465f827dfe5d5040339e616e7aaecebec462f679517c1a543b936ab5e25efd9d",
-    "set_verifier_txid": "0x2ec5a51d992513271dc4a5a862042228d2352cad1246186f11e0ddd06de3434c",
-    "use_action_ticket_txid": "0xd5e4918388059efea68b2f3c874ad14e2b19ea1e0c185891779a96cc34b22656",
+    "deploy_txid": "0xe9240b18bb87f65d109f298acdae6c3739c52ceebe5113a340cacafcfbb74bad",
+    "set_verifier_txid": "0xaffd194e91b67d85f3ed43b1b0fb09173e99c4871864ee097dc92fd4c56a284e",
+    "use_action_ticket_txid": "0x53fc497c8b6665d02f70888d0da1ab180cff1bdf7a3e2e0395d368f680f551bd",
     "preview_state": "FAULT",
     "preview_exception": "at instruction 1703 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature",
     "system_fee": "576738",

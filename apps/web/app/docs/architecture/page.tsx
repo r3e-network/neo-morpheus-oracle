@@ -156,8 +156,7 @@ export default function DocsArchitecture() {
 
       <h2>Support Stance</h2>
       <p>
-        Neo N3 is the active supported production path. Neo X artifacts remain in-repo only as
-        archived reference material and should not be treated as the default integration path.
+        Neo N3 is the active supported production path across the full repository.
       </p>
     </div>
   );

@@ -1,38 +1,38 @@
 {
-  "generated_at": "2026-03-14T13:34:56.481Z",
+  "generated_at": "2026-04-18T05:06:43.159Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
-  "aa_core_hash": "0x9cbbfc969f94a5056fd6a658cab090bcb3604724",
-  "recovery_verifier_hash": "0x9e08c858774b7eb2844810247b61812d44604424",
-  "requester_hash": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+  "aa_core_hash": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
+  "recovery_verifier_hash": "0xfc9b2e0f36a65b7dea1558015bdff128d7b77c44",
+  "requester_hash": "0x69aa227309f35d7196d0d9f97fc22b33613a31eb",
   "fee_status": {
     "request_fee": "1000000",
-    "current_credit": "24000000",
+    "current_credit": "47000000",
     "deposit_amount": "0"
   },
-  "bind_master_nullifier": "0x57e6ff7664b741579fe9d4a59ea84581cba4d6c991e4179c75c355c5fd7546f6",
+  "bind_master_nullifier": "0xa0bf339ceb57aeb2f899cff9397086a0082329dd212bad1daafea30ed07fefbd",
   "setup": {
     "account_id_a": "aa-social-recovery-cross-a",
     "account_id_b": "aa-social-recovery-cross-b",
     "account_address_a": "0x1111111111111111111111111111111111111111",
     "account_address_b": "0x2222222222222222222222222222222222222222",
-    "owner_hash": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
-    "verifier_pubkey": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917"
+    "owner_hash": "0x69aa227309f35d7196d0d9f97fc22b33613a31eb",
+    "verifier_pubkey": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4"
   },
   "oracle_recovery_ticket": {
-    "txid": "0xc27a7be21eace4c01b3ba5985e71231fd44baa97ba66600f12b60ba8d54b3c6d",
-    "request_id": "2638",
+    "txid": "0x9c8e311f3af96b104437d313defc546a3c631c40aa645b3832c161a9fe3cc8ae",
+    "request_id": "4508",
     "compact_ticket": {
-      "master_nullifier": "0x57e6ff7664b741579fe9d4a59ea84581cba4d6c991e4179c75c355c5fd7546f6",
-      "action_nullifier": "0xde3d5b6821f6b07ca20bb3ae9bf34072e968e301792a7339e6e3750fce89488a",
-      "signature": "0x1550a7365ae0396d9687db9a728e8b5b2be0929858e7b6fb47099f2e8e967551907e16426a3fbf59b132c57f9eea522c1b96e004f36e124100d16841409c5ea7"
+      "master_nullifier": "0xa0bf339ceb57aeb2f899cff9397086a0082329dd212bad1daafea30ed07fefbd",
+      "action_nullifier": "0xbc2c4d4d911acc29ee345a3005d66907b05043dc8d6163e883f0986166b9adbb",
+      "signature": "0x6baf695f0a28190fce6ce7e8f9cac9049e91a86451faefbc116f81f00895527ca61f2765698dbe15459d28417c7f19766bf9b83bc7f94436d309a91dae025172"
     }
   },
   "submit_a": {
-    "txid": "0x044c23c708518a50dbdbb65caf90809cd7aba2dc6caf9533432c509bd72f9270",
+    "txid": "0x10fcf3ce0d0b57112c52cfdda816ac727f404a95c1d3568ee5893990d64401a8",
     "pending_recovery": {
       "type": "Array",
       "value": [
@@ -50,11 +50,11 @@
         },
         {
           "type": "Integer",
-          "value": "1773495285309"
+          "value": "1776488790041"
         },
         {
           "type": "Integer",
-          "value": "1773495285309"
+          "value": "1776488790041"
         },
         {
           "type": "Boolean",

@@ -11,7 +11,7 @@ function resolveNeoN3NetworkDefaults() {
   const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
   if (network === 'mainnet') {
     return {
-      rpcAddress: 'https://mainnet1.neo.coz.io:443',
+      rpcAddress: 'http://seed1.neo.org:10332',
       networkMagic: 860833102,
     };
   }
