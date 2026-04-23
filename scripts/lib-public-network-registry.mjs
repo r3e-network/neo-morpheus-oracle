@@ -64,6 +64,7 @@ function buildContracts(network, rawRegistry, supplementalHashes) {
     aaSessionKeyVerifier: trimString(supplementalHashes.aaSessionKeyVerifier),
     aaSocialRecoveryVerifier: trimString(aaVerifiers.social_recovery),
     morpheusOracle: trimString(contracts.morpheus_oracle),
+    oracleCallbackConsumer: trimString(contracts.oracle_callback_consumer),
     morpheusDatafeed: trimString(contracts.morpheus_datafeed),
     morpheusNeoDid: trimString(contracts.morpheus_neodid),
   });

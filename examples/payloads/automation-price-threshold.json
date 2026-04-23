@@ -1,5 +1,5 @@
 {
-  "project_slug": "demo",
+  "project_slug": "morpheus",
   "trigger": {
     "type": "price_threshold",
     "feed_chain": "neo_n3",

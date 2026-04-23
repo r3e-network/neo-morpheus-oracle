@@ -1,4 +1,4 @@
-import { json, trimString, getClientIp } from '@neo-morpheus-oracle/shared/utils';
+import { json, timingSafeCompare, trimString, getClientIp } from '@neo-morpheus-oracle/shared/utils';
 import { applyUpstashRateLimit } from '@neo-morpheus-oracle/shared/rate-limit';
 
 const RATE_LIMITS = {
@@ -8,14 +8,26 @@ const RATE_LIMITS = {
   automation_execute: { limit: 30, windowMs: 60_000 },
 };
 
+function resolveAcceptedKeys(env) {
+  return [
+    env.MORPHEUS_CONTROL_PLANE_API_KEY,
+    env.MORPHEUS_OPERATOR_API_KEY,
+    env.MORPHEUS_PROVIDER_CONFIG_API_KEY,
+    env.PHALA_API_TOKEN,
+  ]
+    .map((v) => trimString(v))
+    .filter(Boolean);
+}
+
 function validateAuth(request, env) {
-  const configured = trimString(
-    env.MORPHEUS_CONTROL_PLANE_API_KEY || env.MORPHEUS_OPERATOR_API_KEY
-  );
-  if (!configured) return null;
+  const keys = resolveAcceptedKeys(env);
+  if (keys.length === 0) return null;
   const bearer = trimString(request.headers.get('authorization'));
   const admin = trimString(request.headers.get('x-admin-api-key'));
-  if (bearer === `Bearer ${configured}` || admin === configured) return null;
+  for (const key of keys) {
+    if (timingSafeCompare(bearer, `Bearer ${key}`)) return null;
+    if (timingSafeCompare(admin, key)) return null;
+  }
   return json(401, { error: 'unauthorized' });
 }
 

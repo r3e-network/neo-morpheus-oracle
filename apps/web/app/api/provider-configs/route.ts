@@ -49,7 +49,7 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const projectSlug = (url.searchParams.get('project_slug') || 'demo').trim();
+  const projectSlug = (url.searchParams.get('project_slug') || 'morpheus').trim();
   const network = resolveSupabaseNetwork(url.searchParams.get('network'));
   const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
   if (!projectId) {
@@ -137,7 +137,7 @@ export async function POST(request: Request) {
     return badRequest('invalid JSON body');
   }
 
-  const projectSlug = String(body.project_slug || 'demo').trim();
+  const projectSlug = String(body.project_slug || 'morpheus').trim();
   const network = resolveSupabaseNetwork(String(body.network || body.morpheus_network || ''));
   const providerId = String(body.provider_id || '').trim();
   const enabled = body.enabled !== false;
@@ -262,7 +262,7 @@ export async function DELETE(request: Request) {
   }
 
   const url = new URL(request.url);
-  const projectSlug = (url.searchParams.get('project_slug') || 'demo').trim();
+  const projectSlug = (url.searchParams.get('project_slug') || 'morpheus').trim();
   const network = resolveSupabaseNetwork(url.searchParams.get('network'));
   const providerId = (url.searchParams.get('provider_id') || '').trim();
   if (!providerId) {

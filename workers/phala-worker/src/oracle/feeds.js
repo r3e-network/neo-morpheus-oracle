@@ -33,6 +33,7 @@ import {
 const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 60_000;
+const MAINNET_FEED_STALE_AFTER_MS = 300_000;
 const FEED_PRICE_DECIMALS = 6;
 
 const feedStateCache = new Map();
@@ -468,6 +469,8 @@ function buildSyncPolicy(targetChain, payload = {}) {
     payload.feed_change_threshold_bps ?? envForNetwork(network, 'MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
   const intervalCandidate =
     payload.feed_min_update_interval_ms ?? envForNetwork(network, 'MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
+  const staleCandidate =
+    payload.feed_stale_after_ms ?? envForNetwork(network, 'MORPHEUS_FEED_STALE_AFTER_MS');
   const thresholdSource =
     thresholdCandidate === '' || thresholdCandidate === undefined || thresholdCandidate === null
       ? `${MAINNET_FEED_CHANGE_THRESHOLD_BPS}`
@@ -476,11 +479,17 @@ function buildSyncPolicy(targetChain, payload = {}) {
     intervalCandidate === '' || intervalCandidate === undefined || intervalCandidate === null
       ? `${MAINNET_FEED_MIN_UPDATE_INTERVAL_MS}ms`
       : intervalCandidate;
+  const staleSource =
+    staleCandidate === '' || staleCandidate === undefined || staleCandidate === null
+      ? `${MAINNET_FEED_STALE_AFTER_MS}ms`
+      : staleCandidate;
   const thresholdBps = Number(thresholdSource || 0);
   const minUpdateIntervalMs = parseDurationMs(intervalSource, MAINNET_FEED_MIN_UPDATE_INTERVAL_MS);
+  const staleAfterMs = parseDurationMs(staleSource, MAINNET_FEED_STALE_AFTER_MS);
   return {
     thresholdBps: Math.max(Number.isFinite(thresholdBps) ? thresholdBps : 0, 0),
     minUpdateIntervalMs: Math.max(minUpdateIntervalMs, 0),
+    staleAfterMs: Math.max(staleAfterMs, 0),
   };
 }
 
@@ -664,6 +673,29 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     now - lastSubmittedAt < policy.minUpdateIntervalMs
   ) {
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
+  }
+
+  if (
+    policy.staleAfterMs > 0 &&
+    lastSubmittedAt > 0 &&
+    now - lastSubmittedAt >= policy.staleAfterMs
+  ) {
+    const previousPriceUnits = String(
+      previousRecord.price_units ??
+        previousRecord.price_cents ??
+        decimalToIntegerString(previousRecord.price ?? '0', quote.decimals)
+    );
+    const nextPriceUnits = decimalToIntegerString(quote.price, quote.decimals);
+    const changeBps = computeChangeBps(previousPriceUnits, nextPriceUnits);
+    return {
+      allow: true,
+      reason: 'staleness-override',
+      change_bps: changeBps,
+      stale_ms: now - lastSubmittedAt,
+      current_chain_price_units: previousPriceUnits,
+      candidate_price_units: nextPriceUnits,
+      storage_key: storageKey,
+    };
   }
 
   const previousPriceUnits = String(

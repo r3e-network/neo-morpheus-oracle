@@ -78,9 +78,9 @@ Project-level provider configs are stored in `morpheus_provider_configs`.
 
 Management endpoint:
 
-- `GET /api/provider-configs?project_slug=demo`
+- `GET /api/provider-configs?project_slug=morpheus`
 - `POST /api/provider-configs`
-- `DELETE /api/provider-configs?project_slug=demo&provider_id=twelvedata`
+- `DELETE /api/provider-configs?project_slug=morpheus&provider_id=twelvedata`
 
 Recommended production protection:
 
@@ -95,8 +95,8 @@ Both the web API layer and the Oracle runtime can resolve provider defaults from
 
 The web API layer resolves provider defaults **before** proxying to Phala:
 
-- `GET /api/feeds/:symbol?provider=twelvedata&project_slug=demo`
-- `POST /api/oracle/query` with `{ "provider": "twelvedata", "project_slug": "demo" }`
+- `GET /api/feeds/:symbol?provider=twelvedata&project_slug=morpheus`
+- `POST /api/oracle/query` with `{ "provider": "twelvedata", "project_slug": "morpheus" }`
 - `POST /api/oracle/smart-fetch` with the same fields
 
 Resolution rules:
