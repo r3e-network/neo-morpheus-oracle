@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
 // Neo N3 contract uses the v1 kernel domain with the full envelope (appId, moduleId, operation).
-// NeoX Solidity contract still uses the legacy v2 domain with requestType only.
 const FULFILLMENT_SIGNATURE_DOMAIN_N3 = Buffer.from('miniapp-os-fulfillment-v1', 'utf8');
-const FULFILLMENT_SIGNATURE_DOMAIN_NEOX = Buffer.from('morpheus-fulfillment-v2', 'utf8');
+const FULFILLMENT_SIGNATURE_DOMAIN_LEGACY = Buffer.from('morpheus-fulfillment-v2', 'utf8');
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -281,10 +280,10 @@ export function buildWorkerPayload(chain, requestType, payload, requestId, conte
 
 /**
  * Build the fulfillment digest that must match the on-chain contract's
- * ComputeFulfillmentDigest.  The Neo N3 kernel contract binds the signature
- * to the full request envelope (appId, moduleId, operation) -- not just the
- * legacy requestType -- so a signature cannot be replayed across different
- * apps or modules.  The NeoX Solidity contract still uses the legacy format.
+ * ComputeFulfillmentDigest. The Neo N3 kernel contract binds the signature
+ * to the full request envelope (appId, moduleId, operation) instead of only
+ * the legacy requestType. Legacy Neo N3 requests without kernel envelope
+ * fields still verify against the older requestType-based digest domain.
  *
  * Security rationale: covering the full envelope prevents an attacker from
  * reusing a fulfillment signature meant for one (appId, moduleId, operation)
@@ -304,12 +303,11 @@ export function buildFulfillmentDigestBytes(
     ? Buffer.from(trimString(resultBytesBase64), 'base64')
     : Buffer.from(String(result || ''), 'utf8');
 
-  if (chain === 'neo_x') {
-    // NeoX Solidity contract uses the legacy v2 domain with requestType.
+  if (chain === 'legacy') {
     return createHash('sha256')
       .update(
         Buffer.concat([
-          FULFILLMENT_SIGNATURE_DOMAIN_NEOX,
+          FULFILLMENT_SIGNATURE_DOMAIN_LEGACY,
           encodeUint256Bytes(requestId),
           sha256Buffer(trimString(requestType || '')),
           successByte,

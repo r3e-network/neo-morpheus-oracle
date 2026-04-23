@@ -13,7 +13,6 @@ import {
   scanNeoN3OracleRequestsById,
   scanNeoN3OracleRequestsViaN3Index,
 } from './neo-n3.js';
-import { hasNeoXRelayerConfig, getNeoXLatestBlock, scanNeoXOracleRequests } from './neo-x.js';
 import { getFeedSyncDelayMs, processFeedSync } from './feed-sync.js';
 export { buildFeedSyncPayload } from './feed-sync.js';
 export { getFeedSyncDelayMs } from './feed-sync.js';
@@ -86,14 +85,6 @@ export async function runRelayerOnce(options = {}) {
             scanByRequestId: scanNeoN3OracleRequestsById,
           })
       : { skipped: true, chain: 'neo_n3' };
-  const neoX =
-    shouldRunRequestProcessing(config) && config.activeChains.includes('neo_x')
-      ? await processChain(config, state, logger, 'neo_x', {
-          hasConfig: hasNeoXRelayerConfig,
-          getLatestBlock: getNeoXLatestBlock,
-          scan: scanNeoXOracleRequests,
-        })
-      : { skipped: true, chain: 'neo_x' };
   const automation = shouldRunRequestProcessing(config)
     ? await processAutomationJobs(config, logger)
     : { skipped: true, mode: config.mode };
@@ -106,7 +97,6 @@ export async function runRelayerOnce(options = {}) {
     instance_id: config.instanceId,
     mode: config.mode,
     neo_n3: neoN3,
-    neo_x: neoX,
     feed_sync: feedSync,
     automation,
     state,

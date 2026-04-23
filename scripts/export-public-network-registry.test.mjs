@@ -21,6 +21,11 @@ test('public network registry export exposes canonical Morpheus runtime metadata
     'https://oracle.meshmini.app/mainnet',
     'https://edge.meshmini.app/mainnet',
   ]);
+  assert.equal(registry.mainnet.morpheus.datafeedCvmId, 'ac5b6886a2832df36e479294206611652400178f');
+  assert.equal(
+    registry.testnet.morpheus.datafeedAttestationExplorerUrl,
+    'https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f'
+  );
   assert.equal(registry.mainnet.contracts.aaCore, '0x9742b4ed62a84a886f404d36149da6147528ee33');
   assert.equal(registry.testnet.contracts.morpheusOracle, '0x4b882e94ed766807c4fd728768f972e13008ad52');
 });

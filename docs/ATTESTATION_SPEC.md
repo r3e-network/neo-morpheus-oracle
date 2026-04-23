@@ -142,8 +142,8 @@ The current production topology is role-split, not network-split:
   - explorer `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
 - DataFeed CVM:
   - `datafeed-morpheus-neo-r3e`
-  - app id `28294e89d490924b79c85cdee057ce55723b3d56`
-  - explorer `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+  - app id `ac5b6886a2832df36e479294206611652400178f`
+  - explorer `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
 
 Both mainnet and testnet Oracle traffic now terminate at the Oracle CVM and differ only by the
 network selected in the request path or payload. Feed synchronization runs on the dedicated
@@ -224,5 +224,5 @@ DataFeed CVM.
   - explorer：`https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
 - DataFeed CVM
   - 名称：`datafeed-morpheus-neo-r3e`
-  - app id：`28294e89d490924b79c85cdee057ce55723b3d56`
-  - explorer：`https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+  - app id：`ac5b6886a2832df36e479294206611652400178f`
+  - explorer：`https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`

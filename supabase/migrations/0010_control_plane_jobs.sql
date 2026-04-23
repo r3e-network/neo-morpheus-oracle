@@ -10,7 +10,7 @@ create table if not exists morpheus_control_plane_jobs (
     )
   ),
   route text not null,
-  target_chain text check (target_chain in ('neo_n3', 'neo_x')),
+  target_chain text check (target_chain in ('neo_n3')),
   project_slug text,
   request_id text,
   status text not null default 'queued' check (

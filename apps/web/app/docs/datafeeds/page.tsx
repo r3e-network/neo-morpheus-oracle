@@ -238,9 +238,7 @@ public static void CheckLiquidation() {
         style={{ marginTop: '2rem', padding: '1.5rem', borderLeft: '4px solid var(--accent-blue)' }}
       >
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 0 }}>
-          Public documentation currently covers the Neo N3 feed read path only. Any Neo X datafeed
-          interfaces left in-repo are archived reference material and are not the supported
-          integration target.
+          Public documentation currently covers the Neo N3 feed read path only.
         </p>
       </div>
 

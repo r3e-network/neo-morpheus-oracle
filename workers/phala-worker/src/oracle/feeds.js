@@ -1,6 +1,5 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { Interface } from 'ethers';
 import { env, envForNetwork, json, normalizeMorpheusNetwork, parseDurationMs, resolvePayloadNetwork, strip0x, trimString } from '../platform/core.js';
 import { maybeBuildDstackAttestation } from '../platform/dstack.js';
 import { aggregateQuotes } from './aggregation.js';
@@ -11,7 +10,6 @@ import {
   loadNeoN3Context,
   normalizeNeoHash160,
   relayNeoN3Invocation,
-  relayNeoXTransaction,
 } from '../chain/index.js';
 import {
   buildProviderRequest,
@@ -36,9 +34,6 @@ const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 60_000;
 const FEED_PRICE_DECIMALS = 6;
-const DATAFEED_X_READ_INTERFACE = new Interface([
-  'function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])',
-]);
 
 const feedStateCache = new Map();
 
@@ -50,7 +45,7 @@ function resolveFeedNetwork(input = {}) {
 }
 
 function resolveFeedTargetChain(value = 'neo_n3') {
-  return trimString(value).toLowerCase() === 'neo_x' ? 'neo_x' : 'neo_n3';
+  return 'neo_n3';
 }
 
 function resolveFeedScope(input = {}, fallbackTargetChain = 'neo_n3') {
@@ -498,17 +493,13 @@ function normalizeBooleanLike(value, fallback = false) {
 
 function resolveFeedSubmissionIssue(
   targetChain,
-  { hasNeoN3DataFeedTarget = false, neoContext = null, dataFeedAddress = '' } = {}
+  { hasNeoN3DataFeedTarget = false, neoContext = null } = {}
 ) {
   if (targetChain === 'neo_n3') {
     if (!hasNeoN3DataFeedTarget) return 'Neo N3 datafeed contract hash is not configured';
     if (!neoContext) return 'Neo N3 signing key is not configured';
     if (!trimString(neoContext.rpcUrl)) return 'NEO_RPC_URL is required for Neo N3 feed submission';
     return '';
-  }
-
-  if (targetChain === 'neo_x') {
-    if (!trimString(dataFeedAddress)) return 'Neo X datafeed contract address is not configured';
   }
 
   return '';
@@ -641,56 +632,14 @@ async function fetchNeoN3FeedRecords(rpcUrl, contractHash) {
   );
 }
 
-async function fetchNeoXFeedRecords(rpcUrl, contractAddress) {
-  if (!trimString(rpcUrl) || !trimString(contractAddress)) return {};
-  const callData = DATAFEED_X_READ_INTERFACE.encodeFunctionData('getAllFeedRecords');
-  const response = await fetchJsonRpc(rpcUrl, {
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'eth_call',
-    params: [{ to: contractAddress, data: callData }, 'latest'],
-  });
-  const [records] = DATAFEED_X_READ_INTERFACE.decodeFunctionResult('getAllFeedRecords', response);
-  return Object.fromEntries(
-    Array.from(records || []).map((entry) => {
-      const storagePair = String(entry.pair ?? '');
-      const priceUnits = entry.price?.toString?.() ?? String(entry.price ?? '0');
-      return [
-        storagePair,
-        {
-          storage_pair: storagePair,
-          pair: storagePair.includes(':') ? storagePair.split(':').slice(1).join(':') : storagePair,
-          round_id: entry.roundId?.toString?.() ?? String(entry.roundId ?? '0'),
-          price_units: priceUnits,
-          price: integerToDecimalString(priceUnits, FEED_PRICE_DECIMALS),
-          timestamp: entry.timestamp?.toString?.() ?? String(entry.timestamp ?? '0'),
-          attestation_hash:
-            entry.attestationHash?.toString?.() ?? String(entry.attestationHash ?? ''),
-          source_set_id: entry.sourceSetId?.toString?.() ?? String(entry.sourceSetId ?? '0'),
-          price_scale_decimals: FEED_PRICE_DECIMALS,
-        },
-      ];
-    })
-  );
-}
-
 async function loadOnchainFeedRecords(
   targetChain,
-  { network = 'testnet', neoContext = null, neoXRpcUrl = null, dataFeedHash = null, dataFeedAddress = null } = {}
+  { neoContext = null, dataFeedHash = null } = {}
 ) {
   try {
     if (targetChain === 'neo_n3') {
       return {
         records: await fetchNeoN3FeedRecords(neoContext?.rpcUrl, dataFeedHash),
-        error: null,
-      };
-    }
-    if (targetChain === 'neo_x') {
-      return {
-        records: await fetchNeoXFeedRecords(
-          trimString(neoXRpcUrl) || trimString(envForNetwork(network, 'NEOX_RPC_URL', 'EVM_RPC_URL')),
-          dataFeedAddress
-        ),
         error: null,
       };
     }
@@ -1035,71 +984,6 @@ async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, u
   }
 }
 
-async function submitQuoteToNeoX(
-  dataFeedAddress,
-  payload,
-  quote,
-  storagePair,
-  roundId,
-  sourceSetId
-) {
-  const feedInterface = new Interface([
-    'function updateFeed(string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)',
-  ]);
-  const data = feedInterface.encodeFunctionData('updateFeed', [
-    storagePair,
-    BigInt(roundId),
-    BigInt(decimalToIntegerString(quote.price, quote.decimals)),
-    BigInt(Math.floor(Date.now() / 1000)),
-    `0x${strip0x(quote.attestation_hash || '0')}`.padEnd(66, '0'),
-    BigInt(sourceSetId),
-  ]);
-  const network = resolveFeedNetwork(payload);
-  const updaterPrivateKey = trimString(
-    payload.private_key ||
-      envForNetwork(network, 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
-  );
-  return relayNeoXTransaction({
-    ...payload,
-    target_chain: 'neo_x',
-    private_key: updaterPrivateKey || undefined,
-    use_derived_keys: payload.use_derived_keys ?? false,
-    to: dataFeedAddress,
-    data,
-    value: '0',
-    wait: Boolean(payload.wait ?? true),
-  });
-}
-
-async function submitQuotesToNeoX(dataFeedAddress, payload, updates) {
-  const feedInterface = new Interface([
-    'function updateFeeds(string[] pairs,uint256[] roundIds,uint256[] prices,uint256[] timestamps,bytes32[] attestationHashes,uint256[] sourceSetIds)',
-  ]);
-  const data = feedInterface.encodeFunctionData('updateFeeds', [
-    updates.map((entry) => entry.storagePair),
-    updates.map((entry) => BigInt(entry.roundId)),
-    updates.map((entry) => BigInt(decimalToIntegerString(entry.quote.price, entry.quote.decimals))),
-    updates.map((entry) => BigInt(entry.timestampSec)),
-    updates.map((entry) => `0x${strip0x(entry.quote.attestation_hash || '0')}`.padEnd(66, '0')),
-    updates.map((entry) => BigInt(entry.sourceSetId)),
-  ]);
-  const network = resolveFeedNetwork(payload);
-  const updaterPrivateKey = trimString(
-    payload.private_key ||
-      envForNetwork(network, 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY')
-  );
-  return relayNeoXTransaction({
-    ...payload,
-    target_chain: 'neo_x',
-    private_key: updaterPrivateKey || undefined,
-    use_derived_keys: payload.use_derived_keys ?? false,
-    to: dataFeedAddress,
-    data,
-    value: '0',
-    wait: Boolean(payload.wait ?? true),
-  });
-}
-
 function resolveRequestedSymbols(payload = {}) {
   const explicitSymbols = Array.isArray(payload.symbols)
     ? payload.symbols
@@ -1139,16 +1023,9 @@ export async function handleOracleFeed(payload) {
   const neoContext = hasNeoN3DataFeedTarget
     ? loadNeoN3Context(scopedPayload, { required: false, requireRpc: false })
     : null;
-  const dataFeedAddress =
-    targetChain === 'neo_x'
-      ? trimString(envForNetwork(scope.network, 'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS'))
-      : null;
   const onchainFeedState = await loadOnchainFeedRecords(targetChain, {
-    network: scope.network,
     neoContext,
-    neoXRpcUrl: trimString(scopedPayload.rpc_url),
     dataFeedHash,
-    dataFeedAddress,
   });
   const onchainRecords = onchainFeedState.records;
   if (
@@ -1264,7 +1141,6 @@ export async function handleOracleFeed(payload) {
       ? resolveFeedSubmissionIssue(targetChain, {
           hasNeoN3DataFeedTarget,
           neoContext,
-          dataFeedAddress,
         })
       : '';
   if (batchUpdates.length > 0) {
@@ -1280,8 +1156,6 @@ export async function handleOracleFeed(payload) {
         scopedPayload,
         batchUpdates
       );
-    } else if (targetChain === 'neo_x' && dataFeedAddress) {
-      batchTx = await submitQuotesToNeoX(dataFeedAddress, scopedPayload, batchUpdates);
     }
   }
 

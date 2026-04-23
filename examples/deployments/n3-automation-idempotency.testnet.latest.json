@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-14T12:45:33.299Z",
+  "generated_at": "2026-04-18T10:31:55.720Z",
   "network": "testnet",
   "rpc_url": "https://testnet1.neo.coz.io:443",
   "network_magic": 894710606,
@@ -7,37 +7,38 @@
   "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
   "request_fee_status": {
     "request_fee": "1000000",
-    "current_credit": "50000000",
-    "deposit_amount": "11000000"
+    "current_credit": "62000000",
+    "deposit_amount": "0"
   },
   "registration": {
-    "txid": "0x3cdbbea3f7f91320f368f54f532b6ff9d7bf54fff04b1531cc37d998d1d514ba",
-    "request_id": "2157",
-    "automation_id": "automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059"
+    "txid": "0xe7b6479b90df08b0361f8ad69382b9f09ee681003d73c218f3a14e6bdf96099e",
+    "request_id": "4618",
+    "automation_id": "automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a"
   },
   "local_runs": {
     "first": {
-      "queued": 42,
-      "skipped": 46,
+      "queued": 1,
+      "skipped": 0,
       "failed": 0,
-      "inspected": 88
+      "inspected": 1
     },
     "second": {
-      "queued": 30,
-      "skipped": 59,
+      "queued": 0,
+      "skipped": 0,
       "failed": 0,
-      "inspected": 89
+      "inspected": 0
     }
   },
+  "relayer_resume_observed": true,
   "supabase": {
     "job": {
-      "id": "e86ae086-0265-4efc-b1d0-216339858f84",
-      "automation_id": "automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059",
-      "registration_request_id": "2157",
+      "id": "09ed589a-78dd-402f-8dff-fce96d5ece5f",
+      "automation_id": "automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a",
+      "registration_request_id": "4618",
       "project_id": null,
       "project_slug": "",
       "chain": "neo_n3",
-      "requester": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
+      "requester": "0x69aa227309f35d7196d0d9f97fc22b33613a31eb",
       "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
       "callback_method": "onOracleResult",
       "execution_request_type": "privacy_oracle",
@@ -49,73 +50,77 @@
       },
       "trigger_type": "interval",
       "trigger_config": {
-        "start_at": "2026-03-14T12:49:53.751Z",
+        "start_at": "2026-04-18T10:39:06.582Z",
         "interval_ms": 300000
       },
       "trigger_state": {},
       "status": "active",
-      "next_run_at": "2026-03-14T12:46:01.946+00:00",
-      "last_run_at": "2026-03-14T12:41:01.946+00:00",
+      "next_run_at": "2026-04-18T10:35:49.634+00:00",
+      "last_run_at": "2026-04-18T10:30:49.634+00:00",
       "execution_count": 1,
       "max_executions": null,
-      "last_queued_request_id": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
+      "last_queued_request_id": "automation:neo_n3:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
       "last_error": null,
-      "created_at": "2026-03-14T12:40:28.18+00:00",
-      "updated_at": "2026-03-14T12:43:30.748+00:00",
+      "created_at": "2026-04-18T10:30:01.276+00:00",
+      "updated_at": "2026-04-18T10:30:52.411+00:00",
       "network": "testnet"
     },
     "runs": [
       {
-        "id": "beef6b61-471e-43e4-a989-94939d80c3b0",
-        "automation_id": "automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059",
-        "queued_request_id": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
+        "id": "a219ebf4-b44c-43c4-868e-0e9b42ee8c98",
+        "automation_id": "automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a",
+        "queued_request_id": "automation:neo_n3:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
         "chain": "neo_n3",
         "status": "queued",
         "trigger_reason": "interval",
         "observed_value": null,
         "queue_tx": {
-          "tx_hash": "0x60cbea4acb42d0819bed8ec17d2eb69ca82b85d5a461734b35d01980786db981",
+          "tx_hash": "0xb72e1dc64f5e65ee55cc1eb5d710e2c89d65e988bf91bea2d99df0e920eb5896",
+          "dispatch": {
+            "request_id": "automation:neo_n3:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+            "workflow_id": "automation.upkeep",
+            "execution_id": "automation.upkeep:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+            "automation_id": "automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a",
+            "delivery_mode": "onchain_callback",
+            "replay_window": "strict",
+            "execution_count": 0,
+            "idempotency_key": "automation.upkeep:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+            "workflow_version": 1,
+            "next_execution_count": 1
+          },
           "vm_state": "HALT",
-          "request_id": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
-          "target_chain": "neo_n3"
+          "request_id": "automation:neo_n3:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+          "workflow_id": "automation.upkeep",
+          "execution_id": "automation.upkeep:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+          "target_chain": "neo_n3",
+          "delivery_mode": "onchain_callback",
+          "replay_window": "strict",
+          "idempotency_key": "automation.upkeep:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+          "workflow_version": 1
         },
         "error": null,
-        "created_at": "2026-03-14T12:43:31.049129+00:00",
+        "created_at": "2026-04-18T10:30:52.28347+00:00",
         "network": "testnet"
       }
     ]
   },
-  "queued_request_key": "automation:neo_n3:automation:neo_n3:e166c107-7322-45c9-bc30-ed6eba35b059:1",
-  "queued_chain_request_id": "2221",
-  "queued_tx_hash": "0x60cbea4acb42d0819bed8ec17d2eb69ca82b85d5a461734b35d01980786db981",
+  "queued_request_key": "automation:neo_n3:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+  "queued_chain_request_id": "4620",
+  "queued_tx_hash": "0xb72e1dc64f5e65ee55cc1eb5d710e2c89d65e988bf91bea2d99df0e920eb5896",
   "queued_callback": {
     "request_type": "privacy_oracle",
     "success": true,
-    "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"success\":true,\"result\":{\"mode\":\"fetch\",\"target_chain\":\"neo_n3\",\"request_source\":\"morpheus-relayer:neo_n3\",\"upstream_status\":200,\"extracted_value\":\"2.556\",\"result\":\"2.556\"},\"verification\":{\"output_hash\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f\",\"attestation_hash\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f\",\"signature\":\"64c029f552b3d288dda1793a34caaac11975709123191199c5e76a57cbd46df1ef18aaf68998003df2417aa1d0c9fb5891879c32f58c006af156e61459ba13e6\",\"public_key\":\"03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43\",\"report_data\":\"0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"18bd8466c628d9ed993ae2cc1a577b679015d041dd60dd50cc548e5f90ad4ea3\"}}}",
+    "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"module_id\":\"oracle.fetch\",\"operation\":\"privacy_oracle\",\"success\":true,\"result\":{\"status\":\"succeeded\"},\"verification\":null}",
     "result_json": {
       "version": "morpheus-result/v1",
       "request_type": "privacy_oracle",
+      "module_id": "oracle.fetch",
+      "operation": "privacy_oracle",
       "success": true,
       "result": {
-        "mode": "fetch",
-        "target_chain": "neo_n3",
-        "request_source": "morpheus-relayer:neo_n3",
-        "upstream_status": 200,
-        "extracted_value": "2.556",
-        "result": "2.556"
+        "status": "succeeded"
       },
-      "verification": {
-        "output_hash": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f",
-        "attestation_hash": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f",
-        "signature": "64c029f552b3d288dda1793a34caaac11975709123191199c5e76a57cbd46df1ef18aaf68998003df2417aa1d0c9fb5891879c32f58c006af156e61459ba13e6",
-        "public_key": "03407c24a382011c16be1597699cd6460f54e49c25098d4943fdf0192c80cb6917",
-        "tee_attestation": {
-          "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-          "compose_hash": "8f479270096770840587586eb9db58eeeb10eab14a01ffa6c8ee2583a8d93f43",
-          "report_data": "0062c9b9e7c90ba22b481fe19692dc90ddd0be894c5c9aae461c170ca70db21f0000000000000000000000000000000000000000000000000000000000000000",
-          "quote_hash": "18bd8466c628d9ed993ae2cc1a577b679015d041dd60dd50cc548e5f90ad4ea3"
-        }
-      }
+      "verification": null
     },
     "error_text": ""
   }

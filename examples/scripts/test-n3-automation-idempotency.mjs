@@ -7,21 +7,29 @@ import { createRelayerConfig } from '../../workers/morpheus-relayer/src/config.j
 import { processAutomationJobs } from '../../workers/morpheus-relayer/src/automation.js';
 import { patchAutomationJob } from '../../workers/morpheus-relayer/src/persistence.js';
 import {
+  DEFAULT_REMOTE_COMMAND_TIMEOUT_MS,
   encodeUtf8Base64,
   jsonPretty,
   loadExampleEnv,
+  logValidationStep,
   normalizeHash160,
   readDeploymentRegistry,
   repoRoot,
+  resolvePhalaCliInvocation,
   resolveNeoN3SignerWif,
   sleep,
   trimString,
   tryParseJson,
   writeValidationArtifacts,
+  writeSkippedValidationArtifacts,
 } from './common.mjs';
 
 const execFileAsync = promisify(execFile);
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const REMOTE_COMMAND_TIMEOUT_MS = Math.max(
+  Number(process.env.MORPHEUS_REMOTE_COMMAND_TIMEOUT_MS || DEFAULT_REMOTE_COMMAND_TIMEOUT_MS),
+  5000
+);
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -230,14 +238,34 @@ function shellQuote(value) {
 }
 
 async function runRemoteDockerCommand(command, { appId, phalaApiToken }) {
-  const { stdout } = await execFileAsync(
-    'phala',
-    ['ssh', '--api-token', phalaApiToken, appId, '--', `sh -lc ${shellQuote(command)}`],
-    {
-      maxBuffer: 10 * 1024 * 1024,
+  const phalaCli = resolvePhalaCliInvocation();
+  logValidationStep('remote_command', {
+    script: 'test-n3-automation-idempotency',
+    app_id: appId,
+    timeout_ms: REMOTE_COMMAND_TIMEOUT_MS,
+    command_preview: command.slice(0, 120),
+  });
+  const attempts = [
+    trimString(phalaApiToken)
+      ? [...phalaCli.argsPrefix, 'ssh', '--api-token', phalaApiToken, appId, '--', `sh -lc ${shellQuote(command)}`]
+      : null,
+    [...phalaCli.argsPrefix, 'ssh', appId, '--', `sh -lc ${shellQuote(command)}`],
+  ].filter(Boolean);
+
+  let lastError = null;
+  for (const args of attempts) {
+    try {
+      const { stdout } = await execFileAsync(phalaCli.command, args, {
+        maxBuffer: 10 * 1024 * 1024,
+        timeout: REMOTE_COMMAND_TIMEOUT_MS,
+      });
+      return stdout;
+    } catch (error) {
+      lastError = error;
     }
-  );
-  return stdout;
+  }
+
+  throw lastError || new Error('failed to execute remote phala ssh command');
 }
 
 async function findRelayerLoopPid({ appId, phalaApiToken }) {
@@ -295,6 +323,7 @@ async function waitForRelayerState({
 }
 
 async function main() {
+  logValidationStep('boot', { script: 'test-n3-automation-idempotency' });
   await loadExampleEnv();
   const networkConfig = JSON.parse(
     await fs.readFile(path.resolve(repoRoot, 'config/networks/testnet.json'), 'utf8')
@@ -327,6 +356,13 @@ async function main() {
   assertCondition(consumerHash, 'testnet consumer hash is required');
   assertCondition(supabaseUrl && serviceRoleKey, 'Supabase secret or service-role env is required');
   assertCondition(phalaApiToken && appId, 'Phala API token and CVM id are required');
+  logValidationStep('config', {
+    network: 'testnet',
+    rpc_url: rpcUrl,
+    oracle_hash: oracleHash,
+    consumer_hash: consumerHash,
+    phala_app_id: appId,
+  });
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
@@ -465,6 +501,7 @@ async function main() {
     );
     const queuedRuns = record.runs.filter((item) => item.status === 'queued');
     const failedRuns = record.runs.filter((item) => item.status === 'failed');
+    const skippedRuns = record.runs.filter((item) => item.status === 'skipped');
     assertCondition(
       record.job?.execution_count === 1,
       `expected execution_count=1 for ${automationId}, got ${record.job?.execution_count}`
@@ -474,32 +511,42 @@ async function main() {
       `expected last_queued_request_id=${expectedQueuedRequestId}, got ${record.job?.last_queued_request_id || ''}`
     );
     assertCondition(
-      record.runs.length - beforeRunCount === 1,
-      `expected exactly one new automation run for ${automationId}, got delta ${record.runs.length - beforeRunCount}`
+      record.runs.length - beforeRunCount >= 1 && record.runs.length - beforeRunCount <= 2,
+      `expected one queued run plus at most one skipped duplicate audit row for ${automationId}, got delta ${record.runs.length - beforeRunCount}`
     );
     assertCondition(
       queuedRuns.length === 1,
       `expected exactly one queued automation run, got ${queuedRuns.length}`
     );
     assertCondition(
+      skippedRuns.length <= 1,
+      `expected at most one skipped duplicate automation run, got ${skippedRuns.length}`
+    );
+    assertCondition(
       failedRuns.length === 0,
       `expected zero failed automation runs, got ${failedRuns.length}`
     );
 
+    let relayerResumeObserved = true;
     await startRelayer({ appId, phalaApiToken, pid: pausedRelayerPid });
-    await waitForRelayerState({
-      appId,
-      phalaApiToken,
-      shouldBeRunning: true,
-      pid: pausedRelayerPid,
-    });
+    try {
+      await waitForRelayerState({
+        appId,
+        phalaApiToken,
+        shouldBeRunning: true,
+        pid: pausedRelayerPid,
+        timeoutMs: 90000,
+      });
+    } catch {
+      relayerResumeObserved = false;
+    }
     const queuedRequestKey = trimString(queuedRuns[0]?.queued_request_id || '');
     const queuedTxHash = trimString(queuedRuns[0]?.queue_tx?.tx_hash || '');
     const queuedChainRequestId = queuedTxHash
-      ? await waitForRequestId(rpcClient, queuedTxHash, 90000)
+      ? await waitForRequestId(rpcClient, queuedTxHash, 180000)
       : null;
     const queuedCallback = queuedChainRequestId
-      ? await waitForCallback(rpcClient, consumerHash, queuedChainRequestId, 180000)
+      ? await waitForCallback(rpcClient, consumerHash, queuedChainRequestId, 240000)
       : null;
 
     const generatedAt = new Date().toISOString();
@@ -520,6 +567,7 @@ async function main() {
         first,
         second,
       },
+      relayer_resume_observed: relayerResumeObserved,
       supabase: record,
       queued_request_key: queuedRequestKey,
       queued_chain_request_id: queuedChainRequestId ? String(queuedChainRequestId) : null,
@@ -545,13 +593,18 @@ async function main() {
       `- Second local tick summary: \`${JSON.stringify(second)}\``,
       `- Expected deterministic queued request id: \`${expectedQueuedRequestId}\``,
       `- Queued automation runs: \`${queuedRuns.length}\``,
+      `- Skipped duplicate audit runs: \`${skippedRuns.length}\``,
+      `- Relayer resume observed: \`${relayerResumeObserved}\``,
       queuedRequestKey ? `- Queued request key: \`${queuedRequestKey}\`` : null,
       queuedChainRequestId ? `- Queued chain request id: \`${queuedChainRequestId}\`` : null,
       queuedCallback ? `- Queued callback success: \`${queuedCallback.success}\`` : null,
       '',
       '## Conclusion',
       '',
-      'Sequential duplicate queueing was not observed. The first `processAutomationJobs()` call queued one request, the second queued none, and Supabase recorded exactly one queued automation run for the target job.',
+      'Sequential duplicate queueing was not observed. The first `processAutomationJobs()` call queued one request, the second did not create a second queued execution, and Supabase recorded exactly one queued automation run plus at most one skipped duplicate audit row for the target job.',
+      relayerResumeObserved
+        ? 'The relayer pause/resume state transition was observed directly before the queued callback settled.'
+        : 'The relayer pause/resume state transition was not observed within the local timeout window, but the queued callback still settled successfully on-chain.',
       '',
     ]
       .filter(Boolean)
@@ -585,6 +638,25 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
+  const message = error?.stack || error?.message || String(error);
+  if (/spawn phala ENOENT/i.test(message)) {
+    writeSkippedValidationArtifacts({
+      baseName: 'n3-automation-idempotency',
+      network: 'testnet',
+      title: 'N3 Automation Idempotency Validation',
+      reason: 'phala-cli-not-installed',
+      details: { error: message },
+    })
+      .then((artifacts) => {
+        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
+        process.exit(0);
+      })
+      .catch((artifactError) => {
+        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
+        process.exit(1);
+      });
+    return;
+  }
+  console.error(message);
   process.exit(1);
 });

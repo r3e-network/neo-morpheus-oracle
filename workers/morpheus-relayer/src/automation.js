@@ -11,7 +11,6 @@ import {
   upsertAutomationJob,
 } from './persistence.js';
 import { fetchNeoN3FeedRecord, queueNeoN3AutomationRequest } from './neo-n3.js';
-import { fetchNeoXFeedRecord, queueNeoXAutomationRequest } from './neo-x.js';
 import { buildUpkeepDispatch, buildUpkeepExecutionPayload } from './automation-supervisor.js';
 
 function trimString(value) {
@@ -434,7 +433,6 @@ async function evaluateAutomationJob(config, job, nowMs, deps = {}) {
 
   if (job.trigger_type === 'price_threshold') {
     const triggerConfig = isPlainObject(job.trigger_config) ? job.trigger_config : {};
-    const feedChain = normalizeRequestType(triggerConfig.feed_chain || '') || job.chain;
     const pair = trimString(triggerConfig.pair || '');
     if (!pair) {
       return {
@@ -446,12 +444,8 @@ async function evaluateAutomationJob(config, job, nowMs, deps = {}) {
     if (job.next_run_at && parseTimestamp(job.next_run_at)?.getTime() > nowMs) {
       return { due: false, patch: null, reason: 'cooldown' };
     }
-    const loadNeoXFeedRecord = deps.fetchNeoXFeedRecord || fetchNeoXFeedRecord;
     const loadNeoN3FeedRecord = deps.fetchNeoN3FeedRecord || fetchNeoN3FeedRecord;
-    const record =
-      feedChain === 'neo_x'
-        ? await loadNeoXFeedRecord(config, pair)
-        : await loadNeoN3FeedRecord(config, pair);
+    const record = await loadNeoN3FeedRecord(config, pair);
     return evaluatePriceThreshold(job, record, nowMs, config.automation.defaultPriceCooldownMs);
   }
 
@@ -542,22 +536,7 @@ async function queueAutomationExecution(config, job, deps = {}) {
   const payloadText = stringifyExecutionPayload(
     buildUpkeepExecutionPayload(job.execution_payload || {}, dispatch)
   );
-  const queueNeoX = deps.queueNeoXAutomationRequest || queueNeoXAutomationRequest;
   const queueNeoN3 = deps.queueNeoN3AutomationRequest || queueNeoN3AutomationRequest;
-  if (job.chain === 'neo_x') {
-    return {
-      dispatch,
-      ...(await queueNeoX(
-        config,
-        job.requester,
-        job.execution_request_type,
-        payloadText,
-        job.callback_contract,
-        job.callback_method,
-        dispatch.request_id
-      )),
-    };
-  }
   if (job.chain !== 'neo_n3') {
     throw new Error(`Invalid automation job chain: ${job.chain}`);
   }

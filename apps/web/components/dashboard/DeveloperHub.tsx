@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Code2, Terminal, ChevronRight, Workflow, Fingerprint, Copy, Check } from 'lucide-react';
 import {
-  CONTRACT_EXAMPLES,
+  CONTRACT_EXAMPLE,
   AUTOMATION_PATTERNS,
   BUILTIN_FUNCTIONS,
   SECURITY_CONCEPTS,
@@ -11,7 +11,7 @@ import {
 
 export function DeveloperHub() {
   const [copied, setCopied] = useState<string | null>(null);
-  const contractExample = CONTRACT_EXAMPLES.neo_n3;
+  const contractExample = CONTRACT_EXAMPLE;
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);

@@ -161,36 +161,6 @@ If one of these is wrong, the system usually stops working.
   English: The generated testnet Phala env now disables derived signing by default when it injects an explicit verifier signer, so the published testnet verifier key is not accidentally shadowed by a dstack-derived role key.
   中文：现在生成的 testnet Phala env 在注入显式 verifier signer 时会默认关闭派生签名覆盖，避免已发布到链上的 testnet verifier key 被 dstack 派生角色密钥意外替换。
 
-### Neo X / Neo X
-
-- `NEOX_RPC_URL`
-  English: Neo X RPC endpoint.
-  中文：Neo X 的 RPC 地址。
-
-- `NEOX_CHAIN_ID`
-  English: Neo X chain id.
-  中文：Neo X 的 chain id。
-
-- `CONTRACT_MORPHEUS_ORACLE_X_ADDRESS`
-  English: Neo X MorpheusOracleX contract address.
-  中文：Neo X 的 MorpheusOracleX 合约地址。
-
-- `CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS`
-  English: Optional Neo X external callback adapter contract address.
-  中文：可选的 Neo X 外部 callback adapter 合约地址。
-
-- `CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS`
-  English: Neo X shared numeric resource module contract address.
-  中文：Neo X 共享数值资源模块合约地址。
-
-- `PHALA_NEOX_PRIVATE_KEY`
-  English: Worker-side Neo X signing key.
-  中文：worker 使用的 Neo X 签名私钥。
-
-- `MORPHEUS_RELAYER_NEOX_PRIVATE_KEY`
-  English: Relayer/updater Neo X signing key.
-  中文：relayer / updater 使用的 Neo X 签名私钥。
-
 ### Provider Data Source / 数据源
 
 - `TWELVEDATA_API_KEY`
@@ -293,10 +263,6 @@ They do not usually change trust assumptions.
   English: Optional Neo N3 start block used when the relayer has no saved checkpoint yet.
   中文：当 relayer 还没有保存过 checkpoint 时，Neo N3 扫块使用的可选起始区块。
 
-- `MORPHEUS_RELAYER_NEO_X_START_BLOCK`
-  English: Optional Neo X start block used when the relayer has no saved checkpoint yet.
-  中文：当 relayer 还没有保存过 checkpoint 时，Neo X 扫块使用的可选起始区块。
-
 ### Automation / 自动化任务
 
 - `MORPHEUS_AUTOMATION_ENABLED`
@@ -368,9 +334,7 @@ Only touch these if you understand the runtime model.
   中文：dstack socket 或 endpoint 覆盖值。
 
 - `PHALA_DSTACK_NEO_N3_KEY_PATH`
-- `PHALA_DSTACK_NEOX_KEY_PATH`
 - `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH`
-- `PHALA_DSTACK_RELAYER_NEOX_KEY_PATH`
   English: Override key-derivation paths for worker or relayer accounts.
   中文：覆盖 worker / relayer 的派生密钥路径。
 

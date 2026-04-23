@@ -381,7 +381,7 @@ const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet') || 'testne
 const registry = await readDeploymentRegistry(network);
 const deployment = registry.neo_n3 || {};
 const defaultRpcUrl =
-  network === 'mainnet' ? 'https://mainnet1.neo.coz.io:443' : 'https://testnet1.neo.coz.io:443';
+  network === 'mainnet' ? 'http://seed1.neo.org:10332' : 'https://testnet1.neo.coz.io:443';
 const defaultNetworkMagic = network === 'mainnet' ? 860833102 : 894710606;
 const rpcUrl = trimString(process.env.NEO_RPC_URL || deployment.rpc_url || defaultRpcUrl);
 const networkMagic = Number(

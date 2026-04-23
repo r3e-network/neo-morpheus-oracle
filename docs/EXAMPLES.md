@@ -28,7 +28,7 @@ Concrete files also live under:
 
 - `examples/README.md`
 - `examples/payloads/`
-- `examples/contracts/neox/`
+- `examples/contracts/n3/`
 - `examples/contracts/n3/`
 - `examples/browser-encryption/`
 - `examples/node-encryption/`
@@ -37,7 +37,7 @@ Concrete files also live under:
 Current support note:
 
 - Neo N3 is the only actively supported public integration path right now.
-- Any Neo X examples that still appear below are archived reference material and should not be used as the default starting point for new integrations.
+- Any Neo N3 examples that still appear below are archived reference material and should not be used as the default starting point for new integrations.
 
 ## Who Should Read Which Sections / 不同角色应该看哪几节
 
@@ -95,7 +95,6 @@ Read these first:
 - Section 13: Compute + Custom JS Function
 - Section 14: Compute + WASM
 - Section 15: Oracle + WASM
-- `docs/SECURITY_AUDIT.md`
 - `docs/ATTESTATION_SPEC.md`
 
 ## Fast Scenario Index / 场景快速索引
@@ -158,7 +157,7 @@ Every successful fulfill writes `result` bytes that contain UTF-8 JSON:
   "success": true,
   "result": {
     "mode": "fetch",
-    "target_chain": "neo_x",
+    "target_chain": "neo_n3",
     "result": "2.508"
   },
   "verification": {
@@ -331,7 +330,7 @@ async function encryptWithOracleKey(publicKeyBase64, plaintext) {
 }
 ```
 
-## 5. Neo X User Contract: Basic Oracle Request / Neo X 用户合约：基础预言机请求
+## 5. Neo N3 User Contract: Basic Oracle Request / Neo N3 用户合约：基础预言机请求
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -367,7 +366,7 @@ contract UserConsumerX {
         uint256 fee = oracle.requestFee();
         require(msg.value == fee, "incorrect request fee");
         bytes memory payload = abi.encodePacked(
-            "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_x\"}"
+            "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}"
         );
 
         requestId = oracle.request{value: fee}(
@@ -453,10 +452,10 @@ Fee note:
 手续费说明：
 
 - Neo N3 currently consumes prepaid Oracle credit at `0.01 GAS` per request.
-- Neo X reference contracts use `requestFee()` and `msg.value`.
+- Neo N3 reference contracts use `requestFee()` and `msg.value`.
 
 - Neo N3 现在每次请求消耗预存的 `0.01 GAS` Oracle credit。
-- Neo X 参考合约通过 `requestFee()` 和 `msg.value` 支付。
+- Neo N3 参考合约通过 `requestFee()` 和 `msg.value` 支付。
 
 ## 7. Oracle + Encrypted Token / 预言机 + 加密 token
 
@@ -478,7 +477,7 @@ Payload before encryption:
   "encrypted_token": "<ciphertext; hybrid envelope recommended>",
   "token_header": "Authorization",
   "json_path": "data.score",
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -529,7 +528,7 @@ Encrypted JSON patch example:
     "exponent": "10",
     "modulus": "17"
   },
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -540,7 +539,7 @@ From contract, use `requestType = "compute"`:
 ```solidity
 function requestModexp() external returns (uint256 requestId) {
     bytes memory payload = abi.encodePacked(
-        "{\"mode\":\"builtin\",\"function\":\"math.modexp\",\"input\":{\"base\":\"2\",\"exponent\":\"10\",\"modulus\":\"17\"},\"target_chain\":\"neo_x\"}"
+        "{\"mode\":\"builtin\",\"function\":\"math.modexp\",\"input\":{\"base\":\"2\",\"exponent\":\"10\",\"modulus\":\"17\"},\"target_chain\":\"neo_n3\"}"
     );
     requestId = oracle.request("compute", payload, address(this), "onOracleResult");
 }
@@ -571,7 +570,7 @@ Encrypted JSON patch:
     "exponent": "10",
     "modulus": "17"
   },
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -613,7 +612,7 @@ Public payload:
   "method": "GET",
   "encrypted_token": "<ciphertext>",
   "encrypted_params": "<ciphertext>",
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -660,7 +659,7 @@ WASM 现在是更推荐的路径，因为隔离性更强。
     "left": 2,
     "right": 3
   },
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -685,7 +684,7 @@ Use this when you want fetch + isolated compute in one trusted step.
   "json_path": "price",
   "wasm_base64": "<base64 wasm module>",
   "wasm_entry": "run",
-  "target_chain": "neo_x"
+  "target_chain": "neo_n3"
 }
 ```
 
@@ -699,8 +698,8 @@ WASM input to the module is:
     "price": "2.508"
   },
   "context": {
-    "target_chain": "neo_x",
-    "request_source": "morpheus-relayer:neo_x",
+    "target_chain": "neo_n3",
+    "request_source": "morpheus-relayer:neo_n3",
     "upstream_status": 200
   }
 }
@@ -732,7 +731,7 @@ Encrypted JSON patch:
 }
 ```
 
-## 17. PriceFeed Read: Neo X / 读取 Neo X PriceFeed
+## 17. PriceFeed Read: Neo N3 / 读取 Neo N3 PriceFeed
 
 ```solidity
 interface IMorpheusDataFeedX {
@@ -779,7 +778,7 @@ public static object[] ReadNeoUsd(UInt160 dataFeedHash)
 
 ## 19. Feed Pair Discovery / 枚举 feed 列表
 
-### Neo X
+### Neo N3
 
 ```solidity
 interface IMorpheusDataFeedX {
@@ -811,7 +810,7 @@ This is an operator-only route. End users should not submit `datafeed` requests 
 ```json
 {
   "symbol": "NEO-USD",
-  "target_chain": "neo_x",
+  "target_chain": "neo_n3",
   "broadcast": true
 }
 ```
@@ -906,7 +905,7 @@ One-shot example:
       "provider": "twelvedata",
       "symbol": "NEO-USD",
       "json_path": "price",
-      "target_chain": "neo_x"
+      "target_chain": "neo_n3"
     }
   },
   "max_executions": 1
@@ -954,7 +953,7 @@ Price-threshold example:
 {
   "trigger": {
     "type": "price_threshold",
-    "feed_chain": "neo_x",
+    "feed_chain": "neo_n3",
     "pair": "TWELVEDATA:NEO-USD",
     "comparator": "cross_above",
     "threshold": "300",
@@ -964,7 +963,7 @@ Price-threshold example:
     "request_type": "privacy_oracle",
     "payload": {
       "url": "https://postman-echo.com/get?probe=automation-threshold",
-      "target_chain": "neo_x",
+      "target_chain": "neo_n3",
       "encrypted_params": "<ciphertext>"
     }
   }
@@ -978,12 +977,12 @@ Fee model:
 - each automation execution queues a normal Oracle request
 - every queued execution consumes the standard `requestFee`
 - Neo N3 uses prepaid GAS credits already stored in the Oracle contract
-- Neo X uses prepaid fee credits through `depositFeeCredit`
+- Neo N3 uses prepaid fee credits through `depositFeeCredit`
 
 - 每次自动化执行都会排队成一个普通 Oracle 请求
 - 每次排队执行都会消耗标准 `requestFee`
 - Neo N3 直接消耗 Oracle 合约里的预存 GAS credit
-- Neo X 通过 `depositFeeCredit` 预存手续费
+- Neo N3 通过 `depositFeeCredit` 预存手续费
 
 Validated on Neo N3 mainnet:
 

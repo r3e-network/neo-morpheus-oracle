@@ -12,12 +12,9 @@ const originalFetch = global.fetch;
 const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
 const originalPhalaApiToken = process.env.PHALA_API_TOKEN;
 const originalNeoN3Key = process.env.PHALA_NEO_N3_PRIVATE_KEY;
-const originalNeoXKey = process.env.PHALA_NEOX_PRIVATE_KEY;
 const originalNeoRpc = process.env.NEO_RPC_URL;
-const originalNeoXRpc = process.env.NEOX_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
 const originalTwelveData = process.env.TWELVEDATA_API_KEY;
-const originalNeoXDataFeedAddress = process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS;
 const originalFeedStatePath = process.env.MORPHEUS_FEED_STATE_PATH;
 const originalSupabaseUrl = process.env.SUPABASE_URL;
 const originalSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -35,13 +32,9 @@ process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
 process.env.PHALA_API_TOKEN = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
-process.env.PHALA_NEOX_PRIVATE_KEY =
-  '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
-process.env.NEOX_RPC_URL = '';
 process.env.EVM_RPC_URL = '';
 process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
-process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '';
 const workerTestFeedStateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-worker-feed-state-'));
 process.env.MORPHEUS_FEED_STATE_PATH = path.join(workerTestFeedStateDir, 'feed-state.json');
 process.env.SUPABASE_URL = '';
@@ -61,12 +54,9 @@ const WORKER_TEST_ENV_KEEP = new Set([
   'PHALA_SHARED_SECRET',
   'PHALA_API_TOKEN',
   'PHALA_NEO_N3_PRIVATE_KEY',
-  'PHALA_NEOX_PRIVATE_KEY',
   'NEO_RPC_URL',
-  'NEOX_RPC_URL',
   'EVM_RPC_URL',
   'TWELVEDATA_API_KEY',
-  'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
   'MORPHEUS_FEED_STATE_PATH',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
@@ -83,9 +73,7 @@ for (const key of Object.keys(process.env)) {
     key === 'NEO_TESTNET_WIF' ||
     key === 'NEO_N3_WIF' ||
     key.startsWith('PHALA_NEO_N3_') ||
-    key.startsWith('PHALA_NEOX_') ||
     key.startsWith('MORPHEUS_RELAYER_NEO_N3_') ||
-    key.startsWith('MORPHEUS_RELAYER_NEOX_') ||
     key.startsWith('MORPHEUS_UPDATER_NEO_N3_') ||
     key.startsWith('MORPHEUS_ORACLE_VERIFIER_') ||
     key.startsWith('PHALA_ORACLE_VERIFIER_') ||
@@ -1145,12 +1133,9 @@ test.after(() => {
   process.env.PHALA_SHARED_SECRET = originalPhalaToken;
   process.env.PHALA_API_TOKEN = originalPhalaApiToken;
   process.env.PHALA_NEO_N3_PRIVATE_KEY = originalNeoN3Key;
-  process.env.PHALA_NEOX_PRIVATE_KEY = originalNeoXKey;
   process.env.NEO_RPC_URL = originalNeoRpc;
-  process.env.NEOX_RPC_URL = originalNeoXRpc;
   process.env.EVM_RPC_URL = originalEvmRpc;
   process.env.TWELVEDATA_API_KEY = originalTwelveData;
-  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = originalNeoXDataFeedAddress;
   process.env.MORPHEUS_FEED_STATE_PATH = originalFeedStatePath;
   process.env.SUPABASE_URL = originalSupabaseUrl;
   process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
@@ -1654,8 +1639,7 @@ test('oracle smart fetch supports encrypted_payload alias and script_base64', as
         script_base64: Buffer.from('function process(data) { return data.age > 80; }').toString(
           'base64'
         ),
-        target_chain: 'neo_x',
-        target_chain_id: '12227332',
+        target_chain: 'neo_n3',
       }),
     })
   );
@@ -1663,8 +1647,7 @@ test('oracle smart fetch supports encrypted_payload alias and script_base64', as
   const body = await res.json();
   assert.equal(body.mode, 'fetch+compute');
   assert.equal(body.result, true);
-  assert.equal(body.target_chain, 'neo_x');
-  assert.equal(body.target_chain_id, '12227332');
+  assert.equal(body.target_chain, 'neo_n3');
 });
 
 test('oracle smart fetch supports encrypted JSON payload patches', async () => {
@@ -2132,8 +2115,7 @@ test('compute execute supports encrypted confidential payload patches', async ()
       mode: 'builtin',
       function: 'math.modexp',
       input: { base: '2', exponent: '10', modulus: '17' },
-      target_chain: 'neo_x',
-      target_chain_id: '12227332',
+      target_chain: 'neo_n3',
     })
   );
 
@@ -2149,8 +2131,7 @@ test('compute execute supports encrypted confidential payload patches', async ()
   assert.equal(body.mode, 'builtin');
   assert.equal(body.function, 'math.modexp');
   assert.equal(body.result.value, '4');
-  assert.equal(body.target_chain, 'neo_x');
-  assert.equal(body.target_chain_id, '12227332');
+  assert.equal(body.target_chain, 'neo_n3');
 });
 
 test('compute execute supports X25519 encrypted payloads larger than raw RSA limits', async () => {
@@ -2192,7 +2173,7 @@ test('compute execute supports wasm runtime', async () => {
       headers: authHeaders(),
       body: JSON.stringify({
         wasm_base64: TEST_WASM_OK_BASE64,
-        target_chain: 'neo_x',
+        target_chain: 'neo_n3',
       }),
     })
   );
@@ -2629,7 +2610,7 @@ test('oracle smart fetch uses compact programmable context for large custom URL 
   }
 });
 
-test('sign-payload supports neo_n3 and neo_x', async () => {
+test('sign-payload supports neo_n3', async () => {
   global.fetch = originalFetch;
 
   const neoN3Res = await handler(
@@ -2644,19 +2625,6 @@ test('sign-payload supports neo_n3 and neo_x', async () => {
   assert.ok(neoN3.signature);
   assert.ok(neoN3.public_key);
   assert.ok(neoN3.address);
-
-  const neoXRes = await handler(
-    new Request('http://local/sign/payload', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ target_chain: 'neo_x', message: 'hello neo x' }),
-    })
-  );
-  assert.equal(neoXRes.status, 200);
-  const neoX = await neoXRes.json();
-  assert.ok(neoX.signature);
-  assert.ok(neoX.address);
-  assert.equal(neoX.mode, 'message');
 });
 
 test('sign-payload infers the Morpheus network from the request path for Neo N3 signing', async () => {
@@ -2706,54 +2674,6 @@ test('sign-payload infers the Morpheus network from the request path for Neo N3 
 
     if (previousMainnetKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
     else process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET = previousMainnetKey;
-  }
-});
-
-test('sign-payload resolves Neo X signing keys from the inferred request-path network', async () => {
-  global.fetch = originalFetch;
-  const previousGenericKey = process.env.PHALA_NEOX_PRIVATE_KEY;
-  const previousTestnetKey = process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET;
-  const previousMainnetKey = process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET;
-  const testnetKey = '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb';
-  const mainnetKey = '0x8b3a350cf5c34c9194ca3a545d67d9f17f61e2db8c10d4c58ca0c7d2219f4e62';
-  const testnetWallet = new EvmWallet(testnetKey);
-  const mainnetWallet = new EvmWallet(mainnetKey);
-
-  delete process.env.PHALA_NEOX_PRIVATE_KEY;
-  process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET = testnetKey;
-  process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET = mainnetKey;
-
-  try {
-    const mainnetRes = await handler(
-      new Request('http://local/mainnet/sign/payload', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ target_chain: 'neo_x', message: 'neo x mainnet' }),
-      })
-    );
-    assert.equal(mainnetRes.status, 200);
-    const mainnetBody = await mainnetRes.json();
-    assert.equal(mainnetBody.address, mainnetWallet.address);
-
-    const testnetRes = await handler(
-      new Request('http://local/testnet/sign/payload', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ target_chain: 'neo_x', message: 'neo x testnet' }),
-      })
-    );
-    assert.equal(testnetRes.status, 200);
-    const testnetBody = await testnetRes.json();
-    assert.equal(testnetBody.address, testnetWallet.address);
-  } finally {
-    if (previousGenericKey === undefined) delete process.env.PHALA_NEOX_PRIVATE_KEY;
-    else process.env.PHALA_NEOX_PRIVATE_KEY = previousGenericKey;
-
-    if (previousTestnetKey === undefined) delete process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET;
-    else process.env.PHALA_NEOX_PRIVATE_KEY_TESTNET = previousTestnetKey;
-
-    if (previousMainnetKey === undefined) delete process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET;
-    else process.env.PHALA_NEOX_PRIVATE_KEY_MAINNET = previousMainnetKey;
   }
 });
 
@@ -2909,279 +2829,4 @@ test('sign-payload prefers an explicit oracle_verifier key over derived signing 
 
     __resetDstackClientStateForTests();
   }
-});
-
-test('oracle feed supports neo_x contract relay mode', async () => {
-  __resetFeedStateForTests();
-  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
-  global.fetch = async (url, init) => {
-    const value = String(url);
-    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('NEO%2FUSD')) {
-      return new Response(JSON.stringify({ price: '12.34' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('GAS%2FUSD')) {
-      return new Response(JSON.stringify({ price: '5.67' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    throw new Error(`unexpected fetch ${url}`);
-  };
-
-  const res = await handler(
-    new Request('http://local/oracle/feed', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        symbols: ['NEO-USD', 'GAS-USD'],
-        target_chain: 'neo_x',
-        broadcast: false,
-        contract_address: '0x1111111111111111111111111111111111111111',
-        chain_id: 47763,
-        nonce: 1,
-        gas_limit: '250000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000',
-      }),
-    })
-  );
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.equal(body.target_chain, 'neo_x');
-  assert.ok(Array.isArray(body.sync_results));
-  assert.equal(body.batch_submitted, true);
-  assert.equal(body.batch_count, 2);
-  assert.ok(body.batch_tx);
-  assert.equal(body.sync_results[0].relay_status, 'submitted');
-  assert.equal(body.sync_results[1].relay_status, 'submitted');
-  assert.equal(body.sync_results[0].quote.decimals, 6);
-  const iface = new Interface([
-    'function updateFeeds(string[] pairs,uint256[] roundIds,uint256[] prices,uint256[] timestamps,bytes32[] attestationHashes,uint256[] sourceSetIds)',
-  ]);
-  const txEnvelope = Transaction.from(body.batch_tx.raw_transaction);
-  const decoded = iface.decodeFunctionData('updateFeeds', txEnvelope.data);
-  assert.deepEqual(Array.from(decoded[0]), ['TWELVEDATA:NEO-USD', 'TWELVEDATA:GAS-USD']);
-  assert.equal(decoded[2][0].toString(), '12340000');
-  assert.equal(decoded[2][1].toString(), '5670000');
-});
-
-test('oracle feed records scan prices and skips chain tx when all changes stay below threshold', async () => {
-  __resetFeedStateForTests();
-  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
-
-  let currentPrice = '12.34';
-  global.fetch = async (url) => {
-    const value = String(url);
-    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('NEO%2FUSD')) {
-      return new Response(JSON.stringify({ price: currentPrice }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    throw new Error(`unexpected fetch ${url}`);
-  };
-
-  const first = await handler(
-    new Request('http://local/oracle/feed', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        symbols: ['NEO-USD'],
-        target_chain: 'neo_x',
-        feed_change_threshold_bps: 10,
-        feed_min_update_interval_ms: 0,
-        broadcast: false,
-        contract_address: '0x1111111111111111111111111111111111111111',
-        chain_id: 47763,
-        nonce: 1,
-        gas_limit: '250000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000',
-      }),
-    })
-  );
-  assert.equal(first.status, 200);
-  const firstBody = await first.json();
-  assert.equal(firstBody.batch_submitted, true);
-
-  currentPrice = '12.35'; // ~0.081% change from 12.34
-  const second = await handler(
-    new Request('http://local/oracle/feed', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        symbols: ['NEO-USD'],
-        target_chain: 'neo_x',
-        feed_change_threshold_bps: 10,
-        feed_min_update_interval_ms: 0,
-        broadcast: false,
-        contract_address: '0x1111111111111111111111111111111111111111',
-        chain_id: 47763,
-        nonce: 2,
-        gas_limit: '250000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000',
-      }),
-    })
-  );
-  assert.equal(second.status, 200);
-  const secondBody = await second.json();
-  assert.equal(secondBody.batch_submitted, false);
-  assert.equal(secondBody.batch_count, 0);
-  assert.equal(secondBody.batch_tx, null);
-  assert.equal(secondBody.sync_results[0].relay_status, 'skipped');
-  assert.equal(secondBody.sync_results[0].skip_reason, 'price-change-below-threshold');
-  assert.equal(secondBody.sync_results[0].comparison_basis, 'current-chain-price');
-
-  currentPrice = '12.36'; // >0.1% from submitted chain value 12.34, but only ~0.08% from prior scan 12.35
-  const third = await handler(
-    new Request('http://local/oracle/feed', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        symbols: ['NEO-USD'],
-        target_chain: 'neo_x',
-        feed_change_threshold_bps: 10,
-        feed_min_update_interval_ms: 0,
-        broadcast: false,
-        contract_address: '0x1111111111111111111111111111111111111111',
-        chain_id: 47763,
-        nonce: 3,
-        gas_limit: '250000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000',
-      }),
-    })
-  );
-  assert.equal(third.status, 200);
-  const thirdBody = await third.json();
-  assert.equal(thirdBody.batch_submitted, true);
-  assert.equal(thirdBody.batch_count, 1);
-  assert.equal(thirdBody.sync_results[0].relay_status, 'submitted');
-});
-
-test('oracle feed compares threshold using quantized on-chain integer price units', async () => {
-  __resetFeedStateForTests();
-  process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS = '0x1111111111111111111111111111111111111111';
-
-  let currentPrice = '1.00';
-  global.fetch = async (url) => {
-    const value = String(url);
-    if (/^https:\/\/api\.twelvedata\.com\//.test(value) && value.includes('USDT%2FUSD')) {
-      return new Response(JSON.stringify({ price: currentPrice }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    }
-    throw new Error(`unexpected fetch ${url}`);
-  };
-
-  const first = await handler(
-    new Request('http://local/oracle/feed', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        symbols: ['USDT-USD'],
-        target_chain: 'neo_x',
-        feed_change_threshold_bps: 10,
-        feed_min_update_interval_ms: 0,
-        broadcast: false,
-        contract_address: '0x1111111111111111111111111111111111111111',
-        chain_id: 47763,
-        nonce: 11,
-        gas_limit: '250000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000',
-      }),
-    })
-  );
-  assert.equal(first.status, 200);
-  const firstBody = await first.json();
-  assert.equal(firstBody.batch_submitted, true);
-
-  currentPrice = '1.0000004'; // still quantizes to the same 1e6-scaled on-chain integer
-  const second = await handler(
-    new Request('http://local/oracle/feed', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        symbols: ['USDT-USD'],
-        target_chain: 'neo_x',
-        feed_change_threshold_bps: 10,
-        feed_min_update_interval_ms: 0,
-        broadcast: false,
-        contract_address: '0x1111111111111111111111111111111111111111',
-        chain_id: 47763,
-        nonce: 12,
-        gas_limit: '250000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000',
-      }),
-    })
-  );
-  assert.equal(second.status, 200);
-  const secondBody = await second.json();
-  assert.equal(secondBody.batch_submitted, false);
-  assert.equal(secondBody.sync_results[0].skip_reason, 'price-change-below-threshold');
-  assert.equal(secondBody.sync_results[0].change_bps, 0);
-  assert.equal(secondBody.sync_results[0].comparison_basis, 'current-chain-price');
-
-  currentPrice = '1.001'; // +0.1%, should now publish under 1e6 scale
-  const third = await handler(
-    new Request('http://local/oracle/feed', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        symbols: ['USDT-USD'],
-        target_chain: 'neo_x',
-        feed_change_threshold_bps: 10,
-        feed_min_update_interval_ms: 0,
-        broadcast: false,
-        contract_address: '0x1111111111111111111111111111111111111111',
-        chain_id: 47763,
-        nonce: 13,
-        gas_limit: '250000',
-        max_fee_per_gas: '1000000000',
-        max_priority_fee_per_gas: '100000000',
-      }),
-    })
-  );
-  assert.equal(third.status, 200);
-  const thirdBody = await third.json();
-  assert.equal(thirdBody.batch_submitted, true);
-  assert.equal(thirdBody.batch_count, 1);
-  assert.equal(thirdBody.sync_results[0].relay_status, 'submitted');
-});
-
-test('relay-transaction signs neo_x tx locally when broadcast is disabled', async () => {
-  global.fetch = originalFetch;
-
-  const res = await handler(
-    new Request('http://local/relay/transaction', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        target_chain: 'neo_x',
-        broadcast: false,
-        transaction: {
-          to: '0x1111111111111111111111111111111111111111',
-          data: '0x',
-          value: '0',
-          chain_id: 47763,
-          nonce: 1,
-          gas_limit: '21000',
-          max_fee_per_gas: '1000000000',
-          max_priority_fee_per_gas: '100000000',
-        },
-      }),
-    })
-  );
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.equal(body.target_chain, 'neo_x');
-  assert.ok(body.raw_transaction);
-  assert.ok(body.address);
 });

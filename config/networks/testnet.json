@@ -7,9 +7,9 @@
     "edge_public_url": "https://edge.meshmini.app/testnet",
     "control_plane_url": "https://control.meshmini.app",
     "oracle_attestation_explorer_url": "https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093",
-    "datafeed_cvm_id": "28294e89d490924b79c85cdee057ce55723b3d56",
+    "datafeed_cvm_id": "ac5b6886a2832df36e479294206611652400178f",
     "datafeed_cvm_name": "datafeed-morpheus-neo-r3e",
-    "datafeed_attestation_explorer_url": "https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56"
+    "datafeed_attestation_explorer_url": "https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f"
   },
   "neo_n3": {
     "rpc_url": "https://testnet1.neo.coz.io:443",
@@ -56,15 +56,6 @@
     "examples": {
       "oracle_callback_consumer": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
       "feed_reader": "0xae9c17da3d8d1cc45b2a95f77ddce391b9bdcad4"
-    }
-  },
-  "neo_x": {
-    "rpc_url": "https://neoxt4seed1.ngd.network",
-    "chain_id": 12227332,
-    "contracts": {
-      "morpheus_oracle_x": "0x740DADC4D2b8249c8b22B4F2793bd942605F1db5",
-      "oracle_callback_consumer_x": "0xFa5F8d236b7E1c7B6c0bCCcF7154DF8beB881B3e",
-      "morpheus_datafeed_x": "0x2E35a79BEA7808EBb8B72279cB34c1A73F80339C"
     }
   }
 }

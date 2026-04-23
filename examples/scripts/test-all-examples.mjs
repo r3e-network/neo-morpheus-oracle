@@ -3,7 +3,6 @@ import path from 'node:path';
 import { repoRoot } from './common.mjs';
 
 const scripts = [
-  'examples/scripts/test-neox-examples.mjs',
   'examples/scripts/test-n3-examples.mjs',
 ];
 

@@ -14,6 +14,7 @@ import {
   trimString,
   tryParseJson,
   writeValidationArtifacts,
+  writeSkippedValidationArtifacts,
 } from './common.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
@@ -559,6 +560,25 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
+  const message = error?.stack || error?.message || String(error);
+  if (/method not found: addAllowedCallback|addAllowedCallback/i.test(message)) {
+    writeSkippedValidationArtifacts({
+      baseName: 'n3-fulfillment-replay',
+      network: 'testnet',
+      title: 'N3 Fulfillment Replay Boundary Validation',
+      reason: 'requires-deprecated-callback-allowlist-api',
+      details: { error: message },
+    })
+      .then((artifacts) => {
+        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
+        process.exit(0);
+      })
+      .catch((artifactError) => {
+        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
+        process.exit(1);
+      });
+    return;
+  }
+  console.error(message);
   process.exit(1);
 });

@@ -1,5 +1,3 @@
-import { Interface, formatEther } from 'ethers';
-
 import { getSelectedNetwork } from './networks';
 
 type OnchainFeedRecord = {
@@ -43,19 +41,6 @@ type ChainState = {
 const NEON3_GAS_DECIMALS = 8;
 const PRICE_SCALE = 1_000_000;
 const PRICE_DECIMALS = 6;
-
-const ORACLE_X_INTERFACE = new Interface([
-  'function requestFee() view returns (uint256)',
-  'function updater() view returns (address)',
-  'function oracleVerifier() view returns (address)',
-  'function oracleEncryptionAlgorithm() view returns (string)',
-  'function oracleEncryptionKeyVersion() view returns (uint256)',
-  'function accruedFees() view returns (uint256)',
-]);
-
-const DATAFEED_X_INTERFACE = new Interface([
-  'function getAllFeedRecords() view returns ((string pair,uint256 roundId,uint256 price,uint256 timestamp,bytes32 attestationHash,uint256 sourceSetId)[])',
-]);
 
 function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -202,15 +187,6 @@ async function invokeNeoN3Read(
   return parseNeoStackItem(result?.stack?.[0]);
 }
 
-async function invokeNeoXCall(rpcUrl: string, contractAddress: string, callData: string) {
-  return fetchJsonRpc(rpcUrl, {
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'eth_call',
-    params: [{ to: contractAddress, data: callData }, 'latest'],
-  });
-}
-
 async function fetchNeoN3State(
   rpcUrl: string,
   oracleHash: string,
@@ -288,110 +264,21 @@ async function fetchNeoN3State(
   }
 }
 
-function decodeNeoXResult(contractAddress: string, functionName: string, iface: Interface) {
-  return async (rpcUrl: string) => {
-    const callData = iface.encodeFunctionData(functionName);
-    const result = await invokeNeoXCall(rpcUrl, contractAddress, callData);
-    return iface.decodeFunctionResult(functionName, String(result));
-  };
-}
-
-async function fetchNeoXState(
-  rpcUrl: string,
-  oracleAddress: string,
-  datafeedAddress: string,
-  limit: number
-): Promise<ChainState> {
-  try {
-    const [
-      requestFeeDecoded,
-      updaterDecoded,
-      verifierDecoded,
-      encryptionAlgorithmDecoded,
-      encryptionKeyVersionDecoded,
-      accruedFeesDecoded,
-      feedRecordsDecoded,
-    ] = await Promise.all([
-      decodeNeoXResult(oracleAddress, 'requestFee', ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, 'updater', ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, 'oracleVerifier', ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, 'oracleEncryptionAlgorithm', ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, 'oracleEncryptionKeyVersion', ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(oracleAddress, 'accruedFees', ORACLE_X_INTERFACE)(rpcUrl),
-      decodeNeoXResult(datafeedAddress, 'getAllFeedRecords', DATAFEED_X_INTERFACE)(rpcUrl),
-    ]);
-
-    const feedRecordsRaw = Array.isArray(feedRecordsDecoded?.[0]) ? feedRecordsDecoded[0] : [];
-    const records = feedRecordsRaw
-      .map((entry: any) =>
-        normalizeFeedRecord({
-          pair: entry?.pair ?? entry?.[0],
-          roundId: entry?.roundId ?? entry?.[1],
-          price: entry?.price ?? entry?.[2],
-          timestamp: entry?.timestamp ?? entry?.[3],
-          attestationHash: entry?.attestationHash ?? entry?.[4],
-          sourceSetId: entry?.sourceSetId ?? entry?.[5],
-        })
-      )
-      .sort((left: OnchainFeedRecord, right: OnchainFeedRecord) => {
-        const timestampDiff = Number(right.timestamp) - Number(left.timestamp);
-        if (timestampDiff !== 0) return timestampDiff;
-        return left.pair.localeCompare(right.pair);
-      });
-
-    return {
-      oracle: {
-        contract: oracleAddress,
-        domain: null,
-        request_fee_raw: String(requestFeeDecoded?.[0] ?? '0'),
-        request_fee_display: `${formatEther(requestFeeDecoded?.[0] ?? 0n)} GAS`,
-        updater: trimString(String(updaterDecoded?.[0] ?? '')) || null,
-        verifier: trimString(String(verifierDecoded?.[0] ?? '')) || null,
-        encryption_algorithm: trimString(String(encryptionAlgorithmDecoded?.[0] ?? '')) || null,
-        encryption_key_version: String(encryptionKeyVersionDecoded?.[0] ?? '0'),
-        accrued_fees_raw: String(accruedFeesDecoded?.[0] ?? '0'),
-      },
-      datafeed: {
-        contract: datafeedAddress,
-        domain: null,
-        pair_count: records.length,
-        records: records.slice(0, limit),
-      },
-      error: null,
-    };
-  } catch (error) {
-    return {
-      oracle: null,
-      datafeed: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
 export async function fetchOnchainState(limit = 12) {
   const selected = getSelectedNetwork();
   const boundedLimit = Number.isFinite(limit) ? Math.max(Math.floor(limit), 1) : 12;
 
-  const [neoN3, neoX] = await Promise.all([
-    fetchNeoN3State(
-      trimString(selected.neo_n3.rpc_url),
-      trimString(selected.neo_n3.contracts.morpheus_oracle),
-      trimString(selected.neo_n3.contracts.morpheus_datafeed),
-      boundedLimit,
-      selected.neo_n3.domains || {}
-    ),
-    fetchNeoXState(
-      trimString(selected.neo_x.rpc_url),
-      trimString(selected.neo_x.contracts.morpheus_oracle_x),
-      trimString(selected.neo_x.contracts.morpheus_datafeed_x),
-      boundedLimit
-    ),
-  ]);
+  const neoN3 = await fetchNeoN3State(
+    trimString(selected.neo_n3.rpc_url),
+    trimString(selected.neo_n3.contracts.morpheus_oracle),
+    trimString(selected.neo_n3.contracts.morpheus_datafeed),
+    boundedLimit,
+    selected.neo_n3.domains || {}
+  );
 
   return {
     network: trimString(selected.network) || 'testnet',
     generated_at: new Date().toISOString(),
     neo_n3: neoN3,
-    neo_x: neoX,
   };
 }

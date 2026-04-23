@@ -165,7 +165,7 @@ test('loadFeedState bootstraps from Supabase snapshots when local state is empty
   global.fetch = async (url) => {
     assert.match(String(url), /morpheus_feed_snapshots/);
     assert.match(String(url), /network=eq\.mainnet/);
-    assert.match(String(url), /target_chain=eq\.neo_x/);
+    assert.match(String(url), /target_chain=eq\.neo_n3/);
     return new Response(
       JSON.stringify([
         {
@@ -186,7 +186,7 @@ test('loadFeedState bootstraps from Supabase snapshots when local state is empty
     );
   };
 
-  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_x' });
+  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
   assert.equal(state.records['TWELVEDATA:NEO-USD'].price, '12.34');
   assert.equal(state.records['TWELVEDATA:NEO-USD'].provider, 'twelvedata');
 });
@@ -323,7 +323,6 @@ test('handleOracleFeed isolates feed state by target chain inside one Morpheus n
   process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
   delete process.env.CONTRACT_PRICEFEED_HASH;
   delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
-  delete process.env.CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS;
 
   let requestCount = 0;
   global.fetch = async (url) => {
@@ -345,17 +344,8 @@ test('handleOracleFeed isolates feed state by target chain inside one Morpheus n
   });
   assert.equal(neoN3Response.status, 200);
 
-  const neoXResponse = await handleOracleFeed({
-    network: 'mainnet',
-    target_chain: 'neo_x',
-    symbols: ['NEO-USD'],
-  });
-  assert.equal(neoXResponse.status, 200);
-
   const neoN3State = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
-  const neoXState = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_x' });
   assert.equal(neoN3State.records['TWELVEDATA:NEO-USD'].last_observed_price, '12.34');
-  assert.equal(neoXState.records['TWELVEDATA:NEO-USD'].last_observed_price, '56.78');
 });
 
 test('handleOracleFeed fails closed when on-chain baseline is unavailable and local state is empty', async () => {
@@ -366,7 +356,7 @@ test('handleOracleFeed fails closed when on-chain baseline is unavailable and lo
   process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
   process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
   process.env.MORPHEUS_NETWORK = 'mainnet';
-  process.env.NEO_RPC_URL = 'https://mainnet1.neo.coz.io:443';
+  process.env.NEO_RPC_URL = 'http://seed1.neo.org:10332';
   process.env.CONTRACT_MORPHEUS_DATAFEED_HASH = '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
   process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
   process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY =
@@ -396,7 +386,7 @@ test('handleOracleFeed fails closed when on-chain baseline is unavailable and lo
   assert.equal(body.batch_count, 0);
   assert.deepEqual(body.sync_results, []);
   assert.match(body.errors[0].error, /baseline/i);
-  assert.ok(calls.some((entry) => entry.includes('mainnet1.neo.coz.io')));
+  assert.ok(calls.some((entry) => entry.includes('seed1.neo.org:10332')));
   assert.ok(!calls.some((entry) => entry.includes('api.twelvedata.com')));
 });
 

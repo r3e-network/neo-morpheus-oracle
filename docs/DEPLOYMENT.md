@@ -41,6 +41,8 @@ Apply migrations in order:
 8. `supabase/migrations/0008_network_isolation.sql`
 9. `supabase/migrations/0009_relayer_durable_queue_indexes.sql`
 10. `supabase/migrations/0010_control_plane_jobs.sql`
+11. `supabase/migrations/0011_workflow_runtime.sql`
+12. `supabase/migrations/0012_policy_and_risk_controls.sql`
 
 Optional:
 
@@ -172,7 +174,7 @@ Notes:
 ### DataFeed CVM
 
 - name: `datafeed-morpheus-neo-r3e`
-- app id: `28294e89d490924b79c85cdee057ce55723b3d56`
+- app id: `ac5b6886a2832df36e479294206611652400178f`
 - role: feed publication only
 - baseline size: `Small TDX`
 
@@ -235,7 +237,7 @@ npm run set:updater:n3
 - Oracle attestation explorer:
   - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
 - DataFeed attestation explorer:
-  - `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56`
+  - `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
 - Neo N3 service anchors:
   - `oracle.morpheus.neo`
   - `pricefeed.morpheus.neo`

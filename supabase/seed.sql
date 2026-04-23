@@ -7,7 +7,5 @@ on conflict (network, slug) do nothing;
 insert into morpheus_feed_snapshots (network, symbol, target_chain, price, payload)
 values
   ('mainnet', 'NEO-USD', 'neo_n3', 0, '{"source":"seed","network":"mainnet"}'::jsonb),
-  ('testnet', 'NEO-USD', 'neo_n3', 0, '{"source":"seed","network":"testnet"}'::jsonb),
-  ('mainnet', 'GAS-USD', 'neo_x', 0, '{"source":"seed","network":"mainnet"}'::jsonb),
-  ('testnet', 'GAS-USD', 'neo_x', 0, '{"source":"seed","network":"testnet"}'::jsonb)
+  ('testnet', 'NEO-USD', 'neo_n3', 0, '{"source":"seed","network":"testnet"}'::jsonb)
 on conflict do nothing;

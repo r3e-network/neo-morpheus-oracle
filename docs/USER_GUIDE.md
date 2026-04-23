@@ -32,7 +32,6 @@ Important production rule:
 - Each request currently costs `0.01 GAS`-equivalent.
 - Neo N3 supports prepaid fee credits, including contract-sponsored payment.
 - Neo N3 is the only active supported runtime path right now.
-- Neo X examples remain in-repo as reference material and should not be treated as the current production integration path.
 - Some route names and examples still use legacy oracle-shaped naming for compatibility.
 
 ## Canonical Network Registry
@@ -48,7 +47,7 @@ Current Neo N3 anchors:
 | ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Oracle Runtime URL            | `https://oracle.meshmini.app/mainnet`                                           | `https://oracle.meshmini.app/testnet`                                           |
 | Oracle Attestation Explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
-| DataFeed Attestation Explorer | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` | `https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56` |
+| DataFeed Attestation Explorer | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` |
 | MorpheusOracle Kernel         | `0x017520f068fd602082fe5572596185e62a4ad991`                                    | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
 | OracleCallbackConsumer Opt.   | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
 | MorpheusDataFeed Module       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                    | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
@@ -524,7 +523,6 @@ This means contracts can choose:
 - `GetAllPairs()`
 - `GetAllFeedRecords()`
 
-Neo X read methods are intentionally omitted here because Neo X is not part of the current production path.
 
 ## 5. NeoDID Usage
 

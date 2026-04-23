@@ -28,7 +28,7 @@ export function parseOnchainFeedRecords(stackItem, nowMs = Date.now(), staleMinu
         timestamp: String(timestamp ?? '0'),
         attestation_hash: trimString(attestationHash),
         source_set_id: String(sourceSetId ?? '0'),
-        ...classifyFeedFreshness(timestamp ?? '0', nowMs, staleMinutes),
+        ...classifyFeedFreshness(timestamp ?? '0', nowMs, staleMinutes, pair),
       };
     })
     .filter((entry) => entry.pair);

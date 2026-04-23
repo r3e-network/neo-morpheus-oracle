@@ -5,13 +5,8 @@ const selectedNetwork = getSelectedNetwork();
 
 const defaultNeoRpcUrl =
   selectedNetworkKey === 'mainnet'
-    ? 'https://mainnet1.neo.coz.io:443'
+    ? 'http://seed1.neo.org:10332'
     : 'https://testnet1.neo.coz.io:443';
-const defaultNeoXRpcUrl =
-  selectedNetworkKey === 'mainnet'
-    ? 'https://mainnet-2.rpc.banelabs.org'
-    : 'https://neoxt4seed1.ngd.network';
-const defaultNeoXChainId = selectedNetworkKey === 'mainnet' ? '47763' : '12227332';
 const defaultControlPlaneUrl =
   process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
 const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
@@ -71,6 +66,4 @@ export const appConfig = {
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
   neoRpcUrl: process.env.NEO_RPC_URL || defaultNeoRpcUrl,
-  neoXRpcUrl: process.env.NEOX_RPC_URL || defaultNeoXRpcUrl,
-  neoXChainId: process.env.NEOX_CHAIN_ID || defaultNeoXChainId,
 };

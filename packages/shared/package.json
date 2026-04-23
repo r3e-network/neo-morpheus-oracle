@@ -9,7 +9,8 @@
       "default": "./src/index.js"
     },
     "./utils": "./src/utils.js",
-    "./rate-limit": "./src/rate-limit.js"
+    "./rate-limit": "./src/rate-limit.js",
+    "./dstack-client": "./src/dstack-client.js"
   },
   "main": "./src/index.js",
   "types": "./src/index.ts"

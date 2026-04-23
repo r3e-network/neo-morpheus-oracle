@@ -18,7 +18,6 @@ Structure:
 - `node-encryption/` — Node-side encryption helpers
 - `payloads/` — ready-to-edit request payload templates
   - includes automation templates for one-shot, interval, and price-threshold jobs
-- `contracts/neox/` — Neo X user contract examples
 - `contracts/n3/` — Neo N3 user contract examples
 - `wasm/` — minimal WASM modules and build notes
 
@@ -32,15 +31,13 @@ Suggested usage:
 
 Live deploy/test:
 
-- `npm run examples:deploy:neox`
-- `npm run examples:test:neox`
 - `npm run examples:deploy:n3`
 - `npm run examples:test:n3`
 - `npm run examples:test:n3:builtins`
 - `npm run examples:test:n3:automation`
 - `npm run examples:test:feed-source`
 - `npm run examples:all`
-- `examples:all` runs `examples/scripts/deploy-and-test-all.mjs`, which compiles the Neo N3 and Neo X example contracts, deploys migration-oriented adapter contracts to testnet, configures the optional callback bridge where needed, and runs live oracle / encrypted compute / custom URL oracle / on-chain feed read flows.
+- `examples:all` runs `examples/scripts/deploy-and-test-all.mjs`, which validates the active Neo N3 example contracts and live oracle / encrypted compute / custom URL oracle / on-chain feed read flows.
 - Deployment addresses are recorded under `examples/deployments/testnet.json`.
 - The per-chain `examples:test:*` scripts rerun the live checks against the latest recorded deployment addresses without redeploying.
 

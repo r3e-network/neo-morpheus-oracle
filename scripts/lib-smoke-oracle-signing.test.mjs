@@ -34,7 +34,7 @@ describe('buildFulfillmentVerificationSignature', () => {
       requestType: 'privacy_oracle',
       success: true,
       resultText: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', price: '0' }),
-      chain: 'neo_x',
+      chain: 'legacy',
     };
 
     assert.equal(
@@ -46,7 +46,7 @@ describe('buildFulfillmentVerificationSignature', () => {
         input.resultText,
         '',
         '',
-        { chain: 'neo_x' }
+        { chain: 'legacy' }
       ).toString('hex')
     );
   });
@@ -63,7 +63,7 @@ describe('resolveFulfillmentSigningContext', () => {
           callback_contract: '0x226f508c',
         },
       }),
-      { chain: 'neo_x' }
+      { chain: 'legacy' }
     );
   });
 });

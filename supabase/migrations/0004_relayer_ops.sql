@@ -14,7 +14,7 @@ create table if not exists morpheus_relayer_runs (
 create table if not exists morpheus_relayer_jobs (
   id uuid primary key default gen_random_uuid(),
   event_key text not null unique,
-  chain text not null check (chain in ('neo_n3', 'neo_x')),
+  chain text not null check (chain in ('neo_n3')),
   request_id text not null,
   request_type text not null,
   tx_hash text,

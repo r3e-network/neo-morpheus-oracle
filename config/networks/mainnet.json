@@ -7,12 +7,19 @@
     "edge_public_url": "https://edge.meshmini.app/mainnet",
     "control_plane_url": "https://control.meshmini.app",
     "oracle_attestation_explorer_url": "https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093",
-    "datafeed_cvm_id": "28294e89d490924b79c85cdee057ce55723b3d56",
+    "datafeed_cvm_id": "ac5b6886a2832df36e479294206611652400178f",
     "datafeed_cvm_name": "datafeed-morpheus-neo-r3e",
-    "datafeed_attestation_explorer_url": "https://cloud.phala.com/explorer/app_28294e89d490924b79c85cdee057ce55723b3d56"
+    "datafeed_attestation_explorer_url": "https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f"
   },
   "neo_n3": {
     "rpc_url": "https://mainnet1.neo.coz.io:443",
+    "rpc_urls": [
+      "https://mainnet1.neo.coz.io:443",
+      "https://mainnet2.neo.coz.io:443",
+      "http://seed1.neo.org:10332",
+      "http://seed2.neo.org:10332",
+      "http://seed3.neo.org:10332"
+    ],
     "network_magic": 860833102,
     "domains": {
       "morpheus_oracle": "oracle.morpheus.neo",
@@ -56,15 +63,6 @@
     "examples": {
       "oracle_callback_consumer": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
       "feed_reader": "0x11e454261c21a32f1c9262472ca72a3156f9051f"
-    }
-  },
-  "neo_x": {
-    "rpc_url": "https://mainnet-2.rpc.banelabs.org",
-    "chain_id": 47763,
-    "contracts": {
-      "morpheus_oracle_x": "",
-      "oracle_callback_consumer_x": "",
-      "morpheus_datafeed_x": ""
     }
   }
 }

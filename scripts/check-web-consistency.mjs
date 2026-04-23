@@ -84,7 +84,6 @@ const [
   verifierDocsText,
   userGuideText,
   deploymentDocText,
-  securityAuditText,
 ] = await Promise.all([
   read('apps/web/lib/docs-data.ts'),
   read('workers/phala-worker/src/compute/index.js'),
@@ -108,7 +107,6 @@ const [
   read('apps/web/app/docs/verifier/page.tsx'),
   read('docs/USER_GUIDE.md'),
   read('docs/DEPLOYMENT.md'),
-  read('docs/SECURITY_AUDIT.md'),
 ]);
 
 const frontendBuiltinNames = new Set(extractBuiltinNames(docsDataText));
@@ -245,12 +243,6 @@ assert(
     deploymentDocText.includes('phala.feed-hub.toml'),
   'docs/DEPLOYMENT.md must document NeoDID anchors and both role-split Phala descriptors'
 );
-assert(
-  securityAuditText.includes('public DID resolver') ||
-    securityAuditText.includes('DID resolver should remain metadata-only'),
-  'docs/SECURITY_AUDIT.md must capture the NeoDID resolver privacy boundary'
-);
-
 const versionedDocsText = [
   docsIndexText,
   architectureDocsText,

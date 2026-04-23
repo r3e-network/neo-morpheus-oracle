@@ -249,7 +249,7 @@ describe('resolveFulfillmentSigningContext', () => {
         moduleId: '',
         operation: '',
       }),
-      { chain: 'neo_x', appId: '', moduleId: '', operation: '' }
+      { chain: 'legacy', appId: '', moduleId: '', operation: '' }
     );
   });
 

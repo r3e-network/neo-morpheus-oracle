@@ -35,6 +35,7 @@ import {
   shouldRunFeedSync,
   shouldRunRequestProcessing,
 } from './src/relayer.js';
+import { resolveRequestCursor } from './src/request-processor.js';
 import {
   buildEventKey,
   createEmptyRelayerState,
@@ -50,9 +51,9 @@ import {
   buildNeoN3RelayRequestId,
   decodeNeoItem,
   encodeUtf8ByteArrayParamValue,
+  getNeoN3LatestBlock,
   hasNeoN3RelayerConfig,
 } from './src/neo-n3.js';
-import { hasNeoXRelayerConfig } from './src/neo-x.js';
 import { claimRelayerJob, sanitizeForPostgres } from './src/persistence.js';
 import { createRelayerConfig } from './src/config.js';
 
@@ -255,6 +256,41 @@ test('callPhala falls back to the next configured worker endpoint', async () => 
       'https://worker-a.test/oracle/query',
       'https://worker-b.test/oracle/query',
     ]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('getNeoN3LatestBlock falls back to a healthy Neo RPC endpoint and promotes it', async () => {
+  const originalFetch = global.fetch;
+  try {
+    const calls = [];
+    global.fetch = async (url) => {
+      calls.push(String(url));
+      if (String(url) === 'https://bad-rpc.test') {
+        return new Response('<!DOCTYPE html><html><body>502</body></html>', {
+          status: 502,
+          headers: { 'content-type': 'text/html' },
+        });
+      }
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: 123 }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const config = {
+      neo_n3: {
+        rpcUrl: 'https://bad-rpc.test',
+        rpcUrls: ['https://bad-rpc.test', 'http://seed1.neo.org:10332'],
+        oracleContract: '0x1234',
+      },
+    };
+
+    const latestBlock = await getNeoN3LatestBlock(config);
+    assert.equal(latestBlock, 122);
+    assert.equal(config.neo_n3.rpcUrl, 'http://seed1.neo.org:10332');
+    assert.deepEqual(calls, ['https://bad-rpc.test', 'http://seed1.neo.org:10332']);
   } finally {
     global.fetch = originalFetch;
   }
@@ -744,19 +780,19 @@ test('state tracks processed events and metrics snapshot', () => {
 test('state schedules retries and marks queued items due', () => {
   const state = createEmptyRelayerState();
   const event = {
-    chain: 'neo_x',
+    chain: 'neo_n3',
     requestId: '9',
     txHash: '0xdef',
     logIndex: 3,
     blockNumber: 22,
     requestType: 'compute',
   };
-  const scheduled = scheduleRetry(state, 'neo_x', event, 'temporary failure', retryConfig);
+  const scheduled = scheduleRetry(state, 'neo_n3', event, 'temporary failure', retryConfig);
   assert.equal(scheduled.status, 'scheduled');
-  assert.equal(isEventQueuedForRetry(state, 'neo_x', event), true);
+  assert.equal(isEventQueuedForRetry(state, 'neo_n3', event), true);
 
-  state.neo_x.retry_queue[0].next_retry_at = Date.now() - 1;
-  const due = getDueRetryItems(state, 'neo_x');
+  state.neo_n3.retry_queue[0].next_retry_at = Date.now() - 1;
+  const due = getDueRetryItems(state, 'neo_n3');
   assert.equal(due.length, 1);
   assert.equal(due[0].key, buildEventKey(event));
 });
@@ -786,7 +822,7 @@ test('saveRelayerState creates parent directories', () => {
   assert.equal(fs.existsSync(target), true);
 });
 
-test('relayer config accepts derived-key mode for Neo N3 and Neo X', () => {
+test('relayer config accepts derived-key mode for Neo N3', () => {
   const previous = process.env.PHALA_USE_DERIVED_KEYS;
   process.env.PHALA_USE_DERIVED_KEYS = 'true';
 
@@ -797,11 +833,9 @@ test('relayer config accepts derived-key mode for Neo N3 and Neo X', () => {
       updaterWif: '',
       updaterPrivateKey: '',
     },
-    neo_x: { rpcUrl: 'https://neox.test', oracleContract: '0xdef', updaterPrivateKey: '' },
   };
 
   assert.equal(hasNeoN3RelayerConfig(config), true);
-  assert.equal(hasNeoXRelayerConfig(config), true);
 
   process.env.PHALA_USE_DERIVED_KEYS = previous;
 });
@@ -823,25 +857,19 @@ test('createRelayerConfig exposes the shared-worker derived-key preference', () 
 test('createRelayerConfig exposes request cursor start ids', () => {
   const previousNetwork = process.env.MORPHEUS_NETWORK;
   const previousNeoN3 = process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID;
-  const previousNeoX = process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID;
 
   process.env.MORPHEUS_NETWORK = 'testnet';
   process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID = '150';
-  process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID = '77';
 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.startRequestIds.neo_n3, 150);
-    assert.equal(config.startRequestIds.neo_x, 77);
   } finally {
     if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
     else process.env.MORPHEUS_NETWORK = previousNetwork;
 
     if (previousNeoN3 === undefined) delete process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID;
     else process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID = previousNeoN3;
-
-    if (previousNeoX === undefined) delete process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID;
-    else process.env.MORPHEUS_RELAYER_NEO_X_START_REQUEST_ID = previousNeoX;
   }
 });
 
@@ -953,9 +981,6 @@ test('buildFeedSyncPayload forwards target-chain signer material to the worker r
       updaterWif: 'KzjaqMvqzF1uup6KrTKRxTgjcXE7PbKLRH84e6ckyXDt3fu7afUb',
       updaterPrivateKey: '',
     },
-    neo_x: {
-      updaterPrivateKey: '0x59c6995e998f97a5a0044976f5d7d28f6af5b8b4f3d8f93f2af6d0a2b03f1abb',
-    },
   };
 
   const neoN3Payload = buildFeedSyncPayload(config, 'neo_n3');
@@ -963,10 +988,6 @@ test('buildFeedSyncPayload forwards target-chain signer material to the worker r
   assert.equal(neoN3Payload.provider, 'twelvedata');
   assert.equal(neoN3Payload.wif, config.neo_n3.updaterWif);
   assert.equal('private_key' in neoN3Payload, false);
-
-  const neoXPayload = buildFeedSyncPayload(config, 'neo_x');
-  assert.equal(neoXPayload.target_chain, 'neo_x');
-  assert.equal(neoXPayload.private_key, config.neo_x.updaterPrivateKey);
 });
 
 test('encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8', () => {
@@ -1032,7 +1053,7 @@ test('buildOnchainResultEnvelope keeps automation registration metadata', () => 
     body: {
       mode: 'automation',
       action: 'register',
-      automation_id: 'automation:neo_x:test',
+      automation_id: 'automation:neo_n3:test',
       trigger_type: 'interval',
       execution_request_type: 'privacy_oracle',
       status: 'active',
@@ -1040,7 +1061,7 @@ test('buildOnchainResultEnvelope keeps automation registration metadata', () => 
   });
   assert.equal(envelope.result.mode, 'automation');
   assert.equal(envelope.result.action, 'register');
-  assert.equal(envelope.result.automation_id, 'automation:neo_x:test');
+  assert.equal(envelope.result.automation_id, 'automation:neo_n3:test');
 });
 
 test('sanitizeForPostgres strips NUL bytes recursively', () => {
@@ -1066,7 +1087,7 @@ test('resolveChainFromBlock resets checkpoints ahead of the confirmed tip', () =
   state.neo_n3.last_block = 14258261;
 
   const config = {
-    startBlocks: { neo_n3: 8996388, neo_x: null },
+    startBlocks: { neo_n3: 8996388 },
   };
 
   const fromBlock = resolveChainFromBlock(config, state, 'neo_n3', 8996666, null);
@@ -1079,12 +1100,36 @@ test('resolveChainFromBlock advances from a valid checkpoint', () => {
   state.neo_n3.last_block = 8996666;
 
   const config = {
-    startBlocks: { neo_n3: 8996388, neo_x: null },
+    startBlocks: { neo_n3: 8996388 },
   };
 
   const fromBlock = resolveChainFromBlock(config, state, 'neo_n3', 8997000, null);
   assert.equal(fromBlock, 8996667);
   assert.equal(state.neo_n3.last_block, 8996666);
+});
+
+test('resolveRequestCursor tails the recent request window by default', () => {
+  const state = createEmptyRelayerState();
+  const config = {
+    startRequestIds: { neo_n3: null },
+    maxBlocksPerTick: 250,
+  };
+
+  const fromRequestId = resolveRequestCursor(config, state, 'neo_n3', 4702, null);
+  assert.equal(fromRequestId, 4453);
+});
+
+test('resolveRequestCursor resets invalid checkpoints to the recent tail window', () => {
+  const state = createEmptyRelayerState();
+  state.neo_n3.last_request_id = 999999;
+  const config = {
+    startRequestIds: { neo_n3: null },
+    maxBlocksPerTick: 250,
+  };
+
+  const fromRequestId = resolveRequestCursor(config, state, 'neo_n3', 4702, null);
+  assert.equal(fromRequestId, 4453);
+  assert.equal(state.neo_n3.last_request_id, null);
 });
 
 test('getFeedSyncDelayMs uses the most recent feed-sync attempt time', () => {

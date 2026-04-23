@@ -140,7 +140,7 @@ function resolveTargetChain(requestPayload: unknown, metadata: Record<string, un
   const fromRequest = isPlainObject(requestPayload) ? trimString(requestPayload.target_chain) : '';
   const fromMetadata = trimString(metadata.target_chain);
   const candidate = fromRequest || fromMetadata;
-  return candidate === 'neo_n3' || candidate === 'neo_x' ? candidate : null;
+  return candidate === 'neo_n3' ? candidate : null;
 }
 
 function resolveOperationNetwork(

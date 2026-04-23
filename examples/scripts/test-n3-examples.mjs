@@ -307,7 +307,7 @@ const consumerCreditBeforeSponsored = BigInt(
     { type: 'Hash160', value: consumerHash },
   ])) || '0'
 );
-const sponsoredProviderTx = await consumer.invoke('requestBuiltinProviderPrice', [], signers);
+const sponsoredProviderTx = await consumer.invoke('requestBuiltinProviderPriceSponsored', [], signers);
 const sponsoredProviderRequestId = await waitForRequestId(rpcClient, sponsoredProviderTx);
 const sponsoredProviderCallback = await waitForCallback(
   rpcClient,

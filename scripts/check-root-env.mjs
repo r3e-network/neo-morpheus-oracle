@@ -16,10 +16,6 @@ function getValue(env, keys) {
   return '';
 }
 
-function hasAny(env, keys) {
-  return keys.some((key) => trimString(env[key]));
-}
-
 const env = await readMergedDotEnvFiles(envPaths);
 
 const required = {
@@ -80,14 +76,10 @@ const report = {
   missing: {},
   optional_recommendations: {},
   mode: {
+    active_scope: 'neo_n3-only',
     neo_n3_enabled: Boolean(
       getValue(env, ['CONTRACT_MORPHEUS_ORACLE_HASH', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH'])
     ),
-    neo_x_enabled: hasAny(env, [
-      'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS',
-      'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS',
-      'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
-    ]),
   },
 };
 
@@ -111,21 +103,6 @@ for (const [section, groups] of Object.entries(required)) {
   report.missing[section] = groups
     .filter((keys) => !getValue(env, keys))
     .map((keys) => keys.join(' | '));
-}
-
-if (report.mode.neo_x_enabled) {
-  const neoxRequired = [
-    ['NEOX_RPC_URL'],
-    ['NEOX_CHAIN_ID', 'NEO_X_CHAIN_ID'],
-    ['CONTRACT_MORPHEUS_ORACLE_X_ADDRESS'],
-    ['CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS'],
-    ['NEOX_PRIVATE_KEY', 'PHALA_NEOX_PRIVATE_KEY', 'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY'],
-  ];
-  report.missing.neo_x = neoxRequired
-    .filter((keys) => !getValue(env, keys))
-    .map((keys) => keys.join(' | '));
-} else {
-  report.missing.neo_x = [];
 }
 
 report.optional_recommendations.admin_api = [

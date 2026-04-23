@@ -11,7 +11,6 @@ import {
   sponsorNeoN3Transaction,
   broadcastNeoN3RawTransaction,
 } from './neo-n3.js';
-import { handleSignPayloadNeoX, relayNeoXTransaction } from './neo-x.js';
 
 export { buildSignedResultEnvelope, buildVerificationEnvelope } from './signing.js';
 export {
@@ -20,7 +19,6 @@ export {
   sponsorNeoN3Transaction,
   broadcastNeoN3RawTransaction,
 } from './neo-n3.js';
-export { relayNeoXTransaction } from './neo-x.js';
 export { normalizeNeoHash160, isConfiguredHash160 } from '../platform/allowlist.js';
 
 export async function handleSignPayload(payload) {
@@ -42,14 +40,12 @@ export async function handleSignPayload(payload) {
     });
   }
 
-  return json(200, await handleSignPayloadNeoX(payload));
+  return json(400, { error: 'unsupported target_chain' });
 }
 
 export async function handleRelayTransaction(payload) {
   const targetChain = normalizeTargetChain(payload.target_chain);
-  if (targetChain === 'neo_x') {
-    return json(200, await relayNeoXTransaction(payload));
-  }
+  if (targetChain !== 'neo_n3') return json(400, { error: 'unsupported target_chain' });
 
   if ((payload.tx_base64 || payload.txBase64) && (payload.user_address || payload.userAddress)) {
     return json(200, await sponsorNeoN3Transaction(payload));

@@ -276,9 +276,13 @@ export function resolveRequestCursor(config, state, chain, latestRequestId, logg
   const configuredStart = optionsSafeNumber(config.startRequestIds?.[chain]);
   const defaultStart = Math.max(configuredStart ?? 1, 1);
   const lastRequestIdRaw = state[chain].last_request_id;
+  const defaultTailStart =
+    configuredStart === null || configuredStart === undefined
+      ? Math.max(latestRequestId - Math.max(config.maxBlocksPerTick - 1, 0), 1)
+      : defaultStart;
 
   if (lastRequestIdRaw === null || lastRequestIdRaw === undefined) {
-    return defaultStart;
+    return defaultTailStart;
   }
 
   const lastRequestId = Number(lastRequestIdRaw);
@@ -288,11 +292,11 @@ export function resolveRequestCursor(config, state, chain, latestRequestId, logg
       {
         chain,
         invalid_request_checkpoint: lastRequestIdRaw,
-        reset_to_start_request_id: defaultStart,
+        reset_to_start_request_id: defaultTailStart,
       },
       'Resetting invalid relayer request checkpoint'
     );
-    return defaultStart;
+    return defaultTailStart;
   }
 
   if (lastRequestId > latestRequestId) {
@@ -302,11 +306,11 @@ export function resolveRequestCursor(config, state, chain, latestRequestId, logg
         chain,
         request_checkpoint: lastRequestId,
         latest_request_id: latestRequestId,
-        reset_to_start_request_id: defaultStart,
+        reset_to_start_request_id: defaultTailStart,
       },
       'Resetting relayer request checkpoint ahead of latest request id'
     );
-    return defaultStart;
+    return defaultTailStart;
   }
 
   return lastRequestId + 1;

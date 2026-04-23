@@ -1,4 +1,3 @@
-import { ethers } from 'ethers';
 import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol, normalizeFeedSymbol } from './feed-defaults';
 import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 
@@ -21,22 +20,6 @@ export const NETWORKS = {
     datafeedCvmName: selectedNetwork.phala?.datafeed_cvm_name || '',
     datafeedAttestationExplorerUrl:
       selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
-  },
-  neo_x: {
-    name: selectedNetwork.network === 'mainnet' ? 'Neo X Mainnet' : 'Neo X Testnet',
-    rpc: selectedNetwork.neo_x?.rpc_url || '',
-    oracle: selectedNetwork.neo_x?.contracts?.morpheus_oracle_x || '',
-    datafeed: selectedNetwork.neo_x?.contracts?.morpheus_datafeed_x || '',
-    explorer:
-      selectedNetwork.network === 'mainnet'
-        ? 'https://xexplorer.neo.org/address/'
-        : 'https://xt4scan.ngd.network/address/',
-    domains: {
-      oracle: '',
-      datafeed: '',
-      aa: '',
-      neodid: '',
-    },
   },
   neo_n3: {
     name: selectedNetwork.network === 'mainnet' ? 'Neo N3 Mainnet' : 'Neo N3 Testnet',
@@ -73,7 +56,6 @@ export const NETWORKS = {
   },
 };
 
-const EVM_DATAFEED_ABI = ['function latestPrice(string pair) view returns (int256, uint256)'];
 const PRICE_SCALE = 1_000_000;
 const PRICE_SCALE_DECIMALS = 6;
 
@@ -83,24 +65,6 @@ export interface OnChainPrice {
   pair: string;
   network: string;
   contractLink: string;
-}
-
-export async function fetchNeoXPrice(pair: string): Promise<OnChainPrice | null> {
-  if (!NETWORKS.neo_x.datafeed) return null;
-  try {
-    const provider = new ethers.JsonRpcProvider(NETWORKS.neo_x.rpc);
-    const contract = new ethers.Contract(NETWORKS.neo_x.datafeed, EVM_DATAFEED_ABI, provider);
-    const [price, timestamp] = await contract.latestPrice(pair);
-    return {
-      price: (Number(price) / PRICE_SCALE).toFixed(PRICE_SCALE_DECIMALS),
-      timestamp: Number(timestamp) * 1000,
-      pair,
-      network: 'Neo X',
-      contractLink: `${NETWORKS.neo_x.explorer}${NETWORKS.neo_x.datafeed}`,
-    };
-  } catch {
-    return null;
-  }
 }
 
 let n3IndexCache: any = null;

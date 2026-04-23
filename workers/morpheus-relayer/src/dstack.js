@@ -1,4 +1,4 @@
-import { DstackClient, TappdClient } from '@phala/dstack-sdk';
+import { DstackClient, TappdClient } from '@neo-morpheus-oracle/shared/dstack-client';
 import { sha256Hex } from '../../phala-worker/src/platform/core.js';
 
 let dstackClientPromise;
@@ -90,16 +90,5 @@ export async function deriveRelayerNeoN3PrivateKeyHex() {
   return normalizePrivateKeyHex(
     await deriveKeyBytes(keyPath, 'neo-n3-relayer-signing'),
     'neo-n3:relayer'
-  );
-}
-
-export async function deriveRelayerNeoXPrivateKeyHex() {
-  const keyPath =
-    trimString(
-      process.env.PHALA_DSTACK_RELAYER_NEOX_KEY_PATH || process.env.PHALA_DSTACK_NEOX_KEY_PATH || ''
-    ) || 'morpheus/neo-x/relayer/signing/v1';
-  return normalizePrivateKeyHex(
-    await deriveKeyBytes(keyPath, 'neo-x-relayer-signing'),
-    'neo-x:relayer'
   );
 }

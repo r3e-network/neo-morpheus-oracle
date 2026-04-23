@@ -2,9 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { webcrypto } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { Contract, JsonRpcProvider } from 'ethers';
 import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from '../../scripts/lib-env.mjs';
 import {
@@ -23,6 +21,36 @@ const relayerStateFile = path.resolve(
 export function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
+
+export function logValidationStep(phase, details = {}) {
+  const payload = {
+    phase,
+    ...details,
+  };
+  console.log(JSON.stringify(payload, null, 2));
+}
+
+let phalaCliInvocationCache = null;
+
+export function resolvePhalaCliInvocation() {
+  if (phalaCliInvocationCache) return phalaCliInvocationCache;
+  const explicit = trimString(process.env.PHALA_CLI || '');
+  if (explicit) {
+    phalaCliInvocationCache = { command: explicit, argsPrefix: [] };
+    return phalaCliInvocationCache;
+  }
+
+  const direct = spawnSync('bash', ['-lc', 'command -v phala >/dev/null 2>&1']);
+  if ((direct.status ?? 1) === 0) {
+    phalaCliInvocationCache = { command: 'phala', argsPrefix: [] };
+    return phalaCliInvocationCache;
+  }
+
+  phalaCliInvocationCache = { command: 'npx', argsPrefix: ['-y', 'phala'] };
+  return phalaCliInvocationCache;
+}
+
+export const DEFAULT_REMOTE_COMMAND_TIMEOUT_MS = 45_000;
 
 export function resolveNeoN3SignerWif(
   network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet')
@@ -153,6 +181,43 @@ export async function writeValidationArtifacts({
   };
 }
 
+export async function writeSkippedValidationArtifacts({
+  baseName,
+  network,
+  generatedAt = new Date().toISOString(),
+  title,
+  reason,
+  details = {},
+}) {
+  const jsonReport = {
+    generated_at: generatedAt,
+    network,
+    status: 'skipped',
+    reason,
+    ...details,
+  };
+
+  const markdownReport = [
+    `# ${title}`,
+    '',
+    `Date: ${generatedAt}`,
+    '',
+    '## Result',
+    '',
+    '- Status: `skipped`',
+    `- Reason: \`${reason}\``,
+    '',
+  ].join('\n');
+
+  return writeValidationArtifacts({
+    baseName,
+    network,
+    generatedAt,
+    jsonReport,
+    markdownReport,
+  });
+}
+
 export function normalizeAddress(value) {
   const raw = trimString(value);
   if (!/^0x[0-9a-fA-F]{40}$/.test(raw)) return '';
@@ -193,7 +258,7 @@ export function resolveNeoN3RpcUrl(network = 'testnet', deployment = {}) {
   const normalized = trimString(network).toLowerCase() || 'testnet';
   const defaultRpcUrl =
     normalized === 'mainnet'
-      ? 'https://mainnet1.neo.coz.io:443'
+      ? 'http://seed1.neo.org:10332'
       : 'https://testnet1.neo.coz.io:443';
   return trimString(
     normalized === 'testnet'
@@ -300,39 +365,12 @@ export async function fetchOnchainOraclePublicKey(targetChain) {
   const chain = trimString(targetChain).toLowerCase();
   if (!chain) throw new Error('targetChain is required');
 
-  if (chain === 'neo_x') {
-    const rpcUrl = trimString(process.env.NEOX_RPC_URL || '');
-    const oracleAddress = normalizeAddress(process.env.CONTRACT_MORPHEUS_ORACLE_X_ADDRESS || '');
-    if (!rpcUrl) throw new Error('NEOX_RPC_URL is required');
-    if (!oracleAddress) throw new Error('CONTRACT_MORPHEUS_ORACLE_X_ADDRESS is required');
-
-    const provider = new JsonRpcProvider(rpcUrl);
-    const oracle = new Contract(
-      oracleAddress,
-      [
-        'function oracleEncryptionAlgorithm() view returns (string)',
-        'function oracleEncryptionPublicKey() view returns (string)',
-      ],
-      provider
-    );
-    const [algorithm, publicKey] = await Promise.all([
-      oracle.oracleEncryptionAlgorithm().catch(() => ORACLE_ENCRYPTION_ALGORITHM),
-      oracle.oracleEncryptionPublicKey(),
-    ]);
-    if (!trimString(publicKey)) throw new Error('Neo X oracle encryption public key is empty');
-    return {
-      source: 'neo_x_contract',
-      algorithm: trimString(algorithm || '') || ORACLE_ENCRYPTION_ALGORITHM,
-      public_key: publicKey,
-    };
-  }
-
   if (chain === 'neo_n3') {
     const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
     const rpcUrl = trimString(
       process.env.NEO_RPC_URL ||
         (network === 'mainnet'
-          ? 'https://mainnet1.neo.coz.io:443'
+          ? 'http://seed1.neo.org:10332'
           : 'https://testnet1.neo.coz.io:443')
     );
     const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
@@ -450,62 +488,12 @@ export async function buildEncryptedJsonPatch(targetChainOrValue, value = undefi
     JSON.stringify(hasExplicitTargetChain ? value : targetChainOrValue)
   );
 }
-
-export async function compileSolidityExample(relativePath, contractName) {
-  const require = createRequire(import.meta.url);
-  const solc = require(path.resolve(repoRoot, 'contracts/neox/node_modules/solc'));
-  const absolutePath = path.resolve(repoRoot, relativePath);
-  const sourceName = path.basename(relativePath);
-  const source = await fs.readFile(absolutePath, 'utf8');
-  const input = {
-    language: 'Solidity',
-    sources: {
-      [sourceName]: { content: source },
-    },
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
-      },
-      outputSelection: {
-        '*': {
-          '*': ['abi', 'evm.bytecode.object'],
-        },
-      },
-    },
-  };
-
-  const output = JSON.parse(solc.compile(JSON.stringify(input)));
-  const diagnostics = Array.isArray(output.errors) ? output.errors : [];
-  const failures = diagnostics.filter((entry) => entry.severity === 'error');
-  if (failures.length > 0) {
-    throw new Error(failures.map((entry) => entry.formattedMessage || entry.message).join('\n\n'));
-  }
-  for (const warning of diagnostics.filter((entry) => entry.severity === 'warning')) {
-    console.warn(warning.formattedMessage || warning.message);
-  }
-
-  const artifact = output.contracts?.[sourceName]?.[contractName];
-  if (!artifact?.abi || !artifact?.evm?.bytecode?.object) {
-    throw new Error(`failed to compile ${contractName} from ${relativePath}`);
-  }
-
-  return {
-    abi: artifact.abi,
-    bytecode: `0x${artifact.evm.bytecode.object}`,
-  };
-}
-
-export function runLocalRelayerOnce({ neoXStartBlock = null, neoN3StartBlock = null } = {}) {
+export function runLocalRelayerOnce({ neoN3StartBlock = null } = {}) {
   const env = {
     ...process.env,
     MORPHEUS_RELAYER_STATE_FILE: relayerStateFile,
-    MORPHEUS_RELAYER_NEO_X_CONFIRMATIONS: '0',
     MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS: '0',
   };
-  if (neoXStartBlock !== null && neoXStartBlock !== undefined) {
-    env.MORPHEUS_RELAYER_NEO_X_START_BLOCK = String(Math.max(Number(neoXStartBlock), 0));
-  }
   if (neoN3StartBlock !== null && neoN3StartBlock !== undefined) {
     env.MORPHEUS_RELAYER_NEO_N3_START_BLOCK = String(Math.max(Number(neoN3StartBlock), 0));
   }

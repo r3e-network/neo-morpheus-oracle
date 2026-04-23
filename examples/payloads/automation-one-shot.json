@@ -10,7 +10,7 @@
       "provider": "twelvedata",
       "symbol": "NEO-USD",
       "json_path": "price",
-      "target_chain": "neo_x"
+      "target_chain": "neo_n3"
     }
   },
   "max_executions": 1

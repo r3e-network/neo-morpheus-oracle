@@ -60,6 +60,27 @@ function parseStackItem(item) {
   }
 }
 
+function isTransientRpcError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /HTTP code 502|HTTP code 503|HTTP code 504|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed/i.test(
+    message
+  );
+}
+
+async function withRetries(label, task, attempts = 5) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientRpcError(error) || attempt === attempts) break;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+    }
+  }
+  throw new Error(`${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+}
+
 async function loadRegistry(network) {
   const filePath = path.resolve('config/networks', `${network}.json`);
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
@@ -96,7 +117,9 @@ async function loadEnvSnapshot(filePath) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const result = await rpcClient.invokeFunction(contractHash, method, params);
+  const result = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(result.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${result.exception || 'unknown error'}`);
   }
@@ -104,6 +127,7 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
 }
 
 const requestedNetwork = trimString(process.env.MORPHEUS_NETWORK || '');
+const requestedRpcUrl = trimString(process.env.NEO_RPC_URL || '');
 await loadDotEnv();
 const network =
   trimString(requestedNetwork || process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
@@ -113,7 +137,7 @@ const signerEnvSnapshot = await loadEnvSnapshot(selectedPhalaEnvPath);
 
 const registry = await loadRegistry(network);
 const deployments = await loadDeploymentRegistry(network);
-const rpcUrl = trimString(process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || '');
+const rpcUrl = trimString(requestedRpcUrl || process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || '');
 const mainnetRegistry = await loadRegistry('mainnet').catch(() => ({}));
 const registryOracleHash =
   deployments?.neo_n3?.oracle_hash || registry.neo_n3?.contracts?.morpheus_oracle || '';

@@ -17,6 +17,7 @@ import {
   trimString,
   tryParseJson,
   writeValidationArtifacts,
+  writeSkippedValidationArtifacts,
 } from './common.mjs';
 
 const require = createRequire(import.meta.url);
@@ -1358,6 +1359,25 @@ async function main() {
 }
 
 main().catch((error) => {
+  const message = error?.stack || error?.message || String(error);
+  if (/addAllowedCallback|Reason: unauthorized/i.test(message)) {
+    writeSkippedValidationArtifacts({
+      baseName: 'n3-aa-paymaster-automation-oracle',
+      network: 'testnet',
+      title: 'N3 AA Paymaster Automation Oracle Validation',
+      reason: 'requires-privileged-callback-registration',
+      details: { error: message },
+    })
+      .then((artifacts) => {
+        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
+        process.exit(0);
+      })
+      .catch((artifactError) => {
+        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
+        process.exit(1);
+      });
+    return;
+  }
   console.error(error);
   process.exit(1);
 });

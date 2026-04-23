@@ -32,10 +32,6 @@ function getValue(env, runtimeConfig, key) {
   return trimString(env[key]) || trimString(runtimeConfig[key]);
 }
 
-function anyPresent(env, runtimeConfig, keys) {
-  return keys.some((key) => getValue(env, runtimeConfig, key));
-}
-
 function isTrue(value) {
   const normalized = trimString(value).toLowerCase();
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
@@ -67,14 +63,6 @@ const requiredEither = [
   ['MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'],
 ];
 
-const neoXFields = [
-  'NEOX_RPC_URL',
-  'NEOX_CHAIN_ID',
-  'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS',
-  'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS',
-  'MORPHEUS_RELAYER_NEOX_PRIVATE_KEY',
-];
-
 const envPath = resolveEnvPath();
 const raw = await fs.readFile(envPath, 'utf8');
 const env = parseDotEnv(raw);
@@ -86,25 +74,15 @@ const missingEither = requiredEither.filter((group) => {
   return !group.some((key) => getValue(env, runtimeConfig, key));
 });
 
-const neoXEnabled = anyPresent(env, runtimeConfig, [
-  'CONTRACT_MORPHEUS_ORACLE_X_ADDRESS',
-  'CONTRACT_ORACLE_CALLBACK_CONSUMER_X_ADDRESS',
-  'CONTRACT_MORPHEUS_DATAFEED_X_ADDRESS',
-]);
-const missingNeoX = neoXEnabled
-  ? neoXFields.filter((key) => !getValue(env, runtimeConfig, key))
-  : [];
-
 const report = {
   env_path: envPath,
-  mode: neoXEnabled ? 'n3+neox' : 'n3-only',
+  mode: 'n3-only',
   missing_required: missing,
   missing_either_of: missingEither,
-  missing_neox_required: missingNeoX,
   optional_recommendations: {
     oracle_verifier: [],
   },
-  ok: missing.length === 0 && missingEither.length === 0 && missingNeoX.length === 0,
+  ok: missing.length === 0 && missingEither.length === 0,
 };
 
 report.neo_n3_signers = reportPinnedNeoN3Roles(

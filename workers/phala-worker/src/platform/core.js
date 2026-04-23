@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const SUPPORTED_ORACLE_TARGET_CHAINS = new Set(['neo_n3', 'neo_x']);
+export const SUPPORTED_ORACLE_TARGET_CHAINS = new Set(['neo_n3']);
 export const DEFAULT_NEO_NETWORK_MAGIC = 894710606;
 export const DEFAULT_WAIT_TIMEOUT_MS = 120000;
 export const DEFAULT_POLL_INTERVAL_MS = 2000;
@@ -186,10 +186,8 @@ export function toPem(label, bytes) {
 
 export function normalizeTargetChain(value) {
   const normalized = trimString(value || 'neo_n3').toLowerCase();
-  if (!SUPPORTED_ORACLE_TARGET_CHAINS.has(normalized)) {
-    throw new Error(`unsupported target_chain: ${value}`);
-  }
-  return normalized;
+  if (SUPPORTED_ORACLE_TARGET_CHAINS.has(normalized)) return normalized;
+  throw new Error(`unsupported target_chain: ${value}`);
 }
 
 export function normalizeHeaders(input) {

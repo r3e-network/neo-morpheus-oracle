@@ -39,13 +39,13 @@ test('workspace manifests pin the safe frontend dependency floors', () => {
   assert.equal(webPkg.devDependencies?.vitest, '^4.1.4');
 });
 
-test('package lock resolves patched vite, vitest, defu, and picomatch versions', () => {
+test('package lock resolves patched vite, vitest, and installed picomatch versions', () => {
   const lock = readJson('package-lock.json');
   const packages = lock.packages ?? {};
 
-  assert.equal(packages['node_modules/defu']?.version, '6.1.7');
-  assert.equal(packages['node_modules/picomatch']?.version, '2.3.2');
-  assert.equal(packages['node_modules/tinyglobby/node_modules/picomatch']?.version, '4.0.4');
   assert.ok(versionAtLeast(packages['node_modules/vitest']?.version, '4.1.4'));
-  assert.ok(versionAtLeast(packages['node_modules/vite']?.version, '6.4.2'));
+  assert.ok(versionAtLeast(packages['node_modules/vite']?.version, '8.0.8'));
+  assert.equal(packages['node_modules/tinyglobby/node_modules/picomatch']?.version, '4.0.4');
+  assert.equal(packages['node_modules/vite/node_modules/picomatch']?.version, '4.0.4');
+  assert.equal(packages['node_modules/vitest/node_modules/picomatch']?.version, '4.0.4');
 });

@@ -218,39 +218,7 @@ export const SECURITY_CONCEPTS = [
   },
 ];
 
-export const CONTRACT_EXAMPLES = {
-  neo_x: `// Neo X (reference interface)
-interface IMorpheusOracleX {
-    function requestFee() external view returns (uint256);
-    function request(
-        string calldata requestType,
-        bytes calldata payload,
-        address callbackContract,
-        string calldata callbackMethod
-    ) external payable returns (uint256 requestId);
-}
-
-contract MyConsumer {
-    IMorpheusOracleX public immutable oracle;
-
-    constructor(address oracleAddress) {
-        oracle = IMorpheusOracleX(oracleAddress);
-    }
-
-    function requestNeoPrice(bytes calldata encryptedParams) external payable returns (uint256 requestId) {
-        uint256 fee = oracle.requestFee();
-        require(msg.value == fee, "incorrect request fee");
-        bytes memory payload = abi.encodePacked(
-            '{"provider":"twelvedata","symbol":"TWELVEDATA:NEO-USD","encrypted_params":"',
-            encryptedParams,
-            '","json_path":"price","target_chain":"neo_x"}'
-        );
-        requestId = oracle.request{value: fee}("privacy_oracle", payload, address(this), "onOracleResult");
-    }
-
-    function onOracleResult(uint256, string calldata, bool, bytes calldata, string calldata) external {}
-}`,
-  neo_n3: `// Neo N3 (selected environment)
+export const CONTRACT_EXAMPLE = `// Neo N3 (selected environment)
 [ContractHash("0x017520f068fd602082fe5572596185e62a4ad991")]
 public class MorpheusOracle : SmartContract
 {
@@ -284,5 +252,4 @@ public class MyConsumer : SmartContract
     {
         // store raw callback bytes first, parse off-chain when possible
     }
-}`,
-};
+}`;

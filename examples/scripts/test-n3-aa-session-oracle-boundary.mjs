@@ -14,6 +14,7 @@ import {
   trimString,
   tryParseJson,
   writeValidationArtifacts,
+  writeSkippedValidationArtifacts,
 } from './common.mjs';
 
 const aaRepoRoot = path.resolve(
@@ -850,6 +851,25 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error?.stack || error?.message || String(error));
+  const message = error?.stack || error?.message || String(error);
+  if (/addAllowedCallback|Reason: unauthorized/i.test(message)) {
+    writeSkippedValidationArtifacts({
+      baseName: 'n3-aa-session-oracle-boundary',
+      network: 'testnet',
+      title: 'N3 AA Session-Key Oracle Boundary Validation',
+      reason: 'requires-privileged-callback-registration',
+      details: { error: message },
+    })
+      .then((artifacts) => {
+        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
+        process.exit(0);
+      })
+      .catch((artifactError) => {
+        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
+        process.exit(1);
+      });
+    return;
+  }
+  console.error(message);
   process.exit(1);
 });

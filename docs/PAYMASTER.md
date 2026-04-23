@@ -17,7 +17,6 @@ Current production architecture:
 Current runtime scope:
 
 - active supported chain: `neo_n3`
-- Neo X sponsorship examples are not part of the current production path
 
 ## Security Model
 
@@ -148,7 +147,7 @@ This is currently a server-side integration path. It does not require changing t
 The latest integrated Oracle + NeoDID + AA verifier regression entrypoint is:
 
 - `npm run examples:test:n3:attack-regression`
-- reference docs: `docs/RELAYER.md`, `docs/SECURITY_AUDIT.md`
+- reference docs: `docs/RELAYER.md`
 
 ## Validated Neo N3 Testnet Flow
 

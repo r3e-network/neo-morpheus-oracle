@@ -28,7 +28,6 @@ Fill in at least:
 - optional `MORPHEUS_FEED_PROJECT_SLUG` and `MORPHEUS_FEED_PROVIDER`
 - `NEO_N3_WIF`
 - `PHALA_NEO_N3_WIF` or `PHALA_NEO_N3_PRIVATE_KEY`
-- `PHALA_NEOX_PRIVATE_KEY`
 - optional `TWELVEDATA_API_KEY`
 
 ## 3. Apply Supabase schema
@@ -65,14 +64,6 @@ Write deployed addresses into:
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
 - `CONTRACT_MORPHEUS_DATAFEED_HASH`
 
-### Neo X
-
-```bash
-npm --prefix contracts/neox install
-npm --prefix contracts/neox run compile
-npm --prefix contracts/neox test
-node scripts/setup-neox-addresses.mjs
-```
 
 ## 6. Configure contracts
 
