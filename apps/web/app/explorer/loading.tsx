@@ -2,7 +2,7 @@ import { Skeleton, SkeletonStats, SkeletonGrid } from '@/components/ui/Skeleton'
 
 export default function ExplorerLoading() {
   return (
-    <div className="container" style={{ padding: '2rem 0 3rem' }}>
+    <div className="container" style={{ padding: 'calc(72px + 2rem) 0 3rem' }}>
       <div
         style={{
           marginBottom: '2rem',

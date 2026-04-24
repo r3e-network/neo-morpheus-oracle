@@ -215,7 +215,7 @@ export function OverviewTab({ setOutput }: any) {
       ) : error ? (
         <Card variant="error" style={{ padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Info size={20} color="#ef4444" />
+            <Info size={20} color="var(--error)" />
             <div>
               <div style={{ fontWeight: 800, marginBottom: '4px' }}>
                 Failed to load network data
@@ -251,19 +251,6 @@ export function OverviewTab({ setOutput }: any) {
         onRefresh={() => void loadState()}
       />
 
-      <style jsx>{`
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 }

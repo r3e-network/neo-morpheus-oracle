@@ -37,8 +37,8 @@ const icons: Record<ToastType, typeof CheckCircle2> = {
 
 const colors: Record<ToastType, { bg: string; border: string; icon: string }> = {
   success: { bg: 'rgba(0, 255, 163, 0.1)', border: 'var(--neo-green)', icon: 'var(--neo-green)' },
-  error: { bg: 'rgba(239, 68, 68, 0.1)', border: '#ef4444', icon: '#ef4444' },
-  warning: { bg: 'rgba(245, 158, 11, 0.1)', border: '#f59e0b', icon: '#f59e0b' },
+  error: { bg: 'rgba(239, 68, 68, 0.1)', border: 'var(--error)', icon: 'var(--error)' },
+  warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'var(--warning)', icon: 'var(--warning)' },
   info: { bg: 'rgba(59, 130, 246, 0.1)', border: 'var(--accent-blue)', icon: 'var(--accent-blue)' },
 };
 
@@ -126,18 +126,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           );
         })}
       </div>
-      <style jsx>{`
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-      `}</style>
     </ToastContext.Provider>
   );
 }

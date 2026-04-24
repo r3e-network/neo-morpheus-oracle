@@ -437,7 +437,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
 
       <section
         className="card-industrial stagger-3"
-        style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b' }}
+        style={{ padding: '1.5rem', borderLeft: '4px solid var(--warning)' }}
       >
         <h4
           style={{

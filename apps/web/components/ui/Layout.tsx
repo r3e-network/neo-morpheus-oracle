@@ -160,14 +160,6 @@ export function Layout({
           <button
             className="mobile-menu-btn"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            style={{
-              display: 'none',
-              background: 'none',
-              border: 'none',
-              color: 'var(--text-primary)',
-              cursor: 'pointer',
-              padding: '8px',
-            }}
           >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -178,20 +170,7 @@ export function Layout({
 
       {/* Mobile Navigation */}
       {showNav && mobileMenuOpen && (
-        <div
-          className="mobile-nav"
-          style={{
-            position: 'fixed',
-            top: '72px',
-            left: 0,
-            right: 0,
-            background: 'var(--bg-nav)',
-            backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid var(--border-dim)',
-            padding: '1rem',
-            zIndex: 999,
-          }}
-        >
+        <div className="mobile-nav">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {mainNavItems.map((item) => (
               <Link
@@ -228,57 +207,65 @@ export function Layout({
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 flexWrap: 'wrap',
                 gap: '2rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <Boxes size={18} color="var(--text-muted)" />
-                <span
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+                  <Boxes size={18} color="var(--text-muted)" />
+                  <span
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontWeight: 800,
+                      fontSize: '0.9rem',
+                      letterSpacing: '0.1em',
+                    }}
+                  >
+                    MORPHEUS
+                  </span>
+                </div>
+                <div
                   style={{
                     color: 'var(--text-muted)',
-                    fontWeight: 800,
-                    fontSize: '0.9rem',
-                    letterSpacing: '0.1em',
+                    fontSize: '0.75rem',
+                    fontFamily: 'var(--font-mono)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
                   }}
                 >
-                  MORPHEUS
-                </span>
+                  {networkStatus === 'online' ? (
+                    <Wifi size={12} color="var(--neo-green)" />
+                  ) : (
+                    <WifiOff size={12} color="var(--error)" />
+                  )}
+                  © {new Date().getFullYear()} Neo Morpheus Network.
+                </div>
               </div>
-              <div
-                style={{
-                  color: 'var(--text-muted)',
-                  fontSize: '0.75rem',
-                  fontFamily: 'var(--font-mono)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                {networkStatus === 'online' ? (
-                  <Wifi size={12} color="var(--neo-green)" />
-                ) : (
-                  <WifiOff size={12} color="#ef4444" />
-                )}
-                © {new Date().getFullYear()} Neo Morpheus Network. Privacy-preserving oracle
-                infrastructure.
+              <div style={{ display: 'flex', gap: '2.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Product</span>
+                  {mainNavItems.map((item) => (
+                    <Link key={item.href} href={item.href} className="nav-link" style={{ fontSize: '0.8rem' }}>
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Resources</span>
+                  <Link href="/docs/api-reference" className="nav-link" style={{ fontSize: '0.8rem' }}>API Reference</Link>
+                  <Link href="/docs/networks" className="nav-link" style={{ fontSize: '0.8rem' }}>Networks</Link>
+                  <Link href="/verifier" className="nav-link" style={{ fontSize: '0.8rem' }}>Verifier</Link>
+                  <a href="https://github.com/r3e-network/neo-morpheus-oracle" target="_blank" rel="noopener noreferrer" className="nav-link" style={{ fontSize: '0.8rem' }}>GitHub</a>
+                </div>
               </div>
             </div>
           </div>
         </footer>
       )}
 
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .nav-links {
-            display: none !important;
-          }
-          .mobile-menu-btn {
-            display: block !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
