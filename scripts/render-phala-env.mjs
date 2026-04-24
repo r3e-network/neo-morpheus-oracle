@@ -300,7 +300,9 @@ function mergeCsvList(primary, additions = []) {
 
 const workerSigner = resolvePinnedRoleMaterial('worker');
 const relayerSigner = resolvePinnedRoleMaterial('relayer');
+const updaterSigner = resolvePinnedRoleMaterial('updater');
 const verifierSigner = resolvePinnedRoleMaterial('oracle_verifier');
+const networkEnvSuffix = network.toUpperCase();
 
 const runtimeConfig = {
   TWELVEDATA_API_KEY: get('TWELVEDATA_API_KEY'),
@@ -351,6 +353,10 @@ const runtimeConfig = {
   MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY: verifierSigner.privateKey,
   PHALA_ORACLE_VERIFIER_WIF: verifierSigner.wif,
   PHALA_ORACLE_VERIFIER_PRIVATE_KEY: verifierSigner.privateKey,
+  MORPHEUS_UPDATER_NEO_N3_WIF: updaterSigner.wif,
+  MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY: updaterSigner.privateKey,
+  [`MORPHEUS_UPDATER_NEO_N3_WIF_${networkEnvSuffix}`]: updaterSigner.wif,
+  [`MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_${networkEnvSuffix}`]: updaterSigner.privateKey,
   MORPHEUS_RELAYER_NEO_N3_WIF: relayerSigner.wif,
   MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: relayerSigner.privateKey,
   MORPHEUS_FEED_PROJECT_SLUG: get('MORPHEUS_FEED_PROJECT_SLUG') || 'morpheus',
