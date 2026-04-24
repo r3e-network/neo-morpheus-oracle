@@ -54,8 +54,14 @@ assert(
   publicRuntimeCatalog.envelope.version === '2026-04-tee-v1',
   'public runtime catalog must expose the canonical result envelope version'
 );
-assert(publicWorkflowIds.has('automation.upkeep'), 'public runtime catalog must include automation.upkeep');
-assert(publicWorkflowIds.has('paymaster.authorize'), 'public runtime catalog must include paymaster.authorize');
+assert(
+  publicWorkflowIds.has('automation.upkeep'),
+  'public runtime catalog must include automation.upkeep'
+);
+assert(
+  publicWorkflowIds.has('paymaster.authorize'),
+  'public runtime catalog must include paymaster.authorize'
+);
 assert(
   publicRuntimeCatalog.workflows.every((item) => !('confidentialSteps' in item)),
   'public runtime catalog must not expose confidential execution step details'

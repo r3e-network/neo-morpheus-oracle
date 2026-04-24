@@ -47,7 +47,8 @@ export function buildUpkeepDispatch(job = {}) {
 }
 
 export function buildUpkeepExecutionPayload(payload = {}, job = {}) {
-  const basePayload = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+  const basePayload =
+    payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
   const dispatch = buildUpkeepDispatch(job);
   return {
     ...basePayload,

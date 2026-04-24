@@ -99,7 +99,6 @@ describe('CircuitBreaker', () => {
     assert.equal(state.last_failure_at, null);
   });
 
-
   it('getState includes the recommended risk action', () => {
     const cb = new CircuitBreaker('coinbase-spot', { failureThreshold: 1 });
     cb.recordFailure();

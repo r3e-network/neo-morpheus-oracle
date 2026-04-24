@@ -120,9 +120,7 @@ function cloneWorkflowDefinition(definition) {
     policies: [...definition.policies],
     trigger: {
       ...definition.trigger,
-      ...(definition.trigger.supported
-        ? { supported: [...definition.trigger.supported] }
-        : {}),
+      ...(definition.trigger.supported ? { supported: [...definition.trigger.supported] } : {}),
     },
     delivery: { ...definition.delivery },
   };

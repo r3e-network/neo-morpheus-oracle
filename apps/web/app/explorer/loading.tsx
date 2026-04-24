@@ -3,7 +3,13 @@ import { Skeleton, SkeletonStats, SkeletonGrid } from '@/components/ui/Skeleton'
 export default function ExplorerLoading() {
   return (
     <div className="container" style={{ padding: '2rem 0 3rem' }}>
-      <div style={{ marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-dim)' }}>
+      <div
+        style={{
+          marginBottom: '2rem',
+          paddingBottom: '1.5rem',
+          borderBottom: '1px solid var(--border-dim)',
+        }}
+      >
         <Skeleton width="200px" height="14px" style={{ marginBottom: '0.9rem' }} />
         <Skeleton width="140px" height="36px" style={{ marginBottom: '0.75rem' }} />
         <Skeleton width="500px" height="18px" style={{ marginBottom: '1rem' }} />

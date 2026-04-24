@@ -72,7 +72,9 @@ function resolveExecutionPlan(resolved, path, payload) {
   return normalizeExecutionPlan({
     workflow_id: workflowId,
     workflow_version:
-      payload.workflow_version || payload.workflowVersion || resolved?.capability?.workflow?.version,
+      payload.workflow_version ||
+      payload.workflowVersion ||
+      resolved?.capability?.workflow?.version,
     execution_id: executionId,
     network: payload.network,
     provider_refs: payload.provider_refs || payload.providerRefs,
@@ -104,7 +106,9 @@ async function wrapWorkflowResponse(response, executionPlan) {
       {
         ok: response.ok,
         error:
-          !response.ok && output && typeof output === 'object' ? trimString(output.error || '') : '',
+          !response.ok && output && typeof output === 'object'
+            ? trimString(output.error || '')
+            : '',
       },
       output
     )

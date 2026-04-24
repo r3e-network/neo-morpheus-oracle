@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 describe('workflow runtime catalog', () => {
   it('returns workflow and policy metadata without secrets', async () => {
-    const { getPublicWorkflowCatalog, getPublicPolicyCatalog } = await import('../lib/workflow-runtime');
+    const { getPublicWorkflowCatalog, getPublicPolicyCatalog } =
+      await import('../lib/workflow-runtime');
 
     const catalog = getPublicWorkflowCatalog();
     expect(catalog.workflows.some((item) => item.id === 'compute.execute')).toBe(true);

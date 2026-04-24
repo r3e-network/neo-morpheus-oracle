@@ -53,7 +53,8 @@ function resolveRequestPolicyDecision(payload = {}) {
     ...explicit,
     workflow_id: explicit.workflow_id || payload.workflow_id || payload.workflowId || '',
     workflowId: explicit.workflowId || payload.workflowId || '',
-    provider: explicit.provider || payload.provider || payload.provider_id || payload.providerId || '',
+    provider:
+      explicit.provider || payload.provider || payload.provider_id || payload.providerId || '',
     scope: explicit.scope || payload.scope || '',
     scope_id: explicit.scope_id || explicit.scopeId || payload.scope_id || payload.scopeId || '',
   });
@@ -243,15 +244,12 @@ export async function applyRequestGuards({ request, path, payload }) {
     return {
       ok: false,
       routeName,
-      response: json(
-        requestPolicyDecision.httpStatus || 403,
-        {
-          error: 'policy_denied',
-          route: routeName,
-          reason: requestPolicyDecision.reason,
-          decision: requestPolicyDecision.decision,
-        }
-      ),
+      response: json(requestPolicyDecision.httpStatus || 403, {
+        error: 'policy_denied',
+        route: routeName,
+        reason: requestPolicyDecision.reason,
+        decision: requestPolicyDecision.decision,
+      }),
     };
   }
 

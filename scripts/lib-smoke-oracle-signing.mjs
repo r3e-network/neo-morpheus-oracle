@@ -13,7 +13,9 @@ export function resolveFulfillmentSigningContext({ requestRecord, defaultChain =
 
   const appId = trimString(record?.app_id || record?.appId || '');
   const moduleId = trimString(record?.module_id || record?.moduleId || '');
-  const operation = trimString(record?.operation || record?.request_type || record?.requestType || '');
+  const operation = trimString(
+    record?.operation || record?.request_type || record?.requestType || ''
+  );
 
   if (appId || moduleId) {
     return {

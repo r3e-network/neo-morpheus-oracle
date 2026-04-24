@@ -35,9 +35,7 @@ export default function DocsApiReference() {
       </p>
 
       <h2>1. Smart Contract Interface (Neo N3 C#)</h2>
-      <p>
-        The active on-chain interface is the Neo N3 C# call pattern below.
-      </p>
+      <p>The active on-chain interface is the Neo N3 C# call pattern below.</p>
 
       <div
         style={{

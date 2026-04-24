@@ -83,7 +83,8 @@ describe('public runtime status snapshot', () => {
   });
 
   it('builds public runtime notes for status surfaces', async () => {
-    const { buildPublicRuntimeStatusSnapshot, getPublicRuntimeStatusNotes } = await import('../lib/runtime-status');
+    const { buildPublicRuntimeStatusSnapshot, getPublicRuntimeStatusNotes } =
+      await import('../lib/runtime-status');
 
     const snapshot = buildPublicRuntimeStatusSnapshot({
       checkedAt: '2026-04-10T00:00:00.000Z',

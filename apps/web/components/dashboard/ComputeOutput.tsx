@@ -69,9 +69,7 @@ export function ComputeOutput({
           READY
         </div>
       </div>
-      <div
-        style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
-      >
+      <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             className="btn-secondary"
@@ -86,13 +84,10 @@ export function ComputeOutput({
             style={{ border: '1px solid var(--border-dim)' }}
             onClick={() => onCopy('compute-n3', generatedPackage.neoN3Snippet)}
           >
-            <Copy size={14} />{' '}
-            {copiedItem === 'compute-n3' ? 'Copied N3' : 'Copy Neo N3 Snippet'}
+            <Copy size={14} /> {copiedItem === 'compute-n3' ? 'Copied N3' : 'Copy Neo N3 Snippet'}
           </button>
         </div>
-        <div
-          style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}
-        >
+        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
           <div
             style={{
               fontSize: '0.65rem',
@@ -244,9 +239,7 @@ export function ComputeOutput({
             </div>
           </div>
         </div>
-        <div
-          style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}
-        >
+        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
           <div
             style={{
               fontSize: '0.65rem',

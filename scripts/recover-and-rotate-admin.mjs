@@ -1,13 +1,19 @@
 import { experimental, sc, wallet } from '@cityofzion/neon-js';
 
-const CVM_URL = process.env.PHALA_API_URL || 'https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network';
+const CVM_URL =
+  process.env.PHALA_API_URL ||
+  'https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network';
 const CVM_TOKEN = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://mainnet1.neo.coz.io:443';
 const NETWORK_MAGIC = Number(process.env.NEO_NETWORK_MAGIC || 860833102);
-const ORACLE_HASH = process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '0x5b492098fc094c760402e01f7e0b631b939d2bea';
-const DATAFEED_HASH = process.env.CONTRACT_MORPHEUS_DATAFEED_HASH || '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
+const ORACLE_HASH =
+  process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '0x5b492098fc094c760402e01f7e0b631b939d2bea';
+const DATAFEED_HASH =
+  process.env.CONTRACT_MORPHEUS_DATAFEED_HASH || '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
 
-function trimString(v) { return typeof v === 'string' ? v.trim() : ''; }
+function trimString(v) {
+  return typeof v === 'string' ? v.trim() : '';
+}
 
 async function cvmPost(path, body) {
   const url = `${CVM_URL.replace(/\/$/, '')}${path}`;
@@ -25,9 +31,10 @@ async function waitForTx(rpcClient, txid, timeoutMs = 120000) {
     try {
       const log = await rpcClient.getApplicationLog(normalized);
       const exec = log?.executions?.[0];
-      if (exec) return { txid: normalized, vmstate: exec.vmstate, exception: exec.exception || null };
+      if (exec)
+        return { txid: normalized, vmstate: exec.vmstate, exception: exec.exception || null };
     } catch {}
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise((r) => setTimeout(r, 2000));
   }
   throw new Error(`timed out waiting for ${normalized}`);
 }
@@ -75,7 +82,9 @@ async function main() {
   const verifierPubKeyRaw = verifierRes.stack[0].value;
 
   console.log(`  Admin: ${wallet.getAddressFromScriptHash(adminHash)} (0x${adminHash})`);
-  console.log(`  Updater: ${wallet.getAddressFromScriptHash(updaterHashCurrent)} (0x${updaterHashCurrent})`);
+  console.log(
+    `  Updater: ${wallet.getAddressFromScriptHash(updaterHashCurrent)} (0x${updaterHashCurrent})`
+  );
   console.log(`  Verifier pubkey (raw): ${verifierPubKeyRaw}`);
 
   if (!newUpdaterHash && !newVerifierPubKey) {
@@ -101,7 +110,9 @@ async function main() {
       console.log(`  Result: ${JSON.stringify(result)}`);
     } catch (err) {
       console.log(`  CVM invoke failed: ${err.message}`);
-      console.log('  The CVM may not support direct invocation. Need to use the admin private key.');
+      console.log(
+        '  The CVM may not support direct invocation. Need to use the admin private key.'
+      );
     }
   }
 
@@ -120,4 +131,7 @@ async function main() {
   }
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

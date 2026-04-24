@@ -64,7 +64,6 @@ Write deployed addresses into:
 - `CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH`
 - `CONTRACT_MORPHEUS_DATAFEED_HASH`
 
-
 ## 6. Configure contracts
 
 ```bash

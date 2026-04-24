@@ -233,7 +233,6 @@ function buildOriginRequest(request, env) {
   });
 }
 
-
 function matchPublicRuntimeRoute(path) {
   if (path === '/api/runtime/catalog') return 'runtime-catalog';
   if (path === '/api/runtime/status') return 'runtime-status';

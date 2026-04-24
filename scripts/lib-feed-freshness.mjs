@@ -1,7 +1,10 @@
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { fetchPriceQuote, decimalToIntegerString } from '../workers/phala-worker/src/oracle/index.js';
+import {
+  fetchPriceQuote,
+  decimalToIntegerString,
+} from '../workers/phala-worker/src/oracle/index.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -150,8 +153,7 @@ export function classifyFeedFreshness(
 ) {
   const tsMs = Number(timestampSeconds) * 1000;
   const cadence = classifyFeedCadence(pair);
-  const thresholdMinutes =
-    cadence === 'continuous' ? staleMinutes : Math.max(staleMinutes, 1440);
+  const thresholdMinutes = cadence === 'continuous' ? staleMinutes : Math.max(staleMinutes, 1440);
   if (!Number.isFinite(tsMs) || tsMs <= 0) {
     return {
       iso: null,
@@ -171,11 +173,7 @@ export function classifyFeedFreshness(
   };
 }
 
-export async function buildFeedFreshnessReport({
-  repoRoot,
-  network,
-  staleMinutes = 180,
-}) {
+export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes = 180 }) {
   const networkConfig = JSON.parse(
     await fs.readFile(path.join(repoRoot, 'config', 'networks', `${network}.json`), 'utf8')
   );
@@ -187,7 +185,10 @@ export async function buildFeedFreshnessReport({
   const pairs = parseConfiguredFeedPairs(runtimeConfig);
   const rows = [];
 
-  if (trimString(runtimeConfig.TWELVEDATA_API_KEY || '') && !trimString(process.env.TWELVEDATA_API_KEY || '')) {
+  if (
+    trimString(runtimeConfig.TWELVEDATA_API_KEY || '') &&
+    !trimString(process.env.TWELVEDATA_API_KEY || '')
+  ) {
     process.env.TWELVEDATA_API_KEY = trimString(runtimeConfig.TWELVEDATA_API_KEY);
   }
 

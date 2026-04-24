@@ -76,17 +76,14 @@ export function OracleResponseViewer({
         </div>
       </div>
 
-      <div
-        style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
-      >
+      <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <button
             className="btn-secondary"
             style={{ border: '1px solid var(--border-dim)' }}
             onClick={() => onCopy('payload', generatedRequest.payloadJson)}
           >
-            <Copy size={14} />{' '}
-            {copiedItem === 'payload' ? 'Copied Payload' : 'Copy Payload JSON'}
+            <Copy size={14} /> {copiedItem === 'payload' ? 'Copied Payload' : 'Copy Payload JSON'}
           </button>
           <button
             className="btn-secondary"
@@ -151,9 +148,7 @@ export function OracleResponseViewer({
           </div>
         </div>
 
-        <div
-          style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}
-        >
+        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
           <div
             style={{
               fontSize: '0.65rem',
@@ -243,9 +238,7 @@ export function OracleResponseViewer({
           </div>
         </div>
 
-        <div
-          style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}
-        >
+        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
           <div
             style={{
               fontSize: '0.65rem',
@@ -338,8 +331,8 @@ export function OracleResponseViewer({
                 2. Read the emitted <code>requestId</code>.
               </div>
               <div>
-                3. Query your consumer contract&apos;s <code>getCallback(requestId)</code> or
-                use the template below.
+                3. Query your consumer contract&apos;s <code>getCallback(requestId)</code> or use
+                the template below.
               </div>
               <div>
                 4. Verify <code>output_hash</code>, <code>attestation_hash</code>, and{' '}
@@ -349,9 +342,7 @@ export function OracleResponseViewer({
           </div>
         </div>
 
-        <div
-          style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}
-        >
+        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
           <div
             style={{
               fontSize: '0.65rem',

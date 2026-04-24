@@ -83,9 +83,15 @@ async function processExecutionJob(message, env) {
   try {
     const result = await callExecutionPlane(env, {
       ...job,
-      payload: buildWorkflowExecutionPayload(job.route, job.payload || {}, job.metadata || {}, network, {
-        executionId: workflowMetadata?.execution_id || jobId,
-      }),
+      payload: buildWorkflowExecutionPayload(
+        job.route,
+        job.payload || {},
+        job.metadata || {},
+        network,
+        {
+          executionId: workflowMetadata?.execution_id || jobId,
+        }
+      ),
     });
     if (result.ok) {
       await patchJob(env, jobId, network, {
@@ -201,9 +207,15 @@ async function processFeedTickJob(message, env) {
     const result = await callExecutionFeedPlane(env, {
       ...job,
       network,
-      payload: buildWorkflowExecutionPayload(job.route, job.payload || {}, job.metadata || {}, network, {
-        executionId: workflowMetadata?.execution_id || jobId,
-      }),
+      payload: buildWorkflowExecutionPayload(
+        job.route,
+        job.payload || {},
+        job.metadata || {},
+        network,
+        {
+          executionId: workflowMetadata?.execution_id || jobId,
+        }
+      ),
     });
     if (result.ok) {
       await patchJob(env, jobId, network, {

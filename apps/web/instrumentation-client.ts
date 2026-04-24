@@ -6,18 +6,23 @@ import {
 } from './sentry.shared';
 
 if (clientSentryDsn) {
-  void import('@sentry/nextjs').then((Sentry) => {
-    Sentry.init({
-      dsn: clientSentryDsn,
-      environment: sentryEnvironment,
-      tracesSampleRate: sentryTracesSampleRate,
-      profilesSampleRate: sentryProfilesSampleRate,
-      enabled: true,
-      sendDefaultPii: false,
+  void import('@sentry/nextjs')
+    .then((Sentry) => {
+      Sentry.init({
+        dsn: clientSentryDsn,
+        environment: sentryEnvironment,
+        tracesSampleRate: sentryTracesSampleRate,
+        profilesSampleRate: sentryProfilesSampleRate,
+        enabled: true,
+        sendDefaultPii: false,
+      });
+    })
+    .catch((e) => {
+      console.warn(
+        '[sentry] client instrumentation failed to load:',
+        e instanceof Error ? e.message : String(e)
+      );
     });
-  }).catch((e) => {
-    console.warn('[sentry] client instrumentation failed to load:', e instanceof Error ? e.message : String(e));
-  });
 }
 
 export async function onRouterTransitionStart(...args: unknown[]) {

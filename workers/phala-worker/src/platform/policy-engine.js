@@ -32,8 +32,7 @@ function buildPolicyDecision(base, overrides = {}) {
     decision,
     reason: trimString(overrides.reason) || base.reason,
     httpStatus:
-      overrides.httpStatus ||
-      (decision === 'allow' ? 200 : decision === 'review' ? 409 : 403),
+      overrides.httpStatus || (decision === 'allow' ? 200 : decision === 'review' ? 409 : 403),
     scope: trimString(overrides.scope) || base.scope || null,
     scope_id: trimString(overrides.scope_id || overrides.scopeId) || base.scope_id || null,
     require_attestation:
@@ -52,15 +51,15 @@ export function evaluatePolicyDecision(input = {}) {
   const providerId = trimString(
     input.provider || input.provider_id || input.providerId || input.scope_id || input.scopeId || ''
   );
-  const requireAttestation = readBoolean(
-    input.require_attestation ?? input.requireAttestation,
-    false
-  ) === true;
+  const requireAttestation =
+    readBoolean(input.require_attestation ?? input.requireAttestation, false) === true;
   const attestationAvailable = readBoolean(
     input.attestation_available ?? input.attestationAvailable,
     true
   );
-  const riskAction = trimString(input.risk_action || input.paused_action || input.action || '').toLowerCase();
+  const riskAction = trimString(
+    input.risk_action || input.paused_action || input.action || ''
+  ).toLowerCase();
   const scopePaused =
     readBoolean(input.scope_paused ?? input.scopePaused, false) === true ||
     riskAction === 'pause_scope' ||
@@ -80,12 +79,16 @@ export function evaluatePolicyDecision(input = {}) {
   };
 
   const explicitAllow = readBoolean(input.allow, null);
-  const explicitDecision = normalizeDecision(input.decision, explicitAllow === false ? 'deny' : 'allow');
+  const explicitDecision = normalizeDecision(
+    input.decision,
+    explicitAllow === false ? 'deny' : 'allow'
+  );
   const explicitReason = trimString(input.reason);
   if (explicitAllow === false || explicitDecision === 'deny' || explicitDecision === 'review') {
     return buildPolicyDecision(base, {
       decision: explicitDecision === 'allow' ? 'deny' : explicitDecision,
-      reason: explicitReason || (explicitDecision === 'review' ? 'review_required' : 'policy_denied'),
+      reason:
+        explicitReason || (explicitDecision === 'review' ? 'review_required' : 'policy_denied'),
     });
   }
 

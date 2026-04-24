@@ -4,7 +4,11 @@ import assert from 'node:assert/strict';
 import { classifyRiskSignal } from './risk-observer.js';
 
 test('risk observer pauses failing scopes', () => {
-  const risk = classifyRiskSignal({ failure_rate: 1, scope: 'provider', scope_id: 'coinbase-spot' });
+  const risk = classifyRiskSignal({
+    failure_rate: 1,
+    scope: 'provider',
+    scope_id: 'coinbase-spot',
+  });
 
   assert.equal(risk.action, 'pause_scope');
   assert.equal(risk.scope, 'provider');
@@ -12,7 +16,11 @@ test('risk observer pauses failing scopes', () => {
 });
 
 test('risk observer keeps healthy scopes in observe mode', () => {
-  const risk = classifyRiskSignal({ failure_rate: 0.2, scope: 'workflow', scope_id: 'oracle.query' });
+  const risk = classifyRiskSignal({
+    failure_rate: 0.2,
+    scope: 'workflow',
+    scope_id: 'oracle.query',
+  });
 
   assert.equal(risk.action, 'observe');
   assert.equal(risk.scope, 'workflow');

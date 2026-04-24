@@ -1,6 +1,15 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { env, envForNetwork, json, normalizeMorpheusNetwork, parseDurationMs, resolvePayloadNetwork, strip0x, trimString } from '../platform/core.js';
+import {
+  env,
+  envForNetwork,
+  json,
+  normalizeMorpheusNetwork,
+  parseDurationMs,
+  resolvePayloadNetwork,
+  strip0x,
+  trimString,
+} from '../platform/core.js';
 import { maybeBuildDstackAttestation } from '../platform/dstack.js';
 import { aggregateQuotes } from './aggregation.js';
 import {
@@ -239,8 +248,12 @@ async function saveFeedState(state, scope = {}) {
   feedStateCache.set(statePath, state);
   try {
     await fs.mkdir(path.dirname(statePath), { recursive: true });
-    await fs.writeFile(statePath, `${JSON.stringify(state, null, 2)}
-`, 'utf8');
+    await fs.writeFile(
+      statePath,
+      `${JSON.stringify(state, null, 2)}
+`,
+      'utf8'
+    );
   } catch {
     // best effort only; feed sync still works without persistence
   }
@@ -254,7 +267,13 @@ export async function __loadFeedStateForTests(scope = {}) {
   return loadFeedState(scope);
 }
 
-export function __buildFeedSnapshotRowsForTests(targetChain, syncResults, state, batchTx, scope = {}) {
+export function __buildFeedSnapshotRowsForTests(
+  targetChain,
+  syncResults,
+  state,
+  batchTx,
+  scope = {}
+) {
   return buildFeedSnapshotRows(targetChain, syncResults, state, batchTx, scope);
 }
 
@@ -466,9 +485,11 @@ function resolvePairThresholdBps(storagePair, payload = {}, targetChain = 'neo_n
 function buildSyncPolicy(targetChain, payload = {}) {
   const network = resolveFeedScope(payload, targetChain).network;
   const thresholdCandidate =
-    payload.feed_change_threshold_bps ?? envForNetwork(network, 'MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
+    payload.feed_change_threshold_bps ??
+    envForNetwork(network, 'MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
   const intervalCandidate =
-    payload.feed_min_update_interval_ms ?? envForNetwork(network, 'MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
+    payload.feed_min_update_interval_ms ??
+    envForNetwork(network, 'MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
   const staleCandidate =
     payload.feed_stale_after_ms ?? envForNetwork(network, 'MORPHEUS_FEED_STALE_AFTER_MS');
   const thresholdSource =
@@ -514,7 +535,11 @@ function resolveFeedSubmissionIssue(
   return '';
 }
 
-export function __resolvePairThresholdBpsForTests(storagePair, payload = {}, targetChain = 'neo_n3') {
+export function __resolvePairThresholdBpsForTests(
+  storagePair,
+  payload = {},
+  targetChain = 'neo_n3'
+) {
   return resolvePairThresholdBps(storagePair, payload, targetChain);
 }
 
@@ -884,7 +909,8 @@ function buildNeoN3RelaySigningPayload(payload = {}) {
       )
   );
   const wif = trimString(
-    payload.wif || envForNetwork(network, 'MORPHEUS_UPDATER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF')
+    payload.wif ||
+      envForNetwork(network, 'MORPHEUS_UPDATER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF')
   );
   return {
     ...(signingKey ? { private_key: signingKey } : {}),
@@ -915,12 +941,17 @@ async function submitQuoteToN3(
       { type: 'Integer', value: roundId },
       { type: 'Integer', value: decimalToIntegerString(quote.price, quote.decimals) },
       // Use provider's observation timestamp, not local clock
-      { type: 'Integer', value: String(
-        (() => {
-          const parsed = Date.parse(quote.timestamp);
-          return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : Math.floor(Date.now() / 1000);
-        })()
-      ) },
+      {
+        type: 'Integer',
+        value: String(
+          (() => {
+            const parsed = Date.parse(quote.timestamp);
+            return Number.isFinite(parsed)
+              ? Math.floor(parsed / 1000)
+              : Math.floor(Date.now() / 1000);
+          })()
+        ),
+      },
       { type: 'ByteArray', value: quote.attestation_hash },
       { type: 'Integer', value: String(sourceSetId) },
     ],
@@ -1028,7 +1059,10 @@ function resolveRequestedSymbols(payload = {}) {
 }
 
 export async function handleOracleFeed(payload) {
-  const scope = resolveFeedScope(payload, payload?.target_chain || payload?.targetChain || 'neo_n3');
+  const scope = resolveFeedScope(
+    payload,
+    payload?.target_chain || payload?.targetChain || 'neo_n3'
+  );
   const targetChain = scope.targetChain;
   const scopedPayload = payload?.network ? payload : { ...payload, network: scope.network };
   const symbols = resolveRequestedSymbols(scopedPayload);
@@ -1107,12 +1141,14 @@ export async function handleOracleFeed(payload) {
         hasPreviousRecord ? previousRecord : null,
         {
           ...policy,
-          thresholdBps: resolvePairThresholdBps(storagePair, scopedPayload, targetChain) ?? policy.thresholdBps,
+          thresholdBps:
+            resolvePairThresholdBps(storagePair, scopedPayload, targetChain) ?? policy.thresholdBps,
         },
         Boolean(scopedPayload.force)
       );
       const roundId =
-        trimString(scopedPayload.round_id) || buildRoundId(hasPreviousRecord ? previousRecord : null);
+        trimString(scopedPayload.round_id) ||
+        buildRoundId(hasPreviousRecord ? previousRecord : null);
       const sourceSetId = Number(
         scopedPayload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0)
       );

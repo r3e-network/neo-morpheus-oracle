@@ -150,11 +150,7 @@ export function buildTxProxyAllowlist(networkInput = 'testnet') {
     'update'
   );
   addAllow(allowlist, envForNetwork(network, 'CONTRACT_RANDOMNESSLOG_HASH'), 'record');
-  addAllow(
-    allowlist,
-    envForNetwork(network, 'CONTRACT_AUTOMATIONANCHOR_HASH'),
-    'markExecuted'
-  );
+  addAllow(allowlist, envForNetwork(network, 'CONTRACT_AUTOMATIONANCHOR_HASH'), 'markExecuted');
   addAllow(
     allowlist,
     envForNetwork(network, 'CONTRACT_MORPHEUS_ORACLE_HASH'),

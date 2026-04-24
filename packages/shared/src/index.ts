@@ -176,7 +176,14 @@ export const providerConfigSchemaHints: Record<string, unknown> = {
 };
 
 // Re-export utilities for TypeScript consumers
-export { json, timingSafeCompare, trimString, parseTimestampMs, getClientIp, stableStringify } from './utils.js';
+export {
+  json,
+  timingSafeCompare,
+  trimString,
+  parseTimestampMs,
+  getClientIp,
+  stableStringify,
+} from './utils.js';
 export { applyUpstashRateLimit } from './rate-limit.js';
 export type { UpstashRateLimitConfig, UpstashRateLimitResult } from './rate-limit.js';
 export {

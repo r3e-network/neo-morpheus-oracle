@@ -150,7 +150,7 @@ function resolveCanonicalRepoRoot(repoRoot) {
     };
   }
 
-  const [canonicalRoot, worktreeName = ""] = normalizedRepoRoot.split(worktreeMarker);
+  const [canonicalRoot, worktreeName = ''] = normalizedRepoRoot.split(worktreeMarker);
   return {
     repoRoot: normalizedRepoRoot,
     canonicalRoot,
@@ -210,9 +210,7 @@ function resolveWorkspaceRoots(oracleRoot) {
 }
 
 function compactSecretEnv(secretEnv) {
-  return Object.fromEntries(
-    Object.entries(secretEnv).filter(([, value]) => trimString(value))
-  );
+  return Object.fromEntries(Object.entries(secretEnv).filter(([, value]) => trimString(value)));
 }
 
 export function buildWorkspaceValidationData({
@@ -240,7 +238,9 @@ export function buildWorkspaceValidationData({
   const miniappsEnv = parseDotEnvFile(resolvedMiniappsEnvFile);
   const morpheusEnv = parseDotEnvFile(resolvedMorpheusEnvFile);
   const morpheusLocalEnv = parseDotEnvFile(resolvedMorpheusEnvLocalFile);
-  const networkRegistry = loadJson(path.join(roots.oracleRoot, 'config', 'networks', `${normalizedNetwork}.json`));
+  const networkRegistry = loadJson(
+    path.join(roots.oracleRoot, 'config', 'networks', `${normalizedNetwork}.json`)
+  );
 
   const neoTestnetWif = resolveActorWif('NEO_TESTNET_WIF', miniappsEnv);
   const flagshipLiveWif = resolveActorWif('FLAGSHIP_LIVE_WIF', miniappsEnv);

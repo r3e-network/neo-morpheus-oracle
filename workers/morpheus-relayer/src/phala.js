@@ -12,7 +12,15 @@ function decorateWorkerPayload(config, payload) {
   const derivedKeysEnabled = Boolean(config.phala?.useDerivedKeys ?? config.useDerivedKeys);
   let nextPayload = payload;
 
-  if (!(payload.network || payload.morpheus_network || payload.runtime_network || payload.environment) && config.network) {
+  if (
+    !(
+      payload.network ||
+      payload.morpheus_network ||
+      payload.runtime_network ||
+      payload.environment
+    ) &&
+    config.network
+  ) {
     nextPayload = { ...nextPayload, network: config.network };
   }
 

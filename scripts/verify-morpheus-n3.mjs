@@ -92,7 +92,9 @@ async function withRetries(label, task, attempts = 5) {
       await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
     }
   }
-  throw new Error(`${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  throw new Error(
+    `${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
+  );
 }
 
 async function loadRegistry(network) {
@@ -167,7 +169,9 @@ const signerEnvSnapshot = await loadEnvSnapshot(selectedPhalaEnvPath);
 
 const registry = await loadRegistry(network);
 const deployments = await loadDeploymentRegistry(network);
-const rpcUrl = trimString(requestedRpcUrl || process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || '');
+const rpcUrl = trimString(
+  requestedRpcUrl || process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || ''
+);
 const registryOracleHash =
   deployments?.neo_n3?.oracle_hash || registry.neo_n3?.contracts?.morpheus_oracle || '';
 const registryCallbackHash =
@@ -225,8 +229,12 @@ const [callbackAllowed, consumerOracle, miniAppCount, systemModuleCount] = await
       ])
     : Promise.resolve(null),
   callbackHash ? invokeRead(rpcClient, callbackHash, 'oracle') : Promise.resolve(null),
-  supportsMiniAppRuntime ? invokeRead(rpcClient, oracleHash, 'getMiniAppCount') : Promise.resolve(null),
-  supportsMiniAppRuntime ? invokeRead(rpcClient, oracleHash, 'getSystemModuleCount') : Promise.resolve(null),
+  supportsMiniAppRuntime
+    ? invokeRead(rpcClient, oracleHash, 'getMiniAppCount')
+    : Promise.resolve(null),
+  supportsMiniAppRuntime
+    ? invokeRead(rpcClient, oracleHash, 'getSystemModuleCount')
+    : Promise.resolve(null),
 ]);
 const verifierPublicKey = await invokeRead(rpcClient, oracleHash, 'oracleVerificationPublicKey');
 
@@ -236,7 +244,9 @@ const checks = {
   registry_matches_callback:
     normalizeHash160(registry.neo_n3?.contracts?.oracle_callback_consumer || '') === callbackHash,
   callback_allowed: optionalBoolean(callbackAllowed),
-  callback_oracle_matches: callbackHash ? normalizeHash160(consumerOracle || '') === oracleHash : null,
+  callback_oracle_matches: callbackHash
+    ? normalizeHash160(consumerOracle || '') === oracleHash
+    : null,
   updater_matches_expected: expectedUpdater
     ? normalizeHash160(updater || '') === expectedUpdater
     : null,
@@ -247,9 +257,7 @@ const checks = {
     ? trimString(verifierPublicKey || '') === expectedVerifierPublicKey
     : null,
   miniapp_count_positive: supportsMiniAppRuntime ? Number(miniAppCount || 0) > 0 : null,
-  system_module_count_positive: supportsMiniAppRuntime
-    ? Number(systemModuleCount || 0) > 0
-    : null,
+  system_module_count_positive: supportsMiniAppRuntime ? Number(systemModuleCount || 0) > 0 : null,
 };
 
 const report = {

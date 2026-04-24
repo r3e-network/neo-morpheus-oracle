@@ -18,8 +18,7 @@ export const NETWORKS = {
     oracleAttestationExplorerUrl: selectedNetwork.phala?.oracle_attestation_explorer_url || '',
     datafeedCvmId: selectedNetwork.phala?.datafeed_cvm_id || '',
     datafeedCvmName: selectedNetwork.phala?.datafeed_cvm_name || '',
-    datafeedAttestationExplorerUrl:
-      selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
+    datafeedAttestationExplorerUrl: selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
   },
   neo_n3: {
     name: selectedNetwork.network === 'mainnet' ? 'Neo N3 Mainnet' : 'Neo N3 Testnet',
@@ -41,8 +40,7 @@ export const NETWORKS = {
     oracleAttestationExplorerUrl: selectedNetwork.phala?.oracle_attestation_explorer_url || '',
     datafeedCvmId: selectedNetwork.phala?.datafeed_cvm_id || '',
     datafeedCvmName: selectedNetwork.phala?.datafeed_cvm_name || '',
-    datafeedAttestationExplorerUrl:
-      selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
+    datafeedAttestationExplorerUrl: selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
     explorer:
       selectedNetwork.network === 'mainnet'
         ? 'https://neotube.io/contract/'

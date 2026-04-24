@@ -27,7 +27,16 @@ test('public network registry export exposes canonical Morpheus runtime metadata
     'https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f'
   );
   assert.equal(registry.mainnet.contracts.aaCore, '0x9742b4ed62a84a886f404d36149da6147528ee33');
-  assert.equal(registry.mainnet.contracts.oracleCallbackConsumer, '0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844');
-  assert.equal(registry.testnet.contracts.morpheusOracle, '0x4b882e94ed766807c4fd728768f972e13008ad52');
-  assert.equal(registry.testnet.contracts.oracleCallbackConsumer, '0x8c506f224d82e67200f20d9d5361f767f0756e3b');
+  assert.equal(
+    registry.mainnet.contracts.oracleCallbackConsumer,
+    '0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844'
+  );
+  assert.equal(
+    registry.testnet.contracts.morpheusOracle,
+    '0x4b882e94ed766807c4fd728768f972e13008ad52'
+  );
+  assert.equal(
+    registry.testnet.contracts.oracleCallbackConsumer,
+    '0x8c506f224d82e67200f20d9d5361f767f0756e3b'
+  );
 });

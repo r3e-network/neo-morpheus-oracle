@@ -1,10 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  buildWorkflowExecutionRecord,
-  buildRiskEventRecord,
-} from './workflow-persistence.js';
+import { buildWorkflowExecutionRecord, buildRiskEventRecord } from './workflow-persistence.js';
 
 test('workflow persistence shapes normalized execution and risk records', () => {
   const execution = buildWorkflowExecutionRecord({

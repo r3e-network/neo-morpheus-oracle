@@ -31,18 +31,19 @@ function withNetworkSuffix(url, network) {
 }
 
 function compactObject(input) {
-  return Object.fromEntries(
-    Object.entries(input).filter(([, value]) => value !== undefined)
-  );
+  return Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined));
 }
 
 function resolveSupplementalHashes(network, oracleRoot) {
   if (network === 'mainnet') {
-    const deployment = loadOptionalJson(path.join(oracleRoot, 'examples', 'deployments', 'mainnet.json'));
+    const deployment = loadOptionalJson(
+      path.join(oracleRoot, 'examples', 'deployments', 'mainnet.json')
+    );
     return {
       aaSessionKeyVerifier:
-        trimString(deployment?.neo_n3?.aa_subdomains?.['sessionkey.smartwallet.neo']?.contract_hash) ||
-        trimString(deployment?.neo_n3?.aa_subdomains?.sessionkey?.contract_hash),
+        trimString(
+          deployment?.neo_n3?.aa_subdomains?.['sessionkey.smartwallet.neo']?.contract_hash
+        ) || trimString(deployment?.neo_n3?.aa_subdomains?.sessionkey?.contract_hash),
     };
   }
 

@@ -35,7 +35,10 @@ let report;
 try {
   report = JSON.parse(rawReport);
 } catch (error) {
-  fail('npm audit JSON could not be parsed.', error instanceof Error ? error.message : String(error));
+  fail(
+    'npm audit JSON could not be parsed.',
+    error instanceof Error ? error.message : String(error)
+  );
 }
 
 const vulnerabilities = report?.vulnerabilities || {};
@@ -46,12 +49,15 @@ for (const [name, meta] of Object.entries(vulnerabilities)) {
   const severity = String(meta?.severity || '').toLowerCase();
   const allowedSeverity = ALLOWED_VULNERABILITIES.get(name);
   if (!allowedSeverity) {
-    fail('Found a vulnerability outside the accepted CityOfZion baseline.', `${name}:${severity || 'unknown'}`);
+    fail(
+      'Found a vulnerability outside the accepted CityOfZion baseline.',
+      `${name}:${severity || 'unknown'}`
+    );
   }
   if (severity !== allowedSeverity) {
     fail(
       'Observed an allowed vulnerability with an unexpected severity.',
-      `${name}: expected ${allowedSeverity}, received ${severity || 'unknown'}`,
+      `${name}: expected ${allowedSeverity}, received ${severity || 'unknown'}`
     );
   }
 }
@@ -61,7 +67,10 @@ if ((counts.critical || 0) > 0) {
 }
 
 if ((counts.moderate || 0) > 0) {
-  fail('Moderate vulnerabilities are outside the accepted excluded baseline.', `moderate=${counts.moderate}`);
+  fail(
+    'Moderate vulnerabilities are outside the accepted excluded baseline.',
+    `moderate=${counts.moderate}`
+  );
 }
 
 const unexpectedCount = observedNames.length - ALLOWED_VULNERABILITIES.size;
@@ -70,6 +79,6 @@ if (unexpectedCount > 0) {
 }
 
 console.log(
-  `[root audit] Accepted excluded CityOfZion baseline preserved (${counts.high || 0} high / ${counts.low || 0} low / ${counts.total || 0} total).`,
+  `[root audit] Accepted excluded CityOfZion baseline preserved (${counts.high || 0} high / ${counts.low || 0} low / ${counts.total || 0} total).`
 );
 console.log(`[root audit] Observed packages: ${observedNames.join(', ')}`);

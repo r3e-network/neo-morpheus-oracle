@@ -117,7 +117,8 @@ export function decorateControlPlaneJob(job: Record<string, unknown>) {
   const metadata = coerceObject(job.metadata);
   const workflowId = trimString(job.workflow_id || metadata.workflow_id || '');
   const workflow = workflowId ? getWorkflowDefinitionById(workflowId) : null;
-  const workflowVersion = Number(job.workflow_version || metadata.workflow_version || workflow?.version || 0) || null;
+  const workflowVersion =
+    Number(job.workflow_version || metadata.workflow_version || workflow?.version || 0) || null;
 
   return {
     ...job,

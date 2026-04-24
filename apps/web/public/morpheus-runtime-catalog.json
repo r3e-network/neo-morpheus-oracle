@@ -11,18 +11,11 @@
   },
   "risk": {
     "observer": "independent_observer",
-    "actions": [
-      "observe",
-      "review",
-      "pause_scope"
-    ]
+    "actions": ["observe", "review", "pause_scope"]
   },
   "automation": {
     "workflowId": "automation.upkeep",
-    "triggerKinds": [
-      "interval",
-      "threshold"
-    ],
+    "triggerKinds": ["interval", "threshold"],
     "route": "/automation/execute",
     "deliveryMode": "onchain_callback"
   },
@@ -33,14 +26,9 @@
       "networkMagic": 860833102,
       "morpheus": {
         "publicApiUrl": "https://oracle.meshmini.app/mainnet",
-        "publicApiUrls": [
-          "https://oracle.meshmini.app/mainnet"
-        ],
+        "publicApiUrls": ["https://oracle.meshmini.app/mainnet"],
         "runtimeUrl": "https://oracle.meshmini.app/mainnet",
-        "runtimeUrls": [
-          "https://oracle.meshmini.app/mainnet",
-          "https://edge.meshmini.app/mainnet"
-        ],
+        "runtimeUrls": ["https://oracle.meshmini.app/mainnet", "https://edge.meshmini.app/mainnet"],
         "edgeUrl": "https://edge.meshmini.app/mainnet",
         "controlPlaneBaseUrl": "https://control.meshmini.app",
         "controlPlaneUrl": "https://control.meshmini.app/mainnet",
@@ -80,14 +68,9 @@
       "networkMagic": 894710606,
       "morpheus": {
         "publicApiUrl": "https://oracle.meshmini.app/testnet",
-        "publicApiUrls": [
-          "https://oracle.meshmini.app/testnet"
-        ],
+        "publicApiUrls": ["https://oracle.meshmini.app/testnet"],
         "runtimeUrl": "https://oracle.meshmini.app/testnet",
-        "runtimeUrls": [
-          "https://oracle.meshmini.app/testnet",
-          "https://edge.meshmini.app/testnet"
-        ],
+        "runtimeUrls": ["https://oracle.meshmini.app/testnet", "https://edge.meshmini.app/testnet"],
         "edgeUrl": "https://edge.meshmini.app/testnet",
         "controlPlaneBaseUrl": "https://control.meshmini.app",
         "controlPlaneUrl": "https://control.meshmini.app/testnet",
@@ -129,17 +112,10 @@
       "trigger": {
         "kind": "request"
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/oracle/query",
       "capabilityId": "oracle_query",
-      "policies": [
-        "tenant",
-        "provider",
-        "risk"
-      ],
+      "policies": ["tenant", "provider", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -156,17 +132,10 @@
       "trigger": {
         "kind": "request"
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/oracle/smart-fetch",
       "capabilityId": "oracle_smart_fetch",
-      "policies": [
-        "tenant",
-        "provider",
-        "risk"
-      ],
+      "policies": ["tenant", "provider", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -182,20 +151,12 @@
       "version": 1,
       "trigger": {
         "kind": "event",
-        "supported": [
-          "feed_tick"
-        ]
+        "supported": ["feed_tick"]
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/feeds/tick",
       "capabilityId": "oracle_feed",
-      "policies": [
-        "provider",
-        "risk"
-      ],
+      "policies": ["provider", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -211,22 +172,11 @@
       "version": 1,
       "trigger": {
         "kind": "scheduler",
-        "supported": [
-          "interval",
-          "threshold"
-        ]
+        "supported": ["interval", "threshold"]
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/automation/execute",
-      "policies": [
-        "tenant",
-        "provider",
-        "paymaster",
-        "risk"
-      ],
+      "policies": ["tenant", "provider", "paymaster", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -243,16 +193,10 @@
       "trigger": {
         "kind": "request"
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/compute/execute",
       "capabilityId": "compute_execute",
-      "policies": [
-        "tenant",
-        "risk"
-      ],
+      "policies": ["tenant", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -269,16 +213,10 @@
       "trigger": {
         "kind": "request"
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/neodid/bind",
       "capabilityId": "neodid_bind",
-      "policies": [
-        "tenant",
-        "risk"
-      ],
+      "policies": ["tenant", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -295,16 +233,10 @@
       "trigger": {
         "kind": "request"
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/neodid/action-ticket",
       "capabilityId": "neodid_action_ticket",
-      "policies": [
-        "tenant",
-        "risk"
-      ],
+      "policies": ["tenant", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -321,16 +253,10 @@
       "trigger": {
         "kind": "request"
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/neodid/recovery-ticket",
       "capabilityId": "neodid_recovery_ticket",
-      "policies": [
-        "tenant",
-        "risk"
-      ],
+      "policies": ["tenant", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",
@@ -347,17 +273,10 @@
       "trigger": {
         "kind": "request"
       },
-      "allowedNetworks": [
-        "mainnet",
-        "testnet"
-      ],
+      "allowedNetworks": ["mainnet", "testnet"],
       "route": "/paymaster/authorize",
       "capabilityId": "paymaster_authorize",
-      "policies": [
-        "tenant",
-        "paymaster",
-        "risk"
-      ],
+      "policies": ["tenant", "paymaster", "risk"],
       "execution": {
         "orchestrationPlane": "control_plane",
         "executionPlane": "tee_runtime",

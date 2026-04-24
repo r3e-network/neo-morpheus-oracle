@@ -74,16 +74,20 @@ export default {
             });
           }
         }
-        return json(200, {
-          network: routing.network,
-          scanned: jobs.length,
-          requeued_count: requeued.length,
-          skipped_count: skipped.length,
-          failed_count: failed.length,
-          requeued,
-          skipped,
-          failed,
-        }, rid);
+        return json(
+          200,
+          {
+            network: routing.network,
+            scanned: jobs.length,
+            requeued_count: requeued.length,
+            skipped_count: skipped.length,
+            failed_count: failed.length,
+            requeued,
+            skipped,
+            failed,
+          },
+          rid
+        );
       } catch (error) {
         return json(500, { error: error instanceof Error ? error.message : String(error) }, rid);
       }
@@ -102,13 +106,17 @@ export default {
               jobConfig,
               job.metadata.workflow_instance_id
             );
-            return json(200, {
-              ...job,
-              workflow: {
-                instance_id: workflow.id,
-                status: workflow.details,
+            return json(
+              200,
+              {
+                ...job,
+                workflow: {
+                  instance_id: workflow.id,
+                  status: workflow.details,
+                },
               },
-            }, rid);
+              rid
+            );
           } catch {
             // fall back to stored job only
           }
@@ -140,7 +148,11 @@ export default {
 
     const metadata = resolveJobMetadata(routing.routePath, payload);
     const workflowMetadata =
-      buildWorkflowDispatchMetadata(routing.routePath, { ...payload, ...metadata }, routing.network) ||
+      buildWorkflowDispatchMetadata(
+        routing.routePath,
+        { ...payload, ...metadata },
+        routing.network
+      ) ||
       (metadata.workflow_id
         ? {
             workflow_id: metadata.workflow_id,
@@ -221,10 +233,14 @@ export default {
         error: error instanceof Error ? error.message : String(error),
         completed_at: new Date().toISOString(),
       }).catch(() => null);
-      return json(503, {
-        error: error instanceof Error ? error.message : String(error),
-        job_id: jobId,
-      }, rid);
+      return json(
+        503,
+        {
+          error: error instanceof Error ? error.message : String(error),
+          job_id: jobId,
+        },
+        rid
+      );
     }
   },
 

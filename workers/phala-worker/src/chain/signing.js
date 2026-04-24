@@ -9,7 +9,11 @@ import {
   trimString,
 } from '../platform/core.js';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
-import { deriveNeoN3PrivateKeyHex, maybeBuildDstackAttestation, shouldUseDerivedKeys } from '../platform/dstack.js';
+import {
+  deriveNeoN3PrivateKeyHex,
+  maybeBuildDstackAttestation,
+  shouldUseDerivedKeys,
+} from '../platform/dstack.js';
 import {
   NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
@@ -18,7 +22,11 @@ import {
 } from '../../../../scripts/lib-neo-signers.mjs';
 
 function resolveKeySource(payload = {}) {
-  if (trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif)) {
+  if (
+    trimString(payload.private_key) ||
+    trimString(payload.signing_key) ||
+    trimString(payload.wif)
+  ) {
     return 'caller';
   }
   return 'worker';
@@ -127,7 +135,8 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   const configuredOracleVerifierKey = useOracleVerifierRole
     ? resolveNeoN3OracleVerifierKey(payload)
     : '';
-  let privateKey = requestScopedKey || configuredOracleVerifierKey || resolveNeoN3WorkerKey(payload);
+  let privateKey =
+    requestScopedKey || configuredOracleVerifierKey || resolveNeoN3WorkerKey(payload);
 
   const allowDerivedOverride =
     !requestScopedKey && (!useOracleVerifierRole || !configuredOracleVerifierKey);

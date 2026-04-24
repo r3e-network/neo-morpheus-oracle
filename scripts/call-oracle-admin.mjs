@@ -10,7 +10,9 @@
 import neon from '@cityofzion/neon-js';
 import crypto from 'crypto';
 
-const CVM_URL = process.env.PHALA_CVM_URL || 'https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network';
+const CVM_URL =
+  process.env.PHALA_CVM_URL ||
+  'https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network';
 const AUTH_TOKEN = process.env.PHALA_API_TOKEN || '';
 const ORACLE_CONTRACT = process.env.ORACLE_CONTRACT || '0x5b492098fc094c760402e01f7e0b631b939d2bea';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://mainnet2.neo.coz.io:443';
@@ -32,7 +34,7 @@ async function signWithDerivedKey(dataHex) {
   const resp = await fetch(`${CVM_URL}/sign/payload`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${AUTH_TOKEN}`,
+      Authorization: `Bearer ${AUTH_TOKEN}`,
       'Content-Type': 'application/json',
       'X-Morpheus-Network': 'mainnet',
     },
@@ -54,7 +56,12 @@ async function broadcastRawTx(signedTxBase64) {
   const resp = await fetch(RPC_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', method: 'sendrawtransaction', params: [signedTxBase64], id: 1 }),
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'sendrawtransaction',
+      params: [signedTxBase64],
+      id: 1,
+    }),
   });
   const json = await resp.json();
   if (json.error) throw new Error(`RPC error: ${JSON.stringify(json.error)}`);
@@ -80,25 +87,26 @@ async function buildAndSignTx(method, args) {
   const signerHash = wallet.getScriptHashFromAddress('NUVmRwZDoSZMKcPj9UCQLHkpno2TPqYVxC');
   const t = new tx.Transaction({
     version: 0,
-    nonce: Math.floor(Math.random() * 2**32),
+    nonce: Math.floor(Math.random() * 2 ** 32),
     systemFee: 200000000, // 2 GAS default
     networkFee: 100000000, // 1 GAS default
     validUntilBlock: blockCount + 100,
     script: u.HexString.fromHex(script),
-    signers: [{
-      account: u.HexString.fromHex(signerHash),
-      scopes: tx.WitnessScope.CalledByEntry,
-    }],
+    signers: [
+      {
+        account: u.HexString.fromHex(signerHash),
+        scopes: tx.WitnessScope.CalledByEntry,
+      },
+    ],
     attributes: [],
     witnesses: [],
   });
 
   // Estimate fees using testInvoke
   try {
-    const result = await rpcClient.invokeScript(
-      u.HexString.fromHex(script),
-      [{ account: signerHash, scopes: 'CalledByEntry' }]
-    );
+    const result = await rpcClient.invokeScript(u.HexString.fromHex(script), [
+      { account: signerHash, scopes: 'CalledByEntry' },
+    ]);
     if (result.state === 'FAULT') {
       throw new Error(`VM FAULT: ${result.exception}`);
     }
@@ -130,10 +138,12 @@ async function buildAndSignTx(method, args) {
   const invocationScript = buildInvocationScript(signResult.signature);
   const verificationScript = buildVerificationScript(signResult.public_key);
 
-  t.witnesses = [new tx.Witness({
-    invocationScript: u.HexString.fromHex(invocationScript),
-    verificationScript: u.HexString.fromHex(verificationScript),
-  })];
+  t.witnesses = [
+    new tx.Witness({
+      invocationScript: u.HexString.fromHex(invocationScript),
+      verificationScript: u.HexString.fromHex(verificationScript),
+    }),
+  ];
 
   // Serialize signed transaction
   const signedHex = t.serialize(true);
@@ -200,7 +210,7 @@ async function main() {
   console.log('\nDone.');
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error('Fatal:', e);
   process.exit(1);
 });

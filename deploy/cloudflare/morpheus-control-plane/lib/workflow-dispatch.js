@@ -31,7 +31,12 @@ function normalizeWorkflowVersion(value, fallbackVersion) {
   return Math.max(Number(fallbackVersion || 1), 1);
 }
 
-export function resolveWorkflowDispatch(routePath, payload = {}, network = 'testnet', options = {}) {
+export function resolveWorkflowDispatch(
+  routePath,
+  payload = {},
+  network = 'testnet',
+  options = {}
+) {
   const definition = WORKFLOW_DEFINITIONS_BY_ROUTE.get(trimString(routePath));
   if (!definition) return null;
 

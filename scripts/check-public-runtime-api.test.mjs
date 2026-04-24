@@ -6,7 +6,10 @@ import { buildPublicRuntimeStatusSnapshot } from '../packages/shared/src/public-
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const runtimeCatalog = JSON.parse(
-  fs.readFileSync(path.join(repoRoot, 'apps', 'web', 'public', 'morpheus-runtime-catalog.json'), 'utf8')
+  fs.readFileSync(
+    path.join(repoRoot, 'apps', 'web', 'public', 'morpheus-runtime-catalog.json'),
+    'utf8'
+  )
 );
 
 function buildStatusSnapshot(catalog) {
@@ -68,7 +71,11 @@ test('validatePublicRuntimeApiContract rejects catalogs missing automation.upkee
   };
 
   assert.throws(
-    () => validatePublicRuntimeApiContract({ catalog: invalidCatalog, status: buildStatusSnapshot(runtimeCatalog) }),
+    () =>
+      validatePublicRuntimeApiContract({
+        catalog: invalidCatalog,
+        status: buildStatusSnapshot(runtimeCatalog),
+      }),
     /automation\.upkeep/i
   );
 });

@@ -155,9 +155,7 @@ export default function DocsArchitecture() {
       </ul>
 
       <h2>Support Stance</h2>
-      <p>
-        Neo N3 is the active supported production path across the full repository.
-      </p>
+      <p>Neo N3 is the active supported production path across the full repository.</p>
     </div>
   );
 }

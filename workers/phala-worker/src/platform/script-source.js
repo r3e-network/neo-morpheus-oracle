@@ -1,6 +1,15 @@
 import { rpc as neoRpc } from '@cityofzion/neon-js';
 import { canonicalizeMethodName, normalizeContractHash, toNeoContractParam } from './allowlist.js';
-import { decodeBase64, env, envForNetwork, normalizeTargetChain, resolveMaxBytes, resolvePayloadNetwork, trimString, validateRpcUrl } from './core.js';
+import {
+  decodeBase64,
+  env,
+  envForNetwork,
+  normalizeTargetChain,
+  resolveMaxBytes,
+  resolvePayloadNetwork,
+  trimString,
+  validateRpcUrl,
+} from './core.js';
 
 function parseScriptStackItem(item, encoding = 'utf8') {
   if (!item || typeof item !== 'object') return '';

@@ -1,4 +1,7 @@
-import { getPublicRuntimeCatalogSummary, type PublicRuntimeCatalogSummary } from './workflow-runtime';
+import {
+  getPublicRuntimeCatalogSummary,
+  type PublicRuntimeCatalogSummary,
+} from './workflow-runtime';
 
 export type RuntimeProbeSnapshotInput = {
   ok: boolean;

@@ -11,12 +11,14 @@
 ### Task 1: Reusable Runtime API Validator
 
 **Files:**
+
 - Create: `scripts/check-public-runtime-api.mjs`
 - Create: `scripts/check-public-runtime-api.test.mjs`
 
 **Step 1: Write the failing test**
 
 Add a script test that proves the validator:
+
 - accepts a valid `catalog` + `status` pair
 - rejects when `status.catalog.envelope.version` drifts from `catalog.envelope.version`
 - rejects when `automation.upkeep` is missing from the catalog
@@ -30,6 +32,7 @@ Expected: FAIL with missing module or missing validator exports.
 **Step 3: Write minimal implementation**
 
 Implement a validator module that:
+
 - normalizes the base URL
 - fetches `/api/runtime/catalog` and `/api/runtime/status`
 - validates the expected public contract
@@ -50,6 +53,7 @@ git commit -m "feat: validate public runtime api contract"
 ### Task 2: Morpheus Live Validation Integration
 
 **Files:**
+
 - Modify: `scripts/run_live_testnet_validation.sh`
 
 **Step 1: Write the failing test**
@@ -68,6 +72,7 @@ Call the validator from `scripts/run_live_testnet_validation.sh` before the exis
 **Step 4: Run affected checks**
 
 Run:
+
 - `bash -n scripts/run_live_testnet_validation.sh`
 - `node --test scripts/check-public-runtime-api.test.mjs`
 
@@ -83,6 +88,7 @@ git commit -m "feat: validate runtime api during live checks"
 ### Task 3: Cross-Repo Validation Integration
 
 **Files:**
+
 - Modify: `/home/neo/git/neo-miniapps-platform/deploy/scripts/verify_cross_repo_testnet.sh`
 
 **Step 1: Write the failing test**
@@ -101,6 +107,7 @@ Invoke the same validator from the miniapps cross-repo testnet validator using t
 **Step 4: Run affected checks**
 
 Run:
+
 - `bash -n /home/neo/git/neo-miniapps-platform/deploy/scripts/verify_cross_repo_testnet.sh`
 - `node --test scripts/check-public-runtime-api.test.mjs`
 

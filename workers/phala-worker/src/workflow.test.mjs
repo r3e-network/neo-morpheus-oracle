@@ -359,7 +359,6 @@ test('workflow: POST /compute/execute runs merkle.root', async () => {
   assert.equal(body.result.root.length, 64);
 });
 
-
 test('workflow: POST /compute/execute returns a stable result envelope for workflow executions', async () => {
   const res = await post('/compute/execute', {
     workflow_id: 'compute.execute',

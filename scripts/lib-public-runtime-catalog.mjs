@@ -8,8 +8,10 @@ import {
 } from '../packages/shared/src/workflow-catalog.js';
 
 function cloneExecutionMetadata(definition) {
-  const teeRequired = Array.isArray(definition.confidentialSteps) && definition.confidentialSteps.length > 0;
-  const carriesRiskPolicy = Array.isArray(definition.policies) && definition.policies.includes('risk');
+  const teeRequired =
+    Array.isArray(definition.confidentialSteps) && definition.confidentialSteps.length > 0;
+  const carriesRiskPolicy =
+    Array.isArray(definition.policies) && definition.policies.includes('risk');
   return {
     orchestrationPlane: PUBLIC_RUNTIME_TOPOLOGY.orchestrationPlane,
     executionPlane: teeRequired
@@ -26,9 +28,7 @@ function buildPublicWorkflowEntry(definition) {
     version: definition.version,
     trigger: {
       ...definition.trigger,
-      ...(definition.trigger.supported
-        ? { supported: [...definition.trigger.supported] }
-        : {}),
+      ...(definition.trigger.supported ? { supported: [...definition.trigger.supported] } : {}),
     },
     allowedNetworks: [...definition.allowedNetworks],
     route: definition.route,

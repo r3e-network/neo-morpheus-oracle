@@ -9,6 +9,7 @@
 **Tech Stack:** Cloudflare Workers, Cloudflare Queues/Workflows, Supabase/Postgres migrations, Next.js, Node.js built-in test runner, Vitest, Phala TEE worker, Neon JS, shell validation scripts.
 
 **Implementation Notes:**
+
 - Use `@superpowers:test-driven-development` during execution.
 - Preserve compatibility wrappers for legacy routes such as `/oracle/query` and `/automation/execute` until the generated artifact rollout is complete.
 - Never emit secrets in generated JSON or stdout. Generated artifacts stay public-only.
@@ -17,6 +18,7 @@
 ### Task 1: Canonical Workflow Catalog
 
 **Files:**
+
 - Create: `packages/shared/src/workflow-catalog.js`
 - Create: `packages/shared/src/workflow-catalog.test.mjs`
 - Modify: `packages/shared/src/index.js`
@@ -101,6 +103,7 @@ git commit -m "feat: add canonical workflow catalog"
 ### Task 2: Public Runtime Catalog Exporter
 
 **Files:**
+
 - Create: `scripts/lib-public-runtime-catalog.mjs`
 - Create: `scripts/export-public-runtime-catalog.mjs`
 - Create: `scripts/export-public-runtime-catalog.test.mjs`
@@ -131,7 +134,10 @@ Expected: FAIL with missing module or missing `loadPublicRuntimeCatalog`.
 
 ```js
 import { loadPublicNetworkRegistry } from './lib-public-network-registry.mjs';
-import { listWorkflowDefinitions, RESULT_ENVELOPE_VERSION } from '../packages/shared/src/workflow-catalog.js';
+import {
+  listWorkflowDefinitions,
+  RESULT_ENVELOPE_VERSION,
+} from '../packages/shared/src/workflow-catalog.js';
 
 export function loadPublicRuntimeCatalog() {
   return {
@@ -167,6 +173,7 @@ git commit -m "feat: export public morpheus runtime catalog"
 ### Task 3: Workflow Runtime and Policy Persistence
 
 **Files:**
+
 - Create: `supabase/migrations/0011_workflow_runtime.sql`
 - Create: `supabase/migrations/0012_policy_and_risk_controls.sql`
 - Create: `workers/morpheus-relayer/src/workflow-persistence.js`
@@ -179,10 +186,7 @@ git commit -m "feat: export public morpheus runtime catalog"
 ```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  buildWorkflowExecutionRecord,
-  buildRiskEventRecord,
-} from './workflow-persistence.js';
+import { buildWorkflowExecutionRecord, buildRiskEventRecord } from './workflow-persistence.js';
 
 test('workflow persistence shapes normalized execution records', () => {
   const record = buildWorkflowExecutionRecord({
@@ -194,7 +198,10 @@ test('workflow persistence shapes normalized execution records', () => {
   assert.equal(record.workflow_id, 'oracle.query');
   assert.equal(record.status, 'queued');
   assert.equal(record.result_envelope_version, '2026-04-tee-v1');
-  assert.equal(buildRiskEventRecord({ scope: 'workflow', scope_id: 'oracle.query' }).status, 'open');
+  assert.equal(
+    buildRiskEventRecord({ scope: 'workflow', scope_id: 'oracle.query' }).status,
+    'open'
+  );
 });
 ```
 
@@ -248,6 +255,7 @@ git commit -m "feat: add workflow runtime persistence"
 ### Task 4: Control Plane Workflow Dispatch and Compatibility Routing
 
 **Files:**
+
 - Create: `deploy/cloudflare/morpheus-control-plane/lib/workflow-dispatch.js`
 - Modify: `deploy/cloudflare/morpheus-control-plane/lib/config.js`
 - Modify: `deploy/cloudflare/morpheus-control-plane/lib/workflows.js`
@@ -288,9 +296,11 @@ Expected: FAIL because the response metadata only reflects route-local queue con
 ```js
 export function resolveWorkflowDispatch(routePath, payload) {
   const workflowId =
-    routePath === '/oracle/query' ? 'oracle.query'
-    : routePath === '/automation/execute' ? 'automation.upkeep'
-    : null;
+    routePath === '/oracle/query'
+      ? 'oracle.query'
+      : routePath === '/automation/execute'
+        ? 'automation.upkeep'
+        : null;
   if (!workflowId) throw new Error(`unsupported workflow route: ${routePath}`);
   return {
     workflowId,
@@ -323,6 +333,7 @@ git commit -m "feat: route control plane through workflow registry"
 ### Task 5: Keeper Supervisor and Unified Automation Upkeeps
 
 **Files:**
+
 - Create: `workers/morpheus-relayer/src/automation-supervisor.js`
 - Create: `workers/morpheus-relayer/src/automation-supervisor.test.mjs`
 - Modify: `workers/morpheus-relayer/src/automation.js`
@@ -388,6 +399,7 @@ git commit -m "feat: add upkeep supervisor for automation workflows"
 ### Task 6: TEE Execution Plan and Result Envelope
 
 **Files:**
+
 - Create: `workers/phala-worker/src/platform/execution-plan.js`
 - Create: `workers/phala-worker/src/platform/result-envelope.js`
 - Create: `workers/phala-worker/src/platform/execution-plan.test.mjs`
@@ -466,6 +478,7 @@ git commit -m "feat: normalize tee execution plans and result envelopes"
 ### Task 7: Policy Engine and Risk Observer
 
 **Files:**
+
 - Create: `workers/phala-worker/src/platform/policy-engine.js`
 - Create: `workers/phala-worker/src/platform/policy-engine.test.mjs`
 - Create: `workers/phala-worker/src/platform/risk-observer.js`
@@ -540,6 +553,7 @@ git commit -m "feat: add policy engine and risk observer"
 ### Task 8: Web Runtime APIs and Operator Introspection
 
 **Files:**
+
 - Create: `apps/web/lib/workflow-runtime.ts`
 - Create: `apps/web/__tests__/workflow-runtime.test.ts`
 - Create: `apps/web/app/api/workflows/route.ts`
@@ -597,6 +611,7 @@ git commit -m "feat: expose workflow and policy runtime apis"
 ### Task 9: Generated Runtime Artifacts for Platform and AA
 
 **Files:**
+
 - Create: `../neo-miniapps-platform/.worktrees/cross-repo-hardening/apps/shared/constants/generated-morpheus-runtime-catalog.ts`
 - Modify: `../neo-miniapps-platform/.worktrees/cross-repo-hardening/apps/shared/constants/rpc.ts`
 - Create: `../neo-miniapps-platform/.worktrees/cross-repo-hardening/platform/host-app/__tests__/lib/morpheus-runtime-catalog.test.ts`
@@ -677,6 +692,7 @@ git -C ../neo-abstract-account/.worktrees/cross-repo-hardening commit -m "feat: 
 ### Task 10: Cross-Repo Validation, CI, and Docs
 
 **Files:**
+
 - Modify: `.github/workflows/ci.yml`
 - Modify: `scripts/run_workspace_live_validation.sh`
 - Modify: `docs/ARCHITECTURE.md`

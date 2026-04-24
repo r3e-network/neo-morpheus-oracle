@@ -62,7 +62,10 @@ test('edge gateway serves the public runtime catalog without origin fetch', asyn
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.envelope.version, '2026-04-tee-v1');
-  assert.equal(payload.networks.testnet.morpheus.publicApiUrl, 'https://oracle.meshmini.app/testnet');
+  assert.equal(
+    payload.networks.testnet.morpheus.publicApiUrl,
+    'https://oracle.meshmini.app/testnet'
+  );
   assert.ok(payload.workflows.some((item) => item.id === 'automation.upkeep'));
   assert.equal(fetchCalls, 0);
 });
