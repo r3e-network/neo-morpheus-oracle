@@ -334,7 +334,19 @@ function VerifierPageClient() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div>
-                <label htmlFor="expected-payload" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Payload</label>
+                <label
+                  htmlFor="expected-payload"
+                  className="form-label"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.35rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  Expected Payload
+                </label>
                 <textarea
                   id="expected-payload"
                   className="code-editor"
@@ -345,7 +357,19 @@ function VerifierPageClient() {
                 />
               </div>
               <div>
-                <label htmlFor="expected-output-hash" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Output Hash</label>
+                <label
+                  htmlFor="expected-output-hash"
+                  className="form-label"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.35rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  Expected Output Hash
+                </label>
                 <input
                   id="expected-output-hash"
                   className="neo-input"
@@ -355,7 +379,19 @@ function VerifierPageClient() {
                 />
               </div>
               <div>
-                <label htmlFor="expected-attestation-hash" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Attestation Hash</label>
+                <label
+                  htmlFor="expected-attestation-hash"
+                  className="form-label"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.35rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  Expected Attestation Hash
+                </label>
                 <input
                   id="expected-attestation-hash"
                   className="neo-input"
@@ -365,7 +401,19 @@ function VerifierPageClient() {
                 />
               </div>
               <div>
-                <label htmlFor="expected-compose-hash" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Compose Hash</label>
+                <label
+                  htmlFor="expected-compose-hash"
+                  className="form-label"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.35rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  Expected Compose Hash
+                </label>
                 <input
                   id="expected-compose-hash"
                   className="neo-input"
@@ -375,7 +423,19 @@ function VerifierPageClient() {
                 />
               </div>
               <div>
-                <label htmlFor="expected-app-id" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected App ID</label>
+                <label
+                  htmlFor="expected-app-id"
+                  className="form-label"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.35rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  Expected App ID
+                </label>
                 <input
                   id="expected-app-id"
                   className="neo-input"
@@ -385,7 +445,19 @@ function VerifierPageClient() {
                 />
               </div>
               <div>
-                <label htmlFor="expected-instance-id" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Instance ID</label>
+                <label
+                  htmlFor="expected-instance-id"
+                  className="form-label"
+                  style={{
+                    display: 'block',
+                    marginBottom: '0.35rem',
+                    fontSize: '0.75rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  Expected Instance ID
+                </label>
                 <input
                   id="expected-instance-id"
                   className="neo-input"

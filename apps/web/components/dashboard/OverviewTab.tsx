@@ -250,7 +250,6 @@ export function OverviewTab({ setOutput }: any) {
         recordsByPair={recordsByPair}
         onRefresh={() => void loadState()}
       />
-
     </div>
   );
 }

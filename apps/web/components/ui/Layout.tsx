@@ -157,10 +157,7 @@ export function Layout({
           </div>
 
           {/* Mobile menu button */}
-          <button
-            className="mobile-menu-btn"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
+          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
 
@@ -213,7 +210,14 @@ export function Layout({
               }}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    marginBottom: '1rem',
+                  }}
+                >
                   <Boxes size={18} color="var(--text-muted)" />
                   <span
                     style={{
@@ -246,26 +250,70 @@ export function Layout({
               </div>
               <div style={{ display: 'flex', gap: '2.5rem', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Product</span>
+                  <span
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      marginBottom: '0.25rem',
+                    }}
+                  >
+                    Product
+                  </span>
                   {mainNavItems.map((item) => (
-                    <Link key={item.href} href={item.href} className="nav-link" style={{ fontSize: '0.8rem' }}>
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="nav-link"
+                      style={{ fontSize: '0.8rem' }}
+                    >
                       {item.label}
                     </Link>
                   ))}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Resources</span>
-                  <Link href="/docs/api-reference" className="nav-link" style={{ fontSize: '0.8rem' }}>API Reference</Link>
-                  <Link href="/docs/networks" className="nav-link" style={{ fontSize: '0.8rem' }}>Networks</Link>
-                  <Link href="/verifier" className="nav-link" style={{ fontSize: '0.8rem' }}>Verifier</Link>
-                  <a href="https://github.com/r3e-network/neo-morpheus-oracle" target="_blank" rel="noopener noreferrer" className="nav-link" style={{ fontSize: '0.8rem' }}>GitHub</a>
+                  <span
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      marginBottom: '0.25rem',
+                    }}
+                  >
+                    Resources
+                  </span>
+                  <Link
+                    href="/docs/api-reference"
+                    className="nav-link"
+                    style={{ fontSize: '0.8rem' }}
+                  >
+                    API Reference
+                  </Link>
+                  <Link href="/docs/networks" className="nav-link" style={{ fontSize: '0.8rem' }}>
+                    Networks
+                  </Link>
+                  <Link href="/verifier" className="nav-link" style={{ fontSize: '0.8rem' }}>
+                    Verifier
+                  </Link>
+                  <a
+                    href="https://github.com/r3e-network/neo-morpheus-oracle"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="nav-link"
+                    style={{ fontSize: '0.8rem' }}
+                  >
+                    GitHub
+                  </a>
                 </div>
               </div>
             </div>
           </div>
         </footer>
       )}
-
     </div>
   );
 }

@@ -409,7 +409,6 @@ export default function DocsNetworks() {
           <code>did:morpheus:neo_n3:service:neodid</code>.
         </p>
       </div>
-
     </div>
   );
 }
