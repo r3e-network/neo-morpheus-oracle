@@ -35,7 +35,9 @@ process.env.PHALA_NEO_N3_PRIVATE_KEY =
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.EVM_RPC_URL = '';
 process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
-const workerTestFeedStateDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-worker-feed-state-'));
+const workerTestFeedStateDir = await fs.mkdtemp(
+  path.join(os.tmpdir(), 'morpheus-worker-feed-state-')
+);
 process.env.MORPHEUS_FEED_STATE_PATH = path.join(workerTestFeedStateDir, 'feed-state.json');
 process.env.SUPABASE_URL = '';
 process.env.SUPABASE_SERVICE_ROLE_KEY = '';

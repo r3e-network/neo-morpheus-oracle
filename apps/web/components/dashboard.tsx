@@ -42,9 +42,12 @@ const TabFallback = () => (
   </div>
 );
 
-const OverviewTab = dynamic(() => import('./dashboard/OverviewTab').then((mod) => mod.OverviewTab), {
-  loading: () => <TabFallback />,
-});
+const OverviewTab = dynamic(
+  () => import('./dashboard/OverviewTab').then((mod) => mod.OverviewTab),
+  {
+    loading: () => <TabFallback />,
+  }
+);
 const OracleTab = dynamic(() => import('./dashboard/OracleTab').then((mod) => mod.OracleTab), {
   loading: () => <TabFallback />,
 });
@@ -59,9 +62,12 @@ const DeveloperHub = dynamic(
   () => import('./dashboard/DeveloperHub').then((mod) => mod.DeveloperHub),
   { loading: () => <TabFallback /> }
 );
-const StarterStudio = dynamic(() => import('./starter/StarterStudio').then((mod) => mod.StarterStudio), {
-  loading: () => <TabFallback />,
-});
+const StarterStudio = dynamic(
+  () => import('./starter/StarterStudio').then((mod) => mod.StarterStudio),
+  {
+    loading: () => <TabFallback />,
+  }
+);
 
 export function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview');

@@ -59,7 +59,6 @@ npm --prefix workers/morpheus-relayer run metrics
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
 - `MORPHEUS_RELAYER_NEO_N3_WIF` or `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY`
 
-
 If direct worker-side provider default resolution is needed during relayer processing, also set:
 
 - `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL`

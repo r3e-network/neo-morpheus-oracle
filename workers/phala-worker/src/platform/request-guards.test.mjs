@@ -166,7 +166,11 @@ test('applyRequestGuards bypasses fixed-window rate limiting for trusted service
         'x-phala-token': 'trusted-internal-token',
         'cf-connecting-ip': '203.0.113.9',
       },
-      body: JSON.stringify({ account_id: '0x1234', dapp_id: 'demo', operation_hash: operationHash }),
+      body: JSON.stringify({
+        account_id: '0x1234',
+        dapp_id: 'demo',
+        operation_hash: operationHash,
+      }),
     });
 
   const first = await applyRequestGuards({
@@ -334,7 +338,6 @@ test('oracle request idempotency differentiates encrypted params and scripts', a
   assert.notEqual(first.idempotency.lockKey, second.idempotency.lockKey);
   assert.notEqual(first.idempotency.lockKey, third.idempotency.lockKey);
 });
-
 
 test('applyRequestGuards denies requests that carry an explicit policy rejection', async () => {
   installUpstashMock();

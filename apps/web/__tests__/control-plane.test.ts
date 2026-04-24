@@ -63,7 +63,6 @@ describe('control-plane fail-open behavior', () => {
     });
   });
 
-
   it('maps dispatchable routes to workflow runtime metadata', async () => {
     const { getControlPlaneDispatchMetadata } = await import('../lib/control-plane');
 

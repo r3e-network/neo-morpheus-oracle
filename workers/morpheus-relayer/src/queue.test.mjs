@@ -1,10 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import {
-  extractDurableRetryMeta,
-  isDurableQueueReadyJob,
-} from './queue.js';
+import { extractDurableRetryMeta, isDurableQueueReadyJob } from './queue.js';
 
 // ===================================================================
 // extractDurableRetryMeta
@@ -148,10 +145,7 @@ describe('isDurableQueueReadyJob', () => {
       isDurableQueueReadyJob({ status: 'retry_scheduled', next_retry_at: null }, NOW, STALE_MS),
       true
     );
-    assert.equal(
-      isDurableQueueReadyJob({ status: 'retry_scheduled' }, NOW, STALE_MS),
-      true
-    );
+    assert.equal(isDurableQueueReadyJob({ status: 'retry_scheduled' }, NOW, STALE_MS), true);
   });
 
   // --- failure_callback_retry_scheduled uses same logic ---
@@ -201,10 +195,7 @@ describe('isDurableQueueReadyJob', () => {
   });
 
   it('returns false for "processing" with missing updated_at', () => {
-    assert.equal(
-      isDurableQueueReadyJob({ status: 'processing' }, NOW, STALE_MS),
-      false
-    );
+    assert.equal(isDurableQueueReadyJob({ status: 'processing' }, NOW, STALE_MS), false);
   });
 
   // --- terminal statuses are never ready ---

@@ -60,7 +60,10 @@ function buildRouteUpkeepDispatch(
   });
 }
 
-function buildExecutionPayload(job: Record<string, unknown>, dispatch: ReturnType<typeof buildUpkeepDispatch>) {
+function buildExecutionPayload(
+  job: Record<string, unknown>,
+  dispatch: ReturnType<typeof buildUpkeepDispatch>
+) {
   const basePayload =
     typeof job.execution_payload === 'string'
       ? { raw_payload: job.execution_payload }
@@ -70,7 +73,10 @@ function buildExecutionPayload(job: Record<string, unknown>, dispatch: ReturnTyp
   return buildUpkeepExecutionPayload(basePayload, dispatch);
 }
 
-function buildQueueTxRecord(queueTx: Record<string, unknown>, dispatch: ReturnType<typeof buildUpkeepDispatch>) {
+function buildQueueTxRecord(
+  queueTx: Record<string, unknown>,
+  dispatch: ReturnType<typeof buildUpkeepDispatch>
+) {
   return {
     ...queueTx,
     workflow_id: dispatch.workflow_id,

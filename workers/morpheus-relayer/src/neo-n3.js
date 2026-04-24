@@ -439,7 +439,9 @@ export function assertNeoN3HaltExecution(requestId, txHash, execution) {
   const exception = trimString(execution?.exception || '');
   if (vmState !== 'HALT') {
     const detail = exception || `VM state ${vmState}`;
-    throw new Error(`Neo N3 fulfillRequest faulted for request ${requestId} (${txHash}): ${detail}`);
+    throw new Error(
+      `Neo N3 fulfillRequest faulted for request ${requestId} (${txHash}): ${detail}`
+    );
   }
   return { vm_state: vmState, exception: exception || undefined };
 }

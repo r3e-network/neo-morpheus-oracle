@@ -123,7 +123,9 @@ function replayRtmr(history) {
     if (digest.length < 48) {
       digest = Buffer.concat([digest, Buffer.alloc(48 - digest.length, 0)]);
     }
-    current = createHash('sha384').update(Buffer.concat([current, digest])).digest();
+    current = createHash('sha384')
+      .update(Buffer.concat([current, digest]))
+      .digest();
   }
   return current.toString('hex');
 }

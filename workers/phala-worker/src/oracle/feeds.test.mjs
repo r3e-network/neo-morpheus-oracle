@@ -268,7 +268,6 @@ test('buildFeedSnapshotRows keeps relay metadata in snapshot payloads', () => {
   assert.deepEqual(rows[0].payload.anchored_tx, { txid: '0xabc' });
 });
 
-
 test('handleOracleFeed isolates feed state by Morpheus network in a shared worker', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-shared-network-'));
   process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
@@ -406,7 +405,10 @@ test('handleOracleFeed does not mark local state as submitted when submission pr
   delete process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
   delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
 
-  const scopedStatePath = process.env.MORPHEUS_FEED_STATE_PATH.replace(/\.json$/, '.mainnet.neo_n3.json');
+  const scopedStatePath = process.env.MORPHEUS_FEED_STATE_PATH.replace(
+    /\.json$/,
+    '.mainnet.neo_n3.json'
+  );
   await fs.writeFile(
     scopedStatePath,
     JSON.stringify({

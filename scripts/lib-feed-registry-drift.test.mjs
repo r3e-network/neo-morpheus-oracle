@@ -11,7 +11,10 @@ test('parseOnchainFeedRecords decodes feed structs into comparable rows', () => 
         {
           type: 'Struct',
           value: [
-            { type: 'ByteString', value: Buffer.from('TWELVEDATA:NEO-USD', 'utf8').toString('base64') },
+            {
+              type: 'ByteString',
+              value: Buffer.from('TWELVEDATA:NEO-USD', 'utf8').toString('base64'),
+            },
             { type: 'Integer', value: '7' },
             { type: 'Integer', value: '2951000' },
             { type: 'Integer', value: '1776386082' },
@@ -45,10 +48,7 @@ test('parseOnchainFeedRecords decodes feed structs into comparable rows', () => 
 test('diffFeedRegistry identifies missing and extra on-chain pairs', () => {
   const diff = diffFeedRegistry(
     ['TWELVEDATA:NEO-USD', 'TWELVEDATA:GAS-USD'],
-    [
-      { pair: 'TWELVEDATA:NEO-USD' },
-      { pair: 'TWELVEDATA:1000FLM-USD' },
-    ]
+    [{ pair: 'TWELVEDATA:NEO-USD' }, { pair: 'TWELVEDATA:1000FLM-USD' }]
   );
 
   assert.deepEqual(diff.missing_onchain_pairs, ['TWELVEDATA:GAS-USD']);

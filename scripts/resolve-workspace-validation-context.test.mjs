@@ -39,16 +39,20 @@ function createTempEnvFiles() {
 
 test('workspace validation context omits secrets from stdout by default', () => {
   const files = createTempEnvFiles();
-  const result = spawnSync(process.execPath, ['scripts/resolve-workspace-validation-context.mjs', 'testnet'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      MINIAPP_ENV_FILE: files.miniappsEnvFile,
-      MORPHEUS_ENV_FILE: files.morpheusEnvFile,
-      MORPHEUS_ENV_LOCAL_FILE: files.morpheusEnvLocalFile,
-    },
-  });
+  const result = spawnSync(
+    process.execPath,
+    ['scripts/resolve-workspace-validation-context.mjs', 'testnet'],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        MINIAPP_ENV_FILE: files.miniappsEnvFile,
+        MORPHEUS_ENV_FILE: files.morpheusEnvFile,
+        MORPHEUS_ENV_LOCAL_FILE: files.morpheusEnvLocalFile,
+      },
+    }
+  );
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const context = JSON.parse(result.stdout);
@@ -63,7 +67,12 @@ test('workspace validation context can materialize secrets into a private env fi
   const secretsEnvFile = path.join(files.tempDir, 'workspace-secrets.env');
   const result = spawnSync(
     process.execPath,
-    ['scripts/resolve-workspace-validation-context.mjs', 'testnet', '--write-secret-env-file', secretsEnvFile],
+    [
+      'scripts/resolve-workspace-validation-context.mjs',
+      'testnet',
+      '--write-secret-env-file',
+      secretsEnvFile,
+    ],
     {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -86,12 +95,20 @@ test('workspace validation context can materialize secrets into a private env fi
   assert.match(secretsFileText, /^PHALA_API_TOKEN=runtime-token-secret$/m);
   assert.match(secretsFileText, /^ORACLE_RUNTIME_RELAYER_PRIVATE_KEY=relayer-secret-private-key$/m);
   assert.match(secretsFileText, /^ORACLE_RUNTIME_UPDATER_WIF=relayer-secret-wif$/m);
-  assert.match(secretsFileText, /^ORACLE_RUNTIME_VERIFIER_PRIVATE_KEY=relayer-secret-private-key$/m);
+  assert.match(
+    secretsFileText,
+    /^ORACLE_RUNTIME_VERIFIER_PRIVATE_KEY=relayer-secret-private-key$/m
+  );
   assert.doesNotMatch(secretsFileText, /'runtime-token-secret'/);
-  assert.doesNotMatch(secretsFileText, /^ORACLE_RUNTIME_UPDATER_WIF=MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET$/m);
-  assert.doesNotMatch(secretsFileText, /^ORACLE_RUNTIME_VERIFIER_PRIVATE_KEY=MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET$/m);
+  assert.doesNotMatch(
+    secretsFileText,
+    /^ORACLE_RUNTIME_UPDATER_WIF=MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET$/m
+  );
+  assert.doesNotMatch(
+    secretsFileText,
+    /^ORACLE_RUNTIME_VERIFIER_PRIVATE_KEY=MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET$/m
+  );
 });
-
 
 test('workspace validation defaults resolve sibling worktrees while reading env files from canonical repo roots', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'workspace-roots-'));
@@ -99,7 +116,11 @@ test('workspace validation defaults resolve sibling worktrees while reading env 
   const oracleCanonicalRoot = path.join(workspaceRoot, 'neo-morpheus-oracle');
   const oracleWorktreeRoot = path.join(oracleCanonicalRoot, '.worktrees', 'cross-repo-hardening');
   const miniappsCanonicalRoot = path.join(workspaceRoot, 'neo-miniapps-platform');
-  const miniappsWorktreeRoot = path.join(miniappsCanonicalRoot, '.worktrees', 'cross-repo-hardening');
+  const miniappsWorktreeRoot = path.join(
+    miniappsCanonicalRoot,
+    '.worktrees',
+    'cross-repo-hardening'
+  );
   const aaCanonicalRoot = path.join(workspaceRoot, 'neo-abstract-account');
   const aaWorktreeRoot = path.join(aaCanonicalRoot, '.worktrees', 'cross-repo-hardening');
   const oracleNetworkConfigDir = path.join(oracleWorktreeRoot, 'config', 'networks');
@@ -131,7 +152,10 @@ test('workspace validation defaults resolve sibling worktrees while reading env 
   assert.equal(publicContext.roots.aa, aaWorktreeRoot);
   assert.equal(publicContext.files.miniapps_env, path.join(miniappsCanonicalRoot, '.env'));
   assert.equal(publicContext.files.morpheus_env, path.join(oracleCanonicalRoot, '.env'));
-  assert.equal(publicContext.files.morpheus_env_local, path.join(oracleCanonicalRoot, '.env.local'));
+  assert.equal(
+    publicContext.files.morpheus_env_local,
+    path.join(oracleCanonicalRoot, '.env.local')
+  );
   assert.equal(secretEnv.NEO_TESTNET_WIF, 'canonical-miniapps-wif');
   assert.equal(secretEnv.AA_TEST_WIF, 'canonical-aa-wif');
   assert.equal(secretEnv.MORPHEUS_RUNTIME_TOKEN, 'canonical-runtime-token');

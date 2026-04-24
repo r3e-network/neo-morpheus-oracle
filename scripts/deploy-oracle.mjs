@@ -18,7 +18,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const CVM_URL = process.env.PHALA_CVM_URL || 'https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network';
+const CVM_URL =
+  process.env.PHALA_CVM_URL ||
+  'https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network';
 const AUTH_TOKEN = process.env.PHALA_API_TOKEN || '';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://mainnet2.neo.coz.io:443';
 const NETWORK_MAGIC = parseInt(process.env.NEO_NETWORK_MAGIC || '860833102');
@@ -50,7 +52,7 @@ async function signWithDerivedKey(dataHex, retries = 3) {
       const resp = await fetch(`${CVM_URL}/sign/payload`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${AUTH_TOKEN}`,
+          Authorization: `Bearer ${AUTH_TOKEN}`,
           'Content-Type': 'application/json',
           'X-Morpheus-Network': 'mainnet',
         },
@@ -69,7 +71,7 @@ async function signWithDerivedKey(dataHex, retries = 3) {
     } catch (e) {
       if (i < retries - 1) {
         console.log(`  Retry ${i + 1}/${retries} after error: ${e.message}`);
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise((r) => setTimeout(r, 2000));
       } else {
         throw e;
       }
@@ -92,7 +94,13 @@ async function main() {
 
   // Load contract artifacts
   const nefPath = path.join(__dirname, '..', 'contracts', 'build', 'MorpheusOracle.nef');
-  const manifestPath = path.join(__dirname, '..', 'contracts', 'build', 'MorpheusOracle.manifest.json');
+  const manifestPath = path.join(
+    __dirname,
+    '..',
+    'contracts',
+    'build',
+    'MorpheusOracle.manifest.json'
+  );
 
   const nefBytes = fs.readFileSync(nefPath);
   const manifestJson = fs.readFileSync(manifestPath, 'utf8');
@@ -102,7 +110,7 @@ async function main() {
 
   // Validate NEF magic
   const nefMagic = nefBytes.readUInt32LE(0);
-  if (nefMagic !== 0x3346454E) {
+  if (nefMagic !== 0x3346454e) {
     throw new Error(`Invalid NEF magic: 0x${nefMagic.toString(16)}`);
   }
   console.log(`NEF magic: 0x${nefMagic.toString(16)} (valid)`);
@@ -134,15 +142,17 @@ async function main() {
   // Create transaction
   const t = new tx.Transaction({
     version: 0,
-    nonce: Math.floor(Math.random() * 2**32),
+    nonce: Math.floor(Math.random() * 2 ** 32),
     systemFee: 200000000, // 2 GAS for contract deployment
-    networkFee: '50000000',  // 0.5 GAS
+    networkFee: '50000000', // 0.5 GAS
     validUntilBlock: blockCount + 1000,
     script: u.HexString.fromHex(script),
-    signers: [{
-      account: u.HexString.fromHex(signerHash),
-      scopes: tx.WitnessScope.CalledByEntry,
-    }],
+    signers: [
+      {
+        account: u.HexString.fromHex(signerHash),
+        scopes: tx.WitnessScope.CalledByEntry,
+      },
+    ],
     attributes: [],
     witnesses: [],
   });
@@ -198,10 +208,12 @@ async function main() {
   const invocationScript = buildInvocationScript(signResult.signature);
   const verificationScript = buildVerificationScript(signResult.public_key);
 
-  t.witnesses = [new tx.Witness({
-    invocationScript: u.HexString.fromHex(invocationScript),
-    verificationScript: u.HexString.fromHex(verificationScript),
-  })];
+  t.witnesses = [
+    new tx.Witness({
+      invocationScript: u.HexString.fromHex(invocationScript),
+      verificationScript: u.HexString.fromHex(verificationScript),
+    }),
+  ];
 
   // Serialize signed transaction
   const signedHex = t.serialize(true);
@@ -211,7 +223,9 @@ async function main() {
   if (DRY_RUN) {
     console.log('\n[DRY RUN] Skipping broadcast');
     console.log(`\nTo broadcast manually:`);
-    console.log(`  curl -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"sendrawtransaction","params":["${signedBase64}"],"id":1}'`);
+    console.log(
+      `  curl -X POST "${RPC_URL}" -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"sendrawtransaction","params":["${signedBase64}"],"id":1}'`
+    );
     return;
   }
 
@@ -221,7 +235,8 @@ async function main() {
   console.log(`\nBroadcast result: ${JSON.stringify(broadcastResult)}`);
 
   // Wait for the transaction to be processed and find the new contract hash
-  const fullTxHash = '0x' + crypto.createHash('sha256').update(Buffer.from(signedHex, 'hex')).digest('hex');
+  const fullTxHash =
+    '0x' + crypto.createHash('sha256').update(Buffer.from(signedHex, 'hex')).digest('hex');
   console.log(`\nTX hash: ${fullTxHash}`);
   console.log('Waiting for transaction to be processed (up to 60s)...');
 
@@ -253,7 +268,7 @@ async function main() {
     } catch (e) {
       // Not found yet
     }
-    await new Promise(r => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, 3000));
     process.stdout.write('.');
   }
 
@@ -276,7 +291,7 @@ async function main() {
   console.log('\nDone.');
 }
 
-main().catch(e => {
+main().catch((e) => {
   console.error('Fatal:', e);
   process.exit(1);
 });

@@ -126,16 +126,8 @@ const ROLE_KEY_GROUPS = {
   },
   mainnet: {
     worker: {
-      primary: [
-        'PHALA_NEO_N3_PRIVATE_KEY_MAINNET',
-        'PHALA_NEO_N3_WIF_MAINNET',
-      ],
-      fallback: [
-        'PHALA_NEO_N3_PRIVATE_KEY',
-        'PHALA_NEO_N3_WIF',
-        'NEO_N3_WIF',
-        'NEO_TESTNET_WIF',
-      ],
+      primary: ['PHALA_NEO_N3_PRIVATE_KEY_MAINNET', 'PHALA_NEO_N3_WIF_MAINNET'],
+      fallback: ['PHALA_NEO_N3_PRIVATE_KEY', 'PHALA_NEO_N3_WIF', 'NEO_N3_WIF', 'NEO_TESTNET_WIF'],
     },
     relayer: {
       primary: [

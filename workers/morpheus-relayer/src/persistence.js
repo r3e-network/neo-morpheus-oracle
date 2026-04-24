@@ -296,7 +296,7 @@ export function buildRelayerJobRecord(event, details = {}) {
               legacy_request_type: kernelIntent.legacyRequestType,
             },
           }
-        : details.worker_response ?? null,
+        : (details.worker_response ?? null),
     fulfill_tx: details.fulfill_tx ?? null,
     event,
     updated_at: new Date().toISOString(),
@@ -449,7 +449,11 @@ export async function persistAutomationEncryptedFields(job) {
 }
 
 export async function insertWorkflowExecution(record) {
-  return supabaseRequest('morpheus_workflow_executions', 'POST', buildWorkflowExecutionRecord(record));
+  return supabaseRequest(
+    'morpheus_workflow_executions',
+    'POST',
+    buildWorkflowExecutionRecord(record)
+  );
 }
 
 export async function insertPolicyDecision(record) {

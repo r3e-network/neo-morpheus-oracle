@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  Cpu,
-  Database,
-  FileCode,
-  Fingerprint,
-  Lock,
-  ShieldAlert,
-  Zap,
-} from 'lucide-react';
+import { Cpu, Database, FileCode, Fingerprint, Lock, ShieldAlert, Zap } from 'lucide-react';
 
 interface ComputeTemplate {
   name: string;

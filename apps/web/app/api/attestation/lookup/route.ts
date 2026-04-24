@@ -101,7 +101,7 @@ async function lookupOperationLogs(attestationHash: string, networkKey: 'mainnet
 
   if (error) throw error;
 
-  const rows = ((data as OperationLogLookupRow[] | null) || []);
+  const rows = (data as OperationLogLookupRow[] | null) || [];
 
   return rows
     .map((row) => {

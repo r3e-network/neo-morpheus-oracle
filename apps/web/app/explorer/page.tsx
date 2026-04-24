@@ -53,7 +53,11 @@ export default function ExplorerPage() {
           <a href="/docs/networks" className="btn-secondary" style={{ padding: '0.85rem 1.4rem' }}>
             Networks & Contracts <ChevronRight size={14} />
           </a>
-          <a href="/docs/api-reference" className="btn-secondary" style={{ padding: '0.85rem 1.4rem' }}>
+          <a
+            href="/docs/api-reference"
+            className="btn-secondary"
+            style={{ padding: '0.85rem 1.4rem' }}
+          >
             API Reference <ChevronRight size={14} />
           </a>
         </div>

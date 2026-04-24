@@ -54,7 +54,9 @@ export function summarizeFeedSyncChainResult(chainResult = {}) {
   let skippedPairs = 0;
 
   for (const result of syncResults) {
-    const relayStatus = String(result?.relay_status || '').trim().toLowerCase();
+    const relayStatus = String(result?.relay_status || '')
+      .trim()
+      .toLowerCase();
     if (relayStatus === 'submitted') {
       submittedPairs += 1;
       continue;

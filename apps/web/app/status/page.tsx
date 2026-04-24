@@ -14,7 +14,10 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
-import { getPublicRuntimeStatusNotes, type PublicRuntimeStatusSnapshot } from '@/lib/runtime-status';
+import {
+  getPublicRuntimeStatusNotes,
+  type PublicRuntimeStatusSnapshot,
+} from '@/lib/runtime-status';
 
 type ServiceStatus = {
   name: string;

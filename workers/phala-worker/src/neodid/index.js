@@ -230,7 +230,9 @@ async function resolveNeoDidSalt(payload = {}) {
     const keyPath = configuredPath || 'morpheus/neodid/nullifier/v1';
     return await deriveKeyBytes(keyPath, 'neodid-nullifier-salt');
   } catch {
-    throw new Error('NeoDID salt unavailable: set NEODID_SECRET_SALT env var or ensure dstack is available');
+    throw new Error(
+      'NeoDID salt unavailable: set NEODID_SECRET_SALT env var or ensure dstack is available'
+    );
   }
 }
 
@@ -328,7 +330,10 @@ async function resolveNeoDidSignerPrivateKey(payload = {}) {
   }
   if (!privateKey) {
     const signer = resolvePinnedNeoN3Role(
-      resolvePayloadNetwork(payload, normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || 'testnet')),
+      resolvePayloadNetwork(
+        payload,
+        normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || 'testnet')
+      ),
       'worker',
       { env: snapshotSignerEnv() }
     );

@@ -7,8 +7,8 @@ const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const ADMIN_WIF = 'Kzopomhb6ufUbYigzTjjy7t34AE1k2sNn3suXrRGePVoPRVP6rsn';
 
 const RECIPIENTS = [
-  { label: 'Relayer',  address: 'NMGtkqaWSCTxuuMx9Zx8HT7HzHNnve8uLf' },
-  { label: 'Updater',  address: 'NhPYsstBAzuecqYyg8JwSDnB6Et35fw73r' },
+  { label: 'Relayer', address: 'NMGtkqaWSCTxuuMx9Zx8HT7HzHNnve8uLf' },
+  { label: 'Updater', address: 'NhPYsstBAzuecqYyg8JwSDnB6Et35fw73r' },
   { label: 'Verifier', address: 'NRFGK3vj9yz3hvx9QGmVL7tEZSbmWLH8v7' },
 ];
 

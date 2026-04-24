@@ -11,16 +11,19 @@
 ### Task 1: Capture the failing public edge behavior
 
 **Files:**
+
 - Create: `deploy/cloudflare/morpheus-edge-gateway/worker.test.mjs`
 - Test: `deploy/cloudflare/morpheus-edge-gateway/worker.test.mjs`
 
 **Step 1: Write the failing test**
 
 Add tests that call the edge worker with:
+
 - `GET https://oracle.meshmini.app/testnet/api/runtime/catalog`
 - `GET https://oracle.meshmini.app/testnet/api/runtime/status`
 
 Assert that:
+
 - catalog returns `200`
 - catalog contains the checked-in public envelope version and `automation.upkeep`
 - status returns `200`
@@ -35,6 +38,7 @@ Expected: FAIL because the current worker proxies `/api/runtime/*` to the origin
 ### Task 2: Extract shared public runtime helpers
 
 **Files:**
+
 - Create: `packages/shared/src/public-runtime.js`
 - Create: `packages/shared/src/public-runtime.test.mjs`
 - Modify: `packages/shared/src/index.js`
@@ -42,6 +46,7 @@ Expected: FAIL because the current worker proxies `/api/runtime/*` to the origin
 **Step 1: Write the failing test**
 
 Add tests for helpers that:
+
 - build the public runtime catalog summary from a catalog object
 - build the runtime status snapshot from `health` and `info` probe payloads
 - preserve the canonical discovery links (`/api/runtime/catalog`, `/api/workflows`, `/api/policies`)
@@ -55,6 +60,7 @@ Expected: FAIL because the helper module does not exist yet.
 **Step 3: Write minimal implementation**
 
 Implement reusable JS helpers for:
+
 - safe object/string coercion
 - public catalog summary generation
 - public runtime status snapshot generation
@@ -70,12 +76,14 @@ Expected: PASS.
 ### Task 3: Serve the runtime contract from the edge gateway
 
 **Files:**
+
 - Modify: `deploy/cloudflare/morpheus-edge-gateway/worker.mjs`
 - Modify: `deploy/cloudflare/morpheus-edge-gateway/worker.test.mjs`
 
 **Step 1: Write the failing test**
 
 Extend the edge worker tests to assert:
+
 - `/api/runtime/catalog` is served locally without an origin fetch
 - `/api/runtime/status` probes origin `/health` and `/info` with the configured origin token
 - cache headers remain safe (`no-store` for live status)
@@ -89,6 +97,7 @@ Expected: FAIL on the new assertions.
 **Step 3: Write minimal implementation**
 
 Add explicit handling in the worker for:
+
 - `/api/runtime/catalog`
 - `/api/runtime/status`
 - optionally `/api/runtime/health` and `/api/runtime/info` for consistency
@@ -104,6 +113,7 @@ Expected: PASS.
 ### Task 4: Align validation and monitoring with the real public surface
 
 **Files:**
+
 - Modify: `scripts/checkly-sync-api-checks.mjs`
 - Modify: `scripts/betterstack-sync-monitors.mjs`
 - Modify: `deploy/cloudflare/morpheus-edge-gateway/README.md`
@@ -132,11 +142,13 @@ Expected: PASS.
 ### Task 5: Re-verify cross-repo behavior
 
 **Files:**
+
 - Modify if needed: `/home/neo/git/neo-miniapps-platform/deploy/scripts/verify_cross_repo_testnet.sh`
 
 **Step 1: Run focused verification**
 
 Run:
+
 - `node --test packages/shared/src/public-runtime.test.mjs`
 - `node --test deploy/cloudflare/morpheus-edge-gateway/worker.test.mjs`
 - `node --test scripts/check-public-runtime-api.test.mjs`
@@ -147,6 +159,7 @@ Run:
 **Step 2: Run contract-level verification against the local public surface if feasible**
 
 Run a local server or targeted harness and then:
+
 - `node scripts/check-public-runtime-api.mjs <base-url>`
 
 **Step 3: Commit**

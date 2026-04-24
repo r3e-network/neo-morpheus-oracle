@@ -24,10 +24,7 @@ import {
   scheduleRetry,
 } from './state.js';
 import { claimDurableJobForProcessing, maybeUpsertJob } from './queue.js';
-import {
-  reportPinnedNeoN3Role,
-  resolvePinnedNeoN3VerifierPublicKey,
-} from './lib/neo-signers.js';
+import { reportPinnedNeoN3Role, resolvePinnedNeoN3VerifierPublicKey } from './lib/neo-signers.js';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
 import { normalizeErrorMessage } from './feed-sync.js';
@@ -145,9 +142,11 @@ function resolveLocalVerifierAccount(config) {
     env: process.env,
     allowMissing: true,
   }).materialized;
-  if (explicitVerifier?.private_key) candidates.push(buildLocalNeoN3Account(explicitVerifier.private_key));
+  if (explicitVerifier?.private_key)
+    candidates.push(buildLocalNeoN3Account(explicitVerifier.private_key));
   if (explicitVerifier?.wif) candidates.push(buildLocalNeoN3Account(explicitVerifier.wif));
-  if (config?.neo_n3?.updaterPrivateKey) candidates.push(buildLocalNeoN3Account(config.neo_n3.updaterPrivateKey));
+  if (config?.neo_n3?.updaterPrivateKey)
+    candidates.push(buildLocalNeoN3Account(config.neo_n3.updaterPrivateKey));
   if (config?.neo_n3?.updaterWif) candidates.push(buildLocalNeoN3Account(config.neo_n3.updaterWif));
 
   const workerSigner = reportPinnedNeoN3Role(config.network, 'worker', {
@@ -157,9 +156,11 @@ function resolveLocalVerifierAccount(config) {
   if (workerSigner?.private_key) candidates.push(buildLocalNeoN3Account(workerSigner.private_key));
   if (workerSigner?.wif) candidates.push(buildLocalNeoN3Account(workerSigner.wif));
 
-  return candidates.find(
-    (account) => account && normalizePublicKey(account.publicKey) === expectedPublicKey
-  ) || null;
+  return (
+    candidates.find(
+      (account) => account && normalizePublicKey(account.publicKey) === expectedPublicKey
+    ) || null
+  );
 }
 
 export async function signFulfillmentPayload(config, chain, fulfillment) {

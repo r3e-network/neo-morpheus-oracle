@@ -5,6 +5,7 @@
 **Goal:** Refactor Morpheus into a TEE-native analogue of Chainlink’s current platform direction: CRE-style workflow orchestration, Automation/Keeper-style upkeep execution, CCIP-style risk controls, DataLink-style provider/catalog governance, and ACE-style policy evaluation, while keeping confidential execution in the TEE and keeping scheduling outside the TEE.
 
 **Non-goals:**
+
 - Do not move scheduling into the TEE.
 - Do not rewrite the on-chain MiniApp OS kernel first.
 - Do not add multi-network CVM sprawl.
@@ -13,12 +14,14 @@
 ## Current State
 
 The current production topology is already close to the right boundary split:
+
 - Cloudflare edge gateway handles public ingress and cacheable reads.
 - Cloudflare control plane handles auth, validation, queueing, and recovery.
 - Supabase stores durable jobs, automation state, provider config, and logs.
 - The Oracle/DataFeed CVMs handle confidential execution only.
 
 That is directionally correct, but several concerns are still spread across route handlers and job types:
+
 - workflow intent is not first-class
 - automation is a lane, not a platform primitive
 - policy is fragmented across paymaster rules, provider config, request guards, and app allowlists
@@ -32,10 +35,12 @@ That is directionally correct, but several concerns are still spread across rout
 Keep the current queue/workflow model and standardize naming, payloads, and envs.
 
 Pros:
+
 - lowest migration cost
 - minimal disruption to current deployment model
 
 Cons:
+
 - preserves product sprawl
 - keeps automation, feeds, paymaster, compute, and NeoDID as separate local patterns
 - does not produce a real platform abstraction similar to CRE
@@ -45,6 +50,7 @@ Cons:
 Introduce a first-class workflow layer above the existing control plane and TEE workers.
 
 The core model becomes:
+
 - workflow definition
 - trigger
 - policy evaluation
@@ -61,9 +67,11 @@ This preserves the current topology but makes workflow orchestration explicit an
 Move orchestration into a new bespoke runtime and rebuild the current control plane around it.
 
 Pros:
+
 - clean slate
 
 Cons:
+
 - wrong trust boundary
 - higher operational risk
 - loses the main lesson from Chainlink Automation/CRE: orchestration and execution should be separated
@@ -79,6 +87,7 @@ This keeps Morpheus aligned with the best parts of Chainlink’s current platfor
 ### 1. Morpheus Workflow Registry
 
 Add a typed registry for all supported products and internal jobs:
+
 - `oracle.query`
 - `oracle.smart_fetch`
 - `feed.sync`
@@ -90,6 +99,7 @@ Add a typed registry for all supported products and internal jobs:
 - `paymaster.authorize`
 
 Each workflow definition should declare:
+
 - name and version
 - trigger types
 - allowed networks
@@ -105,6 +115,7 @@ Each workflow definition should declare:
 Lift automation into a first-class service instead of a special route/workflow pair.
 
 It should own:
+
 - interval-based upkeeps
 - threshold/feed-driven upkeeps
 - replay protection and idempotency keys
@@ -119,6 +130,7 @@ This is the Morpheus equivalent of Chainlink Automation/Keepers, except that con
 Unify provider configs, paymaster rules, dapp allowlists, feed permissions, and future compliance checks into one policy layer.
 
 Policy should evaluate before dispatch and before confidential execution. It should support:
+
 - tenant/project entitlements
 - provider allowlists and quotas
 - paymaster spend limits and target/method scopes
@@ -131,6 +143,7 @@ This is the Morpheus equivalent of ACE plus DataLink-style access governance.
 ### 4. Confidential Execution Adapters
 
 The TEE should not know about product-specific ingress details. It should receive a normalized execution plan:
+
 - workflow id
 - execution id
 - network
@@ -141,6 +154,7 @@ The TEE should not know about product-specific ingress details. It should receiv
 - output schema expectation
 
 Inside the TEE, adapters implement the confidential step types:
+
 - private fetch
 - compute script / WASM job
 - NeoDID private actions
@@ -150,6 +164,7 @@ Inside the TEE, adapters implement the confidential step types:
 ### 5. Result Envelope and Attestation Contract
 
 Every execution result should produce one normalized envelope with:
+
 - workflow id and version
 - execution id and correlation id
 - network
@@ -166,6 +181,7 @@ This envelope is what the relayer, app backends, AA, and miniapps consume. It re
 Add an observer layer independent from the execution plane.
 
 It should monitor:
+
 - attestation drift
 - signer drift
 - provider degradation
@@ -175,6 +191,7 @@ It should monitor:
 - callback congestion
 
 It should be able to:
+
 - pause a workflow family
 - pause a network or provider
 - downgrade to non-confidential or read-only fallback when allowed
@@ -185,6 +202,7 @@ This is the main CCIP lesson to import: keep a separate risk-control surface rat
 ## Cross-Repo Contract
 
 `neo-morpheus-oracle` remains the source of truth for:
+
 - workflow registry
 - public deployment registry
 - policy capability metadata
@@ -197,24 +215,30 @@ This is the main CCIP lesson to import: keep a separate risk-control surface rat
 ## Migration Strategy
 
 ### Phase 1: Normalize interfaces
+
 - Introduce workflow registry, execution envelope, and policy evaluation contract.
 - Keep current routes and queues working as compatibility wrappers.
 
 ### Phase 2: Extract automation product
+
 - Replace ad hoc automation lane logic with a dedicated upkeep service and state model.
 
 ### Phase 3: Introduce risk layer
+
 - Add watcher jobs, pause semantics, and attestation/signer drift monitors.
 
 ### Phase 4: Productize workflow catalog
+
 - Expose workflow definitions, policies, and capabilities to `apps/web`, AA, and miniapps through generated artifacts.
 
 ### Phase 5: Retire compatibility routing
+
 - Move legacy `/oracle/*` mental model to typed workflow naming in docs, SDKs, and APIs.
 
 ## Testing Expectations
 
 The refactor should be blocked on:
+
 - workflow-registry schema tests
 - policy decision matrix tests
 - execution-envelope golden tests

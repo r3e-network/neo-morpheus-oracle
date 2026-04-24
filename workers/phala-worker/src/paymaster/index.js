@@ -69,8 +69,7 @@ function resolvePaymasterPolicy(network) {
       entry.toLowerCase()
     ),
     aaCoreHash: normalizeHexHash(
-      env(`MORPHEUS_PAYMASTER_${upper}_AA_CORE_HASH`) ||
-        envForNetwork(network, 'AA_CORE_HASH')
+      env(`MORPHEUS_PAYMASTER_${upper}_AA_CORE_HASH`) || envForNetwork(network, 'AA_CORE_HASH')
     ),
     whitelistHookHash: normalizeHexHash(env(`MORPHEUS_PAYMASTER_${upper}_WHITELIST_HOOK_HASH`)),
     multiHookHash: normalizeHexHash(env(`MORPHEUS_PAYMASTER_${upper}_MULTI_HOOK_HASH`)),

@@ -367,7 +367,9 @@ async function verifyZerc20SingleWithdraw(input = {}) {
     statement_hash: sha256Hex(stableStringify(statement)),
     checks,
     proof_verified: proofVerified,
-    is_valid: statementsMatch && (proofVerified === null || proofVerified === true || proofVerified === 'skipped'),
+    is_valid:
+      statementsMatch &&
+      (proofVerified === null || proofVerified === true || proofVerified === 'skipped'),
   };
   if (proofVerified === 'skipped') {
     result.warning = 'proof verification was skipped by caller';

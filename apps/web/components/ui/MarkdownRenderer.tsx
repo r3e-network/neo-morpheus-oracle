@@ -42,7 +42,10 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                   borderRadius: '4px',
                 }}
               >
-                <table style={{ width: '100%', borderCollapse: 'collapse', background: 'transparent' }} {...props}>
+                <table
+                  style={{ width: '100%', borderCollapse: 'collapse', background: 'transparent' }}
+                  {...props}
+                >
                   {children}
                 </table>
               </div>

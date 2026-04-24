@@ -244,8 +244,8 @@ export function OracleRequestShape({
                 fontFamily: 'var(--font-mono)',
               }}
             >
-              Optional script_ref JSON. If valid, it overrides the inline script and lets the
-              worker read the function body from a Neo N3 contract getter.
+              Optional script_ref JSON. If valid, it overrides the inline script and lets the worker
+              read the function body from a Neo N3 contract getter.
             </div>
             <textarea
               className="code-editor"

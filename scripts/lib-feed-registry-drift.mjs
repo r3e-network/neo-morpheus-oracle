@@ -35,8 +35,12 @@ export function parseOnchainFeedRecords(stackItem, nowMs = Date.now(), staleMinu
 }
 
 export function diffFeedRegistry(configuredPairs = [], onchainRecords = []) {
-  const configured = [...new Set(configuredPairs.map((entry) => trimString(entry)).filter(Boolean))].sort();
-  const onchainPairs = [...new Set(onchainRecords.map((entry) => trimString(entry?.pair)).filter(Boolean))].sort();
+  const configured = [
+    ...new Set(configuredPairs.map((entry) => trimString(entry)).filter(Boolean)),
+  ].sort();
+  const onchainPairs = [
+    ...new Set(onchainRecords.map((entry) => trimString(entry?.pair)).filter(Boolean)),
+  ].sort();
   const configuredSet = new Set(configured);
   const onchainSet = new Set(onchainPairs);
 
@@ -48,11 +52,7 @@ export function diffFeedRegistry(configuredPairs = [], onchainRecords = []) {
   };
 }
 
-export async function buildFeedRegistryDriftReport({
-  repoRoot,
-  network,
-  staleMinutes = 720,
-}) {
+export async function buildFeedRegistryDriftReport({ repoRoot, network, staleMinutes = 720 }) {
   const networkConfig = JSON.parse(
     await fs.readFile(path.join(repoRoot, 'config', 'networks', `${network}.json`), 'utf8')
   );
@@ -72,7 +72,9 @@ export async function buildFeedRegistryDriftReport({
     onchain_pair_count: drift.onchain_pairs.length,
     missing_onchain_pairs: drift.missing_onchain_pairs,
     extra_onchain_pairs: drift.extra_onchain_pairs,
-    extra_onchain_records: onchainRecords.filter((entry) => drift.extra_onchain_pairs.includes(entry.pair)),
+    extra_onchain_records: onchainRecords.filter((entry) =>
+      drift.extra_onchain_pairs.includes(entry.pair)
+    ),
     rows: onchainRecords,
   };
 }

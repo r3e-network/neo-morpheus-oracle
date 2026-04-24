@@ -15,7 +15,6 @@ test('upkeep supervisor emits idempotent automation execution intents', () => {
   assert.equal(dispatch.replay_window, 'strict');
 });
 
-
 test('upkeep supervisor keeps replay request ids stable when execution_id is provided', () => {
   const dispatch = buildUpkeepDispatch({
     automation_id: 'automation:neo_n3:123',

@@ -32,7 +32,7 @@ jobs:
       - run: npm ci
       - run: npm --prefix workers/phala-worker test
       - run: npm --prefix workers/morpheus-relayer test
-      - run: npm --prefix apps/web test:run
+      - run: npm --prefix apps/web run test:run
       - run: npm --prefix apps/web run build
 
   contracts:

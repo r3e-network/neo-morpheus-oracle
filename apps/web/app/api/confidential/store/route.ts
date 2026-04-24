@@ -39,111 +39,113 @@ function normalizeHash160(value: unknown) {
 }
 
 const handlePost = createRateLimitedHandler(
-async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
-  const ciphertext = trimString(body?.ciphertext);
-  const targetChain = trimString(body?.target_chain || body?.targetChain || 'neo_n3');
-  const network = resolveSupabaseNetwork(String(body?.network || body?.morpheus_network || ''));
-  const projectSlug = trimString(body?.project_slug || body?.projectSlug || '');
-  const name = trimString(body?.name || '') || `cipher-ref:${randomUUID()}`;
-  const algorithm = trimString(
-    body?.encryption_algorithm || body?.algorithm || 'client-supplied-ciphertext'
-  );
-  const metadata = typeof body?.metadata === 'object' && body?.metadata ? body.metadata : {};
-  const boundRequester = normalizeHash160(body?.requester || body?.requester_script_hash);
-  const boundCallbackContract = normalizeHash160(body?.callback_contract || body?.callbackContract);
+  async function POST(request: Request) {
+    const body = await request.json().catch(() => ({}));
+    const ciphertext = trimString(body?.ciphertext);
+    const targetChain = trimString(body?.target_chain || body?.targetChain || 'neo_n3');
+    const network = resolveSupabaseNetwork(String(body?.network || body?.morpheus_network || ''));
+    const projectSlug = trimString(body?.project_slug || body?.projectSlug || '');
+    const name = trimString(body?.name || '') || `cipher-ref:${randomUUID()}`;
+    const algorithm = trimString(
+      body?.encryption_algorithm || body?.algorithm || 'client-supplied-ciphertext'
+    );
+    const metadata = typeof body?.metadata === 'object' && body?.metadata ? body.metadata : {};
+    const boundRequester = normalizeHash160(body?.requester || body?.requester_script_hash);
+    const boundCallbackContract = normalizeHash160(
+      body?.callback_contract || body?.callbackContract
+    );
 
-  if (!ciphertext) {
-    return apiError('ciphertext is required', 'MISSING_CIPHERTEXT', 400);
-  }
-  if (targetChain !== 'neo_n3') {
-    return apiError('target_chain must be neo_n3', 'UNSUPPORTED_CHAIN', 400);
-  }
+    if (!ciphertext) {
+      return apiError('ciphertext is required', 'MISSING_CIPHERTEXT', 400);
+    }
+    if (targetChain !== 'neo_n3') {
+      return apiError('target_chain must be neo_n3', 'UNSUPPORTED_CHAIN', 400);
+    }
 
-  const supabase = getServerSupabaseClient();
-  if (!supabase) {
-    return apiError('Supabase server client is not configured', 'SUPABASE_NOT_CONFIGURED', 500);
-  }
+    const supabase = getServerSupabaseClient();
+    if (!supabase) {
+      return apiError('Supabase server client is not configured', 'SUPABASE_NOT_CONFIGURED', 500);
+    }
 
-  try {
-    const projectId = projectSlug
-      ? await resolveProjectIdBySlug(supabase, projectSlug, network)
-      : null;
-    const row: EncryptedSecretInsertRow = {
-      project_id: projectId,
-      network,
-      name,
-      target_chain: targetChain,
-      encryption_algorithm: algorithm,
-      key_version: 1,
-      ciphertext,
-      metadata: {
-        source: 'api.confidential.store',
+    try {
+      const projectId = projectSlug
+        ? await resolveProjectIdBySlug(supabase, projectSlug, network)
+        : null;
+      const row: EncryptedSecretInsertRow = {
+        project_id: projectId,
         network,
+        name,
+        target_chain: targetChain,
+        encryption_algorithm: algorithm,
+        key_version: 1,
+        ciphertext,
+        metadata: {
+          source: 'api.confidential.store',
+          network,
+          ...(boundRequester ? { bound_requester: boundRequester } : {}),
+          ...(boundCallbackContract ? { bound_callback_contract: boundCallbackContract } : {}),
+          ...metadata,
+        },
+      };
+
+      const encryptedSecrets = supabase.from('morpheus_encrypted_secrets') as any;
+      const { data, error } = await encryptedSecrets
+        .insert(row)
+        .select('id,name,target_chain,encryption_algorithm,created_at')
+        .single();
+      if (error) throw error;
+      const inserted = data as EncryptedSecretInsertResult;
+
+      const responsePayload = {
+        secret_ref: inserted.id,
+        network,
+        name: inserted.name,
+        target_chain: inserted.target_chain,
+        encryption_algorithm: inserted.encryption_algorithm,
+        created_at: inserted.created_at,
         ...(boundRequester ? { bound_requester: boundRequester } : {}),
         ...(boundCallbackContract ? { bound_callback_contract: boundCallbackContract } : {}),
-        ...metadata,
-      },
-    };
+      };
 
-    const encryptedSecrets = supabase.from('morpheus_encrypted_secrets') as any;
-    const { data, error } = await encryptedSecrets
-      .insert(row)
-      .select('id,name,target_chain,encryption_algorithm,created_at')
-      .single();
-    if (error) throw error;
-    const inserted = data as EncryptedSecretInsertResult;
+      await recordOperationLog({
+        route: '/api/confidential/store',
+        method: 'POST',
+        category: 'system',
+        requestPayload: {
+          project_slug: projectSlug || null,
+          network,
+          target_chain: targetChain,
+          ciphertext,
+        },
+        responsePayload,
+        httpStatus: 200,
+        metadata: {
+          secret_name: inserted.name,
+          secret_ref: inserted.id,
+        },
+      });
 
-    const responsePayload = {
-      secret_ref: inserted.id,
-      network,
-      name: inserted.name,
-      target_chain: inserted.target_chain,
-      encryption_algorithm: inserted.encryption_algorithm,
-      created_at: inserted.created_at,
-      ...(boundRequester ? { bound_requester: boundRequester } : {}),
-      ...(boundCallbackContract ? { bound_callback_contract: boundCallbackContract } : {}),
-    };
-
-    await recordOperationLog({
-      route: '/api/confidential/store',
-      method: 'POST',
-      category: 'system',
-      requestPayload: {
-        project_slug: projectSlug || null,
-        network,
-        target_chain: targetChain,
-        ciphertext,
-      },
-      responsePayload,
-      httpStatus: 200,
-      metadata: {
-        secret_name: inserted.name,
-        secret_ref: inserted.id,
-      },
-    });
-
-    return NextResponse.json(responsePayload);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await recordOperationLog({
-      route: '/api/confidential/store',
-      method: 'POST',
-      category: 'system',
-      requestPayload: {
-        project_slug: projectSlug || null,
-        network,
-        target_chain: targetChain,
-        ciphertext,
-      },
-      responsePayload: { error: message },
-      httpStatus: 500,
-      error: message,
-    });
-    return apiError(message, 'SECRET_STORE_FAILED', 500);
-  }
-},
-{ scope: 'confidential_store', maxRequests: 20, windowMs: 60_000 }
+      return NextResponse.json(responsePayload);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await recordOperationLog({
+        route: '/api/confidential/store',
+        method: 'POST',
+        category: 'system',
+        requestPayload: {
+          project_slug: projectSlug || null,
+          network,
+          target_chain: targetChain,
+          ciphertext,
+        },
+        responsePayload: { error: message },
+        httpStatus: 500,
+        error: message,
+      });
+      return apiError(message, 'SECRET_STORE_FAILED', 500);
+    }
+  },
+  { scope: 'confidential_store', maxRequests: 20, windowMs: 60_000 }
 );
 
 export async function POST(request: Request) {

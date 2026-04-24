@@ -50,9 +50,7 @@ test('render-phala-env omits archived Neo X fields from generated output', () =>
     .find((line) => line.startsWith('MORPHEUS_RUNTIME_CONFIG_JSON='));
   assert.ok(runtimeConfigLine, 'missing MORPHEUS_RUNTIME_CONFIG_JSON line');
 
-  const runtimeConfig = JSON.parse(
-    runtimeConfigLine.slice('MORPHEUS_RUNTIME_CONFIG_JSON='.length)
-  );
+  const runtimeConfig = JSON.parse(runtimeConfigLine.slice('MORPHEUS_RUNTIME_CONFIG_JSON='.length));
 
   for (const key of archivedEnvKeys) {
     assert.equal(

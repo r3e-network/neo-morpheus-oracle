@@ -152,7 +152,9 @@ async function deriveOracleWrapKey() {
     'morpheus/oracle/encryption/wrap/v1';
   const bytes = await deriveKeyBytes(keyPath, 'oracle-encryption-wrap');
   if (bytes.length < 32) {
-    throw new Error(`oracle wrap key derivation produced ${bytes.length} bytes, expected at least 32`);
+    throw new Error(
+      `oracle wrap key derivation produced ${bytes.length} bytes, expected at least 32`
+    );
   }
   return Buffer.from(bytes).subarray(0, 32);
 }
@@ -278,7 +280,9 @@ async function loadEncryptedCiphertextByRef(ref, payload = {}) {
     );
   const network = resolvePayloadNetwork(
     payload,
-    normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || env('NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
+    normalizeMorpheusNetwork(
+      env('MORPHEUS_NETWORK') || env('NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
+    )
   );
 
   const url = new URL(`${restConfig.restUrl}/morpheus_encrypted_secrets`);
@@ -544,7 +548,9 @@ export async function ensureOracleKeyMaterial(payload = {}) {
       }
 
       if (!normalizeBoolean(env('MORPHEUS_ALLOW_EPHEMERAL_KEY'), false)) {
-        throw new Error('oracle key material unavailable: no configured key, dstack sealed keystore, or ephemeral key not allowed');
+        throw new Error(
+          'oracle key material unavailable: no configured key, dstack sealed keystore, or ephemeral key not allowed'
+        );
       }
 
       const generated = await generateX25519KeyMaterial();

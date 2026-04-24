@@ -1,5 +1,8 @@
 import { proxyToPhala } from '@/lib/phala';
-import { buildPublicRuntimeStatusSnapshot, type RuntimeProbeSnapshotInput } from '@/lib/runtime-status';
+import {
+  buildPublicRuntimeStatusSnapshot,
+  type RuntimeProbeSnapshotInput,
+} from '@/lib/runtime-status';
 
 function maybeParseJson(text: string): unknown {
   try {
@@ -9,7 +12,10 @@ function maybeParseJson(text: string): unknown {
   }
 }
 
-async function readRuntimeProbe(path: string, probe: 'health' | 'info'): Promise<RuntimeProbeSnapshotInput> {
+async function readRuntimeProbe(
+  path: string,
+  probe: 'health' | 'info'
+): Promise<RuntimeProbeSnapshotInput> {
   const response = await proxyToPhala(
     path,
     { method: 'GET' },

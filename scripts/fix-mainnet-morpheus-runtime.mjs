@@ -136,7 +136,9 @@ async function withRetries(label, task, attempts = 5) {
       await sleep(1000 * attempt);
     }
   }
-  throw new Error(`${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  throw new Error(
+    `${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
+  );
 }
 
 async function loadJsonIfExists(filePath) {
@@ -261,7 +263,9 @@ async function signWithDerivedAdmin(runtimeUrls, token, messageHex) {
         const signature = normalizeSignature(signed.signature || signed.signature_hex || '');
         const publicKey = normalizePublicKey(signed.public_key || signed.publicKey || '');
         const signerHash = normalizeHash160(
-          signed.script_hash || signed.address || `0x${wallet.getScriptHashFromPublicKey(publicKey)}`
+          signed.script_hash ||
+            signed.address ||
+            `0x${wallet.getScriptHashFromPublicKey(publicKey)}`
         );
         if (signerHash !== ADMIN_HASH) {
           throw new Error(
@@ -335,14 +339,19 @@ async function buildDerivedAdminTx({
     throw new Error(`${operation} test invoke faulted: ${testInvoke.exception || 'unknown error'}`);
   }
   const gasConsumed = BigInt(testInvoke.gasconsumed || testInvoke.gas_consumed || '0');
-  transaction.systemFee = u.BigInteger.fromDecimal(String(gasConsumed + gasConsumed / 5n + 100000n), 0);
+  transaction.systemFee = u.BigInteger.fromDecimal(
+    String(gasConsumed + gasConsumed / 5n + 100000n),
+    0
+  );
 
   const publicKeyProbe = await signWithDerivedAdmin(
     runtimeSignUrls,
     token,
     transaction.getMessageForSigning(networkMagic)
   );
-  transaction.witnesses = [buildSignatureWitness(publicKeyProbe.signature, publicKeyProbe.publicKey)];
+  transaction.witnesses = [
+    buildSignatureWitness(publicKeyProbe.signature, publicKeyProbe.publicKey),
+  ];
   const adminAccountForFees = {
     scriptHash: strip0x(ADMIN_HASH),
     contract: {
@@ -362,7 +371,9 @@ async function buildDerivedAdminTx({
     token,
     transaction.getMessageForSigning(networkMagic)
   );
-  transaction.witnesses = [buildSignatureWitness(finalSignature.signature, finalSignature.publicKey)];
+  transaction.witnesses = [
+    buildSignatureWitness(finalSignature.signature, finalSignature.publicKey),
+  ];
   const witnessHash = normalizeHash160(`0x${transaction.witnesses[0].scriptHash}`);
   if (witnessHash !== ADMIN_HASH) {
     throw new Error(`admin witness hash mismatch: expected ${ADMIN_HASH}, got ${witnessHash}`);
@@ -450,7 +461,9 @@ async function ensureGasBalance({
       sc.ContractParam.any(null),
     ]);
     if (String(response.state || '').toUpperCase() === 'FAULT') {
-      throw new Error(`${label} top-up test invoke faulted: ${response.exception || 'unknown error'}`);
+      throw new Error(
+        `${label} top-up test invoke faulted: ${response.exception || 'unknown error'}`
+      );
     }
     return {
       action: 'topup-dry-run',
@@ -546,7 +559,9 @@ async function ensureFeeCredit({
 }
 
 async function ensureOracleKey(context) {
-  const version = BigInt((await invokeRead(context.rpcClient, context.oracleHash, 'oracleEncryptionKeyVersion')) || '0');
+  const version = BigInt(
+    (await invokeRead(context.rpcClient, context.oracleHash, 'oracleEncryptionKeyVersion')) || '0'
+  );
   const publicKey = trimString(
     await invokeRead(context.rpcClient, context.oracleHash, 'oracleEncryptionPublicKey')
   );
@@ -559,7 +574,10 @@ async function ensureOracleKey(context) {
     ...context,
     contractHash: context.oracleHash,
     operation: 'setOracleEncryptionKey',
-    params: [sc.ContractParam.string(runtimeKey.algorithm), sc.ContractParam.string(runtimeKey.publicKey)],
+    params: [
+      sc.ContractParam.string(runtimeKey.algorithm),
+      sc.ContractParam.string(runtimeKey.publicKey),
+    ],
   });
   return {
     action: result.broadcast ? 'set' : 'set-dry-run',
@@ -719,9 +737,13 @@ async function main() {
   if (network !== 'mainnet') throw new Error('this repair script only runs on mainnet');
 
   const networkConfig = await loadJsonIfExists(path.resolve('config', 'networks', 'mainnet.json'));
-  const deployments = await loadJsonIfExists(path.resolve('examples', 'deployments', 'mainnet.json'));
+  const deployments = await loadJsonIfExists(
+    path.resolve('examples', 'deployments', 'mainnet.json')
+  );
   const rpcUrl = trimString(process.env.NEO_RPC_URL || networkConfig.neo_n3?.rpc_url || '');
-  const networkMagic = Number(process.env.NEO_NETWORK_MAGIC || networkConfig.neo_n3?.network_magic || 860833102);
+  const networkMagic = Number(
+    process.env.NEO_NETWORK_MAGIC || networkConfig.neo_n3?.network_magic || 860833102
+  );
   const oracleHash = normalizeHash160(
     explicitContractEnv.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET ||
       explicitContractEnv.CONTRACT_MORPHEUS_ORACLE_HASH ||
@@ -738,7 +760,8 @@ async function main() {
       process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH
   );
   const exampleConsumerHash = normalizeHash160(
-    deployments.neo_n3?.example_consumer_hash || networkConfig.neo_n3?.examples?.oracle_callback_consumer
+    deployments.neo_n3?.example_consumer_hash ||
+      networkConfig.neo_n3?.examples?.oracle_callback_consumer
   );
   const runtimeUrl = trimString(
     process.env.MORPHEUS_MAINNET_RUNTIME_URL ||
@@ -766,15 +789,19 @@ async function main() {
   if (!oracleHash) throw new Error('mainnet MorpheusOracle hash is required');
   if (!callbackConsumerHash) throw new Error('mainnet callback consumer hash is required');
   if (!exampleConsumerHash) throw new Error('mainnet example consumer hash is required');
-  if (!runtimeUrl) throw new Error('PHALA_API_URL, PHALA_CVM_URL, or MORPHEUS_RUNTIME_URL is required');
+  if (!runtimeUrl)
+    throw new Error('PHALA_API_URL, PHALA_CVM_URL, or MORPHEUS_RUNTIME_URL is required');
   if (!token) throw new Error('PHALA_API_TOKEN or MORPHEUS_RUNTIME_TOKEN is required');
 
   const workerSigner = resolvePinnedNeoN3Role('mainnet', 'worker', { env: process.env });
-  const workerSecret = workerSigner.materialized?.wif || workerSigner.materialized?.private_key || '';
+  const workerSecret =
+    workerSigner.materialized?.wif || workerSigner.materialized?.private_key || '';
   const workerAccount = new wallet.Account(workerSecret);
   const workerHash = normalizeHash160(`0x${workerAccount.scriptHash}`);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
-  const systemModules = (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(String);
+  const systemModules = (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(
+    String
+  );
   const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee')) || '0');
   const adminMinGasRaw = parseGasToRaw(process.env.MORPHEUS_MAINNET_ADMIN_MIN_GAS, 50000000n);
   const workerMinGasRaw = parseGasToRaw(process.env.MORPHEUS_MAINNET_WORKER_MIN_GAS, 30000000n);
@@ -874,7 +901,9 @@ async function main() {
 
   console.log(JSON.stringify(report, null, 2));
   if (!EXECUTE) {
-    console.error('Dry run only. Re-run with --execute to broadcast the required mainnet transactions.');
+    console.error(
+      'Dry run only. Re-run with --execute to broadcast the required mainnet transactions.'
+    );
   }
 }
 

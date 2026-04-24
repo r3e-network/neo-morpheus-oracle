@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
-import { buildWorkspaceValidationData, writeWorkspaceValidationSecretsEnvFile } from './lib-workspace-validation-context.mjs';
+import {
+  buildWorkspaceValidationData,
+  writeWorkspaceValidationSecretsEnvFile,
+} from './lib-workspace-validation-context.mjs';
 
 function parseArgs(argv) {
   let network = 'testnet';
@@ -33,7 +36,10 @@ function main() {
   const { publicContext, secretEnv } = buildWorkspaceValidationData({ network });
 
   if (writeSecretEnvFile) {
-    publicContext.secretsEnvFile = writeWorkspaceValidationSecretsEnvFile(secretEnv, secretEnvFilePath);
+    publicContext.secretsEnvFile = writeWorkspaceValidationSecretsEnvFile(
+      secretEnv,
+      secretEnvFilePath
+    );
   }
 
   process.stdout.write(`${JSON.stringify(publicContext, null, 2)}\n`);

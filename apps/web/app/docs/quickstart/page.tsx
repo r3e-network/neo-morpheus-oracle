@@ -156,9 +156,9 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
         Once the transaction is mined, the <strong>Morpheus Relayer</strong> detects the event,
         forwards the encrypted payload to the Phala TEE, and then submits a callback transaction
         back to the shared kernel containing the signed result envelope. The kernel persists the
-        canonical inbox record first, and optional external callback adapters can mirror that
-        result into custom contracts. If the upstream fetch or compute fails, the request should
-        still finalize with a failure result instead of being silently dropped.
+        canonical inbox record first, and optional external callback adapters can mirror that result
+        into custom contracts. If the upstream fetch or compute fails, the request should still
+        finalize with a failure result instead of being silently dropped.
       </p>
 
       <div
@@ -222,9 +222,8 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
           }}
         >
           <strong>1. Submit Request:</strong> Generate your JSON payload using the{' '}
-          <strong>Dashboard Oracle Builder</strong>. Then, invoke <code>request</code> on the
-          shared kernel contract (<code>{NETWORKS.neo_n3.oracle}</code>) directly using NeoLine or
-          Neo-CLI:
+          <strong>Dashboard Oracle Builder</strong>. Then, invoke <code>request</code> on the shared
+          kernel contract (<code>{NETWORKS.neo_n3.oracle}</code>) directly using NeoLine or Neo-CLI:
         </p>
         <ul
           style={{
@@ -260,8 +259,8 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
         >
           <strong>2. Read Result:</strong> Check your transaction to get the <code>requestId</code>.
           Wait about 60 seconds, then read the kernel-managed result path or perform a read-only
-          invoke of <code>getCallback(requestId)</code> on the optional adapter script hash above
-          to view your completed result envelope.
+          invoke of <code>getCallback(requestId)</code> on the optional adapter script hash above to
+          view your completed result envelope.
         </p>
       </div>
 

@@ -1,4 +1,9 @@
-import { json, timingSafeCompare, trimString, getClientIp } from '@neo-morpheus-oracle/shared/utils';
+import {
+  json,
+  timingSafeCompare,
+  trimString,
+  getClientIp,
+} from '@neo-morpheus-oracle/shared/utils';
 import { applyUpstashRateLimit } from '@neo-morpheus-oracle/shared/rate-limit';
 
 const RATE_LIMITS = {

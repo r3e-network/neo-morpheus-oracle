@@ -47,24 +47,31 @@ export function validatePublicRuntimeApiContract({ catalog, status }) {
   assert(isPlainObject(catalog.risk), 'runtime catalog risk block is required');
   assert(isPlainObject(catalog.automation), 'runtime catalog automation block is required');
   assert(Array.isArray(catalog.workflows), 'runtime catalog workflows must be an array');
-  assert(catalog.workflows.some((item) => item?.id === 'automation.upkeep'), 'runtime catalog must include automation.upkeep');
   assert(
-    Array.isArray(catalog.automation.triggerKinds) && catalog.automation.triggerKinds.includes('interval'),
+    catalog.workflows.some((item) => item?.id === 'automation.upkeep'),
+    'runtime catalog must include automation.upkeep'
+  );
+  assert(
+    Array.isArray(catalog.automation.triggerKinds) &&
+      catalog.automation.triggerKinds.includes('interval'),
     'runtime catalog automation triggerKinds must include interval'
   );
 
   const expectedStatusCatalog = buildExpectedStatusCatalog(catalog);
   assert(isPlainObject(status.catalog), 'runtime status catalog summary is required');
   assert(
-    trimString(status?.catalog?.envelope?.version) === trimString(expectedStatusCatalog.envelope.version),
+    trimString(status?.catalog?.envelope?.version) ===
+      trimString(expectedStatusCatalog.envelope.version),
     'runtime status envelope version must match runtime catalog envelope version'
   );
   assert(
-    trimString(status?.catalog?.topology?.executionPlane) === trimString(expectedStatusCatalog.topology.executionPlane),
+    trimString(status?.catalog?.topology?.executionPlane) ===
+      trimString(expectedStatusCatalog.topology.executionPlane),
     'runtime status topology executionPlane must match runtime catalog topology executionPlane'
   );
   assert(
-    trimString(status?.catalog?.topology?.riskPlane) === trimString(expectedStatusCatalog.topology.riskPlane),
+    trimString(status?.catalog?.topology?.riskPlane) ===
+      trimString(expectedStatusCatalog.topology.riskPlane),
     'runtime status topology riskPlane must match runtime catalog topology riskPlane'
   );
   assert(
@@ -72,7 +79,8 @@ export function validatePublicRuntimeApiContract({ catalog, status }) {
     'runtime status workflow count must match runtime catalog workflow count'
   );
   assert(
-    Array.isArray(status?.catalog?.workflows?.ids) && status.catalog.workflows.ids.includes('automation.upkeep'),
+    Array.isArray(status?.catalog?.workflows?.ids) &&
+      status.catalog.workflows.ids.includes('automation.upkeep'),
     'runtime status workflow ids must include automation.upkeep'
   );
   assert(

@@ -1,7 +1,10 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 import { resolveCallbackWithLocalFallback } from './lib-smoke-oracle-fallback.mjs';
-import { buildFulfillmentVerificationSignature, resolveFulfillmentSigningContext } from './lib-smoke-oracle-signing.mjs';
+import {
+  buildFulfillmentVerificationSignature,
+  resolveFulfillmentSigningContext,
+} from './lib-smoke-oracle-signing.mjs';
 import { buildOnchainResultEnvelope } from '../workers/morpheus-relayer/src/router.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -10,10 +13,7 @@ import {
   normalizeMorpheusNetwork,
   reportPinnedNeoN3Role,
 } from './lib-neo-signers.mjs';
-import {
-  resolveNetworkScopedValue,
-  snapshotEnv,
-} from './lib-verify-morpheus-n3.mjs';
+import { resolveNetworkScopedValue, snapshotEnv } from './lib-verify-morpheus-n3.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const CONTRACT_ENV_KEYS = [
@@ -85,7 +85,9 @@ async function withRetries(label, task, attempts = 5) {
       await sleep(1000 * attempt);
     }
   }
-  throw new Error(`${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+  throw new Error(
+    `${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
+  );
 }
 
 async function loadJsonIfExists(filePath) {
@@ -621,7 +623,8 @@ const updaterWif = updaterSigner.materialized?.wif || updaterSigner.materialized
 const verifierSigner = reportPinnedNeoN3Role(network, 'oracle_verifier', {
   allowMissing: true,
 });
-const verifierSecret = verifierSigner.materialized?.wif || verifierSigner.materialized?.private_key || '';
+const verifierSecret =
+  verifierSigner.materialized?.wif || verifierSigner.materialized?.private_key || '';
 
 if (!requestSigner) {
   throw new Error(

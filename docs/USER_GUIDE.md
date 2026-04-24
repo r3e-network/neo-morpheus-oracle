@@ -523,7 +523,6 @@ This means contracts can choose:
 - `GetAllPairs()`
 - `GetAllFeedRecords()`
 
-
 ## 5. NeoDID Usage
 
 These direct `/neodid/*` HTTP examples are development/operator paths. In production, the same payloads should be
