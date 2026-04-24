@@ -211,6 +211,93 @@ export function buildNeoN3RelayRequestId(scope, requestId) {
   return `relayer:n3:${normalizedScope}:${requestId}:${randomUUID()}`;
 }
 
+export function buildNeoN3EventFromRequestRecord(decoded, requestId) {
+  if (!Array.isArray(decoded)) return null;
+
+  if (decoded.length >= 14) {
+    const [
+      requestIdValue,
+      appId,
+      moduleId,
+      operation,
+      payloadText,
+      requester,
+      ,
+      callbackContract,
+      ,
+      createdAtMs,
+      fulfilledAtMs,
+      ,
+      resultText,
+      errorText,
+    ] = decoded;
+
+    if (!trimString(operation)) return null;
+
+    const alreadySettled = trimString(fulfilledAtMs) !== '' && trimString(fulfilledAtMs) !== '0';
+    const hasOutcome = trimString(resultText) !== '' || trimString(errorText) !== '';
+    if (alreadySettled || hasOutcome) return null;
+
+    return {
+      chain: 'neo_n3',
+      requestId: String(requestIdValue || requestId),
+      requestType: String(operation || ''),
+      appId: String(appId || ''),
+      moduleId: String(moduleId || ''),
+      operation: String(operation || ''),
+      requester: String(requester || ''),
+      callbackContract: String(callbackContract || ''),
+      callbackMethod: 'onOracleResult',
+      payloadText: String(payloadText || ''),
+      createdAtMs: Number(createdAtMs || 0),
+      fulfilledAtMs: Number(fulfilledAtMs || 0),
+      blockNumber: Number(createdAtMs || 0),
+      txHash: '',
+      logIndex: 0,
+    };
+  }
+
+  if (decoded.length >= 12) {
+    const [
+      requestIdValue,
+      requestType,
+      payloadText,
+      callbackContract,
+      callbackMethod,
+      requester,
+      ,
+      createdAtMs,
+      fulfilledAtMs,
+      ,
+      resultText,
+      errorText,
+    ] = decoded;
+
+    if (!trimString(requestType)) return null;
+
+    const alreadySettled = trimString(fulfilledAtMs) !== '' && trimString(fulfilledAtMs) !== '0';
+    const hasOutcome = trimString(resultText) !== '' || trimString(errorText) !== '';
+    if (alreadySettled || hasOutcome) return null;
+
+    return {
+      chain: 'neo_n3',
+      requestId: String(requestIdValue || requestId),
+      requestType: String(requestType || ''),
+      requester: String(requester || ''),
+      callbackContract: String(callbackContract || ''),
+      callbackMethod: String(callbackMethod || ''),
+      payloadText: String(payloadText || ''),
+      createdAtMs: Number(createdAtMs || 0),
+      fulfilledAtMs: Number(fulfilledAtMs || 0),
+      blockNumber: Number(createdAtMs || 0),
+      txHash: '',
+      logIndex: 0,
+    };
+  }
+
+  return null;
+}
+
 export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
   if (fromBlock > toBlock) return [];
   const out = [];
@@ -328,44 +415,8 @@ export async function scanNeoN3OracleRequestsById(config, fromRequestId, toReque
       throw new Error(result?.exception || `Neo N3 getRequest faulted for request ${requestId}`);
     }
 
-    const decoded = decodeNeoItem(result?.stack?.[0]);
-    if (!Array.isArray(decoded) || decoded.length < 12) continue;
-
-    const [
-      requestIdValue,
-      requestType,
-      payloadText,
-      callbackContract,
-      callbackMethod,
-      requester, // statusCode
-      ,
-      createdAtMs,
-      fulfilledAtMs, // success
-      ,
-      resultText,
-      errorText,
-    ] = decoded;
-
-    if (!trimString(requestType)) continue;
-
-    const alreadySettled = trimString(fulfilledAtMs) !== '' && trimString(fulfilledAtMs) !== '0';
-    const hasOutcome = trimString(resultText) !== '' || trimString(errorText) !== '';
-    if (alreadySettled || hasOutcome) continue;
-
-    out.push({
-      chain: 'neo_n3',
-      requestId: String(requestIdValue || requestId),
-      requestType: String(requestType || ''),
-      requester: String(requester || ''),
-      callbackContract: String(callbackContract || ''),
-      callbackMethod: String(callbackMethod || ''),
-      payloadText: String(payloadText || ''),
-      createdAtMs: Number(createdAtMs || 0),
-      fulfilledAtMs: Number(fulfilledAtMs || 0),
-      blockNumber: Number(createdAtMs || 0),
-      txHash: '',
-      logIndex: 0,
-    });
+    const event = buildNeoN3EventFromRequestRecord(decodeNeoItem(result?.stack?.[0]), requestId);
+    if (event) out.push(event);
   }
 
   return out;
@@ -381,6 +432,16 @@ function base64ToHex(value) {
   const raw = trimString(value);
   if (!raw) return '';
   return Buffer.from(raw, 'base64').toString('hex');
+}
+
+export function assertNeoN3HaltExecution(requestId, txHash, execution) {
+  const vmState = trimString(execution?.vmstate || 'HALT').toUpperCase() || 'HALT';
+  const exception = trimString(execution?.exception || '');
+  if (vmState !== 'HALT') {
+    const detail = exception || `VM state ${vmState}`;
+    throw new Error(`Neo N3 fulfillRequest faulted for request ${requestId} (${txHash}): ${detail}`);
+  }
+  return { vm_state: vmState, exception: exception || undefined };
 }
 
 async function resolveNeoN3UpdaterPayload(config) {
@@ -435,9 +496,13 @@ export async function fulfillNeoN3Request(
   try {
     const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
     const execution = appLog?.executions?.[0];
-    if (execution?.vmstate) vmState = execution.vmstate;
-    if (execution?.exception) exception = execution.exception;
+    const outcome = assertNeoN3HaltExecution(requestId, txHash, execution);
+    vmState = outcome.vm_state;
+    exception = outcome.exception;
   } catch (error) {
+    if (error instanceof Error && error.message.includes('Neo N3 fulfillRequest faulted')) {
+      throw error;
+    }
     // Best-effort: ignore RPC call failure for application log
     vmState = 'UNKNOWN';
     exception = error instanceof Error ? error.message : String(error);

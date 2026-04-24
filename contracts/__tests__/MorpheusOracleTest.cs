@@ -83,10 +83,24 @@ namespace MorpheusOracle.Contracts.Tests
             Assert.Contains("MiniAppInboxStored", code);
             Assert.Contains("MiniAppStateChanged", code);
             Assert.Contains("GAS.Transfer", code);
+            Assert.Contains("[ContractPermission(\"*\", \"onOracleResult\")]", code);
             Assert.Contains("FULFILLMENT_SIGNATURE_DOMAIN", code);
             Assert.Contains("ComputeFulfillmentDigest", code);
             Assert.Contains("SeedBuiltInModule", code);
             Assert.Contains("ResolveLegacyModuleId", code);
+            Assert.Contains("LEGACY_CALLBACK_METHOD", code);
+        }
+
+        [Fact]
+        public void MorpheusOracleGrantKeyFitsNeoStorageLimit()
+        {
+            string code = ContractSourceAssertions.ReadSource(
+                "contracts",
+                "MorpheusOracle",
+                "MorpheusOracle.cs");
+
+            Assert.Contains("byte[] grantMaterial = (byte[])Helper.Concat", code);
+            Assert.Contains("return (byte[])CryptoLib.Sha256((ByteString)grantMaterial);", code);
         }
     }
 }
