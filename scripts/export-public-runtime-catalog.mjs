@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { format, resolveConfig } from 'prettier';
 import { loadPublicRuntimeCatalog } from './lib-public-runtime-catalog.mjs';
 
 function parseArgs(argv) {
@@ -18,10 +19,15 @@ function parseArgs(argv) {
   return { outputFile };
 }
 
-function main() {
+async function main() {
   const { outputFile } = parseArgs(process.argv.slice(2));
   const catalog = loadPublicRuntimeCatalog();
-  const serialized = JSON.stringify(catalog, null, 2) + '\n';
+  const prettierConfig =
+    (await resolveConfig('apps/web/public/morpheus-runtime-catalog.json')) || {};
+  const serialized = await format(JSON.stringify(catalog, null, 2), {
+    ...prettierConfig,
+    parser: 'json',
+  });
 
   if (outputFile) {
     fs.mkdirSync(path.dirname(path.resolve(outputFile)), { recursive: true });
@@ -31,4 +37,7 @@ function main() {
   process.stdout.write(serialized);
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
