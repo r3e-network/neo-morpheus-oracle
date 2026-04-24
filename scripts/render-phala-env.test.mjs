@@ -61,4 +61,24 @@ test('render-phala-env omits archived Neo X fields from generated output', () =>
       `unexpected archived key in runtime config: ${key}`
     );
   }
+
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(runtimeConfig, 'MORPHEUS_UPDATER_NEO_N3_WIF'),
+    'runtime config must expose the updater WIF to the relayer'
+  );
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(runtimeConfig, 'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY'),
+    'runtime config must expose the updater private key to the relayer'
+  );
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(runtimeConfig, 'MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET'),
+    'runtime config must expose the network-scoped updater WIF to the relayer primary signer path'
+  );
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(
+      runtimeConfig,
+      'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET'
+    ),
+    'runtime config must expose the network-scoped updater private key to the relayer primary signer path'
+  );
 });
