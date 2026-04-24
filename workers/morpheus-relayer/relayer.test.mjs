@@ -48,6 +48,8 @@ import {
   snapshotMetrics,
 } from './src/state.js';
 import {
+  assertNeoN3HaltExecution,
+  buildNeoN3EventFromRequestRecord,
   buildNeoN3RelayRequestId,
   decodeNeoItem,
   encodeUtf8ByteArrayParamValue,
@@ -86,8 +88,8 @@ function withIsolatedRelayerSigner(run) {
   const isolatedSigner = new wallet.Account(wallet.generatePrivateKey());
   process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
   process.env.MORPHEUS_RELAYER_NEO_N3_WIF = isolatedSigner.WIF;
+  process.env.MORPHEUS_UPDATER_NEO_N3_WIF = isolatedSigner.WIF;
   delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
-  delete process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
   delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
   delete process.env.NEO_N3_WIF;
   delete process.env.NEO_TESTNET_WIF;
@@ -873,6 +875,38 @@ test('createRelayerConfig exposes request cursor start ids', () => {
   }
 });
 
+test('createRelayerConfig prefers network-scoped Neo N3 contract hashes over stale generic env', () => {
+  const keys = [
+    'MORPHEUS_NETWORK',
+    'CONTRACT_MORPHEUS_ORACLE_HASH',
+    'CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET',
+    'CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET',
+    'CONTRACT_MORPHEUS_DATAFEED_HASH',
+    'CONTRACT_MORPHEUS_DATAFEED_HASH_MAINNET',
+    'CONTRACT_MORPHEUS_DATAFEED_HASH_TESTNET',
+  ];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0xgenericstale';
+  process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET = '0xmainnetoracle';
+  process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET = '0xtestnetoracle';
+  process.env.CONTRACT_MORPHEUS_DATAFEED_HASH = '0xgenericfeed';
+  process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_MAINNET = '0xmainnetfeed';
+  process.env.CONTRACT_MORPHEUS_DATAFEED_HASH_TESTNET = '0xtestnetfeed';
+
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.neo_n3.oracleContract, '0xmainnetoracle');
+    assert.equal(config.neo_n3.datafeedContract, '0xmainnetfeed');
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('createRelayerConfig defaults active chains to neo_n3 only', () => {
   const previous = process.env.MORPHEUS_ACTIVE_CHAINS;
   delete process.env.MORPHEUS_ACTIVE_CHAINS;
@@ -993,6 +1027,81 @@ test('buildFeedSyncPayload forwards target-chain signer material to the worker r
 test('encodeUtf8ByteArrayParamValue encodes JSON payloads as base64 utf8', () => {
   const encoded = encodeUtf8ByteArrayParamValue('{"ok":true}');
   assert.equal(Buffer.from(encoded, 'base64').toString('utf8'), '{"ok":true}');
+});
+
+test('buildNeoN3EventFromRequestRecord decodes pending miniapp kernel requests', () => {
+  const event = buildNeoN3EventFromRequestRecord(
+    [
+      '4',
+      'morpheus.callback.consumer',
+      'oracle.fetch',
+      'privacy_oracle',
+      '{"symbol":"NEO-USD"}',
+      '0xrequester',
+      '0xsponsor',
+      '0xcallback',
+      '0',
+      '123456',
+      '0',
+      false,
+      '',
+      '',
+    ],
+    4
+  );
+
+  assert.deepEqual(event, {
+    chain: 'neo_n3',
+    requestId: '4',
+    requestType: 'privacy_oracle',
+    appId: 'morpheus.callback.consumer',
+    moduleId: 'oracle.fetch',
+    operation: 'privacy_oracle',
+    requester: '0xrequester',
+    callbackContract: '0xcallback',
+    callbackMethod: 'onOracleResult',
+    payloadText: '{"symbol":"NEO-USD"}',
+    createdAtMs: 123456,
+    fulfilledAtMs: 0,
+    blockNumber: 123456,
+    txHash: '',
+    logIndex: 0,
+  });
+});
+
+test('buildNeoN3EventFromRequestRecord skips settled miniapp kernel requests', () => {
+  const event = buildNeoN3EventFromRequestRecord(
+    [
+      '4',
+      'morpheus.callback.consumer',
+      'oracle.fetch',
+      'privacy_oracle',
+      '{}',
+      '0xrequester',
+      '0xsponsor',
+      '0xcallback',
+      '1',
+      '123456',
+      '123999',
+      true,
+      '{}',
+      '',
+    ],
+    4
+  );
+
+  assert.equal(event, null);
+});
+
+test('assertNeoN3HaltExecution rejects faulted fulfillment transactions', () => {
+  assert.throws(
+    () =>
+      assertNeoN3HaltExecution('4', '0xfault', {
+        vmstate: 'FAULT',
+        exception: 'ABORTMSG is executed. Reason: request already fulfilled',
+      }),
+    /request already fulfilled/
+  );
 });
 
 test('decodeNeoItem converts 20-byte base64 notifications into hash160', () => {

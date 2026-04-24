@@ -6,6 +6,20 @@ import {
   resolvePinnedNeoN3UpdaterHash,
   resolvePinnedNeoN3VerifierPublicKey,
 } from './lib-neo-signers.mjs';
+import {
+  detectMorpheusOracleInterface,
+  resolveNetworkScopedValue,
+  snapshotEnv,
+} from './lib-verify-morpheus-n3.mjs';
+
+const CONTRACT_ENV_KEYS = [
+  'CONTRACT_MORPHEUS_ORACLE_HASH',
+  'CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET',
+  'CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET',
+  'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
+  'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET',
+  'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET',
+];
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -126,8 +140,24 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
   return parseStackItem(result.stack?.[0]);
 }
 
+async function loadContractMethods(rpcClient, contractHash) {
+  const state = await withRetries(`getContractState:${contractHash}`, () =>
+    rpcClient.getContractState(contractHash)
+  );
+  return new Set(
+    (state.manifest?.abi?.methods || []).map(
+      (method) => `${method.name}/${method.parameters?.length ?? 0}`
+    )
+  );
+}
+
+function optionalBoolean(value) {
+  return value === null || value === undefined ? null : Boolean(value);
+}
+
 const requestedNetwork = trimString(process.env.MORPHEUS_NETWORK || '');
 const requestedRpcUrl = trimString(process.env.NEO_RPC_URL || '');
+const explicitContractEnvSnapshot = snapshotEnv(CONTRACT_ENV_KEYS);
 await loadDotEnv();
 const network =
   trimString(requestedNetwork || process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
@@ -138,7 +168,6 @@ const signerEnvSnapshot = await loadEnvSnapshot(selectedPhalaEnvPath);
 const registry = await loadRegistry(network);
 const deployments = await loadDeploymentRegistry(network);
 const rpcUrl = trimString(requestedRpcUrl || process.env.NEO_RPC_URL || registry.neo_n3?.rpc_url || '');
-const mainnetRegistry = await loadRegistry('mainnet').catch(() => ({}));
 const registryOracleHash =
   deployments?.neo_n3?.oracle_hash || registry.neo_n3?.contracts?.morpheus_oracle || '';
 const registryCallbackHash =
@@ -146,33 +175,29 @@ const registryCallbackHash =
   registry.neo_n3?.contracts?.oracle_callback_consumer ||
   '';
 const candidateOracleHash = trimString(
-  network === 'testnet'
-    ? process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET ||
-        registryOracleHash ||
-        process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
-        ''
-    : process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET ||
-        process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
-        registryOracleHash ||
-        ''
+  resolveNetworkScopedValue({
+    network,
+    explicitEnv: explicitContractEnvSnapshot,
+    selectedEnv: signerEnvSnapshot,
+    loadedEnv: process.env,
+    genericKey: 'CONTRACT_MORPHEUS_ORACLE_HASH',
+    mainnetKey: 'CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET',
+    testnetKey: 'CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET',
+    registryValue: registryOracleHash,
+  })
 );
-const oracleHash = normalizeHash160(
-  network === 'testnet' &&
-    trimString(candidateOracleHash) ===
-      trimString(mainnetRegistry?.neo_n3?.contracts?.morpheus_oracle || '')
-    ? registryOracleHash
-    : candidateOracleHash
-);
+const oracleHash = normalizeHash160(candidateOracleHash);
 const callbackHash = normalizeHash160(
-  network === 'testnet'
-    ? process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET ||
-        registryCallbackHash ||
-        process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH ||
-        ''
-    : process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET ||
-        process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH ||
-        registryCallbackHash ||
-        ''
+  resolveNetworkScopedValue({
+    network,
+    explicitEnv: explicitContractEnvSnapshot,
+    selectedEnv: signerEnvSnapshot,
+    loadedEnv: process.env,
+    genericKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
+    mainnetKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET',
+    testnetKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET',
+    registryValue: registryCallbackHash,
+  })
 );
 const expectedUpdater = resolvePinnedNeoN3UpdaterHash(network, signerEnvSnapshot);
 const expectedVerifierPublicKey = resolvePinnedNeoN3VerifierPublicKey(network, signerEnvSnapshot);
@@ -182,15 +207,26 @@ if (!oracleHash) throw new Error('MorpheusOracle hash is required');
 if (!callbackHash) throw new Error('OracleCallbackConsumer hash is required');
 
 const rpcClient = new neoRpc.RPCClient(rpcUrl);
-const [admin, updater, callbackAllowed, keyVersion, publicKey, consumerOracle] = await Promise.all([
+const oracleMethods = await loadContractMethods(rpcClient, oracleHash);
+const contractInterface = detectMorpheusOracleInterface(oracleMethods);
+const supportsLegacyCallbackAllowlist = oracleMethods.has('isAllowedCallback/1');
+const supportsMiniAppRuntime = contractInterface === 'miniapp_runtime';
+
+const [admin, updater, keyVersion, publicKey] = await Promise.all([
   invokeRead(rpcClient, oracleHash, 'admin'),
   invokeRead(rpcClient, oracleHash, 'updater'),
-  invokeRead(rpcClient, oracleHash, 'isAllowedCallback', [
-    { type: 'Hash160', value: callbackHash },
-  ]),
   invokeRead(rpcClient, oracleHash, 'oracleEncryptionKeyVersion'),
   invokeRead(rpcClient, oracleHash, 'oracleEncryptionPublicKey'),
-  invokeRead(rpcClient, callbackHash, 'oracle'),
+]);
+const [callbackAllowed, consumerOracle, miniAppCount, systemModuleCount] = await Promise.all([
+  supportsLegacyCallbackAllowlist
+    ? invokeRead(rpcClient, oracleHash, 'isAllowedCallback', [
+        { type: 'Hash160', value: callbackHash },
+      ])
+    : Promise.resolve(null),
+  callbackHash ? invokeRead(rpcClient, callbackHash, 'oracle') : Promise.resolve(null),
+  supportsMiniAppRuntime ? invokeRead(rpcClient, oracleHash, 'getMiniAppCount') : Promise.resolve(null),
+  supportsMiniAppRuntime ? invokeRead(rpcClient, oracleHash, 'getSystemModuleCount') : Promise.resolve(null),
 ]);
 const verifierPublicKey = await invokeRead(rpcClient, oracleHash, 'oracleVerificationPublicKey');
 
@@ -199,8 +235,8 @@ const checks = {
     normalizeHash160(registry.neo_n3?.contracts?.morpheus_oracle || '') === oracleHash,
   registry_matches_callback:
     normalizeHash160(registry.neo_n3?.contracts?.oracle_callback_consumer || '') === callbackHash,
-  callback_allowed: Boolean(callbackAllowed),
-  callback_oracle_matches: normalizeHash160(consumerOracle || '') === oracleHash,
+  callback_allowed: optionalBoolean(callbackAllowed),
+  callback_oracle_matches: callbackHash ? normalizeHash160(consumerOracle || '') === oracleHash : null,
   updater_matches_expected: expectedUpdater
     ? normalizeHash160(updater || '') === expectedUpdater
     : null,
@@ -210,6 +246,10 @@ const checks = {
   verifier_key_matches_expected: expectedVerifierPublicKey
     ? trimString(verifierPublicKey || '') === expectedVerifierPublicKey
     : null,
+  miniapp_count_positive: supportsMiniAppRuntime ? Number(miniAppCount || 0) > 0 : null,
+  system_module_count_positive: supportsMiniAppRuntime
+    ? Number(systemModuleCount || 0) > 0
+    : null,
 };
 
 const report = {
@@ -217,6 +257,7 @@ const report = {
   rpc_url: rpcUrl,
   oracle_hash: oracleHash,
   callback_hash: callbackHash,
+  contract_interface: contractInterface,
   admin,
   updater,
   expected_updater: expectedUpdater || null,
@@ -225,19 +266,29 @@ const report = {
   oracle_encryption_public_key_present: checks.oracle_key_present,
   oracle_verifier_public_key: verifierPublicKey || null,
   callback_consumer_oracle: consumerOracle,
+  miniapp_count: miniAppCount === null ? null : Number(miniAppCount || 0),
+  system_module_count: systemModuleCount === null ? null : Number(systemModuleCount || 0),
   checks,
 };
 
 console.log(JSON.stringify(report, null, 2));
 
-if (
-  !checks.callback_allowed ||
-  !checks.callback_oracle_matches ||
-  !checks.registry_matches_oracle ||
-  !checks.registry_matches_callback
-) {
+if (!checks.registry_matches_oracle || !checks.registry_matches_callback) {
+  process.exitCode = 1;
+}
+if (checks.callback_allowed === false || checks.callback_oracle_matches === false) {
   process.exitCode = 1;
 }
 if (checks.updater_matches_expected === false) {
+  process.exitCode = 1;
+}
+if (
+  !checks.oracle_key_present ||
+  !checks.oracle_key_version_positive ||
+  !checks.verifier_key_present ||
+  checks.verifier_key_matches_expected === false ||
+  checks.miniapp_count_positive === false ||
+  checks.system_module_count_positive === false
+) {
   process.exitCode = 1;
 }

@@ -103,6 +103,11 @@ function env(...names) {
   return '';
 }
 
+function envNetworkScoped(network, genericKey) {
+  const suffix = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  return env(`${genericKey}_${suffix}`) || env(genericKey);
+}
+
 function loadJsonFile(filePath) {
   try {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -288,10 +293,10 @@ export function createRelayerConfig() {
       rpcUrls: neoN3RpcUrls,
       networkMagic: Number(env('NEO_NETWORK_MAGIC') || registry.neo_n3?.network_magic || 894710606),
       oracleContract:
-        env('CONTRACT_MORPHEUS_ORACLE_HASH') ||
+        envNetworkScoped(network, 'CONTRACT_MORPHEUS_ORACLE_HASH') ||
         trimString(registry.neo_n3?.contracts?.morpheus_oracle || ''),
       datafeedContract:
-        env('CONTRACT_MORPHEUS_DATAFEED_HASH') ||
+        envNetworkScoped(network, 'CONTRACT_MORPHEUS_DATAFEED_HASH') ||
         trimString(registry.neo_n3?.contracts?.morpheus_datafeed || ''),
       updaterWif: updaterSigner.materialized?.wif || '',
       updaterPrivateKey: updaterSigner.materialized?.private_key || '',

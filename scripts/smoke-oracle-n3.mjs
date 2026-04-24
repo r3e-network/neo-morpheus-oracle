@@ -10,8 +10,20 @@ import {
   normalizeMorpheusNetwork,
   reportPinnedNeoN3Role,
 } from './lib-neo-signers.mjs';
+import {
+  resolveNetworkScopedValue,
+  snapshotEnv,
+} from './lib-verify-morpheus-n3.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const CONTRACT_ENV_KEYS = [
+  'CONTRACT_MORPHEUS_ORACLE_HASH',
+  'CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET',
+  'CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET',
+  'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
+  'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET',
+  'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET',
+];
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -85,9 +97,37 @@ async function loadJsonIfExists(filePath) {
   }
 }
 
+async function loadEnvSnapshot(filePath) {
+  try {
+    const text = await fs.readFile(filePath, 'utf8');
+    const snapshot = {};
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = trimString(line);
+      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+      const separatorIndex = trimmed.indexOf('=');
+      const key = trimString(trimmed.slice(0, separatorIndex));
+      let value = trimmed.slice(separatorIndex + 1);
+      if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      snapshot[key] = value;
+    }
+    return snapshot;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return {};
+    throw error;
+  }
+}
+
 const requestedRpcUrl = trimString(process.env.NEO_RPC_URL || '');
 const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
-await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${network}.env`), { override: false });
+const explicitContractEnvSnapshot = snapshotEnv(CONTRACT_ENV_KEYS);
+const selectedPhalaEnvPath = path.resolve('deploy', 'phala', `morpheus.${network}.env`);
+const selectedPhalaEnvSnapshot = await loadEnvSnapshot(selectedPhalaEnvPath);
+await loadDotEnv(selectedPhalaEnvPath, { override: false });
 await loadDotEnv();
 const networkConfig = await loadJsonIfExists(path.resolve('config', 'networks', `${network}.json`));
 const deploymentRegistry = await loadJsonIfExists(
@@ -100,6 +140,31 @@ const defaultNetworkMagic = network === 'mainnet' ? 860833102 : 894710606;
 function decodeCallbackArray(item) {
   if (!item || item.type !== 'Array' || !Array.isArray(item.value)) return null;
   if (item.value.length < 4) return null;
+  if (item.value.length >= 8) {
+    const [
+      appIdItem,
+      moduleIdItem,
+      operationItem,
+      requesterItem,
+      successItem,
+      resultItem,
+      errorItem,
+      receivedAtItem,
+    ] = item.value;
+    const resultText = decodeBase64String(resultItem?.value || '');
+    const requesterBytes = parseStackItem(requesterItem);
+    return {
+      app_id: decodeBase64String(appIdItem?.value || ''),
+      module_id: decodeBase64String(moduleIdItem?.value || ''),
+      operation: decodeBase64String(operationItem?.value || ''),
+      requester: requesterBytes,
+      success: Boolean(successItem?.value),
+      result_text: resultText,
+      result_json: tryParseJson(resultText),
+      error_text: decodeBase64String(errorItem?.value || ''),
+      received_at_ms: String(receivedAtItem?.value || ''),
+    };
+  }
   const [requestTypeItem, successItem, resultItem, errorItem] = item.value;
   const requestType = decodeBase64String(requestTypeItem?.value || '');
   const success = Boolean(successItem?.value);
@@ -323,9 +388,14 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 60000) {
   while (Date.now() - startedAt < timeoutMs) {
     try {
       const appLog = await rpcClient.getApplicationLog(txid);
+      const execution = appLog.executions?.[0];
+      const stackRequestId = execution?.stack?.[0]?.value;
+      if (stackRequestId) return stackRequestId;
       const notify = appLog.executions
-        ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        ?.flatMap((entry) => entry.notifications || [])
+        .find((entry) =>
+          ['OracleRequested', 'MiniAppRequestQueued'].includes(String(entry.eventname || ''))
+        );
       const requestId = notify?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -453,8 +523,8 @@ const registryOracleHash = trimString(
   deploymentRegistry?.neo_n3?.oracle_hash || networkConfig?.neo_n3?.contracts?.morpheus_oracle || ''
 );
 const registryCallbackHash = trimString(
-  deploymentRegistry?.neo_n3?.example_consumer_hash ||
-    networkConfig?.neo_n3?.contracts?.oracle_callback_consumer ||
+  networkConfig?.neo_n3?.contracts?.oracle_callback_consumer ||
+    deploymentRegistry?.neo_n3?.example_consumer_hash ||
     ''
 );
 const mainnetOracleHash = trimString(
@@ -462,26 +532,28 @@ const mainnetOracleHash = trimString(
     ?.morpheus_oracle || ''
 );
 const rawOracleHash = trimString(
-  network === 'testnet'
-    ? process.env.CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET ||
-        registryOracleHash ||
-        process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
-        ''
-    : process.env.CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET ||
-        process.env.CONTRACT_MORPHEUS_ORACLE_HASH ||
-        registryOracleHash ||
-        ''
+  resolveNetworkScopedValue({
+    network,
+    explicitEnv: explicitContractEnvSnapshot,
+    selectedEnv: selectedPhalaEnvSnapshot,
+    loadedEnv: process.env,
+    genericKey: 'CONTRACT_MORPHEUS_ORACLE_HASH',
+    mainnetKey: 'CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET',
+    testnetKey: 'CONTRACT_MORPHEUS_ORACLE_HASH_TESTNET',
+    registryValue: registryOracleHash,
+  })
 );
 const rawCallbackHash = trimString(
-  network === 'testnet'
-    ? process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET ||
-        registryCallbackHash ||
-        process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH ||
-        ''
-    : process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET ||
-        process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH ||
-        registryCallbackHash ||
-        ''
+  resolveNetworkScopedValue({
+    network,
+    explicitEnv: explicitContractEnvSnapshot,
+    selectedEnv: selectedPhalaEnvSnapshot,
+    loadedEnv: process.env,
+    genericKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
+    mainnetKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET',
+    testnetKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET',
+    registryValue: registryCallbackHash,
+  })
 );
 
 const rpcUrl = trimString(

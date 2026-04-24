@@ -56,6 +56,7 @@ namespace MorpheusOracle.Contracts
     [ManifestExtra("Version", "2.0.0")]
     [ManifestExtra("Description", "MiniApp OS kernel with shared IO, registration, and callback orchestration")]
     [ContractPermission("*", "onMiniAppResult")]
+    [ContractPermission("*", "onOracleResult")]
     public class MorpheusOracle : SmartContract
     {
         private static readonly byte[] PREFIX_ADMIN = new byte[] { 0x01 };
@@ -98,6 +99,7 @@ namespace MorpheusOracle.Contracts
         private const int MAX_STATE_KEY_LENGTH = 128;
         private const int MAX_STATE_VALUE_LENGTH = 4096;
         private const string CALLBACK_METHOD = "onMiniAppResult";
+        private const string LEGACY_CALLBACK_METHOD = "onOracleResult";
         private const long DEFAULT_REQUEST_FEE = 1_000_000;
         /// <summary>
         /// Default request TTL in milliseconds (1 hour = 3,600,000 ms).
@@ -789,7 +791,7 @@ namespace MorpheusOracle.Contracts
         // Legacy alias kept for compatibility with callback-contract mediated flows.
         public static BigInteger RequestFromCallback(UInt160 requester, string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
         {
-            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD || callbackMethod == "onOracleResult", "unsupported callback method");
+            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD || callbackMethod == LEGACY_CALLBACK_METHOD, "unsupported callback method");
 
             MiniAppRecord app = FindMiniAppByCallback(callbackContract);
             ExecutionEngine.Assert(app.CreatedAt > 0, "miniapp not found for callback");
@@ -807,7 +809,7 @@ namespace MorpheusOracle.Contracts
         // Legacy alias kept for automation pipelines that still target the old method name.
         public static BigInteger QueueAutomationRequest(UInt160 requester, string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
         {
-            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD || callbackMethod == "onOracleResult", "unsupported callback method");
+            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD || callbackMethod == LEGACY_CALLBACK_METHOD, "unsupported callback method");
 
             MiniAppRecord app = FindMiniAppByCallback(callbackContract);
             ExecutionEngine.Assert(app.CreatedAt > 0, "miniapp not found for callback");
@@ -818,7 +820,7 @@ namespace MorpheusOracle.Contracts
         // Legacy alias kept so existing direct request scripts keep working during migration.
         public static BigInteger Request(string requestType, ByteString payload, UInt160 callbackContract, string callbackMethod)
         {
-            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD || callbackMethod == "onOracleResult", "unsupported callback method");
+            ExecutionEngine.Assert(callbackMethod == CALLBACK_METHOD || callbackMethod == LEGACY_CALLBACK_METHOD, "unsupported callback method");
 
             MiniAppRecord app = FindMiniAppByCallback(callbackContract);
             ExecutionEngine.Assert(app.CreatedAt > 0, "miniapp not found for callback");
@@ -899,13 +901,10 @@ namespace MorpheusOracle.Contracts
                 {
                     Contract.Call(
                         req.CallbackContract,
-                        CALLBACK_METHOD,
+                        LEGACY_CALLBACK_METHOD,
                         CallFlags.All,
                         requestId,
-                        req.AppId,
-                        req.ModuleId,
                         req.Operation,
-                        req.Requester,
                         req.Success,
                         req.Result,
                         req.Error
@@ -1343,10 +1342,11 @@ namespace MorpheusOracle.Contracts
 
         private static byte[] BuildGrantKey(string appId, string moduleId)
         {
-            return (byte[])Helper.Concat(
+            byte[] grantMaterial = (byte[])Helper.Concat(
                 CryptoLib.Sha256((ByteString)(appId ?? "")),
                 CryptoLib.Sha256((ByteString)(moduleId ?? ""))
             );
+            return (byte[])CryptoLib.Sha256((ByteString)grantMaterial);
         }
 
         private static byte[] BuildInboxKey(string appId, BigInteger requestId)
