@@ -448,7 +448,6 @@ export default function StatusPage() {
           Report Issue
         </a>
       </div>
-
     </div>
   );
 }

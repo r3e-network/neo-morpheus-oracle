@@ -230,7 +230,11 @@ export function ProviderConfigPanel() {
             <div style={{ display: 'flex', gap: '0.5rem', gridColumn: 'span 1' }}>
               <button
                 className="btn btn-ghost"
-                style={{ color: 'var(--error)', flex: 1, border: '1px solid rgba(239, 68, 68, 0.3)' }}
+                style={{
+                  color: 'var(--error)',
+                  flex: 1,
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                }}
                 onClick={async () => {
                   const body = await callJSON(
                     `/api/provider-configs?project_slug=${encodeURIComponent(projectSlug)}&provider_id=${encodeURIComponent(providerId)}`,
