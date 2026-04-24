@@ -173,10 +173,10 @@ export default function FeedStatusPage() {
           {data.deprecated_chain_records.length > 0 && (
             <div
               className="card-industrial"
-              style={{ borderLeft: '4px solid #f59e0b', marginBottom: '2rem' }}
+              style={{ borderLeft: '4px solid var(--warning)', marginBottom: '2rem' }}
             >
               <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                <AlertTriangle color="#f59e0b" size={20} style={{ flexShrink: 0 }} />
+                <AlertTriangle color="var(--warning)" size={20} style={{ flexShrink: 0 }} />
                 <div>
                   <h3 style={{ marginTop: 0, marginBottom: '0.75rem' }}>
                     Deprecated Chain Records Detected
@@ -250,7 +250,7 @@ export default function FeedStatusPage() {
                         <td
                           style={{
                             padding: '0.85rem 1rem',
-                            color: item.synced ? '#fff' : '#f59e0b',
+                            color: item.synced ? '#fff' : 'var(--warning)',
                             fontFamily: 'var(--font-mono)',
                           }}
                         >

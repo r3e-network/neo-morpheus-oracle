@@ -192,12 +192,12 @@ export default function DocsCompute() {
           borderTop: '1px solid rgba(239, 68, 68, 0.2)',
           borderRight: '1px solid rgba(239, 68, 68, 0.2)',
           borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
-          borderLeft: '4px solid #ef4444',
+          borderLeft: '4px solid var(--error)',
           borderRadius: '0 4px 4px 0',
         }}
       >
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
-          <ShieldAlert size={20} color="#ef4444" />
+          <ShieldAlert size={20} color="var(--error)" />
           <h4
             style={{
               fontSize: '1rem',

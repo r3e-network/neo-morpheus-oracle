@@ -5,7 +5,7 @@ import { Dashboard } from '../../components/dashboard';
 
 export default function ExplorerPage() {
   return (
-    <div className="container" style={{ padding: '2rem 0 3rem' }}>
+    <div className="container" style={{ padding: 'calc(72px + 2rem) 0 3rem' }}>
       <div
         className="fade-in"
         style={{

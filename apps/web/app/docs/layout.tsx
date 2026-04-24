@@ -10,7 +10,6 @@ import {
   Cpu,
   LineChart,
   CheckCircle,
-  Search,
   Github,
   Menu,
   X,
@@ -80,93 +79,34 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         { href: '/docs/r/ASYNC_PRIVACY_ORACLE_SPEC', label: 'Async Privacy Spec', icon: Shield },
         { href: '/docs/r/ATTESTATION_SPEC', label: 'Attestation Spec', icon: CheckCircle },
         { href: '/docs/r/SAAS_STACK_INTEGRATION', label: 'SaaS Stack', icon: Boxes },
-        { href: '/docs/r/NEODID_DID_METHOD', label: 'NeoDID DID Method Spec', icon: Fingerprint },
-        { href: '/docs/r/AA_SOCIAL_RECOVERY', label: 'AA Social Recovery Spec', icon: Fingerprint },
         { href: '/docs/r/SECURITY_AUDIT', label: 'Security Audit', icon: Shield },
       ],
     },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-main relative">
+    <div className="min-h-screen flex flex-col relative">
       <div className="bg-grid"></div>
 
-      {/* Top Navigation */}
-      <nav
-        className="navbar"
+      {/* Mobile sidebar toggle */}
+      <button
+        className="show-mobile"
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 1000,
-          background: 'rgba(0,0,0,0.8)',
-          backdropFilter: 'blur(20px)',
+          position: 'fixed',
+          top: '80px',
+          left: '12px',
+          zIndex: 999,
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-dim)',
+          borderRadius: '4px',
+          padding: '0.5rem',
+          color: 'var(--text-primary)',
+          cursor: 'pointer',
         }}
       >
-        <Link
-          href="/"
-          style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              width: '28px',
-              height: '28px',
-              borderRadius: '2px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Boxes size={18} color="#000" strokeWidth={2.5} />
-          </div>
-          <span
-            style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.1em' }}
-          >
-            MORPHEUS <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>| DOCS</span>
-          </span>
-        </Link>
-
-        <div className="nav-links hide-mobile">
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'rgba(255,255,255,0.03)',
-              border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
-              padding: '0.4rem 0.8rem',
-              gap: '8px',
-              cursor: 'default',
-              transition: 'border-color 0.2s',
-              marginRight: '1rem',
-              opacity: 0.78,
-            }}
-            className="hover-search"
-          >
-            <Search size={14} color="var(--text-muted)" />
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              Search documentation (coming soon)
-            </span>
-          </div>
-          <Link href="/explorer" className="nav-link">
-            Explorer
-          </Link>
-          <a
-            href="https://github.com/r3e-network/neo-morpheus-oracle"
-            target="_blank"
-            className="nav-link"
-          >
-            <Github size={16} />
-          </a>
-        </div>
-
-        <button
-          className="show-mobile btn btn-secondary btn-sm"
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        >
-          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-      </nav>
+        {isSidebarOpen ? <X size={18} /> : <Menu size={18} />}
+      </button>
 
       <div
         className="container flex-1"
@@ -176,6 +116,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           padding: '0',
           maxWidth: '1440px',
           margin: '0 auto',
+          paddingTop: '72px',
         }}
       >
         {/* Docs Sidebar */}
@@ -474,18 +415,6 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       </div>
 
       <style>{`
-        .docs-content h1 { font-size: clamp(2.5rem, 5vw, 3.25rem); font-weight: 900; margin-bottom: 2rem; color: #fff; letter-spacing: -0.04em; line-height: 1.1; }
-        .docs-content h2 { font-size: 1.5rem; font-weight: 800; margin-top: 5rem; margin-bottom: 1.5rem; color: #fff; border-bottom: 1px solid var(--border-dim); padding-bottom: 0.75rem; letter-spacing: -0.02em; text-transform: uppercase; }
-        .docs-content h3 { font-size: 1.15rem; font-weight: 700; margin-top: 3rem; margin-bottom: 1rem; color: #fff; }
-        .docs-content p { font-size: 1rem; color: var(--text-secondary); line-height: 1.8; margin-bottom: 1.5rem; }
-        .docs-content ul, .docs-content ol { color: var(--text-secondary); margin-bottom: 2.5rem; padding-left: 1.25rem; font-size: 1rem; line-height: 1.8; }
-        .docs-content li { margin-bottom: 0.75rem; }
-        .docs-content li::marker { color: var(--neo-green); }
-        .docs-content p code, .docs-content li code { background: rgba(0,255,163,0.05); padding: 0.2rem 0.35rem; border-radius: 4px; font-family: var(--font-mono); font-size: 0.85em; color: var(--neo-green); border: 1px solid rgba(0,255,163,0.2); }
-        .docs-content pre code { background: transparent; padding: 0; border: none; font-size: 0.8rem; line-height: 1.6; }
-        .docs-content blockquote { border-left: 2px solid var(--neo-green); background: rgba(0, 255, 163, 0.01); padding: 1.25rem 1.5rem; margin: 2.5rem 0; color: var(--text-secondary); font-size: 0.95rem; }
-        .docs-content strong { color: #fff; font-weight: 700; }
-        
         .docs-sidebar::-webkit-scrollbar { width: 3px; }
         .docs-sidebar::-webkit-scrollbar-thumb { background: var(--border-dim); }
         

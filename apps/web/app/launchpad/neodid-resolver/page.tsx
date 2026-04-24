@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, ExternalLink, Fingerprint, Search } from 'lucide-react';
+import { ExternalLink, Fingerprint, Search } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import {
   DEFAULT_NEODID_AA_DID,
@@ -96,30 +96,8 @@ function ResolverClient() {
   }, [initialDid, initialFormat]);
 
   return (
-    <div className="min-h-screen bg-main flex flex-col">
-      <nav className="navbar" style={{ position: 'sticky' }}>
-        <Link
-          href="/launchpad"
-          className="nav-logo"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <ArrowLeft size={18} />
-          <span className="text-gradient" style={{ letterSpacing: '0.1em' }}>
-            MORPHEUS{' '}
-            <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>| NeoDID Resolver</span>
-          </span>
-        </Link>
-        <div className="nav-links">
-          <Link href="/docs/neodid" className="nav-link">
-            NeoDID Docs
-          </Link>
-          <Link href="/docs/r/NEODID_DID_METHOD" className="nav-link">
-            DID Spec
-          </Link>
-        </div>
-      </nav>
-
-      <main className="container" style={{ flex: 1, padding: '2rem 0 4rem' }}>
+    <div className="min-h-screen flex flex-col">
+      <main className="container" style={{ flex: 1, padding: 'calc(72px + 2rem) 0 4rem' }}>
         <div className="fade-in">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
             <Fingerprint size={14} color="var(--neo-green)" />

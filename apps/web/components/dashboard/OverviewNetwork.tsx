@@ -38,10 +38,10 @@ export function OverviewNetwork({
       {deprecatedRecords.length > 0 && (
         <section
           className="card-industrial stagger-2"
-          style={{ padding: '1.5rem', borderLeft: '4px solid #f59e0b' }}
+          style={{ padding: '1.5rem', borderLeft: '4px solid var(--warning)' }}
         >
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-            <Info color="#f59e0b" size={22} style={{ flexShrink: 0 }} />
+            <Info color="var(--warning)" size={22} style={{ flexShrink: 0 }} />
             <div>
               <h4
                 style={{

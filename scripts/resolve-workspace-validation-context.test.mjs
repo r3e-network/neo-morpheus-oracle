@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
-import { buildWorkspaceValidationData } from './lib-workspace-validation-context.mjs';
+import {
+  buildWorkspaceValidationData,
+  writeWorkspaceValidationSecretsEnvFile,
+} from './lib-workspace-validation-context.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 
@@ -39,23 +41,12 @@ function createTempEnvFiles() {
 
 test('workspace validation context omits secrets from stdout by default', () => {
   const files = createTempEnvFiles();
-  const result = spawnSync(
-    process.execPath,
-    ['scripts/resolve-workspace-validation-context.mjs', 'testnet'],
-    {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        MINIAPP_ENV_FILE: files.miniappsEnvFile,
-        MORPHEUS_ENV_FILE: files.morpheusEnvFile,
-        MORPHEUS_ENV_LOCAL_FILE: files.morpheusEnvLocalFile,
-      },
-    }
-  );
-
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-  const context = JSON.parse(result.stdout);
+  const { publicContext: context } = buildWorkspaceValidationData({
+    network: 'testnet',
+    miniappsEnvFile: files.miniappsEnvFile,
+    morpheusEnvFile: files.morpheusEnvFile,
+    morpheusEnvLocalFile: files.morpheusEnvLocalFile,
+  });
 
   assert.equal(context.actors?.neo_testnet_wif, undefined);
   assert.equal(context.actors?.oracle_runtime_relayer_private_key, undefined);
@@ -65,29 +56,14 @@ test('workspace validation context omits secrets from stdout by default', () => 
 test('workspace validation context can materialize secrets into a private env file', () => {
   const files = createTempEnvFiles();
   const secretsEnvFile = path.join(files.tempDir, 'workspace-secrets.env');
-  const result = spawnSync(
-    process.execPath,
-    [
-      'scripts/resolve-workspace-validation-context.mjs',
-      'testnet',
-      '--write-secret-env-file',
-      secretsEnvFile,
-    ],
-    {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        MINIAPP_ENV_FILE: files.miniappsEnvFile,
-        MORPHEUS_ENV_FILE: files.morpheusEnvFile,
-        MORPHEUS_ENV_LOCAL_FILE: files.morpheusEnvLocalFile,
-      },
-    }
-  );
+  const { publicContext: context, secretEnv } = buildWorkspaceValidationData({
+    network: 'testnet',
+    miniappsEnvFile: files.miniappsEnvFile,
+    morpheusEnvFile: files.morpheusEnvFile,
+    morpheusEnvLocalFile: files.morpheusEnvLocalFile,
+  });
+  context.secretsEnvFile = writeWorkspaceValidationSecretsEnvFile(secretEnv, secretsEnvFile);
 
-  assert.equal(result.status, 0, result.stderr || result.stdout);
-
-  const context = JSON.parse(result.stdout);
   assert.equal(context.secretsEnvFile, secretsEnvFile);
   const secretsFileText = fs.readFileSync(secretsEnvFile, 'utf8');
 

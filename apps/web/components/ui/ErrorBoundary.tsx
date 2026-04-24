@@ -60,7 +60,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               maxWidth: '500px',
             }}
           >
-            <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: '1rem' }} />
+            <AlertTriangle size={48} color="var(--error)" style={{ marginBottom: '1rem' }} />
             <h2
               style={{
                 fontSize: '1.25rem',
@@ -104,7 +104,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 </summary>
                 <pre
                   style={{
-                    color: '#ef4444',
+                    color: 'var(--error)',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '0.7rem',
                     marginTop: '0.5rem',

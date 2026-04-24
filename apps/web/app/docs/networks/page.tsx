@@ -410,11 +410,6 @@ export default function DocsNetworks() {
         </p>
       </div>
 
-      <style jsx>{`
-        .hover-white:hover {
-          color: #fff;
-        }
-      `}</style>
     </div>
   );
 }

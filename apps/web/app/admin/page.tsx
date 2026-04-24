@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Layout } from '@/components/ui/Layout';
 import { ProviderConfigPanel } from '../../components/provider-config-panel';
 import { RelayerOpsPanel } from '../../components/relayer-ops-panel';
 import { AlertTriangle } from 'lucide-react';
@@ -11,31 +10,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('providers');
 
   return (
-    <Layout
-      showFooter={false}
-      navbarRight={
-        <Link
-          href="/"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '0.5rem 1rem',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            border: '1px solid var(--border-highlight)',
-            borderRadius: '4px',
-            fontSize: '0.75rem',
-            fontWeight: 700,
-            textDecoration: 'none',
-            transition: 'all 0.2s',
-          }}
-        >
-          Exit Admin
-        </Link>
-      }
-    >
-      <div className="container" style={{ padding: '2rem 0' }}>
+    <>
+      <div className="container" style={{ padding: 'calc(72px + 2rem) 0' }}>
         <div
           style={{
             display: 'flex',
@@ -44,12 +20,12 @@ export default function AdminPage() {
             marginBottom: '2rem',
           }}
         >
-          <AlertTriangle size={20} color="#f59e0b" />
+          <AlertTriangle size={20} color="var(--warning)" />
           <span
             style={{
               fontSize: '0.7rem',
               fontWeight: 800,
-              color: '#f59e0b',
+              color: 'var(--warning)',
               letterSpacing: '0.1em',
               fontFamily: 'var(--font-mono)',
               textTransform: 'uppercase',
@@ -133,7 +109,7 @@ export default function AdminPage() {
                 style={{
                   marginTop: '1rem',
                   padding: '1rem',
-                  borderLeft: '3px solid #f59e0b',
+                  borderLeft: '3px solid var(--warning)',
                   background: 'rgba(245, 158, 11, 0.05)',
                 }}
               >
@@ -176,18 +152,27 @@ export default function AdminPage() {
             )}
           </div>
         </div>
+        <div style={{ marginTop: '2rem' }}>
+          <Link
+            href="/"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '0.5rem 1rem',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-highlight)',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            ← Back to Home
+          </Link>
+        </div>
       </div>
-
-      <style jsx>{`
-        @media (max-width: 768px) {
-          .admin-layout {
-            grid-template-columns: 1fr !important;
-          }
-          .admin-layout aside {
-            position: static !important;
-          }
-        }
-      `}</style>
-    </Layout>
+    </>
   );
 }

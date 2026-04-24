@@ -6,7 +6,7 @@ import { getSelectedNetworkKey } from '@/lib/networks';
 
 const networks = [
   { key: 'mainnet' as const, label: 'Mainnet', color: 'var(--neo-green)' },
-  { key: 'testnet' as const, label: 'Testnet', color: '#f59e0b' },
+  { key: 'testnet' as const, label: 'Testnet', color: 'var(--warning)' },
 ];
 
 export function NetworkSelector() {
@@ -47,7 +47,7 @@ export function NetworkSelector() {
           background: isMainnet ? 'rgba(0, 255, 163, 0.1)' : 'rgba(245, 158, 11, 0.1)',
           border: `1px solid ${isMainnet ? 'rgba(0, 255, 163, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
           borderRadius: '4px',
-          color: isMainnet ? 'var(--neo-green)' : '#f59e0b',
+          color: isMainnet ? 'var(--neo-green)' : 'var(--warning)',
           fontSize: '0.75rem',
           fontWeight: 700,
           fontFamily: 'var(--font-mono)',
@@ -60,7 +60,7 @@ export function NetworkSelector() {
             width: '6px',
             height: '6px',
             borderRadius: '50%',
-            background: isMainnet ? 'var(--neo-green)' : '#f59e0b',
+            background: isMainnet ? 'var(--neo-green)' : 'var(--warning)',
           }}
         />
         {selectedNetwork?.label || selectedKey.toUpperCase()}

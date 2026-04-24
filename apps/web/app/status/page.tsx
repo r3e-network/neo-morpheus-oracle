@@ -60,8 +60,8 @@ const SERVICE_CHECKS: Array<{ name: string; description: string; endpoint: strin
 
 const statusColors: Record<string, string> = {
   operational: 'var(--neo-green)',
-  degraded: '#f59e0b',
-  down: '#ef4444',
+  degraded: 'var(--warning)',
+  down: 'var(--error)',
   checking: 'var(--text-muted)',
 };
 
@@ -188,7 +188,7 @@ export default function StatusPage() {
   };
 
   return (
-    <div className="container" style={{ padding: '3rem 0 4rem' }}>
+    <div className="container" style={{ padding: 'calc(72px + 3rem) 0 4rem' }}>
       <div className="fade-in">
         <div
           style={{
@@ -449,16 +449,6 @@ export default function StatusPage() {
         </a>
       </div>
 
-      <style jsx>{`
-        @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-      `}</style>
     </div>
   );
 }

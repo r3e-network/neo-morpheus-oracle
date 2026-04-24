@@ -23,8 +23,8 @@ const variantStyles: Record<NonNullable<CardProps['variant']>, { border: string;
   default: { border: 'var(--border-dim)', bg: 'var(--bg-card)' },
   highlighted: { border: 'var(--neo-green)', bg: 'rgba(0, 255, 163, 0.05)' },
   success: { border: 'var(--neo-green)', bg: 'rgba(0, 255, 163, 0.08)' },
-  warning: { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)' },
-  error: { border: '#ef4444', bg: 'rgba(239, 68, 68, 0.08)' },
+  warning: { border: 'var(--warning)', bg: 'rgba(245, 158, 11, 0.08)' },
+  error: { border: 'var(--error)', bg: 'rgba(239, 68, 68, 0.08)' },
 };
 
 export function Card({
@@ -40,30 +40,17 @@ export function Card({
 
   return (
     <div
-      className={className}
+      className={`${className}${hoverable || onClick ? ' card-hoverable' : ''}`}
       onClick={onClick}
       style={{
         background: variantStyle.bg,
         border: `1px solid ${variantStyle.border}`,
         borderRadius: '4px',
         padding: paddingMap[padding],
-        transition: 'all 0.3s ease',
         cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
         overflow: 'hidden',
         ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (hoverable || onClick) {
-          e.currentTarget.style.borderColor = 'var(--border-highlight)';
-          e.currentTarget.style.transform = 'translateY(-2px)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (hoverable || onClick) {
-          e.currentTarget.style.borderColor = variantStyle.border;
-          e.currentTarget.style.transform = 'translateY(0)';
-        }
       }}
     >
       {variant === 'highlighted' && (
@@ -97,7 +84,7 @@ export function StatCard({ label, value, subvalue, icon, variant = 'default' }: 
     variant === 'success'
       ? 'var(--neo-green)'
       : variant === 'warning'
-        ? '#f59e0b'
+        ? 'var(--warning)'
         : 'var(--text-secondary)';
 
   return (

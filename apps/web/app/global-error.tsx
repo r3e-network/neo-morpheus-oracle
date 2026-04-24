@@ -51,7 +51,7 @@ export default function GlobalError({
                 fontWeight: 800,
                 letterSpacing: '0.15em',
                 textTransform: 'uppercase',
-                color: '#ef4444',
+                color: 'var(--error)',
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               }}
             >

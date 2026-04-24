@@ -1,10 +1,8 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, ClipboardList, FileSearch, Play, ShieldCheck } from 'lucide-react';
-import { Layout } from '@/components/ui/Layout';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 
@@ -37,7 +35,7 @@ function VerifierPageClient() {
   const [result, setResult] = useState<string>('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [lookupHash, setLookupHash] = useState(initialLookupHash);
-  const [isLookuping, setIsLookuping] = useState(false);
+  const [isLookingUp, setIsLookuping] = useState(false);
   const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
   const normalizedLookupHash = useMemo(() => lookupHash.trim(), [lookupHash]);
@@ -162,32 +160,8 @@ function VerifierPageClient() {
   };
 
   return (
-    <Layout
-      navbarRight={
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <Link
-            href="/docs/verifier"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0.5rem 1rem',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border-highlight)',
-              borderRadius: '4px',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              textDecoration: 'none',
-              transition: 'all 0.2s',
-            }}
-          >
-            Docs
-          </Link>
-        </div>
-      }
-    >
-      <div className="container" style={{ padding: '2rem 0' }}>
+    <>
+      <div className="container" style={{ padding: 'calc(72px + 2rem) 0' }}>
         <Card style={{ marginBottom: '2rem', borderLeft: '4px solid var(--neo-green)' }}>
           <div
             style={{
@@ -268,13 +242,13 @@ function VerifierPageClient() {
             />
             <button
               className="btn-ata"
-              disabled={isLookuping || !normalizedLookupHash}
+              disabled={isLookingUp || !normalizedLookupHash}
               onClick={() => {
                 void lookupAttestation(normalizedLookupHash, true);
               }}
               style={{ whiteSpace: 'nowrap' }}
             >
-              {isLookuping ? 'Querying...' : 'Lookup'}
+              {isLookingUp ? 'Querying...' : 'Lookup'}
             </button>
           </div>
         </Card>
@@ -359,43 +333,67 @@ function VerifierPageClient() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <textarea
-                className="code-editor"
-                value={expectedPayloadJson}
-                onChange={(event) => setExpectedPayloadJson(event.target.value)}
-                style={{ minHeight: '80px' }}
-                placeholder='{ "result": true }'
-              />
-              <input
-                className="neo-input"
-                value={expectedOutputHash}
-                onChange={(event) => setExpectedOutputHash(event.target.value)}
-                placeholder="Expected output hash"
-              />
-              <input
-                className="neo-input"
-                value={expectedAttestationHash}
-                onChange={(event) => setExpectedAttestationHash(event.target.value)}
-                placeholder="Expected attestation hash"
-              />
-              <input
-                className="neo-input"
-                value={expectedComposeHash}
-                onChange={(event) => setExpectedComposeHash(event.target.value)}
-                placeholder="Expected compose hash"
-              />
-              <input
-                className="neo-input"
-                value={expectedAppId}
-                onChange={(event) => setExpectedAppId(event.target.value)}
-                placeholder="Expected app id"
-              />
-              <input
-                className="neo-input"
-                value={expectedInstanceId}
-                onChange={(event) => setExpectedInstanceId(event.target.value)}
-                placeholder="Expected instance id"
-              />
+              <div>
+                <label htmlFor="expected-payload" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Payload</label>
+                <textarea
+                  id="expected-payload"
+                  className="code-editor"
+                  value={expectedPayloadJson}
+                  onChange={(event) => setExpectedPayloadJson(event.target.value)}
+                  style={{ minHeight: '80px' }}
+                  placeholder='{ "result": true }'
+                />
+              </div>
+              <div>
+                <label htmlFor="expected-output-hash" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Output Hash</label>
+                <input
+                  id="expected-output-hash"
+                  className="neo-input"
+                  value={expectedOutputHash}
+                  onChange={(event) => setExpectedOutputHash(event.target.value)}
+                  placeholder="0x..."
+                />
+              </div>
+              <div>
+                <label htmlFor="expected-attestation-hash" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Attestation Hash</label>
+                <input
+                  id="expected-attestation-hash"
+                  className="neo-input"
+                  value={expectedAttestationHash}
+                  onChange={(event) => setExpectedAttestationHash(event.target.value)}
+                  placeholder="0x..."
+                />
+              </div>
+              <div>
+                <label htmlFor="expected-compose-hash" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Compose Hash</label>
+                <input
+                  id="expected-compose-hash"
+                  className="neo-input"
+                  value={expectedComposeHash}
+                  onChange={(event) => setExpectedComposeHash(event.target.value)}
+                  placeholder="0x..."
+                />
+              </div>
+              <div>
+                <label htmlFor="expected-app-id" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected App ID</label>
+                <input
+                  id="expected-app-id"
+                  className="neo-input"
+                  value={expectedAppId}
+                  onChange={(event) => setExpectedAppId(event.target.value)}
+                  placeholder="morpheus-v1"
+                />
+              </div>
+              <div>
+                <label htmlFor="expected-instance-id" className="form-label" style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>Expected Instance ID</label>
+                <input
+                  id="expected-instance-id"
+                  className="neo-input"
+                  value={expectedInstanceId}
+                  onChange={(event) => setExpectedInstanceId(event.target.value)}
+                  placeholder="instance-001"
+                />
+              </div>
 
               <button
                 className="btn-ata"
@@ -403,10 +401,20 @@ function VerifierPageClient() {
                 onClick={async () => {
                   setIsVerifying(true);
                   try {
-                    const parsedAttestation = JSON.parse(attestationJson);
-                    const parsedPayload = expectedPayloadJson.trim()
-                      ? JSON.parse(expectedPayloadJson)
-                      : undefined;
+                    let parsedAttestation: unknown;
+                    let parsedPayload: unknown;
+                    try {
+                      parsedAttestation = JSON.parse(attestationJson);
+                    } catch {
+                      throw new Error('Invalid JSON in Attestation field — check syntax');
+                    }
+                    if (expectedPayloadJson.trim()) {
+                      try {
+                        parsedPayload = JSON.parse(expectedPayloadJson);
+                      } catch {
+                        throw new Error('Invalid JSON in Expected Payload field — check syntax');
+                      }
+                    }
                     const body = await runVerification({
                       attestation: parsedAttestation,
                       expectedPayload: parsedPayload,
@@ -473,7 +481,7 @@ function VerifierPageClient() {
           </pre>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 }
 
@@ -481,15 +489,13 @@ export default function VerifierPage() {
   return (
     <Suspense
       fallback={
-        <Layout>
-          <div className="container" style={{ padding: '2rem 0' }}>
-            <Skeleton height="200px" style={{ marginBottom: '1.5rem' }} />
-            <div className="grid grid-2" style={{ gap: '1.5rem' }}>
-              <Skeleton height="400px" />
-              <Skeleton height="400px" />
-            </div>
+        <div className="container" style={{ padding: 'calc(72px + 2rem) 0' }}>
+          <Skeleton height="200px" style={{ marginBottom: '1.5rem' }} />
+          <div className="grid grid-2" style={{ gap: '1.5rem' }}>
+            <Skeleton height="400px" />
+            <Skeleton height="400px" />
           </div>
-        </Layout>
+        </div>
       }
     >
       <VerifierPageClient />

@@ -285,31 +285,6 @@ export function Dashboard() {
         )}
       </main>
 
-      <style jsx>{`
-        .dashboard-grid {
-          grid-template-columns: 260px 1fr;
-          gap: 3rem;
-          margin-top: 1rem;
-        }
-        .dashboard-sidebar {
-          position: sticky;
-          top: 100px;
-          height: fit-content;
-        }
-        @media (max-width: 1024px) {
-          .dashboard-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .dashboard-sidebar {
-            position: static;
-          }
-        }
-        @media (max-width: 768px) {
-          .dashboard-grid {
-            gap: 1.5rem;
-          }
-        }
-      `}</style>
     </div>
   );
 }

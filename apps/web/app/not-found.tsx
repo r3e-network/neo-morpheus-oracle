@@ -35,7 +35,7 @@ export default function NotFound() {
             style={{
               fontSize: '0.7rem',
               fontWeight: 700,
-              color: '#ef4444',
+              color: 'var(--error)',
               letterSpacing: '0.15em',
               fontFamily: 'var(--font-mono)',
             }}

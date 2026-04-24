@@ -154,7 +154,7 @@ export default function DocsFAQ() {
                 >
                   {err.code}
                 </td>
-                <td style={{ padding: '1.25rem 1.5rem', fontWeight: 800, color: '#ef4444' }}>
+                <td style={{ padding: '1.25rem 1.5rem', fontWeight: 800, color: 'var(--error)' }}>
                   {err.name}
                 </td>
                 <td
