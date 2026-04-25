@@ -22,8 +22,10 @@ function parseArgs(argv) {
 async function main() {
   const { outputFile } = parseArgs(process.argv.slice(2));
   const catalog = loadPublicRuntimeCatalog();
+  const repoRoot = path.resolve(import.meta.dirname, '..');
   const prettierConfig =
-    (await resolveConfig('apps/web/public/morpheus-runtime-catalog.json')) || {};
+    (await resolveConfig(path.join(repoRoot, 'apps/web/public/morpheus-runtime-catalog.json'))) ||
+    {};
   const serialized = await format(JSON.stringify(catalog, null, 2), {
     ...prettierConfig,
     parser: 'json',
