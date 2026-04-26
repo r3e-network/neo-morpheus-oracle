@@ -20,7 +20,7 @@ export default function DocsVerifier() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -241,7 +241,7 @@ export default function DocsVerifier() {
               margin: 0,
               color: '#fff',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             Auditability

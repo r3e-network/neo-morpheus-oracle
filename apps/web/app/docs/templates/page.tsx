@@ -10,40 +10,40 @@ const oracleTemplates = [
     title: 'Built-in Provider Oracle',
     desc: 'Fastest path for a public quote callback through the Oracle contract.',
     code: `{
-  "symbol": "TWELVEDATA:NEO-USD",
-  "json_path": "price",
-  "target_chain": "neo_n3"
+ "symbol": "TWELVEDATA:NEO-USD",
+ "json_path": "price",
+ "target_chain": "neo_n3"
 }`,
   },
   {
     title: 'Private API With Encrypted Token',
     desc: 'Best for premium APIs or project-specific endpoints that require auth.',
     code: `{
-  "url": "https://api.example.com/private-price",
-  "method": "GET",
-  "encrypted_token": "<sealed bearer token>",
-  "token_header": "Authorization",
-  "json_path": "price",
-  "target_chain": "neo_n3"
+ "url": "https://api.example.com/private-price",
+ "method": "GET",
+ "encrypted_token": "<sealed bearer token>",
+ "token_header": "Authorization",
+ "json_path": "price",
+ "target_chain": "neo_n3"
 }`,
   },
   {
     title: 'Built-in Provider + Encrypted Payload Patch',
     desc: 'Hide fields such as json_path, project-specific params, or helper settings.',
     code: `{
-  "symbol": "TWELVEDATA:BTC-USD",
-  "encrypted_payload": "<sealed {\\"json_path\\":\\"price\\",\\"target_chain\\":\\"neo_n3\\"}>"
+ "symbol": "TWELVEDATA:BTC-USD",
+ "encrypted_payload": "<sealed {\\"json_path\\":\\"price\\",\\"target_chain\\":\\"neo_n3\\"}>"
 }`,
   },
   {
     title: 'Custom URL + JS Reduction',
     desc: 'Fetch public data and return only a scalar or boolean to the contract.',
     code: `{
-  "url": "https://postman-echo.com/get?probe=morpheus",
-  "json_path": "args.probe",
-  "script": "function process(data) { return data === 'morpheus'; }",
-  "entry_point": "process",
-  "target_chain": "neo_n3"
+ "url": "https://postman-echo.com/get?probe=morpheus",
+ "json_path": "args.probe",
+ "script": "function process(data) { return data === 'morpheus'; }",
+ "entry_point": "process",
+ "target_chain": "neo_n3"
 }`,
   },
 ];
@@ -53,37 +53,37 @@ const computeTemplates = [
     title: 'privacy.mask',
     desc: 'Mask personally identifiable strings before returning them.',
     code: `{
-  "mode": "builtin",
-  "function": "privacy.mask",
-  "input": { "value": "13812345678", "unmasked_left": 3, "unmasked_right": 4 },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "privacy.mask",
+ "input": { "value": "13812345678", "unmasked_left": 3, "unmasked_right": 4 },
+ "target_chain": "neo_n3"
 }`,
   },
   {
     title: 'math.modexp',
     desc: 'Big integer modular arithmetic for cryptography-heavy workloads.',
     code: `{
-  "mode": "builtin",
-  "function": "math.modexp",
-  "input": { "base": "123456789", "exponent": "987654321", "modulus": "2147483647" },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "math.modexp",
+ "input": { "base": "123456789", "exponent": "987654321", "modulus": "2147483647" },
+ "target_chain": "neo_n3"
 }`,
   },
   {
     title: 'zkp.public_signal_hash',
     desc: 'Compress large public signal arrays into one digest.',
     code: `{
-  "mode": "builtin",
-  "function": "zkp.public_signal_hash",
-  "input": { "circuit_id": "credit_v1", "signals": ["1", "2", "3"] },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "zkp.public_signal_hash",
+ "input": { "circuit_id": "credit_v1", "signals": ["1", "2", "3"] },
+ "target_chain": "neo_n3"
 }`,
   },
   {
     title: 'Encrypted Built-in Compute',
     desc: 'Hide both the function name and its input until the job reaches the TEE.',
     code: `{
-  "encrypted_payload": "<sealed {\\"mode\\":\\"builtin\\",\\"function\\":\\"math.modexp\\",\\"input\\":{\\"base\\":\\"2\\",\\"exponent\\":\\"10\\",\\"modulus\\":\\"17\\"},\\"target_chain\\":\\"neo_n3\\"}>"
+ "encrypted_payload": "<sealed {\\"mode\\":\\"builtin\\",\\"function\\":\\"math.modexp\\",\\"input\\":{\\"base\\":\\"2\\",\\"exponent\\":\\"10\\",\\"modulus\\":\\"17\\"},\\"target_chain\\":\\"neo_n3\\"}>"
 }`,
   },
 ];
@@ -101,7 +101,7 @@ export default function DocsTemplates() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -141,7 +141,7 @@ export default function DocsTemplates() {
               fontWeight: 800,
               color: '#fff',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             Zero-Code {NETWORKS.neo_n3.environmentLabel} Test

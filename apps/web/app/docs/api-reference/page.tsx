@@ -17,7 +17,7 @@ export default function DocsApiReference() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -62,7 +62,7 @@ export default function DocsApiReference() {
               fontFamily: 'var(--font-mono)',
               color: 'var(--text-primary)',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             Oracle Call Pattern
@@ -82,13 +82,13 @@ export default function DocsApiReference() {
 string payloadJson = "{\"symbol\":\"TWELVEDATA:NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
 
 Contract.Call(
-    MorpheusOracleHash,
-    "request",
-    CallFlags.All,
-    "privacy_oracle",
-    (ByteString)payloadJson,
-    Runtime.ExecutingScriptHash,
-    "onOracleResult"
+ MorpheusOracleHash,
+ "request",
+ CallFlags.All,
+ "privacy_oracle",
+ (ByteString)payloadJson,
+ Runtime.ExecutingScriptHash,
+ "onOracleResult"
 );`}</code>
           </pre>
         </div>
@@ -131,7 +131,7 @@ Contract.Call(
               fontFamily: 'var(--font-mono)',
               color: 'var(--text-primary)',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             GET /api/neodid/resolve
@@ -240,7 +240,7 @@ Accept: application/did+ld+json`}</code>
                   color: 'var(--text-muted)',
                   marginBottom: '0.5rem',
                   fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.05em',
+                  letterSpacing: 0,
                 }}
               >
                 // PARAMETERS
@@ -262,7 +262,7 @@ Accept: application/did+ld+json`}</code>
                   color: 'var(--text-muted)',
                   marginBottom: '0.5rem',
                   fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.05em',
+                  letterSpacing: 0,
                 }}
               >
                 // EXAMPLE

@@ -29,6 +29,14 @@ function copyText(value: string) {
   return navigator.clipboard.writeText(value);
 }
 
+function isHash160(value: string) {
+  return /^0x[0-9a-fA-F]{40}$/.test(value.trim());
+}
+
+function isNeoMethodName(value: string) {
+  return /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(value.trim());
+}
+
 type StarterStudioProps = {
   embedded?: boolean;
 };
@@ -114,6 +122,7 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   const [encryptedBlob, setEncryptedBlob] = useState('');
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
   const [isEncrypting, setIsEncrypting] = useState(false);
+  const [encryptionError, setEncryptionError] = useState('');
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
   useEffect(() => {
@@ -216,6 +225,7 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
 
   async function encryptPatch() {
     setIsEncrypting(true);
+    setEncryptionError('');
     try {
       const keyMeta = oracleKeyMeta?.public_key
         ? oracleKeyMeta
@@ -231,7 +241,7 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
       setEncryptedBlob(ciphertext);
     } catch (error) {
       setEncryptedBlob('');
-      throw error;
+      setEncryptionError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsEncrypting(false);
     }
@@ -300,19 +310,43 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     useScript,
   ]);
 
+  const normalizedCallbackHash = manualCallbackHash.trim();
+  const normalizedCallbackMethod = manualCallbackMethod.trim();
+  const callbackHashForSnippet = isHash160(normalizedCallbackHash)
+    ? normalizedCallbackHash
+    : '<valid 0x-prefixed Hash160 callback contract>';
+  const callbackMethodForSnippet = isNeoMethodName(normalizedCallbackMethod)
+    ? normalizedCallbackMethod
+    : '<validCallbackMethod>';
+  const snippetIssues = useMemo(() => {
+    const issues: string[] = [];
+    if (!isHash160(normalizedCallbackHash)) {
+      issues.push(
+        'Enter a 0x-prefixed 20-byte callback contract hash before using wallet or RPC snippets.'
+      );
+    }
+    if (!isNeoMethodName(normalizedCallbackMethod)) {
+      issues.push('Enter a callback method name using letters, numbers, or underscores.');
+    }
+    if (useEncrypted && !encryptedBlob) {
+      issues.push('Encrypt the confidential patch before submitting an encrypted flow.');
+    }
+    return issues;
+  }, [encryptedBlob, normalizedCallbackHash, normalizedCallbackMethod, useEncrypted]);
+
   const payloadJson = JSON.stringify(generated.payload, null, 2);
   const compactPayloadJson = JSON.stringify(generated.payload);
   const payloadBase64 = useMemo(() => encodeUtf8Base64(compactPayloadJson), [compactPayloadJson]);
   const neoN3Snippet = `string payloadJson = "${escapeForCSharp(compactPayloadJson)}";
 
 BigInteger requestId = (BigInteger)Contract.Call(
-    OracleHash,
-    "request",
-    CallFlags.All,
-    "${generated.requestType}",
-    (ByteString)payloadJson,
-    Runtime.ExecutingScriptHash,
-    "onOracleResult"
+ OracleHash,
+ "request",
+ CallFlags.All,
+ "${generated.requestType}",
+ (ByteString)payloadJson,
+ Runtime.ExecutingScriptHash,
+ "onOracleResult"
 );`;
 
   const neoRpcInvoke = JSON.stringify(
@@ -326,8 +360,8 @@ BigInteger requestId = (BigInteger)Contract.Call(
         [
           { type: 'String', value: generated.requestType },
           { type: 'ByteArray', value: payloadBase64 },
-          { type: 'Hash160', value: manualCallbackHash },
-          { type: 'String', value: manualCallbackMethod },
+          { type: 'Hash160', value: callbackHashForSnippet },
+          { type: 'String', value: callbackMethodForSnippet },
         ],
       ],
     },
@@ -340,7 +374,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
       jsonrpc: '2.0',
       id: 1,
       method: 'invokefunction',
-      params: [manualCallbackHash, 'getCallback', [{ type: 'Integer', value: '<requestId>' }]],
+      params: [callbackHashForSnippet, 'getCallback', [{ type: 'Integer', value: '<requestId>' }]],
     },
     null,
     2
@@ -358,7 +392,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 fontWeight: 800,
                 color: 'var(--text-muted)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.1em',
+                letterSpacing: 0,
                 fontFamily: 'var(--font-mono)',
               }}
             >
@@ -385,7 +419,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
               style={{
                 fontSize: '2rem',
                 fontWeight: 900,
-                letterSpacing: '-0.03em',
+                letterSpacing: 0,
                 marginBottom: '0.5rem',
               }}
             >
@@ -653,6 +687,12 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 className="neo-input"
                 value={manualCallbackHash}
                 onChange={(event) => setManualCallbackHash(event.target.value)}
+                aria-invalid={!isHash160(normalizedCallbackHash)}
+                style={
+                  !isHash160(normalizedCallbackHash)
+                    ? { borderColor: 'rgba(239, 68, 68, 0.65)' }
+                    : undefined
+                }
               />
             </label>
 
@@ -670,6 +710,12 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 className="neo-input"
                 value={manualCallbackMethod}
                 onChange={(event) => setManualCallbackMethod(event.target.value)}
+                aria-invalid={!isNeoMethodName(normalizedCallbackMethod)}
+                style={
+                  !isNeoMethodName(normalizedCallbackMethod)
+                    ? { borderColor: 'rgba(239, 68, 68, 0.65)' }
+                    : undefined
+                }
               />
             </label>
 
@@ -777,6 +823,22 @@ BigInteger requestId = (BigInteger)Contract.Call(
                   )}
                 </div>
 
+                {encryptionError && (
+                  <div
+                    role="status"
+                    style={{
+                      padding: '0.85rem 1rem',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px solid rgba(239, 68, 68, 0.28)',
+                      color: '#fecaca',
+                      fontSize: '0.85rem',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {encryptionError}
+                  </div>
+                )}
+
                 {encryptedBlob && (
                   <div
                     style={{
@@ -818,6 +880,24 @@ BigInteger requestId = (BigInteger)Contract.Call(
           <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>2. Use The Output</h3>
 
           <div style={{ display: 'grid', gap: '1rem' }}>
+            {snippetIssues.length > 0 && (
+              <div
+                role="status"
+                style={{
+                  padding: '1rem',
+                  background: 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.25)',
+                  color: '#fcd34d',
+                  fontSize: '0.85rem',
+                  lineHeight: 1.7,
+                }}
+              >
+                {snippetIssues.map((issue) => (
+                  <div key={issue}>{issue}</div>
+                ))}
+              </div>
+            )}
+
             <div
               style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
             >
@@ -887,11 +967,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 </div>
                 <div>
                   <strong style={{ color: '#fff' }}>Arg 3 / Hash160:</strong>{' '}
-                  <code>{manualCallbackHash}</code>
+                  <code>{callbackHashForSnippet}</code>
                 </div>
                 <div>
                   <strong style={{ color: '#fff' }}>Arg 4 / String:</strong>{' '}
-                  <code>{manualCallbackMethod}</code>
+                  <code>{callbackMethodForSnippet}</code>
                 </div>
               </div>
             </div>
@@ -921,11 +1001,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 <div>
                   <strong style={{ color: '#fff' }}>Arg 3:</strong> callback contract ={' '}
                   <code>Runtime.ExecutingScriptHash</code> for your own consumer, or{' '}
-                  <code>{manualCallbackHash}</code> for direct wallet testing
+                  <code>{callbackHashForSnippet}</code> for direct wallet testing
                 </div>
                 <div>
                   <strong style={{ color: '#fff' }}>Arg 4:</strong> callback method ={' '}
-                  <code>{manualCallbackMethod}</code>
+                  <code>{callbackMethodForSnippet}</code>
                 </div>
                 <div>
                   <strong style={{ color: '#fff' }}>Fee:</strong> <code>0.01 GAS</code>

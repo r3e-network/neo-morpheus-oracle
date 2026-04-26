@@ -63,7 +63,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                   fontSize: '0.8rem',
                   fontWeight: 700,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
+                  letterSpacing: 0,
                 }}
                 {...props}
               >

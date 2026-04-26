@@ -247,7 +247,7 @@ export function Launchpad({ embedded = false }: LaunchpadProps) {
                 fontWeight: 800,
                 color: 'var(--text-muted)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.1em',
+                letterSpacing: 0,
                 fontFamily: 'var(--font-mono)',
               }}
             >

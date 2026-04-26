@@ -33,7 +33,7 @@ const TabFallback = () => (
           fontSize: '0.8rem',
           fontWeight: 600,
           fontFamily: 'var(--font-mono)',
-          letterSpacing: '0.05em',
+          letterSpacing: 0,
         }}
       >
         LOADING MODULE...
@@ -190,7 +190,7 @@ export function Dashboard() {
                 style={{
                   fontSize: '0.65rem',
                   fontWeight: 700,
-                  letterSpacing: '0.05em',
+                  letterSpacing: 0,
                   color: 'var(--text-secondary)',
                   fontFamily: 'var(--font-mono)',
                 }}
@@ -266,7 +266,7 @@ export function Dashboard() {
                   fontSize: '0.85rem',
                   fontWeight: 600,
                   fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.05em',
+                  letterSpacing: 0,
                 }}
               >
                 CONNECTING TO MATRIX...

@@ -186,7 +186,7 @@ function VerifierPageClient() {
                     fontSize: '0.7rem',
                     fontWeight: 800,
                     color: 'var(--neo-green)',
-                    letterSpacing: '0.1em',
+                    letterSpacing: 0,
                     fontFamily: 'var(--font-mono)',
                     textTransform: 'uppercase',
                   }}
@@ -198,7 +198,7 @@ function VerifierPageClient() {
                 style={{
                   fontSize: '2rem',
                   fontWeight: 900,
-                  letterSpacing: '-0.03em',
+                  letterSpacing: 0,
                   marginBottom: '0.5rem',
                 }}
               >

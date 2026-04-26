@@ -104,7 +104,7 @@ export function StatCard({ label, value, subvalue, icon, variant = 'default' }: 
             color: 'var(--text-secondary)',
             fontFamily: 'var(--font-mono)',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: 0,
           }}
         >
           {label}
@@ -116,7 +116,7 @@ export function StatCard({ label, value, subvalue, icon, variant = 'default' }: 
           fontSize: '1.5rem',
           fontWeight: 900,
           fontFamily: 'var(--font-mono)',
-          letterSpacing: '-0.02em',
+          letterSpacing: 0,
           color: 'var(--text-primary)',
         }}
       >

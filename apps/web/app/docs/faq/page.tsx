@@ -50,7 +50,7 @@ export default function DocsFAQ() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -193,7 +193,7 @@ export default function DocsFAQ() {
               margin: 0,
               color: '#fff',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             Still having issues?
@@ -217,7 +217,7 @@ export default function DocsFAQ() {
           className="btn btn-secondary btn-sm"
           style={{
             fontWeight: 800,
-            letterSpacing: '0.05em',
+            letterSpacing: 0,
             border: '1px solid var(--border-dim)',
             textDecoration: 'none',
           }}

@@ -38,7 +38,7 @@ export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: Ov
               fontSize: '1.25rem',
               fontWeight: 800,
               fontFamily: 'var(--font-mono)',
-              letterSpacing: '-0.02em',
+              letterSpacing: 0,
             }}
           >
             {oracleState?.request_fee_display || '0.01 GAS'}
@@ -75,7 +75,7 @@ export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: Ov
               fontSize: '1.05rem',
               fontWeight: 800,
               fontFamily: 'var(--font-mono)',
-              letterSpacing: '-0.02em',
+              letterSpacing: 0,
             }}
           >
             {dstack?.app_id ? 'Attested' : 'Unavailable'}
@@ -166,7 +166,7 @@ export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: Ov
               fontSize: '1.25rem',
               fontWeight: 800,
               fontFamily: 'var(--font-mono)',
-              letterSpacing: '-0.02em',
+              letterSpacing: 0,
             }}
           >
             {configuredSyncedCount} Synced / {DEFAULT_PAIRS.length} Configured

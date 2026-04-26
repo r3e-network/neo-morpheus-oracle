@@ -176,7 +176,7 @@ export function OverviewTab({ setOutput }: any) {
             style={{
               fontSize: '2rem',
               fontWeight: 900,
-              letterSpacing: '-0.03em',
+              letterSpacing: 0,
               marginBottom: '0.5rem',
             }}
           >

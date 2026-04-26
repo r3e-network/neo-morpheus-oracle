@@ -107,7 +107,7 @@ function ResolverClient() {
                 fontWeight: 800,
                 color: 'var(--text-muted)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.1em',
+                letterSpacing: 0,
                 fontFamily: 'var(--font-mono)',
               }}
             >
@@ -142,7 +142,7 @@ function ResolverClient() {
                     color: 'var(--text-muted)',
                     fontWeight: 800,
                     textTransform: 'uppercase',
-                    letterSpacing: '0.08em',
+                    letterSpacing: 0,
                     fontFamily: 'var(--font-mono)',
                   }}
                 >

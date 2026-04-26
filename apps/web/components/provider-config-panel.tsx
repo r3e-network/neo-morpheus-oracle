@@ -25,6 +25,12 @@ const DEFAULT_PROVIDER_CONFIGS: Record<string, string> = {
   'coinbase-spot': JSON.stringify({ symbol: 'COINBASE-SPOT:NEO-USD' }, null, 2),
 };
 
+const ADMIN_KEY_REQUIRED_MESSAGE = JSON.stringify(
+  { status: 'Admin API key required to load or manage provider configs.' },
+  null,
+  2
+);
+
 async function callJSON(
   path: string,
   options: {
@@ -69,6 +75,12 @@ export function ProviderConfigPanel() {
   );
 
   async function refresh(currentProjectSlug = projectSlug, currentAdminApiKey = adminApiKey) {
+    if (!currentAdminApiKey.trim()) {
+      setConfigs([]);
+      setMessage(ADMIN_KEY_REQUIRED_MESSAGE);
+      return;
+    }
+
     setLoading(true);
     try {
       const body = await callJSON(
@@ -92,7 +104,11 @@ export function ProviderConfigPanel() {
     (async () => {
       const body = await callJSON('/api/providers');
       setProviders(Array.isArray(body.providers) ? body.providers : []);
-      await refresh('demo', savedKey);
+      if (savedKey) {
+        await refresh('demo', savedKey);
+      } else {
+        setMessage(ADMIN_KEY_REQUIRED_MESSAGE);
+      }
     })();
   }, []);
 
@@ -142,6 +158,9 @@ export function ProviderConfigPanel() {
               onChange={(event) => setAdminApiKey(event.target.value)}
               placeholder="••••••••••••••••"
             />
+            <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
+              Required for loading, saving, or deleting provider configs.
+            </p>
           </div>
         </div>
 
@@ -188,6 +207,7 @@ export function ProviderConfigPanel() {
         <div className="grid grid-3" style={{ marginTop: '0.5rem' }}>
           <button
             className="btn btn-primary"
+            disabled={!adminApiKey.trim() || loading}
             onClick={async () => {
               let parsedConfig: Record<string, unknown>;
               try {
@@ -223,13 +243,18 @@ export function ProviderConfigPanel() {
           >
             Save Config
           </button>
-          <button className="btn btn-outline" onClick={() => refresh()}>
+          <button
+            className="btn btn-outline"
+            disabled={!adminApiKey.trim() || loading}
+            onClick={() => refresh()}
+          >
             Refresh
           </button>
           {confirmDelete ? (
             <div style={{ display: 'flex', gap: '0.5rem', gridColumn: 'span 1' }}>
               <button
                 className="btn btn-ghost"
+                disabled={!adminApiKey.trim() || loading}
                 style={{
                   color: 'var(--error)',
                   flex: 1,
@@ -261,6 +286,7 @@ export function ProviderConfigPanel() {
           ) : (
             <button
               className="btn btn-ghost"
+              disabled={!adminApiKey.trim() || loading}
               style={{ color: 'var(--error)' }}
               onClick={() => setConfirmDelete(true)}
             >

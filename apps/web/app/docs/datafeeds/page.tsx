@@ -22,7 +22,7 @@ export default function DocsDatafeeds() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -79,7 +79,7 @@ export default function DocsDatafeeds() {
             fontWeight: 800,
             color: 'var(--text-primary)',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: 0,
           }}
         >
           Configured Default Pair Catalog ({DEFAULT_FEED_SYMBOLS.length})
@@ -219,17 +219,17 @@ export default function DocsDatafeeds() {
         title="Direct Read on N3"
         code={`// Read the latest verified price from contract storage
 public static void CheckLiquidation() {
-    object[] record = (object[])Contract.Call(
-        DataFeedHash,
-        "getLatest",
-        CallFlags.ReadOnly,
-        "TWELVEDATA:NEO-USD"
-    );
-    
-    BigInteger priceUnits = (BigInteger)record[2];
-    BigInteger lastUpdate = (BigInteger)record[3];
-    
-    // Process logic...
+ object[] record = (object[])Contract.Call(
+ DataFeedHash,
+ "getLatest",
+ CallFlags.ReadOnly,
+ "TWELVEDATA:NEO-USD"
+ );
+
+ BigInteger priceUnits = (BigInteger)record[2];
+ BigInteger lastUpdate = (BigInteger)record[3];
+
+ // Process logic...
 }`}
       />
 

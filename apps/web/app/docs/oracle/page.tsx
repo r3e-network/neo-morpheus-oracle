@@ -17,7 +17,7 @@ export default function DocsOracle() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -148,7 +148,7 @@ export default function DocsOracle() {
             color: 'var(--text-primary)',
             marginBottom: '1rem',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: 0,
           }}
         >
           1. Structure your Confidential JSON
@@ -161,14 +161,14 @@ export default function DocsOracle() {
         <CodeBlock
           language="json"
           code={`{
-  "headers": {
-    "Authorization": "Bearer sk_live_123456789",
-    "X-Project-ID": "proj_xyz"
-  },
-  "query": {
-    "private_customer_id": "cust_999"
-  },
-  "json_path": "data.score"
+ "headers": {
+ "Authorization": "Bearer sk_live_123456789",
+ "X-Project-ID": "proj_xyz"
+ },
+ "query": {
+ "private_customer_id": "cust_999"
+ },
+ "json_path": "data.score"
 }`}
         />
       </div>
@@ -189,7 +189,7 @@ export default function DocsOracle() {
             color: 'var(--text-primary)',
             marginBottom: '1rem',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: 0,
           }}
         >
           2. Encrypt Locally (X25519)
@@ -225,7 +225,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
             color: 'var(--text-primary)',
             marginBottom: '1rem',
             textTransform: 'uppercase',
-            letterSpacing: '0.05em',
+            letterSpacing: 0,
           }}
         >
           3. Resolve Scripts by Reference
@@ -237,13 +237,13 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
         <CodeBlock
           language="json"
           code={`{
-  "url": "https://api.example.com/private",
-  "script_ref": {
-    "contract_hash": "0x1111111111111111111111111111111111111111",
-    "method": "getScript",
-    "script_name": "scoreGate"
-  },
-  "target_chain": "neo_n3"
+ "url": "https://api.example.com/private",
+ "script_ref": {
+ "contract_hash": "0x1111111111111111111111111111111111111111",
+ "method": "getScript",
+ "script_name": "scoreGate"
+ },
+ "target_chain": "neo_n3"
 }`}
         />
       </div>
@@ -260,20 +260,20 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
         <CodeBlock
           language="csharp"
           code={`public static BigInteger RequestData(ByteString encryptedParams) {
-    string payloadJson =
-        "{\"symbol\":\"TWELVEDATA:NEO-USD\",\"encrypted_params\":\""
-        + (string)encryptedParams
-        + "\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
+ string payloadJson =
+ "{\"symbol\":\"TWELVEDATA:NEO-USD\",\"encrypted_params\":\""
+ + (string)encryptedParams
+ + "\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
 
-    return (BigInteger)Contract.Call(
-        OracleHash,
-        "request",
-        CallFlags.All,
-        "privacy_oracle",
-        (ByteString)payloadJson,
-        Runtime.ExecutingScriptHash,
-        "onOracleResult"
-    );
+ return (BigInteger)Contract.Call(
+ OracleHash,
+ "request",
+ CallFlags.All,
+ "privacy_oracle",
+ (ByteString)payloadJson,
+ Runtime.ExecutingScriptHash,
+ "onOracleResult"
+ );
 }`}
         />
         <div
@@ -311,7 +311,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
               margin: 0,
               color: '#fff',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             Transformation Logic
