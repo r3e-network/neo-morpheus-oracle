@@ -14,7 +14,7 @@ export default function DocsCompute() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -49,7 +49,7 @@ export default function DocsCompute() {
                 margin: 0,
                 color: 'var(--text-primary)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                letterSpacing: 0,
               }}
             >
               Javascript (QuickJS)
@@ -83,7 +83,7 @@ export default function DocsCompute() {
                 margin: 0,
                 color: 'var(--text-primary)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                letterSpacing: 0,
               }}
             >
               WebAssembly (WASM)
@@ -138,13 +138,13 @@ export default function DocsCompute() {
         language="javascript"
         title="Custom Compute Script"
         code={`function process(input, helpers) {
-    const values = Array.isArray(input.values) ? input.values : [];
-    const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
-    return {
-        total,
-        count: values.length,
-        generated_at: helpers.getCurrentTimestamp(),
-    };
+ const values = Array.isArray(input.values) ? input.values : [];
+ const total = values.reduce((sum, value) => sum + Number(value || 0), 0);
+ return {
+ total,
+ count: values.length,
+ generated_at: helpers.getCurrentTimestamp(),
+ };
 }`}
       />
 
@@ -160,15 +160,15 @@ export default function DocsCompute() {
         language="json"
         title="script_ref Payload"
         code={`{
-  "mode": "script",
-  "script_ref": {
-    "contract_hash": "0x1111111111111111111111111111111111111111",
-    "method": "getScript",
-    "script_name": "sum"
-  },
-  "entry_point": "process",
-  "input": { "a": 2, "b": 3 },
-  "target_chain": "neo_n3"
+ "mode": "script",
+ "script_ref": {
+ "contract_hash": "0x1111111111111111111111111111111111111111",
+ "method": "getScript",
+ "script_name": "sum"
+ },
+ "entry_point": "process",
+ "input": { "a": 2, "b": 3 },
+ "target_chain": "neo_n3"
 }`}
       />
 
@@ -205,7 +205,7 @@ export default function DocsCompute() {
               margin: 0,
               color: '#fff',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             Untrusted Scripts

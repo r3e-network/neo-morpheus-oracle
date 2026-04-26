@@ -22,7 +22,7 @@ export default function DocsNeoDidPage() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -193,36 +193,36 @@ export default function DocsNeoDidPage() {
         language="json"
         title="GET /mainnet/neodid/resolve?did=did:morpheus:neo_n3:service:neodid"
         code={`{
-  "didResolutionMetadata": {
-    "contentType": "application/ld+json;profile=\\"https://w3id.org/did-resolution\\""
-  },
-  "didDocument": {
-    "@context": [
-      "https://www.w3.org/ns/did/v1",
-      "https://w3id.org/security/suites/jws-2020/v1"
-    ],
-    "id": "${DEFAULT_NEODID_SERVICE_DID}",
-    "verificationMethod": [
-      {
-        "id": "${DEFAULT_NEODID_SERVICE_DID}#tee-verifier",
-        "type": "JsonWebKey2020"
-      }
-    ],
-    "service": [
-      {
-        "id": "${DEFAULT_NEODID_SERVICE_DID}#registry",
-        "type": "MorpheusNeoDIDRegistry"
-      },
-      {
-        "id": "${DEFAULT_NEODID_SERVICE_DID}#oracle-entry",
-        "type": "MorpheusOracleGateway"
-      }
-    ]
-  },
-  "didDocumentMetadata": {
-    "canonicalId": "${DEFAULT_NEODID_SERVICE_DID}",
-    "network": "neo_n3"
-  }
+ "didResolutionMetadata": {
+ "contentType": "application/ld+json;profile=\\"https://w3id.org/did-resolution\\""
+ },
+ "didDocument": {
+ "@context": [
+ "https://www.w3.org/ns/did/v1",
+ "https://w3id.org/security/suites/jws-2020/v1"
+ ],
+ "id": "${DEFAULT_NEODID_SERVICE_DID}",
+ "verificationMethod": [
+ {
+ "id": "${DEFAULT_NEODID_SERVICE_DID}#tee-verifier",
+ "type": "JsonWebKey2020"
+ }
+ ],
+ "service": [
+ {
+ "id": "${DEFAULT_NEODID_SERVICE_DID}#registry",
+ "type": "MorpheusNeoDIDRegistry"
+ },
+ {
+ "id": "${DEFAULT_NEODID_SERVICE_DID}#oracle-entry",
+ "type": "MorpheusOracleGateway"
+ }
+ ]
+ },
+ "didDocumentMetadata": {
+ "canonicalId": "${DEFAULT_NEODID_SERVICE_DID}",
+ "network": "neo_n3"
+ }
 }`}
       />
 
@@ -254,16 +254,16 @@ export default function DocsNeoDidPage() {
         code={`[DisplayName("NeoDIDRegistry")]
 public class NeoDIDRegistry : SmartContract
 {
-    public static UInt160 Admin();
-    public static ECPoint Verifier();
-    public static void SetAdmin(UInt160 newAdmin);
-    public static void SetVerifier(ECPoint publicKey);
-    public static void RegisterBinding(UInt160 vaultAccount, string provider, string claimType, string claimValue, ByteString masterNullifier, ByteString metadataHash, ByteString verificationSignature);
-    public static void RevokeBinding(UInt160 vaultAccount, string provider, string claimType);
-    public static BindingRecord GetBinding(UInt160 vaultAccount, string provider, string claimType);
-    public static bool IsMasterNullifierUsed(ByteString masterNullifier);
-    public static bool IsActionNullifierUsed(ByteString actionNullifier);
-    public static bool UseActionTicket(UInt160 disposableAccount, string actionId, ByteString actionNullifier, ByteString verificationSignature);
+ public static UInt160 Admin();
+ public static ECPoint Verifier();
+ public static void SetAdmin(UInt160 newAdmin);
+ public static void SetVerifier(ECPoint publicKey);
+ public static void RegisterBinding(UInt160 vaultAccount, string provider, string claimType, string claimValue, ByteString masterNullifier, ByteString metadataHash, ByteString verificationSignature);
+ public static void RevokeBinding(UInt160 vaultAccount, string provider, string claimType);
+ public static BindingRecord GetBinding(UInt160 vaultAccount, string provider, string claimType);
+ public static bool IsMasterNullifierUsed(ByteString masterNullifier);
+ public static bool IsActionNullifierUsed(ByteString actionNullifier);
+ public static bool UseActionTicket(UInt160 disposableAccount, string actionId, ByteString actionNullifier, ByteString verificationSignature);
 }`}
       />
 
@@ -365,11 +365,11 @@ public class NeoDIDRegistry : SmartContract
         language="json"
         title="POST /api/neodid/bind (provider = web3auth)"
         code={`{
-  "vault_account": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
-  "provider": "web3auth",
-  "id_token": "<web3auth jwt>",
-  "claim_type": "Web3Auth_PrimaryIdentity",
-  "claim_value": "linked_social_root"
+ "vault_account": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+ "provider": "web3auth",
+ "id_token": "<web3auth jwt>",
+ "claim_type": "Web3Auth_PrimaryIdentity",
+ "claim_value": "linked_social_root"
 }`}
       />
 
@@ -383,22 +383,22 @@ public class NeoDIDRegistry : SmartContract
         language="json"
         title="POST /api/confidential/store"
         code={`{
-  "ciphertext": "<sealed id_token patch>",
-  "target_chain": "neo_n3",
-  "metadata": {
-    "source": "web3auth-live-studio"
-  }
+ "ciphertext": "<sealed id_token patch>",
+ "target_chain": "neo_n3",
+ "metadata": {
+ "source": "web3auth-live-studio"
+ }
 }`}
       />
       <CodeBlock
         language="json"
         title="Oracle payload using encrypted_params_ref"
         code={`{
-  "vault_account": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
-  "provider": "web3auth",
-  "claim_type": "Web3Auth_PrimaryIdentity",
-  "claim_value": "linked_social_root_oracle_ref",
-  "encrypted_params_ref": "<secret_ref>"
+ "vault_account": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+ "provider": "web3auth",
+ "claim_type": "Web3Auth_PrimaryIdentity",
+ "claim_value": "linked_social_root_oracle_ref",
+ "encrypted_params_ref": "<secret_ref>"
 }`}
       />
 
@@ -407,10 +407,10 @@ public class NeoDIDRegistry : SmartContract
         language="json"
         title="POST /api/neodid/action-ticket"
         code={`{
-  "provider": "binance",
-  "provider_uid": "binance_uid_12345",
-  "disposable_account": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
-  "action_id": "Airdrop_Season_1"
+ "provider": "binance",
+ "provider_uid": "binance_uid_12345",
+ "disposable_account": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+ "action_id": "Airdrop_Season_1"
 }`}
       />
 
@@ -419,15 +419,15 @@ public class NeoDIDRegistry : SmartContract
         language="json"
         title="POST /api/neodid/recovery-ticket"
         code={`{
-  "provider": "web3auth",
-  "network": "neo_n3",
-  "aa_contract": "${networkRegistry.mainnet.neo_n3.contracts.abstract_account}",
-  "verifier_contract": "${networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}",
-  "account_id": "aa-social-recovery-demo",
-  "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
-  "recovery_nonce": "7",
-  "expires_at": "1735689600",
-  "encrypted_params": "<sealed id_token / linked account patch>"
+ "provider": "web3auth",
+ "network": "neo_n3",
+ "aa_contract": "${networkRegistry.mainnet.neo_n3.contracts.abstract_account}",
+ "verifier_contract": "${networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}",
+ "account_id": "aa-social-recovery-demo",
+ "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
+ "recovery_nonce": "7",
+ "expires_at": "1735689600",
+ "encrypted_params": "<sealed id_token / linked account patch>"
 }`}
       />
 
@@ -437,20 +437,20 @@ public class NeoDIDRegistry : SmartContract
         title="DApp Ticket Consumption"
         code={`public static bool Vote(UInt160 disposableAccount, string actionId, ByteString actionNullifier, ByteString sgxSignature)
 {
-    ExecutionEngine.Assert(Runtime.CheckWitness(disposableAccount), "Unauthorized");
+ ExecutionEngine.Assert(Runtime.CheckWitness(disposableAccount), "Unauthorized");
 
-    bool accepted = (bool)Contract.Call(
-        NeoDidRegistryHash,
-        "useActionTicket",
-        CallFlags.All,
-        disposableAccount,
-        actionId,
-        actionNullifier,
-        sgxSignature
-    );
+ bool accepted = (bool)Contract.Call(
+ NeoDidRegistryHash,
+ "useActionTicket",
+ CallFlags.All,
+ disposableAccount,
+ actionId,
+ actionNullifier,
+ sgxSignature
+ );
 
-    ExecutionEngine.Assert(accepted, "Invalid NeoDID action ticket");
-    return true;
+ ExecutionEngine.Assert(accepted, "Invalid NeoDID action ticket");
+ return true;
 }`}
       />
 

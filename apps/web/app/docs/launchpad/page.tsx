@@ -25,7 +25,7 @@ export default function DocsLaunchpadPage() {
               fontWeight: 800,
               color: 'var(--neo-green)',
               textTransform: 'uppercase',
-              letterSpacing: '0.12em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
             }}
           >

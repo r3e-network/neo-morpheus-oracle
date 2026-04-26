@@ -74,7 +74,7 @@ export function CodeBlock({
               color: '#888',
               fontFamily: 'var(--font-mono)',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
               flexShrink: 0,
             }}
           >

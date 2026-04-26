@@ -67,12 +67,12 @@ const oracleScenarios = [
     solution:
       'Fetch the Oracle public key, encrypt the token or headers, then send the request through the Oracle contract. The key is only unsealed inside the TEE.',
     payload: `{
-  "url": "https://api.example.com/private-price",
-  "method": "GET",
-  "encrypted_token": "<sealed bearer token>",
-  "token_header": "Authorization",
-  "json_path": "price",
-  "target_chain": "neo_n3"
+ "url": "https://api.example.com/private-price",
+ "method": "GET",
+ "encrypted_token": "<sealed bearer token>",
+ "token_header": "Authorization",
+ "json_path": "price",
+ "target_chain": "neo_n3"
 }`,
   },
   {
@@ -83,11 +83,11 @@ const oracleScenarios = [
     solution:
       'Send encrypted credentials plus a tiny custom reduction function. The worker fetches the data, evaluates the condition inside the enclave, and returns only `true/false`.',
     payload: `{
-  "url": "https://api.example.com/private-profile",
-  "encrypted_params": "<sealed auth headers and script>",
-  "script": "function process(data) { return data.followers > 10000; }",
-  "entry_point": "process",
-  "target_chain": "neo_n3"
+ "url": "https://api.example.com/private-profile",
+ "encrypted_params": "<sealed auth headers and script>",
+ "script": "function process(data) { return data.followers > 10000; }",
+ "entry_point": "process",
+ "target_chain": "neo_n3"
 }`,
   },
   {
@@ -98,8 +98,8 @@ const oracleScenarios = [
     solution:
       'Use `encrypted_payload` or `encrypted_params` to patch the request inside the TEE before the built-in provider call executes.',
     payload: `{
-  "symbol": "TWELVEDATA:BTC-USD",
-  "encrypted_payload": "<sealed { \\"json_path\\": \\"price\\", \\"target_chain\\": \\"neo_n3\\" }>"
+ "symbol": "TWELVEDATA:BTC-USD",
+ "encrypted_payload": "<sealed { \\"json_path\\": \\"price\\", \\"target_chain\\": \\"neo_n3\\" }>"
 }`,
   },
   {
@@ -110,10 +110,10 @@ const oracleScenarios = [
     solution:
       'Use a normal Oracle request with custom JS or WASM to reduce the response into the exact scalar your contract wants.',
     payload: `{
-  "symbol": "TWELVEDATA:SOL-USD",
-  "script": "function process(data) { return Number(data.price) > 100; }",
-  "entry_point": "process",
-  "target_chain": "neo_n3"
+ "symbol": "TWELVEDATA:SOL-USD",
+ "script": "function process(data) { return Number(data.price) > 100; }",
+ "entry_point": "process",
+ "target_chain": "neo_n3"
 }`,
   },
 ];
@@ -124,10 +124,10 @@ const builtinScenarios = [
     title: 'privacy.mask',
     summary: 'Mask sensitive strings before returning them.',
     payload: `{
-  "mode": "builtin",
-  "function": "privacy.mask",
-  "input": { "value": "13812345678", "unmasked_left": 3, "unmasked_right": 4 },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "privacy.mask",
+ "input": { "value": "13812345678", "unmasked_left": 3, "unmasked_right": 4 },
+ "target_chain": "neo_n3"
 }`,
   },
   {
@@ -136,10 +136,10 @@ const builtinScenarios = [
     summary:
       'Useful for big integer cryptography, RSA helpers, VDF-style workloads, and challenge-response math.',
     payload: `{
-  "mode": "builtin",
-  "function": "math.modexp",
-  "input": { "base": "123456789", "exponent": "987654321", "modulus": "2147483647" },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "math.modexp",
+ "input": { "base": "123456789", "exponent": "987654321", "modulus": "2147483647" },
+ "target_chain": "neo_n3"
 }`,
   },
   {
@@ -147,10 +147,10 @@ const builtinScenarios = [
     title: 'vector.cosine_similarity',
     summary: 'Compare embeddings or user vectors without deploying your own script runtime.',
     payload: `{
-  "mode": "builtin",
-  "function": "vector.cosine_similarity",
-  "input": { "left": [0.12, 0.91, 0.33], "right": [0.15, 0.87, 0.31] },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "vector.cosine_similarity",
+ "input": { "left": [0.12, 0.91, 0.33], "right": [0.15, 0.87, 0.31] },
+ "target_chain": "neo_n3"
 }`,
   },
   {
@@ -159,10 +159,10 @@ const builtinScenarios = [
     summary:
       'Hash large public-signal arrays off-chain and return one digest for cheap contract verification.',
     payload: `{
-  "mode": "builtin",
-  "function": "zkp.public_signal_hash",
-  "input": { "circuit_id": "credit_v1", "signals": ["1", "2", "3"] },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "zkp.public_signal_hash",
+ "input": { "circuit_id": "credit_v1", "signals": ["1", "2", "3"] },
+ "target_chain": "neo_n3"
 }`,
   },
   {
@@ -171,10 +171,10 @@ const builtinScenarios = [
     summary:
       'Plan FHE workloads before you commit to expensive proving or encrypted inference pipelines.',
     payload: `{
-  "mode": "builtin",
-  "function": "fhe.noise_budget_estimate",
-  "input": { "multiplicative_depth": 4, "scale_bits": 40, "modulus_bits": 218 },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "fhe.noise_budget_estimate",
+ "input": { "multiplicative_depth": 4, "scale_bits": 40, "modulus_bits": 218 },
+ "target_chain": "neo_n3"
 }`,
   },
   {
@@ -183,10 +183,10 @@ const builtinScenarios = [
     summary:
       'Good for proof preprocessing, settlement digests, commitment schemes, and callback minimization.',
     payload: `{
-  "mode": "builtin",
-  "function": "merkle.root",
-  "input": { "leaves": ["a", "b", "c"] },
-  "target_chain": "neo_n3"
+ "mode": "builtin",
+ "function": "merkle.root",
+ "input": { "leaves": ["a", "b", "c"] },
+ "target_chain": "neo_n3"
 }`,
   },
 ];
@@ -210,7 +210,7 @@ export default function DocsUseCases() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -251,7 +251,7 @@ export default function DocsUseCases() {
               fontWeight: 800,
               color: '#fff',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             How Users Participate
@@ -472,7 +472,7 @@ export default function DocsUseCases() {
                     fontSize: '1rem',
                     fontWeight: 800,
                     textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
+                    letterSpacing: 0,
                   }}
                 >
                   {item.title}

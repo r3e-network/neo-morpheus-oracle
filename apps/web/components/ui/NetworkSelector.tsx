@@ -97,7 +97,7 @@ export function NetworkSelector() {
                 color: 'var(--text-muted)',
                 fontFamily: 'var(--font-mono)',
                 textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                letterSpacing: 0,
               }}
             >
               Select Network

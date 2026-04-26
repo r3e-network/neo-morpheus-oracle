@@ -41,13 +41,13 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
   const [httpMethod, setHttpMethod] = useState('GET');
   const [oracleEncryptedParams, setOracleEncryptedParams] = useState('');
   const [oracleConfidentialJson, setOracleConfidentialJson] = useState(
-    '{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  }\n}'
+    '{\n "headers": {\n "Authorization": "Bearer secret_token"\n }\n}'
   );
   const [oracleScript, setOracleScript] = useState(
-    "function process(data, context, helpers) {\\n  return data.args.probe + '-script';\\n}"
+    "function process(data, context, helpers) {\\n return data.args.probe + '-script';\\n}"
   );
   const [oracleScriptRefJson, setOracleScriptRefJson] = useState(
-    '{\\n  \"contract_hash\": \"0x1111111111111111111111111111111111111111\",\\n  \"method\": \"getScript\",\\n  \"script_name\": \"scoreGate\"\\n}'
+    '{\\n \"contract_hash\": \"0x1111111111111111111111111111111111111111\",\\n \"method\": \"getScript\",\\n \"script_name\": \"scoreGate\"\\n}'
   );
   const [oracleJsonPath, setOracleJsonPath] = useState('price');
   const [useCustomScript, setUseCustomScript] = useState(false);
@@ -77,11 +77,11 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       setOracleJsonPath('price');
       if (useCustomScript) {
         setOracleScript(
-          'function process(data, context, helpers) {\n  return Number(data.price) > 0;\n}'
+          'function process(data, context, helpers) {\n return Number(data.price) > 0;\n}'
         );
       }
       if (!oracleEncryptedParams.trim()) {
-        setOracleConfidentialJson('{\n  "json_path": "price"\n}');
+        setOracleConfidentialJson('{\n "json_path": "price"\n}');
       }
       return;
     }
@@ -91,12 +91,12 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
     setOracleJsonPath('args.probe');
     if (useCustomScript) {
       setOracleScript(
-        "function process(data, context, helpers) {\n  return data.args.probe + '-script';\n}"
+        "function process(data, context, helpers) {\n return data.args.probe + '-script';\n}"
       );
     }
     if (!oracleEncryptedParams.trim()) {
       setOracleConfidentialJson(
-        '{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  },\n  "json_path": "args.probe"\n}'
+        '{\n "headers": {\n "Authorization": "Bearer secret_token"\n },\n "json_path": "args.probe"\n}'
       );
     }
   }, [requestMode, useCustomScript]);
@@ -111,7 +111,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       setOracleTargetChain('neo_n3');
       setUseCustomScript(false);
       setOracleEncryptedParams('');
-      setOracleConfidentialJson('{\n  "json_path": "price"\n}');
+      setOracleConfidentialJson('{\n "json_path": "price"\n}');
       setOutput(
         `>> Loaded preset: Public Quote\n>> Built-in provider quote request for ${NETWORKS.neo_n3.name}.`
       );
@@ -127,7 +127,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       setUseCustomScript(false);
       setOracleEncryptedParams('');
       setOracleConfidentialJson(
-        '{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  },\n  "json_path": "data.price"\n}'
+        '{\n "headers": {\n "Authorization": "Bearer secret_token"\n },\n "json_path": "data.price"\n}'
       );
       setOutput(
         '>> Loaded preset: Private API\n>> Encrypt the confidential JSON patch locally before submitting.'
@@ -137,7 +137,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
 
     if (preset === 'boolean_check') {
       const nextScript =
-        'function process(data, context, helpers) {\n  return Number(data.followers || 0) > 10000;\n}';
+        'function process(data, context, helpers) {\n return Number(data.followers || 0) > 10000;\n}';
       setRequestMode('url');
       setOracleUrl('https://api.example.com/private-profile');
       setHttpMethod('GET');
@@ -147,7 +147,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       setOracleScript(nextScript);
       setOracleEncryptedParams('');
       setOracleConfidentialJson(
-        '{\n  "headers": {\n    "Authorization": "Bearer secret_token"\n  },\n  "json_path": "data.followers",\n  "script": "function process(data, context, helpers) { return Number(data.followers || 0) > 10000; }",\n  "entry_point": "process"\n}'
+        '{\n "headers": {\n "Authorization": "Bearer secret_token"\n },\n "json_path": "data.followers",\n "script": "function process(data, context, helpers) { return Number(data.followers || 0) > 10000; }",\n "entry_point": "process"\n}'
       );
       setOutput(
         '>> Loaded preset: Boolean Check\n>> This pattern returns only a boolean to the callback.'
@@ -161,7 +161,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
     setOracleTargetChain('neo_n3');
     setUseCustomScript(false);
     setOracleEncryptedParams('');
-    setOracleConfidentialJson('{\n  "json_path": "price",\n  "target_chain": "neo_n3"\n}');
+    setOracleConfidentialJson('{\n "json_path": "price",\n "target_chain": "neo_n3"\n}');
     setOutput(
       '>> Loaded preset: Hidden Built-in Params\n>> Encrypt the patch so helper fields stay private.'
     );
@@ -263,13 +263,13 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
     const neoN3Snippet = `string payloadJson = "${escapedPayloadJson}";
 
 BigInteger requestId = (BigInteger)Contract.Call(
-    OracleHash,
-    "request",
-    CallFlags.All,
-    "${requestType}",
-    (ByteString)payloadJson,
-    Runtime.ExecutingScriptHash,
-    "onOracleResult"
+ OracleHash,
+ "request",
+ CallFlags.All,
+ "${requestType}",
+ (ByteString)payloadJson,
+ Runtime.ExecutingScriptHash,
+ "onOracleResult"
 );`;
 
     setGeneratedRequest({
@@ -355,7 +355,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
             style={{
               fontSize: '2rem',
               fontWeight: 900,
-              letterSpacing: '-0.03em',
+              letterSpacing: 0,
               marginBottom: '0.5rem',
             }}
           >

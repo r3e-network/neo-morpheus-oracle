@@ -29,7 +29,7 @@ export default function ExplorerPage() {
               fontWeight: 800,
               color: 'var(--text-muted)',
               textTransform: 'uppercase',
-              letterSpacing: '0.14em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
             }}
           >

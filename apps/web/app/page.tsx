@@ -74,7 +74,7 @@ export default function HomePage() {
                 fontSize: '0.7rem',
                 fontWeight: 700,
                 color: 'var(--neo-green)',
-                letterSpacing: '0.15em',
+                letterSpacing: 0,
                 fontFamily: 'var(--font-mono)',
               }}
             >
@@ -118,7 +118,7 @@ export default function HomePage() {
                 padding: '1rem 2rem',
                 textTransform: 'uppercase',
                 fontSize: '0.8rem',
-                letterSpacing: '0.1em',
+                letterSpacing: 0,
                 fontWeight: 700,
               }}
             >
@@ -132,7 +132,7 @@ export default function HomePage() {
                 padding: '1rem 2rem',
                 textTransform: 'uppercase',
                 fontSize: '0.8rem',
-                letterSpacing: '0.1em',
+                letterSpacing: 0,
                 fontWeight: 700,
               }}
             >
@@ -186,7 +186,7 @@ export default function HomePage() {
                       fontWeight: 800,
                       marginBottom: '1rem',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
+                      letterSpacing: 0,
                     }}
                   >
                     {feature.title}
@@ -234,7 +234,7 @@ export default function HomePage() {
                     fontSize: '0.75rem',
                     fontWeight: 800,
                     color: 'var(--neo-green)',
-                    letterSpacing: '0.15em',
+                    letterSpacing: 0,
                     fontFamily: 'var(--font-mono)',
                   }}
                 >
@@ -326,18 +326,18 @@ export default function HomePage() {
               >
                 {`// Read verified 1e6-scaled USD price data on Neo N3
 public static void Execute() {
-    object[] record = (object[])Contract.Call(
-        DataFeedHash,
-        "getLatest",
-        CallFlags.ReadOnly,
-        "TWELVEDATA:NEO-USD"
-    );
-    
-    BigInteger priceUnits = (BigInteger)record[2];
-    BigInteger timestamp = (BigInteger)record[3];
-    
-    // 1.000000 USD == 1_000_000 units
-    Require(priceUnits > 1_000_000, "Price too low");
+ object[] record = (object[])Contract.Call(
+ DataFeedHash,
+ "getLatest",
+ CallFlags.ReadOnly,
+ "TWELVEDATA:NEO-USD"
+ );
+
+ BigInteger priceUnits = (BigInteger)record[2];
+ BigInteger timestamp = (BigInteger)record[3];
+
+ // 1.000000 USD == 1_000_000 units
+ Require(priceUnits > 1_000_000, "Price too low");
 }`}
               </pre>
             </Card>

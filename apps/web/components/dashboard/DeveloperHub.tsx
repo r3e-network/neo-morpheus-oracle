@@ -36,7 +36,7 @@ export function DeveloperHub() {
             fontSize: '2.5rem',
             fontWeight: 900,
             marginBottom: '1rem',
-            letterSpacing: '-0.03em',
+            letterSpacing: 0,
           }}
         >
           Protocol Reference

@@ -99,7 +99,7 @@ export default function DocsIntroduction() {
             fontSize: '0.7rem',
             fontWeight: 800,
             color: 'var(--neo-green)',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -188,7 +188,7 @@ export default function DocsIntroduction() {
                   fontWeight: 800,
                   marginBottom: '0.4rem',
                   color: '#fff',
-                  letterSpacing: '0.02em',
+                  letterSpacing: 0,
                   textTransform: 'uppercase',
                 }}
               >

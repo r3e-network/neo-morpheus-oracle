@@ -54,7 +54,6 @@ export function Layout({
   return (
     <div className="min-h-screen flex flex-col relative">
       <div className="bg-grid" />
-      <div className="bg-glow-top" />
 
       {showNav && (
         <nav className="navbar">
@@ -86,7 +85,7 @@ export function Layout({
                   color: '#fff',
                   fontWeight: 800,
                   fontSize: '1rem',
-                  letterSpacing: '0.1em',
+                  letterSpacing: 0,
                 }}
               >
                 MORPHEUS
@@ -224,7 +223,7 @@ export function Layout({
                       color: 'var(--text-muted)',
                       fontWeight: 800,
                       fontSize: '0.9rem',
-                      letterSpacing: '0.1em',
+                      letterSpacing: 0,
                     }}
                   >
                     MORPHEUS
@@ -255,7 +254,7 @@ export function Layout({
                       color: 'var(--text-muted)',
                       fontSize: '0.7rem',
                       fontWeight: 700,
-                      letterSpacing: '0.1em',
+                      letterSpacing: 0,
                       textTransform: 'uppercase',
                       marginBottom: '0.25rem',
                     }}
@@ -279,7 +278,7 @@ export function Layout({
                       color: 'var(--text-muted)',
                       fontSize: '0.7rem',
                       fontWeight: 700,
-                      letterSpacing: '0.1em',
+                      letterSpacing: 0,
                       textTransform: 'uppercase',
                       marginBottom: '0.25rem',
                     }}

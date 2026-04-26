@@ -18,7 +18,7 @@ export default function DocsQuickstart() {
             fontWeight: 800,
             color: 'var(--text-muted)',
             textTransform: 'uppercase',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
           }}
         >
@@ -54,7 +54,7 @@ export default function DocsQuickstart() {
               fontWeight: 800,
               color: 'var(--neo-green)',
               textTransform: 'uppercase',
-              letterSpacing: '0.12em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
             }}
           >
@@ -108,7 +108,7 @@ const { public_key } = await res.json();
 
 // 2. Your confidential injection payload
 const secrets = {
-  "headers": { "Authorization": "Bearer YOUR_PRIVATE_API_KEY" }
+ "headers": { "Authorization": "Bearer YOUR_PRIVATE_API_KEY" }
 };
 
 // 3. Encrypt locally using X25519 + HKDF-SHA256 + AES-256-GCM
@@ -129,25 +129,25 @@ const encryptedBlob = await encryptWithOracleX25519(JSON.stringify(secrets), pub
 
 public static BigInteger FetchPrivateData(ByteString encryptedBlob)
 {
-    string payloadJson = "{\\"url\\":\\"https://api.secret.io\\","
-        + "\\"encrypted_params\\":\\"" + (string)encryptedBlob + "\\","
-        + "\\"json_path\\":\\"data.price\\","
-        + "\\"target_chain\\":\\"neo_n3\\"}";
+ string payloadJson = "{\\"url\\":\\"https://api.secret.io\\","
+ + "\\"encrypted_params\\":\\"" + (string)encryptedBlob + "\\","
+ + "\\"json_path\\":\\"data.price\\","
+ + "\\"target_chain\\":\\"neo_n3\\"}";
 
-    return (BigInteger)Contract.Call(
-        OracleHash,
-        "request",
-        CallFlags.All,
-        "oracle",
-        (ByteString)payloadJson,
-        Runtime.ExecutingScriptHash,
-        "onOracleResult"
-    );
+ return (BigInteger)Contract.Call(
+ OracleHash,
+ "request",
+ CallFlags.All,
+ "oracle",
+ (ByteString)payloadJson,
+ Runtime.ExecutingScriptHash,
+ "onOracleResult"
+ );
 }
 
 public static void OnOracleResult(BigInteger requestId, string requestType, bool success, ByteString result, string error)
 {
-    Storage.Put(Storage.CurrentContext, "last_result", result);
+ Storage.Put(Storage.CurrentContext, "last_result", result);
 }`}
       />
 
@@ -182,7 +182,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
               margin: 0,
               color: '#fff',
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
             }}
           >
             Zero-Code Testing ({NETWORKS.neo_n3.environmentLabel})

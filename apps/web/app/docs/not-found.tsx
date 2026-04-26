@@ -31,7 +31,7 @@ export default function DocsNotFound() {
               fontSize: '0.7rem',
               fontWeight: 700,
               color: 'var(--error)',
-              letterSpacing: '0.15em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
             }}
           >
@@ -43,7 +43,7 @@ export default function DocsNotFound() {
           style={{
             fontSize: 'clamp(2rem, 4vw, 3rem)',
             fontWeight: 800,
-            letterSpacing: '-0.04em',
+            letterSpacing: 0,
             lineHeight: 1.1,
             marginBottom: '1rem',
           }}
@@ -94,7 +94,7 @@ export default function DocsNotFound() {
               padding: '0.85rem 1.5rem',
               textTransform: 'uppercase',
               fontSize: '0.8rem',
-              letterSpacing: '0.1em',
+              letterSpacing: 0,
               fontWeight: 700,
               display: 'inline-flex',
               alignItems: 'center',

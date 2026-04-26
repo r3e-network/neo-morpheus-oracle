@@ -53,6 +53,8 @@ export function RelayerOpsPanel() {
   const [selectedEventKey, setSelectedEventKey] = useState('');
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const hasAdminKey = adminApiKey.trim().length > 0;
+  const hasSelectedEventKey = selectedEventKey.trim().length > 0;
 
   async function refresh(currentKey = adminApiKey) {
     setIsLoading(true);
@@ -77,10 +79,29 @@ export function RelayerOpsPanel() {
   }
 
   async function runAction(path: string, eventKey: string) {
-    const body = await callJSON(path, adminApiKey, 'POST', { event_key: eventKey });
+    const normalizedEventKey = eventKey.trim();
+    if (!adminApiKey.trim()) {
+      setMessage(
+        JSON.stringify(
+          { error: 'Relayer admin key is required before running an action.' },
+          null,
+          2
+        )
+      );
+      return;
+    }
+    if (!normalizedEventKey) {
+      setMessage(
+        JSON.stringify({ error: 'Select or enter an event key before running an action.' }, null, 2)
+      );
+      return;
+    }
+    const body = await callJSON(path, adminApiKey.trim(), 'POST', {
+      event_key: normalizedEventKey,
+    });
     setMessage(JSON.stringify(body, null, 2));
     if (!body.error) {
-      setSelectedEventKey(eventKey);
+      setSelectedEventKey(normalizedEventKey);
       await refresh();
     }
   }
@@ -118,7 +139,15 @@ export function RelayerOpsPanel() {
               value={adminApiKey}
               onChange={(event) => setAdminApiKey(event.target.value)}
               placeholder="••••••••••••••••"
+              aria-describedby="relayer-admin-key-help"
             />
+            <p
+              id="relayer-admin-key-help"
+              className="text-xs text-dim"
+              style={{ marginTop: '0.5rem' }}
+            >
+              Required for retry, replay, and dead-letter operations.
+            </p>
           </div>
           <div className="form-group" style={{ justifyContent: 'flex-end', display: 'flex' }}>
             <button
@@ -137,9 +166,7 @@ export function RelayerOpsPanel() {
 
         <div className="grid grid-3" style={{ alignItems: 'stretch' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-muted">
-              Latest Snapshot
-            </h4>
+            <h4 className="text-sm font-bold uppercase text-muted">Latest Snapshot</h4>
             <div className="terminal-panel" style={{ height: '100%', margin: 0 }}>
               <div className="terminal-body" style={{ maxHeight: '300px' }}>
                 <pre className="terminal-pre" style={{ fontSize: '0.75rem' }}>
@@ -150,7 +177,7 @@ export function RelayerOpsPanel() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-muted">Recent Jobs</h4>
+            <h4 className="text-sm font-bold uppercase text-muted">Recent Jobs</h4>
             <div
               style={{
                 display: 'flex',
@@ -187,6 +214,7 @@ export function RelayerOpsPanel() {
                     <button
                       className="btn btn-outline btn-xs"
                       style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      disabled={!hasAdminKey || isLoading}
                       onClick={() => runAction('/api/relayer/jobs/retry', job.event_key)}
                     >
                       Retry
@@ -208,7 +236,7 @@ export function RelayerOpsPanel() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-muted">Dead Letters</h4>
+            <h4 className="text-sm font-bold uppercase text-muted">Dead Letters</h4>
             <div
               style={{
                 display: 'flex',
@@ -249,6 +277,7 @@ export function RelayerOpsPanel() {
                     <button
                       className="btn btn-primary btn-xs"
                       style={{ padding: '2px 8px', fontSize: '0.7rem' }}
+                      disabled={!hasAdminKey || isLoading}
                       onClick={() => runAction('/api/relayer/jobs/replay', job.event_key)}
                     >
                       Replay
@@ -289,16 +318,26 @@ export function RelayerOpsPanel() {
                 value={selectedEventKey}
                 onChange={(event) => setSelectedEventKey(event.target.value)}
                 placeholder="0x..."
+                aria-describedby="relayer-event-key-help"
               />
+              <p
+                id="relayer-event-key-help"
+                className="text-xs text-dim"
+                style={{ marginTop: '0.5rem' }}
+              >
+                Pick a job above or paste the exact event key.
+              </p>
             </div>
             <button
               className="btn btn-outline"
+              disabled={!hasAdminKey || !hasSelectedEventKey || isLoading}
               onClick={() => runAction('/api/relayer/jobs/retry', selectedEventKey)}
             >
               Retry Job
             </button>
             <button
               className="btn btn-outline"
+              disabled={!hasAdminKey || !hasSelectedEventKey || isLoading}
               onClick={() => runAction('/api/relayer/jobs/replay', selectedEventKey)}
             >
               Replay DL

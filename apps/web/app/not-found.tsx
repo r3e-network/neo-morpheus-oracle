@@ -36,7 +36,7 @@ export default function NotFound() {
               fontSize: '0.7rem',
               fontWeight: 700,
               color: 'var(--error)',
-              letterSpacing: '0.15em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
             }}
           >
@@ -48,7 +48,7 @@ export default function NotFound() {
           style={{
             fontSize: 'clamp(2.5rem, 5vw, 4rem)',
             fontWeight: 800,
-            letterSpacing: '-0.04em',
+            letterSpacing: 0,
             lineHeight: 1.1,
             marginBottom: '1rem',
           }}
@@ -99,7 +99,7 @@ export default function NotFound() {
               padding: '0.85rem 1.5rem',
               textTransform: 'uppercase',
               fontSize: '0.8rem',
-              letterSpacing: '0.1em',
+              letterSpacing: 0,
               fontWeight: 700,
               display: 'inline-flex',
               alignItems: 'center',
@@ -116,7 +116,7 @@ export default function NotFound() {
               padding: '0.85rem 1.5rem',
               textTransform: 'uppercase',
               fontSize: '0.8rem',
-              letterSpacing: '0.1em',
+              letterSpacing: 0,
               fontWeight: 700,
               display: 'inline-flex',
               alignItems: 'center',

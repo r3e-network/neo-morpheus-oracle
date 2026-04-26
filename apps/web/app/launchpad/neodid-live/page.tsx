@@ -21,7 +21,7 @@ export default function NeoDidWeb3AuthLivePage() {
               <span
                 style={{
                   fontWeight: 800,
-                  letterSpacing: '0.08em',
+                  letterSpacing: 0,
                   fontSize: '0.8rem',
                   color: 'var(--text-muted)',
                   textTransform: 'uppercase',
@@ -56,7 +56,7 @@ export default function NeoDidWeb3AuthLivePage() {
               <span
                 style={{
                   fontWeight: 800,
-                  letterSpacing: '0.08em',
+                  letterSpacing: 0,
                   fontSize: '0.8rem',
                   color: 'var(--text-muted)',
                   textTransform: 'uppercase',

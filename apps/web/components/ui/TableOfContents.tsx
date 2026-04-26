@@ -60,7 +60,7 @@ export function TableOfContents({ items }: TableOfContentsProps) {
           fontWeight: 800,
           color: 'var(--text-muted)',
           textTransform: 'uppercase',
-          letterSpacing: '0.15em',
+          letterSpacing: 0,
           marginBottom: '1rem',
           fontFamily: 'var(--font-mono)',
         }}
@@ -88,14 +88,14 @@ export function TableOfContents({ items }: TableOfContentsProps) {
         ))}
       </nav>
       <style>{`
-        @media (min-width: 1280px) {
-          .toc-container {
-            display: block !important;
-          }
-        }
-        .toc-container::-webkit-scrollbar { width: 2px; }
-        .toc-container::-webkit-scrollbar-thumb { background: var(--border-dim); }
-      `}</style>
+ @media (min-width: 1280px) {
+ .toc-container {
+ display: block !important;
+ }
+ }
+ .toc-container::-webkit-scrollbar { width: 2px; }
+ .toc-container::-webkit-scrollbar-thumb { background: var(--border-dim); }
+ `}</style>
     </div>
   );
 }

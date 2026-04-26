@@ -50,7 +50,7 @@ export function OverviewActivity({
               fontWeight: 800,
               color: 'var(--text-primary)',
               textTransform: 'uppercase',
-              letterSpacing: '0.1em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
             }}
           >
@@ -132,7 +132,7 @@ export function OverviewActivity({
                       style={{
                         fontWeight: 800,
                         fontSize: '1.1rem',
-                        letterSpacing: '0.02em',
+                        letterSpacing: 0,
                         display: 'block',
                       }}
                     >
@@ -187,7 +187,7 @@ export function OverviewActivity({
                       fontSize: '1.75rem',
                       fontWeight: 900,
                       fontFamily: 'var(--font-mono)',
-                      letterSpacing: '-0.04em',
+                      letterSpacing: 0,
                       color: record ? '#fff' : 'var(--text-muted)',
                     }}
                   >

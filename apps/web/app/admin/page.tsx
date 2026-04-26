@@ -26,7 +26,7 @@ export default function AdminPage() {
               fontSize: '0.7rem',
               fontWeight: 800,
               color: 'var(--warning)',
-              letterSpacing: '0.1em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
               textTransform: 'uppercase',
             }}
@@ -39,7 +39,7 @@ export default function AdminPage() {
           style={{
             fontSize: '2.5rem',
             fontWeight: 900,
-            letterSpacing: '-0.03em',
+            letterSpacing: 0,
             marginBottom: '1rem',
           }}
         >
@@ -119,7 +119,7 @@ export default function AdminPage() {
                     fontWeight: 800,
                     color: 'var(--text-secondary)',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
+                    letterSpacing: 0,
                     marginBottom: '0.5rem',
                     fontFamily: 'var(--font-mono)',
                   }}

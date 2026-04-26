@@ -205,7 +205,7 @@ export default function StatusPage() {
               fontWeight: 800,
               color: 'var(--text-muted)',
               textTransform: 'uppercase',
-              letterSpacing: '0.14em',
+              letterSpacing: 0,
               fontFamily: 'var(--font-mono)',
             }}
           >
@@ -216,7 +216,7 @@ export default function StatusPage() {
           style={{
             fontSize: 'clamp(2rem, 4vw, 3rem)',
             fontWeight: 800,
-            letterSpacing: '-0.03em',
+            letterSpacing: 0,
             marginBottom: '0.75rem',
           }}
         >
@@ -295,7 +295,7 @@ export default function StatusPage() {
               fontFamily: 'var(--font-mono)',
               fontWeight: 700,
               textTransform: 'uppercase',
-              letterSpacing: '0.05em',
+              letterSpacing: 0,
               transition: 'all 0.2s',
               opacity: isRefreshing ? 0.5 : 1,
             }}
@@ -418,7 +418,7 @@ export default function StatusPage() {
             padding: '0.85rem 1.5rem',
             textTransform: 'uppercase',
             fontSize: '0.8rem',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontWeight: 700,
             display: 'inline-flex',
             alignItems: 'center',
@@ -437,7 +437,7 @@ export default function StatusPage() {
             padding: '0.85rem 1.5rem',
             textTransform: 'uppercase',
             fontSize: '0.8rem',
-            letterSpacing: '0.1em',
+            letterSpacing: 0,
             fontWeight: 700,
             display: 'inline-flex',
             alignItems: 'center',

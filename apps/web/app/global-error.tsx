@@ -22,9 +22,10 @@ export default function GlobalError({
           minHeight: '100vh',
           display: 'grid',
           placeItems: 'center',
-          background: '#000000',
-          color: '#ffffff',
-          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          background: 'var(--bg-main, #000000)',
+          color: 'var(--text-primary, #ffffff)',
+          fontFamily:
+            'var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
         }}
       >
         <div
@@ -49,7 +50,7 @@ export default function GlobalError({
               style={{
                 fontSize: 12,
                 fontWeight: 800,
-                letterSpacing: '0.15em',
+                letterSpacing: 0,
                 textTransform: 'uppercase',
                 color: 'var(--error)',
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
@@ -63,7 +64,7 @@ export default function GlobalError({
               margin: '0 0 12px',
               fontSize: 'clamp(2rem, 5vw, 3rem)',
               fontWeight: 800,
-              letterSpacing: '-0.04em',
+              letterSpacing: 0,
               lineHeight: 1.1,
             }}
           >
@@ -105,7 +106,7 @@ export default function GlobalError({
                 background: '#ffffff',
                 color: '#000000',
                 fontSize: '0.8rem',
-                letterSpacing: '0.1em',
+                letterSpacing: 0,
                 textTransform: 'uppercase',
               }}
             >
@@ -123,7 +124,7 @@ export default function GlobalError({
                 textDecoration: 'none',
                 fontWeight: 700,
                 fontSize: '0.8rem',
-                letterSpacing: '0.1em',
+                letterSpacing: 0,
                 textTransform: 'uppercase',
               }}
             >

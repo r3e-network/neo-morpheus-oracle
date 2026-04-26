@@ -143,7 +143,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                   fontWeight: 800,
                   color: 'var(--text-muted)',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.15em',
+                  letterSpacing: 0,
                   fontFamily: 'var(--font-mono)',
                   paddingLeft: '1rem',
                   display: 'block',
@@ -295,7 +295,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                           color: 'var(--text-muted)',
                           fontWeight: 800,
                           textTransform: 'uppercase',
-                          letterSpacing: '0.1em',
+                          letterSpacing: 0,
                           marginBottom: '0.5rem',
                         }}
                       >
@@ -341,7 +341,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                           color: 'var(--text-muted)',
                           fontWeight: 800,
                           textTransform: 'uppercase',
-                          letterSpacing: '0.1em',
+                          letterSpacing: 0,
                           marginBottom: '0.5rem',
                         }}
                       >
@@ -384,7 +384,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                     fontSize: '0.6rem',
                     color: 'var(--text-muted)',
                     fontWeight: 800,
-                    letterSpacing: '0.1em',
+                    letterSpacing: 0,
                   }}
                 >
                   CURRENT DESIGN
@@ -415,32 +415,32 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
       </div>
 
       <style>{`
-        .docs-sidebar::-webkit-scrollbar { width: 3px; }
-        .docs-sidebar::-webkit-scrollbar-thumb { background: var(--border-dim); }
-        
-        .hover-link:hover { color: var(--neo-green) !important; }
-        
-        @media (max-width: 1024px) {
-          .docs-sidebar {
-            position: fixed;
-            left: 0;
-            top: 72px;
-            bottom: 0;
-            transform: translateX(-100%);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            background: #000;
-            box-shadow: 20px 0 50px rgba(0,0,0,0.5);
-          }
-          .docs-sidebar.open {
-            transform: translateX(0);
-          }
-          .docs-content { padding: 2rem !important; }
-          .hide-mobile { display: none; }
-        }
-        @media (min-width: 1025px) {
-          .show-mobile { display: none; }
-        }
-      `}</style>
+ .docs-sidebar::-webkit-scrollbar { width: 3px; }
+ .docs-sidebar::-webkit-scrollbar-thumb { background: var(--border-dim); }
+
+ .hover-link:hover { color: var(--neo-green) !important; }
+
+ @media (max-width: 1024px) {
+ .docs-sidebar {
+ position: fixed;
+ left: 0;
+ top: 72px;
+ bottom: 0;
+ transform: translateX(-100%);
+ transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+ background: #000;
+ box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+ }
+ .docs-sidebar.open {
+ transform: translateX(0);
+ }
+ .docs-content { padding: 2rem !important; }
+ .hide-mobile { display: none; }
+ }
+ @media (min-width: 1025px) {
+ .show-mobile { display: none; }
+ }
+ `}</style>
     </div>
   );
 }
