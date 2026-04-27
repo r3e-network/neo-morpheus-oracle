@@ -19,6 +19,16 @@ test('contracts build script generates source artifacts without hidden compiler 
     return;
   }
 
+  const dotnetProbe = spawnSync('dotnet', ['--info'], {
+    encoding: 'utf8',
+  });
+  if (dotnetProbe.status !== 0) {
+    t.skip(
+      'dotnet runtime is not available for nccs; install dotnet before running contract compilation regression locally'
+    );
+    return;
+  }
+
   const result = spawnSync('bash', ['contracts/build.sh'], {
     cwd: repoRoot,
     encoding: 'utf8',

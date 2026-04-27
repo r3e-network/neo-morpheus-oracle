@@ -82,6 +82,7 @@ const [
   datafeedsDocsText,
   neodidDocsText,
   docsLayoutText,
+  docsNavigationText,
   neodidDidSpecText,
   docsIndexText,
   architectureDocsText,
@@ -105,6 +106,7 @@ const [
   read('apps/web/app/docs/datafeeds/page.tsx'),
   read('apps/web/app/docs/neodid/page.tsx'),
   read('apps/web/app/docs/layout.tsx'),
+  read('apps/web/lib/docs-navigation.ts'),
   read('docs/NEODID_DID_METHOD.md'),
   read('apps/web/app/docs/page.tsx'),
   read('apps/web/app/docs/architecture/page.tsx'),
@@ -219,8 +221,8 @@ for (const fragment of requiredNeoDidFragments) {
 }
 
 assert(
-  docsLayoutText.includes('/docs/r/NEODID_DID_METHOD'),
-  'apps/web/app/docs/layout.tsx must link the NeoDID DID method spec'
+  `${docsLayoutText}\n${docsNavigationText}`.includes('/docs/r/NEODID_DID_METHOD'),
+  'web docs navigation must link the NeoDID DID method spec'
 );
 assert(
   neodidDidSpecText.includes('did:morpheus:neo_n3:service:neodid'),
