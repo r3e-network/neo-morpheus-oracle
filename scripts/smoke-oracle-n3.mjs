@@ -136,7 +136,7 @@ const deploymentRegistry = await loadJsonIfExists(
   path.resolve('examples', 'deployments', `${network}.json`)
 );
 const defaultRpcUrl =
-  network === 'mainnet' ? 'http://seed1.neo.org:10332' : 'https://testnet1.neo.coz.io:443';
+  network === 'mainnet' ? 'https://api.n3index.dev/mainnet' : 'https://api.n3index.dev/testnet';
 const defaultNetworkMagic = network === 'mainnet' ? 860833102 : 894710606;
 
 function decodeCallbackArray(item) {

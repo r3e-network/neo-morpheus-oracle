@@ -22,7 +22,7 @@ const CVM_URL =
   process.env.PHALA_CVM_URL ||
   'https://ddff154546fe22d15b65667156dd4b7c611e6093-3000.dstack-pha-prod5.phala.network';
 const AUTH_TOKEN = process.env.PHALA_API_TOKEN || '';
-const RPC_URL = process.env.NEO_RPC_URL || 'https://mainnet2.neo.coz.io:443';
+const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = parseInt(process.env.NEO_NETWORK_MAGIC || '860833102');
 
 // ContractManagement native contract hash

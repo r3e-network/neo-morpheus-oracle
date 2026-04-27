@@ -3,10 +3,7 @@ import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 const selectedNetworkKey = getSelectedNetworkKey();
 const selectedNetwork = getSelectedNetwork();
 
-const defaultNeoRpcUrl =
-  selectedNetworkKey === 'mainnet'
-    ? 'http://seed1.neo.org:10332'
-    : 'https://testnet1.neo.coz.io:443';
+const defaultNeoRpcUrl = selectedNetwork.neo_n3?.rpc_url || '';
 const defaultControlPlaneUrl =
   process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
 const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';

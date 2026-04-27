@@ -4,7 +4,7 @@ const CVM_URL =
   process.env.PHALA_API_URL ||
   'https://966f16610bdfe1794a503e16c5ae0bc69a1d92f1-80.dstack-pha-prod9.phala.network';
 const CVM_TOKEN = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '';
-const RPC_URL = process.env.NEO_RPC_URL || 'https://mainnet1.neo.coz.io:443';
+const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = Number(process.env.NEO_NETWORK_MAGIC || 860833102);
 const ORACLE_HASH =
   process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '0x5b492098fc094c760402e01f7e0b631b939d2bea';

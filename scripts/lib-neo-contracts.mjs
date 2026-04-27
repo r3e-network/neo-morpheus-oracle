@@ -11,12 +11,12 @@ function resolveNeoN3NetworkDefaults() {
   const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();
   if (network === 'mainnet') {
     return {
-      rpcAddress: 'http://seed1.neo.org:10332',
+      rpcAddress: 'https://api.n3index.dev/mainnet',
       networkMagic: 860833102,
     };
   }
   return {
-    rpcAddress: 'https://testnet1.neo.coz.io:443',
+    rpcAddress: 'https://api.n3index.dev/testnet',
     networkMagic: 894710606,
   };
 }

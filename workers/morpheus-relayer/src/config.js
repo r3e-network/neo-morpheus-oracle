@@ -12,13 +12,11 @@ import { trimString } from '@neo-morpheus-oracle/shared/utils';
 const DEFAULT_PHALA_TIMEOUT_MS = 30000;
 const DEFAULT_NEO_N3_RPC_URLS = {
   mainnet: [
-    'http://seed1.neo.org:10332',
-    'http://seed2.neo.org:10332',
-    'http://seed3.neo.org:10332',
-    'http://seed4.neo.org:10332',
-    'http://seed5.neo.org:10332',
+    'https://api.n3index.dev/mainnet',
+    'https://mainnet1.neo.coz.io:443',
+    'https://mainnet2.neo.coz.io:443',
   ],
-  testnet: [],
+  testnet: ['https://api.n3index.dev/testnet', 'https://testnet1.neo.coz.io:443'],
 };
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '../../..');

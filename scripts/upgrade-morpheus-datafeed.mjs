@@ -16,7 +16,7 @@ await loadDotEnv(new URL(`../deploy/phala/morpheus.${network}.env`, import.meta.
 });
 const rpcAddress = trimString(
   process.env.NEO_RPC_URL ||
-    (network === 'mainnet' ? 'http://seed1.neo.org:10332' : 'https://testnet1.neo.coz.io:443')
+    (network === 'mainnet' ? 'https://api.n3index.dev/mainnet' : 'https://api.n3index.dev/testnet')
 );
 const networkMagic = Number(
   process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606)
