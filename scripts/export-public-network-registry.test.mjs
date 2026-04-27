@@ -5,6 +5,8 @@ import { loadPublicNetworkRegistry } from './lib-public-network-registry.mjs';
 test('public network registry export exposes canonical Morpheus runtime metadata', () => {
   const registry = loadPublicNetworkRegistry();
   assert.equal(registry.mainnet.network, 'mainnet');
+  assert.equal(registry.mainnet.rpcUrl, 'https://api.n3index.dev/mainnet');
+  assert.equal(registry.testnet.rpcUrl, 'https://api.n3index.dev/testnet');
   assert.equal(registry.mainnet.morpheus.publicApiUrl, 'https://oracle.meshmini.app/mainnet');
   assert.equal(registry.mainnet.morpheus.controlPlaneUrl, 'https://control.meshmini.app/mainnet');
   assert.deepEqual(registry.mainnet.morpheus.runtimeUrls, [

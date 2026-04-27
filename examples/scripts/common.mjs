@@ -258,8 +258,8 @@ export function resolveNeoN3RpcUrl(network = 'testnet', deployment = {}) {
   const normalized = trimString(network).toLowerCase() || 'testnet';
   const defaultRpcUrl =
     normalized === 'mainnet'
-      ? 'http://seed1.neo.org:10332'
-      : 'https://testnet1.neo.coz.io:443';
+      ? 'https://api.n3index.dev/mainnet'
+      : 'https://api.n3index.dev/testnet';
   return trimString(
     normalized === 'testnet'
       ? process.env.NEO_TESTNET_RPC_URL ||
@@ -370,8 +370,8 @@ export async function fetchOnchainOraclePublicKey(targetChain) {
     const rpcUrl = trimString(
       process.env.NEO_RPC_URL ||
         (network === 'mainnet'
-          ? 'http://seed1.neo.org:10332'
-          : 'https://testnet1.neo.coz.io:443')
+          ? 'https://api.n3index.dev/mainnet'
+          : 'https://api.n3index.dev/testnet')
     );
     const oracleHash = normalizeHash160(process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '');
     if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');

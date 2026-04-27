@@ -1,6 +1,6 @@
 import { experimental, sc, wallet } from '@cityofzion/neon-js';
 
-const RPC_URL = 'https://mainnet1.neo.coz.io:443';
+const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = 860833102;
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 

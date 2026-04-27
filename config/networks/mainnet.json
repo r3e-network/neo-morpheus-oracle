@@ -12,8 +12,9 @@
     "datafeed_attestation_explorer_url": "https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f"
   },
   "neo_n3": {
-    "rpc_url": "https://mainnet1.neo.coz.io:443",
+    "rpc_url": "https://api.n3index.dev/mainnet",
     "rpc_urls": [
+      "https://api.n3index.dev/mainnet",
       "https://mainnet1.neo.coz.io:443",
       "https://mainnet2.neo.coz.io:443",
       "http://seed1.neo.org:10332",
