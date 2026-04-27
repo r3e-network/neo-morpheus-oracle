@@ -4,85 +4,54 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ReactNode, useState } from 'react';
 import {
-  Book,
-  Layers,
-  Shield,
-  Cpu,
-  LineChart,
-  CheckCircle,
-  Github,
-  Menu,
-  X,
-  Boxes,
-  ChevronRight,
-  ArrowLeft,
-  Code2,
-  HelpCircle,
-  Zap,
-  ClipboardList,
   Activity,
+  ArrowLeft,
+  Book,
+  Boxes,
   Briefcase,
+  CheckCircle,
+  ChevronRight,
+  ClipboardList,
+  Code2,
+  Cpu,
   Fingerprint,
+  Github,
+  HelpCircle,
+  Layers,
+  LineChart,
+  Menu,
+  Shield,
+  X,
+  Zap,
+  type LucideIcon,
 } from 'lucide-react';
+import {
+  DOCS_NAVIGATION_SECTIONS,
+  flattenDocsNavigation,
+  type DocsNavigationIcon,
+} from '@/lib/docs-navigation';
+
+const docsNavigationIcons: Record<DocsNavigationIcon, LucideIcon> = {
+  activity: Activity,
+  book: Book,
+  boxes: Boxes,
+  briefcase: Briefcase,
+  'check-circle': CheckCircle,
+  'clipboard-list': ClipboardList,
+  code: Code2,
+  cpu: Cpu,
+  fingerprint: Fingerprint,
+  'help-circle': HelpCircle,
+  layers: Layers,
+  'line-chart': LineChart,
+  shield: Shield,
+  zap: Zap,
+};
 
 export default function DocsLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  const sections = [
-    {
-      title: 'Fundamentals',
-      items: [
-        { href: '/docs', label: 'Introduction', icon: Book },
-        { href: '/docs/architecture', label: 'Architecture', icon: Layers },
-      ],
-    },
-    {
-      title: 'Guides',
-      items: [
-        { href: '/docs/quickstart', label: 'Quickstart', icon: Zap },
-        { href: '/docs/launchpad', label: 'Launchpad', icon: Boxes },
-        { href: '/docs/use-cases', label: 'Use Cases', icon: Briefcase },
-        { href: '/docs/templates', label: 'Starter Templates', icon: ClipboardList },
-        { href: '/docs/studio', label: 'Starter Studio', icon: Boxes },
-        { href: '/docs/neodid', label: 'NeoDID', icon: Fingerprint },
-        { href: '/docs/r/NEODID_DID_METHOD', label: 'NeoDID DID Method', icon: Fingerprint },
-        { href: '/docs/r/AA_SOCIAL_RECOVERY', label: 'AA Social Recovery', icon: Shield },
-        { href: '/docs/oracle', label: 'Privacy Oracle', icon: Shield },
-        { href: '/docs/compute', label: 'Enclave Compute', icon: Cpu },
-        { href: '/docs/datafeeds', label: 'Datafeeds', icon: LineChart },
-        { href: '/docs/feed-status', label: 'Feed Status', icon: Activity },
-        { href: '/docs/r/USER_GUIDE', label: 'User Guide', icon: Book },
-      ],
-    },
-    {
-      title: 'Reference',
-      items: [
-        { href: '/docs/networks', label: 'Networks & Contracts', icon: Layers },
-        { href: '/docs/api-reference', label: 'API Reference', icon: Code2 },
-        { href: '/docs/verifier', label: 'Verifier Guide', icon: CheckCircle },
-        { href: '/docs/faq', label: 'FAQ & Troubleshooting', icon: HelpCircle },
-      ],
-    },
-    {
-      title: 'Extended Documentation',
-      items: [
-        { href: '/docs/r/EXAMPLES', label: 'Examples Portfolio', icon: Code2 },
-        { href: '/docs/r/BUILTIN_COMPUTE', label: 'Built-in Compute', icon: Cpu },
-        { href: '/docs/r/PROVIDERS', label: 'Supported Providers', icon: Boxes },
-        { href: '/docs/r/DEPLOYMENT', label: 'Deployment', icon: Boxes },
-        { href: '/docs/r/ENVIRONMENT', label: 'Environment Setup', icon: Zap },
-        { href: '/docs/r/OPERATIONS', label: 'Operations', icon: Activity },
-        { href: '/docs/r/VALIDATION', label: 'Validation', icon: CheckCircle },
-        { href: '/docs/r/PAYMASTER', label: 'Paymaster', icon: CheckCircle },
-        { href: '/docs/r/RELAYER', label: 'Relayer', icon: Activity },
-        { href: '/docs/r/ASYNC_PRIVACY_ORACLE_SPEC', label: 'Async Privacy Spec', icon: Shield },
-        { href: '/docs/r/ATTESTATION_SPEC', label: 'Attestation Spec', icon: CheckCircle },
-        { href: '/docs/r/SAAS_STACK_INTEGRATION', label: 'SaaS Stack', icon: Boxes },
-        { href: '/docs/r/SECURITY_AUDIT', label: 'Security Audit', icon: Shield },
-      ],
-    },
-  ];
+  const sections = DOCS_NAVIGATION_SECTIONS;
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -154,7 +123,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
               </span>
               <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
                 {section.items.map((item) => {
-                  const Icon = item.icon;
+                  const Icon = docsNavigationIcons[item.icon];
                   const isActive = pathname === item.href;
                   return (
                     <Link
@@ -253,7 +222,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
 
             {/* Next/Prev Navigation */}
             {(() => {
-              const flatItems = sections.flatMap((s) => s.items);
+              const flatItems = flattenDocsNavigation(sections);
               const currentIndex = flatItems.findIndex((i) => i.href === pathname);
               const prevItem = currentIndex > 0 ? flatItems[currentIndex - 1] : null;
               const nextItem =

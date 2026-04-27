@@ -12,5 +12,6 @@ npm run test:worker
 npm run check:relayer
 npm run test:relayer
 npm run check:web-content
+npm --prefix apps/web run test:run
 npm run build:web
 npm run lint -- --max-warnings=0

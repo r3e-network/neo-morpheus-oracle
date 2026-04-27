@@ -4,7 +4,9 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Layout } from '@/components/ui/Layout';
 
-const metadataBase = new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+import { resolveMetadataBase } from '@/lib/app-url';
+
+const metadataBase = resolveMetadataBase(process.env.NEXT_PUBLIC_APP_URL);
 
 export const metadata = {
   metadataBase,
