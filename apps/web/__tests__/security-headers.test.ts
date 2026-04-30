@@ -10,9 +10,7 @@ type NextConfigWithHeaders = {
 
 async function expectSecurityHeaders(config: NextConfigWithHeaders) {
   const [rule] = await config.headers();
-  const headers = new Map(
-    rule.headers.map((header: SecurityHeader) => [header.key, header.value]),
-  );
+  const headers = new Map(rule.headers.map((header: SecurityHeader) => [header.key, header.value]));
 
   expect(rule.source).toBe('/(.*)');
   expect(headers.get('X-Content-Type-Options')).toBe('nosniff');

@@ -13,10 +13,7 @@
   },
   "neo_n3": {
     "rpc_url": "https://api.n3index.dev/testnet",
-    "rpc_urls": [
-      "https://api.n3index.dev/testnet",
-      "https://testnet1.neo.coz.io:443"
-    ],
+    "rpc_urls": ["https://api.n3index.dev/testnet", "https://testnet1.neo.coz.io:443"],
     "network_magic": 894710606,
     "domains": {
       "morpheus_oracle": "",

@@ -1016,7 +1016,9 @@ function isMissingNeoN3BatchUpdateMethod(error) {
 function isUnauthorizedNeoN3BatchUpdate(error) {
   const message = toNeoN3BatchUpdateFailureMessage(error);
   if (!message) return false;
-  return message.includes('abortmsg is executed. reason: unauthorized') || message === 'unauthorized';
+  return (
+    message.includes('abortmsg is executed. reason: unauthorized') || message === 'unauthorized'
+  );
 }
 
 function getRecoverableNeoN3BatchUpdateFailureReason(error) {

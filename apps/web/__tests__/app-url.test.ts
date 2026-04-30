@@ -7,7 +7,9 @@ describe('resolveMetadataBase', () => {
     expect(resolveMetadataBase('   ').toString()).toBe('http://localhost:3000/');
     expect(resolveMetadataBase('not a url').toString()).toBe('http://localhost:3000/');
     expect(resolveMetadataBase('javascript:alert(1)').toString()).toBe('http://localhost:3000/');
-    expect(resolveMetadataBase('ftp://oracle.r3e.network').toString()).toBe('http://localhost:3000/');
+    expect(resolveMetadataBase('ftp://oracle.r3e.network').toString()).toBe(
+      'http://localhost:3000/'
+    );
   });
 
   it('normalizes valid app URLs to their origin', () => {
