@@ -700,28 +700,11 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
-  if (
-    policy.staleAfterMs > 0 &&
-    lastSubmittedAt > 0 &&
-    now - lastSubmittedAt >= policy.staleAfterMs
-  ) {
-    const previousPriceUnits = String(
-      previousRecord.price_units ??
-        previousRecord.price_cents ??
-        decimalToIntegerString(previousRecord.price ?? '0', quote.decimals)
-    );
-    const nextPriceUnits = decimalToIntegerString(quote.price, quote.decimals);
-    const changeBps = computeChangeBps(previousPriceUnits, nextPriceUnits);
-    return {
-      allow: true,
-      reason: 'staleness-override',
-      change_bps: changeBps,
-      stale_ms: now - lastSubmittedAt,
-      current_chain_price_units: previousPriceUnits,
-      candidate_price_units: nextPriceUnits,
-      storage_key: storageKey,
-    };
-  }
+  // The feed loop evaluates the full catalog continuously, but on-chain writes
+  // must stay delta-driven. A stale observation alone must not force a
+  // publication; otherwise an unchanged 34-pair catalog can be re-submitted in
+  // bulk after the stale window. Use explicit force for operator backfills, and
+  // otherwise publish only when the price delta meets the configured threshold.
 
   const previousPriceUnits = String(
     previousRecord.price_units ??
