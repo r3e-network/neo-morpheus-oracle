@@ -7,12 +7,14 @@ import path from 'node:path';
 import {
   __buildNeoN3RelaySigningPayloadForTests,
   __buildFeedSnapshotRowsForTests,
+  __buildSyncPolicyForTests,
   __isMissingNeoN3BatchUpdateMethodForTests,
   __isRecoverableNeoN3BatchUpdateFailureForTests,
   __getRecoverableNeoN3BatchUpdateFailureReasonForTests,
   __loadFeedStateForTests,
   __resolvePairThresholdBpsForTests,
   __resetFeedStateForTests,
+  __shouldSubmitFeedForTests,
   handleOracleFeed,
   normalizePairSymbol,
 } from './feeds.js';
@@ -150,6 +152,41 @@ test('pair-specific threshold overrides the global feed threshold', () => {
   assert.equal(
     __resolvePairThresholdBpsForTests('TWELVEDATA:NEO-USD', { network: 'mainnet' }, 'neo_n3'),
     5
+  );
+});
+
+test('default feed sync policy checks once per minute and uses a 0.1% change threshold', () => {
+  const policy = __buildSyncPolicyForTests('neo_n3', { network: 'mainnet' });
+
+  assert.equal(policy.thresholdBps, 10);
+  assert.equal(policy.minUpdateIntervalMs, 60000);
+});
+
+test('feed submission only allows pairs whose price changed by at least 0.1%', () => {
+  const policy = { thresholdBps: 10, minUpdateIntervalMs: 60000, staleAfterMs: 300000 };
+  const previousRecord = {
+    price_units: '100000000',
+    last_submitted_at_ms: Date.now() - 600000,
+  };
+  const quote = { price: '100.05', decimals: 6 };
+
+  assert.deepEqual(
+    __shouldSubmitFeedForTests('TWELVEDATA:NEO-USD', quote, previousRecord, policy),
+    {
+      allow: false,
+      reason: 'price-change-below-threshold',
+      change_bps: 5,
+      comparison_basis: 'current-chain-price',
+      current_chain_price_units: '100000000',
+      candidate_price_units: '100050000',
+      storage_key: 'TWELVEDATA:NEO-USD',
+    }
+  );
+
+  const changedQuote = { price: '100.10', decimals: 6 };
+  assert.equal(
+    __shouldSubmitFeedForTests('TWELVEDATA:NEO-USD', changedQuote, previousRecord, policy).reason,
+    'threshold-met'
   );
 });
 
