@@ -36,11 +36,11 @@ export function buildFeedSyncPayload(config, targetChain) {
     payload.providers = config.feedSync.providers;
   }
 
-  if (targetChain === 'neo_n3') {
-    if (config.neo_n3?.updaterPrivateKey) payload.private_key = config.neo_n3.updaterPrivateKey;
-    else if (config.neo_n3?.updaterWif) payload.wif = config.neo_n3.updaterWif;
-  }
-
+  // Do not inject relayer/updater signer material into feed sync payloads.
+  // Feed publication is executed by the worker, whose Neo N3 context resolves
+  // the DataFeed-authorized worker signer. Passing relayer/updater material here
+  // can override that worker signer and make mainnet DataFeed calls fail as
+  // unauthorized.
   return payload;
 }
 

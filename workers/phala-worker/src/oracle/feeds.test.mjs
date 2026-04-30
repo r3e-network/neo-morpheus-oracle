@@ -7,6 +7,9 @@ import path from 'node:path';
 import {
   __buildNeoN3RelaySigningPayloadForTests,
   __buildFeedSnapshotRowsForTests,
+  __isMissingNeoN3BatchUpdateMethodForTests,
+  __isRecoverableNeoN3BatchUpdateFailureForTests,
+  __getRecoverableNeoN3BatchUpdateFailureReasonForTests,
   __loadFeedStateForTests,
   __resolvePairThresholdBpsForTests,
   __resetFeedStateForTests,
@@ -29,6 +32,8 @@ const originalRelayerKey = process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
 const originalUpdaterWif = process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
 const originalUpdaterKey = process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
 const originalAllowUnpinned = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+const originalPhalaMainnetKey = process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
+const originalPhalaMainnetWif = process.env.PHALA_NEO_N3_WIF_MAINNET;
 
 test.afterEach(async () => {
   global.fetch = originalFetch;
@@ -63,21 +68,76 @@ test.afterEach(async () => {
   else process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY = originalUpdaterKey;
   if (originalAllowUnpinned === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
   else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = originalAllowUnpinned;
+  if (originalPhalaMainnetKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
+  else process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET = originalPhalaMainnetKey;
+  if (originalPhalaMainnetWif === undefined) delete process.env.PHALA_NEO_N3_WIF_MAINNET;
+  else process.env.PHALA_NEO_N3_WIF_MAINNET = originalPhalaMainnetWif;
 });
 
-test('buildNeoN3RelaySigningPayload prefers updater signer material over worker signer material', () => {
+test('buildNeoN3RelaySigningPayload does not inject updater material over worker context', () => {
   process.env.MORPHEUS_RELAYER_NEO_N3_WIF = 'relayer-wif';
   process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY = 'relayer-key';
   process.env.MORPHEUS_UPDATER_NEO_N3_WIF = 'updater-wif';
   process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY = 'updater-key';
 
-  const resolved = __buildNeoN3RelaySigningPayloadForTests({});
-  assert.equal(resolved.private_key, 'updater-key');
-  assert.equal(resolved.wif, 'updater-wif');
+  const resolved = __buildNeoN3RelaySigningPayloadForTests({ network: 'mainnet' });
+  assert.deepEqual(resolved, {});
+});
+
+test('buildNeoN3RelaySigningPayload preserves explicit payload signer material', () => {
+  process.env.MORPHEUS_UPDATER_NEO_N3_WIF = 'updater-wif';
+  process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY = 'updater-key';
+
+  const resolved = __buildNeoN3RelaySigningPayloadForTests({
+    network: 'mainnet',
+    private_key: 'explicit-key',
+    wif: 'explicit-wif',
+  });
+  assert.deepEqual(resolved, { private_key: 'explicit-key', wif: 'explicit-wif' });
 });
 
 test('normalizePairSymbol maps legacy oil symbol to WTI-USD', () => {
   assert.equal(normalizePairSymbol('OIL-USD'), 'WTI-USD');
+});
+
+test('Neo N3 batch fallback detects current RPC missing updateFeeds error shape', () => {
+  assert.equal(
+    __isMissingNeoN3BatchUpdateMethodForTests(
+      'Method "updateFeeds" with 6 parameter(s) doesn\'t exist in the contract 0x9bea75cf702f6afc09125aa6d22f082bfd2ee064.'
+    ),
+    true
+  );
+});
+
+test('Neo N3 batch fallback treats batch-only unauthorized as recoverable', () => {
+  assert.equal(
+    __isRecoverableNeoN3BatchUpdateFailureForTests('ABORTMSG is executed. Reason: unauthorized'),
+    true
+  );
+  assert.equal(
+    __getRecoverableNeoN3BatchUpdateFailureReasonForTests(
+      'ABORTMSG is executed. Reason: unauthorized'
+    ),
+    'neo_n3_updatefeeds_unauthorized'
+  );
+  assert.equal(
+    __getRecoverableNeoN3BatchUpdateFailureReasonForTests(
+      'Method "updateFeeds" with 6 parameter(s) doesn\'t exist in the contract 0x9bea75cf702f6afc09125aa6d22f082bfd2ee064.'
+    ),
+    'neo_n3_updatefeeds_missing'
+  );
+  assert.equal(
+    __isRecoverableNeoN3BatchUpdateFailureForTests(
+      'Insufficient GAS. Required: 0.00863725 Available: 0.00586564'
+    ),
+    false
+  );
+  assert.equal(
+    __getRecoverableNeoN3BatchUpdateFailureReasonForTests(
+      'Insufficient GAS. Required: 0.00863725 Available: 0.00586564'
+    ),
+    null
+  );
 });
 
 test('pair-specific threshold overrides the global feed threshold', () => {

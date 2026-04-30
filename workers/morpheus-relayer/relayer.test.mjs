@@ -1002,8 +1002,9 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
   }
 });
 
-test('buildFeedSyncPayload forwards target-chain signer material to the worker runtime', () => {
+test('buildFeedSyncPayload does not forward target-chain signer material to the worker runtime', () => {
   const config = {
+    network: 'mainnet',
     feedSync: {
       symbols: ['NEO-USD'],
       projectSlug: 'feeds_price',
@@ -1019,8 +1020,9 @@ test('buildFeedSyncPayload forwards target-chain signer material to the worker r
 
   const neoN3Payload = buildFeedSyncPayload(config, 'neo_n3');
   assert.equal(neoN3Payload.target_chain, 'neo_n3');
+  assert.equal(neoN3Payload.network, 'mainnet');
   assert.equal(neoN3Payload.provider, 'twelvedata');
-  assert.equal(neoN3Payload.wif, config.neo_n3.updaterWif);
+  assert.equal('wif' in neoN3Payload, false);
   assert.equal('private_key' in neoN3Payload, false);
 });
 
