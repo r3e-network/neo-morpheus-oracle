@@ -898,20 +898,8 @@ function buildRoundId(previousRecord) {
 }
 
 function buildNeoN3RelaySigningPayload(payload = {}) {
-  const network = resolveFeedNetwork(payload);
-  const signingKey = trimString(
-    payload.private_key ||
-      payload.signing_key ||
-      envForNetwork(
-        network,
-        'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
-        'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'
-      )
-  );
-  const wif = trimString(
-    payload.wif ||
-      envForNetwork(network, 'MORPHEUS_UPDATER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_WIF')
-  );
+  const signingKey = trimString(payload.private_key || payload.signing_key);
+  const wif = trimString(payload.wif);
   return {
     ...(signingKey ? { private_key: signingKey } : {}),
     ...(wif ? { wif } : {}),
@@ -1009,16 +997,56 @@ async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
   return invokeResult.body;
 }
 
+function toNeoN3BatchUpdateFailureMessage(error) {
+  return trimString(error instanceof Error ? error.message : String(error)).toLowerCase();
+}
+
 function isMissingNeoN3BatchUpdateMethod(error) {
-  const message = trimString(error instanceof Error ? error.message : String(error)).toLowerCase();
-  return message.includes('method not found: updatefeeds/6');
+  const message = toNeoN3BatchUpdateFailureMessage(error);
+  if (!message) return false;
+  return (
+    message.includes('method not found: updatefeeds/6') ||
+    /method\s+["']?updatefeeds["']?\s+with\s+6\s+parameter\(s\)\s+doesn['’]?t\s+exist/.test(
+      message
+    ) ||
+    /method\s+["']?updatefeeds["']?.*doesn['’]?t\s+exist/.test(message)
+  );
+}
+
+function isUnauthorizedNeoN3BatchUpdate(error) {
+  const message = toNeoN3BatchUpdateFailureMessage(error);
+  if (!message) return false;
+  return message.includes('abortmsg is executed. reason: unauthorized') || message === 'unauthorized';
+}
+
+function getRecoverableNeoN3BatchUpdateFailureReason(error) {
+  if (isMissingNeoN3BatchUpdateMethod(error)) return 'neo_n3_updatefeeds_missing';
+  if (isUnauthorizedNeoN3BatchUpdate(error)) return 'neo_n3_updatefeeds_unauthorized';
+  return null;
+}
+
+function isRecoverableNeoN3BatchUpdateFailure(error) {
+  return Boolean(getRecoverableNeoN3BatchUpdateFailureReason(error));
+}
+
+export function __isMissingNeoN3BatchUpdateMethodForTests(error) {
+  return isMissingNeoN3BatchUpdateMethod(error);
+}
+
+export function __isRecoverableNeoN3BatchUpdateFailureForTests(error) {
+  return isRecoverableNeoN3BatchUpdateFailure(error);
+}
+
+export function __getRecoverableNeoN3BatchUpdateFailureReasonForTests(error) {
+  return getRecoverableNeoN3BatchUpdateFailureReason(error);
 }
 
 async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, updates) {
   try {
     return await submitQuotesToN3(dataFeedHash, neoContext, payload, updates);
   } catch (error) {
-    if (!isMissingNeoN3BatchUpdateMethod(error)) {
+    const fallbackReason = getRecoverableNeoN3BatchUpdateFailureReason(error);
+    if (!fallbackReason) {
       throw error;
     }
 
@@ -1041,7 +1069,7 @@ async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, u
 
     return {
       mode: 'single_fallback',
-      reason: 'neo_n3_updatefeeds_missing',
+      reason: fallbackReason,
       txs,
     };
   }
