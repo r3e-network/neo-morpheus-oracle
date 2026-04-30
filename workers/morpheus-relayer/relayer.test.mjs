@@ -875,6 +875,83 @@ test('createRelayerConfig exposes request cursor start ids', () => {
   }
 });
 
+test('createRelayerConfig allows feed-only relayers without a pinned updater signer', () => {
+  const keys = [
+    'MORPHEUS_ALLOW_UNPINNED_SIGNERS',
+    'MORPHEUS_NETWORK',
+    'MORPHEUS_RELAYER_MODE',
+    'MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET',
+    'MORPHEUS_UPDATER_NEO_N3_WIF',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
+    'MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET',
+    'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET',
+    'NEO_N3_WIF',
+    'NEO_TESTNET_WIF',
+  ];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+  const driftedUpdater = new wallet.Account(wallet.generatePrivateKey());
+
+  delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_RELAYER_MODE = 'feed_only';
+  process.env.MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET = driftedUpdater.WIF;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET;
+  delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET;
+  delete process.env.NEO_N3_WIF;
+  delete process.env.NEO_TESTNET_WIF;
+
+  try {
+    const config = createRelayerConfig();
+    assert.equal(config.mode, 'feed_only');
+    assert.equal(config.neo_n3.updaterWif, '');
+    assert.equal(config.neo_n3.updaterPrivateKey, '');
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('createRelayerConfig still rejects updater signer drift for request-processing relayers', () => {
+  const keys = [
+    'MORPHEUS_ALLOW_UNPINNED_SIGNERS',
+    'MORPHEUS_NETWORK',
+    'MORPHEUS_RELAYER_MODE',
+    'MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET',
+    'MORPHEUS_UPDATER_NEO_N3_WIF',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
+    'NEO_N3_WIF',
+    'NEO_TESTNET_WIF',
+  ];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+  const driftedUpdater = new wallet.Account(wallet.generatePrivateKey());
+
+  delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_RELAYER_MODE = 'combined';
+  process.env.MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET = driftedUpdater.WIF;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
+  delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
+  delete process.env.NEO_N3_WIF;
+  delete process.env.NEO_TESTNET_WIF;
+
+  try {
+    assert.throws(() => createRelayerConfig(), /updater signer drift/);
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('createRelayerConfig prefers network-scoped Neo N3 contract hashes over stale generic env', () => {
   const keys = [
     'MORPHEUS_NETWORK',

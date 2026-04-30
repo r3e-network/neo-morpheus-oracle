@@ -190,9 +190,12 @@ export function createRelayerConfig() {
         ? '.morpheus-relayer-state.json'
         : `.morpheus-relayer-state.${mode}.json`)
   );
-  const updaterSigner = resolvePinnedNeoN3Role(network, 'updater', {
-    env: snapshotSignerEnv(),
-  });
+  const updaterSigner =
+    mode === 'feed_only'
+      ? { materialized: null }
+      : resolvePinnedNeoN3Role(network, 'updater', {
+          env: snapshotSignerEnv(),
+        });
 
   return {
     repoRoot,
