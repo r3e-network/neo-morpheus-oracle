@@ -39,7 +39,7 @@ export function OverviewActivity({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(83, 58, 253, 0.045)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -188,7 +188,7 @@ export function OverviewActivity({
                       fontWeight: 900,
                       fontFamily: 'var(--font-mono)',
                       letterSpacing: 0,
-                      color: record ? '#fff' : 'var(--text-muted)',
+                      color: record ? 'var(--text-primary)' : 'var(--text-muted)',
                     }}
                   >
                     {record ? `$${record.price_display}` : '$--.------'}

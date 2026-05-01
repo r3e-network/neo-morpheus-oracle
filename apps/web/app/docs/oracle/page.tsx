@@ -36,7 +36,7 @@ export default function DocsOracle() {
       <div
         style={{
           padding: '1.25rem 1.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           borderLeft: '4px solid var(--neo-green)',
           borderTop: '1px solid var(--border-dim)',
           borderRight: '1px solid var(--border-dim)',
@@ -91,7 +91,7 @@ export default function DocsOracle() {
               display: 'flex',
               gap: '1.5rem',
               padding: '1.25rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               borderRadius: '4px',
             }}
@@ -112,7 +112,7 @@ export default function DocsOracle() {
                   fontSize: '0.9rem',
                   fontWeight: 800,
                   marginBottom: '0.25rem',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                 }}
               >
                 {item.title}
@@ -135,7 +135,7 @@ export default function DocsOracle() {
       <div
         style={{
           padding: '1.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
           margin: '2rem 0',
@@ -176,7 +176,7 @@ export default function DocsOracle() {
       <div
         style={{
           padding: '1.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
           margin: '2rem 0',
@@ -212,7 +212,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
       <div
         style={{
           padding: '1.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
           margin: '2rem 0',
@@ -294,7 +294,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
         style={{
           marginTop: '4rem',
           padding: '2.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           borderTop: '1px solid var(--border-dim)',
           borderRight: '1px solid var(--border-dim)',
           borderBottom: '1px solid var(--border-dim)',
@@ -309,7 +309,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
               fontSize: '1rem',
               fontWeight: 800,
               margin: 0,
-              color: '#fff',
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: 0,
             }}
@@ -337,7 +337,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
             marginBottom: 0,
             lineHeight: 1.6,
             paddingBottom: '0.5rem',
-            borderTop: '1px solid rgba(255,255,255,0.05)',
+            borderTop: '1px solid rgba(83, 58, 253, 0.1)',
             paddingTop: '1rem',
           }}
         >

@@ -66,7 +66,7 @@ export default function DocsDatafeeds() {
       <div
         style={{
           padding: '1.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
           marginBottom: '2.5rem',
@@ -94,7 +94,7 @@ export default function DocsDatafeeds() {
                 fontSize: '0.7rem',
                 padding: '0.3rem 0.6rem',
                 border: '1px solid rgba(0,255,163,0.3)',
-                background: 'rgba(0,255,163,0.05)',
+                background: 'rgba(0, 168, 107, 0.09)',
               }}
             >
               {getFeedDisplaySymbol(pair)}
@@ -139,7 +139,7 @@ export default function DocsDatafeeds() {
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
           overflow: 'hidden',
-          background: '#000',
+          background: 'var(--bg-panel)',
           marginBottom: '2.5rem',
         }}
       >
@@ -149,7 +149,7 @@ export default function DocsDatafeeds() {
               <tr
                 style={{
                   borderBottom: '1px solid var(--border-dim)',
-                  background: 'rgba(255,255,255,0.02)',
+                  background: 'rgba(83, 58, 253, 0.045)',
                 }}
               >
                 <th style={{ padding: '0.9rem 1rem', textAlign: 'left' }}>Pair</th>
@@ -166,7 +166,7 @@ export default function DocsDatafeeds() {
                     style={{
                       padding: '0.85rem 1rem',
                       fontFamily: 'var(--font-mono)',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     {item.pair}
@@ -192,7 +192,7 @@ export default function DocsDatafeeds() {
                     style={{
                       padding: '0.85rem 1rem',
                       fontFamily: 'var(--font-mono)',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     {item.sourceSymbol}
@@ -248,7 +248,9 @@ public static void CheckLiquidation() {
       >
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
           <Clock size={20} color="var(--accent-blue)" />
-          <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: '#fff' }}>
+          <h4
+            style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}
+          >
             Sync Cycles
           </h4>
         </div>

@@ -59,7 +59,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                   textAlign: 'left',
                   borderBottom: '1px solid var(--border-dim)',
                   background: 'rgba(0, 255, 163, 0.04)',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   fontSize: '0.8rem',
                   fontWeight: 700,
                   textTransform: 'uppercase',

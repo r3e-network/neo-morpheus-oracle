@@ -27,6 +27,16 @@ const TURNSTILE_PROTECTED_PATHS = [
   '/vrf/random',
 ];
 
+const RUNTIME_AUTH_REQUIRED_PATHS = [
+  '/info',
+  '/keys/derived',
+  '/runtime/keys/derived',
+  '/oracle/query',
+  '/oracle/smart-fetch',
+  '/compute/execute',
+  '/neodid/bind',
+];
+
 const UPSTASH_ROUTE_LIMITS = {
   paymaster: { limit: 20, windowMs: 60_000 },
   relay: { limit: 20, windowMs: 60_000 },
@@ -83,6 +93,10 @@ function resolveNetworkRoute(url, env) {
 
 function shouldProtectWithTurnstile(pathname) {
   return TURNSTILE_PROTECTED_PATHS.some((path) => pathname.endsWith(path));
+}
+
+function requiresTrustedRuntimeAuth(pathname) {
+  return RUNTIME_AUTH_REQUIRED_PATHS.some((path) => pathname.endsWith(path));
 }
 
 function extractTrustedAuthToken(request) {
@@ -347,6 +361,17 @@ export default {
         }),
         routing,
         publicRuntimeRoute
+      );
+    }
+
+    if (
+      requiresTrustedRuntimeAuth(routing.forwardedPath) &&
+      !isTrustedAutomationRequest(request, env)
+    ) {
+      return decorateGatewayResponse(
+        json(401, { error: 'unauthorized' }, { 'cache-control': 'no-store' }),
+        routing,
+        'origin-auth-required'
       );
     }
 

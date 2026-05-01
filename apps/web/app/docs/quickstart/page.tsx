@@ -165,7 +165,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
         style={{
           marginTop: '4rem',
           padding: '2.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           borderTop: '1px solid var(--border-dim)',
           borderRight: '1px solid var(--border-dim)',
           borderBottom: '1px solid var(--border-dim)',
@@ -180,7 +180,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
               fontSize: '1rem',
               fontWeight: 800,
               margin: 0,
-              color: '#fff',
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: 0,
             }}
@@ -201,7 +201,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
           <code
             style={{
               color: 'var(--neo-green)',
-              background: 'rgba(0,255,163,0.05)',
+              background: 'rgba(0, 168, 107, 0.09)',
               padding: '0.2rem 0.5rem',
               borderRadius: '4px',
               border: '1px solid rgba(0,255,163,0.2)',
@@ -245,8 +245,8 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
             Arg 4 (String): <code>"onOracleResult"</code> for the compatibility adapter path
           </li>
           <li style={{ marginTop: '0.5rem' }}>
-            <strong style={{ color: '#fff' }}>Fee:</strong> Attach exactly <code>0.01 GAS</code> to
-            the transaction invocation.
+            <strong style={{ color: 'var(--text-primary)' }}>Fee:</strong> Attach exactly{' '}
+            <code>0.01 GAS</code> to the transaction invocation.
           </li>
         </ul>
         <p
@@ -271,7 +271,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
               STARTER TEMPLATES
             </span>
             <ArrowRight size={18} color="var(--neo-green)" />
@@ -294,7 +294,9 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>API REFERENCE</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              API REFERENCE
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p
@@ -314,7 +316,7 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
           style={{ padding: '2rem', textDecoration: 'none', transition: 'border-color 0.2s' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
               ENCLAVE COMPUTE
             </span>
             <ArrowRight size={18} color="var(--neo-green)" />

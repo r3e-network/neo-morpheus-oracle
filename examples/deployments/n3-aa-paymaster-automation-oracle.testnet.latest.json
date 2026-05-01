@@ -1,7 +1,187 @@
 {
-  "generated_at": "2026-04-18T04:46:15.236Z",
+  "generated_at": "2026-05-01T06:34:55.078Z",
   "network": "testnet",
-  "status": "skipped",
-  "reason": "requires-privileged-callback-registration",
-  "error": "Error: addAllowedCallback: expected HALT, got FAULT at instruction 515 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized\n    at assertHalt (file:///home/neo/git/neo-morpheus-oracle/examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs:247:11)\n    at invokePersisted (file:///home/neo/git/neo-morpheus-oracle/examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs:317:21)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async main (file:///home/neo/git/neo-morpheus-oracle/examples/scripts/test-n3-aa-paymaster-automation-oracle.mjs:1081:3)"
+  "rpc_url": "https://testnet1.neo.coz.io:443",
+  "network_magic": 894710606,
+  "aa_core_hash": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
+  "web3auth_verifier_hash": "0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d",
+  "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
+  "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+  "callback_consumer_mode": "predeployed_allowlisted",
+  "callback_consumer_deploy_txid": null,
+  "automation_execute_at": "2026-05-01T06:32:02.192Z",
+  "paymaster_endpoint": "https://oracle.meshmini.app/testnet/paymaster/authorize",
+  "paymaster": {
+    "mode": "paymaster_authorize",
+    "approved": true,
+    "network": "testnet",
+    "target_chain": "neo_n3",
+    "policy_id": "testnet-aa",
+    "account_id": "0x41b82d667f1b0e7c68da28c2465655c47bf8572a",
+    "dapp_id": "demo-dapp",
+    "target_contract": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
+    "method": "executeUserOp",
+    "estimated_gas_units": 3000000,
+    "operation_hash": "0xd922c3fe4684278e949a52428690037b7455f4c7ebe7010d5cd5d83cbffdac92",
+    "approval_digest": "0x18285ec1bb2290ad83056ad4a5f083855d5483fc58c5d4d403a484fca1d22b9e",
+    "policy": {
+      "policy_id": "testnet-aa",
+      "max_gas_units": 5000000
+    },
+    "local_policy_fallback": true
+  },
+  "account_id": "0x41b82d667f1b0e7c68da28c2465655c47bf8572a",
+  "registration_fee_status": {
+    "txid": "0x589b6254ce56347c3405f39650797bbe4bb4a687197ec5711fa3b58225ad2e78"
+  },
+  "consumer_fee_status": {
+    "request_fee": "1000000",
+    "current_credit": null,
+    "deposit_amount": "8000000",
+    "fund_txid": "0x8d4fe761daf89cd3a74e5f6c04e218ca80ac5c78afa44e356e5887f4ba2c4886",
+    "txid": "0x10b4d57d75b1038bf13b3fe97ace085c3a3e3192c1b4aa5235341922aacaad79"
+  },
+  "update_verifier_txid": null,
+  "relay": {
+    "txid": "0xf167a62ff5d0c899fcf10dabe99c8320ab1b69dc60c132217cdc8d4850ba3860",
+    "execution_vmstate": "HALT",
+    "execution_stack": [
+      {
+        "type": "Integer",
+        "value": "5166"
+      }
+    ],
+    "network_fee": "45824",
+    "system_fee": "4000000"
+  },
+  "automation_register": {
+    "request_id": "5166",
+    "callback": {
+      "request_type": "automation_register",
+      "success": true,
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"automation_register\",\"module_id\":\"automation.run\",\"operation\":\"automation_register\",\"success\":true,\"result\":{\"mode\":\"automation\",\"action\":\"register\",\"automation_id\":\"automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e\",\"trigger_type\":\"one_shot\",\"next_run_at\":\"2026-05-01T06:32:02.192Z\",\"status\":\"active\",\"chain\":\"neo_n3\",\"requester\":\"0x6d0656f6dd91469db1c90cc1e574380613f43738\",\"callback_contract\":\"0x8c506f224d82e67200f20d9d5361f767f0756e3b\",\"execution_request_type\":\"privacy_oracle\"},\"verification\":null}",
+      "result_json": {
+        "version": "morpheus-result/v1",
+        "request_type": "automation_register",
+        "module_id": "automation.run",
+        "operation": "automation_register",
+        "success": true,
+        "result": {
+          "mode": "automation",
+          "action": "register",
+          "automation_id": "automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e",
+          "trigger_type": "one_shot",
+          "next_run_at": "2026-05-01T06:32:02.192Z",
+          "status": "active",
+          "chain": "neo_n3",
+          "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+          "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+          "execution_request_type": "privacy_oracle"
+        },
+        "verification": null
+      },
+      "error_text": ""
+    },
+    "automation_id": "automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e"
+  },
+  "queued_execution": {
+    "mode": "scheduler",
+    "request_id": "5167",
+    "callback": {
+      "request_type": "privacy_oracle",
+      "success": true,
+      "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"privacy_oracle\",\"module_id\":\"oracle.fetch\",\"operation\":\"privacy_oracle\",\"success\":true,\"result\":{\"status\":\"succeeded\"},\"verification\":null}",
+      "result_json": {
+        "version": "morpheus-result/v1",
+        "request_type": "privacy_oracle",
+        "module_id": "oracle.fetch",
+        "operation": "privacy_oracle",
+        "success": true,
+        "result": {
+          "status": "succeeded"
+        },
+        "verification": null
+      },
+      "error_text": ""
+    },
+    "record": {
+      "job": {
+        "id": "14a3bd78-4ad0-477e-82a2-6369da25aff3",
+        "automation_id": "automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e",
+        "registration_request_id": "5166",
+        "project_id": null,
+        "project_slug": "",
+        "chain": "neo_n3",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
+        "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
+        "callback_method": "onOracleResult",
+        "execution_request_type": "privacy_oracle",
+        "execution_payload": {
+          "tag": "aa-paymaster-automation",
+          "symbol": "TWELVEDATA:NEO-USD",
+          "provider": "twelvedata",
+          "json_path": "price",
+          "target_chain": "neo_n3"
+        },
+        "trigger_type": "one_shot",
+        "trigger_config": {
+          "execute_at": "2026-05-01T06:32:02.192Z"
+        },
+        "trigger_state": {},
+        "status": "completed",
+        "next_run_at": null,
+        "last_run_at": "2026-05-01T06:33:38.464+00:00",
+        "execution_count": 1,
+        "max_executions": 1,
+        "last_queued_request_id": "automation:neo_n3:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+        "last_error": null,
+        "created_at": "2026-05-01T06:33:34.675+00:00",
+        "updated_at": "2026-05-01T06:33:41.956+00:00",
+        "network": "testnet"
+      },
+      "runs": [
+        {
+          "id": "02fddb1e-7b27-4c4a-80b5-f81807c30e38",
+          "automation_id": "automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e",
+          "queued_request_id": "automation:neo_n3:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+          "chain": "neo_n3",
+          "status": "queued",
+          "trigger_reason": "one_shot",
+          "observed_value": null,
+          "queue_tx": {
+            "tx_hash": "0x07daebd5a9bc3f9983078ce95cb080ec23f62a33a838a81e5f0c277abfc4506c",
+            "dispatch": {
+              "request_id": "automation:neo_n3:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+              "workflow_id": "automation.upkeep",
+              "execution_id": "automation.upkeep:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+              "automation_id": "automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e",
+              "delivery_mode": "onchain_callback",
+              "replay_window": "strict",
+              "execution_count": 0,
+              "idempotency_key": "automation.upkeep:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+              "workflow_version": 1,
+              "next_execution_count": 1
+            },
+            "vm_state": "HALT",
+            "request_id": "automation:neo_n3:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+            "workflow_id": "automation.upkeep",
+            "execution_id": "automation.upkeep:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+            "target_chain": "neo_n3",
+            "delivery_mode": "onchain_callback",
+            "replay_window": "strict",
+            "idempotency_key": "automation.upkeep:automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e:1",
+            "workflow_version": 1
+          },
+          "error": null,
+          "created_at": "2026-05-01T06:33:41.799714+00:00",
+          "network": "testnet"
+        }
+      ]
+    },
+    "source": {
+      "source": "supabase_queue_tx",
+      "run_status": "queued",
+      "queue_tx_hash": "0x07daebd5a9bc3f9983078ce95cb080ec23f62a33a838a81e5f0c277abfc4506c"
+    }
+  }
 }

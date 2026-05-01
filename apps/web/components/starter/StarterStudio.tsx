@@ -725,7 +725,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                   <div
                     style={{
                       padding: '1rem',
-                      background: '#000',
+                      background: 'var(--bg-panel)',
                       border: '1px solid var(--border-dim)',
                     }}
                   >
@@ -743,7 +743,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                     <div
                       style={{
                         fontSize: '0.78rem',
-                        color: '#fff',
+                        color: 'var(--text-primary)',
                         fontFamily: 'var(--font-mono)',
                         wordBreak: 'break-word',
                       }}
@@ -754,7 +754,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                   <div
                     style={{
                       padding: '1rem',
-                      background: '#000',
+                      background: 'var(--bg-panel)',
                       border: '1px solid var(--border-dim)',
                     }}
                   >
@@ -770,7 +770,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
                       KEY SOURCE
                     </div>
                     <div
-                      style={{ fontSize: '0.78rem', color: '#fff', fontFamily: 'var(--font-mono)' }}
+                      style={{
+                        fontSize: '0.78rem',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-mono)',
+                      }}
                     >
                       {oracleKeyMeta?.key_source || 'loading'}
                     </div>
@@ -843,7 +847,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                   <div
                     style={{
                       padding: '1rem',
-                      background: '#000',
+                      background: 'var(--bg-panel)',
                       border: '1px solid var(--border-dim)',
                       borderLeft: '2px solid var(--neo-green)',
                     }}
@@ -899,7 +903,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
             )}
 
             <div
-              style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+              style={{
+                padding: '1rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+              }}
             >
               <div
                 style={{
@@ -912,7 +920,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
               >
                 REQUEST TYPE
               </div>
-              <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                 {generated.requestType}
               </div>
             </div>
@@ -936,7 +944,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
             />
 
             <div
-              style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+              style={{
+                padding: '1rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+              }}
             >
               <div
                 style={{
@@ -951,33 +963,38 @@ BigInteger requestId = (BigInteger)Contract.Call(
               </div>
               <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
                 <div>
-                  <strong style={{ color: '#fff' }}>Contract:</strong>{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>Contract:</strong>{' '}
                   <code>{NETWORKS.neo_n3.oracle}</code>
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Method:</strong> <code>request</code>
+                  <strong style={{ color: 'var(--text-primary)' }}>Method:</strong>{' '}
+                  <code>request</code>
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 1 / String:</strong>{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 1 / String:</strong>{' '}
                   <code>{generated.requestType}</code>
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 2 / ByteArray:</strong> use the base64
-                  payload above
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 2 / ByteArray:</strong> use
+                  the base64 payload above
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 3 / Hash160:</strong>{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 3 / Hash160:</strong>{' '}
                   <code>{callbackHashForSnippet}</code>
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 4 / String:</strong>{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 4 / String:</strong>{' '}
                   <code>{callbackMethodForSnippet}</code>
                 </div>
               </div>
             </div>
 
             <div
-              style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+              style={{
+                padding: '1rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+              }}
             >
               <div
                 style={{
@@ -992,23 +1009,25 @@ BigInteger requestId = (BigInteger)Contract.Call(
               </div>
               <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 1:</strong>{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 1:</strong>{' '}
                   <code>{generated.requestType}</code>
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 2:</strong> UTF-8 payload JSON bytes
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 2:</strong> UTF-8 payload
+                  JSON bytes
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 3:</strong> callback contract ={' '}
-                  <code>Runtime.ExecutingScriptHash</code> for your own consumer, or{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 3:</strong> callback contract
+                  = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or{' '}
                   <code>{callbackHashForSnippet}</code> for direct wallet testing
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Arg 4:</strong> callback method ={' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>Arg 4:</strong> callback method ={' '}
                   <code>{callbackMethodForSnippet}</code>
                 </div>
                 <div>
-                  <strong style={{ color: '#fff' }}>Fee:</strong> <code>0.01 GAS</code>
+                  <strong style={{ color: 'var(--text-primary)' }}>Fee:</strong>{' '}
+                  <code>0.01 GAS</code>
                 </div>
               </div>
             </div>
@@ -1016,7 +1035,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
             <div
               style={{
                 padding: '1rem',
-                background: '#000',
+                background: 'var(--bg-panel)',
                 borderLeft: '4px solid var(--neo-green)',
                 borderTop: '1px solid var(--border-dim)',
                 borderRight: '1px solid var(--border-dim)',
@@ -1032,7 +1051,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 }}
               >
                 <Shield size={16} color="var(--neo-green)" />
-                <strong style={{ color: '#fff' }}>
+                <strong style={{ color: 'var(--text-primary)' }}>
                   Zero-Code {NETWORKS.neo_n3.environmentLabel} Test Mode
                 </strong>
               </div>
@@ -1061,7 +1080,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
             <div
               style={{
                 padding: '1rem',
-                background: '#000',
+                background: 'var(--bg-panel)',
                 borderLeft: '4px solid var(--neo-green)',
                 borderTop: '1px solid var(--border-dim)',
                 borderRight: '1px solid var(--border-dim)',
@@ -1083,7 +1102,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                 ) : (
                   <Shield size={16} color="var(--neo-green)" />
                 )}
-                <strong style={{ color: '#fff' }}>Callback Readback</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>Callback Readback</strong>
               </div>
               <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                 <div>
@@ -1121,7 +1140,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
             style={{ padding: '1.75rem', textDecoration: 'none' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+              <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                 Static Templates
               </span>
               <ArrowRight size={18} color="var(--neo-green)" />
@@ -1136,7 +1155,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
             style={{ padding: '1.75rem', textDecoration: 'none' }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+              <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                 Open Explorer
               </span>
               <ArrowRight size={18} color="var(--neo-green)" />

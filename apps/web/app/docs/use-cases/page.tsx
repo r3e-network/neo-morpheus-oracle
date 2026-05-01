@@ -249,7 +249,7 @@ export default function DocsUseCases() {
               margin: 0,
               fontSize: '1rem',
               fontWeight: 800,
-              color: '#fff',
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: 0,
             }}
@@ -294,7 +294,7 @@ export default function DocsUseCases() {
           overflowX: 'auto',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
-          background: '#000',
+          background: 'var(--bg-panel)',
           margin: '2rem 0 3rem',
         }}
       >
@@ -303,7 +303,7 @@ export default function DocsUseCases() {
             <tr
               style={{
                 borderBottom: '1px solid var(--border-dim)',
-                background: 'rgba(255,255,255,0.02)',
+                background: 'rgba(83, 58, 253, 0.045)',
               }}
             >
               <th style={{ padding: '0.9rem 1rem', textAlign: 'left' }}>Source</th>
@@ -316,7 +316,11 @@ export default function DocsUseCases() {
             {oracleProviders.map((item) => (
               <tr key={item.name} style={{ borderBottom: '1px solid var(--border-dim)' }}>
                 <td
-                  style={{ padding: '0.85rem 1rem', fontFamily: 'var(--font-mono)', color: '#fff' }}
+                  style={{
+                    padding: '0.85rem 1rem',
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-primary)',
+                  }}
                 >
                   {item.name}
                 </td>
@@ -363,7 +367,7 @@ export default function DocsUseCases() {
               key={item.title}
               style={{
                 padding: '2rem',
-                background: '#000',
+                background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
                 borderRadius: '4px',
                 display: 'flex',
@@ -378,7 +382,7 @@ export default function DocsUseCases() {
                     width: '40px',
                     height: '40px',
                     borderRadius: '4px',
-                    background: 'rgba(0,255,163,0.05)',
+                    background: 'rgba(0, 168, 107, 0.09)',
                     border: '1px solid rgba(0,255,163,0.2)',
                     display: 'flex',
                     alignItems: 'center',
@@ -390,17 +394,18 @@ export default function DocsUseCases() {
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{item.title}</h3>
               </div>
               <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '1rem' }}>
-                <strong style={{ color: '#fff' }}>Problem:</strong> {item.problem}
+                <strong style={{ color: 'var(--text-primary)' }}>Problem:</strong> {item.problem}
               </p>
               <p
                 style={{ color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '1.25rem' }}
               >
-                <strong style={{ color: '#fff' }}>Direct path:</strong> {item.solution}
+                <strong style={{ color: 'var(--text-primary)' }}>Direct path:</strong>{' '}
+                {item.solution}
               </p>
               <div
                 style={{
                   padding: '1rem',
-                  background: 'rgba(255,255,255,0.02)',
+                  background: 'rgba(83, 58, 253, 0.045)',
                   border: '1px solid var(--border-dim)',
                   borderRadius: '4px',
                   marginTop: 'auto',
@@ -451,7 +456,7 @@ export default function DocsUseCases() {
               key={item.title}
               style={{
                 padding: '1.75rem',
-                background: '#000',
+                background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
                 borderRadius: '4px',
                 borderLeft: '4px solid var(--neo-green)',
@@ -491,7 +496,7 @@ export default function DocsUseCases() {
               <div
                 style={{
                   padding: '1rem',
-                  background: 'rgba(255,255,255,0.02)',
+                  background: 'rgba(83, 58, 253, 0.045)',
                   border: '1px solid var(--border-dim)',
                   borderRadius: '4px',
                 }}

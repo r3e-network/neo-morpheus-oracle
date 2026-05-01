@@ -68,7 +68,7 @@ export function Layout({
           >
             <div
               style={{
-                background: '#fff',
+                background: 'var(--text-primary)',
                 width: '32px',
                 height: '32px',
                 borderRadius: '4px',
@@ -82,7 +82,7 @@ export function Layout({
             <div>
               <span
                 style={{
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   fontWeight: 800,
                   fontSize: '1rem',
                   letterSpacing: 0,
@@ -194,7 +194,7 @@ export function Layout({
           style={{
             padding: '40px 0',
             borderTop: '1px solid var(--border-dim)',
-            background: '#000',
+            background: 'var(--bg-panel)',
             marginTop: 'auto',
           }}
         >

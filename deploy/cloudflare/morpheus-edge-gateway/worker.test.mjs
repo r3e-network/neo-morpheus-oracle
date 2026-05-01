@@ -119,3 +119,59 @@ test('edge gateway serves runtime status from origin health and info probes', as
   assert.equal(payload.runtime.health.state, 'ok');
   assert.equal(payload.runtime.info.appId, 'app-123');
 });
+
+test('edge gateway blocks raw sensitive runtime-origin routes without trusted credentials', async () => {
+  let fetchCalls = 0;
+  global.fetch = async () => {
+    fetchCalls += 1;
+    return jsonResponse(200, { derived: { app_id: 'should-not-leak' } });
+  };
+  global.caches = createCaches();
+
+  for (const path of [
+    '/testnet/runtime/keys/derived',
+    '/testnet/keys/derived',
+    '/testnet/info',
+    '/testnet/oracle/query',
+    '/testnet/oracle/smart-fetch',
+    '/testnet/compute/execute',
+    '/testnet/neodid/bind',
+  ]) {
+    const response = await worker.fetch(
+      new Request(`https://oracle.meshmini.app${path}`),
+      createEnv(),
+      createCtx()
+    );
+    assert.equal(response.status, 401, path);
+    assert.deepEqual(await response.json(), { error: 'unauthorized' });
+  }
+  assert.equal(fetchCalls, 0);
+});
+
+test('edge gateway still allows trusted automation to reach raw runtime-origin routes', async () => {
+  const calls = [];
+  global.fetch = async (input, init = {}) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    calls.push({
+      path: new URL(request.url).pathname,
+      headers: Object.fromEntries(request.headers.entries()),
+    });
+    return jsonResponse(200, { derived: { app_id: 'app-123' } });
+  };
+  global.caches = createCaches();
+
+  const response = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/runtime/keys/derived', {
+      headers: { authorization: 'Bearer edge-runtime-token' },
+    }),
+    createEnv({ MORPHEUS_EDGE_RUNTIME_TOKEN: 'edge-runtime-token' }),
+    createCtx()
+  );
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    calls.map((call) => call.path),
+    ['/testnet/runtime/keys/derived']
+  );
+  assert.equal(calls[0].headers.authorization, 'Bearer edge-runtime-token');
+});

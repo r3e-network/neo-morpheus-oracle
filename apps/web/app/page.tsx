@@ -291,7 +291,7 @@ export default function HomePage() {
                   alignItems: 'center',
                   borderBottom: '1px solid var(--border-dim)',
                   padding: '1rem 1.5rem',
-                  background: 'rgba(255,255,255,0.02)',
+                  background: 'rgba(83, 58, 253, 0.045)',
                 }}
               >
                 <span

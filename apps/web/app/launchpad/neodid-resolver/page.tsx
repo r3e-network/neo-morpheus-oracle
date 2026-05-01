@@ -154,9 +154,9 @@ function ResolverClient() {
                   placeholder="did:morpheus:neo_n3:service:neodid"
                   style={{
                     width: '100%',
-                    background: 'rgba(255,255,255,0.03)',
+                    background: 'rgba(83, 58, 253, 0.06)',
                     border: '1px solid var(--border-dim)',
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                     padding: '0.9rem 1rem',
                     borderRadius: '2px',
                     fontFamily: 'var(--font-mono)',
@@ -220,7 +220,7 @@ function ResolverClient() {
                 marginBottom: '1.5rem',
               }}
             >
-              <strong style={{ color: '#fff' }}>Resolver status:</strong>{' '}
+              <strong style={{ color: 'var(--text-primary)' }}>Resolver status:</strong>{' '}
               <span style={{ color: 'var(--text-secondary)' }}>{error}</span>
             </div>
           ) : null}
@@ -246,7 +246,7 @@ function ResolverClient() {
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+                <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                   NeoDID Docs
                 </span>
                 <ExternalLink size={18} color="var(--neo-green)" />
@@ -264,7 +264,7 @@ function ResolverClient() {
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+                <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                   DID Method Spec
                 </span>
                 <ExternalLink size={18} color="var(--neo-green)" />

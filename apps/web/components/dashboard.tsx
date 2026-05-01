@@ -140,11 +140,11 @@ export function Dashboard() {
                 alignItems: 'center',
                 gap: '12px',
                 padding: '0.85rem 1rem',
-                background: activeTab === Tab.id ? 'rgba(255,255,255,0.05)' : 'transparent',
+                background: activeTab === Tab.id ? 'rgba(83, 58, 253, 0.07)' : 'transparent',
                 border: '1px solid',
                 borderColor: activeTab === Tab.id ? 'var(--border-highlight)' : 'transparent',
                 borderRadius: '4px',
-                color: activeTab === Tab.id ? '#fff' : 'var(--text-secondary)',
+                color: activeTab === Tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
                 fontWeight: 600,
                 cursor: 'pointer',
                 textAlign: 'left',
@@ -168,7 +168,7 @@ export function Dashboard() {
         <div
           className="stagger-3"
           style={{
-            background: '#000',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             borderRadius: '4px',
             marginTop: '2rem',

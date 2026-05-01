@@ -302,7 +302,7 @@ export default function DocsNetworks() {
           borderRadius: '4px',
           overflow: 'hidden',
           marginBottom: '2rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
         }}
       >
         <table
@@ -316,13 +316,25 @@ export default function DocsNetworks() {
           <thead>
             <tr
               style={{
-                background: 'rgba(255,255,255,0.02)',
+                background: 'rgba(83, 58, 253, 0.045)',
                 borderBottom: '1px solid var(--border-dim)',
               }}
             >
-              <th style={{ padding: '1rem 1.25rem', color: '#fff', fontWeight: 800 }}>ITEM</th>
-              <th style={{ padding: '1rem 1.25rem', color: '#fff', fontWeight: 800 }}>MAINNET</th>
-              <th style={{ padding: '1rem 1.25rem', color: '#fff', fontWeight: 800 }}>TESTNET</th>
+              <th
+                style={{ padding: '1rem 1.25rem', color: 'var(--text-primary)', fontWeight: 800 }}
+              >
+                ITEM
+              </th>
+              <th
+                style={{ padding: '1rem 1.25rem', color: 'var(--text-primary)', fontWeight: 800 }}
+              >
+                MAINNET
+              </th>
+              <th
+                style={{ padding: '1rem 1.25rem', color: 'var(--text-primary)', fontWeight: 800 }}
+              >
+                TESTNET
+              </th>
             </tr>
           </thead>
           <tbody>
