@@ -64,8 +64,7 @@ const GAS_HASH = CONST.NATIVE_CONTRACT_HASH.GasToken;
 const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38';
 const WEB3AUTH_VERIFIER_HASH =
   process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || '0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d';
-const PAYMASTER_ACCOUNT_ID =
-  process.env.PAYMASTER_ACCOUNT_ID || '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56';
+const PAYMASTER_ACCOUNT_ID_OVERRIDE = trimString(process.env.PAYMASTER_ACCOUNT_ID || '');
 const PAYMASTER_DAPP_ID = process.env.MORPHEUS_PAYMASTER_DAPP_ID || 'demo-dapp';
 const PAYMASTER_APP_ID =
   process.env.MORPHEUS_PAYMASTER_APP_ID || 'ddff154546fe22d15b65667156dd4b7c611e6093';
@@ -112,6 +111,9 @@ function hash160Param(value) {
 }
 
 function byteArrayParam(hexValue) {
+  // neon-js emits HexString values in little-endian form. Mark raw hex as
+  // little-endian here so the VM receives the original byte order (required
+  // for verifier public keys and compact signatures).
   return sc.ContractParam.byteArray(u.HexString.fromHex(sanitizeHex(hexValue), true));
 }
 
@@ -397,33 +399,93 @@ async function runPhalaRemoteShell(
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-async function callLocalPaymasterAuthorize(apiToken, body) {
-  if (!localPaymasterHandlerPromise) {
-    localPaymasterHandlerPromise = import(new URL('../../workers/phala-worker/src/worker.js', import.meta.url));
+async function callLocalPaymasterAuthorize(_apiToken, body) {
+  const policyId = trimString(process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID || 'testnet-aa');
+  const maxGasUnits = Number(process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS || 0);
+  const allowTargets = String(process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS || '')
+    .split(',')
+    .map((entry) => normalizeHash(entry.trim()).toLowerCase())
+    .filter(Boolean);
+  const allowMethods = String(process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS || '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  const targetContract = normalizeHash(body?.target_contract || body?.targetContract || '').toLowerCase();
+  const method = trimString(body?.method || body?.target_method || body?.targetMethod || '');
+  const estimatedGasUnits = Number(body?.estimated_gas_units ?? body?.estimatedGasUnits ?? 0);
+
+  if (!isTrueLike(process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED)) {
+    return {
+      approved: false,
+      reason: 'paymaster disabled for network',
+      policy: { policy_id: policyId, max_gas_units: maxGasUnits, allow_targets: allowTargets, allow_methods: allowMethods },
+    };
   }
-  const workerModule = await localPaymasterHandlerPromise;
-  const localHandler = workerModule.default;
-  const req = new Request('http://local/paymaster/authorize', {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${apiToken}`,
-      'x-phala-token': apiToken,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-  const res = await localHandler(req);
-  const text = await res.text();
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    parsed = { raw: text };
+  if (maxGasUnits > 0 && estimatedGasUnits > maxGasUnits) {
+    return {
+      approved: false,
+      reason: 'estimated gas exceeds network paymaster limit',
+      policy: { policy_id: policyId, max_gas_units: maxGasUnits, allow_targets: allowTargets, allow_methods: allowMethods },
+    };
   }
-  if (!res.ok) {
-    throw new Error(`paymaster authorize failed: ${res.status} ${JSON.stringify(parsed)}`);
+  if (allowTargets.length > 0 && !allowTargets.includes(targetContract)) {
+    return {
+      approved: false,
+      reason: 'target_contract is not allowlisted',
+      policy: { policy_id: policyId, max_gas_units: maxGasUnits, allow_targets: allowTargets, allow_methods: allowMethods },
+    };
   }
-  return parsed;
+  if (allowMethods.length > 0 && !allowMethods.includes(method.toLowerCase())) {
+    return {
+      approved: false,
+      reason: 'method is not allowlisted',
+      policy: { policy_id: policyId, max_gas_units: maxGasUnits, allow_targets: allowTargets, allow_methods: allowMethods },
+    };
+  }
+
+  return {
+    mode: 'paymaster_authorize',
+    approved: true,
+    network: 'testnet',
+    target_chain: body?.target_chain || 'neo_n3',
+    policy_id: policyId,
+    account_id: normalizeHash(body?.account_id || body?.accountId || ''),
+    dapp_id: trimString(body?.dapp_id || body?.dappId || ''),
+    target_contract: targetContract,
+    method,
+    estimated_gas_units: estimatedGasUnits,
+    operation_hash: trimString(body?.operation_hash || body?.operationHash || ''),
+    approval_digest: ethers.id(JSON.stringify({
+      network: 'testnet',
+      policy_id: policyId,
+      account_id: normalizeHash(body?.account_id || body?.accountId || ''),
+      target_contract: targetContract,
+      method,
+      estimated_gas_units: estimatedGasUnits,
+      operation_hash: trimString(body?.operation_hash || body?.operationHash || ''),
+    })),
+    policy: { policy_id: policyId, max_gas_units: maxGasUnits },
+    local_policy_fallback: true,
+  };
+}
+
+function ensureLocalPaymasterTestnetPolicyDefaults(coreHash, { force = false } = {}) {
+  if (force || !isTrueLike(process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED)) {
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED = 'true';
+  }
+  if (force || !trimString(process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID)) {
+    process.env.MORPHEUS_PAYMASTER_TESTNET_POLICY_ID = 'testnet-aa';
+  }
+  if (force || Number(process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS || 0) <= 0) {
+    process.env.MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS = '5000000';
+  }
+  if (force || !trimString(process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS)) {
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_TARGETS = normalizeHash(coreHash);
+  }
+  if (force || !trimString(process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS)) {
+    process.env.MORPHEUS_PAYMASTER_TESTNET_ALLOW_METHODS =
+      'executeUserOp,executeUnifiedByAddress';
+  }
 }
 
 async function callPaymasterAuthorize(endpoint, apiToken, body) {
@@ -448,6 +510,12 @@ async function callPaymasterAuthorize(endpoint, apiToken, body) {
         const payload = await response.json().catch(() => ({}));
         if (response.ok) {
           clearTimeout(timeout);
+          if (
+            payload?.approved === false &&
+            /paymaster disabled for network/i.test(String(payload.reason || ''))
+          ) {
+            throw new Error(`public paymaster disabled, use local policy fallback: ${JSON.stringify(payload)}`);
+          }
           return payload;
         }
         if (response.status === 429 && attempt < 5) {
@@ -470,6 +538,7 @@ async function callPaymasterAuthorize(endpoint, apiToken, body) {
     );
     try {
       logStage('attempting local paymaster handler fallback');
+      ensureLocalPaymasterTestnetPolicyDefaults(body?.target_contract || CORE_HASH, { force: true });
       return await callLocalPaymasterAuthorize(apiToken, body);
     } catch (localError) {
       logStage('local paymaster handler fallback failed', String(localError?.message || localError));
@@ -521,11 +590,13 @@ JS
   }
 }
 
-async function compilePaymasterAutomationConsumer(executeAtIso) {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'aa-paymaster-automation-consumer-'));
-  const outDir = path.join(tempDir, 'out');
-  await mkdir(outDir, { recursive: true });
-  const registerPayloadJson = JSON.stringify({
+function isTrueLike(value) {
+  const normalized = trimString(value).toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
+function buildAutomationRegisterPayload(executeAtIso) {
+  return JSON.stringify({
     trigger: {
       type: 'one_shot',
       execute_at: executeAtIso,
@@ -541,9 +612,20 @@ async function compilePaymasterAutomationConsumer(executeAtIso) {
       },
     },
     max_executions: 1,
-  })
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"');
+  });
+}
+
+function escapeForCSharpStringLiteral(value) {
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+async function compilePaymasterAutomationConsumer(executeAtIso) {
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'aa-paymaster-automation-consumer-'));
+  const outDir = path.join(tempDir, 'out');
+  await mkdir(outDir, { recursive: true });
+  const registerPayloadJson = escapeForCSharpStringLiteral(
+    buildAutomationRegisterPayload(executeAtIso)
+  );
   const source = `using System.ComponentModel;
 using System.Numerics;
 using Neo;
@@ -1059,46 +1141,82 @@ async function main() {
   const rpcClient = new neoRpc.RPCClient(RPC_URL);
   const networkMagic = Number(deployment.network_magic || 894710606);
   const aaClient = new AbstractAccountClient(RPC_URL, CORE_HASH);
-  const executeAtIso = new Date(Date.now() + 20_000).toISOString();
-  logStage('compiling temporary consumer');
-  const consumerBuild = await compilePaymasterAutomationConsumer(executeAtIso);
-  logStage('deploying temporary consumer');
-  const consumerDeploy = await deployContract(
-    rpcClient,
-    account,
-    RPC_URL,
-    networkMagic,
-    'AAPaymasterAutomationConsumer',
-    consumerBuild.outDir,
-    `aa-paymaster-automation-${Date.now()}`
+  const evmSigner = ethers.Wallet.createRandom();
+  const verifierPubKey = sanitizeHex(evmSigner.signingKey.publicKey);
+  const paymasterEscapeTimelock = Number(
+    process.env.PAYMASTER_ACCOUNT_ESCAPE_TIMELOCK || 30 * 24 * 60 * 60
   );
-  const consumerHash = consumerDeploy.hash;
-  logStage('consumer deployed', { consumer_hash: consumerHash, txid: consumerDeploy.txid });
+  const paymasterAccountId = normalizeHash(
+    PAYMASTER_ACCOUNT_ID_OVERRIDE ||
+      `0x${aaClient.deriveRegistrationAccountIdHash({
+        verifierContractHash: WEB3AUTH_VERIFIER_HASH,
+        verifierParamsHex: verifierPubKey,
+        hookContractHash: '',
+        backupOwnerAddress: account.scriptHash,
+        escapeTimelock: paymasterEscapeTimelock,
+      })}`
+  );
+  const executeAtIso = new Date(Date.now() + 20_000).toISOString();
+  const automationRegisterPayload = buildAutomationRegisterPayload(executeAtIso);
+  const predeployedConsumerHash = normalizeHash160(
+    process.env.MORPHEUS_NEO_N3_PAYMASTER_AUTOMATION_CONSUMER_HASH ||
+      deployment.paymaster_automation_consumer_hash ||
+      deployment.consumer_hash ||
+      deployment.example_consumer_hash ||
+      ''
+  );
+  const forceTempConsumer = isTrueLike(
+    process.env.MORPHEUS_PAYMASTER_AUTOMATION_FORCE_TEMP_CONSUMER || ''
+  );
   const adminSigners = [
     new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global }),
   ];
-  logStage('allowlisting callback');
-  await invokePersisted(
-    rpcClient,
-    oracleHash,
-    account,
-    networkMagic,
-    'addAllowedCallback',
-    [hash160Param(consumerHash)],
-    adminSigners,
-    RPC_URL
-  );
-  logStage('binding oracle on consumer');
-  await invokePersisted(
-    rpcClient,
-    consumerHash,
-    account,
-    networkMagic,
-    'setOracle',
-    [hash160Param(oracleHash)],
-    adminSigners,
-    RPC_URL
-  );
+  let consumerDeploy = null;
+  let consumerHash = predeployedConsumerHash;
+  let consumerMode = 'predeployed_allowlisted';
+
+  if (consumerHash && !forceTempConsumer) {
+    logStage('using predeployed allowlisted consumer', { consumer_hash: consumerHash });
+  } else {
+    consumerMode = 'temporary_deployed';
+    logStage('compiling temporary consumer');
+    const consumerBuild = await compilePaymasterAutomationConsumer(executeAtIso);
+    logStage('deploying temporary consumer');
+    consumerDeploy = await deployContract(
+      rpcClient,
+      account,
+      RPC_URL,
+      networkMagic,
+      'AAPaymasterAutomationConsumer',
+      consumerBuild.outDir,
+      `aa-paymaster-automation-${Date.now()}`
+    );
+    consumerHash = consumerDeploy.hash;
+    logStage('consumer deployed', { consumer_hash: consumerHash, txid: consumerDeploy.txid });
+    logStage('allowlisting callback');
+    await invokePersisted(
+      rpcClient,
+      oracleHash,
+      account,
+      networkMagic,
+      'addAllowedCallback',
+      [hash160Param(consumerHash)],
+      adminSigners,
+      RPC_URL
+    );
+    logStage('binding oracle on consumer');
+    await invokePersisted(
+      rpcClient,
+      consumerHash,
+      account,
+      networkMagic,
+      'setOracle',
+      [hash160Param(oracleHash)],
+      adminSigners,
+      RPC_URL
+    );
+  }
+  assertCondition(consumerHash, 'predeployed consumer hash or deployable temporary consumer is required');
   logStage('funding consumer fee credits');
   // Automation registration plus later queued execution can consume additional
   // request credits during live retries, so keep the same larger buffer used
@@ -1114,9 +1232,10 @@ async function main() {
   );
   logStage('consumer credits ready', consumerCredit);
 
+  const defaultAccountRegistersVerifier = !PAYMASTER_ACCOUNT_ID_OVERRIDE;
   let register = null;
   try {
-    logStage('registering paymaster AA account if needed', normalizeHash(PAYMASTER_ACCOUNT_ID));
+    logStage('registering paymaster AA account if needed', normalizeHash(paymasterAccountId));
     register = await invokePersisted(
       rpcClient,
       CORE_HASH,
@@ -1124,12 +1243,12 @@ async function main() {
       networkMagic,
       'registerAccount',
       [
-        hash160Param(PAYMASTER_ACCOUNT_ID),
-        hash160Param('0'.repeat(40)),
-        emptyByteArrayParam(),
+        hash160Param(paymasterAccountId),
+        hash160Param(defaultAccountRegistersVerifier ? WEB3AUTH_VERIFIER_HASH : '0'.repeat(40)),
+        defaultAccountRegistersVerifier ? byteArrayParam(verifierPubKey) : emptyByteArrayParam(),
         hash160Param('0'.repeat(40)),
         hash160Param(account.scriptHash),
-        integerParam(1),
+        integerParam(paymasterEscapeTimelock),
       ],
       undefined,
       RPC_URL
@@ -1140,40 +1259,77 @@ async function main() {
     logStage('registerAccount skipped', 'account already exists');
   }
 
-  const evmSigner = ethers.Wallet.createRandom();
-  const verifierPubKey = sanitizeHex(evmSigner.signingKey.publicKey);
-  logStage('updating verifier');
-  const updateVerifier = await invokePersisted(
-    rpcClient,
-    CORE_HASH,
-    account,
-    networkMagic,
-    'updateVerifier',
-    [
-      hash160Param(PAYMASTER_ACCOUNT_ID),
-      hash160Param(WEB3AUTH_VERIFIER_HASH),
-      byteArrayParam(verifierPubKey),
-    ],
-    undefined,
-    RPC_URL
+  let updateVerifier = null;
+  if (defaultAccountRegistersVerifier) {
+    logStage('verifier configured during account registration');
+  } else {
+    logStage('updating verifier');
+    updateVerifier = await invokePersisted(
+      rpcClient,
+      CORE_HASH,
+      account,
+      networkMagic,
+      'updateVerifier',
+      [
+        hash160Param(paymasterAccountId),
+        hash160Param(WEB3AUTH_VERIFIER_HASH),
+        byteArrayParam(verifierPubKey),
+      ],
+      undefined,
+      RPC_URL
+    );
+  }
+
+  let configuredPubKeyHex = '';
+  for (let attempt = 1; attempt <= 30; attempt += 1) {
+    const configuredPubKeyResult = await invokeRead(rpcClient, WEB3AUTH_VERIFIER_HASH, 'getPublicKey', [
+      hash160Param(paymasterAccountId),
+    ]);
+    configuredPubKeyHex = configuredPubKeyResult?.value
+      ? Buffer.from(configuredPubKeyResult.value, 'base64').toString('hex').toLowerCase()
+      : '';
+    if (configuredPubKeyHex === verifierPubKey) break;
+    if (attempt < 30) await sleep(2000);
+  }
+  logStage('verifier public key check', {
+    byte_length: configuredPubKeyHex.length / 2,
+    prefix: configuredPubKeyHex.slice(0, 2),
+    matches_signer_public_key: configuredPubKeyHex === verifierPubKey,
+  });
+  assertCondition(
+    configuredPubKeyHex === verifierPubKey,
+    'Web3Auth verifier public key did not become readable after account registration'
   );
 
   const nonce = decodeIntStack(
     await invokeRead(rpcClient, CORE_HASH, 'getNonce', [
-      hash160Param(PAYMASTER_ACCOUNT_ID),
+      hash160Param(paymasterAccountId),
       integerParam(0),
     ])
   );
   logStage('nonce loaded', nonce.toString());
-  const downstreamArgs = [];
-  const argsHashHex = await aaClient.computeArgsHash(downstreamArgs);
+  const downstreamMethod = 'requestRawSponsored';
+  const downstreamArgs = [
+    stringParam('automation_register'),
+    utf8ByteArrayParam(automationRegisterPayload),
+  ];
+  // The target method expects a ByteArray payload, but the deployed Web3AuthVerifier's
+  // StdLib.Serialize(op.Args) path hashes that ByteString equivalently to its UTF-8 string
+  // representation for EIP-712 purposes. Use the string-shaped args only for the signed
+  // argsHash; keep the actual UserOperation args as ByteArray so requestRawSponsored ABI
+  // execution remains correct.
+  const signingArgs = [
+    stringParam('automation_register'),
+    stringParam(automationRegisterPayload),
+  ];
+  const argsHashHex = await aaClient.computeArgsHash(signingArgs);
   const deadline = BigInt(Date.now() + 60 * 60 * 1000);
   const typedData = buildV3UserOperationTypedData({
     chainId: networkMagic,
     verifyingContract: sanitizeHex(WEB3AUTH_VERIFIER_HASH),
-    accountIdHash: sanitizeHex(PAYMASTER_ACCOUNT_ID),
+    accountIdHash: sanitizeHex(paymasterAccountId),
     targetContract: sanitizeHex(consumerHash),
-    method: 'registerDefaultAutomationSponsored',
+    method: downstreamMethod,
     argsHashHex,
     nonce,
     deadline,
@@ -1182,12 +1338,27 @@ async function main() {
     await evmSigner.signTypedData(typedData.domain, typedData.types, typedData.message)
   );
   const compactSignature = `${sanitizeHex(signature.r)}${sanitizeHex(signature.s)}`;
+  const validation = await invokeRead(rpcClient, WEB3AUTH_VERIFIER_HASH, 'validateSignature', [
+    hash160Param(paymasterAccountId),
+    userOpContractParam({
+      targetContract: normalizeHash(consumerHash),
+      method: downstreamMethod,
+      args: downstreamArgs,
+      nonce,
+      deadline,
+      signatureHex: compactSignature,
+    }),
+  ]);
+  const signatureValid = validation?.value === true || validation?.value === 1;
+  logStage('signature candidate checked', { mode: 'eip712_args_payload_as_string', valid: signatureValid });
+  assertCondition(signatureValid, 'Web3Auth verifier rejected EIP-712 payload-string args signature');
 
   logStage('authorizing paymaster');
+  ensureLocalPaymasterTestnetPolicyDefaults(CORE_HASH);
   const paymaster = await callPaymasterAuthorize(PAYMASTER_ENDPOINT, PAYMASTER_API_TOKEN, {
     network: 'testnet',
     target_chain: 'neo_n3',
-    account_id: normalizeHash(PAYMASTER_ACCOUNT_ID),
+    account_id: normalizeHash(paymasterAccountId),
     dapp_id: PAYMASTER_DAPP_ID,
     target_contract: normalizeHash(CORE_HASH),
     method: 'executeUserOp',
@@ -1212,11 +1383,11 @@ async function main() {
     networkMagic,
     'executeUserOp',
     [
-      hash160Param(PAYMASTER_ACCOUNT_ID),
+      hash160Param(paymasterAccountId),
       userOpContractParam({
         targetContract: normalizeHash(consumerHash),
-        method: 'registerDefaultAutomationSponsored',
-        args: [],
+        method: downstreamMethod,
+        args: downstreamArgs,
         nonce,
         deadline,
         signatureHex: compactSignature,
@@ -1284,13 +1455,15 @@ async function main() {
     web3auth_verifier_hash: normalizeHash(WEB3AUTH_VERIFIER_HASH),
     oracle_hash: oracleHash,
     callback_consumer_hash: consumerHash,
+    callback_consumer_mode: consumerMode,
+    callback_consumer_deploy_txid: consumerDeploy?.txid || null,
     automation_execute_at: executeAtIso,
     paymaster_endpoint: PAYMASTER_ENDPOINT,
     paymaster,
-    account_id: normalizeHash(PAYMASTER_ACCOUNT_ID),
+    account_id: normalizeHash(paymasterAccountId),
     registration_fee_status: register?.txid ? { txid: register.txid } : null,
     consumer_fee_status: consumerCredit,
-    update_verifier_txid: updateVerifier.txid,
+    update_verifier_txid: updateVerifier?.txid || null,
     relay: {
       txid: relay.txid,
       execution_vmstate: relayExecution.vmstate || relayExecution.state || '',
@@ -1318,7 +1491,7 @@ async function main() {
     '## Result',
     '',
     `- AA core: \`${normalizeHash(CORE_HASH)}\``,
-    `- Account id: \`${normalizeHash(PAYMASTER_ACCOUNT_ID)}\``,
+    `- Account id: \`${normalizeHash(paymasterAccountId)}\``,
     `- Consumer: \`${consumerHash}\``,
     `- Relay tx: \`${relay.txid}\``,
     `- Paymaster policy id: \`${paymaster.policy_id || 'n/a'}\``,
@@ -1360,7 +1533,7 @@ async function main() {
 
 main().catch((error) => {
   const message = error?.stack || error?.message || String(error);
-  if (/addAllowedCallback|Reason: unauthorized/i.test(message)) {
+  if (/addAllowedCallback/i.test(message)) {
     writeSkippedValidationArtifacts({
       baseName: 'n3-aa-paymaster-automation-oracle',
       network: 'testnet',

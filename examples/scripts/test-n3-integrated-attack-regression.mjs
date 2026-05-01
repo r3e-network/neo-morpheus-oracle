@@ -47,9 +47,9 @@ const sharedTestnetEnv = {
   NEXT_PUBLIC_MORPHEUS_NETWORK: network,
   TESTNET_RPC_URL: testnetRpcUrl,
   NEO_RPC_URL: testnetRpcUrl,
-  PAYMASTER_ACCOUNT_ID: trimString(
-    process.env.PAYMASTER_ACCOUNT_ID || '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56'
-  ),
+  ...(trimString(process.env.PAYMASTER_ACCOUNT_ID || '')
+    ? { PAYMASTER_ACCOUNT_ID: trimString(process.env.PAYMASTER_ACCOUNT_ID || '') }
+    : {}),
   ...(overrideTestWif
     ? {
         NEO_TESTNET_WIF: overrideTestWif,

@@ -115,7 +115,7 @@ export function CodeBlock({
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = '#888';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.background = 'rgba(83, 58, 253, 0.07)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.color = '#666';
@@ -153,7 +153,7 @@ export function CodeBlock({
             onMouseEnter={(e) => {
               if (!copied) {
                 e.currentTarget.style.color = '#888';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.background = 'rgba(83, 58, 253, 0.07)';
               }
             }}
             onMouseLeave={(e) => {

@@ -227,6 +227,21 @@ export function resolveEncryptedPayload(payload) {
   );
 }
 
+function resolveEncryptedTokenRef(payload) {
+  const encryptedInputs = isPlainObject(payload?.encrypted_inputs) ? payload.encrypted_inputs : {};
+  return trimString(
+    payload?.encrypted_token_ref || encryptedInputs.api_token_ref || encryptedInputs.token_ref || ''
+  );
+}
+
+export async function resolveEncryptedTokenCiphertext(payload = {}) {
+  const directCiphertext = resolveEncryptedPayload(payload);
+  if (directCiphertext) return directCiphertext;
+  const encryptedTokenRef = resolveEncryptedTokenRef(payload);
+  if (!encryptedTokenRef) return '';
+  return loadEncryptedCiphertextByRef(encryptedTokenRef, payload);
+}
+
 function resolveEncryptedConfidentialPayload(payload) {
   const encryptedInputs = isPlainObject(payload?.encrypted_inputs) ? payload.encrypted_inputs : {};
   return trimString(

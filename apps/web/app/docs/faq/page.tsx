@@ -75,7 +75,7 @@ export default function DocsFAQ() {
             key={i}
             style={{
               padding: '1.5rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               borderRadius: '4px',
               borderLeft: '3px solid var(--neo-green)',
@@ -117,7 +117,7 @@ export default function DocsFAQ() {
           borderRadius: '4px',
           overflow: 'hidden',
           margin: '2rem 0',
-          background: '#000',
+          background: 'var(--bg-panel)',
         }}
       >
         <table
@@ -131,13 +131,17 @@ export default function DocsFAQ() {
           <thead>
             <tr
               style={{
-                background: 'rgba(255,255,255,0.02)',
+                background: 'rgba(83, 58, 253, 0.045)',
                 borderBottom: '1px solid var(--border-dim)',
               }}
             >
-              <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>CODE</th>
-              <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>NAME</th>
-              <th style={{ padding: '1rem 1.5rem', color: '#fff', fontWeight: 800 }}>
+              <th style={{ padding: '1rem 1.5rem', color: 'var(--text-primary)', fontWeight: 800 }}>
+                CODE
+              </th>
+              <th style={{ padding: '1rem 1.5rem', color: 'var(--text-primary)', fontWeight: 800 }}>
+                NAME
+              </th>
+              <th style={{ padding: '1rem 1.5rem', color: 'var(--text-primary)', fontWeight: 800 }}>
                 DESCRIPTION
               </th>
             </tr>
@@ -176,7 +180,7 @@ export default function DocsFAQ() {
         style={{
           marginTop: '4rem',
           padding: '2rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           borderTop: '1px solid var(--border-dim)',
           borderRight: '1px solid var(--border-dim)',
           borderBottom: '1px solid var(--border-dim)',
@@ -191,7 +195,7 @@ export default function DocsFAQ() {
               fontSize: '1rem',
               fontWeight: 800,
               margin: 0,
-              color: '#fff',
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: 0,
             }}

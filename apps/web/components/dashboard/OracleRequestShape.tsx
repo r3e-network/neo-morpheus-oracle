@@ -59,7 +59,7 @@ export function OracleRequestShape({
         style={{
           padding: '1.5rem',
           borderBottom: '1px solid var(--border-dim)',
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(83, 58, 253, 0.045)',
         }}
       >
         <h3
@@ -204,7 +204,7 @@ export function OracleRequestShape({
         <div
           style={{
             padding: '0.9rem 1rem',
-            background: '#000',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
           }}
         >

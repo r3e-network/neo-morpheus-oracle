@@ -298,8 +298,8 @@ export function Launchpad({ embedded = false }: LaunchpadProps) {
                 style={{
                   border: '1px solid',
                   borderColor: active ? 'var(--neo-green)' : 'var(--border-dim)',
-                  color: active ? '#fff' : 'var(--text-secondary)',
-                  background: active ? 'rgba(0,255,163,0.06)' : 'transparent',
+                  color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  background: active ? 'rgba(0, 168, 107, 0.11)' : 'transparent',
                 }}
                 onClick={() => setJourneyId(item.id)}
               >
@@ -369,7 +369,7 @@ export function Launchpad({ embedded = false }: LaunchpadProps) {
                 style={{
                   fontSize: '1rem',
                   fontWeight: 800,
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   marginBottom: '0.35rem',
                 }}
               >

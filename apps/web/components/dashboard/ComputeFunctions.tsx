@@ -155,7 +155,7 @@ export function ComputeFunctions({ selectedFunc, onSelectPreset }: ComputeFuncti
           style={{
             padding: '1.5rem',
             borderBottom: '1px solid var(--border-dim)',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'rgba(83, 58, 253, 0.045)',
           }}
         >
           <h3
@@ -190,8 +190,8 @@ export function ComputeFunctions({ selectedFunc, onSelectPreset }: ComputeFuncti
                 padding: '1.5rem',
                 border: 'none',
                 borderBottom: '1px solid var(--border-dim)',
-                background: selectedFunc === f.name ? 'rgba(0,255,163,0.05)' : 'transparent',
-                color: selectedFunc === f.name ? '#fff' : 'var(--text-secondary)',
+                background: selectedFunc === f.name ? 'rgba(0, 168, 107, 0.09)' : 'transparent',
+                color: selectedFunc === f.name ? 'var(--text-primary)' : 'var(--text-secondary)',
                 textAlign: 'left',
                 cursor: 'pointer',
                 transition: 'background 0.2s',
@@ -233,7 +233,7 @@ export function ComputeFunctions({ selectedFunc, onSelectPreset }: ComputeFuncti
               <div
                 style={{
                   fontSize: '0.75rem',
-                  color: selectedFunc === f.name ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)',
+                  color: selectedFunc === f.name ? 'var(--text-muted)' : 'var(--text-muted)',
                   lineHeight: 1.5,
                 }}
               >

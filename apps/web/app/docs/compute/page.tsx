@@ -35,7 +35,7 @@ export default function DocsCompute() {
         <div
           style={{
             padding: '1.5rem',
-            background: '#000',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             borderRadius: '4px',
           }}
@@ -69,7 +69,7 @@ export default function DocsCompute() {
         <div
           style={{
             padding: '1.5rem',
-            background: '#000',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             borderRadius: '4px',
           }}
@@ -188,7 +188,7 @@ export default function DocsCompute() {
         style={{
           marginTop: '4rem',
           padding: '2rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           borderTop: '1px solid rgba(239, 68, 68, 0.2)',
           borderRight: '1px solid rgba(239, 68, 68, 0.2)',
           borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
@@ -203,7 +203,7 @@ export default function DocsCompute() {
               fontSize: '1rem',
               fontWeight: 800,
               margin: 0,
-              color: '#fff',
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: 0,
             }}

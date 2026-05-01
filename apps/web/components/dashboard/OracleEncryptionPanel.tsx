@@ -29,7 +29,7 @@ export function OracleEncryptionPanel({
         style={{
           padding: '1.5rem',
           borderBottom: '1px solid var(--border-dim)',
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(83, 58, 253, 0.045)',
         }}
       >
         <h3
@@ -75,7 +75,7 @@ export function OracleEncryptionPanel({
           <div
             style={{
               padding: '1rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
             }}
           >
@@ -93,7 +93,7 @@ export function OracleEncryptionPanel({
             <div
               style={{
                 fontSize: '0.78rem',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontFamily: 'var(--font-mono)',
                 wordBreak: 'break-word',
               }}
@@ -104,7 +104,7 @@ export function OracleEncryptionPanel({
           <div
             style={{
               padding: '1rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
             }}
           >
@@ -119,7 +119,13 @@ export function OracleEncryptionPanel({
             >
               KEY SOURCE
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#fff', fontFamily: 'var(--font-mono)' }}>
+            <div
+              style={{
+                fontSize: '0.78rem',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
               {keySummary.source}
             </div>
           </div>
@@ -150,7 +156,7 @@ export function OracleEncryptionPanel({
             style={{
               marginTop: '1rem',
               padding: '1rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               borderLeft: '2px solid var(--neo-green)',
             }}

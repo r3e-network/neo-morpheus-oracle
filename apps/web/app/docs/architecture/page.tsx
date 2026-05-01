@@ -51,7 +51,7 @@ export default function DocsArchitecture() {
         style={{
           margin: '3rem 0',
           padding: '2rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
           textAlign: 'center',
@@ -116,7 +116,7 @@ export default function DocsArchitecture() {
             key={layer.title}
             style={{
               padding: '1.5rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               borderRadius: '4px',
             }}

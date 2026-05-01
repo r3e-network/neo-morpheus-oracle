@@ -15,7 +15,7 @@ import {
   decryptEncryptedToken,
   executeProgrammableOracle,
   resolveConfidentialPayload,
-  resolveEncryptedPayload,
+  resolveEncryptedTokenCiphertext,
 } from './crypto.js';
 import { maybeBuildDstackAttestation } from '../platform/dstack.js';
 
@@ -156,14 +156,13 @@ export async function performOracleFetch(payload) {
       selected_value: selectedValue,
       provider: providerRequest.provider,
       provider_pair: providerRequest.pair,
+      encrypted_token_present: false,
     };
   }
 
   const url = normalizeOracleUrl(resolvedPayload.url);
-  const decryptedToken = await decryptEncryptedToken(
-    resolveEncryptedPayload(resolvedPayload),
-    resolvedPayload
-  );
+  const encryptedTokenCiphertext = await resolveEncryptedTokenCiphertext(resolvedPayload);
+  const decryptedToken = await decryptEncryptedToken(encryptedTokenCiphertext, resolvedPayload);
   const headers = normalizeHeaders(resolvedPayload.headers);
   const tokenHeader =
     trimString(resolvedPayload.token_header || 'Authorization') || 'Authorization';
@@ -207,6 +206,7 @@ export async function performOracleFetch(payload) {
     selected_value: selectedValue,
     provider: null,
     provider_pair: null,
+    encrypted_token_present: Boolean(decryptedToken),
   };
 }
 
@@ -222,7 +222,7 @@ export async function buildOracleResponse(payload, mode) {
       : null,
     request_source:
       trimString(resolvedPayload.request_source || 'chain-dispatcher') || 'chain-dispatcher',
-    encrypted_token_present: Boolean(resolveEncryptedPayload(resolvedPayload)),
+    encrypted_token_present: Boolean(fetchResult.encrypted_token_present),
   };
   const executed = await executeProgrammableOracle(resolvedPayload, context);
 

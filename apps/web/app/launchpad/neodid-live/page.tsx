@@ -74,7 +74,7 @@ export default function NeoDidWeb3AuthLivePage() {
                 <div
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                     Read NeoDID Docs
                   </span>
                   <ArrowRight size={18} color="var(--neo-green)" />
@@ -94,7 +94,7 @@ export default function NeoDidWeb3AuthLivePage() {
                 <div
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                     Use Resolver
                   </span>
                   <ArrowRight size={18} color="var(--neo-green)" />
@@ -115,7 +115,7 @@ export default function NeoDidWeb3AuthLivePage() {
                 <div
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                     AA Frontend Repo
                   </span>
                   <ArrowRight size={18} color="var(--neo-green)" />

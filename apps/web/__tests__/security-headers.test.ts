@@ -8,7 +8,10 @@ type NextConfigWithHeaders = {
   headers: () => Promise<SecurityHeaderRule[]>;
 };
 
-async function expectSecurityHeaders(config: NextConfigWithHeaders) {
+async function expectSecurityHeaders(
+  config: NextConfigWithHeaders,
+  options: { allowUnsafeEval?: boolean } = {}
+) {
   const [rule] = await config.headers();
   const headers = new Map(rule.headers.map((header: SecurityHeader) => [header.key, header.value]));
 
@@ -22,7 +25,11 @@ async function expectSecurityHeaders(config: NextConfigWithHeaders) {
   const csp = headers.get('Content-Security-Policy') || '';
   expect(csp).toContain("default-src 'self'");
   expect(csp).toContain("script-src 'self' 'unsafe-inline'");
-  expect(csp).not.toContain("'unsafe-eval'");
+  if (options.allowUnsafeEval) {
+    expect(csp).toContain("'unsafe-eval'");
+  } else {
+    expect(csp).not.toContain("'unsafe-eval'");
+  }
   expect(csp).not.toContain('script-src https:');
   expect(csp).not.toMatch(/script-src[^;]*\shttps:/);
   expect(csp).toContain('frame-ancestors');
@@ -36,5 +43,15 @@ describe('production security headers', () => {
 
   it('keeps the same baseline after Sentry wraps the production export', async () => {
     await expectSecurityHeaders(configWithSentry);
+  });
+
+  it('allows unsafe-eval only in development so Next dev can hydrate interactive pages', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+    try {
+      await expectSecurityHeaders(nextConfig, { allowUnsafeEval: true });
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 });

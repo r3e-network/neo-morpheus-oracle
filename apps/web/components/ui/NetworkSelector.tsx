@@ -113,7 +113,7 @@ export function NetworkSelector() {
                 justifyContent: 'space-between',
                 width: '100%',
                 padding: '0.75rem 1rem',
-                background: selectedKey === network.key ? 'rgba(255,255,255,0.05)' : 'transparent',
+                background: selectedKey === network.key ? 'rgba(83, 58, 253, 0.07)' : 'transparent',
                 border: 'none',
                 color:
                   selectedKey === network.key ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -124,7 +124,7 @@ export function NetworkSelector() {
               }}
               onMouseEnter={(e) => {
                 if (selectedKey !== network.key) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                  e.currentTarget.style.background = 'rgba(83, 58, 253, 0.06)';
                 }
               }}
               onMouseLeave={(e) => {

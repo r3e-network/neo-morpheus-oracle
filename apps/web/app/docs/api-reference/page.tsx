@@ -42,7 +42,7 @@ export default function DocsApiReference() {
           padding: '0',
           overflow: 'hidden',
           marginBottom: '2.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
         }}
@@ -111,7 +111,7 @@ Contract.Call(
           padding: '0',
           overflow: 'hidden',
           marginBottom: '2.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
         }}
@@ -178,7 +178,7 @@ Accept: application/did+ld+json`}</code>
           <div
             key={fn.name}
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               borderRadius: '4px',
               padding: '1.5rem',
@@ -271,7 +271,7 @@ Accept: application/did+ld+json`}</code>
                 style={{
                   display: 'block',
                   fontSize: '0.75rem',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   wordBreak: 'break-all',
                   fontFamily: 'var(--font-mono)',
                   whiteSpace: 'pre-wrap',

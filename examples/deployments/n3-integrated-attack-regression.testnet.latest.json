@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-18T01:14:28.880Z",
+  "generated_at": "2026-05-01T06:34:55.105Z",
   "network": "testnet",
   "dry_run": false,
   "continue_on_failure": false,
@@ -21,6 +21,8 @@
         "stage_ids": [
           "smoke",
           "plugin_matrix",
+          "market_escrow",
+          "paymaster_onchain",
           "paymaster_policy",
           "paymaster"
         ],
@@ -33,8 +35,8 @@
           "gasTooHigh",
           "wrongTargetChain"
         ],
-        "paymaster_txid": "0x7ad0d70e86f1cbaaaaba1c0c68e04587371c2e65bfe09da448802a8c35bd1b06",
-        "paymaster_approval_digest": "6cfd2f4504fda5d5e93f73ab4a7431bb74c5def76f393973378c55c5975f3e7f"
+        "paymaster_txid": "0x38e69a238084664d06ffc2da739d7cfeef10e4ec10c60e0df90d0df79d82ff7f",
+        "paymaster_approval_digest": "ecce6eddd0fe10ff4c1e3fa9399979444cde1e06e93a63505e7f39ec1629f5d4"
       }
     },
     {
@@ -44,13 +46,13 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "started_at": "2026-04-18T01:04:25.051Z",
-      "completed_at": "2026-04-18T01:04:41.238Z",
-      "duration_ms": 16187,
+      "started_at": "2026-05-01T06:23:43.155Z",
+      "completed_at": "2026-05-01T06:23:59.306Z",
+      "duration_ms": 16151,
       "preflight": null,
       "report_path": "examples/deployments/n3-callback-boundary.testnet.latest.json",
       "summary": {
-        "txid": "0x0174fcf8df4e14c5572cc90e0098d66f093bc01d0460af20c9012148d20a85c9",
+        "txid": "0x8a8da227d2d64cda11cdeae0d07333f3a30609da06158127eb7f09ae42a12a8d",
         "vmstate": "FAULT",
         "exception": "at instruction 966 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized caller"
       },
@@ -69,7 +71,7 @@
       "duration_ms": 0,
       "report_path": "examples/deployments/n3-neodid-registry-boundary.testnet.latest.json",
       "summary": {
-        "registry_hash": "0x848d71cae70fdcb98b380bbeb74ec56584a5a536",
+        "registry_hash": "0x2d8103ba1872a5deada9480c20ea7eab30a1bf61",
         "wrong_witness_exception": "at instruction 2188 (ABORTMSG): ABORTMSG is executed. Reason: unauthorized",
         "mismatch_exception": "at instruction 1703 (ABORTMSG): ABORTMSG is executed. Reason: invalid verification signature"
       }
@@ -86,8 +88,8 @@
       "duration_ms": 0,
       "report_path": "examples/deployments/n3-neodid-registry-v1.testnet.latest.json",
       "summary": {
-        "registry_hash": "0xf9c741aba8a07569aa77d65ab34926cf111316bd",
-        "consume_txid": "0x8f26c9e4b56721b96cdff924bdc429e1fec6aa4dc494475387d5e17eb8bf0916",
+        "registry_hash": "0x4bd6a3c41cdb38945bafb42e58b9c2a7618414a5",
+        "consume_txid": "0xdaa3ba0a257f64dee7de5d264ccbf3f461b0450d0b18bc7a14ac1f5287ef7b83",
         "replay_exception": "at instruction 2229 (ABORTMSG): ABORTMSG is executed. Reason: action nullifier already used"
       }
     },
@@ -98,9 +100,9 @@
       "status": "passed",
       "exit_code": 0,
       "signal": null,
-      "started_at": "2026-04-18T01:04:41.239Z",
-      "completed_at": "2026-04-18T01:13:29.642Z",
-      "duration_ms": 528403,
+      "started_at": "2026-05-01T06:23:59.307Z",
+      "completed_at": "2026-05-01T06:29:59.865Z",
+      "duration_ms": 360558,
       "preflight": null,
       "report_path": "examples/deployments/n3-encrypted-ref-boundary.testnet.latest.json",
       "summary": {
@@ -116,20 +118,160 @@
       "id": "fulfillment_replay",
       "title": "Fulfillment replay boundary",
       "mode": "executed",
-      "status": "failed",
-      "exit_code": 1,
+      "status": "passed",
+      "exit_code": 0,
       "signal": null,
-      "started_at": "2026-04-18T01:13:29.642Z",
-      "completed_at": "2026-04-18T01:14:28.880Z",
-      "duration_ms": 59238,
+      "started_at": "2026-05-01T06:29:59.866Z",
+      "completed_at": "2026-05-01T06:30:57.136Z",
+      "duration_ms": 57270,
       "preflight": null,
-      "report_path": null,
-      "summary": null,
-      "error": "stage exited with code 1",
+      "report_path": "examples/deployments/n3-fulfillment-replay.testnet.latest.json",
+      "summary": {
+        "replay_exception": null,
+        "fulfill_vmstate": null,
+        "fulfill_txid": null
+      },
+      "error": null,
       "attempt": 1
+    },
+    {
+      "id": "aa_session_oracle_boundary",
+      "title": "AA session-key downstream Oracle boundary",
+      "mode": "executed",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "started_at": "2026-05-01T06:30:57.138Z",
+      "completed_at": "2026-05-01T06:31:41.581Z",
+      "duration_ms": 44443,
+      "preflight": null,
+      "report_path": "examples/deployments/n3-aa-session-oracle-boundary.testnet.latest.json",
+      "summary": {
+        "execute_txid": null,
+        "request_id": null,
+        "wrong_target_exception": null,
+        "wrong_method_exception": null
+      },
+      "error": null,
+      "attempt": 1
+    },
+    {
+      "id": "aa_callback_replay_boundary",
+      "title": "AA-bound callback replay boundary",
+      "mode": "reference_latest",
+      "status": "referenced_latest",
+      "exit_code": null,
+      "signal": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_ms": 0,
+      "report_path": "examples/deployments/n3-aa-callback-replay-boundary.testnet.latest.json",
+      "summary": {
+        "replay_txid": null,
+        "replay_exception": null,
+        "unlocked_a": null,
+        "unlocked_b": null
+      }
+    },
+    {
+      "id": "aa_recovery_cross_account_boundary",
+      "title": "AA recovery cross-account boundary",
+      "mode": "reference_latest",
+      "status": "referenced_latest",
+      "exit_code": null,
+      "signal": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_ms": 0,
+      "report_path": "examples/deployments/n3-aa-recovery-cross-account-boundary.testnet.latest.json",
+      "summary": {
+        "recovery_verifier_hash": "0xfc9b2e0f36a65b7dea1558015bdff128d7b77c44",
+        "recovery_request_id": null,
+        "wrong_account_state": null,
+        "wrong_account_exception": null
+      }
+    },
+    {
+      "id": "aa_paymaster_automation_oracle",
+      "title": "AA paymaster automation Oracle proof",
+      "mode": "executed",
+      "status": "passed",
+      "exit_code": 0,
+      "signal": null,
+      "started_at": "2026-05-01T06:31:41.582Z",
+      "completed_at": "2026-05-01T06:34:55.102Z",
+      "duration_ms": 193520,
+      "preflight": null,
+      "report_path": "examples/deployments/n3-aa-paymaster-automation-oracle.testnet.latest.json",
+      "summary": {
+        "paymaster_policy_id": "testnet-aa",
+        "paymaster_approved": true,
+        "relay_txid": "0xf167a62ff5d0c899fcf10dabe99c8320ab1b69dc60c132217cdc8d4850ba3860",
+        "automation_id": "automation:neo_n3:94d8b50c-e522-4afa-bb22-3387a3fa569e",
+        "queued_mode": "scheduler",
+        "queued_chain_request_id": "5167",
+        "queued_callback_success": true
+      },
+      "error": null,
+      "attempt": 1
+    },
+    {
+      "id": "automation_cancel_race",
+      "title": "Automation cancellation race",
+      "mode": "reference_latest",
+      "status": "referenced_latest",
+      "exit_code": null,
+      "signal": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_ms": 0,
+      "report_path": "examples/deployments/n3-automation-cancel-race.testnet.latest.json",
+      "summary": {
+        "automation_id": null,
+        "queued_chain_request_id": "4615",
+        "executed_after_cancel": false
+      }
+    },
+    {
+      "id": "automation_deposit_exhaustion",
+      "title": "Automation shared-credit deposit exhaustion",
+      "mode": "reference_latest",
+      "status": "referenced_latest",
+      "exit_code": null,
+      "signal": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_ms": 0,
+      "report_path": "examples/deployments/n3-automation-deposit-exhaustion.testnet.latest.json",
+      "summary": {
+        "shared_requester_hash": null,
+        "queued_runs": null,
+        "failed_runs": null,
+        "queued_chain_request_id": null,
+        "failed_error": null
+      }
+    },
+    {
+      "id": "automation_idempotency",
+      "title": "Automation duplicate-queue suppression",
+      "mode": "reference_latest",
+      "status": "referenced_latest",
+      "exit_code": null,
+      "signal": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_ms": 0,
+      "report_path": "examples/deployments/n3-automation-idempotency.testnet.latest.json",
+      "summary": {
+        "automation_id": "automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a",
+        "queued_request_key": "automation:neo_n3:automation:neo_n3:5c83c3c5-4665-4acd-9898-0e852451460a:1",
+        "queued_chain_request_id": "4620",
+        "queued_callback_success": true,
+        "execution_count": 1,
+        "queued_runs": 1,
+        "failed_runs": 0
+      }
     }
   ],
-  "remaining_gaps": [
-    "AA-sponsored automation execution where paymaster policy also constrains the downstream Oracle path"
-  ]
+  "remaining_gaps": []
 }

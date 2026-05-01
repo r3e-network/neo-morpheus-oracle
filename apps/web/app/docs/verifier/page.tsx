@@ -48,7 +48,7 @@ export default function DocsVerifier() {
             display: 'flex',
             gap: '0.75rem',
             padding: '1.25rem',
-            background: '#000',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             borderRadius: '4px',
           }}
@@ -77,7 +77,7 @@ export default function DocsVerifier() {
             display: 'flex',
             gap: '0.75rem',
             padding: '1.25rem',
-            background: '#000',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             borderRadius: '4px',
           }}
@@ -105,7 +105,7 @@ export default function DocsVerifier() {
             display: 'flex',
             gap: '0.75rem',
             padding: '1.25rem',
-            background: '#000',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             borderRadius: '4px',
           }}
@@ -185,7 +185,7 @@ export default function DocsVerifier() {
         style={{
           margin: '2.5rem 0',
           padding: '1.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
           borderRadius: '4px',
         }}
@@ -224,7 +224,7 @@ export default function DocsVerifier() {
         style={{
           marginTop: '4rem',
           padding: '2.5rem',
-          background: '#000',
+          background: 'var(--bg-panel)',
           borderTop: '1px solid var(--border-dim)',
           borderRight: '1px solid var(--border-dim)',
           borderBottom: '1px solid var(--border-dim)',
@@ -239,7 +239,7 @@ export default function DocsVerifier() {
               fontSize: '1rem',
               fontWeight: 800,
               margin: 0,
-              color: '#fff',
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: 0,
             }}

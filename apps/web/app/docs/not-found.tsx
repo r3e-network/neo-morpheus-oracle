@@ -110,7 +110,7 @@ export default function DocsNotFound() {
           style={{
             marginTop: '2.5rem',
             padding: '1.25rem',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'rgba(83, 58, 253, 0.045)',
             border: '1px solid var(--border-dim)',
             borderRadius: '4px',
           }}

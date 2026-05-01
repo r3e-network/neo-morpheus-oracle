@@ -165,14 +165,14 @@ export default function DocsIntroduction() {
               display: 'flex',
               gap: '1.5rem',
               padding: '1.5rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               borderRadius: '4px',
             }}
           >
             <div
               style={{
-                background: 'rgba(0,255,163,0.05)',
+                background: 'rgba(0, 168, 107, 0.09)',
                 padding: '12px',
                 borderRadius: '4px',
                 height: 'fit-content',
@@ -187,7 +187,7 @@ export default function DocsIntroduction() {
                   fontSize: '0.95rem',
                   fontWeight: 800,
                   marginBottom: '0.4rem',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   letterSpacing: 0,
                   textTransform: 'uppercase',
                 }}
@@ -223,7 +223,7 @@ export default function DocsIntroduction() {
               <div
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
-                <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+                <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
                   {card.title.toUpperCase()}
                 </span>
                 <Icon size={18} color="var(--neo-green)" />

@@ -537,7 +537,7 @@ function VerifierPageClient() {
           </div>
           <pre
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               borderRadius: '4px',
               padding: '1rem',

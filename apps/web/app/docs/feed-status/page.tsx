@@ -209,7 +209,7 @@ export default function FeedStatusPage() {
                   overflowX: 'auto',
                   border: '1px solid var(--border-dim)',
                   borderRadius: '4px',
-                  background: '#000',
+                  background: 'var(--bg-panel)',
                 }}
               >
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
@@ -217,7 +217,7 @@ export default function FeedStatusPage() {
                     <tr
                       style={{
                         borderBottom: '1px solid var(--border-dim)',
-                        background: 'rgba(255,255,255,0.02)',
+                        background: 'rgba(83, 58, 253, 0.045)',
                       }}
                     >
                       <th style={{ padding: '0.85rem 1rem', textAlign: 'left' }}>Pair</th>
@@ -236,12 +236,12 @@ export default function FeedStatusPage() {
                           style={{
                             padding: '0.85rem 1rem',
                             fontFamily: 'var(--font-mono)',
-                            color: '#fff',
+                            color: 'var(--text-primary)',
                           }}
                         >
                           {item.pair}
                         </td>
-                        <td style={{ padding: '0.85rem 1rem', color: '#fff' }}>
+                        <td style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)' }}>
                           {item.descriptor?.label || '-'}
                         </td>
                         <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)' }}>
@@ -250,7 +250,7 @@ export default function FeedStatusPage() {
                         <td
                           style={{
                             padding: '0.85rem 1rem',
-                            color: item.synced ? '#fff' : 'var(--warning)',
+                            color: item.synced ? 'var(--text-primary)' : 'var(--warning)',
                             fontFamily: 'var(--font-mono)',
                           }}
                         >
@@ -261,7 +261,7 @@ export default function FeedStatusPage() {
                         <td
                           style={{
                             padding: '0.85rem 1rem',
-                            color: '#fff',
+                            color: 'var(--text-primary)',
                             fontFamily: 'var(--font-mono)',
                           }}
                         >
@@ -270,7 +270,8 @@ export default function FeedStatusPage() {
                         <td
                           style={{
                             padding: '0.85rem 1rem',
-                            color: item.delta_pct === null ? 'var(--text-muted)' : '#fff',
+                            color:
+                              item.delta_pct === null ? 'var(--text-muted)' : 'var(--text-primary)',
                             fontFamily: 'var(--font-mono)',
                           }}
                         >

@@ -33,7 +33,7 @@ export function ComputeOutput({
         style={{
           padding: '1.5rem',
           borderBottom: '1px solid var(--border-dim)',
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(83, 58, 253, 0.045)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -87,7 +87,13 @@ export function ComputeOutput({
             <Copy size={14} /> {copiedItem === 'compute-n3' ? 'Copied N3' : 'Copy Neo N3 Snippet'}
           </button>
         </div>
-        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+        <div
+          style={{
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-dim)',
+            padding: '1rem',
+          }}
+        >
           <div
             style={{
               fontSize: '0.65rem',
@@ -115,7 +121,7 @@ export function ComputeOutput({
         <div className="grid grid-2" style={{ gap: '1rem' }}>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -146,7 +152,7 @@ export function ComputeOutput({
           </div>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -166,7 +172,7 @@ export function ComputeOutput({
               style={{
                 margin: 0,
                 whiteSpace: 'pre-wrap',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.78rem',
               }}
@@ -178,7 +184,7 @@ export function ComputeOutput({
         <div className="grid grid-2" style={{ gap: '1rem' }}>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -198,7 +204,7 @@ export function ComputeOutput({
               style={{
                 margin: 0,
                 whiteSpace: 'pre-wrap',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.78rem',
               }}
@@ -208,7 +214,7 @@ export function ComputeOutput({
           </div>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -239,7 +245,13 @@ export function ComputeOutput({
             </div>
           </div>
         </div>
-        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+        <div
+          style={{
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-dim)',
+            padding: '1rem',
+          }}
+        >
           <div
             style={{
               fontSize: '0.65rem',
@@ -255,7 +267,7 @@ export function ComputeOutput({
             style={{
               margin: 0,
               whiteSpace: 'pre-wrap',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.78rem',
             }}

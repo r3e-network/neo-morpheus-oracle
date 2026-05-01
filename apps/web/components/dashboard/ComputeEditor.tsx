@@ -41,7 +41,7 @@ export function ComputeEditor({
           style={{
             padding: '1.5rem',
             borderBottom: '1px solid var(--border-dim)',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'rgba(83, 58, 253, 0.045)',
           }}
         >
           <h3
@@ -111,7 +111,7 @@ export function ComputeEditor({
           style={{
             padding: '1.5rem',
             borderBottom: '1px solid var(--border-dim)',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'rgba(83, 58, 253, 0.045)',
           }}
         >
           <h3

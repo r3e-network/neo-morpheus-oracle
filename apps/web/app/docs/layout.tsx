@@ -160,7 +160,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
             style={{
               marginTop: '2rem',
               padding: '1.25rem',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'rgba(83, 58, 253, 0.045)',
               border: '1px solid var(--border-dim)',
               borderRadius: '4px',
             }}
@@ -170,7 +170,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                 fontSize: '0.65rem',
                 fontWeight: 800,
                 marginBottom: '0.5rem',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 textTransform: 'uppercase',
               }}
             >
@@ -273,7 +273,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                       <span
                         style={{
                           fontSize: '1rem',
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                           fontWeight: 700,
                           display: 'flex',
                           alignItems: 'center',
@@ -319,7 +319,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                       <span
                         style={{
                           fontSize: '1rem',
-                          color: '#fff',
+                          color: 'var(--text-primary)',
                           fontWeight: 700,
                           display: 'flex',
                           alignItems: 'center',
@@ -397,8 +397,8 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
  bottom: 0;
  transform: translateX(-100%);
  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
- background: #000;
- box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+ background: var(--bg-card);
+ box-shadow: 20px 0 50px rgba(50,50,93,0.18);
  }
  .docs-sidebar.open {
  transform: translateX(0);
