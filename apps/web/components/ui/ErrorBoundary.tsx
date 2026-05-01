@@ -88,7 +88,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   textAlign: 'left',
                   marginTop: '1rem',
                   padding: '0.75rem',
-                  background: '#000',
+                  background: 'var(--bg-panel)',
                   borderRadius: '4px',
                   fontSize: '0.75rem',
                 }}
@@ -128,7 +128,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   gap: '8px',
                   padding: '0.75rem 1.5rem',
                   background: 'var(--neo-green)',
-                  color: '#000',
+                  color: 'var(--bg-panel)',
                   border: 'none',
                   borderRadius: '4px',
                   fontWeight: 600,

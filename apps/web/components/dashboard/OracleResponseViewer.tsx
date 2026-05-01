@@ -39,7 +39,7 @@ export function OracleResponseViewer({
         style={{
           padding: '1.5rem',
           borderBottom: '1px solid var(--border-dim)',
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(83, 58, 253, 0.045)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -98,7 +98,7 @@ export function OracleResponseViewer({
           <div
             style={{
               padding: '1rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
             }}
           >
@@ -116,7 +116,7 @@ export function OracleResponseViewer({
             <div
               style={{
                 fontSize: '0.8rem',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontFamily: 'var(--font-mono)',
                 wordBreak: 'break-word',
               }}
@@ -127,7 +127,7 @@ export function OracleResponseViewer({
           <div
             style={{
               padding: '1rem',
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
             }}
           >
@@ -142,13 +142,25 @@ export function OracleResponseViewer({
             >
               REQUEST FEE
             </div>
-            <div style={{ fontSize: '0.8rem', color: '#fff', fontFamily: 'var(--font-mono)' }}>
+            <div
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
               {oracleState?.request_fee_display || '0.01 GAS'}
             </div>
           </div>
         </div>
 
-        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+        <div
+          style={{
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-dim)',
+            padding: '1rem',
+          }}
+        >
           <div
             style={{
               fontSize: '0.65rem',
@@ -177,7 +189,7 @@ export function OracleResponseViewer({
         <div className="grid grid-2" style={{ gap: '1rem' }}>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -208,7 +220,7 @@ export function OracleResponseViewer({
           </div>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -228,7 +240,7 @@ export function OracleResponseViewer({
               style={{
                 margin: 0,
                 whiteSpace: 'pre-wrap',
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.78rem',
               }}
@@ -238,7 +250,13 @@ export function OracleResponseViewer({
           </div>
         </div>
 
-        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+        <div
+          style={{
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-dim)',
+            padding: '1rem',
+          }}
+        >
           <div
             style={{
               fontSize: '0.65rem',
@@ -254,7 +272,7 @@ export function OracleResponseViewer({
             style={{
               margin: 0,
               whiteSpace: 'pre-wrap',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.78rem',
             }}
@@ -266,7 +284,7 @@ export function OracleResponseViewer({
         <div className="grid grid-2" style={{ gap: '1rem' }}>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -284,30 +302,31 @@ export function OracleResponseViewer({
             </div>
             <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
               <div>
-                <strong style={{ color: '#fff' }}>Arg 1:</strong>{' '}
+                <strong style={{ color: 'var(--text-primary)' }}>Arg 1:</strong>{' '}
                 <code>{generatedRequest.requestType}</code>
               </div>
               <div>
-                <strong style={{ color: '#fff' }}>Arg 2:</strong> UTF-8 payload JSON bytes
+                <strong style={{ color: 'var(--text-primary)' }}>Arg 2:</strong> UTF-8 payload JSON
+                bytes
               </div>
               <div>
-                <strong style={{ color: '#fff' }}>Arg 3:</strong> callback contract ={' '}
+                <strong style={{ color: 'var(--text-primary)' }}>Arg 3:</strong> callback contract ={' '}
                 <code>Runtime.ExecutingScriptHash</code> for your own consumer, or{' '}
                 <code>{walletCallbackHash}</code> for direct wallet testing
               </div>
               <div>
-                <strong style={{ color: '#fff' }}>Arg 4:</strong> callback method ={' '}
+                <strong style={{ color: 'var(--text-primary)' }}>Arg 4:</strong> callback method ={' '}
                 <code>{walletCallbackMethod}</code>
               </div>
               <div>
-                <strong style={{ color: '#fff' }}>Fee:</strong>{' '}
+                <strong style={{ color: 'var(--text-primary)' }}>Fee:</strong>{' '}
                 <code>{oracleState?.request_fee_display || '0.01 GAS'}</code>
               </div>
             </div>
           </div>
           <div
             style={{
-              background: '#000',
+              background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
             }}
@@ -342,7 +361,13 @@ export function OracleResponseViewer({
           </div>
         </div>
 
-        <div style={{ background: '#000', border: '1px solid var(--border-dim)', padding: '1rem' }}>
+        <div
+          style={{
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-dim)',
+            padding: '1rem',
+          }}
+        >
           <div
             style={{
               fontSize: '0.65rem',
@@ -358,7 +383,7 @@ export function OracleResponseViewer({
             style={{
               margin: 0,
               whiteSpace: 'pre-wrap',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.78rem',
             }}

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-18T04:43:02.331Z",
+  "generated_at": "2026-05-01T06:30:57.099Z",
   "network": "testnet",
   "status": "skipped",
   "reason": "requires-deprecated-callback-allowlist-api",

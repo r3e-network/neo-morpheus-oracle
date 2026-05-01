@@ -139,7 +139,7 @@ export default function DocsTemplates() {
               margin: 0,
               fontSize: '1rem',
               fontWeight: 800,
-              color: '#fff',
+              color: 'var(--text-primary)',
               textTransform: 'uppercase',
               letterSpacing: 0,
             }}
@@ -222,7 +222,9 @@ export default function DocsTemplates() {
           style={{ padding: '2rem', textDecoration: 'none' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Starter Studio</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              Starter Studio
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p
@@ -243,7 +245,9 @@ export default function DocsTemplates() {
           style={{ padding: '2rem', textDecoration: 'none' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Use Cases</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              Use Cases
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p
@@ -264,7 +268,9 @@ export default function DocsTemplates() {
           style={{ padding: '2rem', textDecoration: 'none' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Quickstart</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              Quickstart
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p

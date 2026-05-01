@@ -47,7 +47,7 @@ export function OverviewNetwork({
                 style={{
                   marginTop: 0,
                   marginBottom: '0.75rem',
-                  color: '#fff',
+                  color: 'var(--text-primary)',
                   fontSize: '1rem',
                   fontWeight: 800,
                 }}
@@ -108,7 +108,11 @@ export function OverviewNetwork({
           }}
         >
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -121,10 +125,16 @@ export function OverviewNetwork({
             >
               PAIR
             </div>
-            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>{selectedPair}</div>
+            <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              {selectedPair}
+            </div>
           </div>
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -137,12 +147,16 @@ export function OverviewNetwork({
             >
               MEANING
             </div>
-            <div style={{ color: '#fff' }}>
+            <div style={{ color: 'var(--text-primary)' }}>
               {selectedDescriptor?.meaning || 'No description available'}
             </div>
           </div>
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -155,12 +169,16 @@ export function OverviewNetwork({
             >
               CHAIN VALUE
             </div>
-            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               {selectedRecord ? `$${selectedRecord.price_display}` : 'Not synced yet'}
             </div>
           </div>
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -173,7 +191,7 @@ export function OverviewNetwork({
             >
               REAL-TIME SOURCE
             </div>
-            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               {liveQuoteLoading
                 ? 'Loading...'
                 : liveQuote?.price
@@ -192,7 +210,11 @@ export function OverviewNetwork({
           }}
         >
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -205,12 +227,16 @@ export function OverviewNetwork({
             >
               TWELVEDATA SYMBOL
             </div>
-            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               {selectedDescriptor?.sourceSymbol || '-'}
             </div>
           </div>
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -223,10 +249,14 @@ export function OverviewNetwork({
             >
               UNIT
             </div>
-            <div style={{ color: '#fff' }}>{selectedDescriptor?.unit || '-'}</div>
+            <div style={{ color: 'var(--text-primary)' }}>{selectedDescriptor?.unit || '-'}</div>
           </div>
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -239,14 +269,18 @@ export function OverviewNetwork({
             >
               LIVE VS CHAIN
             </div>
-            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               {liveDeltaPct === null
                 ? '-'
                 : `${liveDeltaPct >= 0 ? '+' : ''}${liveDeltaPct.toFixed(2)}%`}
             </div>
           </div>
           <div
-            style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+            style={{
+              padding: '1rem',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border-dim)',
+            }}
           >
             <div
               style={{
@@ -259,7 +293,7 @@ export function OverviewNetwork({
             >
               LAST ON-CHAIN UPDATE
             </div>
-            <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               {selectedRecord?.timestamp_iso
                 ? new Date(selectedRecord.timestamp_iso).toLocaleString()
                 : '-'}
@@ -276,7 +310,8 @@ export function OverviewNetwork({
               lineHeight: 1.7,
             }}
           >
-            <strong style={{ color: '#fff' }}>Note:</strong> {selectedDescriptor.note}
+            <strong style={{ color: 'var(--text-primary)' }}>Note:</strong>{' '}
+            {selectedDescriptor.note}
           </p>
         )}
       </section>

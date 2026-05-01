@@ -461,7 +461,9 @@ public class NeoDIDRegistry : SmartContract
           style={{ padding: '1.75rem', textDecoration: 'none' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Resolver</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              Resolver
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.85rem', marginBottom: 0 }}>
@@ -474,7 +476,9 @@ public class NeoDIDRegistry : SmartContract
           style={{ padding: '1.75rem', textDecoration: 'none' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>Web3Auth Live</span>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+              Web3Auth Live
+            </span>
             <ArrowRight size={18} color="var(--neo-green)" />
           </div>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.85rem', marginBottom: 0 }}>
@@ -488,7 +492,7 @@ public class NeoDIDRegistry : SmartContract
           style={{ padding: '1.75rem', textDecoration: 'none' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
               DID Method Spec
             </span>
             <ArrowRight size={18} color="var(--neo-green)" />
@@ -504,7 +508,7 @@ public class NeoDIDRegistry : SmartContract
           style={{ padding: '1.75rem', textDecoration: 'none' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 800, fontSize: '1rem', color: '#fff' }}>
+            <span style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
               AA Recovery Spec
             </span>
             <ArrowRight size={18} color="var(--neo-green)" />

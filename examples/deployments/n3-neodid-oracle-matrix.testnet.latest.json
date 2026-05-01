@@ -1,17 +1,17 @@
 {
-  "generated_at": "2026-03-20T08:35:58.066Z",
+  "generated_at": "2026-05-01T00:57:47.749Z",
   "network": "testnet",
-  "rpc_url": "https://testnet1.neo.coz.io:443",
+  "rpc_url": "https://api.n3index.dev/testnet",
   "network_magic": 894710606,
-  "account_address": "NiUs458jFbTH1DA3b9QyeDhMaD282h3iJg",
-  "account_script_hash": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+  "account_address": "NR3E4D8NUXh3zhbf5ZkAp3rTxWbQqNih32",
+  "account_script_hash": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "callback_consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
   "callback_consumer_hash_resolved": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
   "fee_status": {
     "request_fee": "1000000",
     "current_credit": "8000000",
-    "deposit_amount": "3000000"
+    "deposit_amount": "8000000"
   },
   "aa_contract_hash": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
   "aa_verifier_hash": "0x11d1012e071fac7fd75569981ac44da097913a84",
@@ -19,42 +19,44 @@
     {
       "title": "NeoDID bind through Oracle callback, public payload",
       "request_type": "neodid_bind",
-      "txid": "0xc15537f8352bfe3e48d52757cbd07633d4f04507c1737a1bbf6d3d16def1cb45",
-      "request_id": "4102",
+      "txid": "0xb0ad5e283fd6ad1c80f5541dffdea8ff9391049da5147e86dde27de16546f57f",
+      "request_id": "5134",
       "expected": "Callback succeeds and returns a stable master_nullifier bound to the provided vault account.",
       "callback": {
         "request_type": "neodid_bind",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"true\",\"master_nullifier\":\"0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3\",\"digest\":\"0x3b3ee47c76e9c8b235353f80f3562d9e9fd833a610160cef919bde24f59fbeb2\"},\"verification\":{\"output_hash\":\"d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d\",\"attestation_hash\":\"d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d\",\"signature\":\"de4ae346a79e3c660e175ead8a57053c8ca5be8b5e43f0d6b569ab77dde489e7f008ac7a8bb922a9fa65ab573b479d5c2c586c1f3ebfdd3183d037d10727377d\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"b467f98c5d6b3aea3ca74a3a7f82220b7c9cea7deca0b349bba6e76eee004843\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"true\",\"master_nullifier\":\"0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c\",\"digest\":\"0x837fc7f53121e63d7780839e932b22a4b026b00d76ab6fc48c9922128b3dad8f\"},\"verification\":{\"output_hash\":\"96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f1\",\"attestation_hash\":\"96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f1\",\"signature\":\"09a646c1b2ab75ab4c10bc821cc8420675e0968519268e5a1e0c49cc5052a410ba760b7feab923ad146045956c003a9906e10d7ea9a7aafd3ea1d2a4807e0ad9\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f10000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"2bdc89f85d92bf7598a7582f625c61e64916754240d94338b1d65deb3b53f383\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_bind",
+          "module_id": "identity.verify",
+          "operation": "neodid_bind",
           "success": true,
           "result": {
             "mode": "neodid_bind",
             "provider": "github",
             "claim_type": "Github_VerifiedUser",
             "claim_value": "true",
-            "master_nullifier": "0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3",
-            "digest": "0x3b3ee47c76e9c8b235353f80f3562d9e9fd833a610160cef919bde24f59fbeb2"
+            "master_nullifier": "0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c",
+            "digest": "0x837fc7f53121e63d7780839e932b22a4b026b00d76ab6fc48c9922128b3dad8f"
           },
           "verification": {
-            "output_hash": "d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d",
-            "attestation_hash": "d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d",
-            "signature": "de4ae346a79e3c660e175ead8a57053c8ca5be8b5e43f0d6b569ab77dde489e7f008ac7a8bb922a9fa65ab573b479d5c2c586c1f3ebfdd3183d037d10727377d",
+            "output_hash": "96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f1",
+            "attestation_hash": "96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f1",
+            "signature": "09a646c1b2ab75ab4c10bc821cc8420675e0968519268e5a1e0c49cc5052a410ba760b7feab923ad146045956c003a9906e10d7ea9a7aafd3ea1d2a4807e0ad9",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
-              "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-              "compose_hash": "5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567",
-              "report_data": "d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d0000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "b467f98c5d6b3aea3ca74a3a7f82220b7c9cea7deca0b349bba6e76eee004843"
+              "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
+              "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
+              "report_data": "96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f10000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "2bdc89f85d92bf7598a7582f625c61e64916754240d94338b1d65deb3b53f383"
             }
           }
         },
         "error_text": ""
       },
       "onchain_request": {
-        "request_id": "4102",
+        "request_id": "5134",
         "request_type": "neodid_bind",
         "payload_text": "{\"provider\":\"github\",\"provider_uid\":\"alice-gh-001\",\"vault_account\":\"0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"true\",\"metadata\":{\"scenario\":\"bind_plain\"}}",
         "payload_json": {
@@ -69,110 +71,114 @@
         },
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "status": "1",
-        "created_at_ms": "1773994721837",
-        "fulfilled_at_ms": "1773994855781",
+        "created_at_ms": "1777596611253",
+        "fulfilled_at_ms": "1777596675665",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"true\",\"master_nullifier\":\"0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3\",\"digest\":\"0x3b3ee47c76e9c8b235353f80f3562d9e9fd833a610160cef919bde24f59fbeb2\"},\"verification\":{\"output_hash\":\"d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d\",\"attestation_hash\":\"d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d\",\"signature\":\"de4ae346a79e3c660e175ead8a57053c8ca5be8b5e43f0d6b569ab77dde489e7f008ac7a8bb922a9fa65ab573b479d5c2c586c1f3ebfdd3183d037d10727377d\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"d43696fb470947e087e8523a5ec96ed8dd741963d042d6faa5b5ee01383e8c5d0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"b467f98c5d6b3aea3ca74a3a7f82220b7c9cea7deca0b349bba6e76eee004843\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"true\",\"master_nullifier\":\"0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c\",\"digest\":\"0x837fc7f53121e63d7780839e932b22a4b026b00d76ab6fc48c9922128b3dad8f\"},\"verification\":{\"output_hash\":\"96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f1\",\"attestation_hash\":\"96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f1\",\"signature\":\"09a646c1b2ab75ab4c10bc821cc8420675e0968519268e5a1e0c49cc5052a410ba760b7feab923ad146045956c003a9906e10d7ea9a7aafd3ea1d2a4807e0ad9\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"96f51b7e95f53cf363b3d66c84fb2e4e5fda27650c99b2d60cd889a702d743f10000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"2bdc89f85d92bf7598a7582f625c61e64916754240d94338b1d65deb3b53f383\"}}}",
         "error_text": ""
       }
     },
     {
       "title": "NeoDID bind through Oracle callback, encrypted params",
       "request_type": "neodid_bind",
-      "txid": "0x914e214f4e5c843e9da9970cb03c2bbaf61cda3b8dadfc7bd52decd81c058a84",
-      "request_id": "4103",
+      "txid": "0xfdfbb900c6c64a306189ce20d8fce426c840c486cc1799f9471d26de9b8b114a",
+      "request_id": "5135",
       "expected": "Callback succeeds, but the on-chain request payload keeps the confidential provider_uid out of plaintext.",
       "callback": {
         "request_type": "neodid_bind",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"enc-true\",\"master_nullifier\":\"0x038335d011a213bb14f4ad3db5b6d2bc40f48df420f56e197e347e809adf8432\",\"digest\":\"0x157486fb729e0a6f4c08b1dcfe13b9d9f3acb3a2c42a8358c5266af4d824f4dd\"},\"verification\":{\"output_hash\":\"1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b\",\"attestation_hash\":\"1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b\",\"signature\":\"6a57f631a2ade2a96178a7a84fa37be690b45a5777acfe2dea7096804acabc45b6cf6856919c958250e41328638472242028a877441dabe631efd9cdfe314cb9\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"9a44a229143035d46f015a82178c9760c695633297d73f4763d54ed6b7f4bf3b\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"enc-true\",\"master_nullifier\":\"0x3e9ea75cdc8184deabbfd277ad6cb1e640030aba36692853c7e8d034dadc6875\",\"digest\":\"0x31ad27e8479c44d99841a0abfabab68b1dd60adb09c98ae3c0212fe9979ced25\"},\"verification\":{\"output_hash\":\"5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f0418\",\"attestation_hash\":\"5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f0418\",\"signature\":\"92c4cebad6cde7fe636fa4bb40025a2fdd3d34cafdaafcdaf9d4048756d7f7bdba0fd61fe6deac52ff6a5a23976482f58a1e90af169fb61a58f969d84f7c8611\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f04180000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"bd51221835b4a8cdfff55777beeb91799da57e1f206747d083eb611a2cf01c1a\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_bind",
+          "module_id": "identity.verify",
+          "operation": "neodid_bind",
           "success": true,
           "result": {
             "mode": "neodid_bind",
             "provider": "github",
             "claim_type": "Github_VerifiedUser",
             "claim_value": "enc-true",
-            "master_nullifier": "0x038335d011a213bb14f4ad3db5b6d2bc40f48df420f56e197e347e809adf8432",
-            "digest": "0x157486fb729e0a6f4c08b1dcfe13b9d9f3acb3a2c42a8358c5266af4d824f4dd"
+            "master_nullifier": "0x3e9ea75cdc8184deabbfd277ad6cb1e640030aba36692853c7e8d034dadc6875",
+            "digest": "0x31ad27e8479c44d99841a0abfabab68b1dd60adb09c98ae3c0212fe9979ced25"
           },
           "verification": {
-            "output_hash": "1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b",
-            "attestation_hash": "1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b",
-            "signature": "6a57f631a2ade2a96178a7a84fa37be690b45a5777acfe2dea7096804acabc45b6cf6856919c958250e41328638472242028a877441dabe631efd9cdfe314cb9",
+            "output_hash": "5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f0418",
+            "attestation_hash": "5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f0418",
+            "signature": "92c4cebad6cde7fe636fa4bb40025a2fdd3d34cafdaafcdaf9d4048756d7f7bdba0fd61fe6deac52ff6a5a23976482f58a1e90af169fb61a58f969d84f7c8611",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
-              "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-              "compose_hash": "5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567",
-              "report_data": "1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b0000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "9a44a229143035d46f015a82178c9760c695633297d73f4763d54ed6b7f4bf3b"
+              "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
+              "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
+              "report_data": "5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f04180000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "bd51221835b4a8cdfff55777beeb91799da57e1f206747d083eb611a2cf01c1a"
             }
           }
         },
         "error_text": ""
       },
       "onchain_request": {
-        "request_id": "4103",
+        "request_id": "5135",
         "request_type": "neodid_bind",
-        "payload_text": "{\"provider\":\"github\",\"vault_account\":\"0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56\",\"claim_type\":\"Github_VerifiedUser\",\"encrypted_params\":\"eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJsQUsrYmp4cDYvUmd3ZjNuUkFCRStaMjZyb0NLUXQ4enlsVjMwQWJORlFZPSIsIml2IjoiYTFhd0tqS2hMZXlENUtKayIsImN0IjoiS0IvQlZvbldCTTNBK0s4ODhiZUM2UFo5T2piVjA5dUV1VGoxVkowU2JveDVEQTNWNUJvTmJjQkRLaElFYW1UY3kvTzNPaEVtUzZPZG9Nd05ST05LMVRIem5IVmhOZHo5YmpHbUV4cm1HRnFLbUlTSlltNWVmZjhIeWltN0pkRVRMV1RmSHQwPSIsInRhZyI6Im5EdmxGZHB2bS9JYVY4OEpweUdoOGc9PSJ9\"}",
+        "payload_text": "{\"provider\":\"github\",\"vault_account\":\"0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56\",\"claim_type\":\"Github_VerifiedUser\",\"encrypted_params\":\"eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJqZ01wK3NvVHE0bVQxTU5INHZUS29rRHNMWE1tOW1qMnFRbkpEQmVWSVhZPSIsIml2IjoiSzV0eTkxNFE1ZkZnTUVOayIsImN0IjoiTEplQUdTbTJyM3cyeUNjVjlzaFdpT3k3MnhhWnNHMklJdnU1L05tQ21YYUdKY09KYW5ZckpnS05lOW54bExUR1RDL3dUdkhHanMzSDlxVGdBSmZNd2J0OVJJTGxobTFjOHZTOFhTL0tqbkx3aDB2SkNLSXMwTGFJc3BDVDBZdS9BSFFHSTZZPSIsInRhZyI6IkxJQ3ErVG5YejVQaEt2TEs4NGdmVnc9PSJ9\"}",
         "payload_json": {
           "provider": "github",
           "vault_account": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
           "claim_type": "Github_VerifiedUser",
-          "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJsQUsrYmp4cDYvUmd3ZjNuUkFCRStaMjZyb0NLUXQ4enlsVjMwQWJORlFZPSIsIml2IjoiYTFhd0tqS2hMZXlENUtKayIsImN0IjoiS0IvQlZvbldCTTNBK0s4ODhiZUM2UFo5T2piVjA5dUV1VGoxVkowU2JveDVEQTNWNUJvTmJjQkRLaElFYW1UY3kvTzNPaEVtUzZPZG9Nd05ST05LMVRIem5IVmhOZHo5YmpHbUV4cm1HRnFLbUlTSlltNWVmZjhIeWltN0pkRVRMV1RmSHQwPSIsInRhZyI6Im5EdmxGZHB2bS9JYVY4OEpweUdoOGc9PSJ9"
+          "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJqZ01wK3NvVHE0bVQxTU5INHZUS29rRHNMWE1tOW1qMnFRbkpEQmVWSVhZPSIsIml2IjoiSzV0eTkxNFE1ZkZnTUVOayIsImN0IjoiTEplQUdTbTJyM3cyeUNjVjlzaFdpT3k3MnhhWnNHMklJdnU1L05tQ21YYUdKY09KYW5ZckpnS05lOW54bExUR1RDL3dUdkhHanMzSDlxVGdBSmZNd2J0OVJJTGxobTFjOHZTOFhTL0tqbkx3aDB2SkNLSXMwTGFJc3BDVDBZdS9BSFFHSTZZPSIsInRhZyI6IkxJQ3ErVG5YejVQaEt2TEs4NGdmVnc9PSJ9"
         },
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "status": "1",
-        "created_at_ms": "1773994865408",
-        "fulfilled_at_ms": "1773995001540",
+        "created_at_ms": "1777596681795",
+        "fulfilled_at_ms": "1777596736486",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"enc-true\",\"master_nullifier\":\"0x038335d011a213bb14f4ad3db5b6d2bc40f48df420f56e197e347e809adf8432\",\"digest\":\"0x157486fb729e0a6f4c08b1dcfe13b9d9f3acb3a2c42a8358c5266af4d824f4dd\"},\"verification\":{\"output_hash\":\"1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b\",\"attestation_hash\":\"1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b\",\"signature\":\"6a57f631a2ade2a96178a7a84fa37be690b45a5777acfe2dea7096804acabc45b6cf6856919c958250e41328638472242028a877441dabe631efd9cdfe314cb9\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"1783c1b28fe3053aad6917cea209e485dd1f6e9732b4c7abb6fc79e84ca0057b0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"9a44a229143035d46f015a82178c9760c695633297d73f4763d54ed6b7f4bf3b\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_bind\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_bind\",\"success\":true,\"result\":{\"mode\":\"neodid_bind\",\"provider\":\"github\",\"claim_type\":\"Github_VerifiedUser\",\"claim_value\":\"enc-true\",\"master_nullifier\":\"0x3e9ea75cdc8184deabbfd277ad6cb1e640030aba36692853c7e8d034dadc6875\",\"digest\":\"0x31ad27e8479c44d99841a0abfabab68b1dd60adb09c98ae3c0212fe9979ced25\"},\"verification\":{\"output_hash\":\"5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f0418\",\"attestation_hash\":\"5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f0418\",\"signature\":\"92c4cebad6cde7fe636fa4bb40025a2fdd3d34cafdaafcdaf9d4048756d7f7bdba0fd61fe6deac52ff6a5a23976482f58a1e90af169fb61a58f969d84f7c8611\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"5f2183b38542fe1bdf700a2b20f57f11c6a5ba569faaa50abcefb8fcd81f04180000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"bd51221835b4a8cdfff55777beeb91799da57e1f206747d083eb611a2cf01c1a\"}}}",
         "error_text": ""
       }
     },
     {
       "title": "NeoDID action ticket for disposable account A",
       "request_type": "neodid_action_ticket",
-      "txid": "0xacd671a3a644a2dd1fc15b19f53d304fc8734aa38ffe325d22b70db659431df5",
-      "request_id": "4104",
+      "txid": "0x6892983434b7094a6e288527e3d300e770be95d5f67573830298b423188e7e05",
+      "request_id": "5136",
       "expected": "Callback succeeds and binds the ticket to disposable account A.",
       "callback": {
         "request_type": "neodid_action_ticket",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0xa361193f021bd4ccda5c31647b9de4ce841f1e798d77cb4784b795b234095c0e\",\"digest\":\"0x8ff8f243a84436a2809a0c1e6b0975fac82e01cee2f572e7c9e566b2d57851cc\"},\"verification\":{\"output_hash\":\"2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d9819\",\"attestation_hash\":\"2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d9819\",\"signature\":\"b93d4c77f5b6ecc6309aa8986e2bc39bb8a22237a4d024d12b41164035799d0680a434cbf048ffe36587ba720e76aef37b73d47f178ea325836fb0478305c7ce\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d98190000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"f77596155bc8c1bd87cc1289cfcb4616e929f3b42fe930c2da1d49128793590c\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0x02fc49abd0bbd987d24dfabf7de312a71aaed601c876f97af75052fc46f56b4a\",\"digest\":\"0x7b9586e0ca11a69b985cbfaccbbc96f3a48ecce1286e75d8ef2aa7b62a0295f1\"},\"verification\":{\"output_hash\":\"856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d0\",\"attestation_hash\":\"856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d0\",\"signature\":\"38fe22dfa053fa905ba0753b55a45f24efced13f796848053e6148e4bd4379699c0a3d68a9fb4abb3770b8cb3b70e553155e22f4f4b742bd46c7653799b20f32\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d00000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"8b402b6ffcecb897502d80208aa617b57a38e930c39bb1c468bac5766ee2242d\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_action_ticket",
+          "module_id": "identity.verify",
+          "operation": "neodid_action_ticket",
           "success": true,
           "result": {
             "mode": "neodid_action_ticket",
             "action_id": "vote:proposal-42",
-            "action_nullifier": "0xa361193f021bd4ccda5c31647b9de4ce841f1e798d77cb4784b795b234095c0e",
-            "digest": "0x8ff8f243a84436a2809a0c1e6b0975fac82e01cee2f572e7c9e566b2d57851cc"
+            "action_nullifier": "0x02fc49abd0bbd987d24dfabf7de312a71aaed601c876f97af75052fc46f56b4a",
+            "digest": "0x7b9586e0ca11a69b985cbfaccbbc96f3a48ecce1286e75d8ef2aa7b62a0295f1"
           },
           "verification": {
-            "output_hash": "2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d9819",
-            "attestation_hash": "2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d9819",
-            "signature": "b93d4c77f5b6ecc6309aa8986e2bc39bb8a22237a4d024d12b41164035799d0680a434cbf048ffe36587ba720e76aef37b73d47f178ea325836fb0478305c7ce",
+            "output_hash": "856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d0",
+            "attestation_hash": "856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d0",
+            "signature": "38fe22dfa053fa905ba0753b55a45f24efced13f796848053e6148e4bd4379699c0a3d68a9fb4abb3770b8cb3b70e553155e22f4f4b742bd46c7653799b20f32",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
-              "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-              "compose_hash": "5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567",
-              "report_data": "2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d98190000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "f77596155bc8c1bd87cc1289cfcb4616e929f3b42fe930c2da1d49128793590c"
+              "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
+              "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
+              "report_data": "856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d00000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "8b402b6ffcecb897502d80208aa617b57a38e930c39bb1c468bac5766ee2242d"
             }
           }
         },
         "error_text": ""
       },
       "onchain_request": {
-        "request_id": "4104",
+        "request_id": "5136",
         "request_type": "0x74656b6369745f6e6f697463615f6469646f656e",
         "payload_text": "{\"provider\":\"github\",\"provider_uid\":\"alice-gh-001\",\"disposable_account\":\"0x1111111111111111111111111111111111111111\",\"action_id\":\"vote:proposal-42\"}",
         "payload_json": {
@@ -183,52 +189,54 @@
         },
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "status": "1",
-        "created_at_ms": "1773995017272",
-        "fulfilled_at_ms": "1773995147501",
+        "created_at_ms": "1777596743245",
+        "fulfilled_at_ms": "1777596801365",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0xa361193f021bd4ccda5c31647b9de4ce841f1e798d77cb4784b795b234095c0e\",\"digest\":\"0x8ff8f243a84436a2809a0c1e6b0975fac82e01cee2f572e7c9e566b2d57851cc\"},\"verification\":{\"output_hash\":\"2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d9819\",\"attestation_hash\":\"2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d9819\",\"signature\":\"b93d4c77f5b6ecc6309aa8986e2bc39bb8a22237a4d024d12b41164035799d0680a434cbf048ffe36587ba720e76aef37b73d47f178ea325836fb0478305c7ce\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"2b0e770621086d069238dfdf8fe4e59774ec5a8d176ef70c74ee76fbf96d98190000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"f77596155bc8c1bd87cc1289cfcb4616e929f3b42fe930c2da1d49128793590c\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0x02fc49abd0bbd987d24dfabf7de312a71aaed601c876f97af75052fc46f56b4a\",\"digest\":\"0x7b9586e0ca11a69b985cbfaccbbc96f3a48ecce1286e75d8ef2aa7b62a0295f1\"},\"verification\":{\"output_hash\":\"856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d0\",\"attestation_hash\":\"856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d0\",\"signature\":\"38fe22dfa053fa905ba0753b55a45f24efced13f796848053e6148e4bd4379699c0a3d68a9fb4abb3770b8cb3b70e553155e22f4f4b742bd46c7653799b20f32\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"856dd6d42849707edbcf78bbea9a208bd119031215331082771e7453665793d00000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"8b402b6ffcecb897502d80208aa617b57a38e930c39bb1c468bac5766ee2242d\"}}}",
         "error_text": ""
       }
     },
     {
       "title": "NeoDID action ticket for disposable account B with same action_id",
       "request_type": "neodid_action_ticket",
-      "txid": "0x22e7b23945bb9d3f540551939fc460ccf093d23fdf318c227a04166f0b03ba2d",
-      "request_id": "4106",
+      "txid": "0xb99998649ac0a43913f739f73c87b38897fbbff897cf6150741c63659325831d",
+      "request_id": "5137",
       "expected": "action_nullifier stays stable for the same human + action_id, while digest/signature remain bound to the new disposable account.",
       "callback": {
         "request_type": "neodid_action_ticket",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0xa361193f021bd4ccda5c31647b9de4ce841f1e798d77cb4784b795b234095c0e\",\"digest\":\"0x39dbae52f9902ed071130da0337579cd0890baebd63d120a7bcdd596657568e5\"},\"verification\":{\"output_hash\":\"6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d\",\"attestation_hash\":\"6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d\",\"signature\":\"7be5888e3d727498561a61d9a134f79d23b15ff153fddc2974886d0fd6251a6a15c1e68259d1de2c1d0e6a79131fb578895c0834a9a75d9614f355353b92ce60\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"f867239ad0168b0d42bb70a5d2503e6984d3f3cf39a76ce8eabfdabfbdbb88d9\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0x02fc49abd0bbd987d24dfabf7de312a71aaed601c876f97af75052fc46f56b4a\",\"digest\":\"0x4fb91d17004c2a5eb0beb6e7fd7c622c66d2dbac9e1a8e57daf5151ab8f78e6d\"},\"verification\":{\"output_hash\":\"f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e\",\"attestation_hash\":\"f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e\",\"signature\":\"448500f0b580b75d132f5449f924bbd8e39cf2d8bdf0522b021b6ba90621a00038ab72fbbf9e93dced8ec814b7b813135642c4ca98e956d57ec8821e7b4b4a92\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"2ef2525dc132b6028ba3c9cdb17f8b28a46e130c8411e242178b8bce9faf3260\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_action_ticket",
+          "module_id": "identity.verify",
+          "operation": "neodid_action_ticket",
           "success": true,
           "result": {
             "mode": "neodid_action_ticket",
             "action_id": "vote:proposal-42",
-            "action_nullifier": "0xa361193f021bd4ccda5c31647b9de4ce841f1e798d77cb4784b795b234095c0e",
-            "digest": "0x39dbae52f9902ed071130da0337579cd0890baebd63d120a7bcdd596657568e5"
+            "action_nullifier": "0x02fc49abd0bbd987d24dfabf7de312a71aaed601c876f97af75052fc46f56b4a",
+            "digest": "0x4fb91d17004c2a5eb0beb6e7fd7c622c66d2dbac9e1a8e57daf5151ab8f78e6d"
           },
           "verification": {
-            "output_hash": "6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d",
-            "attestation_hash": "6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d",
-            "signature": "7be5888e3d727498561a61d9a134f79d23b15ff153fddc2974886d0fd6251a6a15c1e68259d1de2c1d0e6a79131fb578895c0834a9a75d9614f355353b92ce60",
+            "output_hash": "f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e",
+            "attestation_hash": "f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e",
+            "signature": "448500f0b580b75d132f5449f924bbd8e39cf2d8bdf0522b021b6ba90621a00038ab72fbbf9e93dced8ec814b7b813135642c4ca98e956d57ec8821e7b4b4a92",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
-              "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-              "compose_hash": "5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567",
-              "report_data": "6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d0000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "f867239ad0168b0d42bb70a5d2503e6984d3f3cf39a76ce8eabfdabfbdbb88d9"
+              "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
+              "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
+              "report_data": "f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e0000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "2ef2525dc132b6028ba3c9cdb17f8b28a46e130c8411e242178b8bce9faf3260"
             }
           }
         },
         "error_text": ""
       },
       "onchain_request": {
-        "request_id": "4106",
+        "request_id": "5137",
         "request_type": "0x74656b6369745f6e6f697463615f6469646f656e",
         "payload_text": "{\"provider\":\"github\",\"provider_uid\":\"alice-gh-001\",\"disposable_account\":\"0x2222222222222222222222222222222222222222\",\"action_id\":\"vote:proposal-42\"}",
         "payload_json": {
@@ -239,60 +247,62 @@
         },
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "status": "1",
-        "created_at_ms": "1773995160303",
-        "fulfilled_at_ms": "1773995303321",
+        "created_at_ms": "1777596807703",
+        "fulfilled_at_ms": "1777596865182",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0xa361193f021bd4ccda5c31647b9de4ce841f1e798d77cb4784b795b234095c0e\",\"digest\":\"0x39dbae52f9902ed071130da0337579cd0890baebd63d120a7bcdd596657568e5\"},\"verification\":{\"output_hash\":\"6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d\",\"attestation_hash\":\"6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d\",\"signature\":\"7be5888e3d727498561a61d9a134f79d23b15ff153fddc2974886d0fd6251a6a15c1e68259d1de2c1d0e6a79131fb578895c0834a9a75d9614f355353b92ce60\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"6a6443741b795f62ebdb9488d1fb677228c7435ebfedf70b493e60c7adc2d57d0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"f867239ad0168b0d42bb70a5d2503e6984d3f3cf39a76ce8eabfdabfbdbb88d9\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_action_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_action_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_action_ticket\",\"action_id\":\"vote:proposal-42\",\"action_nullifier\":\"0x02fc49abd0bbd987d24dfabf7de312a71aaed601c876f97af75052fc46f56b4a\",\"digest\":\"0x4fb91d17004c2a5eb0beb6e7fd7c622c66d2dbac9e1a8e57daf5151ab8f78e6d\"},\"verification\":{\"output_hash\":\"f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e\",\"attestation_hash\":\"f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e\",\"signature\":\"448500f0b580b75d132f5449f924bbd8e39cf2d8bdf0522b021b6ba90621a00038ab72fbbf9e93dced8ec814b7b813135642c4ca98e956d57ec8821e7b4b4a92\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"f76e59721df9de9c0e40b36e4ebf4245ca9cd28099ed570a2cd4f0418a9bc95e0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"2ef2525dc132b6028ba3c9cdb17f8b28a46e130c8411e242178b8bce9faf3260\"}}}",
         "error_text": ""
       }
     },
     {
       "title": "NeoDID recovery ticket A through Oracle callback",
       "request_type": "neodid_recovery_ticket",
-      "txid": "0xe065763b401d1eea025d2582f14a54942f4a996b336fd1d453b7da1ea937655b",
-      "request_id": "4107",
+      "txid": "0x4c4a7817bba906bf8a597bbe457119fef1ecc2bf610a935de982c3e3dcde0434",
+      "request_id": "5138",
       "expected": "Callback succeeds and binds network, aa_contract, account_id, new_owner, recovery_nonce, and nullifiers into the ticket.",
       "callback": {
         "request_type": "neodid_recovery_ticket",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3\",\"action_id\":\"aa_recovery:1264a40decdea2734666e1457c88a0f9fd52cb6055cf5f35b64d83bcb3d19736\",\"action_nullifier\":\"0x684b992333619c4f2687c12aeb33d30a3e82487676fd0da68f62cb676d59e056\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-a\",\"new_owner\":\"0x3333333333333333333333333333333333333333\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0x09c4349065750b2ae89289752ac75d48611ab9b6071cb38df5fedd414068be71\"},\"verification\":{\"output_hash\":\"93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e243788299807\",\"attestation_hash\":\"93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e243788299807\",\"signature\":\"6d6902c78a78a042a836d511658db7b8667a98a019f3cc5230c320020d6d58146cf304e5a41607c424ae440eb9142c626f98f0af9d065736971ae883b9c70ebc\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e2437882998070000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"b966b23cad56f598f5343db64629f1dac8b763e92a18ef51c7ff6e81dcdaec72\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c\",\"action_id\":\"aa_recovery:1264a40decdea2734666e1457c88a0f9fd52cb6055cf5f35b64d83bcb3d19736\",\"action_nullifier\":\"0x31e4e9d000aa4f6f12f404b7471735466e2b11f27f31faecd0d12f58a5d196c1\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-a\",\"new_owner\":\"0x3333333333333333333333333333333333333333\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0xf239f343fbcddaa4bb82fdb1c6ddaf878149ba1ec97913b5412ab5e2a37d0bee\"},\"verification\":{\"output_hash\":\"bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b38\",\"attestation_hash\":\"bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b38\",\"signature\":\"1f3418e1cd13d7ebac856d3c111c9b96ffd8687bbaa25de2956b7cc0439c9a84df859b901560cc461f64ce3d0d5ff32cb38dc0d07c751b363372b98ef5f75cca\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b380000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"3f9722b97920690f3992953deb5213ed50267a5cf90e2c20b59c42561f84b378\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_recovery_ticket",
+          "module_id": "identity.verify",
+          "operation": "neodid_recovery_ticket",
           "success": true,
           "result": {
             "mode": "neodid_recovery_ticket",
             "provider": "github",
-            "master_nullifier": "0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3",
+            "master_nullifier": "0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c",
             "action_id": "aa_recovery:1264a40decdea2734666e1457c88a0f9fd52cb6055cf5f35b64d83bcb3d19736",
-            "action_nullifier": "0x684b992333619c4f2687c12aeb33d30a3e82487676fd0da68f62cb676d59e056",
+            "action_nullifier": "0x31e4e9d000aa4f6f12f404b7471735466e2b11f27f31faecd0d12f58a5d196c1",
             "aa_contract": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
             "verifier_contract": "0x11d1012e071fac7fd75569981ac44da097913a84",
             "account_id": "aa-social-recovery-demo-a",
             "new_owner": "0x3333333333333333333333333333333333333333",
             "recovery_nonce": "7",
             "expires_at": "1893456000000",
-            "digest": "0x09c4349065750b2ae89289752ac75d48611ab9b6071cb38df5fedd414068be71"
+            "digest": "0xf239f343fbcddaa4bb82fdb1c6ddaf878149ba1ec97913b5412ab5e2a37d0bee"
           },
           "verification": {
-            "output_hash": "93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e243788299807",
-            "attestation_hash": "93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e243788299807",
-            "signature": "6d6902c78a78a042a836d511658db7b8667a98a019f3cc5230c320020d6d58146cf304e5a41607c424ae440eb9142c626f98f0af9d065736971ae883b9c70ebc",
+            "output_hash": "bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b38",
+            "attestation_hash": "bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b38",
+            "signature": "1f3418e1cd13d7ebac856d3c111c9b96ffd8687bbaa25de2956b7cc0439c9a84df859b901560cc461f64ce3d0d5ff32cb38dc0d07c751b363372b98ef5f75cca",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
-              "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-              "compose_hash": "5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567",
-              "report_data": "93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e2437882998070000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "b966b23cad56f598f5343db64629f1dac8b763e92a18ef51c7ff6e81dcdaec72"
+              "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
+              "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
+              "report_data": "bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b380000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "3f9722b97920690f3992953deb5213ed50267a5cf90e2c20b59c42561f84b378"
             }
           }
         },
         "error_text": ""
       },
       "onchain_request": {
-        "request_id": "4107",
+        "request_id": "5138",
         "request_type": "neodid_recovery_ticket",
         "payload_text": "{\"provider\":\"github\",\"provider_uid\":\"alice-gh-001\",\"network\":\"neo_n3\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-a\",\"new_owner\":\"0x3333333333333333333333333333333333333333\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\"}",
         "payload_json": {
@@ -308,60 +318,62 @@
         },
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "status": "1",
-        "created_at_ms": "1773995312950",
-        "fulfilled_at_ms": "1773995445930",
+        "created_at_ms": "1777596871519",
+        "fulfilled_at_ms": "1777596929193",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3\",\"action_id\":\"aa_recovery:1264a40decdea2734666e1457c88a0f9fd52cb6055cf5f35b64d83bcb3d19736\",\"action_nullifier\":\"0x684b992333619c4f2687c12aeb33d30a3e82487676fd0da68f62cb676d59e056\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-a\",\"new_owner\":\"0x3333333333333333333333333333333333333333\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0x09c4349065750b2ae89289752ac75d48611ab9b6071cb38df5fedd414068be71\"},\"verification\":{\"output_hash\":\"93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e243788299807\",\"attestation_hash\":\"93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e243788299807\",\"signature\":\"6d6902c78a78a042a836d511658db7b8667a98a019f3cc5230c320020d6d58146cf304e5a41607c424ae440eb9142c626f98f0af9d065736971ae883b9c70ebc\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"93f7b97ffa52ad95c8b2131f2436c438cb6b9c18152849c7564e2437882998070000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"b966b23cad56f598f5343db64629f1dac8b763e92a18ef51c7ff6e81dcdaec72\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c\",\"action_id\":\"aa_recovery:1264a40decdea2734666e1457c88a0f9fd52cb6055cf5f35b64d83bcb3d19736\",\"action_nullifier\":\"0x31e4e9d000aa4f6f12f404b7471735466e2b11f27f31faecd0d12f58a5d196c1\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-a\",\"new_owner\":\"0x3333333333333333333333333333333333333333\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0xf239f343fbcddaa4bb82fdb1c6ddaf878149ba1ec97913b5412ab5e2a37d0bee\"},\"verification\":{\"output_hash\":\"bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b38\",\"attestation_hash\":\"bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b38\",\"signature\":\"1f3418e1cd13d7ebac856d3c111c9b96ffd8687bbaa25de2956b7cc0439c9a84df859b901560cc461f64ce3d0d5ff32cb38dc0d07c751b363372b98ef5f75cca\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"bd41a719ac16a9e019ada19121b2a42263d0369b02bbe48f842f4240e0a80b380000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"3f9722b97920690f3992953deb5213ed50267a5cf90e2c20b59c42561f84b378\"}}}",
         "error_text": ""
       }
     },
     {
       "title": "NeoDID recovery ticket B with different account / owner",
       "request_type": "neodid_recovery_ticket",
-      "txid": "0xa2fc9c853abf91621d88e67d4756b67a0951f87aa911695ce7ee8d1839c8fb55",
-      "request_id": "4109",
+      "txid": "0x36c036883632c6c6a21857a77d70563e881848acec28d40f49877150b56ec4af",
+      "request_id": "5139",
       "expected": "Changing account_id or new_owner changes the ticket binding and derived recovery action id.",
       "callback": {
         "request_type": "neodid_recovery_ticket",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3\",\"action_id\":\"aa_recovery:7629b77aa17b152ca083273cea8c1885a3216077e40afcd0769d9d14c192605d\",\"action_nullifier\":\"0x7109fbbd114217fa0e15f924179de1630335131c0c1bfca637c306146cac3081\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-b\",\"new_owner\":\"0x4444444444444444444444444444444444444444\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0xb176b8928f141cce5a0a7fb64bfddb14a683f673fcbb73f3a0608c6cf7b06b3b\"},\"verification\":{\"output_hash\":\"80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a\",\"attestation_hash\":\"80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a\",\"signature\":\"09f1a330d3c3ef3bdd21abaf53e44af7e20cc79ce6a9be67f63c070f91491242d3f1c144633a8e3fcb84d10f4e03b56a34ebcbf2282e3ba1d4d5623c7716c3c2\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"ea46854cbeee5f4812cb837ef41ed75961f328c8eaff6d109d46a354a9068a9c\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c\",\"action_id\":\"aa_recovery:7629b77aa17b152ca083273cea8c1885a3216077e40afcd0769d9d14c192605d\",\"action_nullifier\":\"0xa8dde0c198550de239c19778372767aad5a733af5df400ed8a2b519cc00e4be4\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-b\",\"new_owner\":\"0x4444444444444444444444444444444444444444\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0x91ea4319b431fe31fff4e35ffe787f202783f06b0ff0698f23d3f915a126d47b\"},\"verification\":{\"output_hash\":\"3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb305\",\"attestation_hash\":\"3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb305\",\"signature\":\"5c4daf5cc3dd1aaaca1b1c8dfaae26c16fa3bd0cfe93e2c704c5283354b4f9b432af0c64b102835c9cf651cbcb73a86aceb558d6ad4426ef6f0846ba77770ad9\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb3050000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"7b5e31816e806a5bf61babb2ed848d311827a3682c09325e60cd96191f3763eb\"}}}",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "neodid_recovery_ticket",
+          "module_id": "identity.verify",
+          "operation": "neodid_recovery_ticket",
           "success": true,
           "result": {
             "mode": "neodid_recovery_ticket",
             "provider": "github",
-            "master_nullifier": "0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3",
+            "master_nullifier": "0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c",
             "action_id": "aa_recovery:7629b77aa17b152ca083273cea8c1885a3216077e40afcd0769d9d14c192605d",
-            "action_nullifier": "0x7109fbbd114217fa0e15f924179de1630335131c0c1bfca637c306146cac3081",
+            "action_nullifier": "0xa8dde0c198550de239c19778372767aad5a733af5df400ed8a2b519cc00e4be4",
             "aa_contract": "0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38",
             "verifier_contract": "0x11d1012e071fac7fd75569981ac44da097913a84",
             "account_id": "aa-social-recovery-demo-b",
             "new_owner": "0x4444444444444444444444444444444444444444",
             "recovery_nonce": "7",
             "expires_at": "1893456000000",
-            "digest": "0xb176b8928f141cce5a0a7fb64bfddb14a683f673fcbb73f3a0608c6cf7b06b3b"
+            "digest": "0x91ea4319b431fe31fff4e35ffe787f202783f06b0ff0698f23d3f915a126d47b"
           },
           "verification": {
-            "output_hash": "80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a",
-            "attestation_hash": "80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a",
-            "signature": "09f1a330d3c3ef3bdd21abaf53e44af7e20cc79ce6a9be67f63c070f91491242d3f1c144633a8e3fcb84d10f4e03b56a34ebcbf2282e3ba1d4d5623c7716c3c2",
+            "output_hash": "3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb305",
+            "attestation_hash": "3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb305",
+            "signature": "5c4daf5cc3dd1aaaca1b1c8dfaae26c16fa3bd0cfe93e2c704c5283354b4f9b432af0c64b102835c9cf651cbcb73a86aceb558d6ad4426ef6f0846ba77770ad9",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
-              "app_id": "28294e89d490924b79c85cdee057ce55723b3d56",
-              "compose_hash": "5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567",
-              "report_data": "80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a0000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "ea46854cbeee5f4812cb837ef41ed75961f328c8eaff6d109d46a354a9068a9c"
+              "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
+              "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
+              "report_data": "3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb3050000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "7b5e31816e806a5bf61babb2ed848d311827a3682c09325e60cd96191f3763eb"
             }
           }
         },
         "error_text": ""
       },
       "onchain_request": {
-        "request_id": "4109",
+        "request_id": "5139",
         "request_type": "neodid_recovery_ticket",
         "payload_text": "{\"provider\":\"github\",\"provider_uid\":\"alice-gh-001\",\"network\":\"neo_n3\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-b\",\"new_owner\":\"0x4444444444444444444444444444444444444444\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\"}",
         "payload_json": {
@@ -377,20 +389,20 @@
         },
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "status": "1",
-        "created_at_ms": "1773995458577",
-        "fulfilled_at_ms": "1773995597122",
+        "created_at_ms": "1777596935795",
+        "fulfilled_at_ms": "1777596995776",
         "success": true,
-        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x590e066b8025aeb9ef4f4f2c3f6359c180cb1b6dfac4411b002476e1c8dcc4d3\",\"action_id\":\"aa_recovery:7629b77aa17b152ca083273cea8c1885a3216077e40afcd0769d9d14c192605d\",\"action_nullifier\":\"0x7109fbbd114217fa0e15f924179de1630335131c0c1bfca637c306146cac3081\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-b\",\"new_owner\":\"0x4444444444444444444444444444444444444444\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0xb176b8928f141cce5a0a7fb64bfddb14a683f673fcbb73f3a0608c6cf7b06b3b\"},\"verification\":{\"output_hash\":\"80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a\",\"attestation_hash\":\"80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a\",\"signature\":\"09f1a330d3c3ef3bdd21abaf53e44af7e20cc79ce6a9be67f63c070f91491242d3f1c144633a8e3fcb84d10f4e03b56a34ebcbf2282e3ba1d4d5623c7716c3c2\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"28294e89d490924b79c85cdee057ce55723b3d56\",\"compose_hash\":\"5e8605658123ec4e8e25223ec77a48a3694beba9d364368096a75e1b4a2a3567\",\"report_data\":\"80c5c34a3d5ef834a57334031e1cf869be8d90add57b081a8f0f426046def44a0000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"ea46854cbeee5f4812cb837ef41ed75961f328c8eaff6d109d46a354a9068a9c\"}}}",
+        "result_text": "{\"version\":\"morpheus-result/v1\",\"request_type\":\"neodid_recovery_ticket\",\"module_id\":\"identity.verify\",\"operation\":\"neodid_recovery_ticket\",\"success\":true,\"result\":{\"mode\":\"neodid_recovery_ticket\",\"provider\":\"github\",\"master_nullifier\":\"0x8106854322509d6d235bd9ef23ded33e239e928e3c499d1003cf25952c836b7c\",\"action_id\":\"aa_recovery:7629b77aa17b152ca083273cea8c1885a3216077e40afcd0769d9d14c192605d\",\"action_nullifier\":\"0xa8dde0c198550de239c19778372767aad5a733af5df400ed8a2b519cc00e4be4\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-b\",\"new_owner\":\"0x4444444444444444444444444444444444444444\",\"recovery_nonce\":\"7\",\"expires_at\":\"1893456000000\",\"digest\":\"0x91ea4319b431fe31fff4e35ffe787f202783f06b0ff0698f23d3f915a126d47b\"},\"verification\":{\"output_hash\":\"3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb305\",\"attestation_hash\":\"3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb305\",\"signature\":\"5c4daf5cc3dd1aaaca1b1c8dfaae26c16fa3bd0cfe93e2c704c5283354b4f9b432af0c64b102835c9cf651cbcb73a86aceb558d6ad4426ef6f0846ba77770ad9\",\"public_key\":\"02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4\",\"tee_attestation\":{\"app_id\":\"ddff154546fe22d15b65667156dd4b7c611e6093\",\"compose_hash\":\"04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee\",\"report_data\":\"3db73c539fc1e8456e489a186be6fde193262bf8f9f419b58b3bdb7cf4ebb3050000000000000000000000000000000000000000000000000000000000000000\",\"quote_hash\":\"7b5e31816e806a5bf61babb2ed848d311827a3682c09325e60cd96191f3763eb\"}}}",
         "error_text": ""
       }
     },
     {
       "title": "NeoDID recovery ticket failure callback when required context is missing",
       "request_type": "neodid_recovery_ticket",
-      "txid": "0x3c250c31e8520174c98ea7d5700ca7d75034b645e24255db7aa34d1c9ed4fb25",
-      "request_id": "4111",
+      "txid": "0x1c2de85ad2c2f67d7a78d22806ffb1afd33f9d345f346dfbd8b18fee588c40ea",
+      "request_id": "5140",
       "expected": "Request is still fulfilled, but callback success=false and error explains that new_owner is required.",
       "callback": {
         "request_type": "neodid_recovery_ticket",
@@ -400,7 +412,7 @@
         "error_text": "new_owner must be a 20-byte hash160"
       },
       "onchain_request": {
-        "request_id": "4111",
+        "request_id": "5140",
         "request_type": "neodid_recovery_ticket",
         "payload_text": "{\"provider\":\"github\",\"provider_uid\":\"alice-gh-001\",\"network\":\"neo_n3\",\"aa_contract\":\"0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38\",\"verifier_contract\":\"0x11d1012e071fac7fd75569981ac44da097913a84\",\"account_id\":\"aa-social-recovery-demo-c\",\"recovery_nonce\":\"9\",\"expires_at\":\"1893456000000\"}",
         "payload_json": {
@@ -415,10 +427,10 @@
         },
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "requester": "0xe421999c396ee0249a8a8c9dd95bfbdaf55f8bf7",
+        "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "status": "2",
-        "created_at_ms": "1773995606553",
-        "fulfilled_at_ms": "1773995745964",
+        "created_at_ms": "1777597002486",
+        "fulfilled_at_ms": "1777597064053",
         "success": false,
         "result_text": "",
         "error_text": "new_owner must be a 20-byte hash160"

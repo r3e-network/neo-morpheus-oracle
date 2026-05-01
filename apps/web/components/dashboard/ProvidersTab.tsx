@@ -91,7 +91,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
             style={{
               padding: '1.5rem',
               borderBottom: '1px solid var(--border-dim)',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'rgba(83, 58, 253, 0.045)',
             }}
           >
             <h3
@@ -163,7 +163,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                     style={{
                       fontWeight: 800,
                       fontSize: '1rem',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                       fontFamily: 'var(--font-mono)',
                     }}
                   >
@@ -195,11 +195,12 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                   }}
                 >
                   <span style={{ color: 'var(--text-muted)' }}>
-                    SUPPORT: <span style={{ color: '#fff' }}>{p.supports?.join(', ')}</span>
+                    SUPPORT:{' '}
+                    <span style={{ color: 'var(--text-primary)' }}>{p.supports?.join(', ')}</span>
                   </span>
                   <span style={{ color: 'var(--text-muted)' }}>
                     AUTH:{' '}
-                    <span style={{ color: '#fff' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>
                       {p.auth === 'none' ? 'Public' : 'Encrypted Key'}
                     </span>
                   </span>
@@ -217,7 +218,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
             style={{
               padding: '1.5rem',
               borderBottom: '1px solid var(--border-dim)',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'rgba(83, 58, 253, 0.045)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -247,7 +248,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search index (e.g. BTC, NEO)..."
-                  style={{ paddingLeft: '40px', background: '#000' }}
+                  style={{ paddingLeft: '40px', background: 'var(--bg-panel)' }}
                 />
                 <Search
                   size={16}
@@ -293,10 +294,11 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                       padding: '0.75rem',
                       textAlign: 'center',
                       fontSize: '0.75rem',
-                      background: selectedPair === s ? 'rgba(0,255,163,0.08)' : '#000',
+                      background:
+                        selectedPair === s ? 'rgba(0, 168, 107, 0.11)' : 'var(--bg-panel)',
                       border: '1px solid',
                       borderColor: selectedPair === s ? 'var(--neo-green)' : 'var(--border-dim)',
-                      color: selectedPair === s ? '#fff' : 'var(--text-secondary)',
+                      color: selectedPair === s ? 'var(--text-primary)' : 'var(--text-secondary)',
                       fontFamily: 'var(--font-mono)',
                       transition: 'all 0.2s',
                       cursor: 'pointer',
@@ -352,7 +354,11 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
             }}
           >
             <div
-              style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+              style={{
+                padding: '1rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+              }}
             >
               <div
                 style={{
@@ -365,12 +371,16 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
               >
                 PAIR
               </div>
-              <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                 {selectedDescriptor.pair}
               </div>
             </div>
             <div
-              style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+              style={{
+                padding: '1rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+              }}
             >
               <div
                 style={{
@@ -383,10 +393,14 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
               >
                 MEANING
               </div>
-              <div style={{ color: '#fff' }}>{selectedDescriptor.meaning}</div>
+              <div style={{ color: 'var(--text-primary)' }}>{selectedDescriptor.meaning}</div>
             </div>
             <div
-              style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+              style={{
+                padding: '1rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+              }}
             >
               <div
                 style={{
@@ -399,12 +413,16 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
               >
                 TWELVEDATA SYMBOL
               </div>
-              <div style={{ color: '#fff', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
                 {selectedDescriptor.sourceSymbol}
               </div>
             </div>
             <div
-              style={{ padding: '1rem', background: '#000', border: '1px solid var(--border-dim)' }}
+              style={{
+                padding: '1rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+              }}
             >
               <div
                 style={{
@@ -417,7 +435,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
               >
                 ON-CHAIN UNIT
               </div>
-              <div style={{ color: '#fff' }}>{selectedDescriptor.unit}</div>
+              <div style={{ color: 'var(--text-primary)' }}>{selectedDescriptor.unit}</div>
             </div>
           </div>
           {selectedDescriptor.note && (
@@ -429,7 +447,8 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                 lineHeight: 1.6,
               }}
             >
-              <strong style={{ color: '#fff' }}>Note:</strong> {selectedDescriptor.note}
+              <strong style={{ color: 'var(--text-primary)' }}>Note:</strong>{' '}
+              {selectedDescriptor.note}
             </p>
           )}
         </section>
@@ -443,7 +462,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
           style={{
             marginTop: 0,
             marginBottom: '0.75rem',
-            color: '#fff',
+            color: 'var(--text-primary)',
             fontSize: '0.95rem',
             fontWeight: 800,
           }}
@@ -464,7 +483,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
           style={{
             padding: '1rem 1.5rem',
             borderBottom: '1px solid var(--border-dim)',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'rgba(83, 58, 253, 0.045)',
           }}
         >
           <h4
@@ -496,7 +515,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                     style={{
                       padding: '0.85rem 1rem',
                       fontFamily: 'var(--font-mono)',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     {item.pair}
@@ -508,7 +527,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                     style={{
                       padding: '0.85rem 1rem',
                       fontFamily: 'var(--font-mono)',
-                      color: '#fff',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     {item.sourceSymbol}

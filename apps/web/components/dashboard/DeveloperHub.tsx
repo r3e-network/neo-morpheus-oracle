@@ -105,14 +105,14 @@ export function DeveloperHub() {
           <div
             style={{
               display: 'flex',
-              background: 'rgba(255,255,255,0.02)',
+              background: 'rgba(83, 58, 253, 0.045)',
               borderBottom: '1px solid var(--border-dim)',
               padding: '1rem 2rem',
             }}
           >
             <span
               style={{
-                color: '#fff',
+                color: 'var(--text-primary)',
                 fontWeight: 700,
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.8rem',
@@ -212,7 +212,7 @@ export function DeveloperHub() {
               </p>
               <div
                 style={{
-                  background: '#000',
+                  background: 'var(--bg-panel)',
                   padding: '1rem',
                   borderRadius: '4px',
                   border: '1px solid var(--border-dim)',
@@ -231,7 +231,7 @@ export function DeveloperHub() {
                 <code
                   style={{
                     fontSize: '0.75rem',
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                     wordBreak: 'break-all',
                     fontFamily: 'var(--font-mono)',
                   }}
@@ -292,7 +292,7 @@ export function DeveloperHub() {
 
               <div
                 style={{
-                  background: '#000',
+                  background: 'var(--bg-panel)',
                   border: '1px solid var(--border-dim)',
                   borderRadius: '4px',
                   overflow: 'hidden',
@@ -301,7 +301,7 @@ export function DeveloperHub() {
                 <div
                   style={{
                     padding: '0.75rem 1rem',
-                    background: 'rgba(255,255,255,0.02)',
+                    background: 'rgba(83, 58, 253, 0.045)',
                     fontSize: '0.65rem',
                     fontWeight: 800,
                     color: 'var(--text-secondary)',
@@ -350,7 +350,7 @@ export function DeveloperHub() {
                     fontSize: '0.9rem',
                     fontWeight: 800,
                     marginBottom: '0.75rem',
-                    color: '#fff',
+                    color: 'var(--text-primary)',
                   }}
                 >
                   {c.title}

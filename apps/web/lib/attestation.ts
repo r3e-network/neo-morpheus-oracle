@@ -83,7 +83,10 @@ export function verifyAttestation(input: {
 }) {
   const record = unwrapRecord(input.envelope ?? input.verification ?? input.attestation);
   const verification = unwrapVerification(input.verification ?? record ?? input.attestation);
-  const attestation = unwrapAttestation(input.attestation ?? verification ?? record);
+  const attestation =
+    unwrapAttestation(input.attestation) ??
+    unwrapAttestation(verification) ??
+    unwrapAttestation(record);
   if (!verification && !attestation) {
     return {
       ok: false,

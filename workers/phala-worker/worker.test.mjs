@@ -1652,6 +1652,62 @@ test('oracle smart fetch supports encrypted_payload alias and script_base64', as
   assert.equal(body.target_chain, 'neo_n3');
 });
 
+test('oracle smart fetch resolves encrypted_token_ref through Supabase ciphertext storage', async () => {
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
+  assert.equal(keyRes.status, 200);
+  const keyBody = await keyRes.json();
+  const ciphertext = await encryptForOracle(keyBody.public_key, 'secret-token-by-ref');
+
+  global.fetch = async (url, init) => {
+    const value = String(url);
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_encrypted_secrets')) {
+      return new Response(
+        JSON.stringify([
+          {
+            id: '44444444-4444-4444-4444-444444444444',
+            ciphertext,
+          },
+        ]),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
+    }
+    assert.equal(value, 'https://api.example.com/private-ref');
+    assert.equal(init.headers.get('Authorization'), 'Bearer secret-token-by-ref');
+    return new Response(JSON.stringify({ ok: true, age: 84 }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const res = await handler(
+    new Request('http://local/oracle/smart-fetch', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        url: 'https://api.example.com/private-ref',
+        encrypted_token_ref: '44444444-4444-4444-4444-444444444444',
+        script:
+          'function process(data, context) { return data.age === 84 && context.encrypted_token_present; }',
+        target_chain: 'neo_n3',
+      }),
+    })
+  );
+  const responseText = await res.text();
+  assert.equal(res.status, 200, responseText);
+  const body = JSON.parse(responseText);
+  assert.equal(body.mode, 'fetch+compute');
+  assert.equal(body.result, true);
+  assert.equal(body.target_chain, 'neo_n3');
+});
+
 test('oracle smart fetch supports encrypted JSON payload patches', async () => {
   const keyRes = await handler(
     new Request('http://local/oracle/public-key', { headers: authHeaders() })
@@ -2133,6 +2189,80 @@ test('compute execute supports encrypted confidential payload patches', async ()
   assert.equal(body.mode, 'builtin');
   assert.equal(body.function, 'math.modexp');
   assert.equal(body.result.value, '4');
+  assert.equal(body.target_chain, 'neo_n3');
+});
+
+test('compute execute resolves encrypted_input_ref through Supabase ciphertext storage', async () => {
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+  const keyRes = await handler(
+    new Request('http://local/oracle/public-key', { headers: authHeaders() })
+  );
+  assert.equal(keyRes.status, 200);
+  const keyBody = await keyRes.json();
+  const ciphertext = await encryptForOracle(
+    keyBody.public_key,
+    JSON.stringify({
+      mode: 'builtin',
+      function: 'math.modexp',
+      input: { base: '3', exponent: '7', modulus: '11' },
+      target_chain: 'neo_n3',
+    })
+  );
+
+  global.fetch = async (url, init = {}) => {
+    const value = String(url);
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_encrypted_secrets')) {
+      if ((init.method || 'GET').toUpperCase() === 'PATCH') {
+        const body = JSON.parse(init.body);
+        assert.equal(body.metadata._consumed_request_id, 'compute-ref-1');
+        return new Response(
+          JSON.stringify([
+            {
+              id: '55555555-5555-5555-5555-555555555555',
+              ciphertext,
+              metadata: body.metadata,
+            },
+          ]),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      return new Response(
+        JSON.stringify([
+          {
+            id: '55555555-5555-5555-5555-555555555555',
+            ciphertext,
+            metadata: {
+              bound_requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+              bound_callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+            },
+          },
+        ]),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const res = await handler(
+    new Request('http://local/compute/execute', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        encrypted_input_ref: '55555555-5555-5555-5555-555555555555',
+        request_id: 'compute-ref-1',
+        requester: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        callback_contract: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      }),
+    })
+  );
+  const responseText = await res.text();
+  assert.equal(res.status, 200, responseText);
+  const body = JSON.parse(responseText);
+  assert.equal(body.mode, 'builtin');
+  assert.equal(body.function, 'math.modexp');
+  assert.equal(body.result.value, '9');
   assert.equal(body.target_chain, 'neo_n3');
 });
 
