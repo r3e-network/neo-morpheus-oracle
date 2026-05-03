@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { wallet } from '@cityofzion/neon-js';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const archivedEnvKeys = [
@@ -19,6 +20,42 @@ const archivedEnvKeys = [
   'PHALA_DSTACK_RELAYER_NEOX_KEY_PATH',
 ];
 
+function buildTestSignerEnv() {
+  const account = new wallet.Account(wallet.generatePrivateKey());
+  const wifKeys = [
+    'NEO_TESTNET_WIF',
+    'NEO_N3_WIF',
+    'PHALA_NEO_N3_WIF',
+    'PHALA_NEO_N3_WIF_MAINNET',
+    'MORPHEUS_RELAYER_NEO_N3_WIF',
+    'MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET',
+    'MORPHEUS_UPDATER_NEO_N3_WIF',
+    'MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET',
+    'MORPHEUS_ORACLE_VERIFIER_WIF',
+    'MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET',
+    'PHALA_ORACLE_VERIFIER_WIF',
+    'PHALA_ORACLE_VERIFIER_WIF_MAINNET',
+  ];
+  const privateKeyKeys = [
+    'PHALA_NEO_N3_PRIVATE_KEY',
+    'PHALA_NEO_N3_PRIVATE_KEY_MAINNET',
+    'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+    'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET',
+    'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
+    'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET',
+    'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
+    'PHALA_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET',
+  ];
+
+  return Object.fromEntries([
+    ['MORPHEUS_ALLOW_UNPINNED_SIGNERS', 'true'],
+    ...wifKeys.map((key) => [key, account.WIF]),
+    ...privateKeyKeys.map((key) => [key, account.privateKey]),
+  ]);
+}
+
 test('render-phala-env omits archived Neo X fields from generated output', () => {
   const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'render-phala-env-'));
   const outputPath = path.join(outputDir, 'morpheus.mainnet.env');
@@ -28,6 +65,7 @@ test('render-phala-env omits archived Neo X fields from generated output', () =>
     {
       cwd: repoRoot,
       encoding: 'utf8',
+      env: { ...process.env, ...buildTestSignerEnv() },
     }
   );
 

@@ -15,6 +15,7 @@ import {
   tryParseJson,
   writeValidationArtifacts,
   writeSkippedValidationArtifacts,
+  withRetries,
 } from './common.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
@@ -85,7 +86,9 @@ function byteArrayParam(hexValue) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
@@ -119,7 +122,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       const appLog = await rpcClient.getApplicationLog(txid);
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -344,12 +347,26 @@ async function main() {
     await waitForApplicationLog(rpcClient, setVerifierTxid),
     'setOracleVerificationPublicKey'
   );
-  const allowCallbackTxid = await oracleContract.invoke(
-    'addAllowedCallback',
-    [sc.ContractParam.hash160(consumer.hash)],
+  const appId = `replay_${suffix}`;
+  const registerMiniAppTxid = await oracleContract.invoke(
+    'registerMiniApp',
+    [
+      sc.ContractParam.string(appId),
+      sc.ContractParam.hash160(`0x${account.scriptHash}`),
+      sc.ContractParam.hash160(`0x${account.scriptHash}`),
+      sc.ContractParam.hash160(consumer.hash),
+      sc.ContractParam.string('morpheus://validation/fulfillment-replay'),
+      sc.ContractParam.string(''),
+    ],
     signers
   );
-  assertHalt(await waitForApplicationLog(rpcClient, allowCallbackTxid), 'addAllowedCallback');
+  assertHalt(await waitForApplicationLog(rpcClient, registerMiniAppTxid), 'registerMiniApp');
+  const grantIdentityTxid = await oracleContract.invoke(
+    'grantModuleToMiniApp',
+    [sc.ContractParam.string(appId), sc.ContractParam.string('identity.verify')],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, grantIdentityTxid), 'grantModuleToMiniApp');
   const setOracleTxid = await consumerContract.invoke(
     'setOracle',
     [sc.ContractParam.hash160(oracle.hash)],
@@ -444,7 +461,12 @@ async function main() {
       true,
       sourceCase.callback.result_text,
       '',
-      ''
+      '',
+      {
+        appId,
+        moduleId: 'identity.verify',
+        operation: 'neodid_bind',
+      }
     ).toString('hex'),
     account.privateKey
   );
@@ -489,7 +511,8 @@ async function main() {
     setup: {
       set_updater_txid: setUpdaterTxid,
       set_verifier_txid: setVerifierTxid,
-      allow_callback_txid: allowCallbackTxid,
+      register_miniapp_txid: registerMiniAppTxid,
+      grant_identity_txid: grantIdentityTxid,
       set_oracle_txid: setOracleTxid,
     },
     replay_source: {

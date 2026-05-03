@@ -17,6 +17,7 @@ import {
   tryParseJson,
   writeValidationArtifacts,
   writeSkippedValidationArtifacts,
+  withRetries,
 } from './common.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
@@ -24,9 +25,10 @@ const CONTRACT_BUILD_DIR = path.resolve(repoRoot, 'contracts/build');
 const AA_BUILD_DIR = path.resolve(repoRoot, '../neo-abstract-account/contracts/bin/v3');
 const SOURCE_CALLBACK_REPORT = path.resolve(
   repoRoot,
-  'examples/deployments/n3-automation-validation.testnet.latest.json'
+  'examples/deployments/n3-privacy-validation.testnet.latest.json'
 );
 const execFileAsync = promisify(execFile);
+const MIN_ESCAPE_TIMELOCK_SECONDS = '604800';
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -86,7 +88,9 @@ function byteArrayParam(hexValue) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
@@ -398,7 +402,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       const appLog = await rpcClient.getApplicationLog(txid);
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -539,12 +543,26 @@ async function main() {
     await waitForApplicationLog(rpcClient, setVerifierTxid),
     'setOracleVerificationPublicKey'
   );
-  const allowCallbackTxid = await oracleContract.invoke(
-    'addAllowedCallback',
-    [sc.ContractParam.hash160(harness.hash)],
+  const appId = `aa_callback_${suffix}`;
+  const registerMiniAppTxid = await oracleContract.invoke(
+    'registerMiniApp',
+    [
+      sc.ContractParam.string(appId),
+      sc.ContractParam.hash160(`0x${account.scriptHash}`),
+      sc.ContractParam.hash160(`0x${account.scriptHash}`),
+      sc.ContractParam.hash160(harness.hash),
+      sc.ContractParam.string('morpheus://validation/aa-callback-replay'),
+      sc.ContractParam.string(''),
+    ],
     signers
   );
-  assertHalt(await waitForApplicationLog(rpcClient, allowCallbackTxid), 'addAllowedCallback');
+  assertHalt(await waitForApplicationLog(rpcClient, registerMiniAppTxid), 'registerMiniApp');
+  const grantOracleFetchTxid = await oracleContract.invoke(
+    'grantModuleToMiniApp',
+    [sc.ContractParam.string(appId), sc.ContractParam.string('oracle.fetch')],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, grantOracleFetchTxid), 'grantModuleToMiniApp');
   const setOracleTxid = await harnessContract.invoke(
     'setOracle',
     [sc.ContractParam.hash160(oracle.hash)],
@@ -558,23 +576,43 @@ async function main() {
   );
   assertHalt(await waitForApplicationLog(rpcClient, setAaCoreTxid), 'setAaCore');
 
-  const accountIdA = '0x1111111111111111111111111111111111111111';
-  const accountIdB = '0x2222222222222222222222222222222222222222';
-  for (const accountId of [accountIdA, accountIdB]) {
+  const backupOwner = `0x${account.scriptHash}`;
+  const accountA = {
+    hookId: '0x0000000000000000000000000000000000000001',
+  };
+  const accountB = {
+    hookId: '0x0000000000000000000000000000000000000002',
+  };
+  for (const accountConfig of [accountA, accountB]) {
+    accountConfig.accountId = normalizeHash160(
+      await invokeRead(rpcClient, aaCore.hash, 'computeRegistrationAccountId', [
+        { type: 'Hash160', value: sessionVerifier.hash },
+        { type: 'ByteArray', value: '' },
+        { type: 'Hash160', value: accountConfig.hookId },
+        { type: 'Hash160', value: backupOwner },
+        { type: 'Integer', value: MIN_ESCAPE_TIMELOCK_SECONDS },
+      ])
+    );
+    assertCondition(accountConfig.accountId, 'failed to compute registration account id');
     const txid = await coreContract.invoke(
       'registerAccount',
       [
-        sc.ContractParam.hash160(accountId),
+        sc.ContractParam.hash160(accountConfig.accountId),
         sc.ContractParam.hash160(sessionVerifier.hash),
         byteArrayParam(''),
-        sc.ContractParam.hash160('0'.repeat(40)),
-        sc.ContractParam.hash160(`0x${account.scriptHash}`),
-        sc.ContractParam.integer('1'),
+        sc.ContractParam.hash160(accountConfig.hookId),
+        sc.ContractParam.hash160(backupOwner),
+        sc.ContractParam.integer(MIN_ESCAPE_TIMELOCK_SECONDS),
       ],
       signers
     );
-    assertHalt(await waitForApplicationLog(rpcClient, txid), `registerAccount:${accountId}`);
+    assertHalt(
+      await waitForApplicationLog(rpcClient, txid),
+      `registerAccount:${accountConfig.accountId}`
+    );
   }
+  const accountIdA = accountA.accountId;
+  const accountIdB = accountB.accountId;
 
   const feeStatus = await ensureRequestFeeCredit(
     account,
@@ -586,11 +624,15 @@ async function main() {
   );
 
   const sourceReport = JSON.parse(await fs.readFile(SOURCE_CALLBACK_REPORT, 'utf8'));
-  const sourceCase = sourceReport.queued_execution;
-  assertCondition(
-    sourceCase?.callback?.result_text,
-    'failed to load a source privacy_oracle callback result'
+  const sourceCase = sourceReport.cases?.find(
+    (item) =>
+      item.request_type === 'privacy_oracle' &&
+      item.callback?.success === true &&
+      item.callback?.result_json?.verification?.signature
   );
+  assertCondition(sourceCase?.callback?.result_json, 'failed to load a source privacy_oracle callback result');
+  const sourceResultText =
+    sourceCase.callback.result_text || JSON.stringify(sourceCase.callback.result_json);
   const oldSignature = sourceCase.callback.result_json?.verification?.signature || '';
   assertCondition(trimString(oldSignature), 'source callback verification signature missing');
 
@@ -613,7 +655,7 @@ async function main() {
     args: [
       sc.ContractParam.integer(String(requestBId)),
       sc.ContractParam.boolean(true),
-      byteArrayParam(Buffer.from(sourceCase.callback.result_text, 'utf8').toString('hex')),
+      byteArrayParam(Buffer.from(sourceResultText, 'utf8').toString('hex')),
       sc.ContractParam.string(''),
       byteArrayParam(oldSignature),
     ],
@@ -640,9 +682,14 @@ async function main() {
       requestAId,
       'privacy_oracle',
       true,
-      sourceCase.callback.result_text,
+      sourceResultText,
       '',
-      ''
+      '',
+      {
+        appId,
+        moduleId: 'oracle.fetch',
+        operation: 'privacy_oracle',
+      }
     ).toString('hex'),
     account.privateKey
   );
@@ -652,7 +699,7 @@ async function main() {
     args: [
       sc.ContractParam.integer(String(requestAId)),
       sc.ContractParam.boolean(true),
-      byteArrayParam(Buffer.from(sourceCase.callback.result_text, 'utf8').toString('hex')),
+      byteArrayParam(Buffer.from(sourceResultText, 'utf8').toString('hex')),
       sc.ContractParam.string(''),
       byteArrayParam(correctSignature),
     ],
@@ -711,7 +758,8 @@ async function main() {
     setup: {
       set_updater_txid: setUpdaterTxid,
       set_verifier_txid: setVerifierTxid,
-      allow_callback_txid: allowCallbackTxid,
+      register_miniapp_txid: registerMiniAppTxid,
+      grant_oracle_fetch_txid: grantOracleFetchTxid,
       set_oracle_txid: setOracleTxid,
       set_aa_core_txid: setAaCoreTxid,
     },

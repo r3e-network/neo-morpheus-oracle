@@ -14,6 +14,7 @@ import {
   sleep,
   trimString,
   tryParseJson,
+  withRetries,
 } from './common.mjs';
 import { buildBuiltinComputeCases, extractBuiltinInnerResult } from './lib-builtins.mjs';
 
@@ -69,7 +70,9 @@ function decodeCallbackArray(item) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
@@ -139,7 +142,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       const appLog = await rpcClient.getApplicationLog(txid);
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}

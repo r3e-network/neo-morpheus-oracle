@@ -55,7 +55,7 @@ export function ComputeEditor({
               fontFamily: 'var(--font-mono)',
             }}
           >
-            <Code className="text-neo" size={16} /> Sandbox Logic (JS)
+            <Code className="text-neo" size={16} /> Runtime Logic
           </h3>
         </div>
         <div style={{ padding: '1.5rem' }}>
@@ -125,7 +125,7 @@ export function ComputeEditor({
               fontFamily: 'var(--font-mono)',
             }}
           >
-            <FileCode className="text-neo" size={16} /> Mock Input (JSON)
+            <FileCode className="text-neo" size={16} /> Test Input and Callback
           </h3>
         </div>
         <div style={{ padding: '1.5rem' }}>
@@ -168,7 +168,7 @@ export function ComputeEditor({
             onClick={onExecute}
             disabled={isSimulating}
           >
-            {isSimulating ? 'EXECUTING...' : 'RUN LOCAL AUTHORING CHECK'}
+            {isSimulating ? 'Checking...' : 'Run Local Authoring Check'}
           </button>
           <button
             className="btn-secondary"

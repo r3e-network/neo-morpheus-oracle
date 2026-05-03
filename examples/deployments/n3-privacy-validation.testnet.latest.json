@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-05-01T00:49:52.939Z",
+  "generated_at": "2026-05-03T07:17:50.524Z",
   "network": "testnet",
   "chain": "neo_n3",
   "oracle_hash": "0x4b882e94ed766807c4fd728768f972e13008ad52",
   "consumer_hash": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
   "request_fee": "1000000",
-  "request_credit_remaining": "0",
-  "request_credit_deposited": "7000000",
+  "request_credit_remaining": "20000000",
+  "request_credit_deposited": "0",
   "cases": [
     {
       "id": "provider_plain",
@@ -18,26 +18,26 @@
         "symbol": "NEO-USD",
         "json_path": "price",
         "target_chain": "neo_n3",
-        "project_slug": "privacy-matrix-mom6shak-provider_plain",
-        "request_source": "privacy-matrix:mom6shak:provider_plain"
+        "project_slug": "privacy-matrix-mopfkds6-provider_plain",
+        "request_source": "privacy-matrix:mopfkds6:provider_plain"
       },
       "confidential_summary": null,
-      "fee_credit_before_submit": "1000000",
-      "deposit_amount": "1000000",
-      "txid": "0x61c0a81d1c11009609b125f4e4f92aa81cc8e988859e593fbf761478c7d4509c",
-      "request_id": "5126",
+      "fee_credit_before_submit": "20000000",
+      "deposit_amount": "0",
+      "txid": "0x8966fcd77c63f36693b985ab58a44c804c0217c0c33f2ca93699e25d6ec28c3d",
+      "request_id": "5211",
       "onchain_request": {
         "request_type": "privacy_oracle",
         "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "payload_sha256": "75bee3eee43ffda48a642bde0adcb9a93812543086b8e9f1457e0ff80ea0d1ca",
+        "payload_sha256": "f0706ae78a7d7d46ee545d51ec57e85d9bda6caf8b7c683ea29800ed8f5ae6ae",
         "payload_contains_encrypted_params": false,
         "payload_contains_encrypted_payload": false
       },
       "callback": {
         "success": true,
-        "actual_value": "2.722",
+        "actual_value": "2.765",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "privacy_oracle",
@@ -49,25 +49,25 @@
             "target_chain": "neo_n3",
             "request_source": "morpheus-relayer:neo_n3",
             "upstream_status": 200,
-            "extracted_value": "2.722",
-            "result": "2.722"
+            "extracted_value": "2.765",
+            "result": "2.765"
           },
           "verification": {
-            "output_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
-            "attestation_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
-            "signature": "c54b835415fe0aa1752d4c0828d16b17cc11e2cab9a655cedf55a925194c977ec09fde11e13c5362e4e6f88ddc92270718f0695d08766edd436b6417b9976176",
+            "output_hash": "6c7974841f76cc5b3ee2b6d59674d7850a35ac1f4465de1f6e3ec7fd88a5f831",
+            "attestation_hash": "6c7974841f76cc5b3ee2b6d59674d7850a35ac1f4465de1f6e3ec7fd88a5f831",
+            "signature": "4a546dad0ddee3e55b8f7e95e5f28be60955ee40f0f91ab7db9c51fb1b79bc0d45bb942b54f10148945b88e34a3767b77cb1dbda26ab49b6d62048b5743d85fe",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
               "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
               "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
-              "report_data": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d915772630000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "301fa69d90538b08cae266953ad752e1c5126111585a049474cac66aacf1d5ae"
+              "report_data": "6c7974841f76cc5b3ee2b6d59674d7850a35ac1f4465de1f6e3ec7fd88a5f8310000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "0acdb19614b2fcedfb9100344471f2fb70896a4582ceb013fb14bbd2a50bf052"
             }
           }
         },
         "verification": {
-          "output_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
-          "attestation_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
+          "output_hash": "6c7974841f76cc5b3ee2b6d59674d7850a35ac1f4465de1f6e3ec7fd88a5f831",
+          "attestation_hash": "6c7974841f76cc5b3ee2b6d59674d7850a35ac1f4465de1f6e3ec7fd88a5f831",
           "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
           "tee_app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
           "tee_compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee"
@@ -84,33 +84,33 @@
         "provider": "twelvedata",
         "symbol": "NEO-USD",
         "target_chain": "neo_n3",
-        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJhR2hYMk5FS2hKMDVOUTVLRGd4djZNVk1uNk9qQzZwU3BJOVdFU0xleFRNPSIsIml2IjoicWxFbjhqaFV0TFNIVjdsQyIsImN0IjoiOGl3b3R0dU1WbUZnSHFyS1FDS0FoN0xuM1owNCIsInRhZyI6Ik5jb0xmOUY2Kzg5YjhxS3VMdFZ0SEE9PSJ9",
-        "project_slug": "privacy-matrix-mom6shak-provider_encrypted_params",
-        "request_source": "privacy-matrix:mom6shak:provider_encrypted_params"
+        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJHK0pjcWdaMlZtZ3B5eFFQN3pQdGhyRm9QT3U1cG96c3RybTRZejltZG5RPSIsIml2IjoiRHUyZUVQcHlEZ05SalRxQSIsImN0IjoiQ21IbWY5STRjc1pCYXk4QnloUlhNZC96KzAvWSIsInRhZyI6Imt1c2VwTzVZcWc0Q0ZXVk9NYlloa2c9PSJ9",
+        "project_slug": "privacy-matrix-mopfkds6-provider_encrypted_params",
+        "request_source": "privacy-matrix:mopfkds6:provider_encrypted_params"
       },
       "confidential_summary": {
         "plaintext_patch": {
           "json_path": "price"
         },
         "ciphertext_length": 256,
-        "ciphertext_sha256": "74e403b77250a2a8a9ba267652c50bdc40a4c1559c76081a8614a0ef8b376113"
+        "ciphertext_sha256": "064d0a93aa547a33a84eb62c42d8f9e95eeaf61e023458054b8807c6c51acf32"
       },
-      "fee_credit_before_submit": "1000000",
-      "deposit_amount": "1000000",
-      "txid": "0x8ac74d546c7324740e1d9b14eaf86cbf5194b0379a8ba34a8614690f4ef88e9b",
-      "request_id": "5127",
+      "fee_credit_before_submit": "20000000",
+      "deposit_amount": "0",
+      "txid": "0x636faa98537f62f1882b483c744dfe2d41be9d53f2d035eb6bd1ac6f1e775a80",
+      "request_id": "5212",
       "onchain_request": {
         "request_type": "privacy_oracle",
         "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "payload_sha256": "eb0b280d87a1241ee686484592a9902d737db58af6113e361c7549f4aa054152",
+        "payload_sha256": "d5fb92eca89d6d8ec5e60e99dbfbf75ffa192ed782e5476b5c0a5ffc00b5b056",
         "payload_contains_encrypted_params": true,
         "payload_contains_encrypted_payload": false
       },
       "callback": {
         "success": true,
-        "actual_value": "2.722",
+        "actual_value": "2.763",
         "result_json": {
           "version": "morpheus-result/v1",
           "request_type": "privacy_oracle",
@@ -122,25 +122,25 @@
             "target_chain": "neo_n3",
             "request_source": "morpheus-relayer:neo_n3",
             "upstream_status": 200,
-            "extracted_value": "2.722",
-            "result": "2.722"
+            "extracted_value": "2.763",
+            "result": "2.763"
           },
           "verification": {
-            "output_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
-            "attestation_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
-            "signature": "c54b835415fe0aa1752d4c0828d16b17cc11e2cab9a655cedf55a925194c977ec09fde11e13c5362e4e6f88ddc92270718f0695d08766edd436b6417b9976176",
+            "output_hash": "d3b08a994ce2f94879cdf7e92b236a8486c0a90dc073c7a4bd926efa2dc49257",
+            "attestation_hash": "d3b08a994ce2f94879cdf7e92b236a8486c0a90dc073c7a4bd926efa2dc49257",
+            "signature": "8be586548602938e68599b3bac763f51061d022dcff53069b03d5d7309393b7e5d9f64cd22742974c27bb883da59e764e5dde7fbb8b5d2d13e8a38435b639324",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
               "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
               "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
-              "report_data": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d915772630000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "b5a1c3d6b617155fab3ae6a0cd5b4b840edd2a37264f9fc96e52c5fa4538bb29"
+              "report_data": "d3b08a994ce2f94879cdf7e92b236a8486c0a90dc073c7a4bd926efa2dc492570000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "943176934057d5763a7e518150a839770698f9a2c20be0bf3bff94fafd808fc3"
             }
           }
         },
         "verification": {
-          "output_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
-          "attestation_hash": "0735e99b55f8e65ab1f40fb36c7d32012f6db024b5703db3eb9ff67d91577263",
+          "output_hash": "d3b08a994ce2f94879cdf7e92b236a8486c0a90dc073c7a4bd926efa2dc49257",
+          "attestation_hash": "d3b08a994ce2f94879cdf7e92b236a8486c0a90dc073c7a4bd926efa2dc49257",
           "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
           "tee_app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
           "tee_compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee"
@@ -154,9 +154,9 @@
       "request_type": "compute",
       "expected": "math.modexp returns 4.",
       "public_payload": {
-        "encrypted_payload": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJPSVJNVjBWNTZ0clNORHZ3aFFGNnFOckJvMjJqVzQ4Wnk0YVhFeUo3R1RzPSIsIml2IjoiU2p6MU9yOEs4V01iUVJLUiIsImN0IjoiSkpDTTRoTFFpbDdWaXVqVGNWTWcwVTA2TlFJWSs4aEd3ZW1DTFg1VUFyWGErTFozYjZUNTRqWEI1SVRKcmJ0LzVRT09hUWxobjhqV2FCS0F4dDlsVE1jbGcxQnMrTGdSOFg2Z2xUUjZmOUMxcVlDOWE1TnRabTl0RzNzSDJLR1ZrczZFWjJtekprc3lIc21qRUFkMXRrUHRZS084ZnZ3PSIsInRhZyI6ImRESFlMVGljdEszSitJQ0xXVVE4SkE9PSJ9",
-        "project_slug": "privacy-matrix-mom6shak-compute_builtin_encrypted",
-        "request_source": "privacy-matrix:mom6shak:compute_builtin_encrypted"
+        "encrypted_payload": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJJQVlyRXNDVEhFVkdRaFJ6d3B1NXk0b2x3WjlNbVlZOXNqSEh6RnRZU1hzPSIsIml2IjoibE9JcGJZdU16TWUyNmUwRSIsImN0IjoiVmdVOEdHZGNENFpxQUZHQno4ZEF1aHhmQmlMclU4NitGRnZIMXZIZzJYT3ZxN3ZENEFCZTBlV0F5WXdsYmVJZDhnTHVTbHlSa2VaRTkrK0NRV3NuQTVBZzlXa3NHTEN5aXVmajQ3bm9tSEFkeUlJZmlORzUxRlNGUXFDV3l0THJKeFJIdWJJb2ZhSENUYURpd1UwS1JlUnpkazM3WFpJPSIsInRhZyI6IjRNeGNwN1p1RFEyaVRMSVZhQW1ZY1E9PSJ9",
+        "project_slug": "privacy-matrix-mopfkds6-compute_builtin_encrypted",
+        "request_source": "privacy-matrix:mopfkds6:compute_builtin_encrypted"
       },
       "confidential_summary": {
         "plaintext_payload": {
@@ -170,18 +170,18 @@
           "target_chain": "neo_n3"
         },
         "ciphertext_length": 432,
-        "ciphertext_sha256": "91bbeb0b5099be7e9ee288c7dadc6cb71dd21a959cf8396e021dec5f7766f31e"
+        "ciphertext_sha256": "96239d4fdb0feb55c10161e41c1e5df4c6ec522a90d68d810bed41816f06b1bb"
       },
-      "fee_credit_before_submit": "1000000",
-      "deposit_amount": "1000000",
-      "txid": "0x1ca581ac37f4cf2ab2cc32b41d222e277b1d4e335f436d0e4b84b1bc47e0291a",
-      "request_id": "5128",
+      "fee_credit_before_submit": "20000000",
+      "deposit_amount": "0",
+      "txid": "0x6f2c11d5f9b1b4baf2c2e1c68e0f9cdf32646319bc7505ea658a3dc31f11ebec",
+      "request_id": "5213",
       "onchain_request": {
         "request_type": "compute",
         "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "payload_sha256": "708abd2ca032dabe36e40a6b4bbec8ef772696569661075c24d3020146e549ed",
+        "payload_sha256": "b8d271faae4c5fc78a3064a326daa4097681d3ac7bd86e8f56ff3e751f4ec7c6",
         "payload_contains_encrypted_params": false,
         "payload_contains_encrypted_payload": true
       },
@@ -213,7 +213,7 @@
               "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
               "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
               "report_data": "b0ddf9861e910df24dfde9742431d1b3ec9ba81a7570f3c3c715bec08040266d0000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "4be36a9aaa4bc9cddccfff51846c5380eb90c00cdf12c484b484d3a0c515ef31"
+              "quote_hash": "78c9bf2c3455af899b3e2271d2b99ac498dfb7b2091f2c3ac2688132fe67e2ca"
             }
           }
         },
@@ -233,9 +233,9 @@
       "request_type": "compute",
       "expected": "Encrypted custom compute function returns 42.",
       "public_payload": {
-        "encrypted_payload": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiI5TVJoSkxoUVJLU1k4UytJYTVib2JGeC93a0YwVzR6VzJnMkdubHJWYlFNPSIsIml2IjoiSC9LOEVhUlFxS1d1VkluYSIsImN0IjoiMzJObnphSURnS3c5UDdrOFJsVWQ0OWYzeDBESkJOTFVhQ1dTMVk4bHNEUFk0RVZUVzNOQ0Jmc2R3QzBXVFBHUDF6V3JrcXdCOEhEdmx4VExUNldkaGh6Z0Y1RWtrZmVNWWRMbHVoaS9uaDlKZWIxcDJMS1hGVGVLOFQvNTlsS09VV2ZHZ1dKL05EVE1jS1cvMU9YNDZiZmsxcDlsc0hSTnZOd0gwRHBmU1BjSXRTdHh5RHE2eUxIUWkvOVU2U0wyeUNsdmVOVGhDL016a0dLWGwvendZdz09IiwidGFnIjoiTSsyRzA1dHI5cGxyTnB6d1Zzc2puZz09In0=",
-        "project_slug": "privacy-matrix-mom6shak-compute_custom_script_encrypted",
-        "request_source": "privacy-matrix:mom6shak:compute_custom_script_encrypted"
+        "encrypted_payload": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJrU1lsRndsTXdRYlRPSTByQng3VlFWRHJYbXY5YXorTXJJM0pZK3kwMkZvPSIsIml2IjoiRm5YVGpEa013U0x6cDM4VSIsImN0IjoiSXpZaEpJT0xSeVhvNjZNS08xZFhnazdUMXhLc0xRTjVWbFcrbkRuSi9tTTljSGtpZStLcmpFUlZvNmtnNTc0RTVNTkJuZmkyd3ZEZG1qTy9RNnI5UEl6UEJhc0xWNzVDM2JWMy9lVkVycVhHekZBTGt6aURrYk5YZXh1MVY1TGp2dHdEZ1FNTzV4a3NkMzNEOVppL3ZqUXJpQWN4MmtscjN0REFrdXBUMW8xNldqc01yTDJZVFJqelg3ZWlYeG5zZWhEY3h0SU1hRVFWUHp4TkZEdXJwQT09IiwidGFnIjoiOVpWOThvcXQwOWRqQUpneVQxdFBrZz09In0=",
+        "project_slug": "privacy-matrix-mopfkds6-compute_custom_script_encrypted",
+        "request_source": "privacy-matrix:mopfkds6:compute_custom_script_encrypted"
       },
       "confidential_summary": {
         "plaintext_payload": {
@@ -250,18 +250,18 @@
         },
         "encryption_mode": "X25519-HKDF-SHA256-AES-256-GCM",
         "ciphertext_length": 508,
-        "ciphertext_sha256": "52973618714bf20a2b033d0193462991541d0700a38bda9a32177bb07c11c3bf"
+        "ciphertext_sha256": "0b8f77574001310b21abefbe4f4bcf8d408f36b887808e2f3a709822e2fdec20"
       },
-      "fee_credit_before_submit": "1000000",
-      "deposit_amount": "1000000",
-      "txid": "0x804fe11d1e0d355fb545cd2fbab706627778d043a75bf0fbc7f1124150cfba55",
-      "request_id": "5130",
+      "fee_credit_before_submit": "20000000",
+      "deposit_amount": "0",
+      "txid": "0xbfee0a4c04c41d225d13bcb2bb1f1d60f7a31066f251e04bf87a029789c8d527",
+      "request_id": "5214",
       "onchain_request": {
         "request_type": "compute",
         "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "payload_sha256": "2f0d84da22d54f87ac71712e5605162faffb8a1e8b604ee552efdde4cbb29ccd",
+        "payload_sha256": "316d9fb3778407c332302c117e67c0c4842635337c5dcfff202ffc801afb5e15",
         "payload_contains_encrypted_params": false,
         "payload_contains_encrypted_payload": true
       },
@@ -289,7 +289,7 @@
               "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
               "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
               "report_data": "b0f4393fd875178eef7c76663f79aaa92c960088a999036c310cb10915df920e0000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "ff592c89008ca13f4c76e72b5118869ec842d48abe262343dacb4490716c528f"
+              "quote_hash": "25814949e3e84fa5d899fa5aa036cdcc7b27d4dab744ceb7e2977e383b9975e1"
             }
           }
         },
@@ -311,27 +311,27 @@
       "public_payload": {
         "url": "https://postman-echo.com/get?probe=neo-morpheus",
         "target_chain": "neo_n3",
-        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiIwOEc1T04xYktDMytsN3VrODdoQjlEcW9lN2U2TGpKVlNyQURXa0VyTWtBPSIsIml2IjoiSzBpWEVJUnlWVjJBaEZDeCIsImN0IjoiS3gwbEdOZy91M24vN04zbGZXWnZYc3FBUWsyNDAzREllZFk9IiwidGFnIjoiblY5ZU9jWlZ5eEdLcWpwVkxzQWhSdz09In0=",
-        "project_slug": "privacy-matrix-mom6shak-oracle_custom_url_encrypted_params",
-        "request_source": "privacy-matrix:mom6shak:oracle_custom_url_encrypted_params"
+        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJJVWVBSnlhZ3NpRktkczhSNW1YY1VWNDFQNEh3ZGNtT2RWdDUrZHMrNUZNPSIsIml2IjoiMmJaMzBuN1FJMjIwc2RwQyIsImN0IjoiZnAweW5LM3RHNk03dU5ReVZZQXU4bW9xVkJZRHpQSHd1eGs9IiwidGFnIjoieFZPbEMxQnJzMWdxdGhTb2pBeHA0Zz09In0=",
+        "project_slug": "privacy-matrix-mopfkds6-oracle_custom_url_encrypted_params",
+        "request_source": "privacy-matrix:mopfkds6:oracle_custom_url_encrypted_params"
       },
       "confidential_summary": {
         "plaintext_patch": {
           "json_path": "args.probe"
         },
         "ciphertext_length": 268,
-        "ciphertext_sha256": "71416a6eef834cf191a159e4df60948e77283ef946cdc5f2b0d00c5a845860b8"
+        "ciphertext_sha256": "7376ca2e54c24a4410a2b9a355f425bd82d2fe877a284361b9f19abcdb42a829"
       },
-      "fee_credit_before_submit": "1000000",
-      "deposit_amount": "1000000",
-      "txid": "0x411fd9d1bfa32cf49a556458677503f6f12f01a6427ba8d39d0c4dfcc2a4087f",
-      "request_id": "5131",
+      "fee_credit_before_submit": "20000000",
+      "deposit_amount": "0",
+      "txid": "0x543b366ae36f79302b043dc50de64be5d05b19591f41b91dfb809d7a8e52f930",
+      "request_id": "5215",
       "onchain_request": {
         "request_type": "oracle",
         "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "payload_sha256": "5c673376d2d2b8039e4b3c6190e19b8ad0d4056f71c5fec44f6a5e02648649c7",
+        "payload_sha256": "a3a62dc083fc0b545469e9435c9b68f5cd4daa7275a89b24b87ff5e484bba2ee",
         "payload_contains_encrypted_params": true,
         "payload_contains_encrypted_payload": false
       },
@@ -361,7 +361,7 @@
               "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
               "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
               "report_data": "88f6521f7268720b8d1a27c2c3c75df3007cd8698769e053fd3b0fa9183be8ae0000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "44063e85ee87572489d156e3380fcb3bb18287ffc471ed45269bfdff278324e5"
+              "quote_hash": "568a2549ef565c6dda92b088e17802f720cab753b8bd5b095d1466efdb9389b3"
             }
           }
         },
@@ -383,9 +383,9 @@
       "public_payload": {
         "url": "https://postman-echo.com/get?probe=neo-morpheus",
         "target_chain": "neo_n3",
-        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJpYldGZkpTcFBYME1pZ08wNTFScEsraTZpY2FlRk9hejcxdy9jT1FHemhvPSIsIml2IjoicXBBWEhYTlpYZTdMalRpaCIsImN0IjoiUU9UQXdIT0F2RUVoWnNnaW1kUERjc0Y2WnBpcHRoVG55RnVkUDUrK0NaaGoyaVJmbEdRYk00blk3aGRPelhHQXJXWS9LR1B2TlVCM3J4WWlMM0pQbmE2VDBic2xURkwyTEdFNzZMUVNCN0lLdmY4N1NGVHBVbWYvbTdpckg4U2VzN0VQaHc9PSIsInRhZyI6Im5sR2hMVDVaT0hTZnpUazFuOHBER3c9PSJ9",
-        "project_slug": "privacy-matrix-mom6shak-oracle_custom_url_encrypted_script",
-        "request_source": "privacy-matrix:mom6shak:oracle_custom_url_encrypted_script"
+        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJrNWRWZDEva2xpNEdndXZGYTRoS1ZtRUZQRDZaL09uZHQ4VWkzM1BIOW5VPSIsIml2IjoienIrZkJaa2pJbTB3a2pBUSIsImN0IjoiTThIRHJxTmNOQmcvMzcvUHJ3Q2hFbFhIUTVkZ0xZTlQ0bThvdVJxTmtyc1dHNEZuYVBCVjhxNVpyK2ovb2pmNDRLdXF2YkFRM21BdW5UakkzbEpVaW9lSGtXVW5OT1ZqSnFiRWtGSGtadWs2enI1L2gvYmtFTU9mOURsWktFMmxsc1F0UUE9PSIsInRhZyI6IkdpSE1nVGFrZkZ6TDhFT0xmVUtiQkE9PSJ9",
+        "project_slug": "privacy-matrix-mopfkds6-oracle_custom_url_encrypted_script",
+        "request_source": "privacy-matrix:mopfkds6:oracle_custom_url_encrypted_script"
       },
       "confidential_summary": {
         "plaintext_patch": {
@@ -394,18 +394,18 @@
         },
         "encryption_mode": "X25519-HKDF-SHA256-AES-256-GCM",
         "ciphertext_length": 400,
-        "ciphertext_sha256": "ce8ab033affdd3d06f2f0e28b5bd03271481b852fce8197090dfdd9cf09bf678"
+        "ciphertext_sha256": "5974d97abf6d7673e49118bafa378e7596e455d1cfc17b566b2ad3cfec6f57c6"
       },
-      "fee_credit_before_submit": "1000000",
-      "deposit_amount": "1000000",
-      "txid": "0x4afe564c73086e2a5d6f13d2577343e910a67d6ae27cf2b3c56ffdb09e047133",
-      "request_id": "5132",
+      "fee_credit_before_submit": "20000000",
+      "deposit_amount": "0",
+      "txid": "0x5f868806c4e1aa8b0047e5d25f4cf52a3c01c0009e8c5b2138d5fbc6b806e922",
+      "request_id": "5216",
       "onchain_request": {
         "request_type": "oracle",
         "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "payload_sha256": "e90d8d2f57f5a8c17b4c707aab580f50a6b380bdee507a3fd0b544e4945623c1",
+        "payload_sha256": "bd5dea785666b1fb9eb1a95215c6974b5b9f671bddf5fadc71b218cb81ee4f60",
         "payload_contains_encrypted_params": true,
         "payload_contains_encrypted_payload": false
       },
@@ -435,7 +435,7 @@
               "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
               "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
               "report_data": "1678f84181e65b1c817365ae843eeaa81fc2e6282a7aad54546d6830e26587270000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "861776e32fe0947b95ef451445609c1a1995b31a57ab12aebcdd37153ca7cc99"
+              "quote_hash": "8a4e192d1408972eedf48eaaa38f74eb8734e851a7b85befd86ed6dbb4a23dae"
             }
           }
         },
@@ -458,9 +458,9 @@
         "provider": "twelvedata",
         "symbol": "NEO-USD",
         "target_chain": "neo_n3",
-        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiIwT2dmUk1lOXFhc1BodzE5b1kwazJlQnloQTlLRUpuTGdnMWRlN0hKcVE4PSIsIml2IjoiVzVPdEZCakhrRHVuMXI0ZiIsImN0IjoibVJWUzdmU01BVGptU2FUVDBzdEc1aDhDSkEvaE8yUEJvTHRnaFByUWlpd2ZibWsvOXRySWEwZzhkVGdKUkx4cGFZNmpHVmJaOVlFL2lmUlhBRGR6V2phKzlXT0o4WFYrWTN3TkRYNlhyMDkveDRoNEMwY1M4akFnIiwidGFnIjoiakdtZ3M4YWRseTJjYXpXUVJucFVldz09In0=",
-        "project_slug": "privacy-matrix-mom6shak-provider_encrypted_script",
-        "request_source": "privacy-matrix:mom6shak:provider_encrypted_script"
+        "encrypted_params": "eyJ2IjoyLCJhbGciOiJYMjU1MTktSEtERi1TSEEyNTYtQUVTLTI1Ni1HQ00iLCJlcGsiOiJ5ZzZWTnpRMDdDVitiRXNJQUtJWk9EWjd5Qjk1MFkwYStLMkhINlpDT1hFPSIsIml2IjoiVjZOeVV4NnpwWFFuLzV2aiIsImN0Ijoia0JuSVhkZ2xyYU1XN0ViVkpqSFIzKzlWR1c2eG43Tjh1eU9nTmVDeEFyOHR6TnFsK2xTK1U4ay9nNGdCLzUweVFGZFl2VmZvL29oQ1RvcUlEUXJwcDZRMGRXQTh5clgzMWovWlRjMUNHa0xrcXFxcVcyYzdqSjVxIiwidGFnIjoiNitpQUpsY1BCcktLKzgrR2VuZmhqUT09In0=",
+        "project_slug": "privacy-matrix-mopfkds6-provider_encrypted_script",
+        "request_source": "privacy-matrix:mopfkds6:provider_encrypted_script"
       },
       "confidential_summary": {
         "plaintext_patch": {
@@ -469,18 +469,18 @@
         },
         "encryption_mode": "X25519-HKDF-SHA256-AES-256-GCM",
         "ciphertext_length": 380,
-        "ciphertext_sha256": "6e7dc3ea1654c9828a8d643465ef0786c04a331c1a9284196d6430ed89074fb6"
+        "ciphertext_sha256": "70434c2b3f7fa39fa0203ac8f0793e63ebed2b30fde5602c00db299d3aeceef0"
       },
-      "fee_credit_before_submit": "1000000",
-      "deposit_amount": "1000000",
-      "txid": "0x2127da2d5836d28f93bab2f23862f414b15da6a0e8281f9d2e2712542d3a1885",
-      "request_id": "5133",
+      "fee_credit_before_submit": "20000000",
+      "deposit_amount": "0",
+      "txid": "0xc28f719779c230cea7634b59d52c466dae5d80d8388281a4c22ed8583be89582",
+      "request_id": "5217",
       "onchain_request": {
         "request_type": "privacy_oracle",
         "requester": "0x6d0656f6dd91469db1c90cc1e574380613f43738",
         "callback_contract": "0x8c506f224d82e67200f20d9d5361f767f0756e3b",
         "callback_method": "onOracleResult",
-        "payload_sha256": "e3fc98216c58ebdd68458823ce85642e913f906bd9b2ab33552b9b41caa6e251",
+        "payload_sha256": "9b114851e57b54e4f58b4540b0058c7dc1e987c1129d949fb5efc9d58df18789",
         "payload_contains_encrypted_params": true,
         "payload_contains_encrypted_payload": false
       },
@@ -498,25 +498,25 @@
             "target_chain": "neo_n3",
             "request_source": "morpheus-relayer:neo_n3",
             "upstream_status": 200,
-            "extracted_value": "2.723",
+            "extracted_value": "2.759",
             "result": true
           },
           "verification": {
-            "output_hash": "5ad045a51fa7c0008f294b155c2afe72632f5b6a8118ce96bd488e3e8ab7ff83",
-            "attestation_hash": "5ad045a51fa7c0008f294b155c2afe72632f5b6a8118ce96bd488e3e8ab7ff83",
-            "signature": "f99759c5d31c01e61c3f24ac2699de91d849992e3ae858cd05aba1a20c3f6a1eaff44788ea2845834810a81ead5718da76d7c6e705c60e32e378d6b7c5705be6",
+            "output_hash": "5308ecdf13904b7da2bbcb10fb08ee1d21b52b6824f5f0706afabce7bf435cb9",
+            "attestation_hash": "5308ecdf13904b7da2bbcb10fb08ee1d21b52b6824f5f0706afabce7bf435cb9",
+            "signature": "e190edc41b86ed85273e03dbe3bc293de78eec7d000f1a87a9e307f0e15e11ab3afadef0061f5f3e5de38de154dae6d6c978d4ddc1c6094d10ce44f7ea90114e",
             "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
             "tee_attestation": {
               "app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
               "compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee",
-              "report_data": "5ad045a51fa7c0008f294b155c2afe72632f5b6a8118ce96bd488e3e8ab7ff830000000000000000000000000000000000000000000000000000000000000000",
-              "quote_hash": "aa2ee8d1018955fcbab1c24eba97a37269906b7922f259a9cfedcecfdc00008a"
+              "report_data": "5308ecdf13904b7da2bbcb10fb08ee1d21b52b6824f5f0706afabce7bf435cb90000000000000000000000000000000000000000000000000000000000000000",
+              "quote_hash": "5289aa843712b8af71794d581c5fce9dceb251e5ea0c330e557cab9fb1118c7b"
             }
           }
         },
         "verification": {
-          "output_hash": "5ad045a51fa7c0008f294b155c2afe72632f5b6a8118ce96bd488e3e8ab7ff83",
-          "attestation_hash": "5ad045a51fa7c0008f294b155c2afe72632f5b6a8118ce96bd488e3e8ab7ff83",
+          "output_hash": "5308ecdf13904b7da2bbcb10fb08ee1d21b52b6824f5f0706afabce7bf435cb9",
+          "attestation_hash": "5308ecdf13904b7da2bbcb10fb08ee1d21b52b6824f5f0706afabce7bf435cb9",
           "public_key": "02911ea28aee939ef686f42e1137954135998b71e7e997794bde8c0a40f4b95cb4",
           "tee_app_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
           "tee_compose_hash": "04d2f04f8068b5ee9e208df5d945e3419655827b5c9c4fc31ba7632607b523ee"

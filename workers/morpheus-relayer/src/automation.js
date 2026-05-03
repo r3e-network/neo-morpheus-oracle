@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
 import {
+  AUTOMATION_PROCESSING_CLAIM_MARKER,
+  claimAutomationJob,
   fetchActiveAutomationJobs,
   fetchAutomationJobById,
   fetchAutomationRunByQueueTxHash,
@@ -483,6 +485,7 @@ function classifyAutomationExecutionFailure(error) {
   return {
     terminal: false,
     patch: {
+      status: 'active',
       last_error: message,
     },
   };
@@ -560,11 +563,16 @@ export async function processAutomationJobs(config, logger, deps = {}) {
   }
 
   const fetchJobs = deps.fetchActiveAutomationJobs || fetchActiveAutomationJobs;
+  const claimJob = deps.claimAutomationJob || claimAutomationJob;
   const patchJob = deps.patchAutomationJob || patchAutomationJob;
   const recordRun = deps.insertAutomationRun || insertAutomationRun;
   let jobs;
+  const now = new Date();
+  const dueAtIso = now.toISOString();
+  const claimStaleMs = Math.max(Number(config.automation.claimStaleMs || 120000), 1000);
+  const staleBeforeIso = new Date(now.getTime() - claimStaleMs).toISOString();
   try {
-    jobs = await fetchJobs(config.automation.batchSize, new Date().toISOString());
+    jobs = await fetchJobs(config.automation.batchSize, dueAtIso);
   } catch (error) {
     logger.warn({ error }, 'Supabase automation fetch unavailable; skipping automation tick');
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
@@ -579,52 +587,75 @@ export async function processAutomationJobs(config, logger, deps = {}) {
     if (queued >= config.automation.maxQueuedPerTick) break;
 
     try {
-      const evaluation = await evaluateAutomationJob(config, job, nowMs, deps);
+      const jobStatus = trimString(job.status || '');
+      const isRecoverableClaim =
+        jobStatus === 'processing' ||
+        (jobStatus === 'paused' &&
+          trimString(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER);
+      const schedulableJob = isRecoverableClaim ? { ...job, status: 'active' } : job;
+      const evaluation = await evaluateAutomationJob(config, schedulableJob, nowMs, deps);
       if (evaluation.patch) {
-        await patchJob(job.automation_id, evaluation.patch);
+        await patchJob(schedulableJob.automation_id, evaluation.patch);
       }
       if (!evaluation.due) {
         skipped += 1;
         continue;
       }
 
-      const queuedTx = await queueAutomationExecution(config, job, deps);
-      const dispatch = queuedTx?.dispatch || buildUpkeepDispatch(job);
+      const claimedJob = await claimJob(
+        schedulableJob.automation_id,
+        {
+          status: 'processing',
+          last_error: null,
+        },
+        {
+          dueAtIso,
+          staleBeforeIso,
+        }
+      );
+      if (!claimedJob) {
+        skipped += 1;
+        continue;
+      }
+
+      const executionJob = { ...schedulableJob, ...claimedJob, status: 'active' };
+      const queuedTx = await queueAutomationExecution(config, executionJob, deps);
+      const dispatch = queuedTx?.dispatch || buildUpkeepDispatch(executionJob);
       const queuedRequestId = queuedTx?.request_id || dispatch.request_id;
       const queueTxRecord = buildQueuedAutomationTxRecord(queuedTx, dispatch);
 
       if (queuedTx?.duplicate) {
         await recordRun({
-          automation_id: job.automation_id,
+          automation_id: executionJob.automation_id,
           queued_request_id: queuedRequestId,
-          chain: job.chain,
+          chain: executionJob.chain,
           status: 'skipped',
-          trigger_reason: evaluation.triggerReason || job.trigger_type,
+          trigger_reason: evaluation.triggerReason || executionJob.trigger_type,
           observed_value: evaluation.observedValue || null,
           queue_tx: queueTxRecord,
           error: null,
         });
         await patchJob(
-          job.automation_id,
-          buildQueuedAutomationPatch(job, evaluation, nowMs, dispatch, queuedRequestId)
+          executionJob.automation_id,
+          buildQueuedAutomationPatch(executionJob, evaluation, nowMs, dispatch, queuedRequestId)
         );
         skipped += 1;
         continue;
       }
       await recordRun({
-        automation_id: job.automation_id,
+        automation_id: executionJob.automation_id,
         queued_request_id: queuedRequestId,
-        chain: job.chain,
+        chain: executionJob.chain,
         status: 'queued',
-        trigger_reason: evaluation.triggerReason || job.trigger_type,
+        trigger_reason: evaluation.triggerReason || executionJob.trigger_type,
         observed_value: evaluation.observedValue || null,
         queue_tx: queueTxRecord,
         error: null,
       });
 
       await patchJob(
-        job.automation_id,
-        buildQueuedAutomationPatch(job, evaluation, nowMs, dispatch, queuedRequestId)
+        executionJob.automation_id,
+        buildQueuedAutomationPatch(executionJob, evaluation, nowMs, dispatch, queuedRequestId)
       );
       queued += 1;
     } catch (error) {

@@ -35,7 +35,7 @@ const journeys = [
       },
       {
         title: 'Build and encrypt',
-        desc: 'Use Starter Studio or Explorer > Oracle Payload to seal sensitive fields locally.',
+        desc: 'Use Starter Studio or Workbench > Oracle Requests to seal sensitive fields locally.',
         href: '/docs/studio',
         label: 'Starter Studio',
       },
@@ -43,7 +43,7 @@ const journeys = [
         title: 'Submit on-chain',
         desc: `Call the shared kernel at ${NETWORKS.neo_n3.oracle}; legacy callback-method flows still work, but the system inbox is canonical.`,
         href: '/explorer',
-        label: 'Open Explorer',
+        label: 'Open Workbench',
       },
       {
         title: 'Read callback',
@@ -75,7 +75,7 @@ const journeys = [
       },
       {
         title: 'Generate package',
-        desc: 'Use Starter Studio or Explorer > Enclave Sandbox to generate a compute payload.',
+        desc: 'Use Starter Studio or Workbench > Private Compute to generate a compute payload.',
         href: '/docs/studio',
         label: 'Starter Studio',
       },
@@ -83,7 +83,7 @@ const journeys = [
         title: 'Submit on-chain',
         desc: `Call ${NETWORKS.neo_n3.oracle} with the shared compute module path; legacy requestType = compute remains available for compatibility.`,
         href: '/explorer',
-        label: 'Open Explorer',
+        label: 'Open Workbench',
       },
       {
         title: 'Read callback',
@@ -129,7 +129,7 @@ const journeys = [
         title: 'Submit request',
         desc: 'Use the generated NeoLine or JSON-RPC invoke parameters directly.',
         href: '/explorer',
-        label: 'Open Explorer',
+        label: 'Open Workbench',
       },
       {
         title: 'Read and verify',

@@ -33,10 +33,10 @@ export default function ExplorerPage() {
               fontFamily: 'var(--font-mono)',
             }}
           >
-            LIVE NETWORK EXPLORER
+            MORPHEUS WORKBENCH
           </span>
         </div>
-        <h1 style={{ marginBottom: '0.75rem' }}>Explorer</h1>
+        <h1 style={{ marginBottom: '0.75rem' }}>Workbench</h1>
         <p
           style={{
             color: 'var(--text-secondary)',
@@ -46,8 +46,8 @@ export default function ExplorerPage() {
             marginBottom: '1rem',
           }}
         >
-          Inspect runtime health, data catalogs, oracle payloads, compute routes, and attested
-          network operations from one operator-focused surface.
+          Inspect runtime health, data catalogs, oracle requests, compute routes, and attested
+          network operations from one production-focused surface.
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <a href="/docs/networks" className="btn-secondary" style={{ padding: '0.85rem 1.4rem' }}>

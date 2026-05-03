@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
+import { invokeMorpheusOracleRequest } from '@/lib/nep21';
 import { NETWORKS } from '@/lib/onchain-data';
 
 import { OracleSettings } from './OracleSettings';
@@ -44,10 +45,10 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
     '{\n "headers": {\n "Authorization": "Bearer secret_token"\n }\n}'
   );
   const [oracleScript, setOracleScript] = useState(
-    "function process(data, context, helpers) {\\n return data.args.probe + '-script';\\n}"
+    "function process(data, context, helpers) {\n return data.args.probe + '-script';\n}"
   );
   const [oracleScriptRefJson, setOracleScriptRefJson] = useState(
-    '{\\n \"contract_hash\": \"0x1111111111111111111111111111111111111111\",\\n \"method\": \"getScript\",\\n \"script_name\": \"scoreGate\"\\n}'
+    '{\n "contract_hash": "0x1111111111111111111111111111111111111111",\n "method": "getScript",\n "script_name": "scoreGate"\n}'
   );
   const [oracleJsonPath, setOracleJsonPath] = useState('price');
   const [useCustomScript, setUseCustomScript] = useState(false);
@@ -64,10 +65,18 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
     neoN3Snippet: string;
   } | null>(null);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [isWalletSubmitting, setIsWalletSubmitting] = useState(false);
+  const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     void loadOracleKey();
     void loadOracleState();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -293,9 +302,40 @@ BigInteger requestId = (BigInteger)Contract.Call(
   }
 
   async function handleCopy(id: string, value: string) {
-    await copyText(value);
-    setCopiedItem(id);
-    setTimeout(() => setCopiedItem(null), 1500);
+    try {
+      await copyText(value);
+      setCopiedItem(id);
+    } catch {
+      setOutput('Copy failed. Check browser clipboard permissions and try again.');
+    }
+    if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+    copyResetTimer.current = setTimeout(() => setCopiedItem(null), 1500);
+  }
+
+  async function submitGeneratedWithWallet() {
+    if (!generatedRequest) return;
+    setIsWalletSubmitting(true);
+    try {
+      const result = await invokeMorpheusOracleRequest({
+        oracleHash: oracleState?.contract || NETWORKS.neo_n3.oracle,
+        requestType: generatedRequest.requestType,
+        payloadBase64,
+        callbackHash: walletCallbackHash,
+        callbackMethod: walletCallbackMethod,
+      });
+      setOutput(
+        [
+          '>> NEP-21 wallet submitted Oracle request.',
+          `>> Transaction: ${(result as any)?.txid || JSON.stringify(result)}`,
+          '>> Read the emitted requestId, then query the callback readback template.',
+        ].join('\n')
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setOutput(`!! NEP-21 wallet submit failed: ${message}`);
+    } finally {
+      setIsWalletSubmitting(false);
+    }
   }
 
   const keySummary = useMemo(
@@ -359,11 +399,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
               marginBottom: '0.5rem',
             }}
           >
-            Oracle Payload Builder
+            Oracle Requests
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
             Seal confidential fields locally, then generate the exact on-chain request payload and
-            callback snippets.
+            callback snippets for Neo N3 submission.
           </p>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -395,11 +435,10 @@ BigInteger requestId = (BigInteger)Contract.Call(
         style={{ padding: '1.25rem 1.5rem', borderLeft: '4px solid var(--neo-green)' }}
       >
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          This page does <strong>not</strong> send a live Oracle request. It only encrypts locally
-          and prepares a payload for on-chain submission through{' '}
-          <code>{oracleState?.domain || NETWORKS.neo_n3.domains.oracle}</code>. You can also move{' '}
-          <code>json_path</code> or <code>script</code> into the encrypted JSON if you want those
-          fields hidden from the public transaction.
+          Local encryption happens in the browser. The generated payload is intended for on-chain
+          submission through <code>{oracleState?.domain || NETWORKS.neo_n3.domains.oracle}</code>.
+          You can also move <code>json_path</code> or <code>script</code> into the encrypted JSON if
+          you want those fields hidden from the public transaction.
         </p>
       </div>
 
@@ -408,10 +447,9 @@ BigInteger requestId = (BigInteger)Contract.Call(
         style={{ padding: '1.25rem 1.5rem', borderLeft: '4px solid var(--accent-blue)' }}
       >
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          For a zero-code {NETWORKS.neo_n3.environmentLabel.toLowerCase()} test, set callback hash
-          to <code>{defaultCallbackHash}</code>, keep callback method as <code>onOracleResult</code>
-          , pre-fund <code>0.01 GAS</code> Oracle credit, submit the request, then read back with{' '}
-          <code>getCallback(requestId)</code>.
+          Direct test path: set callback hash to <code>{defaultCallbackHash}</code>, keep callback
+          method as <code>onOracleResult</code>, pre-fund the Oracle credit, submit with NEP-21,
+          then read back with <code>getCallback(requestId)</code>.
         </p>
       </div>
 
@@ -462,6 +500,8 @@ BigInteger requestId = (BigInteger)Contract.Call(
           callbackQueryTemplate={callbackQueryTemplate}
           copiedItem={copiedItem}
           onCopy={handleCopy}
+          isWalletSubmitting={isWalletSubmitting}
+          onSubmitWithWallet={submitGeneratedWithWallet}
         />
       )}
     </div>

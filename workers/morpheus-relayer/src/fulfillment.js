@@ -23,7 +23,12 @@ import {
   recordProcessedEvent,
   scheduleRetry,
 } from './state.js';
-import { claimDurableJobForProcessing, maybeUpsertJob } from './queue.js';
+import {
+  claimDurableJobForProcessing,
+  ensureDurableQueueAvailable,
+  maybeUpsertJob,
+  upsertJobOrThrow,
+} from './queue.js';
 import { reportPinnedNeoN3Role, resolvePinnedNeoN3VerifierPublicKey } from './lib/neo-signers.js';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
@@ -205,6 +210,14 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
 }
 
 async function fulfillNeoRequest(config, event, fulfillment, verification) {
+  if (typeof config?.hooks?.fulfillNeoRequest === 'function') {
+    return config.hooks.fulfillNeoRequest({
+      event,
+      requestId: event.requestId,
+      fulfillment,
+      verification,
+    });
+  }
   try {
     return await fulfillNeoN3Request(
       config,
@@ -226,6 +239,120 @@ async function fulfillNeoRequest(config, event, fulfillment, verification) {
     }
     throw error;
   }
+}
+
+export function buildPreparedFulfillmentRetryMeta(prepared = {}) {
+  return {
+    success: Boolean(prepared.success),
+    result: typeof prepared.result === 'string' ? prepared.result : '',
+    result_bytes_base64:
+      typeof prepared.result_bytes_base64 === 'string' ? prepared.result_bytes_base64 : '',
+    error: typeof prepared.error === 'string' ? prepared.error : '',
+    route: typeof prepared.route === 'string' ? prepared.route : '',
+    module_id: typeof prepared.module_id === 'string' ? prepared.module_id : '',
+    operation: typeof prepared.operation === 'string' ? prepared.operation : '',
+    worker_status: Number.isFinite(Number(prepared.worker_status))
+      ? Number(prepared.worker_status)
+      : null,
+    worker_response:
+      prepared.worker_response && typeof prepared.worker_response === 'object'
+        ? prepared.worker_response
+        : null,
+    verification_signature:
+      typeof prepared.verification_signature === 'string' ? prepared.verification_signature : '',
+  };
+}
+
+function buildPreparedFulfillment(fulfillment, details = {}) {
+  return buildPreparedFulfillmentRetryMeta({
+    success: fulfillment.success,
+    result: fulfillment.result || '',
+    result_bytes_base64: fulfillment.result_bytes_base64 || '',
+    error: fulfillment.error || '',
+    route: details.route || '',
+    module_id: details.module_id || '',
+    operation: details.operation || '',
+    worker_status: details.worker_status ?? null,
+    worker_response: details.worker_response || null,
+    verification_signature: details.verification_signature || '',
+  });
+}
+
+function buildCallbackPendingWorkerResponse(prepared, kernelIntent) {
+  const retryMeta = {
+    prepared_fulfillment: buildPreparedFulfillmentRetryMeta(prepared),
+    module_id: prepared.module_id || kernelIntent.moduleId,
+    operation: prepared.operation || kernelIntent.operation,
+  };
+  if (prepared.worker_response && typeof prepared.worker_response === 'object') {
+    return {
+      ...prepared.worker_response,
+      retry_meta: {
+        ...(prepared.worker_response.retry_meta &&
+        typeof prepared.worker_response.retry_meta === 'object'
+          ? prepared.worker_response.retry_meta
+          : {}),
+        ...retryMeta,
+      },
+    };
+  }
+  return {
+    retry_meta: retryMeta,
+  };
+}
+
+async function checkpointPreparedFulfillment(
+  config,
+  logger,
+  event,
+  prepared,
+  attempts,
+  kernelIntent
+) {
+  const details = {
+    event_key: buildEventKey(event),
+    status: 'callback_pending',
+    attempts,
+    route: prepared.route,
+    worker_status: prepared.worker_status,
+    worker_response: buildCallbackPendingWorkerResponse(prepared, kernelIntent),
+    next_retry_at: null,
+  };
+
+  if (config.durableQueue?.enabled) {
+    if (ensureDurableQueueAvailable(config, logger, `${event.chain}:callback-pending-checkpoint`)) {
+      await upsertJobOrThrow(event, details);
+      return;
+    }
+  }
+
+  await maybeUpsertJob(logger, event, details);
+}
+
+async function deliverPreparedFulfillment(config, event, prepared) {
+  const fulfillStartedAt = Date.now();
+  const fulfillTx = await fulfillNeoRequest(
+    config,
+    event,
+    {
+      success: Boolean(prepared.success),
+      result: prepared.result || '',
+      error: prepared.error || '',
+      result_bytes_base64: prepared.result_bytes_base64 || '',
+    },
+    { signature: prepared.verification_signature || '' }
+  );
+  const fulfillDurationMs = Date.now() - fulfillStartedAt;
+  return {
+    ...prepared,
+    fulfill_tx: fulfillTx,
+    durations_ms: {
+      ...(prepared.durations_ms && typeof prepared.durations_ms === 'object'
+        ? prepared.durations_ms
+        : {}),
+      fulfill: fulfillDurationMs,
+    },
+  };
 }
 
 async function finalizeFailedRequest(config, event, errorMessage) {
@@ -294,7 +421,7 @@ export function enrichAutomationExecutionPayload(event, payload) {
   };
 }
 
-async function processOracleRequest(config, event, logger = null) {
+async function prepareOracleFulfillment(config, event, logger = null) {
   const payload = enrichAutomationExecutionPayload(event, decodePayloadText(event.payloadText));
   const kernelIntent = resolveKernelIntent(event.requestType);
   if (isAutomationControlRequestType(event.requestType)) {
@@ -312,18 +439,14 @@ async function processOracleRequest(config, event, logger = null) {
       error: fulfillment.error || '',
     });
 
-    const fulfillTx = await fulfillNeoRequest(config, event, fulfillment, verification);
-
-    return {
-      ...fulfillment,
+    return buildPreparedFulfillment(fulfillment, {
       route: automationResponse.route,
       module_id: kernelIntent.moduleId,
       operation: kernelIntent.operation,
       worker_response: automationResponse.body,
       worker_status: automationResponse.status,
-      fulfill_tx: fulfillTx,
       verification_signature: verification.signature,
-    };
+    });
   }
   const automationGuard = await guardQueuedAutomationExecution(event);
   if (automationGuard.blocked) {
@@ -352,18 +475,14 @@ async function processOracleRequest(config, event, logger = null) {
       error: fulfillment.error || '',
     });
 
-    const fulfillTx = await fulfillNeoRequest(config, event, fulfillment, verification);
-
-    return {
-      ...fulfillment,
+    return buildPreparedFulfillment(fulfillment, {
       route: automationGuard.route,
       module_id: kernelIntent.moduleId,
       operation: kernelIntent.operation,
       worker_response: guardResponse.body,
       worker_status: guardResponse.status,
-      fulfill_tx: fulfillTx,
       verification_signature: verification.signature,
-    };
+    });
   }
   if (isOperatorOnlyRequestType(event.requestType)) {
     const verification = await signFulfillmentPayload(config, event.chain, {
@@ -378,30 +497,23 @@ async function processOracleRequest(config, event, logger = null) {
       error:
         'datafeed requests are operator-only; users should read synchronized on-chain feed data',
     });
-    return {
-      success: false,
-      result: '',
-      error:
-        'datafeed requests are operator-only; users should read synchronized on-chain feed data',
-      route: 'operator-only:rejected',
-      module_id: kernelIntent.moduleId,
-      operation: kernelIntent.operation,
-      worker_response: null,
-      worker_status: null,
-      fulfill_tx: await fulfillNeoRequest(
-        config,
-        event,
-        {
-          success: false,
-          result: '',
-          error:
-            'datafeed requests are operator-only; users should read synchronized on-chain feed data',
-          result_bytes_base64: '',
-        },
-        verification
-      ),
-      verification_signature: verification.signature,
-    };
+    return buildPreparedFulfillment(
+      {
+        success: false,
+        result: '',
+        error:
+          'datafeed requests are operator-only; users should read synchronized on-chain feed data',
+        result_bytes_base64: '',
+      },
+      {
+        route: 'operator-only:rejected',
+        module_id: kernelIntent.moduleId,
+        operation: kernelIntent.operation,
+        worker_response: null,
+        worker_status: null,
+        verification_signature: verification.signature,
+      }
+    );
   }
   const route = resolveWorkerRoute(event.requestType, payload);
   const workerPayload = buildWorkerPayload(
@@ -448,25 +560,24 @@ async function processOracleRequest(config, event, logger = null) {
     'Prepared oracle fulfillment payload'
   );
 
-  const fulfillStartedAt = Date.now();
-  const tx = await fulfillNeoRequest(config, event, fulfillment, verification);
-  const fulfillDurationMs = Date.now() - fulfillStartedAt;
-  return {
-    ...fulfillment,
+  return buildPreparedFulfillment(fulfillment, {
     route,
     module_id: kernelIntent.moduleId,
     operation: kernelIntent.operation,
     worker_response: workerResponse.body,
     worker_status: workerResponse.status,
-    fulfill_tx: tx,
     verification_signature: verification.signature,
     durations_ms: {
       worker: workerDurationMs,
       verification: verificationDurationMs,
-      fulfill: fulfillDurationMs,
-      total: workerDurationMs + verificationDurationMs + fulfillDurationMs,
+      total: workerDurationMs + verificationDurationMs,
     },
-  };
+  });
+}
+
+async function processOracleRequest(config, event, logger = null) {
+  const prepared = await prepareOracleFulfillment(config, event, logger);
+  return deliverPreparedFulfillment(config, event, prepared);
 }
 
 export async function processEvent(config, state, persistState, logger, event, retryItem = null) {
@@ -479,6 +590,10 @@ export async function processEvent(config, state, persistState, logger, event, r
       ? Math.max(processingStartedAt - Number(event.createdAtMs || 0), 0)
       : null;
   const isFinalizeOnly = Boolean(retryItem?.finalize_only);
+  let preparedForRedelivery =
+    retryItem?.prepared_fulfillment && typeof retryItem.prepared_fulfillment === 'object'
+      ? buildPreparedFulfillmentRetryMeta(retryItem.prepared_fulfillment)
+      : null;
   const terminalError = trimOnchainErrorMessage(
     retryItem?.terminal_error || retryItem?.last_error || 'request execution failed'
   );
@@ -524,10 +639,22 @@ export async function processEvent(config, state, persistState, logger, event, r
     if (isFinalizeOnly) {
       result = await finalizeFailedRequest(config, event, terminalError);
       incrementMetric(state, 'fulfill_failure_total');
+    } else if (preparedForRedelivery) {
+      result = await deliverPreparedFulfillment(config, event, preparedForRedelivery);
+      incrementMetric(state, result.success ? 'fulfill_success_total' : 'fulfill_failure_total');
     } else {
       incrementMetric(state, 'worker_calls_total');
-      result = await processOracleRequest(config, event, logger);
-      if (!result.success) incrementMetric(state, 'worker_failures_total');
+      preparedForRedelivery = await prepareOracleFulfillment(config, event, logger);
+      if (!preparedForRedelivery.success) incrementMetric(state, 'worker_failures_total');
+      await checkpointPreparedFulfillment(
+        config,
+        logger,
+        event,
+        preparedForRedelivery,
+        attempts,
+        kernelIntent
+      );
+      result = await deliverPreparedFulfillment(config, event, preparedForRedelivery);
       incrementMetric(state, result.success ? 'fulfill_success_total' : 'fulfill_failure_total');
     }
     incrementMetric(state, 'events_processed_total');
@@ -686,6 +813,52 @@ export async function processEvent(config, state, persistState, logger, event, r
         retry_status: 'terminal',
         event_key: eventKey,
         attempts,
+      };
+    }
+
+    if (preparedForRedelivery) {
+      const nextAttempts = attempts + 1;
+      const retryItemNext = enqueueRetryItem(state, event.chain, event, {
+        attempts: nextAttempts,
+        next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
+        first_failed_at: retryItem?.first_failed_at || new Date().toISOString(),
+        last_error: trimOnchainErrorMessage(message),
+        prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
+      });
+      incrementMetric(state, 'retries_scheduled_total');
+      persistState();
+
+      await maybeUpsertJob(logger, event, {
+        event_key: eventKey,
+        status: 'callback_retry_scheduled',
+        attempts: retryItemNext.attempts,
+        route: preparedForRedelivery.route,
+        worker_status: preparedForRedelivery.worker_status,
+        last_error: retryItemNext.last_error,
+        next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
+        worker_response: buildCallbackPendingWorkerResponse(preparedForRedelivery, kernelIntent),
+      });
+
+      logger.warn(
+        {
+          chain: event.chain,
+          request_id: event.requestId,
+          request_type: event.requestType,
+          module_id: preparedForRedelivery.module_id || kernelIntent.moduleId,
+          operation: preparedForRedelivery.operation || kernelIntent.operation,
+          event_key: eventKey,
+          attempts: retryItemNext.attempts,
+          retry_at: retryItemNext.next_retry_at,
+          error: retryItemNext.last_error,
+        },
+        'Retrying prepared Morpheus oracle callback delivery'
+      );
+      return {
+        event,
+        error: retryItemNext.last_error,
+        retry_status: 'callback_retry_scheduled',
+        event_key: eventKey,
+        attempts: retryItemNext.attempts,
       };
     }
 

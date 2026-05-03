@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Copy } from 'lucide-react';
+import { CheckCircle2, Copy, Send } from 'lucide-react';
 import { NETWORKS } from '@/lib/onchain-data';
 
 interface GeneratedPackage {
@@ -17,6 +17,8 @@ interface ComputeOutputProps {
   callbackQueryTemplate: string;
   copiedItem: string | null;
   onCopy: (id: string, value: string) => void;
+  isWalletSubmitting?: boolean;
+  onSubmitWithWallet?: () => void;
 }
 
 export function ComputeOutput({
@@ -26,6 +28,8 @@ export function ComputeOutput({
   callbackQueryTemplate,
   copiedItem,
   onCopy,
+  isWalletSubmitting = false,
+  onSubmitWithWallet,
 }: ComputeOutputProps) {
   return (
     <div className="card-industrial stagger-3" style={{ padding: '0' }}>
@@ -49,7 +53,7 @@ export function ComputeOutput({
               marginBottom: '0.25rem',
             }}
           >
-            Generated Compute Package
+            Generated Private Compute Package
           </h3>
           <div
             style={{
@@ -74,6 +78,7 @@ export function ComputeOutput({
           <button
             className="btn-secondary"
             style={{ border: '1px solid var(--border-dim)' }}
+            aria-label="Copy compute payload JSON"
             onClick={() => onCopy('compute-payload', generatedPackage.payloadJson)}
           >
             <Copy size={14} />{' '}
@@ -82,10 +87,21 @@ export function ComputeOutput({
           <button
             className="btn-secondary"
             style={{ border: '1px solid var(--border-dim)' }}
+            aria-label="Copy Neo N3 compute snippet"
             onClick={() => onCopy('compute-n3', generatedPackage.neoN3Snippet)}
           >
             <Copy size={14} /> {copiedItem === 'compute-n3' ? 'Copied N3' : 'Copy Neo N3 Snippet'}
           </button>
+          {onSubmitWithWallet && (
+            <button
+              className="btn-primary"
+              onClick={onSubmitWithWallet}
+              disabled={isWalletSubmitting}
+              aria-label="Submit compute request with NEP-21 wallet"
+            >
+              <Send size={14} /> {isWalletSubmitting ? 'Submitting...' : 'Submit with NEP-21'}
+            </button>
+          )}
         </div>
         <div
           style={{

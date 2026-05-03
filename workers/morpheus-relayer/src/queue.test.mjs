@@ -15,6 +15,17 @@ describe('extractDurableRetryMeta', () => {
           finalize_only: true,
           terminal_error: 'updater not set',
           durable_claimed: true,
+          prepared_fulfillment: {
+            success: true,
+            result: '{"ok":true}',
+            error: '',
+            result_bytes_base64: '',
+            route: '/oracle/fetch',
+            module_id: 'oracle.fetch',
+            operation: 'privacy_oracle',
+            worker_status: 200,
+            verification_signature: 'sig',
+          },
         },
       },
     };
@@ -22,6 +33,17 @@ describe('extractDurableRetryMeta', () => {
     assert.equal(meta.finalize_only, true);
     assert.equal(meta.terminal_error, 'updater not set');
     assert.equal(meta.durable_claimed, true);
+    assert.deepEqual(meta.prepared_fulfillment, {
+      success: true,
+      result: '{"ok":true}',
+      error: '',
+      result_bytes_base64: '',
+      route: '/oracle/fetch',
+      module_id: 'oracle.fetch',
+      operation: 'privacy_oracle',
+      worker_status: 200,
+      verification_signature: 'sig',
+    });
   });
 
   it('returns safe defaults for null/undefined job', () => {
@@ -29,11 +51,13 @@ describe('extractDurableRetryMeta', () => {
       finalize_only: false,
       terminal_error: null,
       durable_claimed: false,
+      prepared_fulfillment: null,
     });
     assert.deepEqual(extractDurableRetryMeta(undefined), {
       finalize_only: false,
       terminal_error: null,
       durable_claimed: false,
+      prepared_fulfillment: null,
     });
   });
 
@@ -42,18 +66,21 @@ describe('extractDurableRetryMeta', () => {
     assert.equal(meta.finalize_only, false);
     assert.equal(meta.terminal_error, null);
     assert.equal(meta.durable_claimed, false);
+    assert.equal(meta.prepared_fulfillment, null);
   });
 
   it('returns safe defaults when retry_meta is missing', () => {
     const meta = extractDurableRetryMeta({ worker_response: {} });
     assert.equal(meta.finalize_only, false);
     assert.equal(meta.terminal_error, null);
+    assert.equal(meta.prepared_fulfillment, null);
   });
 
   it('returns safe defaults when worker_response is not an object', () => {
     const meta = extractDurableRetryMeta({ worker_response: 'string' });
     assert.equal(meta.finalize_only, false);
     assert.equal(meta.terminal_error, null);
+    assert.equal(meta.prepared_fulfillment, null);
   });
 
   it('trims terminal_error whitespace', () => {
@@ -157,6 +184,26 @@ describe('isDurableQueueReadyJob', () => {
         NOW,
         STALE_MS
       ),
+      true
+    );
+  });
+
+  it('returns true for callback_retry_scheduled when due', () => {
+    const pastIso = new Date(NOW - 5_000).toISOString();
+    assert.equal(
+      isDurableQueueReadyJob(
+        { status: 'callback_retry_scheduled', next_retry_at: pastIso },
+        NOW,
+        STALE_MS
+      ),
+      true
+    );
+  });
+
+  it('returns true for stale callback_pending jobs', () => {
+    const staleIso = new Date(NOW - STALE_MS - 1000).toISOString();
+    assert.equal(
+      isDurableQueueReadyJob({ status: 'callback_pending', updated_at: staleIso }, NOW, STALE_MS),
       true
     );
   });

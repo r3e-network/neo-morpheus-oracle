@@ -1,5 +1,6 @@
 import './globals.css';
 import type { ReactNode } from 'react';
+import type { Viewport } from 'next';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { Layout } from '@/components/ui/Layout';
@@ -23,6 +24,11 @@ export const metadata = {
     description: 'Confidential oracle infrastructure for Neo N3.',
     images: ['/og-card.svg'],
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -185,6 +185,10 @@ export function enqueueRetryItem(state, chain, event, options = {}) {
     manual_action: options.manual_action || null,
     finalize_only: Boolean(options.finalize_only),
     terminal_error: options.terminal_error || null,
+    prepared_fulfillment:
+      options.prepared_fulfillment && typeof options.prepared_fulfillment === 'object'
+        ? options.prepared_fulfillment
+        : null,
     durable_claimed: Boolean(options.durable_claimed),
   };
   const index = chainState.retry_queue.findIndex((entry) => entry.key === key);

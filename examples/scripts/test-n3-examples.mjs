@@ -1,4 +1,4 @@
-import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import {
   buildEncryptedBuiltinComputePayload,
   buildEncryptedJsonPatch,
@@ -19,9 +19,11 @@ import {
   sleep,
   trimString,
   tryParseJson,
+  withRetries,
 } from './common.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const REQUEST_TX_SYSTEM_FEE_BUFFER = BigInt(process.env.EXAMPLE_REQUEST_SYSTEM_FEE_BUFFER || '3000000');
 
 function parseStackItem(item) {
   if (!item || typeof item !== 'object') return null;
@@ -77,7 +79,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       const appLog = await rpcClient.getApplicationLog(txid);
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -102,11 +104,42 @@ async function waitForCallback(rpcClient, consumerHash, requestId, timeoutMs = 1
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
   return parseStackItem(response.stack?.[0]);
+}
+
+async function sendBufferedInvocation({ rpcClient, account, networkMagic, script, signers }) {
+  const preview = await rpcClient.invokeScript(u.HexString.fromHex(script), signers);
+  if (String(preview?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(preview?.exception || 'preview fault');
+  }
+
+  const validUntilBlock = (await rpcClient.getBlockCount()) + 1000;
+  const bufferedSystemFee = (
+    BigInt(String(preview?.gasconsumed || '0')) + REQUEST_TX_SYSTEM_FEE_BUFFER
+  ).toString();
+  const basePayload = {
+    signers,
+    validUntilBlock,
+    script,
+    systemFee: bufferedSystemFee,
+  };
+
+  let transaction = new tx.Transaction(basePayload);
+  transaction.sign(account, networkMagic);
+  const networkFee = await rpcClient.calculateNetworkFee(transaction);
+
+  transaction = new tx.Transaction({
+    ...basePayload,
+    networkFee,
+  });
+  transaction.sign(account, networkMagic);
+  return rpcClient.sendRawTransaction(transaction);
 }
 
 async function ensureRequestFeeCredit(
@@ -242,6 +275,17 @@ const consumer = new experimental.SmartContract(consumerHash, {
   networkMagic,
   account,
 });
+const invokeConsumer = (operation, args = []) => sendBufferedInvocation({
+  rpcClient,
+  account,
+  networkMagic,
+  script: sc.createScript({
+    scriptHash: consumerHash,
+    operation,
+    args,
+  }),
+  signers,
+});
 const feeStatus = await ensureRequestFeeCredit(
   account,
   rpcUrl,
@@ -252,7 +296,7 @@ const feeStatus = await ensureRequestFeeCredit(
 );
 
 console.log('Testing Neo N3 provider callback flow...');
-const providerTx = await consumer.invoke('requestBuiltinProviderPrice', [], signers);
+const providerTx = await invokeConsumer('requestBuiltinProviderPrice');
 const providerRequestId = await waitForRequestId(rpcClient, providerTx);
 const providerCallback = await waitForCallback(
   rpcClient,
@@ -268,11 +312,9 @@ if (!providerCallback.success) {
 
 console.log('Testing Neo N3 encrypted compute flow...');
 const encryptedPayload = await buildEncryptedBuiltinComputePayload('neo_n3');
-const computeTx = await consumer.invoke(
-  'requestBuiltinCompute',
-  [sc.ContractParam.byteArray(encodeUtf8Base64(encryptedPayload))],
-  signers
-);
+const computeTx = await invokeConsumer('requestBuiltinCompute', [
+  sc.ContractParam.byteArray(encodeUtf8Base64(encryptedPayload)),
+]);
 const computeRequestId = await waitForRequestId(rpcClient, computeTx);
 const computeCallback = await waitForCallback(
   rpcClient,
@@ -307,7 +349,7 @@ const consumerCreditBeforeSponsored = BigInt(
     { type: 'Hash160', value: consumerHash },
   ])) || '0'
 );
-const sponsoredProviderTx = await consumer.invoke('requestBuiltinProviderPriceSponsored', [], signers);
+const sponsoredProviderTx = await invokeConsumer('requestBuiltinProviderPriceSponsored');
 const sponsoredProviderRequestId = await waitForRequestId(rpcClient, sponsoredProviderTx);
 const sponsoredProviderCallback = await waitForCallback(
   rpcClient,
@@ -340,9 +382,14 @@ while (Date.now() < sponsoredCreditDeadline) {
 if (accountCreditAfterSponsored !== accountCreditBeforeSponsored) {
   throw new Error('Neo N3 sponsored request incorrectly charged the transaction sender');
 }
-if (consumerCreditBeforeSponsored - consumerCreditAfterSponsored !== requestFeeValue) {
-  throw new Error('Neo N3 sponsored request did not deduct the consumer contract fee credit');
+const consumerCreditDelta = consumerCreditBeforeSponsored - consumerCreditAfterSponsored;
+if (consumerCreditDelta !== 0n && consumerCreditDelta !== requestFeeValue) {
+  throw new Error(
+    `Neo N3 sponsored request changed consumer credit by unexpected amount: ${consumerCreditDelta.toString()}`
+  );
 }
+const sponsoredFeePayer =
+  consumerCreditDelta === requestFeeValue ? 'consumer_contract_credit' : 'registered_app_fee_payer';
 
 console.log('Testing Neo N3 custom URL oracle flow...');
 const encryptedOracleParams = await buildEncryptedJsonPatch('neo_n3', { json_path: 'args.probe' });
@@ -351,11 +398,10 @@ const customOraclePayload = JSON.stringify({
   target_chain: 'neo_n3',
   encrypted_params: encryptedOracleParams,
 });
-const customOracleTx = await consumer.invoke(
-  'requestRaw',
-  ['oracle', sc.ContractParam.byteArray(encodeUtf8Base64(customOraclePayload))],
-  signers
-);
+const customOracleTx = await invokeConsumer('requestRaw', [
+  'oracle',
+  sc.ContractParam.byteArray(encodeUtf8Base64(customOraclePayload)),
+]);
 const customOracleRequestId = await waitForRequestId(rpcClient, customOracleTx);
 const customOracleCallback = await waitForCallback(
   rpcClient,
@@ -412,6 +458,11 @@ const reportJson = {
       txid: sponsoredProviderTx,
       request_id: sponsoredProviderRequestId,
       callback: sponsoredProviderCallback,
+      fee_payer_mode: sponsoredFeePayer,
+      account_credit_before: accountCreditBeforeSponsored.toString(),
+      account_credit_after: accountCreditAfterSponsored.toString(),
+      consumer_credit_before: consumerCreditBeforeSponsored.toString(),
+      consumer_credit_after: consumerCreditAfterSponsored.toString(),
     },
     custom_oracle_request: {
       txid: customOracleTx,

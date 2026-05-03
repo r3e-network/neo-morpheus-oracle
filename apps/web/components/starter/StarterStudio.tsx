@@ -1161,7 +1161,8 @@ BigInteger requestId = (BigInteger)Contract.Call(
               <ArrowRight size={18} color="var(--neo-green)" />
             </div>
             <p style={{ color: 'var(--text-secondary)', marginTop: '0.85rem', marginBottom: 0 }}>
-              Use the live Oracle Payload Builder and Enclave Sandbox after you choose a flow here.
+              Use the live Oracle Requests and Private Compute workspaces after you choose a flow
+              here.
             </p>
           </Link>
         </div>

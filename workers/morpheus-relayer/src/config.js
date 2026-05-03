@@ -258,6 +258,7 @@ export function createRelayerConfig() {
         Number(env('MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS') || 60000),
         0
       ),
+      claimStaleMs: Math.max(Number(env('MORPHEUS_AUTOMATION_CLAIM_STALE_MS') || 120000), 1000),
     },
     logFormat: env('MORPHEUS_RELAYER_LOG_FORMAT', 'LOG_FORMAT') || 'json',
     logLevel: env('MORPHEUS_RELAYER_LOG_LEVEL', 'LOG_LEVEL') || 'info',

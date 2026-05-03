@@ -24,6 +24,8 @@ function resolveSupabaseNetwork() {
     : 'testnet';
 }
 
+export const AUTOMATION_PROCESSING_CLAIM_MARKER = '__morpheus_automation_processing_claim__';
+
 export function sanitizeForPostgres(value) {
   if (typeof value === 'string') {
     return value.replace(/\u0000/g, '');
@@ -363,6 +365,92 @@ export async function patchAutomationJob(automationId, fields) {
   );
 }
 
+export async function claimAutomationJob(automationId, fields, options = {}) {
+  const normalizedAutomationId = trimString(automationId);
+  if (!normalizedAutomationId) return null;
+
+  const dueAtIso = trimString(options.dueAtIso || '');
+  const staleBeforeIso = trimString(options.staleBeforeIso || '');
+  const buildOrParts = () => {
+    const parts = [];
+    if (dueAtIso) {
+      parts.push('and(status.eq.active,next_run_at.is.null)');
+      parts.push(`and(status.eq.active,next_run_at.lte.${dueAtIso})`);
+    } else {
+      parts.push('status.eq.active');
+    }
+    if (staleBeforeIso) {
+      parts.push(`and(status.eq.processing,updated_at.lt.${staleBeforeIso})`);
+      parts.push(
+        `and(status.eq.paused,last_error.eq.${AUTOMATION_PROCESSING_CLAIM_MARKER},updated_at.lt.${staleBeforeIso})`
+      );
+    }
+    return parts;
+  };
+  const parseRepresentation = async (response) => {
+    if (!response) return null;
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      const rows = JSON.parse(text);
+      return Array.isArray(rows) ? rows[0] || null : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const orParts = buildOrParts();
+  const query = {
+    automation_id: `eq.${normalizedAutomationId}`,
+    network: `eq.${resolveSupabaseNetwork()}`,
+    ...(orParts.length > 0 ? { or: `(${orParts.join(',')})` } : {}),
+  };
+
+  try {
+    const response = await supabaseRequest(
+      'morpheus_automation_jobs',
+      'PATCH',
+      {
+        ...fields,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        returnRepresentation: true,
+        query,
+      }
+    );
+    return parseRepresentation(response);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/morpheus_automation_jobs_status_check|violates check constraint/i.test(message)) {
+      throw error;
+    }
+  }
+
+  const response = await supabaseRequest(
+    'morpheus_automation_jobs',
+    'PATCH',
+    {
+      ...fields,
+      status: 'paused',
+      last_error: AUTOMATION_PROCESSING_CLAIM_MARKER,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      returnRepresentation: true,
+      query,
+    }
+  );
+  return parseRepresentation(response);
+}
+
+function buildSchedulableAutomationJobFilter(dueAtIso) {
+  const normalizedDueAtIso = trimString(dueAtIso);
+  if (!normalizedDueAtIso) return null;
+  const staleBeforeIso = new Date(Date.parse(normalizedDueAtIso) - 120000).toISOString();
+  return `(and(status.eq.active,next_run_at.is.null),and(status.eq.active,next_run_at.lte.${normalizedDueAtIso}),and(status.eq.processing,updated_at.lt.${staleBeforeIso}),and(status.eq.paused,last_error.eq.${AUTOMATION_PROCESSING_CLAIM_MARKER},updated_at.lt.${staleBeforeIso}))`;
+}
+
 export async function fetchAutomationJobById(automationId) {
   const rows = await supabaseSelect('morpheus_automation_jobs', {
     select: '*',
@@ -377,12 +465,14 @@ export async function fetchActiveAutomationJobs(limit = 50, dueAtIso = null) {
   const query = {
     select: '*',
     network: `eq.${resolveSupabaseNetwork()}`,
-    status: 'eq.active',
     order: 'next_run_at.asc.nullslast,updated_at.asc',
     limit,
   };
-  if (trimString(dueAtIso)) {
-    query.or = `(next_run_at.is.null,next_run_at.lte.${trimString(dueAtIso)})`;
+  const schedulableFilter = buildSchedulableAutomationJobFilter(dueAtIso);
+  if (schedulableFilter) {
+    query.or = schedulableFilter;
+  } else {
+    query.status = 'eq.active';
   }
   return supabaseSelect('morpheus_automation_jobs', query);
 }

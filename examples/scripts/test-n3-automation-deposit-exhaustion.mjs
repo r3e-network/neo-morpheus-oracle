@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { experimental, rpc as neoRpc, sc, tx, wallet } from '@cityofzion/neon-js';
+import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import { createRelayerConfig } from '../../workers/morpheus-relayer/src/config.js';
 import { processAutomationJobs } from '../../workers/morpheus-relayer/src/automation.js';
 import { patchAutomationJob } from '../../workers/morpheus-relayer/src/persistence.js';
@@ -17,16 +17,22 @@ import {
   trimString,
   tryParseJson,
   writeValidationArtifacts,
-  writeSkippedValidationArtifacts,
+  withRetries,
 } from './common.mjs';
 
 const execFileAsync = promisify(execFile);
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const ZERO_HASH = '0x0000000000000000000000000000000000000000';
 const EXAMPLE_BUILD_DIR = path.resolve(repoRoot, 'examples/build/n3');
 const EXAMPLE_CONSUMER_ARTIFACT = 'UserConsumerN3OracleExample';
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
+}
+
+function hash160ByteArrayParam(value) {
+  const hashParam = sc.ContractParam.hash160(String(value).replace(/^0x/i, ''));
+  return sc.ContractParam.byteArray(u.HexString.fromHex(hashParam.value.toLittleEndian(), true));
 }
 
 function shellQuote(value) {
@@ -81,7 +87,9 @@ function decodeCallbackArray(item) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
@@ -99,6 +107,15 @@ async function waitForApplicationLog(rpcClient, txHash, timeoutMs = 180000) {
   throw new Error(`timed out waiting for application log ${txHash}`);
 }
 
+function assertHalt(appLog, label) {
+  const execution = appLog?.executions?.[0];
+  const vmState = String(execution?.vmstate || execution?.state || '');
+  if (!vmState.includes('HALT')) {
+    throw new Error(`${label} did not HALT: ${vmState} ${execution?.exception || ''}`.trim());
+  }
+  return execution;
+}
+
 function decodeDeployHash(appLog) {
   const notification = appLog?.executions
     ?.flatMap((execution) => execution.notifications || [])
@@ -109,16 +126,6 @@ function decodeDeployHash(appLog) {
   return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
 }
 
-async function contractExists(rpcClient, hash) {
-  if (!hash) return false;
-  try {
-    await rpcClient.getContractState(hash);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function loadContractArtifacts(baseName, buildDir = EXAMPLE_BUILD_DIR) {
   const nefPath = path.join(buildDir, `${baseName}.nef`);
   const manifestPath = path.join(buildDir, `${baseName}.manifest.json`);
@@ -126,80 +133,106 @@ async function loadContractArtifacts(baseName, buildDir = EXAMPLE_BUILD_DIR) {
     fs.readFile(nefPath),
     fs.readFile(manifestPath, 'utf8'),
   ]);
-  const manifestJson = JSON.parse(manifestRaw);
   return {
     nef: sc.NEF.fromBuffer(nefBytes),
-    manifestJson,
-    manifest: sc.ContractManifest.fromJson(manifestJson),
+    manifestJson: JSON.parse(manifestRaw),
   };
 }
 
-async function ensureExampleConsumer({
+async function deployContract(rpcClient, account, rpcUrl, networkMagic, baseName, suffix) {
+  const { nef, manifestJson } = await loadContractArtifacts(baseName);
+  const uniqueManifest = sc.ContractManifest.fromJson({
+    ...manifestJson,
+    name: `${manifestJson.name}-${suffix}`,
+  });
+  const txid = await experimental.deployContract(nef, uniqueManifest, {
+    account,
+    rpcAddress: rpcUrl,
+    networkMagic,
+    blocksTillExpiry: 200,
+  });
+  const appLog = await waitForApplicationLog(rpcClient, txid);
+  assertHalt(appLog, `deploy ${baseName}`);
+  return {
+    txid,
+    hash: decodeDeployHash(appLog),
+  };
+}
+
+async function deployProbeMiniApp({
   rpcClient,
   account,
   rpcUrl,
   networkMagic,
   oracleHash,
-  consumerHash,
+  appAdminHash,
 }) {
-  const { nef, manifestJson } = await loadContractArtifacts(
+  const suffix = Date.now().toString(36);
+  const appId = `autoex_${suffix}`;
+  const consumer = await deployContract(
+    rpcClient,
+    account,
+    rpcUrl,
+    networkMagic,
     EXAMPLE_CONSUMER_ARTIFACT,
-    EXAMPLE_BUILD_DIR
+    suffix
   );
-  let resolvedHash = normalizeHash160(consumerHash);
 
-  if (!(await contractExists(rpcClient, resolvedHash))) {
-    const uniqueManifest = sc.ContractManifest.fromJson({
-      ...manifestJson,
-      name: `${manifestJson.name}-${Date.now()}`,
-    });
-    const txid = await experimental.deployContract(nef, uniqueManifest, {
-      account,
-      rpcAddress: rpcUrl,
-      networkMagic,
-      blocksTillExpiry: 200,
-    });
-    const appLog = await waitForApplicationLog(rpcClient, txid);
-    resolvedHash = decodeDeployHash(appLog);
-  }
-
-  const currentOracle = normalizeHash160(
-    await invokeRead(rpcClient, resolvedHash, 'oracle').catch(() => '')
-  );
-  const oracleAllowed = Boolean(
-    await invokeRead(rpcClient, oracleHash, 'isAllowedCallback', [
-      { type: 'Hash160', value: resolvedHash },
-    ]).catch(() => false)
-  );
-  const consumer = new experimental.SmartContract(resolvedHash, {
+  const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
+  const oracleContract = new experimental.SmartContract(oracleHash, {
     rpcAddress: rpcUrl,
     networkMagic,
     account,
   });
-  const signers = [new tx.Signer({ account: account.scriptHash, scopes: tx.WitnessScope.Global })];
+  const consumerContract = new experimental.SmartContract(consumer.hash, {
+    rpcAddress: rpcUrl,
+    networkMagic,
+    account,
+  });
+  const setOracleTxid = await consumerContract.invoke(
+    'setOracle',
+    [sc.ContractParam.hash160(oracleHash)],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, setOracleTxid), 'setOracle');
+  const registerMiniAppTxid = await oracleContract.invoke(
+    'registerMiniApp',
+    [
+      sc.ContractParam.string(appId),
+      sc.ContractParam.hash160(appAdminHash),
+      sc.ContractParam.hash160(ZERO_HASH),
+      sc.ContractParam.hash160(consumer.hash),
+      sc.ContractParam.string('morpheus://validation/automation-deposit-exhaustion'),
+      sc.ContractParam.string(''),
+    ],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, registerMiniAppTxid), 'registerMiniApp');
+  const grantOracleFetchTxid = await oracleContract.invoke(
+    'grantModuleToMiniApp',
+    [sc.ContractParam.string(appId), sc.ContractParam.string('oracle.fetch')],
+    signers
+  );
+  assertHalt(await waitForApplicationLog(rpcClient, grantOracleFetchTxid), 'grantModuleToMiniApp');
 
-  if (!oracleAllowed) {
-    const oracle = new experimental.SmartContract(oracleHash, {
-      rpcAddress: rpcUrl,
-      networkMagic,
-      account,
-    });
-    const txid = await oracle.invoke('addAllowedCallback', [
-      sc.ContractParam.hash160(resolvedHash),
-    ]);
-    await waitForApplicationLog(rpcClient, txid);
-  }
+  return {
+    app_id: appId,
+    fee_payer: ZERO_HASH,
+    consumer_hash: consumer.hash,
+    deploy_txid: consumer.txid,
+    set_oracle_txid: setOracleTxid,
+    register_miniapp_txid: registerMiniAppTxid,
+    grant_oracle_fetch_txid: grantOracleFetchTxid,
+  };
+}
 
-  if (currentOracle !== oracleHash) {
-    const txid = await consumer.invoke(
-      'setOracle',
-      [sc.ContractParam.hash160(oracleHash)],
-      signers
-    );
-    await waitForApplicationLog(rpcClient, txid);
-  }
-
-  return resolvedHash;
+async function contractSupportsMethod(rpcClient, contractHash, name, arity) {
+  const state = await rpcClient.getContractState(contractHash);
+  return Boolean(
+    state?.manifest?.abi?.methods?.some(
+      (method) => method.name === name && method.parameters?.length === arity
+    )
+  );
 }
 
 async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
@@ -209,7 +242,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       const appLog = await rpcClient.getApplicationLog(txid);
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -263,11 +296,15 @@ async function ensureFeeCredit(
     account,
   });
   const deficit = requiredCredit - currentCredit;
+  const beneficiaryData =
+    !viaConsumer && normalizeHash160(creditRecipientHash) !== normalizeHash160(`0x${account.scriptHash}`)
+      ? hash160ByteArrayParam(creditRecipientHash)
+      : sc.ContractParam.any(null);
   await gas.invoke('transfer', [
     sc.ContractParam.hash160(`0x${account.scriptHash}`),
     sc.ContractParam.hash160(viaConsumer ? payerHash : oracleHash),
     sc.ContractParam.integer(deficit.toString()),
-    sc.ContractParam.any(null),
+    beneficiaryData,
   ]);
 
   if (viaConsumer) {
@@ -344,6 +381,61 @@ async function fetchAutomationRecord(baseUrl, apiKey, automationId, network = 't
     job: Array.isArray(jobRows) ? jobRows[0] || null : null,
     runs: Array.isArray(runRows) ? runRows : [],
   };
+}
+
+async function waitForExhaustionRecords(baseUrl, apiKey, automationIds, timeoutMs = 60000) {
+  const startedAt = Date.now();
+  let last = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    const records = await Promise.all(
+      automationIds.map((automationId) =>
+        fetchAutomationRecord(baseUrl, apiKey, automationId, 'testnet')
+      )
+    );
+    const queuedRuns = records.flatMap((record) =>
+      record.runs.filter((item) => item.status === 'queued')
+    );
+    const failedRuns = records.flatMap((record) =>
+      record.runs.filter((item) => item.status === 'failed')
+    );
+    last = { records, queuedRuns, failedRuns };
+    if (
+      queuedRuns.length === 1 &&
+      failedRuns.some((item) => /request fee not paid/i.test(String(item.error || '')))
+    ) {
+      return last;
+    }
+    await sleep(2000);
+  }
+  return last;
+}
+
+async function cancelExhaustionProbeJobs(baseUrl, apiKey, reason) {
+  const headers = {
+    apikey: apiKey,
+    authorization: `Bearer ${apiKey}`,
+    accept: 'application/json',
+    'content-type': 'application/json',
+    prefer: 'return=representation',
+  };
+  const url = new URL(`${baseUrl.replace(/\/$/, '')}/rest/v1/morpheus_automation_jobs`);
+  url.searchParams.set('network', 'eq.testnet');
+  url.searchParams.set('execution_payload->>tag', 'in.(exhaustion-a,exhaustion-b)');
+  url.searchParams.set('status', 'in.(active,paused,processing,error)');
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({
+      status: 'cancelled',
+      next_run_at: null,
+      last_error: reason,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`failed to cancel stale exhaustion jobs: ${response.status} ${await response.text()}`);
+  }
+  return response.json().catch(() => []);
 }
 
 async function runRemoteCommand(command, { appId, phalaApiToken }) {
@@ -490,7 +582,6 @@ async function main() {
   const networkMagic = Number(deployment.network_magic || 894710606);
   const signerWif = resolveNeoN3SignerWif('testnet');
   const oracleHash = normalizeHash160(deployment.oracle_hash || '');
-  const consumerHash = normalizeHash160(deployment.example_consumer_hash || '');
   const supabaseUrl = trimString(
     process.env.SUPABASE_URL || process.env.morpheus_SUPABASE_URL || ''
   );
@@ -510,29 +601,31 @@ async function main() {
 
   assertCondition(signerWif, 'testnet signer WIF is required');
   assertCondition(oracleHash, 'testnet oracle hash is required');
-  assertCondition(consumerHash, 'testnet example consumer hash is required');
   assertCondition(supabaseUrl && serviceRoleKey, 'Supabase secret or service-role env is required');
   assertCondition(phalaApiToken && appId, 'Phala API token and CVM id are required');
+  const staleProbeCleanup = await cancelExhaustionProbeJobs(
+    supabaseUrl,
+    serviceRoleKey,
+    `cancelled stale deposit exhaustion probes before ${new Date().toISOString()}`
+  );
 
   const account = new wallet.Account(signerWif);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
-  const resolvedConsumerHash = await ensureExampleConsumer({
-    rpcClient,
-    account,
-    rpcUrl,
-    networkMagic,
-    oracleHash,
-    consumerHash,
-  });
   const requesterHash = `0x${account.scriptHash}`;
-  const sharedRequesterHash = await ensureExampleConsumer({
+  assertCondition(
+    await contractSupportsMethod(rpcClient, oracleHash, 'registerMiniApp', 6),
+    'testnet oracle deployment is legacy_callback and lacks registerMiniApp/6; upgrade the testnet MorpheusOracle before running isolated MiniApp automation fee exhaustion validation'
+  );
+  const probeMiniApp = await deployProbeMiniApp({
     rpcClient,
     account,
     rpcUrl,
     networkMagic,
     oracleHash,
-    consumerHash: '',
+    appAdminHash: requesterHash,
   });
+  const resolvedConsumerHash = normalizeHash160(probeMiniApp.consumer_hash);
+  const sharedRequesterHash = normalizeHash160(`0x${wallet.generatePrivateKey().slice(0, 40)}`);
   const consumer = new experimental.SmartContract(resolvedConsumerHash, {
     rpcAddress: rpcUrl,
     networkMagic,
@@ -647,7 +740,7 @@ async function main() {
       sharedRequesterHash,
       1,
       {
-        viaConsumer: true,
+        viaConsumer: false,
         creditRecipientHash: sharedRequesterHash,
       }
     );
@@ -686,19 +779,31 @@ async function main() {
     process.env.MORPHEUS_RELAYER_NEO_N3_WIF = signerWif;
 
     const config = createRelayerConfig();
-    const localTick = await processAutomationJobs(config, { info() {}, warn() {} });
-    const recordA = await fetchAutomationRecord(
+    const targetRecordA = await fetchAutomationRecord(
       supabaseUrl,
       serviceRoleKey,
       registrationA.automation_id,
       'testnet'
     );
-    const recordB = await fetchAutomationRecord(
+    const targetRecordB = await fetchAutomationRecord(
       supabaseUrl,
       serviceRoleKey,
       registrationB.automation_id,
       'testnet'
     );
+    const targetJobs = [targetRecordA.job, targetRecordB.job].filter(Boolean);
+    assertCondition(targetJobs.length === 2, 'expected both target automation jobs before local tick');
+    const localTick = await processAutomationJobs(config, { info() {}, warn() {} }, {
+      fetchActiveAutomationJobs: async () => targetJobs,
+    });
+    const outcome = await waitForExhaustionRecords(supabaseUrl, serviceRoleKey, [
+      registrationA.automation_id,
+      registrationB.automation_id,
+    ]);
+    const [recordA, recordB] = outcome?.records || [
+      await fetchAutomationRecord(supabaseUrl, serviceRoleKey, registrationA.automation_id, 'testnet'),
+      await fetchAutomationRecord(supabaseUrl, serviceRoleKey, registrationB.automation_id, 'testnet'),
+    ];
     const queuedRuns = [...recordA.runs, ...recordB.runs].filter(
       (item) => item.status === 'queued'
     );
@@ -750,6 +855,11 @@ async function main() {
       queuedCallback?.success === true,
       'the single funded automation execution should fulfill successfully'
     );
+    const finalProbeCleanup = await cancelExhaustionProbeJobs(
+      supabaseUrl,
+      serviceRoleKey,
+      `cancelled completed deposit exhaustion probes after ${new Date().toISOString()}`
+    );
 
     const generatedAt = new Date().toISOString();
     const jsonReport = {
@@ -758,9 +868,12 @@ async function main() {
       rpc_url: rpcUrl,
       network_magic: networkMagic,
       oracle_hash: oracleHash,
+      probe_miniapp: probeMiniApp,
       shared_requester_hash: sharedRequesterHash,
       callback_consumer_hash: resolvedConsumerHash,
       request_fee: requestFee.toString(),
+      stale_probe_cleanup_count: Array.isArray(staleProbeCleanup) ? staleProbeCleanup.length : 0,
+      final_probe_cleanup_count: Array.isArray(finalProbeCleanup) ? finalProbeCleanup.length : 0,
       registration_fee_status: registrationFeeStatus,
       shared_requester_fee_status: sharedRequesterFeeStatus,
       credit_before_queue: creditBeforeQueue.toString(),
@@ -789,11 +902,14 @@ async function main() {
       '## Result',
       '',
       `- Shared requester hash: \`${sharedRequesterHash}\``,
+      `- Probe miniapp: \`${probeMiniApp.app_id}\``,
       `- Request fee: \`${requestFee}\``,
       `- Credit before queue: \`${creditBeforeQueue}\``,
       `- Credit after queue: \`${creditAfterQueue}\``,
       `- Queued runs: \`${queuedRuns.length}\``,
       `- Failed runs: \`${failedRuns.length}\``,
+      `- Stale probe cleanup: \`${Array.isArray(staleProbeCleanup) ? staleProbeCleanup.length : 0}\``,
+      `- Final probe cleanup: \`${Array.isArray(finalProbeCleanup) ? finalProbeCleanup.length : 0}\``,
       queuedTxHash ? `- Queued tx: \`${queuedTxHash}\`` : null,
       queuedChainRequestId ? `- Queued chain request id: \`${queuedChainRequestId}\`` : null,
       failedRuns[0]?.error ? `- Failed error: \`${failedRuns[0].error}\`` : null,
@@ -836,24 +952,6 @@ async function main() {
 
 main().catch((error) => {
   const message = error?.stack || error?.message || String(error);
-  if (/addAllowedCallback|Reason: unauthorized/i.test(message)) {
-    writeSkippedValidationArtifacts({
-      baseName: 'n3-automation-deposit-exhaustion',
-      network: 'testnet',
-      title: 'N3 Automation Deposit Exhaustion Validation',
-      reason: 'requires-privileged-callback-registration',
-      details: { error: message },
-    })
-      .then((artifacts) => {
-        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
-        process.exit(0);
-      })
-      .catch((artifactError) => {
-        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
-        process.exit(1);
-      });
-    return;
-  }
   console.error(message);
   process.exit(1);
 });
