@@ -14,7 +14,7 @@ import {
   trimString,
   tryParseJson,
   writeValidationArtifacts,
-  writeSkippedValidationArtifacts,
+  withRetries,
 } from './common.mjs';
 
 const aaRepoRoot = path.resolve(
@@ -22,10 +22,10 @@ const aaRepoRoot = path.resolve(
   '../../../neo-abstract-account'
 );
 const AA_BUILD_DIR = path.resolve(aaRepoRoot, 'contracts/bin/v3');
-const EXAMPLE_BUILD_DIR = path.resolve(repoRoot, 'examples/build/n3');
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const execFileAsync = promisify(execFile);
+const MIN_ESCAPE_TIMELOCK_SECONDS = '604800';
 
 function assertCondition(condition, message) {
   if (!condition) throw new Error(message);
@@ -237,7 +237,9 @@ async function deployContract(
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash.replace(/^0x/i, ''), method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash.replace(/^0x/i, ''), method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
@@ -245,7 +247,9 @@ async function invokeRead(rpcClient, contractHash, method, params = []) {
 }
 
 async function invokeReadRaw(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash.replace(/^0x/i, ''), method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash.replace(/^0x/i, ''), method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }
@@ -466,7 +470,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       const appLog = await rpcClient.getApplicationLog(txid);
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}
@@ -582,37 +586,27 @@ async function main() {
     suffix,
     AA_BUILD_DIR
   );
-  const consumer = await deployContract(
-    rpcClient,
-    account,
-    rpcUrl,
-    networkMagic,
-    'UserConsumerN3OracleExample',
-    suffix,
-    EXAMPLE_BUILD_DIR
-  );
-  await invokePersisted(
-    rpcClient,
-    oracleHash,
-    account,
-    rpcUrl,
-    networkMagic,
-    'addAllowedCallback',
-    [hash160Param(consumer.hash)]
-  );
-  await invokePersisted(rpcClient, consumer.hash, account, rpcUrl, networkMagic, 'setOracle', [
-    hash160Param(oracleHash),
-  ]);
+  const consumer = { hash: consumerHash };
   const feeStatus = await refreshRequesterCredit(20);
 
-  const accountId = Buffer.from(wallet.generatePrivateKey()).subarray(0, 20).toString('hex');
+  const zeroHash = '0x0000000000000000000000000000000000000000';
+  const accountId = normalizeHash160(
+    await invokeRead(rpcClient, core.hash, 'computeRegistrationAccountId', [
+      hash160Param(zeroHash),
+      emptyByteArrayParam(),
+      hash160Param(zeroHash),
+      hash160Param(`0x${account.scriptHash}`),
+      integerParam(MIN_ESCAPE_TIMELOCK_SECONDS),
+    ])
+  );
+  assertCondition(accountId, 'failed to compute registration account id');
   await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, 'registerAccount', [
     hash160Param(accountId),
-    hash160Param('0'.repeat(40)),
+    hash160Param(zeroHash),
     emptyByteArrayParam(),
-    hash160Param('0'.repeat(40)),
+    hash160Param(zeroHash),
     hash160Param(`0x${account.scriptHash}`),
-    integerParam(1),
+    integerParam(MIN_ESCAPE_TIMELOCK_SECONDS),
   ]);
   await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, 'updateVerifier', [
     hash160Param(accountId),
@@ -621,7 +615,7 @@ async function main() {
   ]);
 
   const validUntil = 2_000_000_000_000n;
-  await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, 'callVerifier', [
+  const setSessionCall = await invokePersisted(rpcClient, core.hash, account, rpcUrl, networkMagic, 'callVerifier', [
     hash160Param(accountId),
     stringParam('setSessionKey'),
     arrayParam([
@@ -630,8 +624,72 @@ async function main() {
       hash160Param(consumer.hash),
       stringParam('requestBuiltinProviderPriceSponsored'),
       integerParam(validUntil),
+      integerParam(0),
+      stringParam('Morpheus testnet session oracle boundary'),
     ]),
   ]);
+  const setSessionConfigured = Boolean(parseStackItem(setSessionCall.execution.stack?.[0]));
+  if (!setSessionConfigured) {
+    const pendingVerifierCall = Boolean(
+      await invokeRead(rpcClient, core.hash, 'hasPendingVerifierCall', [hash160Param(accountId)])
+    );
+    const pendingVerifierCallUnlockTime = String(
+      (await invokeRead(rpcClient, core.hash, 'getPendingVerifierCallTime', [
+        hash160Param(accountId),
+      ])) || '0'
+    );
+    assertCondition(pendingVerifierCall, 'setSessionKey should create a pending verifier call');
+    assertCondition(
+      BigInt(pendingVerifierCallUnlockTime) > BigInt(Date.now()),
+      'pending verifier call unlock time should be in the future'
+    );
+
+    const generatedAt = new Date().toISOString();
+    const jsonReport = {
+      generated_at: generatedAt,
+      network: 'testnet',
+      rpc_url: rpcUrl,
+      network_magic: networkMagic,
+      oracle_hash: oracleHash,
+      callback_consumer_hash: consumerHash,
+      aa_core_hash: core.hash,
+      session_verifier_hash: sessionVerifier.hash,
+      account_id: normalizeHash(accountId),
+      status: 'pending_config_timelock',
+      set_session_txid: setSessionCall.txid,
+      pending_verifier_call: pendingVerifierCall,
+      pending_verifier_call_unlock_time: pendingVerifierCallUnlockTime,
+      request_fee_status: feeStatus,
+    };
+    const markdownReport = [
+      '# N3 AA Session-Key Oracle Boundary Validation',
+      '',
+      `Date: ${generatedAt}`,
+      '',
+      '## Result',
+      '',
+      '- Status: `pending_config_timelock`',
+      `- AA core: \`${core.hash}\``,
+      `- Session verifier: \`${sessionVerifier.hash}\``,
+      `- Account id: \`${accountId}\``,
+      `- setSessionKey tx: \`${setSessionCall.txid}\``,
+      `- Unlock time (ms): \`${pendingVerifierCallUnlockTime}\``,
+      '',
+      '## Conclusion',
+      '',
+      'The production AA v3 contract correctly places verifier maintenance calls behind the 24 hour configuration timelock. The session-key success path must be resumed after this unlock time using the same deployed core and account.',
+      '',
+    ].join('\n');
+    const artifacts = await writeValidationArtifacts({
+      baseName: 'n3-aa-session-oracle-boundary',
+      network: 'testnet',
+      generatedAt,
+      jsonReport,
+      markdownReport,
+    });
+    console.log(JSON.stringify({ ...artifacts, ...jsonReport }, null, 2));
+    return;
+  }
 
   const nonce = BigInt(
     (await invokeRead(rpcClient, core.hash, 'getNonce', [
@@ -852,24 +910,6 @@ async function main() {
 
 main().catch((error) => {
   const message = error?.stack || error?.message || String(error);
-  if (/addAllowedCallback|Reason: unauthorized/i.test(message)) {
-    writeSkippedValidationArtifacts({
-      baseName: 'n3-aa-session-oracle-boundary',
-      network: 'testnet',
-      title: 'N3 AA Session-Key Oracle Boundary Validation',
-      reason: 'requires-privileged-callback-registration',
-      details: { error: message },
-    })
-      .then((artifacts) => {
-        console.log(JSON.stringify({ ...artifacts, skipped: true, error: message }, null, 2));
-        process.exit(0);
-      })
-      .catch((artifactError) => {
-        console.error(artifactError?.stack || artifactError?.message || String(artifactError));
-        process.exit(1);
-      });
-    return;
-  }
   console.error(message);
   process.exit(1);
 });

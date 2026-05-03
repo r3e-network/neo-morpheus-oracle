@@ -37,6 +37,10 @@ export async function maybeUpsertJob(logger, event, details) {
   }
 }
 
+export async function upsertJobOrThrow(event, details) {
+  return upsertRelayerJob(buildRelayerJobRecord(event, details));
+}
+
 export async function deferEventsForBackpressure(
   config,
   state,
@@ -162,17 +166,25 @@ export function extractDurableRetryMeta(job) {
         ? retryMeta.terminal_error.trim()
         : null,
     durable_claimed: Boolean(retryMeta.durable_claimed),
+    prepared_fulfillment:
+      retryMeta.prepared_fulfillment && typeof retryMeta.prepared_fulfillment === 'object'
+        ? retryMeta.prepared_fulfillment
+        : null,
   };
 }
 
 export function isDurableQueueReadyJob(job, nowMs, staleProcessingMs) {
   const status = String(job?.status || '');
   if (status === 'queued' || status === 'queued_backpressure') return true;
-  if (status === 'retry_scheduled' || status === 'failure_callback_retry_scheduled') {
+  if (
+    status === 'retry_scheduled' ||
+    status === 'failure_callback_retry_scheduled' ||
+    status === 'callback_retry_scheduled'
+  ) {
     const nextRetryAtMs = parseTimestampMs(job?.next_retry_at);
     return nextRetryAtMs === 0 || nextRetryAtMs <= nowMs;
   }
-  if (status === 'processing' || status === 'retrying') {
+  if (status === 'processing' || status === 'retrying' || status === 'callback_pending') {
     const updatedAtMs = parseTimestampMs(job?.updated_at);
     return updatedAtMs > 0 && nowMs - updatedAtMs >= staleProcessingMs;
   }
@@ -237,9 +249,16 @@ export async function claimDurableJobForProcessing(config, logger, event, retryI
     },
     {
       readyStatuses: retryItem
-        ? ['retry_scheduled', 'failure_callback_retry_scheduled', 'queued', 'queued_backpressure']
+        ? [
+            'retry_scheduled',
+            'failure_callback_retry_scheduled',
+            'callback_retry_scheduled',
+            'callback_pending',
+            'queued',
+            'queued_backpressure',
+          ]
         : ['queued', 'queued_backpressure'],
-      staleStatuses: ['processing', 'retrying'],
+      staleStatuses: ['processing', 'retrying', 'callback_pending'],
       staleBeforeIso,
     }
   );
@@ -271,6 +290,8 @@ export async function hydrateDurableQueue(config, state, logger, chain, persistS
       'queued_backpressure',
       'retry_scheduled',
       'failure_callback_retry_scheduled',
+      'callback_retry_scheduled',
+      'callback_pending',
       'processing',
       'retrying',
     ],
@@ -311,6 +332,7 @@ export async function hydrateDurableQueue(config, state, logger, chain, persistS
       last_error: job.last_error || null,
       finalize_only: retryMeta.finalize_only,
       terminal_error: retryMeta.terminal_error,
+      prepared_fulfillment: retryMeta.prepared_fulfillment,
       durable_claimed: true,
     });
     hydrated.push(eventKey);
@@ -339,6 +361,8 @@ export async function quarantineDurableBacklogBelowRequestFloor(config, logger, 
       'queued_backpressure',
       'retry_scheduled',
       'failure_callback_retry_scheduled',
+      'callback_retry_scheduled',
+      'callback_pending',
       'processing',
       'retrying',
     ],

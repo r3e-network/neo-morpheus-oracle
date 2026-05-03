@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, Copy } from 'lucide-react';
+import { CheckCircle2, Copy, Send } from 'lucide-react';
 import { NETWORKS } from '@/lib/onchain-data';
 
 interface GeneratedRequest {
@@ -20,6 +20,8 @@ interface OracleResponseViewerProps {
   callbackQueryTemplate: string;
   copiedItem: string | null;
   onCopy: (id: string, value: string) => void;
+  isWalletSubmitting?: boolean;
+  onSubmitWithWallet?: () => void;
 }
 
 export function OracleResponseViewer({
@@ -32,6 +34,8 @@ export function OracleResponseViewer({
   callbackQueryTemplate,
   copiedItem,
   onCopy,
+  isWalletSubmitting = false,
+  onSubmitWithWallet,
 }: OracleResponseViewerProps) {
   return (
     <div className="card-industrial stagger-3" style={{ padding: '0' }}>
@@ -55,7 +59,7 @@ export function OracleResponseViewer({
               marginBottom: '0.25rem',
             }}
           >
-            3. Generated Request Package
+            Generated Oracle Package
           </h3>
           <div
             style={{
@@ -81,6 +85,7 @@ export function OracleResponseViewer({
           <button
             className="btn-secondary"
             style={{ border: '1px solid var(--border-dim)' }}
+            aria-label="Copy oracle payload JSON"
             onClick={() => onCopy('payload', generatedRequest.payloadJson)}
           >
             <Copy size={14} /> {copiedItem === 'payload' ? 'Copied Payload' : 'Copy Payload JSON'}
@@ -88,10 +93,21 @@ export function OracleResponseViewer({
           <button
             className="btn-secondary"
             style={{ border: '1px solid var(--border-dim)' }}
+            aria-label="Copy Neo N3 contract snippet"
             onClick={() => onCopy('n3', generatedRequest.neoN3Snippet)}
           >
             <Copy size={14} /> {copiedItem === 'n3' ? 'Copied N3' : 'Copy Neo N3 Snippet'}
           </button>
+          {onSubmitWithWallet && (
+            <button
+              className="btn-primary"
+              onClick={onSubmitWithWallet}
+              disabled={isWalletSubmitting}
+              aria-label="Submit oracle request with NEP-21 wallet"
+            >
+              <Send size={14} /> {isWalletSubmitting ? 'Submitting...' : 'Submit with NEP-21'}
+            </button>
+          )}
         </div>
 
         <div className="grid grid-2" style={{ gap: '1rem' }}>

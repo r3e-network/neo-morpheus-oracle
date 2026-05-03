@@ -1,52 +1,95 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
-  Globe,
-  Cpu,
-  Terminal,
-  Copy,
-  Trash2,
-  CheckCircle2,
-  Database,
-  ChevronRight,
   BookOpen,
   Box,
+  CheckCircle2,
+  ChevronRight,
+  Copy,
+  Cpu,
+  Database,
+  Globe,
+  KeyRound,
+  Terminal,
+  Trash2,
 } from 'lucide-react';
 
+type DashboardTabId = 'overview' | 'providers' | 'oracle' | 'compute' | 'studio' | 'devhub';
+type CopyState = 'idle' | 'copied' | 'failed';
+
+type ProviderSummary = {
+  id: string;
+  description?: string;
+  supports?: string[];
+  auth?: string;
+};
+
+type WorkflowTab = {
+  id: DashboardTabId;
+  label: string;
+  description: string;
+  status: string;
+  icon: LucideIcon;
+};
+
+const WORKFLOW_TABS: WorkflowTab[] = [
+  {
+    id: 'overview',
+    label: 'Network Monitor',
+    description: 'Runtime health, on-chain state, feed synchronization, and attestation anchors.',
+    status: 'Live state',
+    icon: Globe,
+  },
+  {
+    id: 'providers',
+    label: 'Data Catalog',
+    description: 'Provider adapters, canonical feed keys, pair semantics, and storage units.',
+    status: 'Feed catalog',
+    icon: Database,
+  },
+  {
+    id: 'oracle',
+    label: 'Oracle Requests',
+    description: 'Encrypt private fields and generate on-chain Oracle.request packages.',
+    status: 'NEP-21 ready',
+    icon: Box,
+  },
+  {
+    id: 'compute',
+    label: 'Private Compute',
+    description: 'Author JS/WASM compute payloads and prepare callback verification templates.',
+    status: 'TEE payloads',
+    icon: Cpu,
+  },
+  {
+    id: 'studio',
+    label: 'Starter Studio',
+    description: 'Guided templates for oracle, compute, NeoDID, and developer onboarding.',
+    status: 'Templates',
+    icon: KeyRound,
+  },
+  {
+    id: 'devhub',
+    label: 'Developer Hub',
+    description: 'Reference snippets, API entry points, contract flow notes, and handoff material.',
+    status: 'Docs',
+    icon: BookOpen,
+  },
+];
+
 const TabFallback = () => (
-  <div
-    className="card-industrial"
-    style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '420px',
-    }}
-  >
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-      <div className="status-dot" style={{ transform: 'scale(1.6)' }}></div>
-      <p
-        style={{
-          color: 'var(--text-secondary)',
-          fontSize: '0.8rem',
-          fontWeight: 600,
-          fontFamily: 'var(--font-mono)',
-          letterSpacing: 0,
-        }}
-      >
-        LOADING MODULE...
-      </p>
-    </div>
+  <div className="dashboard-loading-panel" role="status" aria-live="polite">
+    <div className="status-dot" />
+    <p>Loading workspace...</p>
   </div>
 );
 
 const OverviewTab = dynamic(
   () => import('./dashboard/OverviewTab').then((mod) => mod.OverviewTab),
-  {
-    loading: () => <TabFallback />,
-  }
+  { loading: () => <TabFallback /> }
 );
 const OracleTab = dynamic(() => import('./dashboard/OracleTab').then((mod) => mod.OracleTab), {
   loading: () => <TabFallback />,
@@ -64,17 +107,18 @@ const DeveloperHub = dynamic(
 );
 const StarterStudio = dynamic(
   () => import('./starter/StarterStudio').then((mod) => mod.StarterStudio),
-  {
-    loading: () => <TabFallback />,
-  }
+  { loading: () => <TabFallback /> }
 );
 
 export function Dashboard() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState<DashboardTabId>('overview');
   const [output, setOutput] = useState<string>('');
-  const [providers, setProviders] = useState<any[]>([]);
+  const [providers, setProviders] = useState<ProviderSummary[]>([]);
   const [isProvidersLoading, setIsProvidersLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [providersError, setProvidersError] = useState<string | null>(null);
+  const [providerRetryKey, setProviderRetryKey] = useState(0);
+  const [copyState, setCopyState] = useState<CopyState>('idle');
+  const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!['providers', 'oracle'].includes(activeTab) || providers.length > 0) {
@@ -84,14 +128,22 @@ export function Dashboard() {
     let cancelled = false;
     (async () => {
       setIsProvidersLoading(true);
+      setProvidersError(null);
       try {
         const providersRes = await fetch('/api/providers');
-        const providersBody = await providersRes.json();
+        const providersBody = await providersRes.json().catch(() => ({}));
+        if (!providersRes.ok) {
+          throw new Error(`Provider API returned ${providersRes.status}`);
+        }
         if (!cancelled && Array.isArray(providersBody.providers)) {
           setProviders(providersBody.providers);
         }
       } catch (err) {
-        console.error('Failed to fetch initial data', err);
+        const message = err instanceof Error ? err.message : String(err);
+        if (!cancelled) {
+          setProvidersError(message);
+          setOutput(`Provider catalog failed to load: ${message}`);
+        }
       } finally {
         if (!cancelled) {
           setIsProvidersLoading(false);
@@ -102,176 +154,85 @@ export function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, providers.length]);
+  }, [activeTab, providerRetryKey, providers.length]);
 
-  const handleCopy = () => {
+  useEffect(() => {
+    return () => {
+      if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+    };
+  }, []);
+
+  const activeWorkflow = useMemo(
+    () => WORKFLOW_TABS.find((tab) => tab.id === activeTab) ?? WORKFLOW_TABS[0],
+    [activeTab]
+  );
+
+  const handleCopy = async () => {
     if (!output) return;
-    navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopyState('copied');
+    } catch {
+      setCopyState('failed');
+    }
+    if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+    copyResetTimer.current = setTimeout(() => setCopyState('idle'), 2000);
   };
 
-  const tabs = [
-    { id: 'overview', label: 'Network Monitor', icon: Globe },
-    { id: 'providers', label: 'Data Catalog', icon: Database },
-    { id: 'oracle', label: 'Oracle Payload', icon: Box },
-    { id: 'compute', label: 'Enclave Sandbox', icon: Cpu },
-    { id: 'studio', label: 'Starter Studio', icon: Box },
-    { id: 'devhub', label: 'Developer Hub', icon: BookOpen },
-  ];
+  const outputMessage =
+    output ||
+    [
+      'Morpheus workbench is ready.',
+      'Run an oracle, compute, catalog, or network workflow to see payloads and status here.',
+    ].join('\n');
 
   return (
-    <div className="grid fade-in dashboard-grid">
-      <aside className="dashboard-sidebar">
-        <div
-          className="stagger-1"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.25rem',
-            marginBottom: '2.5rem',
-          }}
-        >
-          {tabs.map((Tab) => (
-            <button
-              key={Tab.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '0.85rem 1rem',
-                background: activeTab === Tab.id ? 'rgba(83, 58, 253, 0.07)' : 'transparent',
-                border: '1px solid',
-                borderColor: activeTab === Tab.id ? 'var(--border-highlight)' : 'transparent',
-                borderRadius: '4px',
-                color: activeTab === Tab.id ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontWeight: 600,
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.2s',
-              }}
-              onClick={() => {
-                setActiveTab(Tab.id);
-                setOutput('');
-              }}
-            >
-              <Tab.icon
-                size={16}
-                color={activeTab === Tab.id ? 'var(--neo-green)' : 'currentColor'}
-              />
-              <span style={{ flex: 1, fontSize: '0.9rem' }}>{Tab.label}</span>
-              {activeTab === Tab.id && <ChevronRight size={14} />}
-            </button>
-          ))}
+    <div className="dashboard-shell fade-in">
+      <aside className="dashboard-sidebar" aria-label="Workbench workflows">
+        <div className="dashboard-sidebar-header">
+          <span>Workbench</span>
+          <strong>Operations</strong>
         </div>
-
-        <div
-          className="stagger-3"
-          style={{
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
-            marginTop: '2rem',
-          }}
-        >
-          <div
-            style={{
-              background: 'var(--bg-panel)',
-              padding: '0.75rem 1rem',
-              borderBottom: '1px solid var(--border-dim)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Terminal size={12} color="var(--neo-green)" />
-              <span
-                style={{
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                  letterSpacing: 0,
-                  color: 'var(--text-secondary)',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                PROCESS_LOGS
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+        <nav className="dashboard-tab-list">
+          {WORKFLOW_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
               <button
-                onClick={handleCopy}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                }}
+                key={tab.id}
+                type="button"
+                className={`dashboard-tab-button${isActive ? ' dashboard-tab-button--active' : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => setActiveTab(tab.id)}
               >
-                {copied ? <CheckCircle2 size={12} color="var(--neo-green)" /> : <Copy size={12} />}
+                <Icon size={17} />
+                <span>
+                  <strong>{tab.label}</strong>
+                  <small>{tab.status}</small>
+                </span>
+                {isActive && <ChevronRight size={15} aria-hidden="true" />}
               </button>
-              <button
-                onClick={() => setOutput('')}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                }}
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          </div>
-          <div style={{ padding: '1rem', height: '300px', overflowY: 'auto' }}>
-            <pre
-              style={{
-                fontSize: '0.75rem',
-                whiteSpace: 'pre-wrap',
-                fontFamily: 'var(--font-mono)',
-                color: 'var(--neo-green)',
-                opacity: 0.9,
-                lineHeight: 1.5,
-              }}
-            >
-              {output || '> System online. Ready for command input...'}
-            </pre>
-          </div>
-        </div>
+            );
+          })}
+        </nav>
       </aside>
 
-      <main style={{ minWidth: 0 }}>
+      <main className="dashboard-main" aria-label={`${activeWorkflow.label} workspace`}>
         {isProvidersLoading && ['providers', 'oracle'].includes(activeTab) ? (
-          <div
-            className="card-industrial"
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '500px',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '1.5rem',
+          <TabFallback />
+        ) : providersError && ['providers', 'oracle'].includes(activeTab) ? (
+          <div className="dashboard-loading-panel dashboard-loading-panel--error" role="alert">
+            <p>Provider catalog unavailable: {providersError}</p>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setProvidersError(null);
+                setProviderRetryKey((value) => value + 1);
               }}
             >
-              <div className="status-dot" style={{ transform: 'scale(2)' }}></div>
-              <p
-                style={{
-                  color: 'var(--text-secondary)',
-                  fontSize: '0.85rem',
-                  fontWeight: 600,
-                  fontFamily: 'var(--font-mono)',
-                  letterSpacing: 0,
-                }}
-              >
-                CONNECTING TO MATRIX...
-              </p>
-            </div>
+              Retry provider load
+            </button>
           </div>
         ) : (
           <div className="fade-in">
@@ -284,6 +245,70 @@ export function Dashboard() {
           </div>
         )}
       </main>
+
+      <aside className="dashboard-right-rail" aria-label="Run status and output">
+        <section className="dashboard-rail-card">
+          <div className="dashboard-rail-title">
+            <CheckCircle2 size={15} />
+            Service Summary
+          </div>
+          <div className="dashboard-summary-list">
+            <div>
+              <span>Selected workflow</span>
+              <strong>{activeWorkflow.label}</strong>
+            </div>
+            <div>
+              <span>Provider catalog</span>
+              <strong>
+                {providersError
+                  ? 'Needs retry'
+                  : providers.length
+                    ? `${providers.length} loaded`
+                    : 'On demand'}
+              </strong>
+            </div>
+            <div>
+              <span>Wallet path</span>
+              <strong>NEP-21 supported</strong>
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-output-card">
+          <div className="dashboard-output-header">
+            <div>
+              <Terminal size={14} />
+              <span>Run Output</span>
+            </div>
+            <div className="dashboard-output-actions">
+              <button
+                type="button"
+                aria-label="Copy run output"
+                title="Copy run output"
+                onClick={handleCopy}
+                disabled={!output}
+              >
+                {copyState === 'copied' ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+              </button>
+              <button
+                type="button"
+                aria-label="Clear run output"
+                title="Clear run output"
+                onClick={() => setOutput('')}
+                disabled={!output}
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+          <pre className={copyState === 'failed' ? 'dashboard-output-error' : undefined}>
+            {copyState === 'failed'
+              ? 'Unable to copy output. Check browser clipboard permissions.\n\n'
+              : ''}
+            {outputMessage}
+          </pre>
+        </section>
+      </aside>
     </div>
   );
 }

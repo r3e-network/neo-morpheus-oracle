@@ -93,7 +93,7 @@ export function ComputeFunctions({ selectedFunc, onSelectPreset }: ComputeFuncti
               fontFamily: 'var(--font-mono)',
             }}
           >
-            Scenario Presets
+            Function Presets
           </h3>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>

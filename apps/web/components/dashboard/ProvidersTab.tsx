@@ -80,7 +80,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
             className="btn-secondary"
             style={{ padding: '0.5rem 1rem', fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}
           >
-            <Globe size={14} /> EXPLORE TWELVEDATA
+            <Globe size={14} /> Explore TwelveData
           </a>
         </div>
       </div>
@@ -195,11 +195,11 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                   }}
                 >
                   <span style={{ color: 'var(--text-muted)' }}>
-                    SUPPORT:{' '}
+                    Support:{' '}
                     <span style={{ color: 'var(--text-primary)' }}>{p.supports?.join(', ')}</span>
                   </span>
                   <span style={{ color: 'var(--text-muted)' }}>
-                    AUTH:{' '}
+                    Auth:{' '}
                     <span style={{ color: 'var(--text-primary)' }}>
                       {p.auth === 'none' ? 'Public' : 'Encrypted Key'}
                     </span>
@@ -284,7 +284,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                     fontSize: '0.8rem',
                   }}
                 >
-                  SYNCING...
+                  Loading pairs...
                 </div>
               ) : (
                 filteredSymbols.map((s) => (
@@ -320,7 +320,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                     fontSize: '0.8rem',
                   }}
                 >
-                  NO MATCHES FOUND
+                  No matching pairs
                 </div>
               )}
             </div>

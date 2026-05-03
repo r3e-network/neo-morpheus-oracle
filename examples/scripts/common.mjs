@@ -70,6 +70,29 @@ export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function isTransientRpcError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /HTTP code 502|HTTP code 503|HTTP code 504|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed/i.test(
+    message
+  );
+}
+
+export async function withRetries(label, task, attempts = 5) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientRpcError(error) || attempt === attempts) break;
+      await sleep(1000 * attempt);
+    }
+  }
+  throw new Error(
+    `${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
+  );
+}
+
 export function tryParseJson(value) {
   try {
     return JSON.parse(value);
@@ -87,7 +110,12 @@ export function jsonPretty(value) {
 }
 
 export async function loadExampleEnv() {
-  const requestedNetwork = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
+  const explicitNetwork = trimString(
+    process.env.MORPHEUS_NETWORK || process.env.EXAMPLE_MORPHEUS_NETWORK || ''
+  );
+  const requestedNetwork = normalizeMorpheusNetwork(explicitNetwork || 'testnet');
+  process.env.MORPHEUS_NETWORK = requestedNetwork;
+  process.env.NEXT_PUBLIC_MORPHEUS_NETWORK ||= requestedNetwork;
   await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
   const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || requestedNetwork);
   const phalaEnvPath = path.resolve(

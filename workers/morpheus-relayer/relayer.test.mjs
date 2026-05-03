@@ -36,6 +36,7 @@ import {
   shouldRunRequestProcessing,
 } from './src/relayer.js';
 import { resolveRequestCursor } from './src/request-processor.js';
+import { processEvent } from './src/fulfillment.js';
 import {
   buildEventKey,
   createEmptyRelayerState,
@@ -56,7 +57,12 @@ import {
   getNeoN3LatestBlock,
   hasNeoN3RelayerConfig,
 } from './src/neo-n3.js';
-import { claimRelayerJob, sanitizeForPostgres } from './src/persistence.js';
+import {
+  AUTOMATION_PROCESSING_CLAIM_MARKER,
+  claimAutomationJob,
+  claimRelayerJob,
+  sanitizeForPostgres,
+} from './src/persistence.js';
 import { createRelayerConfig } from './src/config.js';
 
 const retryConfig = {
@@ -457,6 +463,10 @@ test('processAutomationJobs fail-closes automation jobs on request fee exhaustio
           'at instruction 2827 (ABORTMSG): ABORTMSG is executed. Reason: request fee not paid'
         );
       },
+      claimAutomationJob: async () => ({
+        automation_id: 'automation:neo_n3:exhausted',
+        status: 'processing',
+      }),
       patchAutomationJob: async (automationId, fields) => {
         patchedJobs.push({ automationId, fields });
       },
@@ -481,6 +491,16 @@ test('processAutomationJobs fail-closes automation jobs on request fee exhaustio
   assert.equal(insertedRuns.length, 1);
   assert.equal(insertedRuns[0].status, 'failed');
   assert.match(insertedRuns[0].error, /request fee not paid/i);
+});
+
+test('Neo N3 automation queue waits for app log and fail-closes VM faults', () => {
+  const source = fs.readFileSync(
+    path.resolve(path.dirname(new URL(import.meta.url).pathname), 'src/neo-n3.js'),
+    'utf8'
+  );
+
+  assert.match(source, /method: 'queueAutomationRequest'[\s\S]*wait: true/);
+  assert.match(source, /invoke\.body\?\.vm_state[\s\S]*FAULT/);
 });
 
 test('processAutomationJobs preserves retry semantics for transient automation queue errors', async () => {
@@ -517,6 +537,10 @@ test('processAutomationJobs preserves retry semantics for transient automation q
       queueNeoN3AutomationRequest: async () => {
         throw new Error('rpc timeout');
       },
+      claimAutomationJob: async () => ({
+        automation_id: 'automation:neo_n3:transient',
+        status: 'processing',
+      }),
       patchAutomationJob: async (automationId, fields) => {
         patchedJobs.push({ automationId, fields });
       },
@@ -531,6 +555,7 @@ test('processAutomationJobs preserves retry semantics for transient automation q
     {
       automationId: 'automation:neo_n3:transient',
       fields: {
+        status: 'active',
         last_error: 'rpc timeout',
       },
     },
@@ -538,6 +563,120 @@ test('processAutomationJobs preserves retry semantics for transient automation q
   assert.equal(insertedRuns.length, 1);
   assert.equal(insertedRuns[0].status, 'failed');
   assert.equal(insertedRuns[0].error, 'rpc timeout');
+});
+
+test('processAutomationJobs skips due jobs already claimed by another relayer', async () => {
+  const result = await processAutomationJobs(
+    {
+      automation: {
+        enabled: true,
+        batchSize: 10,
+        maxQueuedPerTick: 10,
+        defaultPriceCooldownMs: 60000,
+        claimStaleMs: 120000,
+      },
+    },
+    { info() {}, warn() {} },
+    {
+      fetchActiveAutomationJobs: async () => [
+        {
+          automation_id: 'automation:neo_n3:claimed-elsewhere',
+          status: 'active',
+          chain: 'neo_n3',
+          requester: '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56',
+          callback_contract: '0x8c506f224d82e67200f20d9d5361f767f0756e3b',
+          callback_method: 'onOracleResult',
+          execution_request_type: 'privacy_oracle',
+          execution_payload: { provider: 'twelvedata' },
+          trigger_type: 'one_shot',
+          trigger_config: { execute_at: new Date(0).toISOString() },
+          next_run_at: new Date(0).toISOString(),
+          execution_count: 0,
+          max_executions: 1,
+        },
+      ],
+      claimAutomationJob: async (automationId, fields, options) => {
+        assert.equal(automationId, 'automation:neo_n3:claimed-elsewhere');
+        assert.equal(fields.status, 'processing');
+        assert.match(options.dueAtIso, /^\d{4}-/);
+        assert.match(options.staleBeforeIso, /^\d{4}-/);
+        return null;
+      },
+      queueNeoN3AutomationRequest: async () => {
+        throw new Error('queue must not run without a claim');
+      },
+      patchAutomationJob: async () => {
+        throw new Error('patch must not run when another relayer owns the claim');
+      },
+      insertAutomationRun: async () => {
+        throw new Error('run must not be inserted when another relayer owns the claim');
+      },
+    }
+  );
+
+  assert.deepEqual(result, { queued: 0, skipped: 1, failed: 0, inspected: 1 });
+});
+
+test('claimAutomationJob falls back to paused marker when processing status is not migrated', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const previousNetwork = process.env.MORPHEUS_NETWORK;
+  const originalFetch = global.fetch;
+  const requests = [];
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  process.env.MORPHEUS_NETWORK = 'testnet';
+  global.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), body: JSON.parse(String(options.body || '{}')) });
+    if (requests.length === 1) {
+      return new Response(
+        JSON.stringify({
+          code: '23514',
+          message:
+            'new row for relation "morpheus_automation_jobs" violates check constraint "morpheus_automation_jobs_status_check"',
+        }),
+        { status: 400, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    return new Response(
+      JSON.stringify([
+        {
+          automation_id: 'automation:neo_n3:fallback',
+          status: 'paused',
+          last_error: AUTOMATION_PROCESSING_CLAIM_MARKER,
+        },
+      ]),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  };
+
+  try {
+    const claimed = await claimAutomationJob(
+      'automation:neo_n3:fallback',
+      { status: 'processing', last_error: null },
+      {
+        dueAtIso: '2026-05-03T09:00:00.000Z',
+        staleBeforeIso: '2026-05-03T08:58:00.000Z',
+      }
+    );
+    assert.equal(claimed.status, 'paused');
+    assert.equal(claimed.last_error, AUTOMATION_PROCESSING_CLAIM_MARKER);
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+    if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
+    else process.env.MORPHEUS_NETWORK = previousNetwork;
+  }
+
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].body.status, 'processing');
+  assert.equal(requests[1].body.status, 'paused');
+  assert.equal(requests[1].body.last_error, AUTOMATION_PROCESSING_CLAIM_MARKER);
+  assert.match(requests[1].url, /last_error\.eq\.__morpheus_automation_processing_claim__/);
 });
 
 test('decodePayloadText parses JSON and preserves raw strings', () => {
@@ -1527,6 +1666,148 @@ test('durable queue hydrates queued and stale processing jobs back into retry qu
   assert.ok(state.neo_n3.retry_queue.some((item) => String(item.event.requestId) === '101'));
   assert.ok(state.neo_n3.retry_queue.some((item) => String(item.event.requestId) === '102'));
   assert.equal(persisted, 1);
+});
+
+test('durable queue hydrates prepared callback delivery without losing fulfillment payload', async () => {
+  const previousUrl = process.env.SUPABASE_URL;
+  const previousKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  const state = createEmptyRelayerState();
+  const preparedFulfillment = {
+    success: true,
+    result: '{"answer":42}',
+    error: '',
+    result_bytes_base64: '',
+    route: '/oracle/fetch',
+    module_id: 'oracle.fetch',
+    operation: 'privacy_oracle',
+    worker_status: 200,
+    verification_signature: 'signed-result',
+  };
+
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+  global.fetch = async (url) => {
+    assert.match(String(url), /morpheus_relayer_jobs/);
+    return new Response(
+      JSON.stringify([
+        {
+          event_key: 'neo_n3:104:0xddd::',
+          chain: 'neo_n3',
+          request_id: '104',
+          status: 'callback_pending',
+          attempts: 1,
+          event: {
+            chain: 'neo_n3',
+            requestId: '104',
+            requestType: 'privacy_oracle',
+            txHash: '0xddd',
+          },
+          worker_response: {
+            retry_meta: {
+              prepared_fulfillment: preparedFulfillment,
+            },
+          },
+          updated_at: new Date(Date.now() - 10_000).toISOString(),
+        },
+      ]),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  };
+
+  try {
+    const hydrated = await hydrateDurableQueue(
+      {
+        concurrency: 1,
+        durableQueue: {
+          enabled: true,
+          failClosed: true,
+          syncLimit: 10,
+          staleProcessingMs: 1000,
+        },
+      },
+      state,
+      { warn() {}, info() {} },
+      'neo_n3',
+      () => {}
+    );
+    assert.deepEqual(hydrated, ['neo_n3:104:0xddd::']);
+  } finally {
+    global.fetch = originalFetch;
+    if (previousUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousUrl;
+    if (previousKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousKey;
+  }
+
+  assert.equal(state.neo_n3.retry_queue.length, 1);
+  assert.deepEqual(state.neo_n3.retry_queue[0].prepared_fulfillment, preparedFulfillment);
+});
+
+test('processEvent redelivers prepared fulfillment without re-running the worker', async () => {
+  const state = createEmptyRelayerState();
+  const event = {
+    chain: 'neo_n3',
+    requestId: '105',
+    requestType: 'privacy_oracle',
+    txHash: '0xeee',
+    payloadText: '{"symbol":"NEO-USD"}',
+  };
+  const preparedFulfillment = {
+    success: true,
+    result: '{"answer":42}',
+    error: '',
+    result_bytes_base64: '',
+    route: '/oracle/fetch',
+    module_id: 'oracle.fetch',
+    operation: 'privacy_oracle',
+    worker_status: 200,
+    verification_signature: 'signed-result',
+  };
+  const fulfillCalls = [];
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    throw new Error(`unexpected worker or network call: ${url}`);
+  };
+
+  try {
+    const result = await processEvent(
+      {
+        ...retryConfig,
+        network: 'testnet',
+        durableQueue: { enabled: false },
+        hooks: {
+          fulfillNeoRequest: async (call) => {
+            fulfillCalls.push(call);
+            return {
+              request_id: 'relayer:n3:fulfill:105:test',
+              tx_hash: '0xfulfilled',
+              vm_state: 'HALT',
+              target_chain: 'neo_n3',
+            };
+          },
+        },
+      },
+      state,
+      () => {},
+      { info() {}, warn() {}, error() {} },
+      event,
+      {
+        attempts: 2,
+        prepared_fulfillment: preparedFulfillment,
+        durable_claimed: true,
+      }
+    );
+
+    assert.equal(result.result.fulfill_tx.tx_hash, '0xfulfilled');
+    assert.equal(fulfillCalls.length, 1);
+    assert.equal(fulfillCalls[0].requestId, '105');
+    assert.equal(fulfillCalls[0].fulfillment.result, '{"answer":42}');
+    assert.equal(fulfillCalls[0].verification.signature, 'signed-result');
+    assert.equal(state.neo_n3.processed_records[result.event_key].status, 'fulfilled');
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('durable queue ignores jobs older than configured request cursor floor', async () => {

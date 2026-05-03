@@ -14,9 +14,9 @@ type NavItem = {
 };
 
 const mainNavItems: NavItem[] = [
-  { label: 'Explorer', href: '/explorer' },
+  { label: 'Workbench', href: '/explorer' },
   { label: 'Launchpad', href: '/launchpad' },
-  { label: 'Feed Status', href: '/docs/feed-status' },
+  { label: 'Feeds', href: '/docs/feed-status' },
   { label: 'Docs', href: '/docs' },
   { label: 'Status', href: '/status' },
 ];
@@ -41,6 +41,7 @@ export function Layout({
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline'>('online');
 
   useEffect(() => {
+    setNetworkStatus(window.navigator.onLine ? 'online' : 'offline');
     const handleOnline = () => setNetworkStatus('online');
     const handleOffline = () => setNetworkStatus('offline');
     window.addEventListener('online', handleOnline);
@@ -77,7 +78,7 @@ export function Layout({
                 justifyContent: 'center',
               }}
             >
-              <Boxes size={20} color="#000" strokeWidth={2.5} />
+              <Boxes size={20} color="#fff" strokeWidth={2.5} />
             </div>
             <div>
               <span
@@ -156,7 +157,12 @@ export function Layout({
           </div>
 
           {/* Mobile menu button */}
-          <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button
+            className="mobile-menu-btn"
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
 

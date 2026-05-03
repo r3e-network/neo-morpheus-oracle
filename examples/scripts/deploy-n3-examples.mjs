@@ -14,6 +14,7 @@ import {
   repoRoot,
   trimString,
   writeDeploymentRegistry,
+  withRetries,
 } from './common.mjs';
 
 const BUILD_DIR = path.resolve(repoRoot, 'examples/build/n3');
@@ -58,7 +59,9 @@ function parseStackItem(item) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }

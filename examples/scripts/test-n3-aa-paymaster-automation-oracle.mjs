@@ -18,6 +18,7 @@ import {
   tryParseJson,
   writeValidationArtifacts,
   writeSkippedValidationArtifacts,
+  withRetries,
 } from './common.mjs';
 
 const require = createRequire(import.meta.url);
@@ -822,7 +823,9 @@ async function deployContract(client, account, rpcUrl, networkMagic, baseName, b
 
 async function invokeRead(client, contractHash, operation, params = []) {
   const normalizedHash = trimString(contractHash).replace(/^0x/i, '');
-  const result = await client.invokeFunction(normalizedHash, operation, params);
+  const result = await withRetries(`invokeRead:${operation}`, () =>
+    client.invokeFunction(normalizedHash, operation, params)
+  );
   if (String(result?.state || '').includes('FAULT')) {
     throw new Error(`${operation} fault: ${result.exception || 'VM fault'}`);
   }
@@ -924,7 +927,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       const appLog = await rpcClient.getApplicationLog(txid);
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}

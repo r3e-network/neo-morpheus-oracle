@@ -541,7 +541,7 @@ export async function queueNeoN3AutomationRequest(
       { type: 'Hash160', value: callbackContract },
       { type: 'String', value: callbackMethod },
     ],
-    wait: false,
+    wait: true,
     rpc_url: config.neo_n3.rpcUrl,
     network_magic: config.neo_n3.networkMagic,
     ...signerPayload,
@@ -552,6 +552,13 @@ export async function queueNeoN3AutomationRequest(
       return { duplicate: true, request_id: requestId, target_chain: 'neo_n3' };
     }
     throw new Error(invoke.body?.error || `Neo N3 automation queue failed for ${requester}`);
+  }
+  if (String(invoke.body?.vm_state || '').toUpperCase() === 'FAULT') {
+    throw new Error(
+      invoke.body?.exception ||
+        invoke.body?.error ||
+        `Neo N3 automation queue faulted for ${requester}`
+    );
   }
   return {
     ...invoke.body,

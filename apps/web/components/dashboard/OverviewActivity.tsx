@@ -73,7 +73,7 @@ export function OverviewActivity({
             textTransform: 'uppercase',
           }}
         >
-          {isRefreshing ? 'SYNCING...' : 'REFRESH'}
+          {isRefreshing ? 'Refreshing...' : 'Refresh'}
           <RefreshCcw size={12} className={isRefreshing ? 'spin' : ''} />
         </button>
       </div>

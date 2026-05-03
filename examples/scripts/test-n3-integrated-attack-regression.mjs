@@ -14,6 +14,7 @@ import {
   sleep,
   trimString,
   writeValidationArtifacts,
+  withRetries,
 } from './common.mjs';
 
 const network = 'testnet';
@@ -89,7 +90,9 @@ function parseStackItem(item) {
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {
-  const response = await rpcClient.invokeFunction(contractHash, method, params);
+  const response = await withRetries(`invokeRead:${method}`, () =>
+    rpcClient.invokeFunction(contractHash, method, params)
+  );
   if (String(response.state || '').toUpperCase() === 'FAULT') {
     throw new Error(`${method} faulted: ${response.exception || 'unknown error'}`);
   }

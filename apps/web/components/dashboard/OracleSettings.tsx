@@ -22,7 +22,7 @@ export function OracleSettings({ onApplyPreset }: OracleSettingsProps) {
             fontFamily: 'var(--font-mono)',
           }}
         >
-          Scenario Presets
+          Request Presets
         </h3>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>

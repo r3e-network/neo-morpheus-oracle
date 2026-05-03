@@ -73,7 +73,7 @@ export function OracleRequestShape({
             fontFamily: 'var(--font-mono)',
           }}
         >
-          <Cpu className="text-neo" size={16} /> 2. On-Chain Request Shape
+          <Cpu className="text-neo" size={16} /> 2. Request Shape
         </h3>
       </div>
 
@@ -261,7 +261,7 @@ export function OracleRequestShape({
           style={{ width: '100%', justifyContent: 'center' }}
           onClick={onGeneratePackage}
         >
-          Generate On-Chain Package
+          Generate On-Chain Request Package
         </button>
       </div>
     </div>

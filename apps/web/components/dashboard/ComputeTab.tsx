@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { invokeMorpheusOracleRequest } from '@/lib/nep21';
 import { NETWORKS } from '@/lib/onchain-data';
 
 import { ComputeFunctions } from './ComputeFunctions';
@@ -160,10 +161,10 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
   const [selectedFunc, setSelectedFunc] = useState<string>('');
   const [computeInput, setComputeInput] = useState('{\n "values": [1, 2, 3]\n}');
   const [userCode, setUserCode] = useState(
-    `function process(input, helpers) {\\n const values = Array.isArray(input.values) ? input.values : [];\\n return {\\n total: values.reduce((sum, value) => sum + Number(value || 0), 0),\\n generated_at: helpers.getCurrentTimestamp(),\\n };\\n}`
+    `function process(input, helpers) {\n const values = Array.isArray(input.values) ? input.values : [];\n return {\n total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n generated_at: helpers.getCurrentTimestamp(),\n };\n}`
   );
   const [scriptRefJson, setScriptRefJson] = useState(
-    '{\\n \"contract_hash\": \"0x1111111111111111111111111111111111111111\",\\n \"method\": \"getScript\",\\n \"script_name\": \"sum\"\\n}'
+    '{\n "contract_hash": "0x1111111111111111111111111111111111111111",\n "method": "getScript",\n "script_name": "sum"\n}'
   );
   const [isSimulating, setIsSimulating] = useState(false);
   const [generatedPackage, setGeneratedPackage] = useState<{
@@ -175,6 +176,14 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
   const [walletCallbackHash, setWalletCallbackHash] = useState(defaultCallbackHash);
   const [walletCallbackMethod, setWalletCallbackMethod] = useState('onOracleResult');
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
+  const [isWalletSubmitting, setIsWalletSubmitting] = useState(false);
+  const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+    };
+  }, []);
 
   function applyComputePreset(name: string) {
     setSelectedFunc(name);
@@ -248,9 +257,40 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
   }
 
   async function handleCopy(id: string, value: string) {
-    await navigator.clipboard.writeText(value);
-    setCopiedItem(id);
-    setTimeout(() => setCopiedItem(null), 1500);
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedItem(id);
+    } catch {
+      setOutput('Copy failed. Check browser clipboard permissions and try again.');
+    }
+    if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+    copyResetTimer.current = setTimeout(() => setCopiedItem(null), 1500);
+  }
+
+  async function submitGeneratedWithWallet() {
+    if (!generatedPackage) return;
+    setIsWalletSubmitting(true);
+    try {
+      const result = await invokeMorpheusOracleRequest({
+        oracleHash: NETWORKS.neo_n3.oracle,
+        requestType: generatedPackage.requestType,
+        payloadBase64,
+        callbackHash: walletCallbackHash,
+        callbackMethod: walletCallbackMethod,
+      });
+      setOutput(
+        [
+          '>> NEP-21 wallet submitted Compute request.',
+          `>> Transaction: ${(result as any)?.txid || JSON.stringify(result)}`,
+          '>> Read the emitted requestId, then query the callback readback template.',
+        ].join('\n')
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setOutput(`!! NEP-21 wallet submit failed: ${message}`);
+    } finally {
+      setIsWalletSubmitting(false);
+    }
   }
 
   const handleExecute = async () => {
@@ -437,11 +477,11 @@ BigInteger requestId = (BigInteger)Contract.Call(
               marginBottom: '0.5rem',
             }}
           >
-            Enclave Sandbox
+            Private Compute
           </h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            Author custom JS payloads locally using the same function signatures that the live
-            runtime expects.
+            Author JS, builtin, and WASM request packages using the same payload shapes that the
+            live confidential runtime expects.
           </p>
         </div>
       </div>
@@ -472,6 +512,8 @@ BigInteger requestId = (BigInteger)Contract.Call(
           callbackQueryTemplate={callbackQueryTemplate}
           copiedItem={copiedItem}
           onCopy={handleCopy}
+          isWalletSubmitting={isWalletSubmitting}
+          onSubmitWithWallet={submitGeneratedWithWallet}
         />
       )}
     </div>

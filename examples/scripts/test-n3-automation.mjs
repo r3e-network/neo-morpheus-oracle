@@ -19,7 +19,7 @@ const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 
 function isTransientRpcError(error) {
   const message = error instanceof Error ? error.message : String(error);
-  return /ECONNRESET|ETIMEDOUT|socket hang up|fetch failed|network error/i.test(message);
+  return /HTTP code 502|HTTP code 503|HTTP code 504|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed|network error/i.test(message);
 }
 
 async function withRetries(label, task, attempts = 5) {
@@ -106,7 +106,7 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       );
       const notification = appLog.executions
         ?.flatMap((execution) => execution.notifications || [])
-        .find((entry) => entry.eventname === 'OracleRequested');
+        .find((entry) => ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname));
       const requestId = notification?.state?.value?.[0]?.value ?? null;
       if (requestId) return requestId;
     } catch {}

@@ -26,6 +26,13 @@ test('repo verification script runs the canonical local validation stack', () =>
   assert.match(script, /lint -- --max-warnings=0/);
 });
 
+test('full testnet wrapper guards empty live args under bash nounset', () => {
+  const script = read(path.join('scripts', 'run_full_testnet_validation.sh'));
+
+  assert.match(script, /\$\{#live_args\[@\]\} -gt 0/);
+  assert.match(script, /run_live_testnet_validation\.sh"\s*$/m);
+});
+
 test('README documents the repo verification entrypoint', () => {
   const readme = read('README.md');
 
