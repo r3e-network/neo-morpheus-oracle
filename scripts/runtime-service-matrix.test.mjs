@@ -11,7 +11,8 @@ process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
 
 const { RUNTIME_SERVICE_MATRIX } = await import('./runtime-service-matrix.mjs');
 const { listCapabilityFeatures } = await import('../workers/phala-worker/src/capabilities.js');
-const { listBuiltinComputeFunctions } = await import('../workers/phala-worker/src/compute/index.js');
+const { listBuiltinComputeFunctions } =
+  await import('../workers/phala-worker/src/compute/index.js');
 
 test('runtime service matrix covers every worker capability feature', () => {
   const coveredFeatures = new Set(

@@ -72,8 +72,7 @@ const useDerivedKeys = isTrue(getValue(env, runtimeConfig, 'PHALA_USE_DERIVED_KE
 const missingEither = requiredEither.filter((group) => {
   if (
     useDerivedKeys &&
-    (group[0].startsWith('PHALA_NEO_N3_') ||
-      group[0].startsWith('MORPHEUS_RELAYER_NEO_N3_'))
+    (group[0].startsWith('PHALA_NEO_N3_') || group[0].startsWith('MORPHEUS_RELAYER_NEO_N3_'))
   ) {
     return false;
   }
