@@ -403,14 +403,14 @@ export default {
             ? 'vrf'
             : routing.forwardedPath.endsWith('/oracle/feed')
               ? 'oracle-feed'
-            : routing.forwardedPath.endsWith('/oracle/query')
-              ? 'oracle-query'
-              : routing.forwardedPath.endsWith('/oracle/smart-fetch')
+              : routing.forwardedPath.endsWith('/oracle/query')
                 ? 'oracle-query'
-                : routing.forwardedPath.endsWith('/feeds/price') ||
-                    /\/feeds\/price\//.test(routing.forwardedPath)
-                  ? 'feeds-price'
-                  : 'origin';
+                : routing.forwardedPath.endsWith('/oracle/smart-fetch')
+                  ? 'oracle-query'
+                  : routing.forwardedPath.endsWith('/feeds/price') ||
+                      /\/feeds\/price\//.test(routing.forwardedPath)
+                    ? 'feeds-price'
+                    : 'origin';
 
     const rateLimited = await applyNativeRateLimit(request, env, routeKey);
     if (rateLimited) return rateLimited;

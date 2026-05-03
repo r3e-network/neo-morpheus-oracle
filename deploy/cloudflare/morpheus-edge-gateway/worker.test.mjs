@@ -203,8 +203,9 @@ test('edge gateway routes oracle feed publication to the dedicated DataFeed orig
 
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('x-morpheus-route'), 'oracle-feed');
-  assert.deepEqual(calls.map((call) => `${call.origin}${call.path}`), [
-    'https://feed-origin.test/testnet/oracle/feed',
-  ]);
+  assert.deepEqual(
+    calls.map((call) => `${call.origin}${call.path}`),
+    ['https://feed-origin.test/testnet/oracle/feed']
+  );
   assert.equal(calls[0].headers['x-morpheus-network'], 'testnet');
 });

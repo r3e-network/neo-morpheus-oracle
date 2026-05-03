@@ -10,12 +10,16 @@ const ORACLE_ENVELOPE_INFO = 'morpheus-confidential-payload-v2';
 const AES_GCM_TAG_LENGTH_BYTES = 16;
 
 function hash160(seed) {
-  const text = String(seed || '').padEnd(40, '0').slice(0, 40);
+  const text = String(seed || '')
+    .padEnd(40, '0')
+    .slice(0, 40);
   return `0x${text}`;
 }
 
 function hash32(seed) {
-  const text = String(seed || '').padEnd(64, '1').slice(0, 64);
+  const text = String(seed || '')
+    .padEnd(64, '1')
+    .slice(0, 64);
   return `0x${text}`;
 }
 
@@ -689,9 +693,11 @@ function parseArgs(argv = []) {
     else if (arg === '--base-url' && next) args.baseUrl = next;
     else if (arg.startsWith('--base-url=')) args.baseUrl = arg.slice('--base-url='.length);
     else if (arg === '--output-dir' && next) args.outputDir = path.resolve(next);
-    else if (arg.startsWith('--output-dir=')) args.outputDir = path.resolve(arg.slice('--output-dir='.length));
+    else if (arg.startsWith('--output-dir='))
+      args.outputDir = path.resolve(arg.slice('--output-dir='.length));
     else if (arg === '--timeout-ms' && next) args.timeoutMs = Number(next);
-    else if (arg.startsWith('--timeout-ms=')) args.timeoutMs = Number(arg.slice('--timeout-ms='.length));
+    else if (arg.startsWith('--timeout-ms='))
+      args.timeoutMs = Number(arg.slice('--timeout-ms='.length));
     else if (arg === '--continue-on-failure') args.continueOnFailure = true;
   }
   return args;
@@ -753,13 +759,23 @@ function resolveAuthToken() {
 async function encryptForOracle(publicKeyBase64, plaintextObject) {
   const subtle = globalThis.crypto?.subtle || webcrypto.subtle;
   const recipientPublicKeyBytes = Buffer.from(publicKeyBase64, 'base64');
-  const recipientKey = await subtle.importKey('raw', recipientPublicKeyBytes, { name: 'X25519' }, false, []);
+  const recipientKey = await subtle.importKey(
+    'raw',
+    recipientPublicKeyBytes,
+    { name: 'X25519' },
+    false,
+    []
+  );
   const ephemeralKeyPair = await subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
   const ephemeralPublicKeyBytes = new Uint8Array(
     await subtle.exportKey('raw', ephemeralKeyPair.publicKey)
   );
   const sharedSecret = new Uint8Array(
-    await subtle.deriveBits({ name: 'X25519', public: recipientKey }, ephemeralKeyPair.privateKey, 256)
+    await subtle.deriveBits(
+      { name: 'X25519', public: recipientKey },
+      ephemeralKeyPair.privateKey,
+      256
+    )
   );
   const keyMaterial = await subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveKey']);
   const info = new Uint8Array([
@@ -910,10 +926,7 @@ function aggregate(results) {
     pass: results.filter((item) => item.ok).length,
     fail: results.filter((item) => !item.ok).length,
     byServiceClass,
-    p95LatencyMs: percentile(
-      results.map((item) => item.latencyMs).filter(Number.isFinite),
-      0.95
-    ),
+    p95LatencyMs: percentile(results.map((item) => item.latencyMs).filter(Number.isFinite), 0.95),
     maxLatencyMs: Math.max(...results.map((item) => item.latencyMs).filter(Number.isFinite), 0),
   };
 }
@@ -929,9 +942,10 @@ export async function runRuntimeServiceMatrix(options = {}) {
   await loadDotEnv(path.resolve(repoRoot, '.env.local'), { override: false });
   await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 
-  const network = trimString(options.network || process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
-    ? 'mainnet'
-    : 'testnet';
+  const network =
+    trimString(options.network || process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
+      ? 'mainnet'
+      : 'testnet';
   const baseUrl = await resolveBaseUrl({ explicitBaseUrl: options.baseUrl, network });
   const authToken = trimString(options.authToken || resolveAuthToken());
   if (!authToken) {
@@ -959,7 +973,10 @@ export async function runRuntimeServiceMatrix(options = {}) {
   };
   const outputDir = path.resolve(options.outputDir || path.join(repoRoot, 'docs', 'reports'));
   await fs.mkdir(outputDir, { recursive: true });
-  const date = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const date = new Date()
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z');
   const outputPath = path.join(outputDir, `runtime-service-matrix.${network}.${date}.json`);
   await fs.writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`);
   return { report, outputPath };

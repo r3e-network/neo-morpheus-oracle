@@ -389,7 +389,10 @@ test('feed_tick consumer prefers a dedicated DataFeed execution plane when confi
   assert.equal(message.acked, true);
   assert.equal(state.executionCalls.length, 1);
   assert.equal(state.executionCalls[0].origin, 'https://exec-feed.test');
-  assert.equal(state.jobs.get('job-feed-dedicated')?.metadata?.execution_base_url, 'https://exec-feed.test');
+  assert.equal(
+    state.jobs.get('job-feed-dedicated')?.metadata?.execution_base_url,
+    'https://exec-feed.test'
+  );
   assert.equal(state.jobs.get('job-feed-dedicated')?.status, 'succeeded');
 });
 

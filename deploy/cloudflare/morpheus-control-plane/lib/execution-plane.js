@@ -39,9 +39,7 @@ function getExecutionPlaneConfig(env, network, options = {}) {
         env.MORPHEUS_EXECUTION_BASE_URL,
       ]
     : [env[`MORPHEUS_${normalized}_EXECUTION_BASE_URL`], env.MORPHEUS_EXECUTION_BASE_URL];
-  const baseUrl = trimString(
-    baseUrlCandidates.find((candidate) => trimString(candidate)) || ''
-  );
+  const baseUrl = trimString(baseUrlCandidates.find((candidate) => trimString(candidate)) || '');
   const tokenCandidates = options.feed
     ? [
         env[`MORPHEUS_${normalized}_FEED_EXECUTION_TOKEN`],
@@ -59,9 +57,7 @@ function getExecutionPlaneConfig(env, network, options = {}) {
         env.PHALA_API_TOKEN,
         env.PHALA_SHARED_SECRET,
       ];
-  const token = trimString(
-    tokenCandidates.find((candidate) => trimString(candidate)) || ''
-  );
+  const token = trimString(tokenCandidates.find((candidate) => trimString(candidate)) || '');
   if (!baseUrl) {
     throw new Error(
       `${options.feed ? 'feed execution' : 'execution'} base URL is not configured for network ${network}`
