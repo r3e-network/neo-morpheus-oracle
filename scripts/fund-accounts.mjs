@@ -1,10 +1,11 @@
 import { experimental, sc, wallet } from '@cityofzion/neon-js';
 
-const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
-const NETWORK_MAGIC = 860833102;
+const RPC_URL = process.env.NEO_RPC_URL || '';
+const NETWORK_MAGIC = Number(process.env.NEO_NETWORK_MAGIC || 0);
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
-
-const ADMIN_WIF = 'Kzopomhb6ufUbYigzTjjy7t34AE1k2sNn3suXrRGePVoPRVP6rsn';
+const ADMIN_WIF = process.env.NEO_ADMIN_WIF || process.env.ADMIN_WIF || '';
+const ALLOW_MAINNET_FUNDING = process.env.ALLOW_MAINNET_FUNDING === '1';
+const MAINNET_MAGIC = 860833102;
 
 const RECIPIENTS = [
   { label: 'Relayer', address: 'NMGtkqaWSCTxuuMx9Zx8HT7HzHNnve8uLf' },
@@ -15,6 +16,19 @@ const RECIPIENTS = [
 const AMOUNT_UNITS = '500000000'; // 5 GAS (8 decimals)
 
 async function main() {
+  if (!RPC_URL) {
+    throw new Error('NEO_RPC_URL is required');
+  }
+  if (!NETWORK_MAGIC) {
+    throw new Error('NEO_NETWORK_MAGIC is required');
+  }
+  if (!ADMIN_WIF) {
+    throw new Error('NEO_ADMIN_WIF is required');
+  }
+  if ((NETWORK_MAGIC === MAINNET_MAGIC || RPC_URL.includes('mainnet')) && !ALLOW_MAINNET_FUNDING) {
+    throw new Error('Refusing mainnet funding without ALLOW_MAINNET_FUNDING=1');
+  }
+
   const admin = new wallet.Account(ADMIN_WIF);
   console.log(`Admin: ${admin.address} (scriptHash: 0x${admin.scriptHash})`);
 

@@ -68,10 +68,7 @@ function resolveNetworkRoute(url, env) {
   if (prefix === 'mainnet' || prefix === 'testnet') {
     const rest = segments.slice(1).join('/');
     const forwardedPath = `/${rest}`.replace(/\/+$/, '') || '/';
-    const originBaseUrl =
-      prefix === 'mainnet'
-        ? trimString(env.MORPHEUS_MAINNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '')
-        : trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '');
+    const originBaseUrl = resolveOriginBaseUrl(env, prefix, forwardedPath);
     return {
       network: prefix,
       forwardedPath,
@@ -84,11 +81,24 @@ function resolveNetworkRoute(url, env) {
     network: 'testnet',
     forwardedPath: path,
     routePrefix: '',
-    originBaseUrl: trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(
-      /\/$/,
-      ''
-    ),
+    originBaseUrl: resolveOriginBaseUrl(env, 'testnet', path),
   };
+}
+
+function resolveOriginBaseUrl(env, network, forwardedPath) {
+  const normalized = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  if (String(forwardedPath || '').replace(/\/+$/, '') === '/oracle/feed') {
+    const feedOrigin = trimString(
+      env[`MORPHEUS_${normalized}_FEED_ORIGIN_URL`] ||
+        env[`MORPHEUS_${normalized}_DATAFEED_ORIGIN_URL`] ||
+        env.MORPHEUS_FEED_ORIGIN_URL ||
+        env.MORPHEUS_DATAFEED_ORIGIN_URL
+    );
+    if (feedOrigin) return feedOrigin.replace(/\/$/, '');
+  }
+  return network === 'mainnet'
+    ? trimString(env.MORPHEUS_MAINNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '')
+    : trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '');
 }
 
 function shouldProtectWithTurnstile(pathname) {
@@ -243,6 +253,7 @@ function buildOriginRequest(request, env) {
     method: request.method,
     headers,
     body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
+    duplex: request.method === 'GET' || request.method === 'HEAD' ? undefined : 'half',
     redirect: 'follow',
   });
 }
@@ -390,6 +401,8 @@ export default {
           ? 'compute'
           : routing.forwardedPath.endsWith('/vrf/random')
             ? 'vrf'
+            : routing.forwardedPath.endsWith('/oracle/feed')
+              ? 'oracle-feed'
             : routing.forwardedPath.endsWith('/oracle/query')
               ? 'oracle-query'
               : routing.forwardedPath.endsWith('/oracle/smart-fetch')

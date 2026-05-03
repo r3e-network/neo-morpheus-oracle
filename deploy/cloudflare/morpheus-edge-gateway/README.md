@@ -20,6 +20,8 @@ Cloudflare Worker gateway for the public Morpheus execution surface.
 - `MORPHEUS_ORIGIN_URL`
 - `MORPHEUS_MAINNET_ORIGIN_URL`
 - `MORPHEUS_TESTNET_ORIGIN_URL`
+- `MORPHEUS_MAINNET_FEED_ORIGIN_URL` / `MORPHEUS_TESTNET_FEED_ORIGIN_URL` for `/oracle/feed`
+  publication traffic
 - `MORPHEUS_ORIGIN_TOKEN`
 - optional `TURNSTILE_SECRET_KEY`
 - optional `MORPHEUS_RATE_LIMITER` native binding
@@ -43,6 +45,7 @@ Example:
 - `/testnet/health`
 - `/mainnet/oracle/query`
 - `/testnet/paymaster/authorize`
+- `/testnet/oracle/feed` routes to the DataFeed CVM when feed origin vars are configured
 - `/mainnet/api/runtime/catalog`
 - `/testnet/api/runtime/status`
 

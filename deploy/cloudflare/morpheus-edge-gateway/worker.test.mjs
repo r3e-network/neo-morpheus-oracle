@@ -8,6 +8,8 @@ function createEnv(overrides = {}) {
     MORPHEUS_ORIGIN_URL: 'https://origin.test',
     MORPHEUS_MAINNET_ORIGIN_URL: 'https://origin.test/mainnet',
     MORPHEUS_TESTNET_ORIGIN_URL: 'https://origin.test/testnet',
+    MORPHEUS_MAINNET_FEED_ORIGIN_URL: 'https://feed-origin.test/mainnet',
+    MORPHEUS_TESTNET_FEED_ORIGIN_URL: 'https://feed-origin.test/testnet',
     MORPHEUS_ORIGIN_TOKEN: 'origin-secret',
     ...overrides,
   };
@@ -174,4 +176,35 @@ test('edge gateway still allows trusted automation to reach raw runtime-origin r
     ['/testnet/runtime/keys/derived']
   );
   assert.equal(calls[0].headers.authorization, 'Bearer edge-runtime-token');
+});
+
+test('edge gateway routes oracle feed publication to the dedicated DataFeed origin', async () => {
+  const calls = [];
+  global.fetch = async (input, init = {}) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    const target = new URL(request.url);
+    calls.push({
+      origin: target.origin,
+      path: target.pathname,
+      headers: Object.fromEntries(request.headers.entries()),
+    });
+    return jsonResponse(200, { mode: 'pricefeed' });
+  };
+  global.caches = createCaches();
+
+  const response = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/oracle/feed', {
+      method: 'POST',
+      body: JSON.stringify({ symbols: ['TWELVEDATA:NEO-USD'] }),
+    }),
+    createEnv(),
+    createCtx()
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('x-morpheus-route'), 'oracle-feed');
+  assert.deepEqual(calls.map((call) => `${call.origin}${call.path}`), [
+    'https://feed-origin.test/testnet/oracle/feed',
+  ]);
+  assert.equal(calls[0].headers['x-morpheus-network'], 'testnet');
 });

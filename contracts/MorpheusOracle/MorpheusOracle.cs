@@ -693,6 +693,7 @@ namespace MorpheusOracle.Contracts
         {
             ValidateMiniAppDefinition(appId, appAdmin, feePayer, callbackContract, metadataUri, metadataHash);
             ExecutionEngine.Assert(Runtime.CheckWitness(appAdmin) || Runtime.CheckWitness(Admin()), "unauthorized");
+            ValidateFeePayerAuthorization(appAdmin, feePayer);
 
             MiniAppRecord existing = GetMiniApp(appId);
             ExecutionEngine.Assert(existing.CreatedAt == 0, "miniapp already exists");
@@ -706,6 +707,7 @@ namespace MorpheusOracle.Contracts
             MiniAppRecord app = RequireMiniApp(appId);
             ValidateMiniAppAdmin(app);
             ValidateMiniAppDefinition(appId, app.Admin, feePayer, callbackContract, metadataUri, metadataHash);
+            ValidateFeePayerAuthorization(app.Admin, feePayer);
 
             PutMiniApp(appId, app.Admin, feePayer, callbackContract, metadataUri, metadataHash, active, app.CreatedAt);
             OnMiniAppUpdated(appId, app.Admin, feePayer, callbackContract, active);
@@ -1012,6 +1014,17 @@ namespace MorpheusOracle.Contracts
             }
 
             ValidateMetadata(metadataUri, metadataHash);
+        }
+
+        private static void ValidateFeePayerAuthorization(UInt160 appAdmin, UInt160 feePayer)
+        {
+            if (feePayer == UInt160.Zero) return;
+            if (Runtime.CheckWitness(feePayer)) return;
+
+            UInt160 admin = Admin();
+            bool adminPaysSelf = admin != null && admin.IsValid && feePayer == admin && Runtime.CheckWitness(admin);
+            bool appAdminPaysSelf = appAdmin != null && appAdmin.IsValid && feePayer == appAdmin && Runtime.CheckWitness(appAdmin);
+            ExecutionEngine.Assert(adminPaysSelf || appAdminPaysSelf, "fee payer witness required");
         }
 
         private static void ValidateRequestInputs(string appId, string moduleId, string operation, ByteString payload)

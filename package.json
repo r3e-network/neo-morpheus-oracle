@@ -74,6 +74,8 @@
     "export:saas": "node scripts/export-saas-inventory.mjs",
     "smoke:control-plane": "node scripts/smoke-control-plane.mjs",
     "stress:runtime": "node scripts/stress-oracle-runtime.mjs",
+    "test:runtime:matrix": "node --test scripts/runtime-service-matrix.test.mjs",
+    "test:testnet:runtime-services": "node scripts/live-validate-runtime-services.mjs",
     "backup:system": "node scripts/backup-system-state.mjs",
     "start:testnet-rng-local": "bash scripts/run-testnet-rng-local.sh",
     "check:env": "node scripts/check-root-env.mjs",

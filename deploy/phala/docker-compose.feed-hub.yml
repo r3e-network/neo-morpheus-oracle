@@ -79,6 +79,51 @@ services:
       retries: 3
       start_period: 15s
 
+  feed-router:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      mainnet-feed-worker:
+        condition: service_healthy
+      testnet-feed-worker:
+        condition: service_healthy
+    ports:
+      - '${MORPHEUS_PUBLIC_PORT:-3000}:8088'
+    volumes:
+      - /tmp/feed-hub-caddy-data:/data
+      - /tmp/feed-hub-caddy-config:/config
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        cat >/etc/caddy/Caddyfile <<'EOF'
+        {
+          auto_https off
+          admin off
+        }
+
+        :8088 {
+          handle /testnet/* {
+            reverse_proxy testnet-feed-worker:8080 {
+              header_up X-Morpheus-Network testnet
+            }
+          }
+
+          handle /mainnet/* {
+            reverse_proxy mainnet-feed-worker:8080 {
+              header_up X-Morpheus-Network mainnet
+            }
+          }
+
+          handle {
+            reverse_proxy testnet-feed-worker:8080 {
+              header_up X-Morpheus-Network testnet
+            }
+          }
+        }
+        EOF
+        exec caddy run --config /etc/caddy/Caddyfile
+
   mainnet-feed-relayer:
     image: ${MORPHEUS_RELAYER_IMAGE}
     restart: unless-stopped

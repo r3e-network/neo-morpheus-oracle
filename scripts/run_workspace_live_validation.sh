@@ -47,7 +47,10 @@ verify_runtime_catalog_contract() {
 
   local envelope_version
   envelope_version="$(jq -r '.envelope.version' "$runtime_catalog_file")"
-  mapfile -t workflow_ids < <(jq -r '.workflows[].id' "$runtime_catalog_file")
+  workflow_ids=()
+  while IFS= read -r workflow_id; do
+    workflow_ids+=("$workflow_id")
+  done < <(jq -r '.workflows[].id' "$runtime_catalog_file")
 
   for consumer_catalog in "$platform_catalog" "$aa_catalog"; do
     if [[ ! -s "$consumer_catalog" ]]; then
