@@ -408,14 +408,10 @@ function buildRoleReport({
     normalizePublicKey(pinned?.public_key || '') ||
     '';
 
-  const ok =
-    issues.length === 0 &&
-    (Boolean(selected) ||
-      Boolean(public_key) ||
-      allowMissing ||
-      (config.allowPublicKeyOnly && pinned));
+  const publicKeyOnlyAllowed = Boolean(config.allowPublicKeyOnly && public_key);
+  const ok = issues.length === 0 && (Boolean(selected) || publicKeyOnlyAllowed || allowMissing);
 
-  if (!ok && !allowMissing && !selected && !public_key) {
+  if (!ok && !allowMissing && !selected) {
     issues.push(`no usable ${role} signer configured`);
   }
 
@@ -458,7 +454,13 @@ export function reportPinnedNeoN3Roles(network, roles, options = {}) {
 }
 
 export function resolvePinnedNeoN3UpdaterHash(network, env = process.env) {
-  const report = resolvePinnedNeoN3Role(normalizeMorpheusNetwork(network), 'updater', { env });
+  const report = reportPinnedNeoN3Role(normalizeMorpheusNetwork(network), 'updater', {
+    env,
+    allowMissing: true,
+  });
+  if (report.issues.length > 0) {
+    throw new Error(formatIssues('updater', report.issues));
+  }
   return normalizeHash160(
     report.selected_identity?.script_hash || report.pinned?.script_hash || ''
   );
