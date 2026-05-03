@@ -9,6 +9,7 @@ coverage
 npm-debug.log*
 .DS_Store
 .serena
+.claude/
 apps/web/.next
 workers/phala-worker/node_modules
 contracts/build
