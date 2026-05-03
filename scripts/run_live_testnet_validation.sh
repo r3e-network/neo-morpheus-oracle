@@ -7,6 +7,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 run_control_plane=1
 run_oracle=1
 run_verify=1
+run_runtime_services=1
 
 resolve_testnet_public_api_url() {
   node -e 'const fs = require("fs"); const path = require("path"); const repoRoot = process.argv[1]; const config = JSON.parse(fs.readFileSync(path.join(repoRoot, "config/networks/testnet.json"), "utf8")); process.stdout.write(String(config?.phala?.public_api_url || ""));' "$REPO_ROOT"
@@ -14,10 +15,11 @@ resolve_testnet_public_api_url() {
 
 usage() {
   cat <<'EOF_USAGE'
-Usage: scripts/run_live_testnet_validation.sh [--smoke-only|--verify-only|--control-plane-only|--oracle-only]
+Usage: scripts/run_live_testnet_validation.sh [--smoke-only|--verify-only|--control-plane-only|--oracle-only|--runtime-services-only]
 
 Runs live testnet validation for neo-morpheus-oracle:
 - public runtime api contract
+- full runtime service matrix
 - control-plane smoke
 - oracle smoke
 - verify:n3
@@ -30,24 +32,35 @@ while [[ $# -gt 0 ]]; do
       run_control_plane=1
       run_oracle=1
       run_verify=0
+      run_runtime_services=1
       shift
       ;;
     --verify-only)
       run_control_plane=0
       run_oracle=0
       run_verify=1
+      run_runtime_services=0
       shift
       ;;
     --control-plane-only)
       run_control_plane=1
       run_oracle=0
       run_verify=0
+      run_runtime_services=0
       shift
       ;;
     --oracle-only)
       run_control_plane=0
       run_oracle=1
       run_verify=0
+      run_runtime_services=0
+      shift
+      ;;
+    --runtime-services-only)
+      run_control_plane=0
+      run_oracle=0
+      run_verify=0
+      run_runtime_services=1
       shift
       ;;
     -h|--help)
@@ -73,6 +86,12 @@ fi
 echo ""
 echo "=== Public Runtime API Contract ==="
 node scripts/check-public-runtime-api.mjs "$MORPHEUS_PUBLIC_API_URL"
+
+if [[ $run_runtime_services -eq 1 ]]; then
+  echo ""
+  echo "=== Runtime Service Matrix ==="
+  node scripts/live-validate-runtime-services.mjs --base-url "$MORPHEUS_PUBLIC_API_URL"
+fi
 
 if [[ $run_control_plane -eq 1 ]]; then
   echo ""

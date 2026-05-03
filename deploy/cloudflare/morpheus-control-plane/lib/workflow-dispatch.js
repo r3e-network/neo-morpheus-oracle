@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { listWorkflowDefinitions } from '@neo-morpheus-oracle/shared';
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
@@ -10,6 +9,13 @@ function normalizeNetwork(value) {
   return trimString(value) === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
+function createExecutionId() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return `exec-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function normalizeExecutionId(payload = {}, fallbackExecutionId) {
   return (
     trimString(
@@ -19,7 +25,7 @@ function normalizeExecutionId(payload = {}, fallbackExecutionId) {
         payload.workflowExecutionId ||
         fallbackExecutionId ||
         ''
-    ) || randomUUID()
+    ) || createExecutionId()
   );
 }
 

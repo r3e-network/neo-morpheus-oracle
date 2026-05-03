@@ -358,6 +358,41 @@ test('feed_tick consumer forwards jobs to confidential execution plane feed rout
   assert.equal(state.jobs.get('job-feed')?.status, 'succeeded');
 });
 
+test('feed_tick consumer prefers a dedicated DataFeed execution plane when configured', async () => {
+  const env = createEnv({
+    MORPHEUS_TESTNET_EXECUTION_BASE_URL: 'https://exec-request.test',
+    MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL: 'https://exec-feed.test',
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-feed-dedicated', {
+    id: 'job-feed-dedicated',
+    network: 'testnet',
+    queue: 'feed_tick',
+    route: '/feeds/tick',
+    status: 'dispatched',
+    payload: {
+      target_chain: 'neo_n3',
+      symbols: ['TWELVEDATA:NEO-USD'],
+    },
+    metadata: {},
+  });
+
+  const message = createQueueMessage({
+    job_id: 'job-feed-dedicated',
+    network: 'testnet',
+    queue: 'feed_tick',
+  });
+  await worker.queue({ queue: 'morpheus-feed-tick', messages: [message] }, env);
+
+  assert.equal(message.acked, true);
+  assert.equal(state.executionCalls.length, 1);
+  assert.equal(state.executionCalls[0].origin, 'https://exec-feed.test');
+  assert.equal(state.jobs.get('job-feed-dedicated')?.metadata?.execution_base_url, 'https://exec-feed.test');
+  assert.equal(state.jobs.get('job-feed-dedicated')?.status, 'succeeded');
+});
+
 test('oracle_request consumer falls back to the next execution runtime when the first returns retryable status', async () => {
   const env = createEnv({
     MORPHEUS_TESTNET_EXECUTION_BASE_URL: 'https://exec-a.test,https://exec-b.test',

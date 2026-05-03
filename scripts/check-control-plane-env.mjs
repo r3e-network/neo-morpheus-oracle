@@ -87,6 +87,22 @@ const optional = {
   execution_plane: [
     ['MORPHEUS_MAINNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'],
     ['MORPHEUS_TESTNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'],
+    [
+      'MORPHEUS_MAINNET_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_MAINNET_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_MAINNET_EXECUTION_BASE_URL',
+      'MORPHEUS_EXECUTION_BASE_URL',
+    ],
+    [
+      'MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_TESTNET_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_TESTNET_EXECUTION_BASE_URL',
+      'MORPHEUS_EXECUTION_BASE_URL',
+    ],
     ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
     [
       'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
@@ -128,10 +144,28 @@ for (const [section, groups] of Object.entries(optional)) {
 const mainnetExecutionConfigured = Boolean(trimString(env.MORPHEUS_MAINNET_EXECUTION_BASE_URL));
 const testnetExecutionConfigured = Boolean(trimString(env.MORPHEUS_TESTNET_EXECUTION_BASE_URL));
 const sharedExecutionConfigured = Boolean(trimString(env.MORPHEUS_EXECUTION_BASE_URL));
+const mainnetFeedExecutionConfigured = Boolean(
+  getValue(env, [
+    'MORPHEUS_MAINNET_FEED_EXECUTION_BASE_URL',
+    'MORPHEUS_MAINNET_DATAFEED_EXECUTION_BASE_URL',
+    'MORPHEUS_FEED_EXECUTION_BASE_URL',
+    'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+  ])
+);
+const testnetFeedExecutionConfigured = Boolean(
+  getValue(env, [
+    'MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL',
+    'MORPHEUS_TESTNET_DATAFEED_EXECUTION_BASE_URL',
+    'MORPHEUS_FEED_EXECUTION_BASE_URL',
+    'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+  ])
+);
 const executionPlaneConfigured =
   mainnetExecutionConfigured ||
   testnetExecutionConfigured ||
   sharedExecutionConfigured ||
+  mainnetFeedExecutionConfigured ||
+  testnetFeedExecutionConfigured ||
   Boolean(
     getValue(env, [
       'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
@@ -148,6 +182,11 @@ const executionPlaneConfigured =
 const appBackendConfigured = isSectionConfigured(env, ['MORPHEUS_APP_BACKEND_URL']);
 const webCutoverConfigured = isSectionConfigured(env, ['MORPHEUS_CONTROL_PLANE_URL']);
 
+function buildOptionalUrlStatus(value) {
+  const raw = trimString(value);
+  return raw ? buildUrlStatus(raw) : { ok: true, value: '' };
+}
+
 const urls = {
   control_plane_url: webCutoverConfigured
     ? buildUrlStatus(getValue(env, ['MORPHEUS_CONTROL_PLANE_URL']))
@@ -161,6 +200,26 @@ const urls = {
   testnet_execution_url: trimString(env.MORPHEUS_TESTNET_EXECUTION_BASE_URL)
     ? buildUrlStatus(getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL']))
     : { ok: true, value: '' },
+  mainnet_feed_execution_url: buildOptionalUrlStatus(
+    getValue(env, [
+      'MORPHEUS_MAINNET_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_MAINNET_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_MAINNET_EXECUTION_BASE_URL',
+      'MORPHEUS_EXECUTION_BASE_URL',
+    ])
+  ),
+  testnet_feed_execution_url: buildOptionalUrlStatus(
+    getValue(env, [
+      'MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_TESTNET_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_TESTNET_EXECUTION_BASE_URL',
+      'MORPHEUS_EXECUTION_BASE_URL',
+    ])
+  ),
 };
 
 const report = {
@@ -204,6 +263,19 @@ if (executionPlaneConfigured) {
       );
     }
   }
+  if (
+    mainnetFeedExecutionConfigured &&
+    !getValue(env, [
+      'MORPHEUS_MAINNET_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_MAINNET_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_MAINNET_EXECUTION_BASE_URL',
+      'MORPHEUS_EXECUTION_BASE_URL',
+    ])
+  ) {
+    executionMissing.push('MORPHEUS_MAINNET_FEED_EXECUTION_BASE_URL');
+  }
   if (testnetExecutionConfigured || sharedExecutionConfigured) {
     if (!getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'])) {
       executionMissing.push('MORPHEUS_TESTNET_EXECUTION_BASE_URL');
@@ -220,6 +292,19 @@ if (executionPlaneConfigured) {
         'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF | MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY'
       );
     }
+  }
+  if (
+    testnetFeedExecutionConfigured &&
+    !getValue(env, [
+      'MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_TESTNET_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_FEED_EXECUTION_BASE_URL',
+      'MORPHEUS_DATAFEED_EXECUTION_BASE_URL',
+      'MORPHEUS_TESTNET_EXECUTION_BASE_URL',
+      'MORPHEUS_EXECUTION_BASE_URL',
+    ])
+  ) {
+    executionMissing.push('MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL');
   }
   if (!getValue(env, ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'])) {
     executionMissing.push('MORPHEUS_EXECUTION_TOKEN | PHALA_API_TOKEN | PHALA_SHARED_SECRET');

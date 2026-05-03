@@ -99,6 +99,7 @@ Recommended:
 - DataFeed CVM:
   - launcher: `phala.feed-hub.toml`
   - compose: `deploy/phala/docker-compose.feed-hub.yml`
+  - public execution URL: `https://ac5b6886a2832df36e479294206611652400178f-3000.dstack-pha-prod5.phala.network/{network}`
 
 Prefer encrypted secrets in the dashboard over copying plaintext env files into the guest.
 
@@ -121,6 +122,8 @@ The Oracle runtime should be provisioned with:
 - optional Better Stack telemetry values
 
 The DataFeed runtime should be provisioned with the same runtime config but operate in feed-only mode.
+The DataFeed compose also exposes a small Caddy router on `MORPHEUS_PUBLIC_PORT` so the control
+plane can route `feed_tick` jobs to the dedicated feed workers instead of the request hub.
 
 ## Key Operational Notes
 

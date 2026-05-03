@@ -70,7 +70,13 @@ const runtimeConfig = parseRuntimeConfig(env);
 const missing = required.filter((key) => !getValue(env, runtimeConfig, key));
 const useDerivedKeys = isTrue(getValue(env, runtimeConfig, 'PHALA_USE_DERIVED_KEYS'));
 const missingEither = requiredEither.filter((group) => {
-  if (useDerivedKeys && group[0].startsWith('PHALA_NEO_N3_')) return false;
+  if (
+    useDerivedKeys &&
+    (group[0].startsWith('PHALA_NEO_N3_') ||
+      group[0].startsWith('MORPHEUS_RELAYER_NEO_N3_'))
+  ) {
+    return false;
+  }
   return !group.some((key) => getValue(env, runtimeConfig, key));
 });
 

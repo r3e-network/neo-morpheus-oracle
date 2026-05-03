@@ -27,20 +27,45 @@ function orderExecutionBaseUrls(baseUrls, seed) {
   return [...urls.slice(start), ...urls.slice(0, start)];
 }
 
-function getExecutionPlaneConfig(env, network) {
+function getExecutionPlaneConfig(env, network, options = {}) {
   const normalized = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  const baseUrlCandidates = options.feed
+    ? [
+        env[`MORPHEUS_${normalized}_FEED_EXECUTION_BASE_URL`],
+        env[`MORPHEUS_${normalized}_DATAFEED_EXECUTION_BASE_URL`],
+        env.MORPHEUS_FEED_EXECUTION_BASE_URL,
+        env.MORPHEUS_DATAFEED_EXECUTION_BASE_URL,
+        env[`MORPHEUS_${normalized}_EXECUTION_BASE_URL`],
+        env.MORPHEUS_EXECUTION_BASE_URL,
+      ]
+    : [env[`MORPHEUS_${normalized}_EXECUTION_BASE_URL`], env.MORPHEUS_EXECUTION_BASE_URL];
   const baseUrl = trimString(
-    env[`MORPHEUS_${normalized}_EXECUTION_BASE_URL`] || env.MORPHEUS_EXECUTION_BASE_URL || ''
+    baseUrlCandidates.find((candidate) => trimString(candidate)) || ''
   );
+  const tokenCandidates = options.feed
+    ? [
+        env[`MORPHEUS_${normalized}_FEED_EXECUTION_TOKEN`],
+        env[`MORPHEUS_${normalized}_DATAFEED_EXECUTION_TOKEN`],
+        env.MORPHEUS_FEED_EXECUTION_TOKEN,
+        env.MORPHEUS_DATAFEED_EXECUTION_TOKEN,
+        env[`MORPHEUS_${normalized}_EXECUTION_TOKEN`],
+        env.MORPHEUS_EXECUTION_TOKEN,
+        env.PHALA_API_TOKEN,
+        env.PHALA_SHARED_SECRET,
+      ]
+    : [
+        env[`MORPHEUS_${normalized}_EXECUTION_TOKEN`],
+        env.MORPHEUS_EXECUTION_TOKEN,
+        env.PHALA_API_TOKEN,
+        env.PHALA_SHARED_SECRET,
+      ];
   const token = trimString(
-    env[`MORPHEUS_${normalized}_EXECUTION_TOKEN`] ||
-      env.MORPHEUS_EXECUTION_TOKEN ||
-      env.PHALA_API_TOKEN ||
-      env.PHALA_SHARED_SECRET ||
-      ''
+    tokenCandidates.find((candidate) => trimString(candidate)) || ''
   );
   if (!baseUrl) {
-    throw new Error(`execution base URL is not configured for network ${network}`);
+    throw new Error(
+      `${options.feed ? 'feed execution' : 'execution'} base URL is not configured for network ${network}`
+    );
   }
   return {
     baseUrls: baseUrl
@@ -162,7 +187,7 @@ async function callExecutionPlane(env, job) {
 }
 
 async function callExecutionFeedPlane(env, job) {
-  const execution = getExecutionPlaneConfig(env, job.network);
+  const execution = getExecutionPlaneConfig(env, job.network, { feed: true });
   const signer = resolveNeoN3FeedSigner(env, job.network);
   if (!signer.wif && !signer.private_key) {
     throw new Error(`Neo N3 updater signer is not configured for ${job.network}`);
