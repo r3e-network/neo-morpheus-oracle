@@ -265,15 +265,19 @@ describe('resolvePinnedNeoN3Role', () => {
     });
   });
 
-  it('returns ok with pinned public_key even when no env keys are set', () => {
+  it('throws for transaction signer roles when only a pinned public_key is available', () => {
     withCleanSignerEnv(() => {
-      // No env keys set, but pinned identity has a public_key, so the
-      // module considers it sufficient (public_key is known, just can't sign).
-      const report = resolvePinnedNeoN3Role('testnet', 'relayer');
-      assert.equal(report.ok, true);
+      assert.throws(
+        () => resolvePinnedNeoN3Role('testnet', 'relayer'),
+        (err) => err.message.includes('no usable relayer signer configured')
+      );
+
+      const report = reportPinnedNeoN3Role('testnet', 'relayer');
+      assert.equal(report.ok, false);
       assert.equal(report.selected_source, null);
       assert.ok(report.public_key, 'should still expose the pinned public_key');
       assert.equal(report.materialized, null);
+      assert.ok(report.issues.some((issue) => issue.includes('no usable relayer signer')));
     });
   });
 
@@ -386,6 +390,15 @@ describe('resolvePinnedNeoN3UpdaterHash', () => {
       const hash = resolvePinnedNeoN3UpdaterHash('testnet');
       assert.match(hash, /^0x[0-9a-f]{40}$/);
       assert.equal(hash, `0x${ACCOUNT_A.scriptHash}`);
+    });
+  });
+
+  it('returns the pinned updater hash for read-only checks without local signer material', () => {
+    withCleanSignerEnv(() => {
+      const pinned = getPinnedNeoN3Role('mainnet', 'updater');
+      const hash = resolvePinnedNeoN3UpdaterHash('mainnet');
+
+      assert.equal(hash, pinned.script_hash);
     });
   });
 });
