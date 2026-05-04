@@ -9,7 +9,8 @@ process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.MORPHEUS_ALLOW_EPHEMERAL_KEY = 'true';
 process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
 
-const { RUNTIME_SERVICE_MATRIX } = await import('./runtime-service-matrix.mjs');
+const { RUNTIME_SERVICE_MATRIX, __resolveBaseUrlCandidatesForTests } =
+  await import('./runtime-service-matrix.mjs');
 const { listCapabilityFeatures } = await import('../workers/phala-worker/src/capabilities.js');
 const { listBuiltinComputeFunctions } =
   await import('../workers/phala-worker/src/compute/index.js');
@@ -68,4 +69,15 @@ test('runtime service matrix keeps feed publication on the non-blocking path', (
   assert.ok(feedProbe, 'missing oracle:feed probe');
   assert.equal(feedProbe.payload.wait, false);
   assert.equal(feedProbe.payload.refresh_onchain_baseline, false);
+});
+
+test('runtime service matrix keeps registry fallback behind local custom domains', async () => {
+  const candidates = await __resolveBaseUrlCandidatesForTests({
+    network: 'mainnet',
+    localEnvOverride: {
+      MORPHEUS_MAINNET_CUSTOM_DOMAIN: 'morpheus-mainnet.meshmini.app',
+    },
+  });
+  assert.equal(candidates[0], 'https://morpheus-mainnet.meshmini.app');
+  assert.ok(candidates.includes('https://oracle.meshmini.app/mainnet'));
 });

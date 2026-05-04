@@ -733,24 +733,39 @@ function loadLocalEnv(filePath) {
 }
 
 async function resolveBaseUrl({ explicitBaseUrl, network }) {
-  if (trimString(explicitBaseUrl)) return normalizeBaseUrl(explicitBaseUrl);
-  const localEnv = await loadLocalEnv(path.resolve(repoRoot, '.env.local'));
+  const candidates = await resolveBaseUrlCandidates({ explicitBaseUrl, network });
+  return candidates[0];
+}
+
+async function resolveBaseUrlCandidates({ explicitBaseUrl, network, localEnvOverride } = {}) {
+  if (trimString(explicitBaseUrl)) return [normalizeBaseUrl(explicitBaseUrl)];
+  const localEnv = localEnvOverride ?? (await loadLocalEnv(path.resolve(repoRoot, '.env.local')));
+  const candidates = [];
+  const pushCandidate = (value) => {
+    const normalized = normalizeBaseUrl(value);
+    if (normalized && !candidates.includes(normalized)) candidates.push(normalized);
+  };
   const scoped =
     network === 'mainnet'
       ? localEnv.MORPHEUS_MAINNET_CUSTOM_DOMAIN
       : localEnv.MORPHEUS_TESTNET_CUSTOM_DOMAIN;
   if (trimString(scoped)) {
     const domain = trimString(scoped).replace(/^https?:\/\//, '');
-    return `https://${domain}`;
+    pushCandidate(`https://${domain}`);
   }
   const configPath = path.resolve(repoRoot, 'config', 'networks', `${network}.json`);
   try {
     const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
     if (trimString(config?.phala?.public_api_url)) {
-      return normalizeBaseUrl(config.phala.public_api_url);
+      pushCandidate(config.phala.public_api_url);
     }
   } catch {}
-  return `https://oracle.meshmini.app/${network === 'mainnet' ? 'mainnet' : 'testnet'}`;
+  pushCandidate(`https://oracle.meshmini.app/${network === 'mainnet' ? 'mainnet' : 'testnet'}`);
+  return candidates;
+}
+
+export async function __resolveBaseUrlCandidatesForTests(options = {}) {
+  return resolveBaseUrlCandidates(options);
 }
 
 function resolveAuthToken() {
@@ -958,20 +973,39 @@ export async function runRuntimeServiceMatrix(options = {}) {
     trimString(options.network || process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
       ? 'mainnet'
       : 'testnet';
-  const baseUrl = await resolveBaseUrl({ explicitBaseUrl: options.baseUrl, network });
+  const baseUrlCandidates = await resolveBaseUrlCandidates({
+    explicitBaseUrl: options.baseUrl,
+    network,
+  });
   const authToken = trimString(options.authToken || resolveAuthToken());
   if (!authToken) {
     throw new Error('MORPHEUS_RUNTIME_TOKEN or PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
   }
   const timeoutMs = Number(options.timeoutMs || 60000);
   const maxLatencyMs = Number(options.maxLatencyMs || 10000);
+  let baseUrl = baseUrlCandidates[0];
+  let oraclePublicKey = null;
+  const baseUrlErrors = [];
+  for (const candidate of baseUrlCandidates) {
+    try {
+      oraclePublicKey = await fetchOraclePublicKey(candidate, authToken, timeoutMs);
+      baseUrl = candidate;
+      break;
+    } catch (error) {
+      baseUrlErrors.push(`${candidate}: ${error instanceof Error ? error.message : String(error)}`);
+      if (options.baseUrl) break;
+    }
+  }
+  if (!oraclePublicKey) {
+    throw new Error(`failed to fetch oracle public key (${baseUrlErrors.join('; ')})`);
+  }
   const context = {
     network,
     baseUrl,
     authToken,
     timeoutMs,
     maxLatencyMs,
-    oraclePublicKey: await fetchOraclePublicKey(baseUrl, authToken, timeoutMs),
+    oraclePublicKey,
   };
   const results = [];
   for (const entry of RUNTIME_SERVICE_MATRIX) {
