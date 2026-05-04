@@ -5,7 +5,7 @@ function resolveCandidateApiUrls(apiUrl) {
     .filter(Boolean);
 }
 
-const DEFAULT_PHALA_TIMEOUT_MS = 30000;
+const DEFAULT_PHALA_TIMEOUT_MS = 10_000;
 
 function decorateWorkerPayload(config, payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
@@ -47,9 +47,9 @@ export async function callPhala(config, path, payload, options = {}) {
   }
 
   const requestPayload = decorateWorkerPayload(config, payload);
-  const timeoutMs = Math.max(
-    Number(options.timeoutMs || config.phala.timeoutMs || DEFAULT_PHALA_TIMEOUT_MS),
-    1000
+  const timeoutMs = Math.min(
+    Math.max(Number(options.timeoutMs || config.phala.timeoutMs || DEFAULT_PHALA_TIMEOUT_MS), 1000),
+    10_000
   );
   let lastError = null;
 

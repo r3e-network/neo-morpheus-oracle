@@ -133,8 +133,8 @@ export async function performOracleFetch(payload) {
   });
   const timeoutMs = cappedDurationMs(
     resolvedPayload.oracle_timeout_ms || resolvedPayload.fetch_timeout_ms || env('ORACLE_TIMEOUT'),
-    20000,
-    30_000
+    8_000,
+    10_000
   );
   const maxBodyBytes = resolveMaxBytes(env('ORACLE_MAX_UPSTREAM_BODY_BYTES'), 256 * 1024, 4096);
 

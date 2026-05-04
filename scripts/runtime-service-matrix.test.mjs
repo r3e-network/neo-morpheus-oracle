@@ -62,3 +62,10 @@ test('runtime service matrix includes positive probes for key Morpheus service c
     assert.ok(positiveIds.has(id), `missing positive probe ${id}`);
   }
 });
+
+test('runtime service matrix keeps feed publication on the non-blocking path', () => {
+  const feedProbe = RUNTIME_SERVICE_MATRIX.find((entry) => entry.id === 'oracle:feed');
+  assert.ok(feedProbe, 'missing oracle:feed probe');
+  assert.equal(feedProbe.payload.wait, false);
+  assert.equal(feedProbe.payload.refresh_onchain_baseline, false);
+});

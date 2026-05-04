@@ -228,6 +228,8 @@ export const RUNTIME_SERVICE_MATRIX = [
       target_chain: 'neo_n3',
       provider: 'twelvedata',
       symbols: ['NEO-USD'],
+      wait: false,
+      refresh_onchain_baseline: false,
     },
     requiredFields: ['mode'],
     description: 'Signed datafeed snapshot generation.',
@@ -683,6 +685,7 @@ function parseArgs(argv = []) {
     baseUrl: '',
     outputDir: path.resolve(repoRoot, 'docs', 'reports'),
     timeoutMs: 60000,
+    maxLatencyMs: 10000,
     continueOnFailure: false,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -698,6 +701,9 @@ function parseArgs(argv = []) {
     else if (arg === '--timeout-ms' && next) args.timeoutMs = Number(next);
     else if (arg.startsWith('--timeout-ms='))
       args.timeoutMs = Number(arg.slice('--timeout-ms='.length));
+    else if (arg === '--max-latency-ms' && next) args.maxLatencyMs = Number(next);
+    else if (arg.startsWith('--max-latency-ms='))
+      args.maxLatencyMs = Number(arg.slice('--max-latency-ms='.length));
     else if (arg === '--continue-on-failure') args.continueOnFailure = true;
   }
   return args;
@@ -891,10 +897,13 @@ async function runProbe(entry, context) {
     error = probeError instanceof Error ? probeError.message : String(probeError);
   }
 
+  const latencyMs = Date.now() - startedAt;
+  const maxLatencyMs = Number(entry.maxLatencyMs || context.maxLatencyMs || 0);
+  const latencyOk = !maxLatencyMs || latencyMs <= maxLatencyMs;
   const expectedStatus = entry.expectedStatuses.includes(status);
   const missingFields =
     status === 200 ? entry.requiredFields.filter((field) => !hasField(body, field)) : [];
-  const ok = !error && expectedStatus && missingFields.length === 0;
+  const ok = !error && expectedStatus && missingFields.length === 0 && latencyOk;
   return {
     id: entry.id,
     serviceClass: entry.serviceClass,
@@ -904,9 +913,11 @@ async function runProbe(entry, context) {
     path: entry.path,
     status,
     ok,
-    latencyMs: Date.now() - startedAt,
+    latencyMs,
+    maxLatencyMs,
+    latencyOk,
     missingFields,
-    error,
+    error: error || (!latencyOk ? `latency ${latencyMs}ms exceeded ${maxLatencyMs}ms SLO` : null),
     bodySummary: summarizeBody(body),
   };
 }
@@ -925,6 +936,7 @@ function aggregate(results) {
     total: results.length,
     pass: results.filter((item) => item.ok).length,
     fail: results.filter((item) => !item.ok).length,
+    slow: results.filter((item) => item.latencyOk === false).length,
     byServiceClass,
     p95LatencyMs: percentile(results.map((item) => item.latencyMs).filter(Number.isFinite), 0.95),
     maxLatencyMs: Math.max(...results.map((item) => item.latencyMs).filter(Number.isFinite), 0),
@@ -952,11 +964,13 @@ export async function runRuntimeServiceMatrix(options = {}) {
     throw new Error('MORPHEUS_RUNTIME_TOKEN or PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
   }
   const timeoutMs = Number(options.timeoutMs || 60000);
+  const maxLatencyMs = Number(options.maxLatencyMs || 10000);
   const context = {
     network,
     baseUrl,
     authToken,
     timeoutMs,
+    maxLatencyMs,
     oraclePublicKey: await fetchOraclePublicKey(baseUrl, authToken, timeoutMs),
   };
   const results = [];
@@ -968,6 +982,7 @@ export async function runRuntimeServiceMatrix(options = {}) {
     baseUrl,
     network,
     timeoutMs,
+    maxLatencyMs,
     summary: aggregate(results),
     results,
   };
@@ -989,4 +1004,11 @@ export async function main(argv = process.argv.slice(2)) {
   if (report.summary.fail > 0 && !args.continueOnFailure) {
     process.exitCode = 1;
   }
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
 }

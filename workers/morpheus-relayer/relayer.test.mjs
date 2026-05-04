@@ -1182,15 +1182,32 @@ test('createRelayerConfig supports feed_only mode with isolated default state fi
   }
 });
 
-test('createRelayerConfig exposes dedicated feed sync timeout', () => {
+test('createRelayerConfig caps dedicated feed sync timeout at the request SLO', () => {
   const previous = process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
   process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = '90000';
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.equal(config.feedSync.timeoutMs, 90000);
+    assert.equal(config.feedSync.timeoutMs, 10000);
   } finally {
     if (previous === undefined) delete process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
     else process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = previous;
+  }
+});
+
+test('createRelayerConfig caps worker and retry waits at the request SLO', () => {
+  const previousPhalaTimeout = process.env.MORPHEUS_PHALA_TIMEOUT_MS;
+  const previousRetryMaxDelay = process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS;
+  process.env.MORPHEUS_PHALA_TIMEOUT_MS = '90000';
+  process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS = '90000';
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.phala.timeoutMs, 10000);
+    assert.equal(config.retryMaxDelayMs, 10000);
+  } finally {
+    if (previousPhalaTimeout === undefined) delete process.env.MORPHEUS_PHALA_TIMEOUT_MS;
+    else process.env.MORPHEUS_PHALA_TIMEOUT_MS = previousPhalaTimeout;
+    if (previousRetryMaxDelay === undefined) delete process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS;
+    else process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS = previousRetryMaxDelay;
   }
 });
 

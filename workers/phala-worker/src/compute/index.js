@@ -654,9 +654,9 @@ export async function executeStandaloneCompute(payload) {
         payload.script_timeout_ms ||
         payload.compute_timeout_ms ||
         env('COMPUTE_WASM_TIMEOUT_MS', 'MORPHEUS_WASM_TIMEOUT_MS') ||
-        30000,
-      30000,
-      60_000
+        10_000,
+      10_000,
+      10_000
     );
     return {
       runtime: 'wasm',
@@ -686,7 +686,7 @@ export async function executeStandaloneCompute(payload) {
   const timeoutMs = cappedDurationMs(
     payload.script_timeout_ms || payload.compute_timeout_ms || env('COMPUTE_SCRIPT_TIMEOUT_MS'),
     2000,
-    60_000
+    10_000
   );
 
   return {

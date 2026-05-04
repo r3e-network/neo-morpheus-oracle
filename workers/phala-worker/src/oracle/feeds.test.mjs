@@ -12,9 +12,12 @@ import {
   __isRecoverableNeoN3BatchUpdateFailureForTests,
   __getRecoverableNeoN3BatchUpdateFailureReasonForTests,
   __loadFeedStateForTests,
+  __resolveFeedSubmissionWaitForTests,
+  __resolveFeedSubmissionWaitTimeoutMsForTests,
   __resolvePairThresholdBpsForTests,
   __resetFeedStateForTests,
   __shouldSubmitFeedForTests,
+  __shouldLoadOnchainFeedBaselineForTests,
   handleOracleFeed,
   normalizePairSymbol,
 } from './feeds.js';
@@ -160,6 +163,40 @@ test('default feed sync policy checks once per minute and uses a 0.1% change thr
 
   assert.equal(policy.thresholdBps, 10);
   assert.equal(policy.minUpdateIntervalMs, 60000);
+});
+
+test('feed publication submits asynchronously by default and caps explicit waits', () => {
+  assert.equal(__resolveFeedSubmissionWaitForTests({}), false);
+  assert.equal(__resolveFeedSubmissionWaitForTests({ wait: false }), false);
+  assert.equal(__resolveFeedSubmissionWaitForTests({ wait: 'true' }), true);
+  assert.equal(__resolveFeedSubmissionWaitTimeoutMsForTests({}), 8000);
+  assert.equal(__resolveFeedSubmissionWaitTimeoutMsForTests({ timeout_ms: '2500' }), 2500);
+  assert.equal(__resolveFeedSubmissionWaitTimeoutMsForTests({ timeout_ms: '30s' }), 8000);
+});
+
+test('feed baseline uses local state unless a refresh is required', () => {
+  assert.equal(__shouldLoadOnchainFeedBaselineForTests({}, { records: {} }), true);
+  assert.equal(
+    __shouldLoadOnchainFeedBaselineForTests(
+      {},
+      { records: { 'TWELVEDATA:NEO-USD': { price_units: '2694000' } } }
+    ),
+    false
+  );
+  assert.equal(
+    __shouldLoadOnchainFeedBaselineForTests(
+      { force: true },
+      { records: { 'TWELVEDATA:NEO-USD': { price_units: '2694000' } } }
+    ),
+    true
+  );
+  assert.equal(
+    __shouldLoadOnchainFeedBaselineForTests(
+      { refresh_onchain_baseline: 'true' },
+      { records: { 'TWELVEDATA:NEO-USD': { price_units: '2694000' } } }
+    ),
+    true
+  );
 });
 
 test('feed submission only allows pairs whose price changed by at least 0.1%', () => {
@@ -557,4 +594,69 @@ test('handleOracleFeed does not mark local state as submitted when submission pr
   assert.equal(record.last_submitted_at_ms, 1000);
   assert.equal(record.price, '2.694');
   assert.equal(record.last_observed_price, '2.9');
+});
+
+test('handleOracleFeed does not block on Neo baseline when local feed state is warm', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-warm-baseline-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.NEO_RPC_URL = 'https://neo-rpc.example';
+  process.env.CONTRACT_MORPHEUS_DATAFEED_HASH = '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET =
+    '1111111111111111111111111111111111111111111111111111111111111111';
+
+  const scopedStatePath = process.env.MORPHEUS_FEED_STATE_PATH.replace(
+    /\.json$/,
+    '.mainnet.neo_n3.json'
+  );
+  await fs.writeFile(
+    scopedStatePath,
+    JSON.stringify({
+      records: {
+        'TWELVEDATA:NEO-USD': {
+          storage_pair: 'TWELVEDATA:NEO-USD',
+          pair: 'TWELVEDATA:NEO-USD',
+          provider: 'twelvedata',
+          price: '2.694',
+          price_units: '2694000',
+          round_id: '7',
+          last_submitted_at_ms: Date.now() - 120000,
+        },
+      },
+    }),
+    'utf8'
+  );
+
+  const calls = [];
+  global.fetch = async (url) => {
+    const value = String(url);
+    calls.push(value);
+    if (value.includes('api.twelvedata.com')) {
+      return new Response(
+        JSON.stringify({ price: '2.695', timestamp: '2026-04-15T00:00:00.000Z' }),
+        {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }
+      );
+    }
+    throw new Error(`unexpected blocking baseline fetch ${value}`);
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['TWELVEDATA:NEO-USD'],
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.batch_submitted, false);
+  assert.equal(body.sync_results[0].relay_status, 'skipped');
+  assert.ok(calls.every((entry) => entry.includes('api.twelvedata.com')));
 });

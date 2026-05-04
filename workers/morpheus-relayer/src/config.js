@@ -9,7 +9,7 @@ import {
 } from './lib/neo-signers.js';
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
-const DEFAULT_PHALA_TIMEOUT_MS = 30000;
+const DEFAULT_PHALA_TIMEOUT_MS = 10_000;
 const DEFAULT_NEO_N3_RPC_URLS = {
   mainnet: [
     'https://api.n3index.dev/mainnet',
@@ -211,7 +211,10 @@ export function createRelayerConfig() {
     maxBlocksPerTick: Math.max(Number(env('MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK') || 250), 1),
     maxRetries: Math.max(Number(env('MORPHEUS_RELAYER_MAX_RETRIES') || 5), 0),
     retryBaseDelayMs: Math.max(Number(env('MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS') || 5000), 250),
-    retryMaxDelayMs: Math.max(Number(env('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || 300000), 1000),
+    retryMaxDelayMs: Math.min(
+      Math.max(Number(env('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || 10_000), 1000),
+      10_000
+    ),
     processedCacheSize: Math.max(Number(env('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || 5000), 100),
     deadLetterLimit: Math.max(Number(env('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || 500), 10),
     durableQueue: {
@@ -237,7 +240,10 @@ export function createRelayerConfig() {
     feedSync: {
       enabled: (env('MORPHEUS_FEED_SYNC_ENABLED') || 'true').toLowerCase() !== 'false',
       intervalMs: Math.max(Number(env('MORPHEUS_FEED_SYNC_INTERVAL_MS') || 60000), 1000),
-      timeoutMs: Math.max(Number(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || 120000), 1000),
+      timeoutMs: Math.min(
+        Math.max(Number(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || 10000), 1000),
+        10000
+      ),
       projectSlug: env('MORPHEUS_FEED_PROJECT_SLUG') || 'morpheus',
       provider: env('MORPHEUS_FEED_PROVIDER'),
       providers: parseList(env('MORPHEUS_FEED_PROVIDERS')),
@@ -279,7 +285,10 @@ export function createRelayerConfig() {
     phala: {
       apiUrl: resolvePhalaApiUrls(network, registry),
       token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
-      timeoutMs: Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_PHALA_TIMEOUT_MS),
+      timeoutMs: Math.min(
+        Math.max(Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_PHALA_TIMEOUT_MS), 1000),
+        10_000
+      ),
       useDerivedKeys,
     },
     neo_n3: {
