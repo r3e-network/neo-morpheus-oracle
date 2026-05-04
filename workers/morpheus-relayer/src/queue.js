@@ -203,21 +203,48 @@ export function ensureDurableQueueAvailable(config, logger, context = 'relayer')
   return false;
 }
 
+export function isTransientDurableQueueError(error) {
+  const normalized = String(error?.message || error || '').toLowerCase();
+  return (
+    normalized.includes('pgrst002') ||
+    normalized.includes('schema cache') ||
+    normalized.includes('503') ||
+    normalized.includes('502') ||
+    normalized.includes('504') ||
+    normalized.includes('timed out') ||
+    normalized.includes('timeout') ||
+    normalized.includes('econnreset') ||
+    normalized.includes('econnrefused') ||
+    normalized.includes('eauthquery') ||
+    normalized.includes('connection to database not available') ||
+    normalized.includes('network') ||
+    normalized.includes('unavailable')
+  );
+}
+
 export async function persistFreshEventsToDurableQueue(config, logger, chain, events) {
   if (!events.length) return;
   if (!ensureDurableQueueAvailable(config, logger, `${chain}:fresh-event-persist`)) return;
 
   const nextRetryAtIso = new Date().toISOString();
-  await mapWithConcurrency(events, Math.min(config.concurrency, events.length), async (event) => {
-    await insertRelayerJobIfAbsent(
-      buildRelayerJobRecord(event, {
-        event_key: buildEventKey(event),
-        status: 'queued',
-        attempts: 0,
-        next_retry_at: nextRetryAtIso,
-      })
+  try {
+    await mapWithConcurrency(events, Math.min(config.concurrency, events.length), async (event) => {
+      await insertRelayerJobIfAbsent(
+        buildRelayerJobRecord(event, {
+          event_key: buildEventKey(event),
+          status: 'queued',
+          attempts: 0,
+          next_retry_at: nextRetryAtIso,
+        })
+      );
+    });
+  } catch (error) {
+    if (!isTransientDurableQueueError(error)) throw error;
+    logger.warn(
+      { chain, event_count: events.length, error },
+      'Durable Supabase queue is temporarily unavailable; continuing with local relayer state'
     );
-  });
+  }
 }
 
 export async function claimDurableJobForProcessing(config, logger, event, retryItem = null) {
@@ -256,12 +283,24 @@ export async function claimDurableJobForProcessing(config, logger, event, retryI
             'callback_pending',
             'queued',
             'queued_backpressure',
-          ]
+      ]
         : ['queued', 'queued_backpressure'],
       staleStatuses: ['processing', 'retrying', 'callback_pending'],
       staleBeforeIso,
     }
-  );
+  ).catch((error) => {
+    if (!isTransientDurableQueueError(error)) throw error;
+    logger.warn(
+      {
+        chain: event.chain,
+        request_id: event.requestId,
+        event_key: eventKey,
+        error,
+      },
+      'Durable Supabase claim is temporarily unavailable; falling back to local relayer state'
+    );
+    return { local_fallback: true };
+  });
   if (claim) return true;
   logger.info(
     {
@@ -284,20 +323,30 @@ export async function hydrateDurableQueue(config, state, logger, chain, persistS
     Number(config.startRequestIds?.[chain]) > 0
       ? Number(config.startRequestIds?.[chain])
       : null;
-  const jobs = await fetchRelayerJobsByStatuses(
-    [
-      'queued',
-      'queued_backpressure',
-      'retry_scheduled',
-      'failure_callback_retry_scheduled',
-      'callback_retry_scheduled',
-      'callback_pending',
-      'processing',
-      'retrying',
-    ],
-    chain,
-    Math.max(Number(config.durableQueue?.syncLimit || 200), 1)
-  );
+  let jobs;
+  try {
+    jobs = await fetchRelayerJobsByStatuses(
+      [
+        'queued',
+        'queued_backpressure',
+        'retry_scheduled',
+        'failure_callback_retry_scheduled',
+        'callback_retry_scheduled',
+        'callback_pending',
+        'processing',
+        'retrying',
+      ],
+      chain,
+      Math.max(Number(config.durableQueue?.syncLimit || 200), 1)
+    );
+  } catch (error) {
+    if (!isTransientDurableQueueError(error)) throw error;
+    logger.warn(
+      { chain, error },
+      'Durable Supabase queue hydration unavailable; continuing with local relayer state'
+    );
+    return [];
+  }
   if (!jobs.length) return [];
 
   const nowMs = Date.now();
@@ -352,22 +401,32 @@ export async function quarantineDurableBacklogBelowRequestFloor(config, logger, 
   const minRequestId = getRequestCursorFloor(config, chain);
   if (minRequestId === null) return 0;
   if (!ensureDurableQueueAvailable(config, logger, `${chain}:durable-floor-quarantine`)) return 0;
-  const patched = await quarantineRelayerJobsBelowRequestId({
-    network: config.network,
-    chain,
-    ltRequestId: minRequestId,
-    statuses: [
-      'queued',
-      'queued_backpressure',
-      'retry_scheduled',
-      'failure_callback_retry_scheduled',
-      'callback_retry_scheduled',
-      'callback_pending',
-      'processing',
-      'retrying',
-    ],
-    note: `auto-quarantined below request cursor floor ${minRequestId}`,
-  });
+  let patched;
+  try {
+    patched = await quarantineRelayerJobsBelowRequestId({
+      network: config.network,
+      chain,
+      ltRequestId: minRequestId,
+      statuses: [
+        'queued',
+        'queued_backpressure',
+        'retry_scheduled',
+        'failure_callback_retry_scheduled',
+        'callback_retry_scheduled',
+        'callback_pending',
+        'processing',
+        'retrying',
+      ],
+      note: `auto-quarantined below request cursor floor ${minRequestId}`,
+    });
+  } catch (error) {
+    if (!isTransientDurableQueueError(error)) throw error;
+    logger.warn(
+      { chain, request_cursor_floor: minRequestId, error },
+      'Durable Supabase floor quarantine unavailable; continuing with local relayer state'
+    );
+    return 0;
+  }
   if (patched > 0) {
     logger.info(
       { chain, request_cursor_floor: minRequestId, quarantined_count: patched },

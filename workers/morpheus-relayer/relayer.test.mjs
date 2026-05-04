@@ -1761,6 +1761,95 @@ test('durable queue hydrates prepared callback delivery without losing fulfillme
   assert.deepEqual(state.neo_n3.retry_queue[0].prepared_fulfillment, preparedFulfillment);
 });
 
+test('processEvent uses local prepared fulfillment checkpoint when Supabase durable queue is temporarily unavailable', async () => {
+  const previousAllowUnpinned = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+  const previousRelayerWif = process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
+  const previousSupabaseUrl = process.env.SUPABASE_URL;
+  const previousSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  const signer = new wallet.Account(wallet.generatePrivateKey());
+  const state = createEmptyRelayerState();
+  const event = {
+    chain: 'neo_n3',
+    requestId: '106',
+    requestType: 'privacy_oracle',
+    txHash: '0xfff',
+    payloadText: JSON.stringify({ url: 'https://prices.test/neo' }),
+  };
+  let localCheckpointSeenBeforeCallback = false;
+
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  process.env.MORPHEUS_RELAYER_NEO_N3_WIF = signer.WIF;
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_relayer_jobs')) {
+      return new Response(
+        JSON.stringify({
+          code: 'PGRST002',
+          message: 'Could not query the database for the schema cache. Retrying.',
+        }),
+        { status: 503, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    if (value === 'https://phala.test/oracle/smart-fetch') {
+      return new Response(JSON.stringify({ price: '42.10', source: 'test' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  try {
+    const result = await processEvent(
+      {
+        ...retryConfig,
+        network: 'testnet',
+        durableQueue: { enabled: true, failClosed: true, syncLimit: 10, staleProcessingMs: 1000 },
+        phala: { apiUrl: 'https://phala.test', token: 'runtime-token' },
+        hooks: {
+          fulfillNeoRequest: async () => {
+            localCheckpointSeenBeforeCallback = state.neo_n3.retry_queue.some(
+              (item) =>
+                item.key === buildEventKey(event) &&
+                item.prepared_fulfillment &&
+                item.last_error === 'callback_pending'
+            );
+            return {
+              request_id: 'relayer:n3:fulfill:106:test',
+              tx_hash: '0xfulfilled',
+              vm_state: 'HALT',
+              target_chain: 'neo_n3',
+            };
+          },
+        },
+      },
+      state,
+      () => saveRelayerState(path.join(os.tmpdir(), `morpheus-state-${Date.now()}.json`), state),
+      { info() {}, warn() {}, error() {} },
+      event
+    );
+
+    assert.equal(result.result.fulfill_tx.tx_hash, '0xfulfilled');
+    assert.equal(localCheckpointSeenBeforeCallback, true);
+    assert.equal(state.neo_n3.retry_queue.length, 0);
+    assert.equal(state.neo_n3.processed_records[buildEventKey(event)].status, 'fulfilled');
+  } finally {
+    global.fetch = originalFetch;
+    if (previousAllowUnpinned === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+    else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = previousAllowUnpinned;
+    if (previousRelayerWif === undefined) delete process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
+    else process.env.MORPHEUS_RELAYER_NEO_N3_WIF = previousRelayerWif;
+    if (previousSupabaseUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousSupabaseUrl;
+    if (previousSupabaseKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousSupabaseKey;
+  }
+});
+
 test('processEvent redelivers prepared fulfillment without re-running the worker', async () => {
   const state = createEmptyRelayerState();
   const event = {

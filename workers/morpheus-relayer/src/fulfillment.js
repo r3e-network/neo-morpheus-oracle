@@ -26,6 +26,7 @@ import {
 import {
   claimDurableJobForProcessing,
   ensureDurableQueueAvailable,
+  isTransientDurableQueueError,
   maybeUpsertJob,
   upsertJobOrThrow,
 } from './queue.js';
@@ -321,7 +322,20 @@ async function checkpointPreparedFulfillment(
 
   if (config.durableQueue?.enabled) {
     if (ensureDurableQueueAvailable(config, logger, `${event.chain}:callback-pending-checkpoint`)) {
-      await upsertJobOrThrow(event, details);
+      try {
+        await upsertJobOrThrow(event, details);
+      } catch (error) {
+        if (!isTransientDurableQueueError(error)) throw error;
+        logger.warn(
+          {
+            chain: event.chain,
+            request_id: event.requestId,
+            event_key: details.event_key,
+            error,
+          },
+          'Durable Supabase callback checkpoint unavailable; local prepared fulfillment is persisted'
+        );
+      }
       return;
     }
   }
@@ -421,6 +435,18 @@ export function enrichAutomationExecutionPayload(event, payload) {
   };
 }
 
+export function isQueuedAutomationExecutionPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false;
+  const automationId = trimString(payload.automation_id || payload.automationId || '');
+  if (!automationId) return false;
+  return Boolean(
+    trimString(payload.workflow_id || payload.workflowId || '') ||
+      trimString(payload.execution_id || payload.executionId || '') ||
+      trimString(payload.idempotency_key || payload.idempotencyKey || '') ||
+      trimString(payload.delivery_mode || payload.deliveryMode || '')
+  );
+}
+
 async function prepareOracleFulfillment(config, event, logger = null) {
   const payload = enrichAutomationExecutionPayload(event, decodePayloadText(event.payloadText));
   const kernelIntent = resolveKernelIntent(event.requestType);
@@ -448,41 +474,43 @@ async function prepareOracleFulfillment(config, event, logger = null) {
       verification_signature: verification.signature,
     });
   }
-  const automationGuard = await guardQueuedAutomationExecution(event);
-  if (automationGuard.blocked) {
-    const guardResponse = {
-      ok: false,
-      status: 409,
-      body: {
-        mode: 'automation',
-        action: 'execute',
-        automation_id: automationGuard.automation_id,
-        status: automationGuard.job?.status || 'cancelled',
-        chain: event.chain,
-        error: automationGuard.error,
-      },
-    };
-    const fulfillment = encodeFulfillmentResult(event.requestType, guardResponse);
-    const verification = await signFulfillmentPayload(config, event.chain, {
-      requestId: event.requestId,
-      requestType: event.requestType,
-      appId: event.appId || '',
-      moduleId: kernelIntent.moduleId,
-      operation: kernelIntent.operation,
-      success: fulfillment.success,
-      result: fulfillment.result || '',
-      result_bytes_base64: fulfillment.result_bytes_base64 || '',
-      error: fulfillment.error || '',
-    });
+  if (isQueuedAutomationExecutionPayload(payload)) {
+    const automationGuard = await guardQueuedAutomationExecution(event);
+    if (automationGuard.blocked) {
+      const guardResponse = {
+        ok: false,
+        status: 409,
+        body: {
+          mode: 'automation',
+          action: 'execute',
+          automation_id: automationGuard.automation_id,
+          status: automationGuard.job?.status || 'cancelled',
+          chain: event.chain,
+          error: automationGuard.error,
+        },
+      };
+      const fulfillment = encodeFulfillmentResult(event.requestType, guardResponse);
+      const verification = await signFulfillmentPayload(config, event.chain, {
+        requestId: event.requestId,
+        requestType: event.requestType,
+        appId: event.appId || '',
+        moduleId: kernelIntent.moduleId,
+        operation: kernelIntent.operation,
+        success: fulfillment.success,
+        result: fulfillment.result || '',
+        result_bytes_base64: fulfillment.result_bytes_base64 || '',
+        error: fulfillment.error || '',
+      });
 
-    return buildPreparedFulfillment(fulfillment, {
-      route: automationGuard.route,
-      module_id: kernelIntent.moduleId,
-      operation: kernelIntent.operation,
-      worker_response: guardResponse.body,
-      worker_status: guardResponse.status,
-      verification_signature: verification.signature,
-    });
+      return buildPreparedFulfillment(fulfillment, {
+        route: automationGuard.route,
+        module_id: kernelIntent.moduleId,
+        operation: kernelIntent.operation,
+        worker_response: guardResponse.body,
+        worker_status: guardResponse.status,
+        verification_signature: verification.signature,
+      });
+    }
   }
   if (isOperatorOnlyRequestType(event.requestType)) {
     const verification = await signFulfillmentPayload(config, event.chain, {
@@ -646,6 +674,15 @@ export async function processEvent(config, state, persistState, logger, event, r
       incrementMetric(state, 'worker_calls_total');
       preparedForRedelivery = await prepareOracleFulfillment(config, event, logger);
       if (!preparedForRedelivery.success) incrementMetric(state, 'worker_failures_total');
+      enqueueRetryItem(state, event.chain, event, {
+        attempts,
+        next_retry_at: Date.now() + computeRetryDelayMs(config, attempts + 1),
+        first_failed_at: retryItem?.first_failed_at || new Date().toISOString(),
+        last_error: 'callback_pending',
+        prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
+        durable_claimed: retryItem?.durable_claimed,
+      });
+      persistState();
       await checkpointPreparedFulfillment(
         config,
         logger,
