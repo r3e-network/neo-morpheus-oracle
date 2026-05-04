@@ -43,6 +43,9 @@ const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
 const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
 const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 60_000;
 const MAINNET_FEED_STALE_AFTER_MS = 300_000;
+const DEFAULT_FEED_PROVIDER_TIMEOUT_MS = 8_000;
+const MAX_FEED_PROVIDER_TIMEOUT_MS = 10_000;
+const DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS = 8_000;
 const FEED_PRICE_DECIMALS = 6;
 
 const feedStateCache = new Map();
@@ -521,6 +524,24 @@ function normalizeBooleanLike(value, fallback = false) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
 }
 
+function resolveFeedSubmissionWait(payload = {}) {
+  return normalizeBooleanLike(payload.wait, false);
+}
+
+function resolveFeedSubmissionWaitTimeoutMs(payload = {}) {
+  const network = resolveFeedNetwork(payload);
+  const source =
+    payload.timeout_ms ??
+    payload.timeoutMs ??
+    payload.feed_submission_wait_timeout_ms ??
+    payload.feedSubmissionWaitTimeoutMs ??
+    envForNetwork(network, 'MORPHEUS_FEED_SUBMISSION_WAIT_TIMEOUT_MS');
+  return Math.min(
+    parseDurationMs(source, DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS),
+    DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS
+  );
+}
+
 function resolveFeedSubmissionIssue(
   targetChain,
   { hasNeoN3DataFeedTarget = false, neoContext = null } = {}
@@ -533,6 +554,15 @@ function resolveFeedSubmissionIssue(
   }
 
   return '';
+}
+
+function shouldLoadOnchainFeedBaseline(payload = {}, state = {}) {
+  const hasLocalRecords = Object.keys(state.records || {}).length > 0;
+  const explicitRefresh = payload.refresh_onchain_baseline ?? payload.refreshOnchainBaseline;
+  if (explicitRefresh !== undefined && explicitRefresh !== null && explicitRefresh !== '') {
+    return normalizeBooleanLike(explicitRefresh, false);
+  }
+  return Boolean(payload.force) || !hasLocalRecords;
 }
 
 export function __resolvePairThresholdBpsForTests(
@@ -761,7 +791,13 @@ async function resolveQuoteForProvider(symbol, options, provider) {
   if (!providerRequest) throw new Error('provider request could not be built');
   const response = await fetchProviderJSON(
     providerRequest,
-    parseDurationMs(resolvedPayload.oracle_timeout_ms || env('ORACLE_TIMEOUT'), 20_000)
+    Math.min(
+      parseDurationMs(
+        resolvedPayload.oracle_timeout_ms || env('ORACLE_TIMEOUT'),
+        DEFAULT_FEED_PROVIDER_TIMEOUT_MS
+      ),
+      MAX_FEED_PROVIDER_TIMEOUT_MS
+    )
   );
   if (!response.ok) {
     throw new Error(response.provider_error?.message || `${provider} fetch failed`);
@@ -893,6 +929,18 @@ export function __buildNeoN3RelaySigningPayloadForTests(payload = {}) {
   return buildNeoN3RelaySigningPayload(payload);
 }
 
+export function __resolveFeedSubmissionWaitForTests(payload = {}) {
+  return resolveFeedSubmissionWait(payload);
+}
+
+export function __resolveFeedSubmissionWaitTimeoutMsForTests(payload = {}) {
+  return resolveFeedSubmissionWaitTimeoutMs(payload);
+}
+
+export function __shouldLoadOnchainFeedBaselineForTests(payload = {}, state = {}) {
+  return shouldLoadOnchainFeedBaseline(payload, state);
+}
+
 async function submitQuoteToN3(
   dataFeedHash,
   neoContext,
@@ -926,7 +974,8 @@ async function submitQuoteToN3(
       { type: 'ByteArray', value: quote.attestation_hash },
       { type: 'Integer', value: String(sourceSetId) },
     ],
-    wait: Boolean(payload.wait ?? true),
+    wait: resolveFeedSubmissionWait(payload),
+    timeout_ms: resolveFeedSubmissionWaitTimeoutMs(payload),
     rpc_url: neoContext.rpcUrl,
     network_magic: neoContext.networkMagic,
     ...buildNeoN3RelaySigningPayload(payload),
@@ -969,7 +1018,8 @@ async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
         value: updates.map((entry) => ({ type: 'Integer', value: String(entry.sourceSetId) })),
       },
     ],
-    wait: Boolean(payload.wait ?? true),
+    wait: resolveFeedSubmissionWait(payload),
+    timeout_ms: resolveFeedSubmissionWaitTimeoutMs(payload),
     rpc_url: neoContext.rpcUrl,
     network_magic: neoContext.networkMagic,
     ...buildNeoN3RelaySigningPayload(payload),
@@ -1102,10 +1152,13 @@ export async function handleOracleFeed(payload) {
   const neoContext = hasNeoN3DataFeedTarget
     ? loadNeoN3Context(scopedPayload, { required: false, requireRpc: false })
     : null;
-  const onchainFeedState = await loadOnchainFeedRecords(targetChain, {
-    neoContext,
-    dataFeedHash,
-  });
+  const loadOnchainBaseline = shouldLoadOnchainFeedBaseline(scopedPayload, state);
+  const onchainFeedState = loadOnchainBaseline
+    ? await loadOnchainFeedRecords(targetChain, {
+        neoContext,
+        dataFeedHash,
+      })
+    : { records: {}, error: null };
   const onchainRecords = onchainFeedState.records;
   if (
     onchainFeedState.error &&

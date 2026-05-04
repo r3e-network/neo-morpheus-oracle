@@ -166,7 +166,7 @@ function resolveProviderResponseCacheTtlMs() {
 
 function resolveProviderRetryCount() {
   const configured = Number(env('MORPHEUS_PROVIDER_FETCH_RETRIES'));
-  if (!Number.isFinite(configured)) return 2;
+  if (!Number.isFinite(configured)) return 0;
   return Math.max(Math.trunc(configured), 0);
 }
 
@@ -529,7 +529,7 @@ function detectProviderPayloadError(requestSpec, response, data) {
   return null;
 }
 
-export async function fetchProviderJSON(requestSpec, timeoutMs = 20000) {
+export async function fetchProviderJSON(requestSpec, timeoutMs = 8000) {
   const providerId = normalizeProviderId(requestSpec.provider || '');
   const breaker = providerId ? getOrCreateBreaker(providerId) : null;
   if (breaker && !breaker.allow()) {

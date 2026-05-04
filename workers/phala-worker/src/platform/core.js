@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 export const SUPPORTED_ORACLE_TARGET_CHAINS = new Set(['neo_n3']);
 export const DEFAULT_NEO_NETWORK_MAGIC = 894710606;
-export const DEFAULT_WAIT_TIMEOUT_MS = 120000;
+export const DEFAULT_WAIT_TIMEOUT_MS = 10_000;
 export const DEFAULT_POLL_INTERVAL_MS = 2000;
 export const REPLAY_WINDOW_MS = 10 * 60 * 1000;
 
@@ -239,7 +239,7 @@ export function parseDurationMs(value, fallbackMs = 0) {
 }
 
 // --- Security: timeout cap for user-controlled durations (M-10) ---
-export const MAX_USER_TIMEOUT_MS = 30_000;
+export const MAX_USER_TIMEOUT_MS = 10_000;
 
 export function cappedDurationMs(value, fallbackMs = 0, maxMs = MAX_USER_TIMEOUT_MS) {
   return Math.min(parseDurationMs(value, fallbackMs), maxMs);

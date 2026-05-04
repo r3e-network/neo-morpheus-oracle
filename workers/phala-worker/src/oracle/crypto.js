@@ -9,7 +9,7 @@ import {
   env,
   normalizeBoolean,
   normalizeMorpheusNetwork,
-  parseDurationMs,
+  cappedDurationMs,
   resolveMaxBytes,
   resolvePayloadNetwork,
   resolveWasmModuleBase64,
@@ -657,13 +657,14 @@ export async function executeProgrammableOracle(payload, context) {
       'oracle programmable input',
       maxScriptInputBytes
     );
-    const timeoutMs = parseDurationMs(
+    const timeoutMs = cappedDurationMs(
       payload.wasm_timeout_ms ||
         payload.script_timeout_ms ||
         payload.oracle_script_timeout_ms ||
         env('ORACLE_WASM_TIMEOUT_MS', 'MORPHEUS_WASM_TIMEOUT_MS') ||
-        30000,
-      30000
+        10_000,
+      10_000,
+      10_000
     );
     return {
       executed: true,
@@ -697,11 +698,12 @@ export async function executeProgrammableOracle(payload, context) {
     maxScriptInputBytes
   );
 
-  const timeoutMs = parseDurationMs(
+  const timeoutMs = cappedDurationMs(
     payload.script_timeout_ms ||
       payload.oracle_script_timeout_ms ||
       env('ORACLE_SCRIPT_TIMEOUT_MS'),
-    2000
+    2000,
+    10_000
   );
 
   return {
