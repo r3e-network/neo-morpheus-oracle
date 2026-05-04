@@ -94,7 +94,8 @@ const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } =
   await import('./src/platform/dstack.js');
 const { __resetOracleKeyMaterialForTests, decryptEncryptedToken } =
   await import('./src/oracle/crypto.js');
-const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
+const { __drainOracleFeedBackgroundTasksForTests, __resetFeedStateForTests } =
+  await import('./src/oracle/feeds.js');
 const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
 const { __resetNeoDidStateForTests } = await import('./src/neodid/index.js');
@@ -1202,6 +1203,56 @@ test('feeds catalog lists default symbols', async () => {
   assert.ok(body.pairs.includes('TWELVEDATA:EUR-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:FLM-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:JPY-USD'));
+});
+
+test('oracle feed with wait:false returns accepted before provider and chain work completes', async () => {
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+
+  let resolveProvider;
+  let providerRequested = false;
+  const providerResponse = new Promise((resolve) => {
+    resolveProvider = resolve;
+  });
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.includes('api.twelvedata.com')) {
+      providerRequested = true;
+      await providerResponse;
+      return new Response(JSON.stringify({ price: '45.67' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const res = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        wait: false,
+        network: 'testnet',
+        target_chain: 'neo_n3',
+        symbols: ['TWELVEDATA:NEO-USD'],
+      }),
+    })
+  );
+  const body = await res.json();
+
+  assert.equal(res.status, 202);
+  assert.equal(body.accepted, true);
+  assert.equal(body.status, 'accepted');
+  assert.equal(body.wait, false);
+  assert.ok(body.request_id);
+
+  resolveProvider();
+  await __drainOracleFeedBackgroundTasksForTests();
+  assert.equal(providerRequested, true);
 });
 
 test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {

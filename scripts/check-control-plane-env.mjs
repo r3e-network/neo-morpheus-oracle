@@ -54,6 +54,30 @@ function isSectionConfigured(env, keys) {
   return keys.some((key) => trimString(env[key]));
 }
 
+function neoN3FeedSignerKeys(network) {
+  const upper = trimString(network).toUpperCase() === 'MAINNET' ? 'MAINNET' : 'TESTNET';
+  return [
+    `MORPHEUS_${upper}_FEED_NEO_N3_WIF`,
+    `MORPHEUS_${upper}_FEED_NEO_N3_PRIVATE_KEY`,
+    `MORPHEUS_FEED_NEO_N3_WIF_${upper}`,
+    `MORPHEUS_FEED_NEO_N3_PRIVATE_KEY_${upper}`,
+    `MORPHEUS_${upper}_UPDATER_NEO_N3_WIF`,
+    `MORPHEUS_${upper}_UPDATER_NEO_N3_PRIVATE_KEY`,
+    `MORPHEUS_UPDATER_NEO_N3_WIF_${upper}`,
+    `MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_${upper}`,
+    `MORPHEUS_${upper}_RELAYER_NEO_N3_WIF`,
+    `MORPHEUS_${upper}_RELAYER_NEO_N3_PRIVATE_KEY`,
+    `MORPHEUS_RELAYER_NEO_N3_WIF_${upper}`,
+    `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_${upper}`,
+    'MORPHEUS_FEED_NEO_N3_WIF',
+    'MORPHEUS_FEED_NEO_N3_PRIVATE_KEY',
+    'MORPHEUS_UPDATER_NEO_N3_WIF',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
+    'MORPHEUS_RELAYER_NEO_N3_WIF',
+    'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+  ];
+}
+
 let fileEnv = {};
 try {
   fileEnv = parseDotEnv(await fs.readFile(envPath, 'utf8'));
@@ -104,18 +128,8 @@ const optional = {
       'MORPHEUS_EXECUTION_BASE_URL',
     ],
     ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
-    [
-      'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY',
-      'MORPHEUS_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-    ],
-    [
-      'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY',
-      'MORPHEUS_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-    ],
+    neoN3FeedSignerKeys('MAINNET'),
+    neoN3FeedSignerKeys('TESTNET'),
   ],
   app_backend: [
     ['MORPHEUS_APP_BACKEND_URL'],
@@ -168,12 +182,8 @@ const executionPlaneConfigured =
   testnetFeedExecutionConfigured ||
   Boolean(
     getValue(env, [
-      'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY',
-      'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY',
-      'MORPHEUS_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+      ...neoN3FeedSignerKeys('MAINNET'),
+      ...neoN3FeedSignerKeys('TESTNET'),
       'MORPHEUS_EXECUTION_TOKEN',
       'PHALA_API_TOKEN',
       'PHALA_SHARED_SECRET',
@@ -250,17 +260,8 @@ if (executionPlaneConfigured) {
     if (!getValue(env, ['MORPHEUS_MAINNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'])) {
       executionMissing.push('MORPHEUS_MAINNET_EXECUTION_BASE_URL');
     }
-    if (
-      !getValue(env, [
-        'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF',
-        'MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY',
-        'MORPHEUS_RELAYER_NEO_N3_WIF',
-        'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-      ])
-    ) {
-      executionMissing.push(
-        'MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF | MORPHEUS_MAINNET_RELAYER_NEO_N3_PRIVATE_KEY'
-      );
+    if (!getValue(env, neoN3FeedSignerKeys('MAINNET'))) {
+      executionMissing.push(neoN3FeedSignerKeys('MAINNET').join(' | '));
     }
   }
   if (
@@ -280,17 +281,8 @@ if (executionPlaneConfigured) {
     if (!getValue(env, ['MORPHEUS_TESTNET_EXECUTION_BASE_URL', 'MORPHEUS_EXECUTION_BASE_URL'])) {
       executionMissing.push('MORPHEUS_TESTNET_EXECUTION_BASE_URL');
     }
-    if (
-      !getValue(env, [
-        'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF',
-        'MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY',
-        'MORPHEUS_RELAYER_NEO_N3_WIF',
-        'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-      ])
-    ) {
-      executionMissing.push(
-        'MORPHEUS_TESTNET_RELAYER_NEO_N3_WIF | MORPHEUS_TESTNET_RELAYER_NEO_N3_PRIVATE_KEY'
-      );
+    if (!getValue(env, neoN3FeedSignerKeys('TESTNET'))) {
+      executionMissing.push(neoN3FeedSignerKeys('TESTNET').join(' | '));
     }
   }
   if (

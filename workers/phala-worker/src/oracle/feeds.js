@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import {
   env,
   envForNetwork,
@@ -49,6 +50,7 @@ const DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS = 8_000;
 const FEED_PRICE_DECIMALS = 6;
 
 const feedStateCache = new Map();
+const oracleFeedBackgroundTasks = new Set();
 
 function resolveFeedNetwork(input = {}) {
   return resolvePayloadNetwork(
@@ -519,9 +521,74 @@ function buildSyncPolicy(targetChain, payload = {}) {
 
 function normalizeBooleanLike(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
   const normalized = trimString(value).toLowerCase();
   if (!normalized) return fallback;
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function hasOwnPayloadKey(payload = {}, key) {
+  return Object.prototype.hasOwnProperty.call(payload, key);
+}
+
+function shouldFastAckOracleFeed(payload = {}) {
+  const explicitFastAck =
+    payload.fast_ack ?? payload.fastAck ?? payload.async_ack ?? payload.asyncAck;
+  if (explicitFastAck !== undefined && explicitFastAck !== null && explicitFastAck !== '') {
+    return normalizeBooleanLike(explicitFastAck, false);
+  }
+  if (hasOwnPayloadKey(payload, 'wait')) {
+    return !normalizeBooleanLike(payload.wait, true);
+  }
+  return false;
+}
+
+function buildOracleFeedRequestId(payload = {}) {
+  return (
+    trimString(payload.request_id || payload.requestId) ||
+    `pricefeed:${resolveFeedNetwork(payload)}:${Date.now()}:${randomUUID()}`
+  );
+}
+
+function scheduleOracleFeedBackgroundTask(payload = {}) {
+  let task;
+  task = Promise.resolve()
+    .then(async () => {
+      const response = await handleOracleFeed(payload);
+      const body = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      if (!response.ok) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            msg: 'oracle feed background task failed',
+            request_id: payload.request_id || payload.requestId || null,
+            status: response.status,
+            error: body?.error || body?.errors?.[0]?.error || null,
+          })
+        );
+      }
+      return { status: response.status, body };
+    })
+    .catch((error) => {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'oracle feed background task crashed',
+          request_id: payload.request_id || payload.requestId || null,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      return null;
+    })
+    .finally(() => {
+      oracleFeedBackgroundTasks.delete(task);
+    });
+  oracleFeedBackgroundTasks.add(task);
+  return task;
 }
 
 function resolveFeedSubmissionWait(payload = {}) {
@@ -931,6 +998,12 @@ export function __buildNeoN3RelaySigningPayloadForTests(payload = {}) {
 
 export function __resolveFeedSubmissionWaitForTests(payload = {}) {
   return resolveFeedSubmissionWait(payload);
+}
+
+export async function __drainOracleFeedBackgroundTasksForTests() {
+  while (oracleFeedBackgroundTasks.size > 0) {
+    await Promise.allSettled([...oracleFeedBackgroundTasks]);
+  }
 }
 
 export function __resolveFeedSubmissionWaitTimeoutMsForTests(payload = {}) {
@@ -1363,6 +1436,35 @@ export async function handleOracleFeed(payload) {
     sync_results: syncResults,
     errors,
     ...(Object.keys(aggregations).length > 0 ? { aggregations } : {}),
+  });
+}
+
+export async function handleOracleFeedRequest(payload = {}) {
+  if (!shouldFastAckOracleFeed(payload)) {
+    return handleOracleFeed(payload);
+  }
+
+  const requestId = buildOracleFeedRequestId(payload);
+  const scope = resolveFeedScope(
+    payload,
+    payload?.target_chain || payload?.targetChain || 'neo_n3'
+  );
+  scheduleOracleFeedBackgroundTask({
+    ...payload,
+    request_id: requestId,
+    requestId,
+    network: scope.network,
+    target_chain: scope.targetChain,
+  });
+
+  return json(202, {
+    accepted: true,
+    status: 'accepted',
+    mode: 'pricefeed',
+    request_id: requestId,
+    network: scope.network,
+    target_chain: scope.targetChain,
+    wait: false,
   });
 }
 

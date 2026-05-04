@@ -57,22 +57,46 @@ const required = [
   'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
 ];
 
-const requiredEither = [
-  ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'],
-  ['PHALA_NEO_N3_WIF', 'PHALA_NEO_N3_PRIVATE_KEY'],
-  ['MORPHEUS_RELAYER_NEO_N3_WIF', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'],
-];
-
 const envPath = resolveEnvPath();
 const raw = await fs.readFile(envPath, 'utf8');
 const env = parseDotEnv(raw);
 const runtimeConfig = parseRuntimeConfig(env);
+const network = normalizeMorpheusNetwork(
+  getValue(env, runtimeConfig, 'MORPHEUS_NETWORK') || 'testnet'
+);
+const networkSuffix = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
+const requiredEither = [
+  ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'],
+  [
+    'PHALA_NEO_N3_WIF',
+    'PHALA_NEO_N3_PRIVATE_KEY',
+    `PHALA_NEO_N3_WIF_${networkSuffix}`,
+    `PHALA_NEO_N3_PRIVATE_KEY_${networkSuffix}`,
+  ],
+  [
+    'MORPHEUS_RELAYER_NEO_N3_WIF',
+    'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
+    `MORPHEUS_RELAYER_NEO_N3_WIF_${networkSuffix}`,
+    `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_${networkSuffix}`,
+  ],
+  [
+    'MORPHEUS_UPDATER_NEO_N3_WIF',
+    'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
+    `MORPHEUS_UPDATER_NEO_N3_WIF_${networkSuffix}`,
+    `MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_${networkSuffix}`,
+  ],
+];
 const missing = required.filter((key) => !getValue(env, runtimeConfig, key));
 const useDerivedKeys = isTrue(getValue(env, runtimeConfig, 'PHALA_USE_DERIVED_KEYS'));
 const missingEither = requiredEither.filter((group) => {
   if (
     useDerivedKeys &&
-    (group[0].startsWith('PHALA_NEO_N3_') || group[0].startsWith('MORPHEUS_RELAYER_NEO_N3_'))
+    group.some(
+      (key) =>
+        key.startsWith('PHALA_NEO_N3_') ||
+        key.startsWith('MORPHEUS_RELAYER_NEO_N3_') ||
+        key.startsWith('MORPHEUS_UPDATER_NEO_N3_')
+    )
   ) {
     return false;
   }
@@ -91,7 +115,7 @@ const report = {
 };
 
 report.neo_n3_signers = reportPinnedNeoN3Roles(
-  normalizeMorpheusNetwork(getValue(env, runtimeConfig, 'MORPHEUS_NETWORK') || 'testnet'),
+  network,
   ['worker', 'relayer', 'updater', 'oracle_verifier'],
   { env: { ...runtimeConfig, ...env }, allowMissing: false }
 ).map((entry) => ({
@@ -110,6 +134,10 @@ const explicitOracleVerifierKeys = [
   'MORPHEUS_ORACLE_VERIFIER_WIF',
   'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
   'PHALA_ORACLE_VERIFIER_WIF',
+  `MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_${networkSuffix}`,
+  `MORPHEUS_ORACLE_VERIFIER_WIF_${networkSuffix}`,
+  `PHALA_ORACLE_VERIFIER_PRIVATE_KEY_${networkSuffix}`,
+  `PHALA_ORACLE_VERIFIER_WIF_${networkSuffix}`,
 ];
 
 if (!explicitOracleVerifierKeys.some((key) => getValue(env, runtimeConfig, key))) {
