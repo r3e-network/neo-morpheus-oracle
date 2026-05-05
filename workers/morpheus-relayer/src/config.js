@@ -10,6 +10,8 @@ import {
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 const DEFAULT_PHALA_TIMEOUT_MS = 10_000;
+const MAX_REQUEST_TIMEOUT_MS = 10_000;
+const MAX_FEED_SYNC_TIMEOUT_MS = 30_000;
 const DEFAULT_NEO_N3_RPC_URLS = {
   mainnet: [
     'https://api.n3index.dev/mainnet',
@@ -252,9 +254,10 @@ export function createRelayerConfig() {
       intervalMs: Math.max(Number(env('MORPHEUS_FEED_SYNC_INTERVAL_MS') || 60000), 1000),
       timeoutMs: Math.min(
         Math.max(Number(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || 10000), 1000),
-        10000
+        MAX_FEED_SYNC_TIMEOUT_MS
       ),
       projectSlug: env('MORPHEUS_FEED_PROJECT_SLUG') || 'morpheus',
+      projectConfigEnabled: parseBoolean(env('MORPHEUS_FEED_SYNC_PROJECT_CONFIG_ENABLED'), false),
       provider: env('MORPHEUS_FEED_PROVIDER'),
       providers: parseList(env('MORPHEUS_FEED_PROVIDERS')),
       symbols: parseList(env('MORPHEUS_FEED_SYMBOLS')),
@@ -297,7 +300,7 @@ export function createRelayerConfig() {
       token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
       timeoutMs: Math.min(
         Math.max(Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_PHALA_TIMEOUT_MS), 1000),
-        10_000
+        MAX_REQUEST_TIMEOUT_MS
       ),
       useDerivedKeys,
     },

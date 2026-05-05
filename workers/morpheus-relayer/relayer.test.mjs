@@ -230,6 +230,34 @@ test('callPhala rejects when the worker response body never resolves', async () 
   }
 });
 
+test('callPhala allows a longer timeout when explicitly requested for feed sync', async () => {
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ ok: true }),
+    });
+
+    const response = await callPhala(
+      {
+        phala: {
+          apiUrl: 'https://worker.test',
+          token: 'secret',
+          timeoutMs: 90000,
+        },
+      },
+      '/oracle/feed',
+      { ping: true },
+      { timeoutMs: 90000, maxTimeoutMs: 30000 }
+    );
+
+    assert.equal(response.ok, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('callPhala falls back to the next configured worker endpoint', async () => {
   const originalFetch = global.fetch;
   try {
@@ -1214,12 +1242,12 @@ test('createRelayerConfig supports feed_only mode with isolated default state fi
   }
 });
 
-test('createRelayerConfig caps dedicated feed sync timeout at the request SLO', () => {
+test('createRelayerConfig caps dedicated feed sync timeout at the feed SLO', () => {
   const previous = process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
   process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = '90000';
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.equal(config.feedSync.timeoutMs, 10000);
+    assert.equal(config.feedSync.timeoutMs, 30000);
   } finally {
     if (previous === undefined) delete process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
     else process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = previous;
@@ -1545,6 +1573,7 @@ test('buildFeedSyncPayload refreshes the on-chain baseline for automatic feed sy
       feedSync: {
         symbols: ['TWELVEDATA:NEO-USD'],
         projectSlug: 'morpheus',
+        projectConfigEnabled: false,
         provider: 'twelvedata',
         providers: [],
         changeThresholdBps: '10',
@@ -1557,6 +1586,7 @@ test('buildFeedSyncPayload refreshes the on-chain baseline for automatic feed sy
 
   assert.equal(payload.refresh_onchain_baseline, true);
   assert.equal(payload.wait, true);
+  assert.equal(payload.project_slug, undefined);
   assert.equal(payload.feed_submission_wait_timeout_ms, undefined);
 });
 
