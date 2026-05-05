@@ -62,7 +62,10 @@ export async function callPhala(config, path, payload, options = {}) {
   );
   let lastError = null;
 
-  for (const apiBaseUrl of candidateApiUrls) {
+  const allowFallback = options.allowFallback !== false;
+  const apiUrls = allowFallback ? candidateApiUrls : candidateApiUrls.slice(0, 1);
+
+  for (const apiBaseUrl of apiUrls) {
     const controller = new AbortController();
     let timer = null;
     const timeoutError = new Error(`phala request timed out after ${timeoutMs}ms`);

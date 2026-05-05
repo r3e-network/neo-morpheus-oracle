@@ -298,6 +298,37 @@ test('callPhala falls back to the next configured worker endpoint', async () => 
   }
 });
 
+test('callPhala can disable fallback for mutating worker calls', async () => {
+  const originalFetch = global.fetch;
+  const requestedUrls = [];
+  try {
+    global.fetch = async (url) => {
+      requestedUrls.push(String(url));
+      throw new Error('primary failed');
+    };
+
+    await assert.rejects(
+      callPhala(
+        {
+          phala: {
+            apiUrl: 'https://primary.worker,https://fallback.worker',
+            token: 'secret',
+            timeoutMs: 1000,
+          },
+        },
+        '/oracle/feed',
+        { ping: true },
+        { timeoutMs: 1000, allowFallback: false }
+      ),
+      /primary failed/
+    );
+
+    assert.deepEqual(requestedUrls, ['https://primary.worker/oracle/feed']);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('getNeoN3LatestBlock falls back to a healthy Neo RPC endpoint and promotes it', async () => {
   const originalFetch = global.fetch;
   try {
@@ -1598,6 +1629,7 @@ test('buildFeedSyncPayload refreshes the on-chain baseline for automatic feed sy
         symbols: ['TWELVEDATA:NEO-USD'],
         projectSlug: 'morpheus',
         projectConfigEnabled: false,
+        waitForSubmission: false,
         provider: 'twelvedata',
         providers: [],
         changeThresholdBps: '10',
@@ -1609,7 +1641,7 @@ test('buildFeedSyncPayload refreshes the on-chain baseline for automatic feed sy
   );
 
   assert.equal(payload.refresh_onchain_baseline, true);
-  assert.equal(payload.wait, true);
+  assert.equal(payload.wait, false);
   assert.equal(payload.project_slug, undefined);
   assert.equal(payload.feed_submission_wait_timeout_ms, undefined);
 });

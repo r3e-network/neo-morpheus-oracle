@@ -258,6 +258,7 @@ export function createRelayerConfig() {
         Math.max(Number(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || 10000), 1000),
         MAX_FEED_SYNC_TIMEOUT_MS
       ),
+      waitForSubmission: parseBoolean(env('MORPHEUS_FEED_SYNC_WAIT_FOR_SUBMISSION'), false),
       projectSlug: env('MORPHEUS_FEED_PROJECT_SLUG') || 'morpheus',
       projectConfigEnabled: parseBoolean(env('MORPHEUS_FEED_SYNC_PROJECT_CONFIG_ENABLED'), false),
       provider: env('MORPHEUS_FEED_PROVIDER'),

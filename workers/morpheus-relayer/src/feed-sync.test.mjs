@@ -4,7 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 
-import { buildFeedSyncPayload, processFeedSync } from './feed-sync.js';
+import {
+  buildFeedSyncPayload,
+  processFeedSync,
+  summarizeFeedSyncChainResult,
+} from './feed-sync.js';
 import { createEmptyRelayerState } from './state.js';
 
 test('feed sync payload does not inject relayer/updater signer material', () => {
@@ -53,6 +57,40 @@ test('feed sync project config lookup is opt-in', () => {
   );
 
   assert.equal(payload.project_slug, 'morpheus');
+});
+
+test('feed sync submission waiting is opt-in', () => {
+  const payload = buildFeedSyncPayload(
+    {
+      network: 'mainnet',
+      feedSync: {
+        symbols: ['NEO-USD'],
+        waitForSubmission: true,
+        timeoutMs: 30000,
+        changeThresholdBps: '10',
+        minUpdateIntervalMs: '60000',
+        staleAfterMs: '300000',
+        provider: 'twelvedata',
+      },
+    },
+    'neo_n3'
+  );
+
+  assert.equal(payload.wait, true);
+  assert.equal(payload.feed_submission_wait_timeout_ms, 30000);
+});
+
+test('feed sync summary marks fast acknowledgements as accepted', () => {
+  const summary = summarizeFeedSyncChainResult({
+    target_chain: 'neo_n3',
+    api_url: 'http://worker',
+    ok: true,
+    status: 202,
+    body: { accepted: true, network: 'mainnet', request_id: 'pricefeed:test' },
+  });
+
+  assert.equal(summary.publication_state, 'accepted');
+  assert.equal(summary.error_count, 0);
 });
 
 test('feed sync marks HTTP 200 worker payload errors as failed syncs', async () => {
