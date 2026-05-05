@@ -48,9 +48,9 @@ test('parseOnchainFeedRecords decodes feed structs into comparable rows', () => 
 test('diffFeedRegistry identifies missing and extra on-chain pairs', () => {
   const diff = diffFeedRegistry(
     ['TWELVEDATA:NEO-USD', 'TWELVEDATA:GAS-USD'],
-    [{ pair: 'TWELVEDATA:NEO-USD' }, { pair: 'TWELVEDATA:1000FLM-USD' }]
+    [{ pair: 'TWELVEDATA:NEO-USD' }, { pair: 'TWELVEDATA:OBSOLETE-USD' }]
   );
 
   assert.deepEqual(diff.missing_onchain_pairs, ['TWELVEDATA:GAS-USD']);
-  assert.deepEqual(diff.extra_onchain_pairs, ['TWELVEDATA:1000FLM-USD']);
+  assert.deepEqual(diff.extra_onchain_pairs, ['TWELVEDATA:OBSOLETE-USD']);
 });

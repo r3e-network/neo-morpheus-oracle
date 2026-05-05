@@ -1201,7 +1201,6 @@ test('feeds catalog lists default symbols', async () => {
   assert.ok(body.pairs.includes('TWELVEDATA:WTI-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:AAPL-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:EUR-USD'));
-  assert.ok(body.pairs.includes('TWELVEDATA:FLM-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:JPY-USD'));
 });
 
@@ -1356,30 +1355,6 @@ test('feed quote preserves explicit TwelveData stock symbols without appending /
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:AAPL-USD');
   assert.equal(body.price, '260.72');
-});
-
-test('feed quote uses direct FLM-USD pair naming under 1e6 USD scale', async () => {
-  global.fetch = async (url) => {
-    assert.match(String(url), /api\.twelvedata\.com\/price/);
-    assert.match(String(url), /FLM%2FUSD/);
-    return new Response(JSON.stringify({ price: '0.00123' }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
-  };
-
-  const res = await handler(
-    new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() })
-  );
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.equal(body.pair, 'TWELVEDATA:FLM-USD');
-  assert.equal(body.display_symbol, 'TWELVEDATA:FLM-USD');
-  assert.equal(body.unit_label, null);
-  assert.equal(body.raw_price, '0.00123');
-  assert.equal(body.price, '0.00123');
-  assert.equal(body.price_multiplier, 1);
-  assert.equal(body.decimals, 6);
 });
 
 test('feed quote can invert forex units for direct JPY-USD pricing under 1e6 USD scale', async () => {

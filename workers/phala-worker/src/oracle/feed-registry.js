@@ -19,12 +19,6 @@ export const DEFAULT_FEED_PAIRS = {
       'binance-spot': { symbol: 'GASUSDT' },
     },
   },
-  'FLM-USD': {
-    providers: {
-      twelvedata: { symbol: 'FLM/USD' },
-      'binance-spot': { symbol: 'FLMUSDT' },
-    },
-  },
   'BTC-USD': {
     providers: {
       twelvedata: { symbol: 'BTC-USD' },

@@ -117,12 +117,12 @@ export default function DocsDatafeeds() {
         </li>
         <li>
           A price of <code>$0.002437</code> is stored as <code>2437</code>, which is enough to
-          represent low-priced assets such as FLM directly.
+          represent low-priced assets such as DOGE directly.
         </li>
         <li>
           The 0.1% sync threshold is evaluated against the{' '}
           <strong>quantized on-chain integer value</strong>. The canonical storage key keeps the
-          source prefix, for example <code>TWELVEDATA:FLM-USD</code> and{' '}
+          source prefix, for example <code>TWELVEDATA:DOGE-USD</code> and{' '}
           <code>TWELVEDATA:JPY-USD</code>.
         </li>
       </ul>
