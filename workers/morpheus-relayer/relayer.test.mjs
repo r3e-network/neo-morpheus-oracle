@@ -1556,7 +1556,8 @@ test('buildFeedSyncPayload refreshes the on-chain baseline for automatic feed sy
   );
 
   assert.equal(payload.refresh_onchain_baseline, true);
-  assert.equal(payload.wait, false);
+  assert.equal(payload.wait, true);
+  assert.equal(payload.feed_submission_wait_timeout_ms, undefined);
 });
 
 test('shouldPersistRunSnapshot skips idle feed-only ticks', () => {

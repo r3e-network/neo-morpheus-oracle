@@ -28,7 +28,8 @@ export function buildFeedSyncPayload(config, targetChain) {
     feed_min_update_interval_ms: config.feedSync.minUpdateIntervalMs,
     feed_stale_after_ms: config.feedSync.staleAfterMs,
     refresh_onchain_baseline: true,
-    wait: false,
+    wait: true,
+    feed_submission_wait_timeout_ms: config.feedSync.timeoutMs,
   };
 
   if (config.feedSync.provider) {
