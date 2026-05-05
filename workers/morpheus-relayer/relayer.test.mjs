@@ -1295,6 +1295,30 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
   }
 });
 
+test('createRelayerConfig lets direct env override packed runtime URL candidates', () => {
+  const previousNetwork = process.env.MORPHEUS_NETWORK;
+  const previousRuntimeConfig = process.env.MORPHEUS_RUNTIME_CONFIG_JSON;
+  const previousPhalaApiUrl = process.env.PHALA_API_URL;
+
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_RUNTIME_CONFIG_JSON = JSON.stringify({
+    MORPHEUS_MAINNET_RUNTIME_URL: 'https://packed-runtime.example/mainnet',
+  });
+  process.env.PHALA_API_URL = 'http://mainnet-feed-worker:8080';
+
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.phala.apiUrl.split(',')[0], 'http://mainnet-feed-worker:8080');
+  } finally {
+    if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
+    else process.env.MORPHEUS_NETWORK = previousNetwork;
+    if (previousRuntimeConfig === undefined) delete process.env.MORPHEUS_RUNTIME_CONFIG_JSON;
+    else process.env.MORPHEUS_RUNTIME_CONFIG_JSON = previousRuntimeConfig;
+    if (previousPhalaApiUrl === undefined) delete process.env.PHALA_API_URL;
+    else process.env.PHALA_API_URL = previousPhalaApiUrl;
+  }
+});
+
 test('buildFeedSyncPayload does not forward target-chain signer material to the worker runtime', () => {
   const config = {
     network: 'mainnet',

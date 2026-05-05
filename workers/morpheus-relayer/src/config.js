@@ -97,6 +97,8 @@ function env(...names) {
   for (const name of names) {
     const direct = trimString(process.env[name]);
     if (direct) return direct;
+  }
+  for (const name of names) {
     const packed = runtimeConfig[name];
     if (packed !== undefined && packed !== null && `${packed}`.trim()) {
       return `${packed}`.trim();
