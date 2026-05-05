@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import {
   env,
   envForNetwork,
@@ -49,6 +50,7 @@ const DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS = 8_000;
 const FEED_PRICE_DECIMALS = 6;
 
 const feedStateCache = new Map();
+const oracleFeedBackgroundTasks = new Set();
 
 function resolveFeedNetwork(input = {}) {
   return resolvePayloadNetwork(
@@ -519,9 +521,74 @@ function buildSyncPolicy(targetChain, payload = {}) {
 
 function normalizeBooleanLike(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
   const normalized = trimString(value).toLowerCase();
   if (!normalized) return fallback;
   return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
+function hasOwnPayloadKey(payload = {}, key) {
+  return Object.prototype.hasOwnProperty.call(payload, key);
+}
+
+function shouldFastAckOracleFeed(payload = {}) {
+  const explicitFastAck =
+    payload.fast_ack ?? payload.fastAck ?? payload.async_ack ?? payload.asyncAck;
+  if (explicitFastAck !== undefined && explicitFastAck !== null && explicitFastAck !== '') {
+    return normalizeBooleanLike(explicitFastAck, false);
+  }
+  if (hasOwnPayloadKey(payload, 'wait')) {
+    return !normalizeBooleanLike(payload.wait, true);
+  }
+  return false;
+}
+
+function buildOracleFeedRequestId(payload = {}) {
+  return (
+    trimString(payload.request_id || payload.requestId) ||
+    `pricefeed:${resolveFeedNetwork(payload)}:${Date.now()}:${randomUUID()}`
+  );
+}
+
+function scheduleOracleFeedBackgroundTask(payload = {}) {
+  let task;
+  task = Promise.resolve()
+    .then(async () => {
+      const response = await handleOracleFeed(payload);
+      const body = await response
+        .clone()
+        .json()
+        .catch(() => null);
+      if (!response.ok) {
+        console.error(
+          JSON.stringify({
+            level: 'error',
+            msg: 'oracle feed background task failed',
+            request_id: payload.request_id || payload.requestId || null,
+            status: response.status,
+            error: body?.error || body?.errors?.[0]?.error || null,
+          })
+        );
+      }
+      return { status: response.status, body };
+    })
+    .catch((error) => {
+      console.error(
+        JSON.stringify({
+          level: 'error',
+          msg: 'oracle feed background task crashed',
+          request_id: payload.request_id || payload.requestId || null,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      );
+      return null;
+    })
+    .finally(() => {
+      oracleFeedBackgroundTasks.delete(task);
+    });
+  oracleFeedBackgroundTasks.add(task);
+  return task;
 }
 
 function resolveFeedSubmissionWait(payload = {}) {
@@ -583,6 +650,36 @@ function computeChangeBps(previousPrice, nextPrice) {
   if (!Number.isFinite(previous) || !Number.isFinite(next) || previous <= 0)
     return Number.POSITIVE_INFINITY;
   return Math.abs((next - previous) / previous) * 10_000;
+}
+
+function normalizeTimestampMs(value) {
+  if (value === undefined || value === null || value === '') return 0;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 10_000_000_000 ? value : value * 1000;
+  }
+  const raw = trimString(value);
+  if (!raw) return 0;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return numeric > 10_000_000_000 ? numeric : numeric * 1000;
+  }
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function resolvePreviousSubmittedAtMs(previousRecord = {}) {
+  const candidates = [
+    previousRecord.last_submitted_at_ms,
+    previousRecord.submitted_at_ms,
+    previousRecord.timestamp_ms,
+    previousRecord.timestamp,
+    previousRecord.submitted_at,
+  ];
+  for (const candidate of candidates) {
+    const timestampMs = normalizeTimestampMs(candidate);
+    if (timestampMs > 0) return timestampMs;
+  }
+  return 0;
 }
 
 function isPrintableAscii(value) {
@@ -721,7 +818,7 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
   if (!previousRecord) return { allow: true, reason: 'first-observation' };
 
   const now = Date.now();
-  const lastSubmittedAt = Number(previousRecord.last_submitted_at_ms || 0);
+  const lastSubmittedAt = normalizeTimestampMs(previousRecord.last_submitted_at_ms);
   if (
     policy.minUpdateIntervalMs > 0 &&
     lastSubmittedAt > 0 &&
@@ -730,12 +827,6 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
-  // The feed loop evaluates the full catalog continuously, but on-chain writes
-  // must stay delta-driven. A stale observation alone must not force a
-  // publication; otherwise an unchanged 34-pair catalog can be re-submitted in
-  // bulk after the stale window. Use explicit force for operator backfills, and
-  // otherwise publish only when the price delta meets the configured threshold.
-
   const previousPriceUnits = String(
     previousRecord.price_units ??
       previousRecord.price_cents ??
@@ -743,6 +834,22 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
   );
   const nextPriceUnits = decimalToIntegerString(quote.price, quote.decimals);
   const changeBps = computeChangeBps(previousPriceUnits, nextPriceUnits);
+  const previousSubmittedAtMs = resolvePreviousSubmittedAtMs(previousRecord);
+  const staleAgeMs = previousSubmittedAtMs > 0 ? now - previousSubmittedAtMs : 0;
+  if (policy.staleAfterMs > 0 && staleAgeMs >= policy.staleAfterMs) {
+    return {
+      allow: true,
+      reason: 'stale-refresh',
+      stale_age_ms: staleAgeMs,
+      stale_after_ms: policy.staleAfterMs,
+      change_bps: changeBps,
+      comparison_basis: 'current-chain-price',
+      current_chain_price_units: previousPriceUnits,
+      candidate_price_units: nextPriceUnits,
+      storage_key: storageKey,
+    };
+  }
+
   if (policy.thresholdBps > 0 && changeBps < policy.thresholdBps) {
     return {
       allow: false,
@@ -931,6 +1038,12 @@ export function __buildNeoN3RelaySigningPayloadForTests(payload = {}) {
 
 export function __resolveFeedSubmissionWaitForTests(payload = {}) {
   return resolveFeedSubmissionWait(payload);
+}
+
+export async function __drainOracleFeedBackgroundTasksForTests() {
+  while (oracleFeedBackgroundTasks.size > 0) {
+    await Promise.allSettled([...oracleFeedBackgroundTasks]);
+  }
 }
 
 export function __resolveFeedSubmissionWaitTimeoutMsForTests(payload = {}) {
@@ -1363,6 +1476,35 @@ export async function handleOracleFeed(payload) {
     sync_results: syncResults,
     errors,
     ...(Object.keys(aggregations).length > 0 ? { aggregations } : {}),
+  });
+}
+
+export async function handleOracleFeedRequest(payload = {}) {
+  if (!shouldFastAckOracleFeed(payload)) {
+    return handleOracleFeed(payload);
+  }
+
+  const requestId = buildOracleFeedRequestId(payload);
+  const scope = resolveFeedScope(
+    payload,
+    payload?.target_chain || payload?.targetChain || 'neo_n3'
+  );
+  scheduleOracleFeedBackgroundTask({
+    ...payload,
+    request_id: requestId,
+    requestId,
+    network: scope.network,
+    target_chain: scope.targetChain,
+  });
+
+  return json(202, {
+    accepted: true,
+    status: 'accepted',
+    mode: 'pricefeed',
+    request_id: requestId,
+    network: scope.network,
+    target_chain: scope.targetChain,
+    wait: false,
   });
 }
 

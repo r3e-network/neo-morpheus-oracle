@@ -10,6 +10,8 @@ import {
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 const DEFAULT_PHALA_TIMEOUT_MS = 10_000;
+const MAX_REQUEST_TIMEOUT_MS = 10_000;
+const MAX_FEED_SYNC_TIMEOUT_MS = 30_000;
 const DEFAULT_NEO_N3_RPC_URLS = {
   mainnet: [
     'https://api.n3index.dev/mainnet',
@@ -72,10 +74,12 @@ function resolveRelayerMode(value) {
 }
 
 let runtimeConfigCache;
+let runtimeConfigCacheRaw;
 
 function getRuntimeConfig() {
-  if (runtimeConfigCache !== undefined) return runtimeConfigCache;
   const raw = trimString(process.env.MORPHEUS_RUNTIME_CONFIG_JSON || '');
+  if (runtimeConfigCache !== undefined && raw === runtimeConfigCacheRaw) return runtimeConfigCache;
+  runtimeConfigCacheRaw = raw;
   if (!raw) {
     runtimeConfigCache = {};
     return runtimeConfigCache;
@@ -93,6 +97,8 @@ function env(...names) {
   for (const name of names) {
     const direct = trimString(process.env[name]);
     if (direct) return direct;
+  }
+  for (const name of names) {
     const packed = runtimeConfig[name];
     if (packed !== undefined && packed !== null && `${packed}`.trim()) {
       return `${packed}`.trim();
@@ -226,6 +232,14 @@ export function createRelayerConfig() {
         1000
       ),
     },
+    runSnapshots: {
+      enabled: parseBoolean(env('MORPHEUS_RELAYER_RUN_SNAPSHOTS_ENABLED'), true),
+      intervalMs: Math.max(Number(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_INTERVAL_MS') || 60000), 0),
+      errorBackoffMs: Math.max(
+        Number(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_ERROR_BACKOFF_MS') || 300000),
+        1000
+      ),
+    },
     backpressure: {
       maxFreshEventsPerTick: Math.max(
         Number(env('MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK') || 32),
@@ -242,9 +256,11 @@ export function createRelayerConfig() {
       intervalMs: Math.max(Number(env('MORPHEUS_FEED_SYNC_INTERVAL_MS') || 60000), 1000),
       timeoutMs: Math.min(
         Math.max(Number(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || 10000), 1000),
-        10000
+        MAX_FEED_SYNC_TIMEOUT_MS
       ),
+      waitForSubmission: parseBoolean(env('MORPHEUS_FEED_SYNC_WAIT_FOR_SUBMISSION'), false),
       projectSlug: env('MORPHEUS_FEED_PROJECT_SLUG') || 'morpheus',
+      projectConfigEnabled: parseBoolean(env('MORPHEUS_FEED_SYNC_PROJECT_CONFIG_ENABLED'), false),
       provider: env('MORPHEUS_FEED_PROVIDER'),
       providers: parseList(env('MORPHEUS_FEED_PROVIDERS')),
       symbols: parseList(env('MORPHEUS_FEED_SYMBOLS')),
@@ -287,7 +303,7 @@ export function createRelayerConfig() {
       token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
       timeoutMs: Math.min(
         Math.max(Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_PHALA_TIMEOUT_MS), 1000),
-        10_000
+        MAX_REQUEST_TIMEOUT_MS
       ),
       useDerivedKeys,
     },
@@ -316,6 +332,11 @@ export function createRelayerConfig() {
       host: env('MORPHEUS_RELAYER_METRICS_HOST') || '127.0.0.1',
       port: Math.max(Number(env('MORPHEUS_RELAYER_METRICS_PORT') || 9464), 1),
       path: env('MORPHEUS_RELAYER_METRICS_PATH') || '/metrics',
+    },
+    heartbeats: {
+      relayer: env('MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL'),
+      feedRelayer: env('MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL'),
+      failure: env('MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL'),
     },
   };
 }

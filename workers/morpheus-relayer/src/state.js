@@ -42,6 +42,8 @@ function defaultMetrics() {
     last_tick_started_at: null,
     last_tick_completed_at: null,
     last_tick_duration_ms: null,
+    last_run_snapshot_persisted_at: null,
+    last_run_snapshot_error_at: null,
   };
 }
 

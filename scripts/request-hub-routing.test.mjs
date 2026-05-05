@@ -35,3 +35,30 @@ test('request-hub bare routes stay aligned with the edge default network', () =>
   assert.equal(extractBareCaddyNetwork(standaloneCaddy), defaultNetwork);
   assert.equal(extractBareCaddyNetwork(inlineCompose), defaultNetwork);
 });
+
+function extractServiceBlock(source, serviceName) {
+  const match = source.match(new RegExp(`\\n  ${serviceName}:\\n([\\s\\S]*?)(?=\\n  [a-z0-9-]+:\\n|\\nvolumes:)`));
+  assert.ok(match, `could not find ${serviceName} service block`);
+  return match[1];
+}
+
+for (const [composePath, services] of [
+  [
+    'deploy/phala/docker-compose.request-hub.yml',
+    ['mainnet-request-relayer', 'testnet-request-relayer'],
+  ],
+  ['deploy/phala/docker-compose.feed-hub.yml', ['mainnet-feed-relayer', 'testnet-feed-relayer']],
+]) {
+  test(`${composePath} relayers expose tick-freshness healthchecks`, () => {
+    const source = readRepoFile(composePath);
+    for (const service of services) {
+      const block = extractServiceBlock(source, service);
+      assert.match(block, /healthcheck:/, `${service} should have a healthcheck`);
+      assert.match(
+        block,
+        /workers\/morpheus-relayer\/src\/healthcheck\.js/,
+        `${service} healthcheck should use the relayer freshness checker`
+      );
+    }
+  });
+}

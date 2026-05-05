@@ -231,8 +231,9 @@ export const RUNTIME_SERVICE_MATRIX = [
       wait: false,
       refresh_onchain_baseline: false,
     },
+    expectedStatuses: [200, 202],
     requiredFields: ['mode'],
-    description: 'Signed datafeed snapshot generation.',
+    description: 'Non-blocking signed datafeed publication request.',
   }),
   baseProbe({
     id: 'vrf:random',

@@ -386,7 +386,6 @@ Current default pair catalog includes:
 - Core crypto:
   - `TWELVEDATA:NEO-USD`
   - `TWELVEDATA:GAS-USD`
-  - `TWELVEDATA:FLM-USD`
   - `TWELVEDATA:BTC-USD`
   - `TWELVEDATA:ETH-USD`
   - `TWELVEDATA:SOL-USD`
@@ -422,7 +421,7 @@ Current default pair catalog includes:
   - `TWELVEDATA:JPY-USD` (inverted from `USD/JPY`)
   - `TWELVEDATA:CNY-USD` (inverted from `USD/CNY`)
 
-With the global `1 USD = 1,000,000` scale, low-priced assets such as `TWELVEDATA:FLM-USD`, `TWELVEDATA:DOGE-USD`, and `TWELVEDATA:JPY-USD` can be represented directly without basket pair names.
+With the global `1 USD = 1,000,000` scale, low-priced assets such as `TWELVEDATA:DOGE-USD` and `TWELVEDATA:JPY-USD` can be represented directly without basket pair names.
 
 For the exact meaning of every canonical pair, including the real TwelveData source symbol and any inversion / scaling rule, read the canonical pair table in `docs/PROVIDERS.md`.
 
@@ -663,7 +662,7 @@ For **Neo N3 mainnet**, automatic feed sync obeys two rules:
 Precision caveat:
 
 - because the chain stores quantized integers, a raw source move that is still too small to change the stored on-chain integer value cannot trigger an update, even if that raw source move is already greater than `0.1%`
-- with the current `1 USD = 1,000,000` scale, the standard catalog can use direct source-prefixed pairs such as `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD` without basket naming
+- with the current `1 USD = 1,000,000` scale, the standard catalog can use direct source-prefixed pairs such as `TWELVEDATA:DOGE-USD` and `TWELVEDATA:JPY-USD` without basket naming
 
 These rules apply per stored provider pair, for example:
 
@@ -706,7 +705,7 @@ Set:
 Example:
 
 ```env
-MORPHEUS_FEED_SYMBOLS=TWELVEDATA:NEO-USD,TWELVEDATA:GAS-USD,TWELVEDATA:FLM-USD,TWELVEDATA:BTC-USD,TWELVEDATA:ETH-USD,TWELVEDATA:SOL-USD,TWELVEDATA:WTI-USD,TWELVEDATA:AAPL-USD,TWELVEDATA:EUR-USD,TWELVEDATA:JPY-USD
+MORPHEUS_FEED_SYMBOLS=TWELVEDATA:NEO-USD,TWELVEDATA:GAS-USD,TWELVEDATA:BTC-USD,TWELVEDATA:ETH-USD,TWELVEDATA:SOL-USD,TWELVEDATA:WTI-USD,TWELVEDATA:AAPL-USD,TWELVEDATA:EUR-USD,TWELVEDATA:JPY-USD
 ```
 
 ### Advanced level: add provider-specific mapping

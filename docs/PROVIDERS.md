@@ -126,7 +126,6 @@ Default built-in USD pairs now cover:
 - Core crypto:
   - `TWELVEDATA:NEO-USD`
   - `TWELVEDATA:GAS-USD`
-  - `TWELVEDATA:FLM-USD`
   - `TWELVEDATA:BTC-USD`
   - `TWELVEDATA:ETH-USD`
   - `TWELVEDATA:SOL-USD`
@@ -183,7 +182,6 @@ The canonical key format is provider-scoped. For the current main catalog, `TWEL
 | ----------------------- | --------- | --------------------------------------- | ----------------- | ---------------------------------- | ------------------------------------------ |
 | `TWELVEDATA:NEO-USD`    | Crypto    | price of 1 NEO in USD                   | `NEO/USD`         | `1 NEO`                            |                                            |
 | `TWELVEDATA:GAS-USD`    | Crypto    | price of 1 GAS in USD                   | `GAS/USD`         | `1 GAS`                            |                                            |
-| `TWELVEDATA:FLM-USD`    | Crypto    | price of 1 FLM in USD                   | `FLM/USD`         | `1 FLM`                            | direct pair under the global 1e6 USD scale |
 | `TWELVEDATA:BTC-USD`    | Crypto    | price of 1 BTC in USD                   | `BTC/USD`         | `1 BTC`                            |                                            |
 | `TWELVEDATA:ETH-USD`    | Crypto    | price of 1 ETH in USD                   | `ETH/USD`         | `1 ETH`                            |                                            |
 | `TWELVEDATA:SOL-USD`    | Crypto    | price of 1 SOL in USD                   | `SOL/USD`         | `1 SOL`                            |                                            |

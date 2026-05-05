@@ -69,6 +69,7 @@ test('runtime service matrix keeps feed publication on the non-blocking path', (
   assert.ok(feedProbe, 'missing oracle:feed probe');
   assert.equal(feedProbe.payload.wait, false);
   assert.equal(feedProbe.payload.refresh_onchain_baseline, false);
+  assert.ok(feedProbe.expectedStatuses.includes(202));
 });
 
 test('runtime service matrix keeps registry fallback behind local custom domains', async () => {

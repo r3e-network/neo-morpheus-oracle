@@ -32,6 +32,7 @@ import {
   pruneRetryQueueBelowRequestFloor,
   quarantineDurableBacklogBelowRequestFloor,
   resolveChainFromBlock,
+  shouldPersistRunSnapshot,
   shouldRunFeedSync,
   shouldRunRequestProcessing,
 } from './src/relayer.js';
@@ -229,6 +230,34 @@ test('callPhala rejects when the worker response body never resolves', async () 
   }
 });
 
+test('callPhala allows a longer timeout when explicitly requested for feed sync', async () => {
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ ok: true }),
+    });
+
+    const response = await callPhala(
+      {
+        phala: {
+          apiUrl: 'https://worker.test',
+          token: 'secret',
+          timeoutMs: 90000,
+        },
+      },
+      '/oracle/feed',
+      { ping: true },
+      { timeoutMs: 90000, maxTimeoutMs: 30000 }
+    );
+
+    assert.equal(response.ok, true);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('callPhala falls back to the next configured worker endpoint', async () => {
   const originalFetch = global.fetch;
   try {
@@ -264,6 +293,37 @@ test('callPhala falls back to the next configured worker endpoint', async () => 
       'https://worker-a.test/oracle/query',
       'https://worker-b.test/oracle/query',
     ]);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('callPhala can disable fallback for mutating worker calls', async () => {
+  const originalFetch = global.fetch;
+  const requestedUrls = [];
+  try {
+    global.fetch = async (url) => {
+      requestedUrls.push(String(url));
+      throw new Error('primary failed');
+    };
+
+    await assert.rejects(
+      callPhala(
+        {
+          phala: {
+            apiUrl: 'https://primary.worker,https://fallback.worker',
+            token: 'secret',
+            timeoutMs: 1000,
+          },
+        },
+        '/oracle/feed',
+        { ping: true },
+        { timeoutMs: 1000, allowFallback: false }
+      ),
+      /primary failed/
+    );
+
+    assert.deepEqual(requestedUrls, ['https://primary.worker/oracle/feed']);
   } finally {
     global.fetch = originalFetch;
   }
@@ -995,6 +1055,37 @@ test('createRelayerConfig exposes the shared-worker derived-key preference', () 
   }
 });
 
+test('createRelayerConfig reads relayer heartbeat urls from packed runtime config', () => {
+  const keys = [
+    'MORPHEUS_RUNTIME_CONFIG_JSON',
+    'MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL',
+    'MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL',
+    'MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL',
+  ];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+
+  process.env.MORPHEUS_RUNTIME_CONFIG_JSON = JSON.stringify({
+    MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL: 'https://heartbeat.test/relayer',
+    MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL: 'https://heartbeat.test/feed',
+    MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL: 'https://heartbeat.test/failure',
+  });
+  delete process.env.MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL;
+  delete process.env.MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL;
+  delete process.env.MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL;
+
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.heartbeats.relayer, 'https://heartbeat.test/relayer');
+    assert.equal(config.heartbeats.feedRelayer, 'https://heartbeat.test/feed');
+    assert.equal(config.heartbeats.failure, 'https://heartbeat.test/failure');
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('createRelayerConfig exposes request cursor start ids', () => {
   const previousNetwork = process.env.MORPHEUS_NETWORK;
   const previousNeoN3 = process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID;
@@ -1182,12 +1273,12 @@ test('createRelayerConfig supports feed_only mode with isolated default state fi
   }
 });
 
-test('createRelayerConfig caps dedicated feed sync timeout at the request SLO', () => {
+test('createRelayerConfig caps dedicated feed sync timeout at the feed SLO', () => {
   const previous = process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
   process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = '90000';
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.equal(config.feedSync.timeoutMs, 10000);
+    assert.equal(config.feedSync.timeoutMs, 30000);
   } finally {
     if (previous === undefined) delete process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS;
     else process.env.MORPHEUS_FEED_SYNC_TIMEOUT_MS = previous;
@@ -1232,6 +1323,30 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
     else process.env.PHALA_API_URL = previousApiUrl;
     if (previousRuntimeUrl === undefined) delete process.env.MORPHEUS_RUNTIME_URL;
     else process.env.MORPHEUS_RUNTIME_URL = previousRuntimeUrl;
+  }
+});
+
+test('createRelayerConfig lets direct env override packed runtime URL candidates', () => {
+  const previousNetwork = process.env.MORPHEUS_NETWORK;
+  const previousRuntimeConfig = process.env.MORPHEUS_RUNTIME_CONFIG_JSON;
+  const previousPhalaApiUrl = process.env.PHALA_API_URL;
+
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_RUNTIME_CONFIG_JSON = JSON.stringify({
+    MORPHEUS_MAINNET_RUNTIME_URL: 'https://packed-runtime.example/mainnet',
+  });
+  process.env.PHALA_API_URL = 'http://mainnet-feed-worker:8080';
+
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.phala.apiUrl.split(',')[0], 'http://mainnet-feed-worker:8080');
+  } finally {
+    if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
+    else process.env.MORPHEUS_NETWORK = previousNetwork;
+    if (previousRuntimeConfig === undefined) delete process.env.MORPHEUS_RUNTIME_CONFIG_JSON;
+    else process.env.MORPHEUS_RUNTIME_CONFIG_JSON = previousRuntimeConfig;
+    if (previousPhalaApiUrl === undefined) delete process.env.PHALA_API_URL;
+    else process.env.PHALA_API_URL = previousPhalaApiUrl;
   }
 });
 
@@ -1506,6 +1621,102 @@ test('getFeedSyncDelayMs backs off after failed sync attempts without a fresh su
   assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:05.000Z')), 15000);
 });
 
+test('buildFeedSyncPayload refreshes the on-chain baseline for automatic feed sync', () => {
+  const payload = buildFeedSyncPayload(
+    {
+      network: 'mainnet',
+      feedSync: {
+        symbols: ['TWELVEDATA:NEO-USD'],
+        projectSlug: 'morpheus',
+        projectConfigEnabled: false,
+        waitForSubmission: false,
+        provider: 'twelvedata',
+        providers: [],
+        changeThresholdBps: '10',
+        minUpdateIntervalMs: '60000',
+        staleAfterMs: '300000',
+      },
+    },
+    'neo_n3'
+  );
+
+  assert.equal(payload.refresh_onchain_baseline, true);
+  assert.equal(payload.wait, false);
+  assert.equal(payload.project_slug, undefined);
+  assert.equal(payload.feed_submission_wait_timeout_ms, undefined);
+});
+
+test('shouldPersistRunSnapshot skips idle feed-only ticks', () => {
+  const state = createEmptyRelayerState();
+  const decision = shouldPersistRunSnapshot(
+    {
+      mode: 'feed_only',
+      runSnapshots: {
+        enabled: true,
+        intervalMs: 60000,
+        errorBackoffMs: 300000,
+      },
+    },
+    {
+      state,
+      feed_sync: { enabled: true, skipped: true, chains: [] },
+      neo_n3: { skipped: true },
+      automation: { skipped: true },
+    },
+    Date.parse('2026-03-10T13:00:00.000Z')
+  );
+
+  assert.deepEqual(decision, { persist: false, reason: 'feed_sync_skipped' });
+});
+
+test('shouldPersistRunSnapshot persists feed-only ticks that attempt a sync', () => {
+  const state = createEmptyRelayerState();
+  const decision = shouldPersistRunSnapshot(
+    {
+      mode: 'feed_only',
+      runSnapshots: {
+        enabled: true,
+        intervalMs: 60000,
+        errorBackoffMs: 300000,
+      },
+    },
+    {
+      state,
+      feed_sync: { enabled: true, skipped: false, chains: [{ ok: true }] },
+      neo_n3: { skipped: true },
+      automation: { skipped: true },
+    },
+    Date.parse('2026-03-10T13:00:00.000Z')
+  );
+
+  assert.deepEqual(decision, { persist: true, reason: 'activity' });
+});
+
+test('shouldPersistRunSnapshot backs off after Supabase persistence errors', () => {
+  const state = createEmptyRelayerState();
+  state.metrics.last_run_snapshot_error_at = '2026-03-10T13:00:00.000Z';
+
+  const decision = shouldPersistRunSnapshot(
+    {
+      mode: 'feed_only',
+      runSnapshots: {
+        enabled: true,
+        intervalMs: 60000,
+        errorBackoffMs: 300000,
+      },
+    },
+    {
+      state,
+      feed_sync: { enabled: true, skipped: false, chains: [{ ok: true }] },
+      neo_n3: { skipped: true },
+      automation: { skipped: true },
+    },
+    Date.parse('2026-03-10T13:01:00.000Z')
+  );
+
+  assert.deepEqual(decision, { persist: false, reason: 'error_backoff' });
+});
+
 test('summarizeFeedSyncChainResult exposes skipped publication reasons', () => {
   const summary = summarizeFeedSyncChainResult({
     target_chain: 'neo_n3',
@@ -1759,6 +1970,95 @@ test('durable queue hydrates prepared callback delivery without losing fulfillme
 
   assert.equal(state.neo_n3.retry_queue.length, 1);
   assert.deepEqual(state.neo_n3.retry_queue[0].prepared_fulfillment, preparedFulfillment);
+});
+
+test('processEvent uses local prepared fulfillment checkpoint when Supabase durable queue is temporarily unavailable', async () => {
+  const previousAllowUnpinned = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+  const previousRelayerWif = process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
+  const previousSupabaseUrl = process.env.SUPABASE_URL;
+  const previousSupabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalFetch = global.fetch;
+  const signer = new wallet.Account(wallet.generatePrivateKey());
+  const state = createEmptyRelayerState();
+  const event = {
+    chain: 'neo_n3',
+    requestId: '106',
+    requestType: 'privacy_oracle',
+    txHash: '0xfff',
+    payloadText: JSON.stringify({ url: 'https://prices.test/neo' }),
+  };
+  let localCheckpointSeenBeforeCallback = false;
+
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  process.env.MORPHEUS_RELAYER_NEO_N3_WIF = signer.WIF;
+  process.env.SUPABASE_URL = 'https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.startsWith('https://supabase.test/rest/v1/morpheus_relayer_jobs')) {
+      return new Response(
+        JSON.stringify({
+          code: 'PGRST002',
+          message: 'Could not query the database for the schema cache. Retrying.',
+        }),
+        { status: 503, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    if (value === 'https://phala.test/oracle/smart-fetch') {
+      return new Response(JSON.stringify({ price: '42.10', source: 'test' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  try {
+    const result = await processEvent(
+      {
+        ...retryConfig,
+        network: 'testnet',
+        durableQueue: { enabled: true, failClosed: true, syncLimit: 10, staleProcessingMs: 1000 },
+        phala: { apiUrl: 'https://phala.test', token: 'runtime-token' },
+        hooks: {
+          fulfillNeoRequest: async () => {
+            localCheckpointSeenBeforeCallback = state.neo_n3.retry_queue.some(
+              (item) =>
+                item.key === buildEventKey(event) &&
+                item.prepared_fulfillment &&
+                item.last_error === 'callback_pending'
+            );
+            return {
+              request_id: 'relayer:n3:fulfill:106:test',
+              tx_hash: '0xfulfilled',
+              vm_state: 'HALT',
+              target_chain: 'neo_n3',
+            };
+          },
+        },
+      },
+      state,
+      () => saveRelayerState(path.join(os.tmpdir(), `morpheus-state-${Date.now()}.json`), state),
+      { info() {}, warn() {}, error() {} },
+      event
+    );
+
+    assert.equal(result.result.fulfill_tx.tx_hash, '0xfulfilled');
+    assert.equal(localCheckpointSeenBeforeCallback, true);
+    assert.equal(state.neo_n3.retry_queue.length, 0);
+    assert.equal(state.neo_n3.processed_records[buildEventKey(event)].status, 'fulfilled');
+  } finally {
+    global.fetch = originalFetch;
+    if (previousAllowUnpinned === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+    else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = previousAllowUnpinned;
+    if (previousRelayerWif === undefined) delete process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
+    else process.env.MORPHEUS_RELAYER_NEO_N3_WIF = previousRelayerWif;
+    if (previousSupabaseUrl === undefined) delete process.env.SUPABASE_URL;
+    else process.env.SUPABASE_URL = previousSupabaseUrl;
+    if (previousSupabaseKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = previousSupabaseKey;
+  }
 });
 
 test('processEvent redelivers prepared fulfillment without re-running the worker', async () => {

@@ -77,6 +77,8 @@
     "test:runtime:matrix": "node --test scripts/runtime-service-matrix.test.mjs",
     "test:testnet:runtime-services": "node scripts/live-validate-runtime-services.mjs",
     "backup:system": "node scripts/backup-system-state.mjs",
+    "db:runtime:analyze": "node scripts/cleanup-supabase-runtime-data.mjs",
+    "db:runtime:cleanup": "node scripts/cleanup-supabase-runtime-data.mjs --apply --vacuum",
     "start:testnet-rng-local": "bash scripts/run-testnet-rng-local.sh",
     "check:env": "node scripts/check-root-env.mjs",
     "check:audit:root": "node scripts/check-root-audit-allowlist.mjs",

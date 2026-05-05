@@ -6,6 +6,7 @@ import {
   computeRetryDelayMs,
   enrichAutomationExecutionPayload,
   isAlreadyFulfilledError,
+  isQueuedAutomationExecutionPayload,
   isTerminalConfigurationError,
   resolveFulfillmentSigningContext,
   trimOnchainErrorMessage,
@@ -295,5 +296,30 @@ describe('enrichAutomationExecutionPayload', () => {
     assert.equal(payload.workflow_id, 'custom.workflow');
     assert.equal(payload.request_id, 'custom-request');
     assert.equal(payload.idempotency_key, 'custom-idempotency');
+  });
+});
+
+describe('isQueuedAutomationExecutionPayload', () => {
+  it('does not treat regular oracle payloads as automation executions', () => {
+    assert.equal(isQueuedAutomationExecutionPayload({ url: 'https://prices.test/neo' }), false);
+    assert.equal(isQueuedAutomationExecutionPayload('raw payload'), false);
+    assert.equal(isQueuedAutomationExecutionPayload(null), false);
+  });
+
+  it('detects scheduler execution payloads', () => {
+    assert.equal(
+      isQueuedAutomationExecutionPayload({
+        automation_id: 'automation:neo_n3:test',
+        workflow_id: 'automation.upkeep',
+      }),
+      true
+    );
+    assert.equal(
+      isQueuedAutomationExecutionPayload({
+        automationId: 'automation:neo_n3:test',
+        executionId: 'execution-1',
+      }),
+      true
+    );
   });
 });

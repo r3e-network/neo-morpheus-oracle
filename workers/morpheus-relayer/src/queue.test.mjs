@@ -1,7 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { extractDurableRetryMeta, isDurableQueueReadyJob } from './queue.js';
+import {
+  extractDurableRetryMeta,
+  isDurableQueueReadyJob,
+  isTransientDurableQueueError,
+} from './queue.js';
 
 // ===================================================================
 // extractDurableRetryMeta
@@ -118,6 +122,26 @@ describe('extractDurableRetryMeta', () => {
     const meta = extractDurableRetryMeta(job);
     assert.equal(meta.finalize_only, true);
     assert.equal(typeof meta.finalize_only, 'boolean');
+  });
+});
+
+// ===================================================================
+// isTransientDurableQueueError
+// ===================================================================
+
+describe('isTransientDurableQueueError', () => {
+  it('treats Supabase quota restriction as durable queue unavailable', () => {
+    const error = new Error(
+      'supabase morpheus_relayer_jobs POST failed: 402 {"code":"exceed_db_size_quota","message":"Database size quota exceeded"}'
+    );
+
+    assert.equal(isTransientDurableQueueError(error), true);
+  });
+
+  it('treats Supabase quota HTTP status text as durable queue unavailable', () => {
+    const error = new Error('supabase morpheus_control_plane_jobs POST failed: 402 Payment Required');
+
+    assert.equal(isTransientDurableQueueError(error), true);
   });
 });
 

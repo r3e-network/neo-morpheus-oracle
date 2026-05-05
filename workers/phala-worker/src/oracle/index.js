@@ -15,6 +15,7 @@ export {
   fetchPriceQuotes,
   handleFeedsPrice,
   handleOracleFeed,
+  handleOracleFeedRequest,
   listFeedSymbols,
 } from './feeds.js';
 

@@ -8,7 +8,6 @@ export const KNOWN_FEED_PROVIDER_PREFIXES = [
 const DEFAULT_FEED_BASE_SYMBOLS = [
   'NEO-USD',
   'GAS-USD',
-  'FLM-USD',
   'BTC-USD',
   'ETH-USD',
   'SOL-USD',
@@ -82,15 +81,6 @@ const BARE_FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
     meaning: 'Price of 1 GAS in USD',
     sourceSymbol: 'GAS/USD',
     unit: '1 GAS',
-  },
-  'FLM-USD': {
-    pair: 'FLM-USD',
-    label: 'Flamingo Token',
-    category: 'Crypto',
-    meaning: 'Price of 1 FLM in USD',
-    sourceSymbol: 'FLM/USD',
-    unit: '1 FLM',
-    note: 'With the global 1 USD = 1,000,000 scale, FLM is represented directly without a basket multiplier.',
   },
   'BTC-USD': {
     pair: 'BTC-USD',

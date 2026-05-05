@@ -94,7 +94,8 @@ const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } =
   await import('./src/platform/dstack.js');
 const { __resetOracleKeyMaterialForTests, decryptEncryptedToken } =
   await import('./src/oracle/crypto.js');
-const { __resetFeedStateForTests } = await import('./src/oracle/feeds.js');
+const { __drainOracleFeedBackgroundTasksForTests, __resetFeedStateForTests } =
+  await import('./src/oracle/feeds.js');
 const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
 const { __resetNeoDidStateForTests } = await import('./src/neodid/index.js');
@@ -1200,8 +1201,57 @@ test('feeds catalog lists default symbols', async () => {
   assert.ok(body.pairs.includes('TWELVEDATA:WTI-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:AAPL-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:EUR-USD'));
-  assert.ok(body.pairs.includes('TWELVEDATA:FLM-USD'));
   assert.ok(body.pairs.includes('TWELVEDATA:JPY-USD'));
+});
+
+test('oracle feed with wait:false returns accepted before provider and chain work completes', async () => {
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+
+  let resolveProvider;
+  let providerRequested = false;
+  const providerResponse = new Promise((resolve) => {
+    resolveProvider = resolve;
+  });
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.includes('api.twelvedata.com')) {
+      providerRequested = true;
+      await providerResponse;
+      return new Response(JSON.stringify({ price: '45.67' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const res = await handler(
+    new Request('http://local/oracle/feed', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        wait: false,
+        network: 'testnet',
+        target_chain: 'neo_n3',
+        symbols: ['TWELVEDATA:NEO-USD'],
+      }),
+    })
+  );
+  const body = await res.json();
+
+  assert.equal(res.status, 202);
+  assert.equal(body.accepted, true);
+  assert.equal(body.status, 'accepted');
+  assert.equal(body.wait, false);
+  assert.ok(body.request_id);
+
+  resolveProvider();
+  await __drainOracleFeedBackgroundTasksForTests();
+  assert.equal(providerRequested, true);
 });
 
 test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
@@ -1305,30 +1355,6 @@ test('feed quote preserves explicit TwelveData stock symbols without appending /
   const body = await res.json();
   assert.equal(body.pair, 'TWELVEDATA:AAPL-USD');
   assert.equal(body.price, '260.72');
-});
-
-test('feed quote uses direct FLM-USD pair naming under 1e6 USD scale', async () => {
-  global.fetch = async (url) => {
-    assert.match(String(url), /api\.twelvedata\.com\/price/);
-    assert.match(String(url), /FLM%2FUSD/);
-    return new Response(JSON.stringify({ price: '0.00123' }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
-  };
-
-  const res = await handler(
-    new Request('http://local/feeds/price/FLM-USD?provider=twelvedata', { headers: authHeaders() })
-  );
-  assert.equal(res.status, 200);
-  const body = await res.json();
-  assert.equal(body.pair, 'TWELVEDATA:FLM-USD');
-  assert.equal(body.display_symbol, 'TWELVEDATA:FLM-USD');
-  assert.equal(body.unit_label, null);
-  assert.equal(body.raw_price, '0.00123');
-  assert.equal(body.price, '0.00123');
-  assert.equal(body.price_multiplier, 1);
-  assert.equal(body.decimals, 6);
 });
 
 test('feed quote can invert forex units for direct JPY-USD pricing under 1e6 USD scale', async () => {
