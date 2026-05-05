@@ -72,10 +72,12 @@ function resolveRelayerMode(value) {
 }
 
 let runtimeConfigCache;
+let runtimeConfigCacheRaw;
 
 function getRuntimeConfig() {
-  if (runtimeConfigCache !== undefined) return runtimeConfigCache;
   const raw = trimString(process.env.MORPHEUS_RUNTIME_CONFIG_JSON || '');
+  if (runtimeConfigCache !== undefined && raw === runtimeConfigCacheRaw) return runtimeConfigCache;
+  runtimeConfigCacheRaw = raw;
   if (!raw) {
     runtimeConfigCache = {};
     return runtimeConfigCache;
@@ -226,6 +228,14 @@ export function createRelayerConfig() {
         1000
       ),
     },
+    runSnapshots: {
+      enabled: parseBoolean(env('MORPHEUS_RELAYER_RUN_SNAPSHOTS_ENABLED'), true),
+      intervalMs: Math.max(Number(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_INTERVAL_MS') || 60000), 0),
+      errorBackoffMs: Math.max(
+        Number(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_ERROR_BACKOFF_MS') || 300000),
+        1000
+      ),
+    },
     backpressure: {
       maxFreshEventsPerTick: Math.max(
         Number(env('MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK') || 32),
@@ -316,6 +326,11 @@ export function createRelayerConfig() {
       host: env('MORPHEUS_RELAYER_METRICS_HOST') || '127.0.0.1',
       port: Math.max(Number(env('MORPHEUS_RELAYER_METRICS_PORT') || 9464), 1),
       path: env('MORPHEUS_RELAYER_METRICS_PATH') || '/metrics',
+    },
+    heartbeats: {
+      relayer: env('MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL'),
+      feedRelayer: env('MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL'),
+      failure: env('MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL'),
     },
   };
 }

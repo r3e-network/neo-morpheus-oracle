@@ -174,6 +174,13 @@ const lines = [
   line('MORPHEUS_UPSTASH_GUARDS_ENABLED', pick(envs, 'MORPHEUS_UPSTASH_GUARDS_ENABLED') || 'true'),
   line('MORPHEUS_UPSTASH_FAIL_CLOSED', pick(envs, 'MORPHEUS_UPSTASH_FAIL_CLOSED') || 'false'),
   line('MORPHEUS_FEED_PAIR_REGISTRY_JSON', pick(envs, 'MORPHEUS_FEED_PAIR_REGISTRY_JSON')),
+  line('MORPHEUS_HEARTBEAT_TIMEOUT_MS', pick(envs, 'MORPHEUS_HEARTBEAT_TIMEOUT_MS') || '3000'),
+  line('MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL', pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL')),
+  line(
+    'MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL',
+    pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL')
+  ),
+  line('MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL', pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL')),
   '',
   line('CLOUDFLARE_DNS_API_TOKEN', pick(envs, 'CLOUDFLARE_DNS_API_TOKEN')),
   line('CERTBOT_EMAIL', pick(envs, 'CERTBOT_EMAIL')),
@@ -204,6 +211,12 @@ await fs.mkdir(path.dirname(outputPath), { recursive: true });
 const rendered = `${lines.join('\n')}\n`;
 await fs.writeFile(outputPath, rendered, 'utf8');
 
+function hasRenderedValue(renderedEnv, key) {
+  const linePrefix = `${key}=`;
+  const line = renderedEnv.split(/\r?\n/).find((entry) => entry.startsWith(linePrefix));
+  return Boolean(line && trimString(line.slice(linePrefix.length)));
+}
+
 const requiredKeys = [
   'PHALA_SHARED_SECRET',
   'SUPABASE_URL',
@@ -213,7 +226,7 @@ const requiredKeys = [
   'SHARED_RUNTIME_CONFIG_JSON',
 ];
 for (const key of requiredKeys) {
-  if (!rendered.includes(key + '=') || rendered.includes(key + '=\n')) {
+  if (!hasRenderedValue(rendered, key)) {
     console.error(`WARN: ${key} appears empty in rendered env`);
     process.exitCode = 1;
   }

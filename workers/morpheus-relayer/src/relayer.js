@@ -42,11 +42,73 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function parseTimestampMs(value) {
+  const parsed = Date.parse(String(value || ''));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function resultHasPersistableActivity(config, result) {
+  if (result.feed_sync?.skipped === false) return true;
+
+  const neoN3 = result.neo_n3 || {};
+  if (Array.isArray(neoN3.events) && neoN3.events.length > 0) return true;
+  if (Array.isArray(neoN3.retries) && neoN3.retries.length > 0) return true;
+  if (
+    Array.isArray(neoN3.request_reconciliation?.events) &&
+    neoN3.request_reconciliation.events.length > 0
+  ) {
+    return true;
+  }
+
+  const automation = result.automation || {};
+  return (
+    Number(automation.queued || 0) > 0 ||
+    Number(automation.failed || 0) > 0 ||
+    Number(automation.inspected || 0) > 0
+  );
+}
+
+export function shouldPersistRunSnapshot(config, result, nowMs = Date.now()) {
+  if (config.runSnapshots?.enabled === false) {
+    return { persist: false, reason: 'disabled' };
+  }
+
+  const metrics = result?.state?.metrics || {};
+  const lastErrorMs = parseTimestampMs(metrics.last_run_snapshot_error_at);
+  const errorBackoffMs = Math.max(Number(config.runSnapshots?.errorBackoffMs || 0), 0);
+  if (lastErrorMs > 0 && errorBackoffMs > 0 && nowMs - lastErrorMs < errorBackoffMs) {
+    return { persist: false, reason: 'error_backoff' };
+  }
+
+  const intervalMs = Math.max(Number(config.runSnapshots?.intervalMs || 0), 0);
+  const lastPersistedMs = parseTimestampMs(metrics.last_run_snapshot_persisted_at);
+  const hasActivity = resultHasPersistableActivity(config, result);
+  if (!hasActivity && config.mode === 'feed_only') {
+    return { persist: false, reason: 'feed_sync_skipped' };
+  }
+  if (!hasActivity && lastPersistedMs > 0 && intervalMs > 0 && nowMs - lastPersistedMs < intervalMs) {
+    return { persist: false, reason: 'interval' };
+  }
+
+  return { persist: true, reason: hasActivity ? 'activity' : 'interval_elapsed' };
+}
+
 async function maybePersistRun(logger, config, result) {
+  const nowMs = Date.now();
+  const decision = shouldPersistRunSnapshot(config, result, nowMs);
+  if (!decision.persist) return decision;
+
   try {
     await persistRelayerRun(config, result);
+    result.state.metrics.last_run_snapshot_persisted_at = new Date(nowMs).toISOString();
+    result.state.metrics.last_run_snapshot_error_at = null;
+    saveRelayerState(config.stateFile, result.state);
+    return { persisted: true, reason: decision.reason };
   } catch (error) {
+    result.state.metrics.last_run_snapshot_error_at = new Date().toISOString();
+    saveRelayerState(config.stateFile, result.state);
     logger.warn({ error }, 'Failed to persist relayer run snapshot to Supabase');
+    return { persisted: false, reason: 'error', error };
   }
 }
 
@@ -104,13 +166,13 @@ export async function runRelayerOnce(options = {}) {
   };
   await maybePersistRun(logger, config, result);
   if (config.mode === 'feed_only') {
-    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL || '', {
+    void sendHeartbeat(config.heartbeats?.feedRelayer || '', {
       mode: config.mode,
       network: config.network,
       tick_duration_ms: result.metrics.last_tick_duration_ms,
     });
   } else {
-    void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL || '', {
+    void sendHeartbeat(config.heartbeats?.relayer || '', {
       mode: config.mode,
       network: config.network,
       tick_duration_ms: result.metrics.last_tick_duration_ms,
@@ -160,7 +222,7 @@ export async function runRelayerLoop(options = {}) {
       await sleep(sleepMs);
     } catch (error) {
       logger.error({ error }, 'Relayer loop tick failed');
-      void sendHeartbeat(process.env.MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL || '', {
+      void sendHeartbeat(config.heartbeats?.failure || '', {
         mode: config.mode,
         network: config.network,
         error: error instanceof Error ? error.message : String(error),

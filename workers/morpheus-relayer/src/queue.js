@@ -206,6 +206,11 @@ export function ensureDurableQueueAvailable(config, logger, context = 'relayer')
 export function isTransientDurableQueueError(error) {
   const normalized = String(error?.message || error || '').toLowerCase();
   return (
+    normalized.includes('exceed_db_size_quota') ||
+    normalized.includes('database size quota') ||
+    normalized.includes('quota exceeded') ||
+    normalized.includes('402 payment required') ||
+    normalized.includes('failed: 402') ||
     normalized.includes('pgrst002') ||
     normalized.includes('schema cache') ||
     normalized.includes('503') ||

@@ -146,12 +146,22 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
       MORPHEUS_RUNTIME_CONFIG_JSON: ${MAINNET_RUNTIME_CONFIG_JSON}
+      MORPHEUS_HEARTBEAT_TIMEOUT_MS: ${MORPHEUS_HEARTBEAT_TIMEOUT_MS:-3000}
+      MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL:-}
+      MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL:-}
+      MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL:-}
       MORPHEUS_RELAYER_MODE: requests_only
       MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.mainnet.json
       MORPHEUS_NETWORK: mainnet
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-request-data:/data
+    healthcheck:
+      test: ["CMD", "node", "workers/morpheus-relayer/src/healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
 
   testnet-request-relayer:
     image: ${MORPHEUS_RELAYER_IMAGE}
@@ -167,12 +177,22 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       SUPABASE_SECRET_KEY: ${SUPABASE_SECRET_KEY}
       MORPHEUS_RUNTIME_CONFIG_JSON: ${TESTNET_RUNTIME_CONFIG_JSON}
+      MORPHEUS_HEARTBEAT_TIMEOUT_MS: ${MORPHEUS_HEARTBEAT_TIMEOUT_MS:-3000}
+      MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL:-}
+      MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL:-}
+      MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL:-}
       MORPHEUS_RELAYER_MODE: requests_only
       MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.testnet.json
       MORPHEUS_NETWORK: testnet
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-request-data:/data
+    healthcheck:
+      test: ["CMD", "node", "workers/morpheus-relayer/src/healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
 
 volumes:
   morpheus-request-data:

@@ -27,6 +27,7 @@ export function buildFeedSyncPayload(config, targetChain) {
     feed_change_threshold_bps: config.feedSync.changeThresholdBps,
     feed_min_update_interval_ms: config.feedSync.minUpdateIntervalMs,
     feed_stale_after_ms: config.feedSync.staleAfterMs,
+    refresh_onchain_baseline: true,
     wait: false,
   };
 

@@ -32,6 +32,7 @@ import {
   pruneRetryQueueBelowRequestFloor,
   quarantineDurableBacklogBelowRequestFloor,
   resolveChainFromBlock,
+  shouldPersistRunSnapshot,
   shouldRunFeedSync,
   shouldRunRequestProcessing,
 } from './src/relayer.js';
@@ -995,6 +996,37 @@ test('createRelayerConfig exposes the shared-worker derived-key preference', () 
   }
 });
 
+test('createRelayerConfig reads relayer heartbeat urls from packed runtime config', () => {
+  const keys = [
+    'MORPHEUS_RUNTIME_CONFIG_JSON',
+    'MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL',
+    'MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL',
+    'MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL',
+  ];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+
+  process.env.MORPHEUS_RUNTIME_CONFIG_JSON = JSON.stringify({
+    MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL: 'https://heartbeat.test/relayer',
+    MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL: 'https://heartbeat.test/feed',
+    MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL: 'https://heartbeat.test/failure',
+  });
+  delete process.env.MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL;
+  delete process.env.MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL;
+  delete process.env.MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL;
+
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.heartbeats.relayer, 'https://heartbeat.test/relayer');
+    assert.equal(config.heartbeats.feedRelayer, 'https://heartbeat.test/feed');
+    assert.equal(config.heartbeats.failure, 'https://heartbeat.test/failure');
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('createRelayerConfig exposes request cursor start ids', () => {
   const previousNetwork = process.env.MORPHEUS_NETWORK;
   const previousNeoN3 = process.env.MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID;
@@ -1504,6 +1536,98 @@ test('getFeedSyncDelayMs backs off after failed sync attempts without a fresh su
 
   assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:00:25.000Z')), 55000);
   assert.equal(getFeedSyncDelayMs(config, state, Date.parse('2026-03-10T13:01:05.000Z')), 15000);
+});
+
+test('buildFeedSyncPayload refreshes the on-chain baseline for automatic feed sync', () => {
+  const payload = buildFeedSyncPayload(
+    {
+      network: 'mainnet',
+      feedSync: {
+        symbols: ['TWELVEDATA:NEO-USD'],
+        projectSlug: 'morpheus',
+        provider: 'twelvedata',
+        providers: [],
+        changeThresholdBps: '10',
+        minUpdateIntervalMs: '60000',
+        staleAfterMs: '300000',
+      },
+    },
+    'neo_n3'
+  );
+
+  assert.equal(payload.refresh_onchain_baseline, true);
+  assert.equal(payload.wait, false);
+});
+
+test('shouldPersistRunSnapshot skips idle feed-only ticks', () => {
+  const state = createEmptyRelayerState();
+  const decision = shouldPersistRunSnapshot(
+    {
+      mode: 'feed_only',
+      runSnapshots: {
+        enabled: true,
+        intervalMs: 60000,
+        errorBackoffMs: 300000,
+      },
+    },
+    {
+      state,
+      feed_sync: { enabled: true, skipped: true, chains: [] },
+      neo_n3: { skipped: true },
+      automation: { skipped: true },
+    },
+    Date.parse('2026-03-10T13:00:00.000Z')
+  );
+
+  assert.deepEqual(decision, { persist: false, reason: 'feed_sync_skipped' });
+});
+
+test('shouldPersistRunSnapshot persists feed-only ticks that attempt a sync', () => {
+  const state = createEmptyRelayerState();
+  const decision = shouldPersistRunSnapshot(
+    {
+      mode: 'feed_only',
+      runSnapshots: {
+        enabled: true,
+        intervalMs: 60000,
+        errorBackoffMs: 300000,
+      },
+    },
+    {
+      state,
+      feed_sync: { enabled: true, skipped: false, chains: [{ ok: true }] },
+      neo_n3: { skipped: true },
+      automation: { skipped: true },
+    },
+    Date.parse('2026-03-10T13:00:00.000Z')
+  );
+
+  assert.deepEqual(decision, { persist: true, reason: 'activity' });
+});
+
+test('shouldPersistRunSnapshot backs off after Supabase persistence errors', () => {
+  const state = createEmptyRelayerState();
+  state.metrics.last_run_snapshot_error_at = '2026-03-10T13:00:00.000Z';
+
+  const decision = shouldPersistRunSnapshot(
+    {
+      mode: 'feed_only',
+      runSnapshots: {
+        enabled: true,
+        intervalMs: 60000,
+        errorBackoffMs: 300000,
+      },
+    },
+    {
+      state,
+      feed_sync: { enabled: true, skipped: false, chains: [{ ok: true }] },
+      neo_n3: { skipped: true },
+      automation: { skipped: true },
+    },
+    Date.parse('2026-03-10T13:01:00.000Z')
+  );
+
+  assert.deepEqual(decision, { persist: false, reason: 'error_backoff' });
 });
 
 test('summarizeFeedSyncChainResult exposes skipped publication reasons', () => {
