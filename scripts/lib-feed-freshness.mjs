@@ -231,9 +231,9 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
         change_bps: changeBps,
       };
       if (changeBps < 10) {
-        staleReason = 'below_threshold';
-        actionable = false;
-      } else if (providerQuote.timestamp) {
+        staleReason = 'stale_refresh_due_below_threshold';
+      }
+      if (providerQuote.timestamp) {
         const providerAge = classifyFeedFreshness(
           Math.floor(new Date(providerQuote.timestamp).getTime() / 1000),
           Date.now(),

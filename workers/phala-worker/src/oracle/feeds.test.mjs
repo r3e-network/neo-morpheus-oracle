@@ -203,7 +203,7 @@ test('feed submission only allows pairs whose price changed by at least 0.1%', (
   const policy = { thresholdBps: 10, minUpdateIntervalMs: 60000, staleAfterMs: 300000 };
   const previousRecord = {
     price_units: '100000000',
-    last_submitted_at_ms: Date.now() - 600000,
+    last_submitted_at_ms: Date.now() - 120000,
   };
   const quote = { price: '100.05', decimals: 6 };
 
@@ -225,6 +225,31 @@ test('feed submission only allows pairs whose price changed by at least 0.1%', (
     __shouldSubmitFeedForTests('TWELVEDATA:NEO-USD', changedQuote, previousRecord, policy).reason,
     'threshold-met'
   );
+});
+
+test('feed submission refreshes stale on-chain timestamps even below the price threshold', () => {
+  const policy = { thresholdBps: 10, minUpdateIntervalMs: 60000, staleAfterMs: 300000 };
+  const previousRecord = {
+    price_units: '100000000',
+    timestamp: String(Math.floor((Date.now() - 600000) / 1000)),
+  };
+  const quote = { price: '100.05', decimals: 6 };
+
+  const decision = __shouldSubmitFeedForTests(
+    'TWELVEDATA:USDT-USD',
+    quote,
+    previousRecord,
+    policy
+  );
+  assert.equal(decision.allow, true);
+  assert.equal(decision.reason, 'stale-refresh');
+  assert.ok(decision.stale_age_ms >= 300000);
+  assert.equal(decision.stale_after_ms, 300000);
+  assert.equal(decision.change_bps, 5);
+  assert.equal(decision.comparison_basis, 'current-chain-price');
+  assert.equal(decision.current_chain_price_units, '100000000');
+  assert.equal(decision.candidate_price_units, '100050000');
+  assert.equal(decision.storage_key, 'TWELVEDATA:USDT-USD');
 });
 
 test('handleOracleFeed honors pair-specific threshold overrides for mainnet pairs', async () => {

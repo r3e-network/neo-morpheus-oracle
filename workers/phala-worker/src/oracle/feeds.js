@@ -652,6 +652,36 @@ function computeChangeBps(previousPrice, nextPrice) {
   return Math.abs((next - previous) / previous) * 10_000;
 }
 
+function normalizeTimestampMs(value) {
+  if (value === undefined || value === null || value === '') return 0;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 10_000_000_000 ? value : value * 1000;
+  }
+  const raw = trimString(value);
+  if (!raw) return 0;
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return numeric > 10_000_000_000 ? numeric : numeric * 1000;
+  }
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function resolvePreviousSubmittedAtMs(previousRecord = {}) {
+  const candidates = [
+    previousRecord.last_submitted_at_ms,
+    previousRecord.submitted_at_ms,
+    previousRecord.timestamp_ms,
+    previousRecord.timestamp,
+    previousRecord.submitted_at,
+  ];
+  for (const candidate of candidates) {
+    const timestampMs = normalizeTimestampMs(candidate);
+    if (timestampMs > 0) return timestampMs;
+  }
+  return 0;
+}
+
 function isPrintableAscii(value) {
   return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(value);
 }
@@ -788,7 +818,7 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
   if (!previousRecord) return { allow: true, reason: 'first-observation' };
 
   const now = Date.now();
-  const lastSubmittedAt = Number(previousRecord.last_submitted_at_ms || 0);
+  const lastSubmittedAt = normalizeTimestampMs(previousRecord.last_submitted_at_ms);
   if (
     policy.minUpdateIntervalMs > 0 &&
     lastSubmittedAt > 0 &&
@@ -797,12 +827,6 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
     return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
   }
 
-  // The feed loop evaluates the full catalog continuously, but on-chain writes
-  // must stay delta-driven. A stale observation alone must not force a
-  // publication; otherwise an unchanged 34-pair catalog can be re-submitted in
-  // bulk after the stale window. Use explicit force for operator backfills, and
-  // otherwise publish only when the price delta meets the configured threshold.
-
   const previousPriceUnits = String(
     previousRecord.price_units ??
       previousRecord.price_cents ??
@@ -810,6 +834,22 @@ function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = fal
   );
   const nextPriceUnits = decimalToIntegerString(quote.price, quote.decimals);
   const changeBps = computeChangeBps(previousPriceUnits, nextPriceUnits);
+  const previousSubmittedAtMs = resolvePreviousSubmittedAtMs(previousRecord);
+  const staleAgeMs = previousSubmittedAtMs > 0 ? now - previousSubmittedAtMs : 0;
+  if (policy.staleAfterMs > 0 && staleAgeMs >= policy.staleAfterMs) {
+    return {
+      allow: true,
+      reason: 'stale-refresh',
+      stale_age_ms: staleAgeMs,
+      stale_after_ms: policy.staleAfterMs,
+      change_bps: changeBps,
+      comparison_basis: 'current-chain-price',
+      current_chain_price_units: previousPriceUnits,
+      candidate_price_units: nextPriceUnits,
+      storage_key: storageKey,
+    };
+  }
+
   if (policy.thresholdBps > 0 && changeBps < policy.thresholdBps) {
     return {
       allow: false,
