@@ -211,6 +211,11 @@ function normalizePublicKey(value) {
   return publicKey;
 }
 
+function normalizePublicKeyOrEmpty(value) {
+  const publicKey = strip0x(value);
+  return /^[0-9a-f]{66}$/.test(publicKey) || /^[0-9a-f]{130}$/.test(publicKey) ? publicKey : '';
+}
+
 function normalizeSignature(value) {
   const signature = strip0x(value);
   if (!/^[0-9a-f]{128}$/.test(signature)) {
@@ -306,6 +311,43 @@ async function fetchRuntimePublicKey(runtimeUrls, token) {
     }
   }
   throw new Error(`failed to fetch runtime public key: ${failures.join('; ')}`);
+}
+
+async function fetchRuntimeDerivedNeoN3Key(runtimeUrls, token, role) {
+  const failures = [];
+  for (const runtimeUrl of runtimeUrls) {
+    if (!runtimeUrl) continue;
+    try {
+      const response = await fetch(`${runtimeUrl.replace(/\/$/, '')}/keys/derived`, {
+        method: 'POST',
+        headers: buildHeaders(token),
+        body: JSON.stringify({ role, network: 'mainnet' }),
+      });
+      if (!response.ok) {
+        failures.push(`${runtimeUrl}: HTTP ${response.status}`);
+        continue;
+      }
+      const body = await response.json();
+      const neo = body?.derived?.neo_n3 || body?.neo_n3 || {};
+      const scriptHash = normalizeHash160(neo.script_hash || neo.address);
+      const publicKey = normalizePublicKey(neo.public_key || '');
+      if (!scriptHash || !publicKey) {
+        failures.push(`${runtimeUrl}: empty derived ${role} Neo N3 payload`);
+        continue;
+      }
+      return {
+        role,
+        source: runtimeUrl,
+        address: trimString(neo.address),
+        script_hash: scriptHash,
+        public_key: publicKey,
+        key_path: trimString(neo.key_path),
+      };
+    } catch (error) {
+      failures.push(`${runtimeUrl}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(`failed to fetch runtime derived ${role} key: ${failures.join('; ')}`);
 }
 
 async function buildDerivedAdminTx({
@@ -582,6 +624,77 @@ async function ensureOracleKey(context) {
   return {
     action: result.broadcast ? 'set' : 'set-dry-run',
     source: runtimeKey.source,
+    txid: result.txid,
+    fees_raw: result.fees_raw,
+  };
+}
+
+async function ensureRuntimeUpdater(context) {
+  const runtimeUpdater = await fetchRuntimeDerivedNeoN3Key(
+    context.runtimeKeyUrls,
+    context.token,
+    'updater'
+  );
+  const current = normalizeHash160(
+    await invokeRead(context.rpcClient, context.oracleHash, 'updater')
+  );
+  if (current === runtimeUpdater.script_hash) {
+    return {
+      action: 'setUpdater-skip',
+      updater: current,
+      runtime_updater: runtimeUpdater.script_hash,
+      key_path: runtimeUpdater.key_path,
+    };
+  }
+
+  const result = await sendDerivedAdminTx({
+    ...context,
+    contractHash: context.oracleHash,
+    operation: 'setUpdater',
+    params: [sc.ContractParam.hash160(runtimeUpdater.script_hash)],
+  });
+  return {
+    action: result.broadcast ? 'setUpdater' : 'setUpdater-dry-run',
+    old_updater: current,
+    new_updater: runtimeUpdater.script_hash,
+    runtime_updater_address: runtimeUpdater.address,
+    key_path: runtimeUpdater.key_path,
+    txid: result.txid,
+    fees_raw: result.fees_raw,
+  };
+}
+
+async function ensureRuntimeVerifier(context) {
+  const runtimeVerifier = await fetchRuntimeDerivedNeoN3Key(
+    context.runtimeKeyUrls,
+    context.token,
+    'oracle_verifier'
+  );
+  const current = normalizePublicKeyOrEmpty(
+    await invokeRead(context.rpcClient, context.oracleHash, 'oracleVerificationPublicKey')
+  );
+  if (current === runtimeVerifier.public_key) {
+    return {
+      action: 'setOracleVerificationPublicKey-skip',
+      verifier_public_key: current,
+      key_path: runtimeVerifier.key_path,
+    };
+  }
+
+  const result = await sendDerivedAdminTx({
+    ...context,
+    contractHash: context.oracleHash,
+    operation: 'setOracleVerificationPublicKey',
+    params: [sc.ContractParam.publicKey(runtimeVerifier.public_key)],
+  });
+  return {
+    action: result.broadcast
+      ? 'setOracleVerificationPublicKey'
+      : 'setOracleVerificationPublicKey-dry-run',
+    old_verifier_public_key: current,
+    new_verifier_public_key: runtimeVerifier.public_key,
+    runtime_verifier_address: runtimeVerifier.address,
+    key_path: runtimeVerifier.key_path,
     txid: result.txid,
     fees_raw: result.fees_raw,
   };
@@ -876,6 +989,8 @@ async function main() {
       label: 'derived-admin',
     })
   );
+  report.actions.push(await ensureRuntimeUpdater(context));
+  report.actions.push(await ensureRuntimeVerifier(context));
   report.actions.push(await ensureOracleKey(context));
   const updateAction = await ensureContractUpdate(context);
   report.actions.push(updateAction);

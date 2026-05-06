@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { relayNeoN3Invocation } from '../../phala-worker/src/chain/index.js';
 import { experimental, sc, u, wallet as neonWallet } from '@cityofzion/neon-js';
-import { deriveRelayerNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './dstack.js';
+import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './dstack.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -454,7 +454,7 @@ async function resolveNeoN3UpdaterPayload(config) {
     return { private_key: config.neo_n3.updaterPrivateKey };
   }
   if (shouldUseDerivedKeys(config)) {
-    return { private_key: await deriveRelayerNeoN3PrivateKeyHex() };
+    return { private_key: await deriveUpdaterNeoN3PrivateKeyHex() };
   }
   throw new Error('Neo N3 updater signing material is not configured');
 }

@@ -25,6 +25,11 @@ function parseRuntimeConfig(env) {
   }
 }
 
+function isTrue(value) {
+  const normalized = trimString(value).toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes';
+}
+
 async function buildReport(label, filePaths, { allowMissing = false, network = '' } = {}) {
   const envPaths = Array.isArray(filePaths) ? filePaths : [filePaths];
   const exists = (await Promise.all(envPaths.map((filePath) => pathExists(filePath)))).some(
@@ -46,20 +51,25 @@ async function buildReport(label, filePaths, { allowMissing = false, network = '
   const resolvedNetwork = normalizeMorpheusNetwork(
     network || env.MORPHEUS_NETWORK || runtimeConfig.MORPHEUS_NETWORK || 'testnet'
   );
-  const signers = reportPinnedNeoN3Roles(
-    resolvedNetwork,
-    ['worker', 'relayer', 'updater', 'oracle_verifier'],
-    { env: { ...runtimeConfig, ...env }, allowMissing }
-  ).map((entry) => ({
-    role: entry.role,
-    network: entry.network,
-    selected_source: entry.selected_source,
-    selected_identity: entry.selected_identity,
-    public_key: entry.public_key,
-    pinned: entry.pinned,
-    issues: entry.issues,
-    ok: entry.ok,
-  }));
+  const signerEnv = { ...runtimeConfig, ...env };
+  const useDerivedKeys = isTrue(signerEnv.PHALA_USE_DERIVED_KEYS);
+  const signers = ['worker', 'relayer', 'updater', 'oracle_verifier'].map((role) => {
+    const entry = reportPinnedNeoN3Roles(resolvedNetwork, [role], {
+      env: signerEnv,
+      allowMissing: allowMissing || (useDerivedKeys && role !== 'oracle_verifier'),
+    })[0];
+    return {
+      role: entry.role,
+      network: entry.network,
+      selected_source: entry.selected_source,
+      selected_identity: entry.selected_identity,
+      public_key: entry.public_key,
+      pinned: entry.pinned,
+      derived_key_mode: useDerivedKeys && role !== 'oracle_verifier',
+      issues: entry.issues,
+      ok: entry.ok,
+    };
+  });
   return {
     label,
     env_path: envPaths[0],

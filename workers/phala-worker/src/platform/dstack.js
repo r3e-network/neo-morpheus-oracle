@@ -139,7 +139,9 @@ function normalizePrivateKeyHex(buffer, label) {
 
 export async function deriveNeoN3PrivateKeyHex(role = 'worker') {
   validateKeyRole(role);
-  const configuredPath = trimString(env('PHALA_DSTACK_NEO_N3_KEY_PATH'));
+  const configuredPath = trimString(
+    env(`PHALA_DSTACK_${role.toUpperCase()}_NEO_N3_KEY_PATH`, 'PHALA_DSTACK_NEO_N3_KEY_PATH')
+  );
   const keyPath = configuredPath || `morpheus/neo-n3/${role}/signing/v1`;
   return normalizePrivateKeyHex(await deriveKeyBytes(keyPath, 'neo-n3-signing'), `neo-n3:${role}`);
 }
@@ -161,7 +163,9 @@ export async function getDerivedKeySummary(role = 'worker') {
       public_key: neoN3Account.publicKey,
       script_hash: `0x${neoN3Account.scriptHash}`,
       key_path:
-        trimString(env('PHALA_DSTACK_NEO_N3_KEY_PATH')) || `morpheus/neo-n3/${role}/signing/v1`,
+        trimString(
+          env(`PHALA_DSTACK_${role.toUpperCase()}_NEO_N3_KEY_PATH`, 'PHALA_DSTACK_NEO_N3_KEY_PATH')
+        ) || `morpheus/neo-n3/${role}/signing/v1`,
     },
   };
 }

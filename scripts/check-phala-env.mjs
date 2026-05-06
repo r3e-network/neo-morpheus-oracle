@@ -6,6 +6,36 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function parseArgs(argv = process.argv.slice(2)) {
+  const out = {
+    network: '',
+    envFile: '',
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--network') {
+      out.network = trimString(argv[index + 1] || out.network);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--network=')) {
+      out.network = trimString(arg.slice('--network='.length));
+      continue;
+    }
+    if (arg === '--env-file') {
+      out.envFile = trimString(argv[index + 1] || out.envFile);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--env-file=')) {
+      out.envFile = trimString(arg.slice('--env-file='.length));
+    }
+  }
+
+  return out;
+}
+
 function parseDotEnv(raw) {
   const out = {};
   for (const line of raw.split(/\r?\n/)) {
@@ -37,11 +67,12 @@ function isTrue(value) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
-function resolveEnvPath() {
-  const network =
-    trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet') ||
-    'mainnet';
-  const configuredPath = trimString(process.env.PHALA_ENV_FILE || '');
+function resolveEnvPath({ networkOverride, envFileOverride } = {}) {
+  const rawNetwork = trimString(
+    networkOverride || process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet'
+  );
+  const network = normalizeMorpheusNetwork(rawNetwork || 'mainnet');
+  const configuredPath = trimString(envFileOverride || process.env.PHALA_ENV_FILE || '');
   return configuredPath
     ? path.resolve(process.cwd(), configuredPath)
     : path.resolve(process.cwd(), `deploy/phala/morpheus.${network}.env`);
@@ -57,7 +88,8 @@ const required = [
   'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
 ];
 
-const envPath = resolveEnvPath();
+const args = parseArgs();
+const envPath = resolveEnvPath({ networkOverride: args.network, envFileOverride: args.envFile });
 const raw = await fs.readFile(envPath, 'utf8');
 const env = parseDotEnv(raw);
 const runtimeConfig = parseRuntimeConfig(env);
@@ -114,20 +146,23 @@ const report = {
   ok: missing.length === 0 && missingEither.length === 0,
 };
 
-report.neo_n3_signers = reportPinnedNeoN3Roles(
-  network,
-  ['worker', 'relayer', 'updater', 'oracle_verifier'],
-  { env: { ...runtimeConfig, ...env }, allowMissing: false }
-).map((entry) => ({
-  network: entry.network,
-  role: entry.role,
-  pinned: entry.pinned,
-  selected_source: entry.selected_source,
-  selected_identity: entry.selected_identity,
-  public_key: entry.public_key,
-  issues: entry.issues,
-  ok: entry.ok,
-}));
+report.neo_n3_signers = ['worker', 'relayer', 'updater', 'oracle_verifier'].map((role) => {
+  const entry = reportPinnedNeoN3Roles(network, [role], {
+    env: { ...runtimeConfig, ...env },
+    allowMissing: useDerivedKeys && role !== 'oracle_verifier',
+  })[0];
+  return {
+    network: entry.network,
+    role: entry.role,
+    pinned: entry.pinned,
+    selected_source: entry.selected_source,
+    selected_identity: entry.selected_identity,
+    public_key: entry.public_key,
+    derived_key_mode: useDerivedKeys && role !== 'oracle_verifier',
+    issues: entry.issues,
+    ok: entry.ok,
+  };
+});
 
 const explicitOracleVerifierKeys = [
   'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',

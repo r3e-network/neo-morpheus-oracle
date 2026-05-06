@@ -197,7 +197,7 @@ export function createRelayerConfig() {
         : `.morpheus-relayer-state.${mode}.json`)
   );
   const updaterSigner =
-    mode === 'feed_only'
+    mode === 'feed_only' || useDerivedKeys
       ? { materialized: null }
       : resolvePinnedNeoN3Role(network, 'updater', {
           env: snapshotSignerEnv(),

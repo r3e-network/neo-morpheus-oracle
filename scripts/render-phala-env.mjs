@@ -431,9 +431,13 @@ const runtimeConfig = {
   PHALA_USE_DERIVED_KEYS: resolveUseDerivedKeysDefault(),
   PHALA_EMIT_ATTESTATION: get('PHALA_EMIT_ATTESTATION') || 'true',
   PHALA_DSTACK_ENDPOINT: get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock',
-  PHALA_DSTACK_NEO_N3_KEY_PATH: get('PHALA_DSTACK_NEO_N3_KEY_PATH'),
-  PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH: get('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH'),
-  PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH: get('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'),
+  PHALA_DSTACK_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_NEO_N3_KEY_PATH'),
+  PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH'),
+  PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH'),
+  PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH: getInputOnly(
+    'PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH'
+  ),
+  PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH: getInputOnly('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'),
   PHALA_ORACLE_KEYSTORE_PATH: resolveOracleKeystorePath(get),
   MORPHEUS_PAYMASTER_TESTNET_ENABLED: get('MORPHEUS_PAYMASTER_TESTNET_ENABLED'),
   MORPHEUS_PAYMASTER_TESTNET_POLICY_ID: get('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID'),
@@ -469,8 +473,12 @@ if (signerDiagnostics.length > 0) {
   for (const line of signerDiagnostics) console.error(`- ${line}`);
 }
 
+const runtimeUsesDerivedKeys = resolveUseDerivedKeysDefault().toLowerCase() === 'true';
 for (const role of ['worker', 'relayer', 'updater', 'oracle_verifier']) {
-  resolvePinnedNeoN3Role(network, role, { env: runtimeConfig });
+  resolvePinnedNeoN3Role(network, role, {
+    env: runtimeConfig,
+    allowMissing: runtimeUsesDerivedKeys && role !== 'oracle_verifier',
+  });
 }
 
 const lines = [
@@ -730,9 +738,23 @@ const lines = [
   line('PHALA_USE_DERIVED_KEYS', resolveUseDerivedKeysDefault()),
   line('PHALA_EMIT_ATTESTATION', get('PHALA_EMIT_ATTESTATION') || 'true'),
   line('PHALA_DSTACK_ENDPOINT', get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock'),
-  line('PHALA_DSTACK_NEO_N3_KEY_PATH', get('PHALA_DSTACK_NEO_N3_KEY_PATH')),
-  line('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH', get('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH')),
-  line('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH', get('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH')),
+  line('PHALA_DSTACK_NEO_N3_KEY_PATH', getInputOnly('PHALA_DSTACK_NEO_N3_KEY_PATH')),
+  line(
+    'PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH',
+    getInputOnly('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH')
+  ),
+  line(
+    'PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH',
+    getInputOnly('PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH')
+  ),
+  line(
+    'PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH',
+    getInputOnly('PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH')
+  ),
+  line(
+    'PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH',
+    getInputOnly('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH')
+  ),
   line('PHALA_ORACLE_KEYSTORE_PATH', resolveOracleKeystorePath(get)),
   line('MORPHEUS_PAYMASTER_TESTNET_ENABLED', get('MORPHEUS_PAYMASTER_TESTNET_ENABLED')),
   line('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID', get('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID')),
