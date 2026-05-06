@@ -279,7 +279,7 @@ function resolveUseDerivedKeysDefault() {
 function resolveNeoN3ScanModeDefault() {
   const explicit = get('MORPHEUS_RELAYER_NEO_N3_SCAN_MODE');
   if (explicit) return explicit;
-  return network === 'testnet' ? 'request_cursor' : '';
+  return 'request_cursor';
 }
 
 function mergeCsvList(primary, additions = []) {
