@@ -2,7 +2,11 @@ import { createRelayerConfig } from './config.js';
 import { sendHeartbeat } from './heartbeat.js';
 import { createLogger } from './logger.js';
 import { processAutomationJobs } from './automation.js';
-import { persistRelayerRun } from './persistence.js';
+import {
+  markSupabasePersistenceUnavailable,
+  persistRelayerRun,
+  shouldSkipSupabasePersistence,
+} from './persistence.js';
 import { loadRelayerState, saveRelayerState, snapshotMetrics, incrementMetric } from './state.js';
 import {
   hasNeoN3RelayerConfig,
@@ -86,7 +90,12 @@ export function shouldPersistRunSnapshot(config, result, nowMs = Date.now()) {
   if (!hasActivity && config.mode === 'feed_only') {
     return { persist: false, reason: 'feed_sync_skipped' };
   }
-  if (!hasActivity && lastPersistedMs > 0 && intervalMs > 0 && nowMs - lastPersistedMs < intervalMs) {
+  if (
+    !hasActivity &&
+    lastPersistedMs > 0 &&
+    intervalMs > 0 &&
+    nowMs - lastPersistedMs < intervalMs
+  ) {
     return { persist: false, reason: 'interval' };
   }
 
@@ -94,6 +103,9 @@ export function shouldPersistRunSnapshot(config, result, nowMs = Date.now()) {
 }
 
 async function maybePersistRun(logger, config, result) {
+  if (shouldSkipSupabasePersistence()) {
+    return { persisted: false, reason: 'supabase_backoff' };
+  }
   const nowMs = Date.now();
   const decision = shouldPersistRunSnapshot(config, result, nowMs);
   if (!decision.persist) return decision;
@@ -105,6 +117,7 @@ async function maybePersistRun(logger, config, result) {
     saveRelayerState(config.stateFile, result.state);
     return { persisted: true, reason: decision.reason };
   } catch (error) {
+    markSupabasePersistenceUnavailable(error);
     result.state.metrics.last_run_snapshot_error_at = new Date().toISOString();
     saveRelayerState(config.stateFile, result.state);
     logger.warn({ error }, 'Failed to persist relayer run snapshot to Supabase');

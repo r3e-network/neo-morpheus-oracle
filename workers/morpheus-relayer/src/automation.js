@@ -10,6 +10,8 @@ import {
   patchAutomationJob,
   patchAutomationRunByQueueTxHash,
   persistAutomationEncryptedFields,
+  shouldSkipSupabasePersistence,
+  markSupabasePersistenceUnavailable,
   upsertAutomationJob,
 } from './persistence.js';
 import { fetchNeoN3FeedRecord, queueNeoN3AutomationRequest } from './neo-n3.js';
@@ -561,6 +563,9 @@ export async function processAutomationJobs(config, logger, deps = {}) {
   if (!config.automation.enabled) {
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
   }
+  if (shouldSkipSupabasePersistence()) {
+    return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
+  }
 
   const fetchJobs = deps.fetchActiveAutomationJobs || fetchActiveAutomationJobs;
   const claimJob = deps.claimAutomationJob || claimAutomationJob;
@@ -574,6 +579,7 @@ export async function processAutomationJobs(config, logger, deps = {}) {
   try {
     jobs = await fetchJobs(config.automation.batchSize, dueAtIso);
   } catch (error) {
+    markSupabasePersistenceUnavailable(error);
     logger.warn({ error }, 'Supabase automation fetch unavailable; skipping automation tick');
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
   }

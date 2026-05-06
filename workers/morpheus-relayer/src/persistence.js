@@ -26,6 +26,9 @@ function resolveSupabaseNetwork() {
 
 export const AUTOMATION_PROCESSING_CLAIM_MARKER = '__morpheus_automation_processing_claim__';
 
+let supabasePersistenceBackoffUntilMs = 0;
+let supabasePersistenceBackoffReason = '';
+
 export function sanitizeForPostgres(value) {
   if (typeof value === 'string') {
     return value.replace(/\u0000/g, '');
@@ -65,6 +68,55 @@ function getSupabaseRestConfig() {
 
 export function hasSupabasePersistence() {
   return Boolean(getSupabaseRestConfig());
+}
+
+function resolveSupabaseBackoffMs() {
+  const parsed = Number(
+    process.env.MORPHEUS_SUPABASE_BACKOFF_MS || process.env.SUPABASE_BACKOFF_MS || 300000
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 300000;
+}
+
+export function isSupabaseQuotaRestrictedError(error) {
+  const normalized = String(error?.message || error || '').toLowerCase();
+  return (
+    normalized.includes('exceed_db_size_quota') ||
+    normalized.includes('database size quota') ||
+    normalized.includes('quota exceeded') ||
+    normalized.includes('402 payment required') ||
+    normalized.includes('failed: 402')
+  );
+}
+
+export function markSupabasePersistenceUnavailable(error, nowMs = Date.now()) {
+  if (!isSupabaseQuotaRestrictedError(error)) return false;
+  supabasePersistenceBackoffUntilMs = Math.max(
+    supabasePersistenceBackoffUntilMs,
+    nowMs + resolveSupabaseBackoffMs()
+  );
+  supabasePersistenceBackoffReason = 'quota_restricted';
+  return true;
+}
+
+export function getSupabasePersistenceBackoff(nowMs = Date.now()) {
+  if (supabasePersistenceBackoffUntilMs <= nowMs) {
+    return { active: false, reason: null, until: null, remaining_ms: 0 };
+  }
+  return {
+    active: true,
+    reason: supabasePersistenceBackoffReason || 'temporarily_unavailable',
+    until: new Date(supabasePersistenceBackoffUntilMs).toISOString(),
+    remaining_ms: supabasePersistenceBackoffUntilMs - nowMs,
+  };
+}
+
+export function shouldSkipSupabasePersistence(nowMs = Date.now()) {
+  return getSupabasePersistenceBackoff(nowMs).active;
+}
+
+export function resetSupabasePersistenceBackoffForTests() {
+  supabasePersistenceBackoffUntilMs = 0;
+  supabasePersistenceBackoffReason = '';
 }
 
 async function supabaseRequest(table, method, payload, options = {}) {
@@ -112,7 +164,11 @@ async function supabaseRequest(table, method, payload, options = {}) {
   });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
-    throw new Error(`supabase ${table} ${method} failed: ${response.status} ${text}`.trim());
+    const error = new Error(
+      `supabase ${table} ${method} failed: ${response.status} ${text}`.trim()
+    );
+    markSupabasePersistenceUnavailable(error);
+    throw error;
   }
   return response;
 }
