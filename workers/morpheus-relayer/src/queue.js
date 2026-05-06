@@ -239,9 +239,6 @@ export function isTransientDurableQueueError(error) {
 export async function persistFreshEventsToDurableQueue(config, logger, chain, events) {
   if (!events.length) return;
   if (shouldSkipSupabasePersistence()) {
-    if (config.durableQueue?.failClosed) {
-      throw new Error(`durable queue unavailable during ${chain}:fresh-event-persist`);
-    }
     return;
   }
   if (!ensureDurableQueueAvailable(config, logger, `${chain}:fresh-event-persist`)) return;
@@ -271,9 +268,6 @@ export async function claimDurableJobForProcessing(config, logger, event, retryI
   if (!config.durableQueue?.enabled) return true;
   if (retryItem?.durable_claimed) return true;
   if (shouldSkipSupabasePersistence()) {
-    if (config.durableQueue?.failClosed) {
-      throw new Error(`durable queue unavailable during ${event.chain}:durable-claim`);
-    }
     return true;
   }
   if (!ensureDurableQueueAvailable(config, logger, `${event.chain}:durable-claim`)) return false;
@@ -343,9 +337,6 @@ export async function claimDurableJobForProcessing(config, logger, event, retryI
 export async function hydrateDurableQueue(config, state, logger, chain, persistState) {
   if (config.mode === 'feed_only') return [];
   if (shouldSkipSupabasePersistence()) {
-    if (config.durableQueue?.failClosed) {
-      throw new Error(`durable queue unavailable during ${chain}:durable-queue-hydration`);
-    }
     return [];
   }
   if (!ensureDurableQueueAvailable(config, logger, `${chain}:durable-queue-hydration`)) return [];
@@ -434,9 +425,6 @@ export async function quarantineDurableBacklogBelowRequestFloor(config, logger, 
   const minRequestId = getRequestCursorFloor(config, chain);
   if (minRequestId === null) return 0;
   if (shouldSkipSupabasePersistence()) {
-    if (config.durableQueue?.failClosed) {
-      throw new Error(`durable queue unavailable during ${chain}:durable-floor-quarantine`);
-    }
     return 0;
   }
   if (!ensureDurableQueueAvailable(config, logger, `${chain}:durable-floor-quarantine`)) return 0;

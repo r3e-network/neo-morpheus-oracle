@@ -172,7 +172,7 @@ describe('claimDurableJobForProcessing', () => {
 
     const claimed = await claimDurableJobForProcessing(
       {
-        durableQueue: { enabled: true, failClosed: false },
+        durableQueue: { enabled: true, failClosed: true },
         instanceId: 'test-relayer',
       },
       { warn() {}, info() {} },
