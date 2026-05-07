@@ -161,7 +161,7 @@ services:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-feed-data:/data
     healthcheck:
-      test: ["CMD", "node", "workers/morpheus-relayer/src/healthcheck.js"]
+      test: ['CMD', 'node', 'workers/morpheus-relayer/src/healthcheck.js']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -192,7 +192,7 @@ services:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-feed-data:/data
     healthcheck:
-      test: ["CMD", "node", "workers/morpheus-relayer/src/healthcheck.js"]
+      test: ['CMD', 'node', 'workers/morpheus-relayer/src/healthcheck.js']
       interval: 30s
       timeout: 10s
       retries: 3

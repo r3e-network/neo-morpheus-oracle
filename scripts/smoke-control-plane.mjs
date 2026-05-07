@@ -12,6 +12,25 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function parseArgs(argv = process.argv.slice(2)) {
+  const out = {
+    network: '',
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    const next = argv[index + 1];
+    if (arg === '--network' && next) {
+      out.network = trimString(next);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--network=')) {
+      out.network = trimString(arg.slice('--network='.length));
+    }
+  }
+  return out;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -236,7 +255,9 @@ async function waitForTerminalJob(baseUrl, network, jobId, token, timeoutMs = 18
   throw new Error(`timed out waiting for terminal control-plane job ${jobId}`);
 }
 
-const network = resolveNetwork();
+const args = parseArgs();
+const network =
+  trimString(args.network) === 'mainnet' ? 'mainnet' : trimString(args.network) === 'testnet' ? 'testnet' : resolveNetwork();
 await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 await loadDotEnv(path.resolve(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`), {
   override: false,

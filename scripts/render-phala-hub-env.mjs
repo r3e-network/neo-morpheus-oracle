@@ -114,22 +114,33 @@ function buildSharedRuntimeConfig(mainnetRuntimeConfig, testnetRuntimeConfig) {
 
 function resolveSharedHubSignerValue(
   key,
+  overrideEnvs,
   mainnetEnv,
   testnetEnv,
   mainnetRuntimeConfig,
   testnetRuntimeConfig
 ) {
   if (key.endsWith('_MAINNET')) {
-    return resolveRuntimeValue(key.slice(0, -8), mainnetEnv, mainnetRuntimeConfig);
+    const baseKey = key.slice(0, -8);
+    return (
+      resolveRuntimeValue(key, mainnetEnv, mainnetRuntimeConfig) ||
+      resolveRuntimeValue(baseKey, mainnetEnv, mainnetRuntimeConfig) ||
+      pick(overrideEnvs, key)
+    );
   }
   if (key.endsWith('_TESTNET')) {
-    return resolveRuntimeValue(key.slice(0, -8), testnetEnv, testnetRuntimeConfig);
+    const baseKey = key.slice(0, -8);
+    return (
+      resolveRuntimeValue(key, testnetEnv, testnetRuntimeConfig) ||
+      resolveRuntimeValue(baseKey, testnetEnv, testnetRuntimeConfig) ||
+      pick(overrideEnvs, key)
+    );
   }
   if (key === 'NEO_N3_WIF') {
-    return resolveRuntimeValue(key, mainnetEnv, mainnetRuntimeConfig);
+    return pick(overrideEnvs, key) || resolveRuntimeValue(key, mainnetEnv, mainnetRuntimeConfig);
   }
   if (key === 'NEO_TESTNET_WIF') {
-    return resolveRuntimeValue(key, testnetEnv, testnetRuntimeConfig);
+    return pick(overrideEnvs, key) || resolveRuntimeValue(key, testnetEnv, testnetRuntimeConfig);
   }
   return '';
 }
@@ -145,6 +156,7 @@ const localEnv = await readOptionalEnvFile(path.resolve(repoRoot, '.env.local'))
 const mainnetEnv = await readEnvFile(path.resolve(repoRoot, 'deploy/phala/morpheus.mainnet.env'));
 const testnetEnv = await readEnvFile(path.resolve(repoRoot, 'deploy/phala/morpheus.testnet.env'));
 const envs = [process.env, localEnv, rootEnv, mainnetEnv, testnetEnv];
+const secureOverrideEnvs = [process.env, localEnv, rootEnv];
 const mainnetRuntimeConfig = parseRuntimeConfig(mainnetEnv);
 const testnetRuntimeConfig = parseRuntimeConfig(testnetEnv);
 const sharedRuntimeConfig = buildSharedRuntimeConfig(mainnetRuntimeConfig, testnetRuntimeConfig);
@@ -175,12 +187,18 @@ const lines = [
   line('MORPHEUS_UPSTASH_FAIL_CLOSED', pick(envs, 'MORPHEUS_UPSTASH_FAIL_CLOSED') || 'false'),
   line('MORPHEUS_FEED_PAIR_REGISTRY_JSON', pick(envs, 'MORPHEUS_FEED_PAIR_REGISTRY_JSON')),
   line('MORPHEUS_HEARTBEAT_TIMEOUT_MS', pick(envs, 'MORPHEUS_HEARTBEAT_TIMEOUT_MS') || '3000'),
-  line('MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL', pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL')),
+  line(
+    'MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL',
+    pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL')
+  ),
   line(
     'MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL',
     pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL')
   ),
-  line('MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL', pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL')),
+  line(
+    'MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL',
+    pick(envs, 'MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL')
+  ),
   '',
   line('CLOUDFLARE_DNS_API_TOKEN', pick(envs, 'CLOUDFLARE_DNS_API_TOKEN')),
   line('CERTBOT_EMAIL', pick(envs, 'CERTBOT_EMAIL')),
@@ -197,6 +215,7 @@ const lines = [
       key,
       resolveSharedHubSignerValue(
         key,
+        secureOverrideEnvs,
         mainnetEnv,
         testnetEnv,
         mainnetRuntimeConfig,

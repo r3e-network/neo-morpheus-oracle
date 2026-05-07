@@ -5,6 +5,7 @@ node_modules
 .env.local
 .env.ci
 .env.*.local
+.npmrc
 coverage
 npm-debug.log*
 .DS_Store

@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { webcrypto } from 'node:crypto';
+import { createHash, webcrypto } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { loadDotEnv } from './lib-env.mjs';
 
@@ -25,6 +25,10 @@ function hash32(seed) {
 
 function requestId(prefix) {
   return `${prefix}:${Date.now()}:${Math.random().toString(16).slice(2)}`;
+}
+
+function uniqueHash32(prefix) {
+  return `0x${createHash('sha256').update(requestId(prefix)).digest('hex')}`;
 }
 
 function computePayload(computeFunction, input) {
@@ -616,17 +620,21 @@ export const RUNTIME_SERVICE_MATRIX = [
     serviceClass: 'paymaster',
     capabilityFeature: 'paymaster/authorize',
     path: '/paymaster/authorize',
-    payload: {
-      network: 'testnet',
-      target_chain: 'neo_n3',
-      account_id: hash160('7777777777777777777777777777777777777777'),
-      dapp_id: 'runtime-service-matrix',
-      target_contract: hash160('8888888888888888888888888888888888888888'),
-      method: 'executeUserOp',
-      userop_target_contract: hash160('9999999999999999999999999999999999999999'),
-      userop_method: 'symbol',
-      estimated_gas_units: 1000,
-      operation_hash: hash32('abababababababababababababababababababababababababababababababab'),
+    payload: (context) => {
+      const operationHash = uniqueHash32(`paymaster:${context.network}`);
+      return {
+        network: context.network,
+        target_chain: 'neo_n3',
+        account_id: hash160('7777777777777777777777777777777777777777'),
+        dapp_id: `runtime-service-matrix-${context.network}`,
+        target_contract: hash160('8888888888888888888888888888888888888888'),
+        method: 'executeUserOp',
+        userop_target_contract: hash160('9999999999999999999999999999999999999999'),
+        userop_method: 'symbol',
+        estimated_gas_units: 1000,
+        operation_hash: operationHash,
+        idempotency_key: operationHash,
+      };
     },
     requiredFields: ['mode', 'approved', 'verification'],
     description: 'AA paymaster authorization policy.',

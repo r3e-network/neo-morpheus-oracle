@@ -441,9 +441,9 @@ export function isQueuedAutomationExecutionPayload(payload) {
   if (!automationId) return false;
   return Boolean(
     trimString(payload.workflow_id || payload.workflowId || '') ||
-      trimString(payload.execution_id || payload.executionId || '') ||
-      trimString(payload.idempotency_key || payload.idempotencyKey || '') ||
-      trimString(payload.delivery_mode || payload.deliveryMode || '')
+    trimString(payload.execution_id || payload.executionId || '') ||
+    trimString(payload.idempotency_key || payload.idempotencyKey || '') ||
+    trimString(payload.delivery_mode || payload.deliveryMode || '')
   );
 }
 

@@ -10,7 +10,7 @@ const KNOWN_RUNTIME_TABLES = [
   'morpheus_relayer_jobs',
   'morpheus_operation_logs',
   'morpheus_automation_runs',
-  'morpheus_workflow_executions'
+  'morpheus_workflow_executions',
 ];
 
 function parseArgs(argv) {
@@ -26,7 +26,7 @@ function parseArgs(argv) {
     operationLogDays: 7,
     automationRunDays: 30,
     workflowDays: 14,
-    directHost: false
+    directHost: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -143,7 +143,7 @@ function resolveDatabaseEnv(rawEnv, options = {}) {
     PGPASSWORD: decodeURIComponent(parsed.password),
     PGDATABASE: decodeURIComponent(parsed.pathname.replace(/^\//, '') || 'postgres'),
     PGSSLMODE: parsed.searchParams.get('sslmode') || 'require',
-    PGCONNECT_TIMEOUT: rawEnv.PGCONNECT_TIMEOUT || '12'
+    PGCONNECT_TIMEOUT: rawEnv.PGCONNECT_TIMEOUT || '12',
   };
 }
 
@@ -154,7 +154,7 @@ function findPsql() {
     '/opt/homebrew/opt/libpq/bin/psql',
     '/opt/homebrew/bin/psql',
     '/usr/local/opt/libpq/bin/psql',
-    '/usr/local/bin/psql'
+    '/usr/local/bin/psql',
   ].filter(Boolean);
 
   for (const candidate of candidates) {
@@ -175,13 +175,22 @@ function runPsql(sql, dbEnv) {
   const psql = findPsql();
   const child = spawn(
     psql,
-    ['--no-psqlrc', '--set', 'ON_ERROR_STOP=1', '--quiet', '--tuples-only', '--no-align', '-f', '-'],
+    [
+      '--no-psqlrc',
+      '--set',
+      'ON_ERROR_STOP=1',
+      '--quiet',
+      '--tuples-only',
+      '--no-align',
+      '-f',
+      '-',
+    ],
     {
       env: {
         ...process.env,
-        ...dbEnv
+        ...dbEnv,
       },
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe'],
     }
   );
 
@@ -247,7 +256,7 @@ function cleanupSql(options) {
     'failed',
     'cancelled',
     'dead_lettered',
-    'fulfilled'
+    'fulfilled',
   ];
   const terminalList = terminalStatuses.map((status) => `'${status}'`).join(', ');
   const vacuumMode = options.vacuumFull ? 'FULL, ANALYZE' : 'ANALYZE';

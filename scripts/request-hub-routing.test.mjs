@@ -37,7 +37,9 @@ test('request-hub bare routes stay aligned with the edge default network', () =>
 });
 
 function extractServiceBlock(source, serviceName) {
-  const match = source.match(new RegExp(`\\n  ${serviceName}:\\n([\\s\\S]*?)(?=\\n  [a-z0-9-]+:\\n|\\nvolumes:)`));
+  const match = source.match(
+    new RegExp(`\\n  ${serviceName}:\\n([\\s\\S]*?)(?=\\n  [a-z0-9-]+:\\n|\\nvolumes:)`)
+  );
   assert.ok(match, `could not find ${serviceName} service block`);
   return match[1];
 }
@@ -62,3 +64,39 @@ for (const [composePath, services] of [
     }
   });
 }
+
+test('request-hub relayers receive network-scoped signer env from rendered hub env', () => {
+  const source = readRepoFile('deploy/phala/docker-compose.request-hub.yml');
+  const mainnetBlock = extractServiceBlock(source, 'mainnet-request-relayer');
+  const testnetBlock = extractServiceBlock(source, 'testnet-request-relayer');
+
+  assert.match(
+    mainnetBlock,
+    /MORPHEUS_RELAYER_NEO_N3_WIF:\s*\$\{MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET:-\}/,
+    'mainnet request relayer should receive the mainnet request signer'
+  );
+  assert.match(
+    mainnetBlock,
+    /MORPHEUS_UPDATER_NEO_N3_WIF:\s*\$\{MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET:-\}/,
+    'mainnet request relayer should receive the mainnet updater signer'
+  );
+  assert.match(
+    testnetBlock,
+    /MORPHEUS_RELAYER_NEO_N3_WIF:\s*\$\{MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET:-\}/,
+    'testnet request relayer should receive the testnet request signer'
+  );
+  assert.match(
+    testnetBlock,
+    /MORPHEUS_UPDATER_NEO_N3_WIF:\s*\$\{MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET:-\}/,
+    'testnet request relayer should receive the testnet updater signer'
+  );
+});
+
+test('request-hub deploy keeps both network request relayers active by default', () => {
+  const source = readRepoFile('deploy/phala/docker-compose.request-hub.yml');
+  const mainnetBlock = extractServiceBlock(source, 'mainnet-request-relayer');
+  const testnetBlock = extractServiceBlock(source, 'testnet-request-relayer');
+
+  assert.doesNotMatch(mainnetBlock, /^\s+profiles:/m);
+  assert.doesNotMatch(testnetBlock, /^\s+profiles:/m);
+});

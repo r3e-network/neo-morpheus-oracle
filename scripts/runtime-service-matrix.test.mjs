@@ -72,6 +72,21 @@ test('runtime service matrix keeps feed publication on the non-blocking path', (
   assert.ok(feedProbe.expectedStatuses.includes(202));
 });
 
+test('runtime service matrix paymaster probe avoids idempotency collisions', async () => {
+  const paymasterProbe = RUNTIME_SERVICE_MATRIX.find((entry) => entry.id === 'paymaster:authorize');
+  assert.ok(paymasterProbe, 'missing paymaster:authorize probe');
+  assert.equal(typeof paymasterProbe.payload, 'function');
+
+  const first = await paymasterProbe.payload({ network: 'mainnet' });
+  const second = await paymasterProbe.payload({ network: 'mainnet' });
+
+  assert.equal(first.network, 'mainnet');
+  assert.equal(first.dapp_id, 'runtime-service-matrix-mainnet');
+  assert.match(first.operation_hash, /^0x[0-9a-f]{64}$/);
+  assert.equal(first.idempotency_key, first.operation_hash);
+  assert.notEqual(first.operation_hash, second.operation_hash);
+});
+
 test('runtime service matrix keeps registry fallback behind local custom domains', async () => {
   const candidates = await __resolveBaseUrlCandidatesForTests({
     network: 'mainnet',

@@ -8,6 +8,24 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function installDefaultFetchTimeout(timeoutMs = 20_000) {
+  if (typeof globalThis.fetch !== 'function') return;
+  if (globalThis.fetch.__morpheusTimeoutWrapped) return;
+  const originalFetch = globalThis.fetch;
+  const wrapped = async (input, init = {}) => {
+    if (init?.signal) return originalFetch(input, init);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(new Error('fetch timed out')), timeoutMs);
+    try {
+      return await originalFetch(input, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  wrapped.__morpheusTimeoutWrapped = true;
+  globalThis.fetch = wrapped;
+}
+
 function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {
     network: 'mainnet',
@@ -54,6 +72,8 @@ async function main() {
     process.env[key] = value;
   }
 
+  installDefaultFetchTimeout();
+
   const runtimeConfig = JSON.parse(trimString(env.MORPHEUS_RUNTIME_CONFIG_JSON || '{}'));
   const configuredPairs = parseConfiguredFeedPairs(runtimeConfig);
   const targetPairs =
@@ -74,15 +94,26 @@ async function main() {
           target_chain: 'neo_n3',
           provider: 'twelvedata',
           symbols,
+          refresh_onchain_baseline: true,
+          force: true,
           wait: true,
         });
         const body = JSON.parse(await response.text());
+        const txHashes = [];
+        if (body?.batch_tx?.tx_hash) txHashes.push(body.batch_tx.tx_hash);
+        if (Array.isArray(body?.batch_tx?.txs)) {
+          for (const entry of body.batch_tx.txs) {
+            const hash = entry?.tx?.tx_hash || entry?.tx_hash || null;
+            if (hash) txHashes.push(hash);
+          }
+        }
         results.push({
           symbols,
           attempts,
           batch_submitted: body.batch_submitted,
           batch_count: body.batch_count,
-          tx_hash: body.batch_tx?.tx_hash || null,
+          tx_hash: txHashes[0] || null,
+          tx_hashes: txHashes,
           submitted: (body.sync_results || [])
             .filter((entry) => entry.relay_status === 'submitted')
             .map((entry) => entry.storage_pair),

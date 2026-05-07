@@ -235,12 +235,7 @@ test('feed submission refreshes stale on-chain timestamps even below the price t
   };
   const quote = { price: '100.05', decimals: 6 };
 
-  const decision = __shouldSubmitFeedForTests(
-    'TWELVEDATA:USDT-USD',
-    quote,
-    previousRecord,
-    policy
-  );
+  const decision = __shouldSubmitFeedForTests('TWELVEDATA:USDT-USD', quote, previousRecord, policy);
   assert.equal(decision.allow, true);
   assert.equal(decision.reason, 'stale-refresh');
   assert.ok(decision.stale_age_ms >= 300000);

@@ -128,12 +128,6 @@ services:
 
   mainnet-request-relayer:
     image: ${MORPHEUS_RELAYER_IMAGE}
-    # Mainnet request fulfillment is intentionally opt-in. It requires the
-    # network-pinned mainnet relayer/updater signers to be present; otherwise
-    # the service would fail fast and restart forever while the public runtime
-    # worker remains healthy for read-only/TEE APIs.
-    profiles:
-      - mainnet-requests
     restart: unless-stopped
     depends_on:
       request-worker:
@@ -150,6 +144,14 @@ services:
       MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL:-}
       MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL:-}
       MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL:-}
+      MORPHEUS_RELAYER_NEO_N3_WIF: ${MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET:-}
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: ${MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET:-}
+      MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET: ${MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET:-}
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET: ${MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET:-}
+      MORPHEUS_UPDATER_NEO_N3_WIF: ${MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET:-}
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY: ${MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET:-}
+      MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET: ${MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET:-}
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET: ${MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET:-}
       MORPHEUS_RELAYER_MODE: requests_only
       MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.mainnet.json
       MORPHEUS_NETWORK: mainnet
@@ -157,7 +159,7 @@ services:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-request-data:/data
     healthcheck:
-      test: ["CMD", "node", "workers/morpheus-relayer/src/healthcheck.js"]
+      test: ['CMD', 'node', 'workers/morpheus-relayer/src/healthcheck.js']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -181,6 +183,14 @@ services:
       MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL:-}
       MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL:-}
       MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL: ${MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL:-}
+      MORPHEUS_RELAYER_NEO_N3_WIF: ${MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET:-}
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: ${MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET:-}
+      MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET: ${MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET:-}
+      MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET: ${MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET:-}
+      MORPHEUS_UPDATER_NEO_N3_WIF: ${MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET:-}
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY: ${MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET:-}
+      MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET: ${MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET:-}
+      MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET: ${MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET:-}
       MORPHEUS_RELAYER_MODE: requests_only
       MORPHEUS_RELAYER_STATE_FILE: /data/.morpheus-relayer-state.requests_only.testnet.json
       MORPHEUS_NETWORK: testnet
@@ -188,7 +198,7 @@ services:
       - /var/run/dstack.sock:/var/run/dstack.sock
       - morpheus-request-data:/data
     healthcheck:
-      test: ["CMD", "node", "workers/morpheus-relayer/src/healthcheck.js"]
+      test: ['CMD', 'node', 'workers/morpheus-relayer/src/healthcheck.js']
       interval: 30s
       timeout: 10s
       retries: 3

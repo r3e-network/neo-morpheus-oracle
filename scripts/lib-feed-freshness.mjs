@@ -128,8 +128,19 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
       const response = JSON.parse(
         execFileSync(
           'curl',
-          ['-fsS', rpcUrl, '-H', 'Content-Type: application/json', '-d', JSON.stringify(payload)],
-          { encoding: 'utf8' }
+          [
+            '-fsS',
+            '--connect-timeout',
+            '5',
+            '--max-time',
+            '20',
+            rpcUrl,
+            '-H',
+            'Content-Type: application/json',
+            '-d',
+            JSON.stringify(payload),
+          ],
+          { encoding: 'utf8', timeout: 25_000 }
         )
       );
       if (response.error) {
