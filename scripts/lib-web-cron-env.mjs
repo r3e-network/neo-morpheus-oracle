@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readMergedDotEnvFiles } from './lib-env.mjs';
 
 export const WEB_CRON_REQUIRED_ENV = Object.freeze([
-  'CRON_SECRET',
+  'MORPHEUS_CRON_SECRET',
   'MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL',
   'MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL',
   'MORPHEUS_BETTERSTACK_CRON_HEALTH_HEARTBEAT_URL',

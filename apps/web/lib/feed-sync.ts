@@ -6,6 +6,18 @@ function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function describeError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'feed sync failed';
+    }
+  }
+  return String(error);
+}
+
 type FeedSyncOptions = {
   target_chain?: string | null;
   project_slug?: string | null;
@@ -104,7 +116,7 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
         return {
           target_chain: targetChain,
           status: 400,
-          body: { error: error instanceof Error ? error.message : String(error) },
+          body: { error: describeError(error) },
         };
       }
     })

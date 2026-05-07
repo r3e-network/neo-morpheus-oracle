@@ -47,6 +47,20 @@ function coerceObject(value: unknown) {
   return {};
 }
 
+function describeLookupError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (isPlainObject(error)) {
+    const message = trimString(error.message || error.error || error.details || '');
+    if (message) return message;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'provider config lookup failed';
+    }
+  }
+  return trimString(error) || 'provider config lookup failed';
+}
+
 function resolveProviderPolicyPayload(
   payload: Record<string, unknown>,
   providerId: string,
@@ -110,12 +124,31 @@ export async function resolveProviderAwarePayload<T extends Record<string, unkno
     };
   }
 
-  const providerConfig = await loadProjectProviderConfig(
-    supabase,
-    projectSlug,
-    providerId,
-    resolveSupabaseNetwork(String(payload.network || options.network || ''))
-  );
+  let providerConfig;
+  try {
+    providerConfig = await loadProjectProviderConfig(
+      supabase,
+      projectSlug,
+      providerId,
+      resolveSupabaseNetwork(String(payload.network || options.network || ''))
+    );
+  } catch (error) {
+    console.warn('[morpheus-provider-config] lookup failed, using default payload', {
+      projectSlug,
+      providerId,
+      error: describeLookupError(error),
+    });
+    return {
+      payload: {
+        ...payload,
+        provider: String(payload.provider || providerId),
+        project_slug: projectSlug,
+      },
+      providerConfig: null,
+      projectSlug,
+      providerId,
+    };
+  }
   if (!providerConfig) {
     return {
       payload: {

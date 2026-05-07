@@ -462,13 +462,14 @@ request is rejected and finalized with a failure callback.
 Web cron route:
 
 ```bash
-curl http://localhost:3000/api/cron/feed \
-  -H "Authorization: Bearer $CRON_SECRET"
+curl http://localhost:3000/api/cron/feed/run \
+  -H "X-Morpheus-Cron: $MORPHEUS_CRON_SECRET"
 ```
 
-Production Vercel Cron must have `CRON_SECRET` plus the cron BetterStack
-heartbeat URLs configured in the `apps/web` deployment environment. Validate the
-non-secret presence check with `npm run check:web-cron-env -- --fail-on-missing`.
+Production Vercel Cron is accepted by the Vercel cron user agent. Manual
+operator probes use `MORPHEUS_CRON_SECRET` plus the cron BetterStack heartbeat
+URLs configured in the `apps/web` deployment environment. Validate the non-secret
+presence check with `npm run check:web-cron-env -- --fail-on-missing`.
 
 Direct worker route:
 

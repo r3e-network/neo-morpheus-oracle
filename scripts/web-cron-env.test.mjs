@@ -18,7 +18,7 @@ function writeEnv(filePath, values) {
 test('web cron env checker requires every Vercel cron heartbeat key without exposing values', async () => {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'web-cron-env-'));
   writeEnv(path.join(repoRoot, 'apps/web/.vercel/.env.production.local'), {
-    CRON_SECRET: 'secret-value',
+    MORPHEUS_CRON_SECRET: 'secret-value',
     MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL: 'https://heartbeat.example/feed',
     MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL: 'https://heartbeat.example/feed/fail',
     MORPHEUS_BETTERSTACK_CRON_HEALTH_HEARTBEAT_URL: 'https://heartbeat.example/health',
