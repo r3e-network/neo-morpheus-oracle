@@ -67,6 +67,7 @@ Required environment:
 - `NEXT_PUBLIC_MORPHEUS_NETWORK`
 - `MORPHEUS_RUNTIME_URL` or network-scoped runtime URLs
 - `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
+- `CRON_SECRET` so Vercel Cron can call `/api/cron/feed`
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SECRET_KEY`
@@ -81,9 +82,25 @@ Recommended production environment:
 - `MORPHEUS_SIGNING_ADMIN_API_KEY`
 - `MORPHEUS_RELAY_ADMIN_API_KEY`
 - `MORPHEUS_OPERATOR_API_KEY`
+- `MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL`
+- `MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL`
+- `MORPHEUS_BETTERSTACK_CRON_HEALTH_HEARTBEAT_URL`
 - `NEXT_PUBLIC_WEB3AUTH_CLIENT_ID`
 - `WEB3AUTH_CLIENT_SECRET`
 - `NEXT_PUBLIC_WEB3AUTH_NETWORK`
+
+After pulling or configuring Vercel production env, run:
+
+```bash
+npm run check:web-cron-env -- --fail-on-missing
+npm run check:betterstack
+```
+
+The first command validates only key presence and never prints secret values. If
+`morpheus-cron-feed` or `morpheus-cron-health` is still `pending`, the web cron
+environment is not deployed or Vercel Cron is not triggering the routes. Root
+`.env` / `.env.local` values are intentionally ignored by this check because the
+Vercel `apps/web` deployment does not inherit them automatically.
 
 ## Step 3: Deploy Cloudflare Edge
 

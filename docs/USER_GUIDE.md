@@ -466,6 +466,10 @@ curl http://localhost:3000/api/cron/feed \
   -H "Authorization: Bearer $CRON_SECRET"
 ```
 
+Production Vercel Cron must have `CRON_SECRET` plus the cron BetterStack
+heartbeat URLs configured in the `apps/web` deployment environment. Validate the
+non-secret presence check with `npm run check:web-cron-env -- --fail-on-missing`.
+
 Direct worker route:
 
 ```bash

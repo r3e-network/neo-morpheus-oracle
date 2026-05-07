@@ -67,6 +67,7 @@
     "sync:checkly:browser": "node scripts/checkly-sync-browser-checks.mjs",
     "check:betterstack": "node scripts/betterstack-list-heartbeats.mjs",
     "sync:betterstack": "node scripts/betterstack-sync-heartbeats.mjs",
+    "check:web-cron-env": "node scripts/check-web-cron-env.mjs",
     "check:betterstack:monitors": "node scripts/betterstack-list-monitors.mjs",
     "sync:betterstack:monitors": "node scripts/betterstack-sync-monitors.mjs",
     "check:betterstack:sources": "node scripts/betterstack-list-sources.mjs",
