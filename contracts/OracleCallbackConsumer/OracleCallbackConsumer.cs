@@ -99,6 +99,12 @@ namespace MorpheusOracle.Contracts
             SetKernel(oracle);
         }
 
+        public static void Update(ByteString nefFile, string manifest)
+        {
+            ValidateAdmin();
+            ContractManagement.Update(nefFile, manifest, null);
+        }
+
         public static void OnMiniAppResult(BigInteger requestId, string appId, string moduleId, string operation, UInt160 requester, bool success, ByteString result, string error)
         {
             ValidateKernel();
