@@ -52,8 +52,8 @@ Current Neo N3 anchors:
 | OracleCallbackConsumer Opt.   | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
 | MorpheusDataFeed Module       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                    | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
 | AbstractAccount               | `0x0268a387913b250166ddec032b03332690a1ef78`                                    | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                    |
-| AA Web3AuthVerifier           | `0x8e3a6388e02c0335912a77b7ff06d29a721c9112`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
-| AA RecoveryVerifier           | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                    | deployment-specific                                                             |
+| AA Web3AuthVerifier           | `0xf5c452cd4ba29dcdc47026383568c0d8b38d9272`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
+| AA RecoveryVerifier           | `0x198b3a9cec9bccc2110d19bd929b10374a9d034d`                                    | `recovery.smartwallet.neo`                                                       |
 | NeoDIDRegistry                | `0xb81f31ea81e279793b30411b82c2e82078b63105`                                    | unpublished                                                                     |
 | Oracle NNS                    | `oracle.morpheus.neo`                                                           | unassigned                                                                      |
 | DataFeed NNS                  | `pricefeed.morpheus.neo`                                                        | unassigned                                                                      |
@@ -641,7 +641,7 @@ curl http://localhost:3000/api/neodid/recovery-ticket \
     "provider":"web3auth",
     "network":"neo_n3",
     "aa_contract":"0x0268a387913b250166ddec032b03332690a1ef78",
-    "verifier_contract":"0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3",
+    "verifier_contract":"0x198b3a9cec9bccc2110d19bd929b10374a9d034d",
     "account_id":"aa-social-recovery-demo",
     "new_owner":"0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "recovery_nonce":"7",
