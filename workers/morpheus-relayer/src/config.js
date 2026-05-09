@@ -50,13 +50,52 @@ function uniqueOrdered(values) {
 }
 
 function resolveNeoN3RpcUrls(network, registry) {
+  const scopedRpcUrls =
+    network === 'mainnet'
+      ? parseUrlList(
+          env(
+            'NEO_MAINNET_RPC_URLS',
+            'MAINNET_RPC_URLS',
+            'NEO_RPC_URLS_MAINNET',
+            'NEO_MAINNET_RPC_URL',
+            'MAINNET_RPC_URL',
+            'NEO_RPC_MAINNET'
+          )
+        )
+      : parseUrlList(
+          env(
+            'NEO_TESTNET_RPC_URLS',
+            'TESTNET_RPC_URLS',
+            'NEO_RPC_URLS_TESTNET',
+            'NEO_TESTNET_RPC_URL',
+            'TESTNET_RPC_URL',
+            'NEO_RPC_TESTNET'
+          )
+        );
+  const genericRpcUrls = parseUrlList(env('NEO_RPC_URLS', 'NEO_RPC_URL'));
   return uniqueOrdered([
-    ...parseUrlList(env('NEO_RPC_URLS')),
-    ...parseUrlList(env('NEO_RPC_URL')),
+    ...scopedRpcUrls,
     ...parseUrlList(registry.neo_n3?.rpc_urls || []),
     trimString(registry.neo_n3?.rpc_url || ''),
+    ...(parseBoolean(env('ALLOW_GENERIC_NEO_RPC_URL'), false) ? genericRpcUrls : []),
     ...(DEFAULT_NEO_N3_RPC_URLS[network] || []),
   ]);
+}
+
+function resolveNeoN3NetworkMagic(network, registry) {
+  const scopedMagic =
+    network === 'mainnet'
+      ? env('NEO_MAINNET_MAGIC', 'MAINNET_NETWORK_MAGIC')
+      : env('NEO_TESTNET_MAGIC', 'TESTNET_NETWORK_MAGIC');
+  const genericMagic = parseBoolean(env('ALLOW_GENERIC_NEO_NETWORK_MAGIC'), false)
+    ? env('NEO_NETWORK_MAGIC')
+    : '';
+  return Number(
+    scopedMagic ||
+      registry.neo_n3?.network_magic ||
+      genericMagic ||
+      (network === 'mainnet' ? 860833102 : 894710606)
+  );
 }
 
 function parseBoolean(value, fallback = false) {
@@ -318,7 +357,7 @@ export function createRelayerConfig() {
         : null,
       rpcUrl: neoN3RpcUrls[0] || '',
       rpcUrls: neoN3RpcUrls,
-      networkMagic: Number(env('NEO_NETWORK_MAGIC') || registry.neo_n3?.network_magic || 894710606),
+      networkMagic: resolveNeoN3NetworkMagic(network, registry),
       oracleContract:
         envNetworkScoped(network, 'CONTRACT_MORPHEUS_ORACLE_HASH') ||
         trimString(registry.neo_n3?.contracts?.morpheus_oracle || ''),

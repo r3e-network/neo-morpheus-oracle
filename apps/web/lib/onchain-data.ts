@@ -3,6 +3,7 @@ import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 
 export const DEFAULT_PAIRS = [...DEFAULT_FEED_SYMBOLS];
 const selectedNetwork = getSelectedNetwork();
+const selectedDomains: Record<string, string | undefined> = selectedNetwork.neo_n3?.domains || {};
 export const SELECTED_NETWORK = selectedNetwork;
 export const SELECTED_NETWORK_KEY = getSelectedNetworkKey();
 export const SELECTED_NETWORK_LABEL = SELECTED_NETWORK_KEY === 'mainnet' ? 'Mainnet' : 'Testnet';
@@ -45,11 +46,12 @@ export const NETWORKS = {
       selectedNetwork.network === 'mainnet'
         ? 'https://neotube.io/contract/'
         : 'https://testnet.neotube.io/contract/',
-	    domains: {
-	      oracle: selectedNetwork.neo_n3?.domains?.morpheus_oracle || '',
-	      callbackConsumer: selectedNetwork.neo_n3?.domains?.morpheus_callback_consumer || '',
-	      datafeed: selectedNetwork.neo_n3?.domains?.morpheus_datafeed || '',
-	      aa: selectedNetwork.neo_n3?.domains?.morpheus_aa || '',
+    domains: {
+      oracle: selectedDomains.morpheus_oracle || '',
+      callbackConsumer: selectedDomains.morpheus_callback_consumer || '',
+      datafeed: selectedDomains.morpheus_datafeed || '',
+      aa: selectedDomains.morpheus_aa || '',
+      aaAlias: selectedDomains.morpheus_aa_alias || '',
       neodid: selectedNetwork.neo_n3?.domains?.morpheus_neodid || '',
     },
   },
