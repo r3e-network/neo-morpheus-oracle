@@ -8,6 +8,7 @@ import {
   isAlreadyFulfilledError,
   isQueuedAutomationExecutionPayload,
   isTerminalConfigurationError,
+  resolveEventFulfillmentContext,
   resolveFulfillmentSigningContext,
   trimOnchainErrorMessage,
 } from './fulfillment.js';
@@ -264,6 +265,48 @@ describe('resolveFulfillmentSigningContext', () => {
       {
         chain: 'neo_n3',
         appId: 'miniapp-os',
+        moduleId: 'oracle.fetch',
+        operation: 'privacy_oracle',
+      }
+    );
+  });
+});
+
+describe('resolveEventFulfillmentContext', () => {
+  it('prefers the on-chain miniapp envelope over the internal route mapping', () => {
+    assert.deepEqual(
+      resolveEventFulfillmentContext(
+        {
+          appId: 'morpheus.platform.game',
+          moduleId: 'vrf_random',
+          operation: 'vrf_random',
+        },
+        {
+          moduleId: 'random.generate',
+          operation: 'vrf_random',
+        }
+      ),
+      {
+        appId: 'morpheus.platform.game',
+        moduleId: 'vrf_random',
+        operation: 'vrf_random',
+      }
+    );
+  });
+
+  it('falls back to the legacy kernel mapping when old events lack envelope fields', () => {
+    assert.deepEqual(
+      resolveEventFulfillmentContext(
+        {
+          requestType: 'privacy_oracle',
+        },
+        {
+          moduleId: 'oracle.fetch',
+          operation: 'privacy_oracle',
+        }
+      ),
+      {
+        appId: '',
         moduleId: 'oracle.fetch',
         operation: 'privacy_oracle',
       }

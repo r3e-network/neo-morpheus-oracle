@@ -124,6 +124,14 @@ export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
   };
 }
 
+export function resolveEventFulfillmentContext(event = {}, kernelIntent = {}) {
+  return {
+    appId: trimString(event.appId || ''),
+    moduleId: trimString(event.moduleId || '') || trimString(kernelIntent.moduleId || ''),
+    operation: trimString(event.operation || '') || trimString(kernelIntent.operation || ''),
+  };
+}
+
 function normalizePublicKey(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();
 }
@@ -372,12 +380,11 @@ async function deliverPreparedFulfillment(config, event, prepared) {
 async function finalizeFailedRequest(config, event, errorMessage) {
   const safeError = trimOnchainErrorMessage(errorMessage);
   const kernelIntent = resolveKernelIntent(event.requestType);
+  const fulfillmentContext = resolveEventFulfillmentContext(event, kernelIntent);
   const verification = await signFulfillmentPayload(config, event.chain, {
     requestId: event.requestId,
     requestType: event.requestType,
-    appId: event.appId || '',
-    moduleId: kernelIntent.moduleId,
-    operation: kernelIntent.operation,
+    ...fulfillmentContext,
     success: false,
     result: '',
     result_bytes_base64: '',
@@ -450,15 +457,14 @@ export function isQueuedAutomationExecutionPayload(payload) {
 async function prepareOracleFulfillment(config, event, logger = null) {
   const payload = enrichAutomationExecutionPayload(event, decodePayloadText(event.payloadText));
   const kernelIntent = resolveKernelIntent(event.requestType);
+  const fulfillmentContext = resolveEventFulfillmentContext(event, kernelIntent);
   if (isAutomationControlRequestType(event.requestType)) {
     const automationResponse = await handleAutomationControlRequest(event, payload);
     const fulfillment = encodeFulfillmentResult(event.requestType, automationResponse);
     const verification = await signFulfillmentPayload(config, event.chain, {
       requestId: event.requestId,
       requestType: event.requestType,
-      appId: event.appId || '',
-      moduleId: kernelIntent.moduleId,
-      operation: kernelIntent.operation,
+      ...fulfillmentContext,
       success: fulfillment.success,
       result: fulfillment.result || '',
       result_bytes_base64: fulfillment.result_bytes_base64 || '',
@@ -467,8 +473,8 @@ async function prepareOracleFulfillment(config, event, logger = null) {
 
     return buildPreparedFulfillment(fulfillment, {
       route: automationResponse.route,
-      module_id: kernelIntent.moduleId,
-      operation: kernelIntent.operation,
+      module_id: fulfillmentContext.moduleId,
+      operation: fulfillmentContext.operation,
       worker_response: automationResponse.body,
       worker_status: automationResponse.status,
       verification_signature: verification.signature,
@@ -493,9 +499,7 @@ async function prepareOracleFulfillment(config, event, logger = null) {
       const verification = await signFulfillmentPayload(config, event.chain, {
         requestId: event.requestId,
         requestType: event.requestType,
-        appId: event.appId || '',
-        moduleId: kernelIntent.moduleId,
-        operation: kernelIntent.operation,
+        ...fulfillmentContext,
         success: fulfillment.success,
         result: fulfillment.result || '',
         result_bytes_base64: fulfillment.result_bytes_base64 || '',
@@ -504,8 +508,8 @@ async function prepareOracleFulfillment(config, event, logger = null) {
 
       return buildPreparedFulfillment(fulfillment, {
         route: automationGuard.route,
-        module_id: kernelIntent.moduleId,
-        operation: kernelIntent.operation,
+        module_id: fulfillmentContext.moduleId,
+        operation: fulfillmentContext.operation,
         worker_response: guardResponse.body,
         worker_status: guardResponse.status,
         verification_signature: verification.signature,
@@ -516,9 +520,7 @@ async function prepareOracleFulfillment(config, event, logger = null) {
     const verification = await signFulfillmentPayload(config, event.chain, {
       requestId: event.requestId,
       requestType: event.requestType,
-      appId: event.appId || '',
-      moduleId: kernelIntent.moduleId,
-      operation: kernelIntent.operation,
+      ...fulfillmentContext,
       success: false,
       result: '',
       result_bytes_base64: '',
@@ -535,8 +537,8 @@ async function prepareOracleFulfillment(config, event, logger = null) {
       },
       {
         route: 'operator-only:rejected',
-        module_id: kernelIntent.moduleId,
-        operation: kernelIntent.operation,
+        module_id: fulfillmentContext.moduleId,
+        operation: fulfillmentContext.operation,
         worker_response: null,
         worker_status: null,
         verification_signature: verification.signature,
@@ -563,9 +565,7 @@ async function prepareOracleFulfillment(config, event, logger = null) {
   const verification = await signFulfillmentPayload(config, event.chain, {
     requestId: event.requestId,
     requestType: event.requestType,
-    appId: event.appId || '',
-    moduleId: kernelIntent.moduleId,
-    operation: kernelIntent.operation,
+    ...fulfillmentContext,
     success: fulfillment.success,
     result: fulfillment.result || '',
     result_bytes_base64: fulfillment.result_bytes_base64 || '',
@@ -590,8 +590,8 @@ async function prepareOracleFulfillment(config, event, logger = null) {
 
   return buildPreparedFulfillment(fulfillment, {
     route,
-    module_id: kernelIntent.moduleId,
-    operation: kernelIntent.operation,
+    module_id: fulfillmentContext.moduleId,
+    operation: fulfillmentContext.operation,
     worker_response: workerResponse.body,
     worker_status: workerResponse.status,
     verification_signature: verification.signature,

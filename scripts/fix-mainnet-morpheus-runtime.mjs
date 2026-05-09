@@ -10,6 +10,12 @@ const ADMIN_ADDRESS = 'NUVmRwZDoSZMKcPj9UCQLHkpno2TPqYVxC';
 const ADMIN_HASH = `0x${wallet.getScriptHashFromAddress(ADMIN_ADDRESS).toLowerCase()}`;
 const DEFAULT_METADATA_URI = 'https://oracle.meshmini.app/mainnet/runtime/catalog';
 const DEFAULT_CREDIT_REQUESTS = 20n;
+const PLATFORM_GAME_APP_ID = 'morpheus.platform.game';
+const PLATFORM_GAME_MODULE = {
+  moduleId: 'vrf_random',
+  endpoint: '/vrf/random',
+  schemaHash: 'morpheus.module.vrf_random.v1',
+};
 
 const args = new Set(process.argv.slice(2));
 const EXECUTE = args.has('--execute');
@@ -705,6 +711,33 @@ async function getMiniAppIds(rpcClient, oracleHash) {
   return Array.isArray(ids) ? ids.map(String) : [];
 }
 
+async function ensureSystemModule(context, module) {
+  const moduleIds = await invokeRead(context.rpcClient, context.oracleHash, 'getAllSystemModuleIds');
+  const existingIds = Array.isArray(moduleIds) ? moduleIds.map(String) : [];
+  if (existingIds.includes(module.moduleId)) {
+    return { action: 'module-skip', module_id: module.moduleId };
+  }
+
+  const register = await sendDerivedAdminTx({
+    ...context,
+    contractHash: context.oracleHash,
+    operation: 'registerSystemModule',
+    params: [
+      sc.ContractParam.string(module.moduleId),
+      sc.ContractParam.string(module.endpoint),
+      sc.ContractParam.string(module.schemaHash),
+    ],
+  });
+  return {
+    action: register.broadcast ? 'module-register' : 'module-register-dry-run',
+    module_id: module.moduleId,
+    endpoint: module.endpoint,
+    schema_hash: module.schemaHash,
+    txid: register.txid,
+    fees_raw: register.fees_raw,
+  };
+}
+
 async function ensureMiniApp(context, app) {
   const existingIds = await getMiniAppIds(context.rpcClient, context.oracleHash);
   const actions = [];
@@ -733,7 +766,18 @@ async function ensureMiniApp(context, app) {
     actions.push({ action: 'register-skip', app_id: app.appId });
   }
 
-  for (const moduleId of context.systemModules) {
+  const modulesForApp = Array.isArray(app.moduleIds) && app.moduleIds.length > 0
+    ? app.moduleIds
+    : context.systemModules;
+  for (const moduleId of modulesForApp) {
+    if (!EXECUTE && context.pendingSystemModules?.has(moduleId)) {
+      actions.push({
+        action: 'grant-dry-run-after-module-register',
+        app_id: app.appId,
+        module_id: moduleId,
+      });
+      continue;
+    }
     if (!EXECUTE && (!appAlreadyExists || context.contractUpdatePending)) {
       actions.push({
         action: context.contractUpdatePending
@@ -841,6 +885,26 @@ async function ensureConsumerOracle(context, consumerHash) {
   };
 }
 
+async function resolvePlatformGameHash() {
+  const envHash = normalizeHash160(
+    process.env.CONTRACT_PLATFORM_GAME_HASH_MAINNET ||
+      process.env.PLATFORM_GAME_HASH_MAINNET ||
+      process.env.CONTRACT_PLATFORM_GAME_HASH
+  );
+  if (envHash) return envHash;
+
+  const candidates = [
+    path.resolve('..', 'neo-miniapps-platform', 'contracts', 'build', 'mainnet_game_deployment.json'),
+    path.resolve('..', 'neo-miniapps-platform-neo-git', 'contracts', 'build', 'mainnet_game_deployment.json'),
+  ];
+  for (const candidate of candidates) {
+    const deployment = await loadJsonIfExists(candidate);
+    const hash = normalizeHash160(deployment.platform_game || deployment.PlatformGame || '');
+    if (hash) return hash;
+  }
+  return '';
+}
+
 async function main() {
   process.env.MORPHEUS_NETWORK = 'mainnet';
   await loadDotEnv();
@@ -912,9 +976,7 @@ async function main() {
   const workerAccount = new wallet.Account(workerSecret);
   const workerHash = normalizeHash160(`0x${workerAccount.scriptHash}`);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
-  const systemModules = (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(
-    String
-  );
+  const systemModules = (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(String);
   const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee')) || '0');
   const adminMinGasRaw = parseGasToRaw(process.env.MORPHEUS_MAINNET_ADMIN_MIN_GAS, 50000000n);
   const workerMinGasRaw = parseGasToRaw(process.env.MORPHEUS_MAINNET_WORKER_MIN_GAS, 30000000n);
@@ -935,6 +997,7 @@ async function main() {
     workerHash,
     systemModules,
   };
+  const platformGameHash = await resolvePlatformGameHash();
   const apps = [
     {
       appId: 'morpheus.callback.consumer',
@@ -943,6 +1006,7 @@ async function main() {
       callbackContract: callbackConsumerHash,
       metadataUri: DEFAULT_METADATA_URI,
       metadataHash: 'mainnet-callback-consumer-v1',
+      moduleIds: systemModules,
     },
     {
       appId: 'morpheus.examples.consumer',
@@ -951,14 +1015,27 @@ async function main() {
       callbackContract: exampleConsumerHash,
       metadataUri: DEFAULT_METADATA_URI,
       metadataHash: 'mainnet-example-consumer-v1',
+      moduleIds: systemModules,
     },
   ];
+  if (platformGameHash) {
+    apps.push({
+      appId: PLATFORM_GAME_APP_ID,
+      admin: ADMIN_HASH,
+      feePayer: ADMIN_HASH,
+      callbackContract: platformGameHash,
+      metadataUri: DEFAULT_METADATA_URI,
+      metadataHash: 'mainnet-platform-game-callback-v1',
+      moduleIds: [PLATFORM_GAME_MODULE.moduleId],
+    });
+  }
 
   const report = {
     mode: EXECUTE ? 'execute' : 'dry-run',
     oracle_hash: oracleHash,
     admin_hash: ADMIN_HASH,
     worker_hash: workerHash,
+    platform_game_hash: platformGameHash || null,
     callback_consumer_hash: callbackConsumerHash,
     example_consumer_hash: exampleConsumerHash,
     rpc_url: rpcUrl,
@@ -995,23 +1072,37 @@ async function main() {
   const updateAction = await ensureContractUpdate(context);
   report.actions.push(updateAction);
   context.contractUpdatePending = !EXECUTE && updateAction.action === 'update-dry-run';
+  if (platformGameHash) {
+    const moduleAction = await ensureSystemModule(context, PLATFORM_GAME_MODULE);
+    report.actions.push(moduleAction);
+    if (!EXECUTE && moduleAction.action === 'module-register-dry-run') {
+      context.pendingSystemModules = new Set([
+        ...(context.pendingSystemModules || []),
+        PLATFORM_GAME_MODULE.moduleId,
+      ]);
+    }
+    context.systemModules = Array.from(
+      new Set((await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(String).concat(PLATFORM_GAME_MODULE.moduleId))
+    );
+  }
   for (const app of apps) {
     report.actions.push(...(await ensureMiniApp(context, app)));
   }
   report.actions.push(await ensureConsumerOracle(context, callbackConsumerHash));
   report.actions.push(await ensureConsumerOracle(context, exampleConsumerHash));
   if (!SKIP_CREDIT && minCreditRaw > 0n) {
-    report.actions.push(
-      await ensureFeeCredit({
+    const creditBeneficiaries = Array.from(new Set([workerHash, ...apps.map((app) => app.feePayer)]));
+    for (const beneficiaryHash of creditBeneficiaries) {
+      report.actions.push(await ensureFeeCredit({
         rpcClient,
         rpcUrl,
         networkMagic,
         fundingAccount: workerAccount,
         oracleHash,
-        beneficiaryHash: workerHash,
+        beneficiaryHash,
         minCreditRaw,
-      })
-    );
+      }));
+    }
   }
 
   console.log(JSON.stringify(report, null, 2));
