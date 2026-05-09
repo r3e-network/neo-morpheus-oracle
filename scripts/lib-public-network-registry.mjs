@@ -98,6 +98,7 @@ function buildDomains(rawRegistry) {
     aaAddressMarket: trimString(aaSubdomains.market),
     aaPaymaster: trimString(aaSubdomains.paymaster),
     oracle: trimString(domains.morpheus_oracle),
+    callbackConsumer: trimString(domains.morpheus_callback_consumer),
     datafeed: trimString(domains.morpheus_datafeed),
     neodid: trimString(domains.morpheus_neodid),
   });

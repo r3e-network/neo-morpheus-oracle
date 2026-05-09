@@ -24,6 +24,7 @@
     "network_magic": 860833102,
     "domains": {
       "morpheus_oracle": "oracle.morpheus.neo",
+      "morpheus_callback_consumer": "callback.morpheus.neo",
       "morpheus_datafeed": "pricefeed.morpheus.neo",
       "morpheus_aa": "smartwallet.neo",
       "morpheus_aa_alias": "aa.morpheus.neo",

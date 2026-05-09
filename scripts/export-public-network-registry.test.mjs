@@ -25,6 +25,7 @@ test('public network registry export exposes canonical Morpheus runtime metadata
   assert.equal(registry.mainnet.contracts.aaAddressMarket, '0xae7afe3a85ab08bfd1d4907b35ae8b80c75b3a69');
   assert.equal(registry.mainnet.contracts.aaPaymaster, '0xa0defa2bc6d7a71ba1e237149287c8ca4ff46caf');
   assert.equal(registry.mainnet.domains.aaPaymaster, 'paymaster.smartwallet.neo');
+  assert.equal(registry.mainnet.domains.callbackConsumer, 'callback.morpheus.neo');
   assert.equal(
     registry.mainnet.contracts.oracleCallbackConsumer,
     '0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844'

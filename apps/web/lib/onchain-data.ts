@@ -45,10 +45,11 @@ export const NETWORKS = {
       selectedNetwork.network === 'mainnet'
         ? 'https://neotube.io/contract/'
         : 'https://testnet.neotube.io/contract/',
-    domains: {
-      oracle: selectedNetwork.neo_n3?.domains?.morpheus_oracle || '',
-      datafeed: selectedNetwork.neo_n3?.domains?.morpheus_datafeed || '',
-      aa: selectedNetwork.neo_n3?.domains?.morpheus_aa || '',
+	    domains: {
+	      oracle: selectedNetwork.neo_n3?.domains?.morpheus_oracle || '',
+	      callbackConsumer: selectedNetwork.neo_n3?.domains?.morpheus_callback_consumer || '',
+	      datafeed: selectedNetwork.neo_n3?.domains?.morpheus_datafeed || '',
+	      aa: selectedNetwork.neo_n3?.domains?.morpheus_aa || '',
       neodid: selectedNetwork.neo_n3?.domains?.morpheus_neodid || '',
     },
   },
