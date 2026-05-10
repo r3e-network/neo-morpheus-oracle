@@ -25,6 +25,10 @@ function isPrintableText(text) {
 }
 
 const RPC_TIMEOUT_MS = 30_000;
+const GAS_CONTRACT_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
+const DEFAULT_FEE_TOP_UP_MIN_BALANCE = 50_000_000n; // 0.5 GAS
+const DEFAULT_FEE_TOP_UP_AMOUNT = 100_000_000n; // 1 GAS
+const DEFAULT_FEE_TOP_UP_MAX_AMOUNT = 500_000_000n; // 5 GAS
 
 function uniqueOrdered(values) {
   return [...new Set(values.map((entry) => trimString(entry)).filter(Boolean))];
@@ -462,6 +466,170 @@ function normalizeHash160(value) {
   }
 }
 
+function parseNonNegativeBigInt(value, fallback) {
+  const raw = trimString(value);
+  if (!/^[0-9]+$/.test(raw)) return fallback;
+  return BigInt(raw);
+}
+
+function getNeoN3FeeTopUpSettings(config) {
+  const raw = config?.neo_n3?.feeTopUp || {};
+  if (!raw.enabled) return { enabled: false };
+  return {
+    enabled: true,
+    minBalance: parseNonNegativeBigInt(raw.minBalance, DEFAULT_FEE_TOP_UP_MIN_BALANCE),
+    topUpAmount: parseNonNegativeBigInt(raw.topUpAmount, DEFAULT_FEE_TOP_UP_AMOUNT),
+    maxTopUpAmount: parseNonNegativeBigInt(raw.maxTopUpAmount, DEFAULT_FEE_TOP_UP_MAX_AMOUNT),
+    funderWif: trimString(raw.funderWif || ''),
+    funderPrivateKey: trimString(raw.funderPrivateKey || ''),
+  };
+}
+
+function buildLocalNeoN3AccountFromSecret(wif, privateKey) {
+  const secret = trimString(wif) || trimString(privateKey);
+  if (!secret) return null;
+  return new neonWallet.Account(secret);
+}
+
+async function readNeoN3GasBalance(config, scriptHash) {
+  const normalized = normalizeHash160(scriptHash);
+  if (!normalized) throw new Error('Neo N3 GAS balance read failed: invalid account');
+  const result = await neoRpcCall(config, 'invokefunction', [
+    GAS_CONTRACT_HASH,
+    'balanceOf',
+    [{ type: 'Hash160', value: normalized }],
+  ]);
+  if (String(result?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(result?.exception || 'Neo N3 GAS balance read faulted');
+  }
+  return BigInt(decodeNeoItem(result?.stack?.[0]) || '0');
+}
+
+async function waitForNeoN3TransactionHalt(config, txHash, label) {
+  const deadline = Date.now() + Number(config?.neo_n3?.feeTopUp?.waitTimeoutMs || 45_000);
+  let lastError = null;
+  let fatalError = null;
+  while (Date.now() < deadline) {
+    try {
+      const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
+      const execution = appLog?.executions?.[0];
+      const vmState = trimString(execution?.vmstate || '').toUpperCase();
+      if (vmState === 'HALT') return;
+      if (vmState) {
+        fatalError = new Error(
+          `${label} faulted (${txHash}): ${execution?.exception || vmState || 'unknown error'}`
+        );
+        break;
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  if (fatalError) throw fatalError;
+  throw new Error(
+    `${label} was not confirmed before timeout (${txHash})${
+      lastError?.message ? `: ${lastError.message}` : ''
+    }`
+  );
+}
+
+async function sendNeoN3GasTransfer(config, funder, toScriptHash, amount) {
+  const to = normalizeHash160(toScriptHash);
+  const script = sc.createScript({
+    scriptHash: strip0x(GAS_CONTRACT_HASH),
+    operation: 'transfer',
+    args: [
+      sc.ContractParam.hash160(`0x${funder.scriptHash}`),
+      sc.ContractParam.hash160(to),
+      sc.ContractParam.integer(String(amount)),
+      sc.ContractParam.any(null),
+    ],
+  });
+  const blockCount = Number(await neoRpcCall(config, 'getblockcount'));
+  const signers = [{ account: strip0x(funder.scriptHash), scopes: tx.WitnessScope.CalledByEntry }];
+  const transfer = new tx.Transaction({
+    version: 0,
+    nonce: Math.floor(Math.random() * 2 ** 32),
+    script: u.HexString.fromHex(script),
+    validUntilBlock: blockCount + 120,
+    signers,
+    attributes: [],
+    witnesses: [],
+  });
+  const testInvoke = await neoRpcCall(config, 'invokescript', [
+    transfer.script.toBase64(),
+    [{ account: strip0x(funder.scriptHash), scopes: 'CalledByEntry' }],
+  ]);
+  if (String(testInvoke?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(
+      `Neo N3 updater fee top-up test invoke faulted: ${testInvoke?.exception || 'unknown error'}`
+    );
+  }
+  const gasConsumed = BigInt(testInvoke?.gasconsumed || testInvoke?.gas_consumed || '0');
+  transfer.systemFee = u.BigInteger.fromDecimal(String(gasConsumed + 100000n), 0);
+  transfer.sign(funder, config.neo_n3.networkMagic);
+  const networkFeeResponse = await neoRpcCall(config, 'calculatenetworkfee', [
+    Buffer.from(transfer.serialize(true), 'hex').toString('base64'),
+  ]);
+  const networkFeeRaw =
+    typeof networkFeeResponse === 'string'
+      ? networkFeeResponse
+      : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
+  transfer.networkFee = u.BigInteger.fromDecimal(
+    String(BigInt(networkFeeRaw || '0') + 100000n),
+    0
+  );
+  transfer.sign(funder, config.neo_n3.networkMagic);
+  const txHash = `0x${transfer.hash()}`;
+  await neoRpcCall(config, 'sendrawtransaction', [
+    Buffer.from(transfer.serialize(true), 'hex').toString('base64'),
+  ]);
+  await waitForNeoN3TransactionHalt(config, txHash, 'Neo N3 updater fee top-up');
+  return txHash;
+}
+
+async function ensureNeoN3FeeBalance(config, target, requiredFee = 0n) {
+  const settings = getNeoN3FeeTopUpSettings(config);
+  if (!settings.enabled) return { skipped: true, reason: 'disabled' };
+  const targetHash = normalizeHash160(target?.scriptHash || target?.address || '');
+  if (!targetHash) return { skipped: true, reason: 'invalid-target' };
+  const requiredBalance = requiredFee + settings.minBalance;
+  const currentBalance = await readNeoN3GasBalance(config, targetHash);
+  if (currentBalance >= requiredBalance) {
+    return { skipped: true, reason: 'sufficient', balance: currentBalance.toString() };
+  }
+  const funder = buildLocalNeoN3AccountFromSecret(settings.funderWif, settings.funderPrivateKey);
+  if (!funder) {
+    throw new Error(
+      `Neo N3 updater fee balance is below reserve; configure MORPHEUS_RELAYER_NEO_N3_FEE_FUNDER_WIF for auto top-up`
+    );
+  }
+  const funderHash = normalizeHash160(`0x${funder.scriptHash}`);
+  if (funderHash === targetHash) {
+    throw new Error('Neo N3 updater fee top-up funder cannot be the same account as the updater');
+  }
+  const deficit = requiredBalance - currentBalance;
+  const amount = deficit > settings.topUpAmount ? deficit : settings.topUpAmount;
+  if (settings.maxTopUpAmount > 0n && amount > settings.maxTopUpAmount) {
+    throw new Error(
+      `Neo N3 updater fee top-up amount ${amount} exceeds configured max ${settings.maxTopUpAmount}`
+    );
+  }
+  const funderBalance = await readNeoN3GasBalance(config, funderHash);
+  if (funderBalance < amount + settings.minBalance) {
+    throw new Error('Neo N3 updater fee top-up funder has insufficient GAS reserve');
+  }
+  const txHash = await sendNeoN3GasTransfer(config, funder, targetHash, amount);
+  return {
+    skipped: false,
+    tx_hash: txHash,
+    amount: amount.toString(),
+    previous_balance: currentBalance.toString(),
+    required_balance: requiredBalance.toString(),
+  };
+}
+
 function buildSignatureWitness(signature, publicKey) {
   return new tx.Witness({
     invocationScript: u.HexString.fromHex(`0c40${normalizeSignature(signature)}`),
@@ -584,6 +752,11 @@ async function fulfillNeoN3RequestWithRuntimeDerivedUpdater(
   transaction.networkFee = u.BigInteger.fromDecimal(
     String(BigInt(networkFeeRaw || '0') + 100000n),
     0
+  );
+  await ensureNeoN3FeeBalance(
+    config,
+    updater,
+    gasConsumed + gasConsumed / 5n + 100000n + BigInt(networkFeeRaw || '0') + 100000n
   );
 
   const finalSignature = await signNeoN3TransactionWithRuntimeUpdater(

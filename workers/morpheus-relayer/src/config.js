@@ -106,6 +106,12 @@ function parseBoolean(value, fallback = false) {
   return fallback;
 }
 
+function parseIntegerString(value, fallback) {
+  const raw = trimString(value);
+  if (!/^[0-9]+$/.test(raw)) return fallback;
+  return raw;
+}
+
 function resolveRelayerMode(value) {
   const normalized = trimString(value).toLowerCase();
   if (normalized === 'feed_only' || normalized === 'requests_only') return normalized;
@@ -366,6 +372,33 @@ export function createRelayerConfig() {
         trimString(registry.neo_n3?.contracts?.morpheus_datafeed || ''),
       updaterWif: updaterSigner.materialized?.wif || '',
       updaterPrivateKey: updaterSigner.materialized?.private_key || '',
+      feeTopUp: {
+        enabled: parseBoolean(env('MORPHEUS_RELAYER_NEO_N3_AUTO_TOPUP_ENABLED'), true),
+        minBalance: parseIntegerString(
+          env('MORPHEUS_RELAYER_NEO_N3_AUTO_TOPUP_MIN_FIXED8'),
+          '50000000'
+        ),
+        topUpAmount: parseIntegerString(
+          env('MORPHEUS_RELAYER_NEO_N3_AUTO_TOPUP_AMOUNT_FIXED8'),
+          '100000000'
+        ),
+        maxTopUpAmount: parseIntegerString(
+          env('MORPHEUS_RELAYER_NEO_N3_AUTO_TOPUP_MAX_FIXED8'),
+          '500000000'
+        ),
+        funderWif: env(
+          'MORPHEUS_RELAYER_NEO_N3_FEE_FUNDER_WIF',
+          'MORPHEUS_NEO_N3_FEE_FUNDER_WIF',
+          'PHALA_NEO_N3_WIF',
+          'MORPHEUS_RELAYER_NEO_N3_WIF'
+        ),
+        funderPrivateKey: env(
+          'MORPHEUS_RELAYER_NEO_N3_FEE_FUNDER_PRIVATE_KEY',
+          'MORPHEUS_NEO_N3_FEE_FUNDER_PRIVATE_KEY',
+          'PHALA_NEO_N3_PRIVATE_KEY',
+          'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'
+        ),
+      },
     },
     metricsServer: {
       host: env('MORPHEUS_RELAYER_METRICS_HOST') || '127.0.0.1',

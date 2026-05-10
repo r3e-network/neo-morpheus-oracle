@@ -1154,6 +1154,139 @@ test('Neo N3 fulfill signs derived-updater transactions through the runtime when
   }
 });
 
+test('Neo N3 fulfill auto-funds the derived updater when GAS fee reserve is low', async () => {
+  const originalFetch = global.fetch;
+  const updater = new wallet.Account('2'.repeat(64));
+  const funder = new wallet.Account('4'.repeat(64));
+  const sendrawTransactions = [];
+  const balanceChecks = [];
+  try {
+    global.fetch = async (url, init = {}) => {
+      const href = String(url);
+      if (href.startsWith('https://runtime.test/keys/derived')) {
+        return new Response(
+          JSON.stringify({
+            derived: {
+              neo_n3: {
+                address: updater.address,
+                script_hash: `0x${updater.scriptHash}`,
+                public_key: updater.publicKey,
+              },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (href === 'https://runtime.test/sign/payload') {
+        return new Response(
+          JSON.stringify({
+            signature: '1'.repeat(128),
+            public_key: updater.publicKey,
+            address: updater.address,
+            script_hash: `0x${updater.scriptHash}`,
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+
+      const rpcBody = JSON.parse(String(init.body || '{}'));
+      if (rpcBody.method === 'getblockcount') {
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: 1000 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (rpcBody.method === 'invokefunction') {
+        assert.equal(rpcBody.params?.[0], '0xd2a4cff31913016155e38e474a2c06d08be276cf');
+        assert.equal(rpcBody.params?.[1], 'balanceOf');
+        const account = String(rpcBody.params?.[2]?.[0]?.value || '').toLowerCase();
+        balanceChecks.push(account);
+        const value = account === `0x${updater.scriptHash}`.toLowerCase() ? '0' : '2000000000';
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { state: 'HALT', stack: [{ type: 'Integer', value }] },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'invokescript') {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { state: 'HALT', gasconsumed: '1000000' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'calculatenetworkfee') {
+        return new Response(
+          JSON.stringify({ jsonrpc: '2.0', id: 1, result: { networkfee: '100000' } }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'sendrawtransaction') {
+        sendrawTransactions.push(String(rpcBody.params?.[0] || ''));
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (rpcBody.method === 'getapplicationlog') {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { executions: [{ vmstate: 'HALT' }] },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      throw new Error(`unexpected fetch ${href} ${rpcBody.method}`);
+    };
+
+    await fulfillNeoN3Request(
+      {
+        network: 'mainnet',
+        useDerivedKeys: true,
+        phala: { apiUrl: 'https://runtime.test', token: '', timeoutMs: 1000, useDerivedKeys: true },
+        neo_n3: {
+          rpcUrl: 'https://neo.test',
+          rpcUrls: ['https://neo.test'],
+          networkMagic: 860833102,
+          oracleContract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+          updaterWif: '',
+          updaterPrivateKey: '',
+          feeTopUp: {
+            enabled: true,
+            minBalance: '50000000',
+            topUpAmount: '100000000',
+            maxTopUpAmount: '500000000',
+            funderWif: funder.WIF,
+            funderPrivateKey: '',
+          },
+        },
+      },
+      23,
+      true,
+      '',
+      '',
+      '3'.repeat(128),
+      Buffer.from('ok').toString('base64')
+    );
+
+    assert.ok(
+      balanceChecks.includes(`0x${updater.scriptHash}`.toLowerCase()),
+      'expected updater balance to be checked before fulfillment'
+    );
+    assert.equal(sendrawTransactions.length, 2, 'expected top-up tx and fulfill tx');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('createRelayerConfig exposes the shared-worker derived-key preference', () => {
   const previous = process.env.PHALA_USE_DERIVED_KEYS;
   process.env.PHALA_USE_DERIVED_KEYS = 'true';
