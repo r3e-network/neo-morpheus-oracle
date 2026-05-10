@@ -712,7 +712,11 @@ async function getMiniAppIds(rpcClient, oracleHash) {
 }
 
 async function ensureSystemModule(context, module) {
-  const moduleIds = await invokeRead(context.rpcClient, context.oracleHash, 'getAllSystemModuleIds');
+  const moduleIds = await invokeRead(
+    context.rpcClient,
+    context.oracleHash,
+    'getAllSystemModuleIds'
+  );
   const existingIds = Array.isArray(moduleIds) ? moduleIds.map(String) : [];
   if (existingIds.includes(module.moduleId)) {
     return { action: 'module-skip', module_id: module.moduleId };
@@ -766,9 +770,10 @@ async function ensureMiniApp(context, app) {
     actions.push({ action: 'register-skip', app_id: app.appId });
   }
 
-  const modulesForApp = Array.isArray(app.moduleIds) && app.moduleIds.length > 0
-    ? app.moduleIds
-    : context.systemModules;
+  const modulesForApp =
+    Array.isArray(app.moduleIds) && app.moduleIds.length > 0
+      ? app.moduleIds
+      : context.systemModules;
   for (const moduleId of modulesForApp) {
     if (!EXECUTE && context.pendingSystemModules?.has(moduleId)) {
       actions.push({
@@ -894,8 +899,20 @@ async function resolvePlatformGameHash() {
   if (envHash) return envHash;
 
   const candidates = [
-    path.resolve('..', 'neo-miniapps-platform', 'contracts', 'build', 'mainnet_game_deployment.json'),
-    path.resolve('..', 'neo-miniapps-platform-neo-git', 'contracts', 'build', 'mainnet_game_deployment.json'),
+    path.resolve(
+      '..',
+      'neo-miniapps-platform',
+      'contracts',
+      'build',
+      'mainnet_game_deployment.json'
+    ),
+    path.resolve(
+      '..',
+      'neo-miniapps-platform-neo-git',
+      'contracts',
+      'build',
+      'mainnet_game_deployment.json'
+    ),
   ];
   for (const candidate of candidates) {
     const deployment = await loadJsonIfExists(candidate);
@@ -976,7 +993,9 @@ async function main() {
   const workerAccount = new wallet.Account(workerSecret);
   const workerHash = normalizeHash160(`0x${workerAccount.scriptHash}`);
   const rpcClient = new neoRpc.RPCClient(rpcUrl);
-  const systemModules = (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(String);
+  const systemModules = (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(
+    String
+  );
   const requestFee = BigInt((await invokeRead(rpcClient, oracleHash, 'requestFee')) || '0');
   const adminMinGasRaw = parseGasToRaw(process.env.MORPHEUS_MAINNET_ADMIN_MIN_GAS, 50000000n);
   const workerMinGasRaw = parseGasToRaw(process.env.MORPHEUS_MAINNET_WORKER_MIN_GAS, 30000000n);
@@ -1082,7 +1101,11 @@ async function main() {
       ]);
     }
     context.systemModules = Array.from(
-      new Set((await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds')).map(String).concat(PLATFORM_GAME_MODULE.moduleId))
+      new Set(
+        (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds'))
+          .map(String)
+          .concat(PLATFORM_GAME_MODULE.moduleId)
+      )
     );
   }
   for (const app of apps) {
@@ -1091,17 +1114,21 @@ async function main() {
   report.actions.push(await ensureConsumerOracle(context, callbackConsumerHash));
   report.actions.push(await ensureConsumerOracle(context, exampleConsumerHash));
   if (!SKIP_CREDIT && minCreditRaw > 0n) {
-    const creditBeneficiaries = Array.from(new Set([workerHash, ...apps.map((app) => app.feePayer)]));
+    const creditBeneficiaries = Array.from(
+      new Set([workerHash, ...apps.map((app) => app.feePayer)])
+    );
     for (const beneficiaryHash of creditBeneficiaries) {
-      report.actions.push(await ensureFeeCredit({
-        rpcClient,
-        rpcUrl,
-        networkMagic,
-        fundingAccount: workerAccount,
-        oracleHash,
-        beneficiaryHash,
-        minCreditRaw,
-      }));
+      report.actions.push(
+        await ensureFeeCredit({
+          rpcClient,
+          rpcUrl,
+          networkMagic,
+          fundingAccount: workerAccount,
+          oracleHash,
+          beneficiaryHash,
+          minCreditRaw,
+        })
+      );
     }
   }
 

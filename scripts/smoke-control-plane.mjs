@@ -257,7 +257,11 @@ async function waitForTerminalJob(baseUrl, network, jobId, token, timeoutMs = 18
 
 const args = parseArgs();
 const network =
-  trimString(args.network) === 'mainnet' ? 'mainnet' : trimString(args.network) === 'testnet' ? 'testnet' : resolveNetwork();
+  trimString(args.network) === 'mainnet'
+    ? 'mainnet'
+    : trimString(args.network) === 'testnet'
+      ? 'testnet'
+      : resolveNetwork();
 await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 await loadDotEnv(path.resolve(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`), {
   override: false,

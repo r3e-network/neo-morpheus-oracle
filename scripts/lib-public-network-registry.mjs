@@ -75,7 +75,8 @@ function buildContracts(network, rawRegistry, supplementalHashes) {
       trimString(aaVerifiers.sessionkey) ||
       trimString(supplementalHashes.aaSessionKeyVerifier),
     aaSocialRecoveryVerifier: trimString(aaVerifiers.social_recovery),
-    aaAddressMarket: trimString(contracts.aa_address_market) || trimString(supplementalHashes.aaAddressMarket),
+    aaAddressMarket:
+      trimString(contracts.aa_address_market) || trimString(supplementalHashes.aaAddressMarket),
     aaPaymaster: trimString(contracts.aa_paymaster) || trimString(supplementalHashes.aaPaymaster),
     morpheusOracle: trimString(contracts.morpheus_oracle),
     oracleCallbackConsumer: trimString(contracts.oracle_callback_consumer),

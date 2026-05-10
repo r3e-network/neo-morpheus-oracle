@@ -10,7 +10,9 @@ function writeEnv(filePath, values) {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(
     filePath,
-    Object.entries(values).map(([key, value]) => `${key}=${value}`).join('\n') + '\n',
+    Object.entries(values)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n') + '\n',
     'utf8'
   );
 }

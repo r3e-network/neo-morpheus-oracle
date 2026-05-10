@@ -28,10 +28,9 @@ describe('feed price route', () => {
     );
 
     const { GET } = await import('../app/api/feeds/[symbol]/route');
-    const response = await GET(
-      new Request('https://example.test/api/feeds/TWELVEDATA%3ANEO-USD'),
-      { params: Promise.resolve({ symbol: 'TWELVEDATA:NEO-USD' }) }
-    );
+    const response = await GET(new Request('https://example.test/api/feeds/TWELVEDATA%3ANEO-USD'), {
+      params: Promise.resolve({ symbol: 'TWELVEDATA:NEO-USD' }),
+    });
 
     expect(response.status).toBe(200);
     expect(response.headers.get('x-morpheus-upstream-status')).toBe('502');

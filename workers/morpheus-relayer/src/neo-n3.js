@@ -576,10 +576,7 @@ async function sendNeoN3GasTransfer(config, funder, toScriptHash, amount) {
     typeof networkFeeResponse === 'string'
       ? networkFeeResponse
       : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
-  transfer.networkFee = u.BigInteger.fromDecimal(
-    String(BigInt(networkFeeRaw || '0') + 100000n),
-    0
-  );
+  transfer.networkFee = u.BigInteger.fromDecimal(String(BigInt(networkFeeRaw || '0') + 100000n), 0);
   transfer.sign(funder, config.neo_n3.networkMagic);
   const txHash = `0x${transfer.hash()}`;
   await neoRpcCall(config, 'sendrawtransaction', [
@@ -686,7 +683,9 @@ async function signNeoN3TransactionWithRuntimeUpdater(config, messageHex, expect
   if (!response.ok) {
     throw new Error(`runtime derived updater signing failed with status ${response.status}`);
   }
-  const signature = normalizeSignature(response.body?.signature || response.body?.signature_hex || '');
+  const signature = normalizeSignature(
+    response.body?.signature || response.body?.signature_hex || ''
+  );
   const publicKey = normalizePublicKey(response.body?.public_key || response.body?.publicKey || '');
   if (publicKey.toLowerCase() !== normalizePublicKey(expectedPublicKey).toLowerCase()) {
     throw new Error('runtime derived updater signing key changed between lookup and signing');

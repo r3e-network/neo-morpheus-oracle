@@ -100,25 +100,13 @@ test('render-phala-hub-env propagates heartbeat URLs and network-scoped signer m
   assert.equal(rendered.PHALA_NEO_N3_WIF_TESTNET, 'testnet-feed-wif');
   assert.equal(rendered.PHALA_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-feed-private-key');
   assert.equal(rendered.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET, 'mainnet-request-wif');
-  assert.equal(
-    rendered.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET,
-    'mainnet-request-private-key'
-  );
+  assert.equal(rendered.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-request-private-key');
   assert.equal(rendered.MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET, 'mainnet-updater-wif');
-  assert.equal(
-    rendered.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET,
-    'mainnet-updater-private-key'
-  );
+  assert.equal(rendered.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-updater-private-key');
   assert.equal(rendered.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET, 'testnet-request-wif');
-  assert.equal(
-    rendered.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET,
-    'testnet-request-private-key'
-  );
+  assert.equal(rendered.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-request-private-key');
   assert.equal(rendered.MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET, 'testnet-updater-wif');
-  assert.equal(
-    rendered.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET,
-    'testnet-updater-private-key'
-  );
+  assert.equal(rendered.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-updater-private-key');
 });
 
 test('render-phala-hub-env lets secure local signer injection override packed runtime gaps', () => {
@@ -217,12 +205,6 @@ test('render-phala-hub-env never promotes unscoped local signer material into sc
 
   assert.equal(rendered.PHALA_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-worker-private-key');
   assert.equal(rendered.PHALA_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-worker-private-key');
-  assert.equal(
-    rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET,
-    'mainnet-verifier-public-key'
-  );
-  assert.equal(
-    rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET,
-    'testnet-verifier-public-key'
-  );
+  assert.equal(rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET, 'mainnet-verifier-public-key');
+  assert.equal(rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET, 'testnet-verifier-public-key');
 });

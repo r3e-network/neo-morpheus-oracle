@@ -32,10 +32,7 @@ function isAuthorized(request: Request) {
 function isVercelCronRequest(request: Request) {
   const routeUrl = new URL(request.url);
   const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
-  return (
-    userAgent.includes('vercel-cron') &&
-    Array.from(routeUrl.searchParams.keys()).length === 0
-  );
+  return userAgent.includes('vercel-cron') && Array.from(routeUrl.searchParams.keys()).length === 0;
 }
 
 function getSafeAuthDiagnostics(request: Request) {
