@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { relayNeoN3Invocation } from '../../phala-worker/src/chain/index.js';
-import { experimental, sc, u, wallet as neonWallet } from '@cityofzion/neon-js';
+import { experimental, sc, tx, u, wallet as neonWallet } from '@cityofzion/neon-js';
 import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './dstack.js';
+import { callPhala } from './phala.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -434,6 +435,178 @@ function base64ToHex(value) {
   return Buffer.from(raw, 'base64').toString('hex');
 }
 
+function normalizePublicKey(value) {
+  const publicKey = strip0x(value);
+  if (!/^[0-9a-f]{66}$/i.test(publicKey) && !/^[0-9a-f]{130}$/i.test(publicKey)) {
+    throw new Error('runtime derived updater returned an invalid public key');
+  }
+  return publicKey;
+}
+
+function normalizeSignature(value) {
+  const signature = strip0x(value);
+  if (!/^[0-9a-f]{128}$/i.test(signature)) {
+    throw new Error('runtime derived updater returned an invalid signature');
+  }
+  return signature;
+}
+
+function normalizeHash160(value) {
+  const raw = trimString(value);
+  if (/^0x[0-9a-f]{40}$/i.test(raw)) return raw.toLowerCase();
+  if (/^[0-9a-f]{40}$/i.test(raw)) return `0x${raw.toLowerCase()}`;
+  try {
+    return `0x${neonWallet.getScriptHashFromAddress(raw)}`.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function buildSignatureWitness(signature, publicKey) {
+  return new tx.Witness({
+    invocationScript: u.HexString.fromHex(`0c40${normalizeSignature(signature)}`),
+    verificationScript: u.HexString.fromHex(
+      neonWallet.getVerificationScriptFromPublicKey(normalizePublicKey(publicKey))
+    ),
+  });
+}
+
+function buildFulfillRequestParams(requestId, success, resultHex, error, verificationSignature) {
+  return [
+    sc.ContractParam.integer(String(requestId)),
+    sc.ContractParam.boolean(Boolean(success)),
+    sc.ContractParam.byteArray(u.HexString.fromHex(resultHex, true)),
+    sc.ContractParam.string(error || ''),
+    sc.ContractParam.byteArray(
+      u.HexString.fromHex(trimString(verificationSignature || '').replace(/^0x/i, ''), true)
+    ),
+  ];
+}
+
+async function resolveRuntimeDerivedUpdater(config) {
+  const response = await callPhala(config, '/keys/derived', {
+    role: 'updater',
+    key_role: 'updater',
+    dstack_key_role: 'updater',
+    target_chain: 'neo_n3',
+    use_derived_keys: true,
+  });
+  if (!response.ok) {
+    throw new Error(`runtime derived updater lookup failed with status ${response.status}`);
+  }
+  const neo = response.body?.derived?.neo_n3 || response.body?.neo_n3 || {};
+  const publicKey = normalizePublicKey(neo.public_key || neo.publicKey || '');
+  const scriptHash =
+    normalizeHash160(neo.script_hash || '') ||
+    normalizeHash160(neo.address || '') ||
+    `0x${neonWallet.getScriptHashFromPublicKey(publicKey)}`.toLowerCase();
+  return {
+    publicKey,
+    scriptHash,
+    address: trimString(neo.address || ''),
+  };
+}
+
+async function signNeoN3TransactionWithRuntimeUpdater(config, messageHex, expectedPublicKey) {
+  const response = await callPhala(config, '/sign/payload', {
+    target_chain: 'neo_n3',
+    key_role: 'updater',
+    dstack_key_role: 'updater',
+    data_hex: trimString(messageHex).replace(/^0x/i, ''),
+    use_derived_keys: true,
+  });
+  if (!response.ok) {
+    throw new Error(`runtime derived updater signing failed with status ${response.status}`);
+  }
+  const signature = normalizeSignature(response.body?.signature || response.body?.signature_hex || '');
+  const publicKey = normalizePublicKey(response.body?.public_key || response.body?.publicKey || '');
+  if (publicKey.toLowerCase() !== normalizePublicKey(expectedPublicKey).toLowerCase()) {
+    throw new Error('runtime derived updater signing key changed between lookup and signing');
+  }
+  return { signature, publicKey };
+}
+
+async function fulfillNeoN3RequestWithRuntimeDerivedUpdater(
+  config,
+  requestId,
+  success,
+  resultHex,
+  error,
+  verificationSignature
+) {
+  const updater = await resolveRuntimeDerivedUpdater(config);
+  const script = sc.createScript({
+    scriptHash: strip0x(config.neo_n3.oracleContract),
+    operation: 'fulfillRequest',
+    args: buildFulfillRequestParams(requestId, success, resultHex, error, verificationSignature),
+  });
+  const blockCount = Number(await neoRpcCall(config, 'getblockcount'));
+  const transaction = new tx.Transaction({
+    version: 0,
+    nonce: Math.floor(Math.random() * 2 ** 32),
+    script: u.HexString.fromHex(script),
+    validUntilBlock: blockCount + 120,
+    signers: [{ account: strip0x(updater.scriptHash), scopes: tx.WitnessScope.CalledByEntry }],
+    attributes: [],
+    witnesses: [],
+  });
+
+  const testInvoke = await neoRpcCall(config, 'invokescript', [
+    transaction.script.toBase64(),
+    [{ account: strip0x(updater.scriptHash), scopes: 'CalledByEntry' }],
+  ]);
+  if (String(testInvoke?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(
+      `Neo N3 fulfillRequest test invoke faulted for request ${requestId}: ${
+        testInvoke?.exception || 'unknown error'
+      }`
+    );
+  }
+  const gasConsumed = BigInt(testInvoke?.gasconsumed || testInvoke?.gas_consumed || '0');
+  transaction.systemFee = u.BigInteger.fromDecimal(
+    String(gasConsumed + gasConsumed / 5n + 100000n),
+    0
+  );
+
+  const feeSignature = await signNeoN3TransactionWithRuntimeUpdater(
+    config,
+    transaction.getMessageForSigning(config.neo_n3.networkMagic),
+    updater.publicKey
+  );
+  transaction.witnesses = [buildSignatureWitness(feeSignature.signature, feeSignature.publicKey)];
+  const networkFeeResponse = await neoRpcCall(config, 'calculatenetworkfee', [
+    Buffer.from(transaction.serialize(true), 'hex').toString('base64'),
+  ]);
+  const networkFeeRaw =
+    typeof networkFeeResponse === 'string'
+      ? networkFeeResponse
+      : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
+  transaction.networkFee = u.BigInteger.fromDecimal(
+    String(BigInt(networkFeeRaw || '0') + 100000n),
+    0
+  );
+
+  const finalSignature = await signNeoN3TransactionWithRuntimeUpdater(
+    config,
+    transaction.getMessageForSigning(config.neo_n3.networkMagic),
+    updater.publicKey
+  );
+  transaction.witnesses = [
+    buildSignatureWitness(finalSignature.signature, finalSignature.publicKey),
+  ];
+  const witnessHash = normalizeHash160(`0x${transaction.witnesses[0].scriptHash}`);
+  if (witnessHash !== updater.scriptHash) {
+    throw new Error(
+      `runtime derived updater witness mismatch: expected ${updater.scriptHash}, got ${witnessHash}`
+    );
+  }
+
+  const txHash = `0x${transaction.hash()}`;
+  const signedBase64 = Buffer.from(transaction.serialize(true), 'hex').toString('base64');
+  await neoRpcCall(config, 'sendrawtransaction', [signedBase64]);
+  return txHash;
+}
+
 export function assertNeoN3HaltExecution(requestId, txHash, execution) {
   const vmState = trimString(execution?.vmstate || 'HALT').toUpperCase() || 'HALT';
   const exception = trimString(execution?.exception || '');
@@ -469,30 +642,38 @@ export async function fulfillNeoN3Request(
   resultBytesBase64 = ''
 ) {
   await ensureHealthyNeoN3Rpc(config);
-  const signerPayload = await resolveNeoN3UpdaterPayload(config);
-  const signerAccount = signerPayload.wif
-    ? new neonWallet.Account(signerPayload.wif)
-    : new neonWallet.Account(signerPayload.private_key);
-  const contract = new experimental.SmartContract(config.neo_n3.oracleContract, {
-    rpcAddress: config.neo_n3.rpcUrl,
-    networkMagic: config.neo_n3.networkMagic,
-    account: signerAccount,
-  });
   const resultHex = trimString(resultBytesBase64)
     ? base64ToHex(resultBytesBase64)
     : Buffer.from(String(result || ''), 'utf8').toString('hex');
-  const txHashRaw = await contract.invoke('fulfillRequest', [
-    sc.ContractParam.integer(String(requestId)),
-    sc.ContractParam.boolean(Boolean(success)),
-    sc.ContractParam.byteArray(u.HexString.fromHex(resultHex, true)),
-    sc.ContractParam.string(error || ''),
-    sc.ContractParam.byteArray(
-      u.HexString.fromHex(trimString(verificationSignature || '').replace(/^0x/i, ''), true)
-    ),
-  ]);
-  const txHash = trimString(txHashRaw).startsWith('0x')
-    ? trimString(txHashRaw)
-    : `0x${trimString(txHashRaw)}`;
+  let txHash;
+  try {
+    const signerPayload = await resolveNeoN3UpdaterPayload(config);
+    const signerAccount = signerPayload.wif
+      ? new neonWallet.Account(signerPayload.wif)
+      : new neonWallet.Account(signerPayload.private_key);
+    const contract = new experimental.SmartContract(config.neo_n3.oracleContract, {
+      rpcAddress: config.neo_n3.rpcUrl,
+      networkMagic: config.neo_n3.networkMagic,
+      account: signerAccount,
+    });
+    const txHashRaw = await contract.invoke(
+      'fulfillRequest',
+      buildFulfillRequestParams(requestId, success, resultHex, error, verificationSignature)
+    );
+    txHash = trimString(txHashRaw).startsWith('0x')
+      ? trimString(txHashRaw)
+      : `0x${trimString(txHashRaw)}`;
+  } catch (localError) {
+    if (!shouldUseDerivedKeys(config)) throw localError;
+    txHash = await fulfillNeoN3RequestWithRuntimeDerivedUpdater(
+      config,
+      requestId,
+      success,
+      resultHex,
+      error,
+      verificationSignature
+    );
+  }
   let vmState = 'HALT';
   let exception;
   try {

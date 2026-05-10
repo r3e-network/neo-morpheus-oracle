@@ -55,6 +55,7 @@ import {
   buildNeoN3RelayRequestId,
   decodeNeoItem,
   encodeUtf8ByteArrayParamValue,
+  fulfillNeoN3Request,
   getNeoN3LatestBlock,
   hasNeoN3RelayerConfig,
 } from './src/neo-n3.js';
@@ -1039,6 +1040,118 @@ test('relayer config accepts derived-key mode for Neo N3', () => {
   assert.equal(hasNeoN3RelayerConfig(config), true);
 
   process.env.PHALA_USE_DERIVED_KEYS = previous;
+});
+
+test('Neo N3 fulfill signs derived-updater transactions through the runtime when no local updater key is present', async () => {
+  const originalFetch = global.fetch;
+  const signer = new wallet.Account('2'.repeat(64));
+  const calls = [];
+  try {
+    global.fetch = async (url, init = {}) => {
+      const href = String(url);
+      calls.push(href);
+      if (href.startsWith('https://runtime.test/keys/derived')) {
+        return new Response(
+          JSON.stringify({
+            derived: {
+              neo_n3: {
+                address: signer.address,
+                script_hash: `0x${signer.scriptHash}`,
+                public_key: signer.publicKey,
+              },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (href === 'https://runtime.test/sign/payload') {
+        const body = JSON.parse(String(init.body || '{}'));
+        assert.equal(body.key_role || body.dstack_key_role, 'updater');
+        assert.equal(body.target_chain, 'neo_n3');
+        assert.match(String(body.data_hex || ''), /^[0-9a-f]+$/i);
+        return new Response(
+          JSON.stringify({
+            signature: '1'.repeat(128),
+            public_key: signer.publicKey,
+            address: signer.address,
+            script_hash: `0x${signer.scriptHash}`,
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+
+      const rpcBody = JSON.parse(String(init.body || '{}'));
+      if (rpcBody.method === 'getblockcount') {
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: 1000 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (rpcBody.method === 'invokescript') {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { state: 'HALT', gasconsumed: '1000000' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'calculatenetworkfee') {
+        return new Response(
+          JSON.stringify({ jsonrpc: '2.0', id: 1, result: { networkfee: '100000' } }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'sendrawtransaction') {
+        assert.ok(String(rpcBody.params?.[0] || '').length > 0);
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (rpcBody.method === 'getapplicationlog') {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { executions: [{ vmstate: 'HALT' }] },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      throw new Error(`unexpected fetch ${href}`);
+    };
+
+    const result = await fulfillNeoN3Request(
+      {
+        network: 'mainnet',
+        useDerivedKeys: true,
+        phala: { apiUrl: 'https://runtime.test', token: '', timeoutMs: 1000, useDerivedKeys: true },
+        neo_n3: {
+          rpcUrl: 'https://neo.test',
+          rpcUrls: ['https://neo.test'],
+          networkMagic: 860833102,
+          oracleContract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+          updaterWif: '',
+          updaterPrivateKey: '',
+        },
+      },
+      23,
+      true,
+      '',
+      '',
+      '3'.repeat(128),
+      Buffer.from('ok').toString('base64')
+    );
+
+    assert.equal(result.vm_state, 'HALT');
+    assert.equal(result.target_chain, 'neo_n3');
+    assert.ok(calls.includes('https://runtime.test/sign/payload'));
+    assert.ok(calls.some((entry) => entry.startsWith('https://runtime.test/keys/derived')));
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 test('createRelayerConfig exposes the shared-worker derived-key preference', () => {
