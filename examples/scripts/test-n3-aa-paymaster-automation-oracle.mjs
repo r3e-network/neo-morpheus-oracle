@@ -64,7 +64,7 @@ let localPaymasterHandlerPromise = null;
 const GAS_HASH = CONST.NATIVE_CONTRACT_HASH.GasToken;
 const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || '0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2';
 const WEB3AUTH_VERIFIER_HASH =
-  process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || '0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d';
+  process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || '0x7147f9a508594a7656a25f45d0a7a7dede7c227f';
 const PAYMASTER_ACCOUNT_ID_OVERRIDE = trimString(process.env.PAYMASTER_ACCOUNT_ID || '');
 const PAYMASTER_DAPP_ID = process.env.MORPHEUS_PAYMASTER_DAPP_ID || 'demo-dapp';
 const PAYMASTER_APP_ID =

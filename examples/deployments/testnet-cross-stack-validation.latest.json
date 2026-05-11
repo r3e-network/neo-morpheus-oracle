@@ -86,7 +86,7 @@
     "oracle": "0x4b882e94ed766807c4fd728768f972e13008ad52",
     "datafeed": "0x9bea75cf702f6afc09125aa6d22f082bfd2ee064",
     "aa_core": "0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2",
-    "aa_web3auth_verifier": "0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d",
+    "aa_web3auth_verifier": "0x7147f9a508594a7656a25f45d0a7a7dede7c227f",
     "aa_session_key_verifier": "0xed44c88535650b4dd6b8d59776e6ed045462cab6"
   },
   "notes": [
