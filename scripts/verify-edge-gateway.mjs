@@ -31,7 +31,7 @@ async function main() {
       target_chain: 'neo_n3',
       account_id: '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56',
       dapp_id: 'demo-dapp',
-      target_contract: '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38',
+      target_contract: '0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2',
       method: 'executeUserOp',
       estimated_gas_units: 120000,
       operation_hash: '0x' + '11'.repeat(32),

@@ -62,7 +62,7 @@ const relayHandler = relayModule.default;
 let localPaymasterHandlerPromise = null;
 
 const GAS_HASH = CONST.NATIVE_CONTRACT_HASH.GasToken;
-const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38';
+const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || '0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2';
 const WEB3AUTH_VERIFIER_HASH =
   process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || '0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d';
 const PAYMASTER_ACCOUNT_ID_OVERRIDE = trimString(process.env.PAYMASTER_ACCOUNT_ID || '');

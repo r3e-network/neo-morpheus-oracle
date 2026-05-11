@@ -178,7 +178,7 @@ export async function GET(request: Request) {
       }
     );
     if (!shouldFallbackFromFeedControlPlane(controlPlaneResponse)) {
-      void sendHeartbeat(
+      await sendHeartbeat(
         controlPlaneResponse.ok
           ? process.env.MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL || ''
           : process.env.MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL || '',
@@ -202,12 +202,12 @@ export async function GET(request: Request) {
     symbols: symbols.length,
   };
   if (finalBody.ok) {
-    void sendHeartbeat(
+    await sendHeartbeat(
       process.env.MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL || '',
       heartbeatPayload
     );
   } else {
-    void sendHeartbeat(
+    await sendHeartbeat(
       process.env.MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL || '',
       heartbeatPayload
     );
