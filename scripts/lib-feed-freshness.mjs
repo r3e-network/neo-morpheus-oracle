@@ -130,6 +130,8 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
           'curl',
           [
             '-fsS',
+            '--happy-eyeballs-timeout-ms',
+            '200',
             '--connect-timeout',
             '5',
             '--max-time',
@@ -150,6 +152,144 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
     } catch (error) {
       lastError = error;
       if (attempt >= 3) break;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+function isRpcTimeoutError(error) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return (
+    message.includes('SSL connection timeout') ||
+    message.includes('Connection timed out') ||
+    message.includes('timeout') ||
+    message.includes('ETIMEDOUT')
+  );
+}
+
+function probeNeoRpcUrlViaCurl(rpcUrl) {
+  const payload = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'getversion',
+    params: [],
+  };
+
+  try {
+    const response = JSON.parse(
+      execFileSync(
+        'curl',
+        [
+          '-fsS',
+          '--happy-eyeballs-timeout-ms',
+          '200',
+          '--connect-timeout',
+          '3',
+          '--max-time',
+          '6',
+          rpcUrl,
+          '-H',
+          'Content-Type: application/json',
+          '-d',
+          JSON.stringify(payload),
+        ],
+        { encoding: 'utf8', timeout: 8_000 }
+      )
+    );
+    return !response?.error;
+  } catch (error) {
+    if (isRpcTimeoutError(error)) {
+      return false;
+    }
+    return false;
+  }
+}
+
+export function resolveReachableNeoRpcUrls(rpcUrls) {
+  const urls = Array.isArray(rpcUrls)
+    ? rpcUrls.map((value) => trimString(value)).filter(Boolean)
+    : [trimString(rpcUrls)].filter(Boolean);
+  const uniqueUrls = [...new Set(urls)];
+  if (!uniqueUrls.length) return [];
+
+  const reachable = [];
+  for (const url of uniqueUrls) {
+    if (probeNeoRpcUrlViaCurl(url)) reachable.push(url);
+  }
+
+  return reachable.length ? reachable : uniqueUrls;
+}
+
+function probeNeoInvokeViaCurl(rpcUrl, contractHash, operation, params = []) {
+  const payload = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'invokefunction',
+    params: [contractHash, operation, params],
+  };
+
+  try {
+    const response = JSON.parse(
+      execFileSync(
+        'curl',
+        [
+          '-fsS',
+          '--happy-eyeballs-timeout-ms',
+          '200',
+          '--connect-timeout',
+          '3',
+          '--max-time',
+          '10',
+          rpcUrl,
+          '-H',
+          'Content-Type: application/json',
+          '-d',
+          JSON.stringify(payload),
+        ],
+        { encoding: 'utf8', timeout: 12_000 }
+      )
+    );
+    if (response.error) return false;
+    const result = response.result;
+    return Boolean(result) && typeof result === 'object' && Array.isArray(result.stack);
+  } catch (error) {
+    return false;
+  }
+}
+
+export function resolveReachableNeoRpcUrlsForInvoke(
+  rpcUrls,
+  contractHash,
+  operation,
+  params = []
+) {
+  const candidates = resolveReachableNeoRpcUrls(rpcUrls);
+  if (!candidates.length) return [];
+  const reachable = [];
+  for (const url of candidates) {
+    if (probeNeoInvokeViaCurl(url, contractHash, operation, params)) reachable.push(url);
+  }
+  return reachable.length ? reachable : candidates;
+}
+
+export function invokeNeoFunctionViaCurlWithFallback(
+  rpcUrls,
+  contractHash,
+  operation,
+  params = []
+) {
+  const urls = Array.isArray(rpcUrls)
+    ? rpcUrls.map((value) => trimString(value)).filter(Boolean)
+    : [trimString(rpcUrls)].filter(Boolean);
+  if (!urls.length) {
+    throw new Error(`rpc url missing for ${operation}`);
+  }
+  let lastError = null;
+  for (const rpcUrl of urls) {
+    try {
+      return invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params);
+    } catch (error) {
+      lastError = error;
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
@@ -190,9 +330,30 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
   const runtimeConfig = await loadRuntimeConfigFromEnvFile(
     path.join(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`)
   );
-  const rpcUrl = trimString(networkConfig.neo_n3?.rpc_url || '');
+  const explicitRpcUrl = trimString(process.env.NEO_RPC_URL || '');
+  const baseRpcUrls = [
+    ...(Array.isArray(networkConfig.neo_n3?.rpc_urls) ? networkConfig.neo_n3.rpc_urls : []),
+    trimString(networkConfig.neo_n3?.rpc_url || ''),
+  ]
+    .map((value) => trimString(value))
+    .filter(Boolean);
+  const strictRpcOverride = trimString(process.env.NEO_RPC_URL_STRICT || '') === '1';
+  const rpcUrls = (explicitRpcUrl
+    ? strictRpcOverride
+      ? [explicitRpcUrl]
+      : [explicitRpcUrl, ...baseRpcUrls]
+    : baseRpcUrls
+  )
+    .map((value) => trimString(value))
+    .filter(Boolean);
   const datafeedHash = trimString(networkConfig.neo_n3?.contracts?.morpheus_datafeed || '');
   const pairs = parseConfiguredFeedPairs(runtimeConfig);
+  const uniqueRpcUrls = resolveReachableNeoRpcUrlsForInvoke(
+    rpcUrls,
+    datafeedHash,
+    'getLatest',
+    pairs.length ? [{ type: 'String', value: pairs[0] }] : []
+  );
   const rows = [];
 
   if (
@@ -203,9 +364,12 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
   }
 
   for (const pair of pairs) {
-    const response = invokeNeoFunctionViaCurl(rpcUrl, datafeedHash, 'getLatest', [
-      { type: 'String', value: pair },
-    ]);
+    const response = invokeNeoFunctionViaCurlWithFallback(
+      uniqueRpcUrls,
+      datafeedHash,
+      'getLatest',
+      [{ type: 'String', value: pair }]
+    );
     const decoded = decodeNeoStackItem(response.stack?.[0]) || [];
     const [, roundId, price, timestamp, attestationHash, sourceSetId] = decoded;
     rows.push({
