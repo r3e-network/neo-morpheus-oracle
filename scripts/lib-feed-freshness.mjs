@@ -133,7 +133,7 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
             '--happy-eyeballs-timeout-ms',
             '200',
             '--connect-timeout',
-            '5',
+            '20',
             '--max-time',
             '20',
             rpcUrl,
@@ -184,16 +184,16 @@ function probeNeoRpcUrlViaCurl(rpcUrl) {
           '--happy-eyeballs-timeout-ms',
           '200',
           '--connect-timeout',
-          '3',
+          '20',
           '--max-time',
-          '6',
+          '25',
           rpcUrl,
           '-H',
           'Content-Type: application/json',
           '-d',
           JSON.stringify(payload),
         ],
-        { encoding: 'utf8', timeout: 8_000 }
+        { encoding: 'utf8', timeout: 30_000 }
       )
     );
     return !response?.error;
@@ -237,16 +237,16 @@ function probeNeoInvokeViaCurl(rpcUrl, contractHash, operation, params = []) {
           '--happy-eyeballs-timeout-ms',
           '200',
           '--connect-timeout',
-          '3',
+          '20',
           '--max-time',
-          '10',
+          '25',
           rpcUrl,
           '-H',
           'Content-Type: application/json',
           '-d',
           JSON.stringify(payload),
         ],
-        { encoding: 'utf8', timeout: 12_000 }
+        { encoding: 'utf8', timeout: 30_000 }
       )
     );
     if (response.error) return false;
