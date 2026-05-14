@@ -70,6 +70,9 @@ Important relayer notes:
 
 - `MORPHEUS_RELAYER_MODE=requests_only` for the Oracle CVM
 - `MORPHEUS_RELAYER_MODE=feed_only` for the DataFeed CVM
+- mainnet request relayers must receive network-scoped
+  `MORPHEUS_RELAYER_NEO_N3_*_MAINNET` and
+  `MORPHEUS_UPDATER_NEO_N3_*_MAINNET` secrets from secure env injection
 - `MORPHEUS_RELAYER_INSTANCE_ID` makes queue ownership explicit
 - `MORPHEUS_DURABLE_QUEUE_ENABLED=true` persists chain events before checkpoint advance
 

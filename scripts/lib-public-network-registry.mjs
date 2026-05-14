@@ -44,6 +44,12 @@ function resolveSupplementalHashes(network, oracleRoot) {
         trimString(
           deployment?.neo_n3?.aa_subdomains?.['sessionkey.smartwallet.neo']?.contract_hash
         ) || trimString(deployment?.neo_n3?.aa_subdomains?.sessionkey?.contract_hash),
+      aaAddressMarket:
+        trimString(deployment?.neo_n3?.aa_address_market_hash) ||
+        trimString(deployment?.neo_n3?.aa_subdomains?.['market.smartwallet.neo']?.contract_hash),
+      aaPaymaster:
+        trimString(deployment?.neo_n3?.aa_paymaster_hash) ||
+        trimString(deployment?.neo_n3?.aa_subdomains?.['paymaster.smartwallet.neo']?.contract_hash),
     };
   }
 
@@ -52,6 +58,8 @@ function resolveSupplementalHashes(network, oracleRoot) {
   );
   return {
     aaSessionKeyVerifier: trimString(validation?.shared_testnet_contracts?.aa_session_key_verifier),
+    aaAddressMarket: trimString(validation?.shared_testnet_contracts?.aa_address_market),
+    aaPaymaster: trimString(validation?.shared_testnet_contracts?.aa_paymaster),
   };
 }
 
@@ -62,8 +70,14 @@ function buildContracts(network, rawRegistry, supplementalHashes) {
   return compactObject({
     aaCore: trimString(contracts.abstract_account),
     aaWeb3AuthVerifier: trimString(aaVerifiers.web3auth),
-    aaSessionKeyVerifier: trimString(supplementalHashes.aaSessionKeyVerifier),
+    aaSessionKeyVerifier:
+      trimString(aaVerifiers.session_key) ||
+      trimString(aaVerifiers.sessionkey) ||
+      trimString(supplementalHashes.aaSessionKeyVerifier),
     aaSocialRecoveryVerifier: trimString(aaVerifiers.social_recovery),
+    aaAddressMarket:
+      trimString(contracts.aa_address_market) || trimString(supplementalHashes.aaAddressMarket),
+    aaPaymaster: trimString(contracts.aa_paymaster) || trimString(supplementalHashes.aaPaymaster),
     morpheusOracle: trimString(contracts.morpheus_oracle),
     oracleCallbackConsumer: trimString(contracts.oracle_callback_consumer),
     morpheusDatafeed: trimString(contracts.morpheus_datafeed),
@@ -82,7 +96,10 @@ function buildDomains(rawRegistry) {
     aaWeb3AuthVerifier: trimString(aaSubdomains.web3auth),
     aaSessionKeyVerifier: trimString(aaSubdomains.session),
     aaSocialRecoveryVerifier: trimString(aaSubdomains.recovery),
+    aaAddressMarket: trimString(aaSubdomains.market),
+    aaPaymaster: trimString(aaSubdomains.paymaster),
     oracle: trimString(domains.morpheus_oracle),
+    callbackConsumer: trimString(domains.morpheus_callback_consumer),
     datafeed: trimString(domains.morpheus_datafeed),
     neodid: trimString(domains.morpheus_neodid),
   });

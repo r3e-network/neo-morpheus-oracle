@@ -23,17 +23,28 @@ export function buildFeedSyncPayload(config, targetChain) {
     target_chain: targetChain,
     network: config.network,
     symbols: config.feedSync.symbols,
-    project_slug: config.feedSync.projectSlug || undefined,
     feed_change_threshold_bps: config.feedSync.changeThresholdBps,
     feed_min_update_interval_ms: config.feedSync.minUpdateIntervalMs,
     feed_stale_after_ms: config.feedSync.staleAfterMs,
-    wait: false,
+    refresh_onchain_baseline: true,
+    wait: Boolean(config.feedSync.waitForSubmission),
   };
+
+  if (payload.wait) {
+    payload.feed_submission_wait_timeout_ms = config.feedSync.timeoutMs;
+  }
 
   if (config.feedSync.provider) {
     payload.provider = config.feedSync.provider;
   } else if (Array.isArray(config.feedSync.providers) && config.feedSync.providers.length > 0) {
     payload.providers = config.feedSync.providers;
+  }
+
+  // The automatic pricefeed runner already carries explicit provider/symbol
+  // config from the signed runtime env. Keeping project config opt-in prevents
+  // Supabase control-plane quota or downtime from blocking mainnet feed updates.
+  if (config.feedSync.projectConfigEnabled && config.feedSync.projectSlug) {
+    payload.project_slug = config.feedSync.projectSlug;
   }
 
   // Do not inject relayer/updater signer material into feed sync payloads.
@@ -42,6 +53,18 @@ export function buildFeedSyncPayload(config, targetChain) {
   // can override that worker signer and make mainnet DataFeed calls fail as
   // unauthorized.
   return payload;
+}
+
+function isFeedSyncChainSuccessful(response, summary) {
+  return Boolean(response?.ok) && Number(summary?.error_count || 0) === 0;
+}
+
+function resolvePublicationState({ errorCount, accepted, submittedPairs, skippedPairs }) {
+  if (errorCount > 0) return 'error';
+  if (accepted) return 'accepted';
+  if (submittedPairs > 0) return 'submitted';
+  if (skippedPairs > 0) return 'skipped';
+  return 'idle';
 }
 
 export function summarizeFeedSyncChainResult(chainResult = {}) {
@@ -76,14 +99,12 @@ export function summarizeFeedSyncChainResult(chainResult = {}) {
     target_chain: String(chainResult?.target_chain || ''),
     api_url: String(chainResult?.api_url || ''),
     network: String(body?.network || ''),
-    publication_state:
-      errorCount > 0
-        ? 'error'
-        : submittedPairs > 0
-          ? 'submitted'
-          : skippedPairs > 0
-            ? 'skipped'
-            : 'idle',
+    publication_state: resolvePublicationState({
+      errorCount,
+      accepted: Boolean(body?.accepted),
+      submittedPairs,
+      skippedPairs,
+    }),
     batch_submitted: Boolean(body?.batch_submitted),
     batch_count: Number(body?.batch_count || 0),
     submitted_pairs: submittedPairs,
@@ -120,6 +141,15 @@ export async function processFeedSync(config, state, logger) {
 
       const timeoutAwareResponse = await callPhala(config, '/oracle/feed', payload, {
         timeoutMs: config.feedSync.timeoutMs,
+        maxTimeoutMs: config.feedSync.timeoutMs,
+        allowFallback: false,
+      });
+      const publicationSummary = summarizeFeedSyncChainResult({
+        target_chain: targetChain,
+        api_url: timeoutAwareResponse.api_url,
+        ok: timeoutAwareResponse.ok,
+        status: timeoutAwareResponse.status,
+        body: timeoutAwareResponse.body,
       });
       chains.push({
         target_chain: targetChain,
@@ -127,17 +157,13 @@ export async function processFeedSync(config, state, logger) {
         ok: timeoutAwareResponse.ok,
         status: timeoutAwareResponse.status,
         body: timeoutAwareResponse.body,
-        publication_summary: summarizeFeedSyncChainResult({
-          target_chain: targetChain,
-          api_url: timeoutAwareResponse.api_url,
-          ok: timeoutAwareResponse.ok,
-          status: timeoutAwareResponse.status,
-          body: timeoutAwareResponse.body,
-        }),
+        publication_summary: publicationSummary,
       });
       incrementMetric(
         state,
-        timeoutAwareResponse.ok ? 'feed_sync_success_total' : 'feed_sync_error_total'
+        isFeedSyncChainSuccessful(timeoutAwareResponse, publicationSummary)
+          ? 'feed_sync_success_total'
+          : 'feed_sync_error_total'
       );
     } catch (error) {
       chains.push({
@@ -159,7 +185,14 @@ export async function processFeedSync(config, state, logger) {
 
   state.metrics.last_feed_sync_completed_at = new Date().toISOString();
   state.metrics.last_feed_sync_duration_ms = Date.now() - now;
-  if (chains.some((entry) => entry.ok)) {
+  if (
+    chains.some((entry) =>
+      isFeedSyncChainSuccessful(
+        entry,
+        entry.publication_summary || summarizeFeedSyncChainResult(entry)
+      )
+    )
+  ) {
     state.metrics.last_feed_sync_success_at = state.metrics.last_feed_sync_completed_at;
   }
   saveRelayerState(config.stateFile, state);

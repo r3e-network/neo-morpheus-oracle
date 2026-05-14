@@ -4,7 +4,7 @@ import { getDerivedKeySummary } from './platform/dstack.js';
 import {
   ensureOracleKeyMaterial,
   buildOracleResponse,
-  handleOracleFeed,
+  handleOracleFeedRequest,
   handleFeedsPrice,
   listFeedSymbols,
   handleVrf,
@@ -208,7 +208,7 @@ const CAPABILITIES = [
     paths: [{ match: '/oracle/feed' }],
     actions: ['oracle_feed'],
     featurePath: 'oracle/feed',
-    handler: async ({ payload }) => handleOracleFeed(payload),
+    handler: async ({ payload }) => handleOracleFeedRequest(payload),
   },
   {
     id: 'txproxy_invoke',

@@ -395,7 +395,7 @@ const consumerHash = resolveNeoN3ConsumerHash(network, deployment);
 const oracleHash = resolveNeoN3OracleHash(network, deployment);
 const callbackTimeoutMs = Number(process.env.EXAMPLE_CALLBACK_TIMEOUT_MS || 180000);
 const aaContractHash = normalizeHash160(
-  process.env.AA_TESTNET_HASH || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38'
+  process.env.AA_TESTNET_HASH || '0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2'
 );
 const aaVerifierHash = normalizeHash160(
   process.env.AA_RECOVERY_VERIFIER_TESTNET_HASH || '0x11d1012e071fac7fd75569981ac44da097913a84'

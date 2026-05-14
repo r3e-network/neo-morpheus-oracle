@@ -533,7 +533,7 @@ async function main() {
   const oracleHash = normalizeHash160(deployment.oracle_hash || '');
   const consumerHash = normalizeHash160(deployment.example_consumer_hash || '');
   const aaCoreHash = trimString(
-    process.env.AA_CORE_HASH_TESTNET || '0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38'
+    process.env.AA_CORE_HASH_TESTNET || '0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2'
   );
   const phalaApiToken = trimString(
     process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || ''

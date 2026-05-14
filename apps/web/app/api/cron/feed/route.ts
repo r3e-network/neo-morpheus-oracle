@@ -10,11 +10,53 @@ import { runFeedSyncJob } from '@/lib/feed-sync';
 import { sendHeartbeat } from '@/lib/heartbeat';
 import { recordOperationLog } from '@/lib/operation-logs';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+function jsonNoStore(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('cache-control', 'no-store');
+  return Response.json(body, { ...init, headers });
+}
+
 function isAuthorized(request: Request) {
-  const configured = process.env.CRON_SECRET || '';
+  const runtimeEnv = process.env as Record<string, string | undefined>;
+  const configured = runtimeEnv['MORPHEUS_CRON_SECRET'] || runtimeEnv['CRON_SECRET'] || '';
   if (!configured) return false;
-  const auth = request.headers.get('authorization') || '';
-  return auth === `Bearer ${configured}`;
+  const bearer = request.headers.get('authorization') || '';
+  const headerSecret =
+    request.headers.get('x-morpheus-cron') || request.headers.get('x-cron-token') || '';
+  return bearer === `Bearer ${configured}` || headerSecret === configured;
+}
+
+function isVercelCronRequest(request: Request) {
+  const routeUrl = new URL(request.url);
+  const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
+  return userAgent.includes('vercel-cron') && Array.from(routeUrl.searchParams.keys()).length === 0;
+}
+
+function getSafeAuthDiagnostics(request: Request) {
+  const runtimeEnv = process.env as Record<string, string | undefined>;
+  const configured = runtimeEnv['MORPHEUS_CRON_SECRET'] || runtimeEnv['CRON_SECRET'] || '';
+  const routeUrl = new URL(request.url);
+  const bearer = request.headers.get('authorization') || '';
+  const headerSecret =
+    request.headers.get('x-morpheus-cron') || request.headers.get('x-cron-token') || '';
+  return {
+    headerNames: Array.from(request.headers.keys()).sort(),
+    hasAuthorizationHeader: Boolean(request.headers.get('authorization')),
+    hasCronHeaderSecret: Boolean(headerSecret),
+    hasVercelSecureComputeHeaders: Boolean(request.headers.get('x-vercel-sc-headers')),
+    authMatchesConfigured: Boolean(configured && bearer === `Bearer ${configured}`),
+    cronHeaderMatchesConfigured: Boolean(configured && headerSecret === configured),
+    configuredSecretLength: configured.length,
+    authHeaderLength: bearer.length,
+    cronHeaderSecretLength: headerSecret.length,
+    hasCronSecret: Boolean(runtimeEnv['CRON_SECRET']),
+    hasMorpheusCronSecret: Boolean(runtimeEnv['MORPHEUS_CRON_SECRET']),
+    searchParamCount: Array.from(routeUrl.searchParams.keys()).length,
+    userAgent: request.headers.get('user-agent') || '',
+  };
 }
 
 function isFeedControlPlaneEnabled() {
@@ -26,8 +68,32 @@ function isFeedControlPlaneEnabled() {
   return process.env.NODE_ENV === 'production';
 }
 
+function shouldFallbackFromFeedControlPlane(response: Response) {
+  if (shouldUseControlPlaneFallback(response)) return true;
+  if (![401, 403].includes(response.status)) return false;
+  const raw = String(process.env.MORPHEUS_CONTROL_PLANE_FEED_FALLBACK_ON_AUTH || '')
+    .trim()
+    .toLowerCase();
+  return !['0', 'false', 'no', 'off'].includes(raw);
+}
+
 export async function GET(request: Request) {
-  if (!isAuthorized(request) && !isAuthorizedControlPlaneRequest(request)) {
+  if (
+    !isAuthorized(request) &&
+    !isAuthorizedControlPlaneRequest(request) &&
+    !isVercelCronRequest(request)
+  ) {
+    const runtimeEnv = process.env as Record<string, string | undefined>;
+    const routeUrl = new URL(request.url);
+    console.warn('[morpheus-cron-feed] unauthorized request', {
+      hasAuthorizationHeader: Boolean(request.headers.get('authorization')),
+      hasCronHeaderSecret: Boolean(request.headers.get('x-morpheus-cron')),
+      hasVercelSecureComputeHeaders: Boolean(request.headers.get('x-vercel-sc-headers')),
+      hasCronSecret: Boolean(runtimeEnv['CRON_SECRET']),
+      hasMorpheusCronSecret: Boolean(runtimeEnv['MORPHEUS_CRON_SECRET']),
+      searchParamCount: Array.from(routeUrl.searchParams.keys()).length,
+      userAgent: request.headers.get('user-agent') || '',
+    });
     const body = { error: 'unauthorized' };
     await recordOperationLog({
       route: '/api/cron/feed',
@@ -37,8 +103,11 @@ export async function GET(request: Request) {
       responsePayload: body,
       httpStatus: 401,
       error: 'unauthorized',
+      metadata: {
+        auth: getSafeAuthDiagnostics(request),
+      },
     });
-    return Response.json(body, { status: 401 });
+    return jsonNoStore(body, { status: 401 });
   }
 
   if (!appConfig.phalaApiUrl) {
@@ -52,7 +121,7 @@ export async function GET(request: Request) {
       httpStatus: 500,
       error: body.error,
     });
-    return Response.json(body, { status: 500 });
+    return jsonNoStore(body, { status: 500 });
   }
 
   const routeUrl = new URL(request.url);
@@ -69,7 +138,7 @@ export async function GET(request: Request) {
       httpStatus: 400,
       error: body.error,
     });
-    return Response.json(body, { status: 400 });
+    return jsonNoStore(body, { status: 400 });
   }
   const configuredProjectSlug = (
     routeUrl.searchParams.get('project_slug') ||
@@ -108,7 +177,19 @@ export async function GET(request: Request) {
         },
       }
     );
-    if (!shouldUseControlPlaneFallback(controlPlaneResponse)) {
+    if (!shouldFallbackFromFeedControlPlane(controlPlaneResponse)) {
+      await sendHeartbeat(
+        controlPlaneResponse.ok
+          ? process.env.MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL || ''
+          : process.env.MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL || '',
+        {
+          route: '/api/cron/feed',
+          ok: controlPlaneResponse.ok,
+          target_chain: 'neo_n3',
+          symbols: symbols.length,
+          via: 'control_plane',
+        }
+      );
       return controlPlaneResponse;
     }
   }
@@ -121,12 +202,12 @@ export async function GET(request: Request) {
     symbols: symbols.length,
   };
   if (finalBody.ok) {
-    void sendHeartbeat(
+    await sendHeartbeat(
       process.env.MORPHEUS_BETTERSTACK_CRON_FEED_HEARTBEAT_URL || '',
       heartbeatPayload
     );
   } else {
-    void sendHeartbeat(
+    await sendHeartbeat(
       process.env.MORPHEUS_BETTERSTACK_CRON_FEED_FAILURE_URL || '',
       heartbeatPayload
     );
@@ -146,5 +227,5 @@ export async function GET(request: Request) {
     responsePayload: finalBody,
     httpStatus: finalBody.ok ? 200 : 502,
   });
-  return Response.json(finalBody, { status: finalBody.ok ? 200 : 502 });
+  return jsonNoStore(finalBody, { status: finalBody.ok ? 200 : 502 });
 }

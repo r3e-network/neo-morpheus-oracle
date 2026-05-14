@@ -18,18 +18,18 @@ The canonical deployment registry lives in:
 
 Current Neo N3 anchors:
 
-| Item                          | Mainnet                                                                         | Testnet                                                                         |
-| ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Oracle runtime API            | `https://oracle.meshmini.app/mainnet`                                           | `https://oracle.meshmini.app/testnet`                                           |
-| Oracle attestation explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
-| Datafeed attestation explorer | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` |
-| `MorpheusOracle` kernel       | `0x5b492098fc094c760402e01f7e0b631b939d2bea` via `oracle.morpheus.neo`          | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
-| `OracleCallbackConsumer` opt. | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
-| `MorpheusDataFeed` module     | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`       | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
-| `AbstractAccount`             | `0x9742b4ed62a84a886f404d36149da6147528ee33` via `smartwallet.neo`              | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                    |
-| `AA Web3AuthVerifier`         | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
-| `AA RecoveryVerifier`         | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                    | deployment-specific                                                             |
-| `NeoDIDRegistry`              | `0xb81f31ea81e279793b30411b82c2e82078b63105` via `neodid.morpheus.neo`          | unpublished in the shared registry                                              |
+| Item                          | Mainnet                                                                                | Testnet                                                                         |
+| ----------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Oracle runtime API            | `https://oracle.meshmini.app/mainnet`                                                  | `https://oracle.meshmini.app/testnet`                                           |
+| Oracle attestation explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`        | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
+| Datafeed attestation explorer | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`        | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` |
+| `MorpheusOracle` kernel       | `0x5b492098fc094c760402e01f7e0b631b939d2bea` via `oracle.morpheus.neo`                 | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
+| `OracleCallbackConsumer` opt. | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                           | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
+| `MorpheusDataFeed` module     | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`              | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
+| `AbstractAccount`             | `0x0268a387913b250166ddec032b03332690a1ef78` via `smartwallet.neo` / `aa.morpheus.neo` | `0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2`                                    |
+| `AA Web3AuthVerifier`         | `0xf5c452cd4ba29dcdc47026383568c0d8b38d9272`                                           | `0x7147f9a508594a7656a25f45d0a7a7dede7c227f`                                    |
+| `AA RecoveryVerifier`         | `0x198b3a9cec9bccc2110d19bd929b10374a9d034d`                                           | `recovery.smartwallet.neo`                                                      |
+| `NeoDIDRegistry`              | `0xb81f31ea81e279793b30411b82c2e82078b63105` via `neodid.morpheus.neo`                 | unpublished in the shared registry                                              |
 
 Interpretation rules:
 
@@ -98,8 +98,8 @@ For `neodid_recovery_ticket`, a typical on-chain payload is:
 {
   "provider": "github",
   "network": "neo_n3",
-  "aa_contract": "0x9742b4ed62a84a886f404d36149da6147528ee33",
-  "verifier_contract": "0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3",
+  "aa_contract": "0x0268a387913b250166ddec032b03332690a1ef78",
+  "verifier_contract": "0x198b3a9cec9bccc2110d19bd929b10374a9d034d",
   "account_id": "aa-social-recovery-demo",
   "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
   "recovery_nonce": "7",

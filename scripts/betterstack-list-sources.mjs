@@ -17,7 +17,7 @@ console.log(
         name: row.attributes?.name || null,
         platform: row.attributes?.platform || null,
         ingesting_host: row.attributes?.ingesting_host || null,
-        token: row.attributes?.token || null,
+        token_present: Boolean(row.attributes?.token),
         team_name: row.attributes?.team_name || null,
       })),
     },

@@ -1,7 +1,16 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { extractDurableRetryMeta, isDurableQueueReadyJob } from './queue.js';
+import {
+  claimDurableJobForProcessing,
+  extractDurableRetryMeta,
+  isDurableQueueReadyJob,
+  isTransientDurableQueueError,
+} from './queue.js';
+import {
+  markSupabasePersistenceUnavailable,
+  resetSupabasePersistenceBackoffForTests,
+} from './persistence.js';
 
 // ===================================================================
 // extractDurableRetryMeta
@@ -118,6 +127,60 @@ describe('extractDurableRetryMeta', () => {
     const meta = extractDurableRetryMeta(job);
     assert.equal(meta.finalize_only, true);
     assert.equal(typeof meta.finalize_only, 'boolean');
+  });
+});
+
+// ===================================================================
+// isTransientDurableQueueError
+// ===================================================================
+
+describe('isTransientDurableQueueError', () => {
+  it('marks Supabase quota restrictions for persistence backoff', () => {
+    resetSupabasePersistenceBackoffForTests();
+    const error = new Error(
+      'supabase morpheus_relayer_jobs GET failed: 402 {"message":"exceed_db_size_quota"}'
+    );
+
+    assert.equal(isTransientDurableQueueError(error), true);
+    assert.equal(markSupabasePersistenceUnavailable(error), true);
+    resetSupabasePersistenceBackoffForTests();
+  });
+
+  it('treats Supabase quota restriction as durable queue unavailable', () => {
+    const error = new Error(
+      'supabase morpheus_relayer_jobs POST failed: 402 {"code":"exceed_db_size_quota","message":"Database size quota exceeded"}'
+    );
+
+    assert.equal(isTransientDurableQueueError(error), true);
+  });
+
+  it('treats Supabase quota HTTP status text as durable queue unavailable', () => {
+    const error = new Error(
+      'supabase morpheus_control_plane_jobs POST failed: 402 Payment Required'
+    );
+
+    assert.equal(isTransientDurableQueueError(error), true);
+  });
+});
+
+describe('claimDurableJobForProcessing', () => {
+  it('uses local fallback while Supabase persistence is in quota backoff', async () => {
+    resetSupabasePersistenceBackoffForTests();
+    markSupabasePersistenceUnavailable(
+      new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
+    );
+
+    const claimed = await claimDurableJobForProcessing(
+      {
+        durableQueue: { enabled: true, failClosed: true },
+        instanceId: 'test-relayer',
+      },
+      { warn() {}, info() {} },
+      { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' }
+    );
+
+    assert.equal(claimed, true);
+    resetSupabasePersistenceBackoffForTests();
   });
 });
 

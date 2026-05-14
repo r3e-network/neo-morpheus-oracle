@@ -113,6 +113,12 @@ namespace MorpheusOracle.Contracts
             OnVerifierChanged(oldVerifier, publicKey);
         }
 
+        public static void Update(ByteString nefFile, string manifest)
+        {
+            ValidateAdmin();
+            ContractManagement.Update(nefFile, manifest, null);
+        }
+
         /// <summary>
         /// Registers a new identity binding after verifying the signed binding digest.
         /// </summary>

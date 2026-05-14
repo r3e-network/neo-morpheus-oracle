@@ -75,18 +75,30 @@ function getExecutionPlaneConfig(env, network, options = {}) {
 function resolveNeoN3FeedSigner(env, network) {
   const upper = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
   const wif = trimString(
-    env[`MORPHEUS_${upper}_FEED_NEO_N3_WIF`] ||
-      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_WIF`] ||
-      env.MORPHEUS_FEED_NEO_N3_WIF ||
-      env.MORPHEUS_RELAYER_NEO_N3_WIF ||
-      ''
+    [
+      env[`MORPHEUS_${upper}_FEED_NEO_N3_WIF`],
+      env[`MORPHEUS_FEED_NEO_N3_WIF_${upper}`],
+      env[`MORPHEUS_${upper}_UPDATER_NEO_N3_WIF`],
+      env[`MORPHEUS_UPDATER_NEO_N3_WIF_${upper}`],
+      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_WIF`],
+      env[`MORPHEUS_RELAYER_NEO_N3_WIF_${upper}`],
+      env.MORPHEUS_FEED_NEO_N3_WIF,
+      env.MORPHEUS_UPDATER_NEO_N3_WIF,
+      env.MORPHEUS_RELAYER_NEO_N3_WIF,
+    ].find((candidate) => trimString(candidate)) || ''
   );
   const privateKey = trimString(
-    env[`MORPHEUS_${upper}_FEED_NEO_N3_PRIVATE_KEY`] ||
-      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_PRIVATE_KEY`] ||
-      env.MORPHEUS_FEED_NEO_N3_PRIVATE_KEY ||
-      env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY ||
-      ''
+    [
+      env[`MORPHEUS_${upper}_FEED_NEO_N3_PRIVATE_KEY`],
+      env[`MORPHEUS_FEED_NEO_N3_PRIVATE_KEY_${upper}`],
+      env[`MORPHEUS_${upper}_UPDATER_NEO_N3_PRIVATE_KEY`],
+      env[`MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_${upper}`],
+      env[`MORPHEUS_${upper}_RELAYER_NEO_N3_PRIVATE_KEY`],
+      env[`MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_${upper}`],
+      env.MORPHEUS_FEED_NEO_N3_PRIVATE_KEY,
+      env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY,
+      env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY,
+    ].find((candidate) => trimString(candidate)) || ''
   );
   return {
     ...(wif ? { wif } : {}),
@@ -210,6 +222,7 @@ async function callExecutionFeedPlane(env, job) {
           body: JSON.stringify({
             ...(job.payload || {}),
             ...signer,
+            fast_ack: true,
             wait: false,
           }),
         },

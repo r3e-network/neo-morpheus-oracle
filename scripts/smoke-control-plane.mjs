@@ -12,6 +12,25 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function parseArgs(argv = process.argv.slice(2)) {
+  const out = {
+    network: '',
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    const next = argv[index + 1];
+    if (arg === '--network' && next) {
+      out.network = trimString(next);
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--network=')) {
+      out.network = trimString(arg.slice('--network='.length));
+    }
+  }
+  return out;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -23,6 +42,17 @@ function isCloudflareRateLimited(response) {
     (/Error 1027/i.test(raw) ||
       /temporarily rate limited/i.test(raw) ||
       /Cloudflare Workers/i.test(raw))
+  );
+}
+
+function isSupabaseQuotaRestricted(response) {
+  const raw = JSON.stringify(response?.body || {}).toLowerCase();
+  return (
+    response?.status === 402 ||
+    raw.includes('exceed_db_size_quota') ||
+    raw.includes('database size quota') ||
+    raw.includes('quota exceeded') ||
+    raw.includes('payment required')
   );
 }
 
@@ -71,6 +101,55 @@ async function writeRateLimitedArtifacts({ generatedAt, network, controlPlaneUrl
       ...artifacts,
       accepted_status: accepted.status,
       terminal_status: 'rate_limited',
+    })
+  );
+}
+
+async function writeSupabaseQuotaArtifacts({ generatedAt, network, controlPlaneUrl, accepted }) {
+  const jsonReport = {
+    generated_at: generatedAt,
+    network,
+    control_plane_url: controlPlaneUrl,
+    route: '/oracle/query',
+    accepted,
+    status: 'storage_quota_restricted',
+  };
+
+  const markdownReport = [
+    '# Control Plane Smoke',
+    '',
+    `Date: ${generatedAt}`,
+    '',
+    '## Scope',
+    '',
+    'Submit a single `/oracle/query` job through the Cloudflare control plane and wait for the durable job state to reach a terminal status.',
+    '',
+    '## Result',
+    '',
+    `- Network: \`${network}\``,
+    `- Control plane: \`${controlPlaneUrl}\``,
+    `- Accepted status: \`${accepted.status}\``,
+    '- Terminal status: `storage_quota_restricted`',
+    '',
+    '## Note',
+    '',
+    'Supabase rejected the durable job insert because the backing database is over quota. This is a production control-plane blocker: the service cannot accept new queued oracle jobs until storage/quota is restored or the backing store is migrated.',
+    '',
+  ].join('\n');
+
+  const artifacts = await writeValidationArtifacts({
+    baseName: 'control-plane-smoke',
+    network,
+    generatedAt,
+    jsonReport,
+    markdownReport,
+  });
+
+  console.log(
+    jsonPretty({
+      ...artifacts,
+      accepted_status: accepted.status,
+      terminal_status: 'storage_quota_restricted',
     })
   );
 }
@@ -176,7 +255,13 @@ async function waitForTerminalJob(baseUrl, network, jobId, token, timeoutMs = 18
   throw new Error(`timed out waiting for terminal control-plane job ${jobId}`);
 }
 
-const network = resolveNetwork();
+const args = parseArgs();
+const network =
+  trimString(args.network) === 'mainnet'
+    ? 'mainnet'
+    : trimString(args.network) === 'testnet'
+      ? 'testnet'
+      : resolveNetwork();
 await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 await loadDotEnv(path.resolve(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`), {
   override: false,
@@ -229,6 +314,16 @@ if (accepted.status !== 202 || !trimString(accepted.body?.id || '')) {
       accepted,
     });
     process.exit(75);
+  }
+  if (isSupabaseQuotaRestricted(accepted)) {
+    const generatedAt = new Date().toISOString();
+    await writeSupabaseQuotaArtifacts({
+      generatedAt,
+      network,
+      controlPlaneUrl,
+      accepted,
+    });
+    process.exit(76);
   }
   throw new Error(
     `control plane did not accept job: ${accepted.status} ${JSON.stringify(accepted.body)}`

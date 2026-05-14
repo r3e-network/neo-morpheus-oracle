@@ -13,7 +13,6 @@ function trimString(value) {
 const CONTINUOUS_FEED_PAIRS = new Set([
   'TWELVEDATA:NEO-USD',
   'TWELVEDATA:GAS-USD',
-  'TWELVEDATA:FLM-USD',
   'TWELVEDATA:BTC-USD',
   'TWELVEDATA:ETH-USD',
   'TWELVEDATA:SOL-USD',
@@ -129,8 +128,21 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
       const response = JSON.parse(
         execFileSync(
           'curl',
-          ['-fsS', rpcUrl, '-H', 'Content-Type: application/json', '-d', JSON.stringify(payload)],
-          { encoding: 'utf8' }
+          [
+            '-fsS',
+            '--happy-eyeballs-timeout-ms',
+            '200',
+            '--connect-timeout',
+            '20',
+            '--max-time',
+            '20',
+            rpcUrl,
+            '-H',
+            'Content-Type: application/json',
+            '-d',
+            JSON.stringify(payload),
+          ],
+          { encoding: 'utf8', timeout: 25_000 }
         )
       );
       if (response.error) {
@@ -140,6 +152,139 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
     } catch (error) {
       lastError = error;
       if (attempt >= 3) break;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+function isRpcTimeoutError(error) {
+  const message = error instanceof Error ? error.message : String(error || '');
+  return (
+    message.includes('SSL connection timeout') ||
+    message.includes('Connection timed out') ||
+    message.includes('timeout') ||
+    message.includes('ETIMEDOUT')
+  );
+}
+
+function probeNeoRpcUrlViaCurl(rpcUrl) {
+  const payload = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'getversion',
+    params: [],
+  };
+
+  try {
+    const response = JSON.parse(
+      execFileSync(
+        'curl',
+        [
+          '-fsS',
+          '--happy-eyeballs-timeout-ms',
+          '200',
+          '--connect-timeout',
+          '20',
+          '--max-time',
+          '25',
+          rpcUrl,
+          '-H',
+          'Content-Type: application/json',
+          '-d',
+          JSON.stringify(payload),
+        ],
+        { encoding: 'utf8', timeout: 30_000 }
+      )
+    );
+    return !response?.error;
+  } catch (error) {
+    if (isRpcTimeoutError(error)) {
+      return false;
+    }
+    return false;
+  }
+}
+
+export function resolveReachableNeoRpcUrls(rpcUrls) {
+  const urls = Array.isArray(rpcUrls)
+    ? rpcUrls.map((value) => trimString(value)).filter(Boolean)
+    : [trimString(rpcUrls)].filter(Boolean);
+  const uniqueUrls = [...new Set(urls)];
+  if (!uniqueUrls.length) return [];
+
+  const reachable = [];
+  for (const url of uniqueUrls) {
+    if (probeNeoRpcUrlViaCurl(url)) reachable.push(url);
+  }
+
+  return reachable.length ? reachable : uniqueUrls;
+}
+
+function probeNeoInvokeViaCurl(rpcUrl, contractHash, operation, params = []) {
+  const payload = {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'invokefunction',
+    params: [contractHash, operation, params],
+  };
+
+  try {
+    const response = JSON.parse(
+      execFileSync(
+        'curl',
+        [
+          '-fsS',
+          '--happy-eyeballs-timeout-ms',
+          '200',
+          '--connect-timeout',
+          '20',
+          '--max-time',
+          '25',
+          rpcUrl,
+          '-H',
+          'Content-Type: application/json',
+          '-d',
+          JSON.stringify(payload),
+        ],
+        { encoding: 'utf8', timeout: 30_000 }
+      )
+    );
+    if (response.error) return false;
+    const result = response.result;
+    return Boolean(result) && typeof result === 'object' && Array.isArray(result.stack);
+  } catch (error) {
+    return false;
+  }
+}
+
+export function resolveReachableNeoRpcUrlsForInvoke(rpcUrls, contractHash, operation, params = []) {
+  const candidates = resolveReachableNeoRpcUrls(rpcUrls);
+  if (!candidates.length) return [];
+  const reachable = [];
+  for (const url of candidates) {
+    if (probeNeoInvokeViaCurl(url, contractHash, operation, params)) reachable.push(url);
+  }
+  return reachable.length ? reachable : candidates;
+}
+
+export function invokeNeoFunctionViaCurlWithFallback(
+  rpcUrls,
+  contractHash,
+  operation,
+  params = []
+) {
+  const urls = Array.isArray(rpcUrls)
+    ? rpcUrls.map((value) => trimString(value)).filter(Boolean)
+    : [trimString(rpcUrls)].filter(Boolean);
+  if (!urls.length) {
+    throw new Error(`rpc url missing for ${operation}`);
+  }
+  let lastError = null;
+  for (const rpcUrl of urls) {
+    try {
+      return invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params);
+    } catch (error) {
+      lastError = error;
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
@@ -180,9 +325,32 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
   const runtimeConfig = await loadRuntimeConfigFromEnvFile(
     path.join(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`)
   );
-  const rpcUrl = trimString(networkConfig.neo_n3?.rpc_url || '');
+  const explicitRpcUrl = trimString(process.env.NEO_RPC_URL || '');
+  const baseRpcUrls = [
+    ...(Array.isArray(networkConfig.neo_n3?.rpc_urls) ? networkConfig.neo_n3.rpc_urls : []),
+    trimString(networkConfig.neo_n3?.rpc_url || ''),
+  ]
+    .map((value) => trimString(value))
+    .filter(Boolean);
+  const strictRpcOverride = trimString(process.env.NEO_RPC_URL_STRICT || '') === '1';
+  const rpcUrls = (
+    explicitRpcUrl
+      ? strictRpcOverride
+        ? [explicitRpcUrl]
+        : [explicitRpcUrl, ...baseRpcUrls]
+      : baseRpcUrls
+  )
+    .map((value) => trimString(value))
+    .filter(Boolean);
   const datafeedHash = trimString(networkConfig.neo_n3?.contracts?.morpheus_datafeed || '');
   const pairs = parseConfiguredFeedPairs(runtimeConfig);
+  const rpcUrlsOrdered = resolveReachableNeoRpcUrlsForInvoke(
+    rpcUrls,
+    datafeedHash,
+    'getLatest',
+    pairs.length ? [{ type: 'String', value: pairs[0] }] : []
+  );
+  const rpcUrlsFallback = [...new Set([...rpcUrlsOrdered, ...rpcUrls])];
   const rows = [];
 
   if (
@@ -193,9 +361,17 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
   }
 
   for (const pair of pairs) {
-    const response = invokeNeoFunctionViaCurl(rpcUrl, datafeedHash, 'getLatest', [
-      { type: 'String', value: pair },
-    ]);
+    const rotateOffset = rows.length % Math.max(rpcUrlsFallback.length, 1);
+    const rotatedRpcUrls =
+      rpcUrlsFallback.length <= 1
+        ? rpcUrlsFallback
+        : [...rpcUrlsFallback.slice(rotateOffset), ...rpcUrlsFallback.slice(0, rotateOffset)];
+    const response = invokeNeoFunctionViaCurlWithFallback(
+      rotatedRpcUrls,
+      datafeedHash,
+      'getLatest',
+      [{ type: 'String', value: pair }]
+    );
     const decoded = decodeNeoStackItem(response.stack?.[0]) || [];
     const [, roundId, price, timestamp, attestationHash, sourceSetId] = decoded;
     rows.push({
@@ -207,6 +383,10 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
       source_set_id: sourceSetId || '0',
       ...classifyFeedFreshness(timestamp || '0', Date.now(), staleMinutes, decoded[0] || pair),
     });
+
+    if (pairs.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 75));
+    }
   }
 
   const stalePairs = [];
@@ -231,9 +411,9 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
         change_bps: changeBps,
       };
       if (changeBps < 10) {
-        staleReason = 'below_threshold';
-        actionable = false;
-      } else if (providerQuote.timestamp) {
+        staleReason = 'stale_refresh_due_below_threshold';
+      }
+      if (providerQuote.timestamp) {
         const providerAge = classifyFeedFreshness(
           Math.floor(new Date(providerQuote.timestamp).getTime() / 1000),
           Date.now(),

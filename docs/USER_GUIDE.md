@@ -51,9 +51,9 @@ Current Neo N3 anchors:
 | MorpheusOracle Kernel         | `0x5b492098fc094c760402e01f7e0b631b939d2bea`                                    | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
 | OracleCallbackConsumer Opt.   | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
 | MorpheusDataFeed Module       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                    | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
-| AbstractAccount               | `0x9742b4ed62a84a886f404d36149da6147528ee33`                                    | `0xe24d2980d17d2580ff4ee8dc5dddaa20e3caec38`                                    |
-| AA Web3AuthVerifier           | `0xb4107cb2cb4bace0ebe15bc4842890734abe133a`                                    | `0xf2560a0db44bbb32d0a6919cf90a3d0643ad8e3d`                                    |
-| AA RecoveryVerifier           | `0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3`                                    | deployment-specific                                                             |
+| AbstractAccount               | `0x0268a387913b250166ddec032b03332690a1ef78`                                    | `0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2`                                    |
+| AA Web3AuthVerifier           | `0xf5c452cd4ba29dcdc47026383568c0d8b38d9272`                                    | `0x7147f9a508594a7656a25f45d0a7a7dede7c227f`                                    |
+| AA RecoveryVerifier           | `0x198b3a9cec9bccc2110d19bd929b10374a9d034d`                                    | `recovery.smartwallet.neo`                                                      |
 | NeoDIDRegistry                | `0xb81f31ea81e279793b30411b82c2e82078b63105`                                    | unpublished                                                                     |
 | Oracle NNS                    | `oracle.morpheus.neo`                                                           | unassigned                                                                      |
 | DataFeed NNS                  | `pricefeed.morpheus.neo`                                                        | unassigned                                                                      |
@@ -386,7 +386,6 @@ Current default pair catalog includes:
 - Core crypto:
   - `TWELVEDATA:NEO-USD`
   - `TWELVEDATA:GAS-USD`
-  - `TWELVEDATA:FLM-USD`
   - `TWELVEDATA:BTC-USD`
   - `TWELVEDATA:ETH-USD`
   - `TWELVEDATA:SOL-USD`
@@ -422,7 +421,7 @@ Current default pair catalog includes:
   - `TWELVEDATA:JPY-USD` (inverted from `USD/JPY`)
   - `TWELVEDATA:CNY-USD` (inverted from `USD/CNY`)
 
-With the global `1 USD = 1,000,000` scale, low-priced assets such as `TWELVEDATA:FLM-USD`, `TWELVEDATA:DOGE-USD`, and `TWELVEDATA:JPY-USD` can be represented directly without basket pair names.
+With the global `1 USD = 1,000,000` scale, low-priced assets such as `TWELVEDATA:DOGE-USD` and `TWELVEDATA:JPY-USD` can be represented directly without basket pair names.
 
 For the exact meaning of every canonical pair, including the real TwelveData source symbol and any inversion / scaling rule, read the canonical pair table in `docs/PROVIDERS.md`.
 
@@ -463,9 +462,14 @@ request is rejected and finalized with a failure callback.
 Web cron route:
 
 ```bash
-curl http://localhost:3000/api/cron/feed \
-  -H "Authorization: Bearer $CRON_SECRET"
+curl http://localhost:3000/api/cron/feed/run \
+  -H "X-Morpheus-Cron: $MORPHEUS_CRON_SECRET"
 ```
+
+Production Vercel Cron is accepted by the Vercel cron user agent. Manual
+operator probes use `MORPHEUS_CRON_SECRET` plus the cron BetterStack heartbeat
+URLs configured in the `apps/web` deployment environment. Validate the non-secret
+presence check with `npm run check:web-cron-env -- --fail-on-missing`.
 
 Direct worker route:
 
@@ -636,8 +640,8 @@ curl http://localhost:3000/api/neodid/recovery-ticket \
   -d '{
     "provider":"web3auth",
     "network":"neo_n3",
-    "aa_contract":"0x9742b4ed62a84a886f404d36149da6147528ee33",
-    "verifier_contract":"0x51ef9639deb29284cc8577a7fa3fdfbc92ada7c3",
+    "aa_contract":"0x0268a387913b250166ddec032b03332690a1ef78",
+    "verifier_contract":"0x198b3a9cec9bccc2110d19bd929b10374a9d034d",
     "account_id":"aa-social-recovery-demo",
     "new_owner":"0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "recovery_nonce":"7",
@@ -663,7 +667,7 @@ For **Neo N3 mainnet**, automatic feed sync obeys two rules:
 Precision caveat:
 
 - because the chain stores quantized integers, a raw source move that is still too small to change the stored on-chain integer value cannot trigger an update, even if that raw source move is already greater than `0.1%`
-- with the current `1 USD = 1,000,000` scale, the standard catalog can use direct source-prefixed pairs such as `TWELVEDATA:FLM-USD` and `TWELVEDATA:JPY-USD` without basket naming
+- with the current `1 USD = 1,000,000` scale, the standard catalog can use direct source-prefixed pairs such as `TWELVEDATA:DOGE-USD` and `TWELVEDATA:JPY-USD` without basket naming
 
 These rules apply per stored provider pair, for example:
 
@@ -706,7 +710,7 @@ Set:
 Example:
 
 ```env
-MORPHEUS_FEED_SYMBOLS=TWELVEDATA:NEO-USD,TWELVEDATA:GAS-USD,TWELVEDATA:FLM-USD,TWELVEDATA:BTC-USD,TWELVEDATA:ETH-USD,TWELVEDATA:SOL-USD,TWELVEDATA:WTI-USD,TWELVEDATA:AAPL-USD,TWELVEDATA:EUR-USD,TWELVEDATA:JPY-USD
+MORPHEUS_FEED_SYMBOLS=TWELVEDATA:NEO-USD,TWELVEDATA:GAS-USD,TWELVEDATA:BTC-USD,TWELVEDATA:ETH-USD,TWELVEDATA:SOL-USD,TWELVEDATA:WTI-USD,TWELVEDATA:AAPL-USD,TWELVEDATA:EUR-USD,TWELVEDATA:JPY-USD
 ```
 
 ### Advanced level: add provider-specific mapping

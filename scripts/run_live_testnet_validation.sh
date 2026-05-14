@@ -102,6 +102,9 @@ if [[ $run_control_plane -eq 1 ]]; then
   set -e
   if [[ $control_plane_status -eq 75 ]]; then
     echo "[control-plane-smoke] skipped as inconclusive due to Cloudflare Workers plan rate limiting." >&2
+  elif [[ $control_plane_status -eq 76 ]]; then
+    echo "[control-plane-smoke] failed because Supabase storage quota blocks durable job acceptance." >&2
+    exit $control_plane_status
   elif [[ $control_plane_status -ne 0 ]]; then
     exit $control_plane_status
   fi

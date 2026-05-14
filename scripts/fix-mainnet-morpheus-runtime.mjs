@@ -10,6 +10,12 @@ const ADMIN_ADDRESS = 'NUVmRwZDoSZMKcPj9UCQLHkpno2TPqYVxC';
 const ADMIN_HASH = `0x${wallet.getScriptHashFromAddress(ADMIN_ADDRESS).toLowerCase()}`;
 const DEFAULT_METADATA_URI = 'https://oracle.meshmini.app/mainnet/runtime/catalog';
 const DEFAULT_CREDIT_REQUESTS = 20n;
+const PLATFORM_GAME_APP_ID = 'morpheus.platform.game';
+const PLATFORM_GAME_MODULE = {
+  moduleId: 'vrf_random',
+  endpoint: '/vrf/random',
+  schemaHash: 'morpheus.module.vrf_random.v1',
+};
 
 const args = new Set(process.argv.slice(2));
 const EXECUTE = args.has('--execute');
@@ -211,6 +217,11 @@ function normalizePublicKey(value) {
   return publicKey;
 }
 
+function normalizePublicKeyOrEmpty(value) {
+  const publicKey = strip0x(value);
+  return /^[0-9a-f]{66}$/.test(publicKey) || /^[0-9a-f]{130}$/.test(publicKey) ? publicKey : '';
+}
+
 function normalizeSignature(value) {
   const signature = strip0x(value);
   if (!/^[0-9a-f]{128}$/.test(signature)) {
@@ -306,6 +317,43 @@ async function fetchRuntimePublicKey(runtimeUrls, token) {
     }
   }
   throw new Error(`failed to fetch runtime public key: ${failures.join('; ')}`);
+}
+
+async function fetchRuntimeDerivedNeoN3Key(runtimeUrls, token, role) {
+  const failures = [];
+  for (const runtimeUrl of runtimeUrls) {
+    if (!runtimeUrl) continue;
+    try {
+      const response = await fetch(`${runtimeUrl.replace(/\/$/, '')}/keys/derived`, {
+        method: 'POST',
+        headers: buildHeaders(token),
+        body: JSON.stringify({ role, network: 'mainnet' }),
+      });
+      if (!response.ok) {
+        failures.push(`${runtimeUrl}: HTTP ${response.status}`);
+        continue;
+      }
+      const body = await response.json();
+      const neo = body?.derived?.neo_n3 || body?.neo_n3 || {};
+      const scriptHash = normalizeHash160(neo.script_hash || neo.address);
+      const publicKey = normalizePublicKey(neo.public_key || '');
+      if (!scriptHash || !publicKey) {
+        failures.push(`${runtimeUrl}: empty derived ${role} Neo N3 payload`);
+        continue;
+      }
+      return {
+        role,
+        source: runtimeUrl,
+        address: trimString(neo.address),
+        script_hash: scriptHash,
+        public_key: publicKey,
+        key_path: trimString(neo.key_path),
+      };
+    } catch (error) {
+      failures.push(`${runtimeUrl}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(`failed to fetch runtime derived ${role} key: ${failures.join('; ')}`);
 }
 
 async function buildDerivedAdminTx({
@@ -587,9 +635,111 @@ async function ensureOracleKey(context) {
   };
 }
 
+async function ensureRuntimeUpdater(context) {
+  const runtimeUpdater = await fetchRuntimeDerivedNeoN3Key(
+    context.runtimeKeyUrls,
+    context.token,
+    'updater'
+  );
+  const current = normalizeHash160(
+    await invokeRead(context.rpcClient, context.oracleHash, 'updater')
+  );
+  if (current === runtimeUpdater.script_hash) {
+    return {
+      action: 'setUpdater-skip',
+      updater: current,
+      runtime_updater: runtimeUpdater.script_hash,
+      key_path: runtimeUpdater.key_path,
+    };
+  }
+
+  const result = await sendDerivedAdminTx({
+    ...context,
+    contractHash: context.oracleHash,
+    operation: 'setUpdater',
+    params: [sc.ContractParam.hash160(runtimeUpdater.script_hash)],
+  });
+  return {
+    action: result.broadcast ? 'setUpdater' : 'setUpdater-dry-run',
+    old_updater: current,
+    new_updater: runtimeUpdater.script_hash,
+    runtime_updater_address: runtimeUpdater.address,
+    key_path: runtimeUpdater.key_path,
+    txid: result.txid,
+    fees_raw: result.fees_raw,
+  };
+}
+
+async function ensureRuntimeVerifier(context) {
+  const runtimeVerifier = await fetchRuntimeDerivedNeoN3Key(
+    context.runtimeKeyUrls,
+    context.token,
+    'oracle_verifier'
+  );
+  const current = normalizePublicKeyOrEmpty(
+    await invokeRead(context.rpcClient, context.oracleHash, 'oracleVerificationPublicKey')
+  );
+  if (current === runtimeVerifier.public_key) {
+    return {
+      action: 'setOracleVerificationPublicKey-skip',
+      verifier_public_key: current,
+      key_path: runtimeVerifier.key_path,
+    };
+  }
+
+  const result = await sendDerivedAdminTx({
+    ...context,
+    contractHash: context.oracleHash,
+    operation: 'setOracleVerificationPublicKey',
+    params: [sc.ContractParam.publicKey(runtimeVerifier.public_key)],
+  });
+  return {
+    action: result.broadcast
+      ? 'setOracleVerificationPublicKey'
+      : 'setOracleVerificationPublicKey-dry-run',
+    old_verifier_public_key: current,
+    new_verifier_public_key: runtimeVerifier.public_key,
+    runtime_verifier_address: runtimeVerifier.address,
+    key_path: runtimeVerifier.key_path,
+    txid: result.txid,
+    fees_raw: result.fees_raw,
+  };
+}
+
 async function getMiniAppIds(rpcClient, oracleHash) {
   const ids = await invokeRead(rpcClient, oracleHash, 'getAllMiniAppIds');
   return Array.isArray(ids) ? ids.map(String) : [];
+}
+
+async function ensureSystemModule(context, module) {
+  const moduleIds = await invokeRead(
+    context.rpcClient,
+    context.oracleHash,
+    'getAllSystemModuleIds'
+  );
+  const existingIds = Array.isArray(moduleIds) ? moduleIds.map(String) : [];
+  if (existingIds.includes(module.moduleId)) {
+    return { action: 'module-skip', module_id: module.moduleId };
+  }
+
+  const register = await sendDerivedAdminTx({
+    ...context,
+    contractHash: context.oracleHash,
+    operation: 'registerSystemModule',
+    params: [
+      sc.ContractParam.string(module.moduleId),
+      sc.ContractParam.string(module.endpoint),
+      sc.ContractParam.string(module.schemaHash),
+    ],
+  });
+  return {
+    action: register.broadcast ? 'module-register' : 'module-register-dry-run',
+    module_id: module.moduleId,
+    endpoint: module.endpoint,
+    schema_hash: module.schemaHash,
+    txid: register.txid,
+    fees_raw: register.fees_raw,
+  };
 }
 
 async function ensureMiniApp(context, app) {
@@ -620,7 +770,19 @@ async function ensureMiniApp(context, app) {
     actions.push({ action: 'register-skip', app_id: app.appId });
   }
 
-  for (const moduleId of context.systemModules) {
+  const modulesForApp =
+    Array.isArray(app.moduleIds) && app.moduleIds.length > 0
+      ? app.moduleIds
+      : context.systemModules;
+  for (const moduleId of modulesForApp) {
+    if (!EXECUTE && context.pendingSystemModules?.has(moduleId)) {
+      actions.push({
+        action: 'grant-dry-run-after-module-register',
+        app_id: app.appId,
+        module_id: moduleId,
+      });
+      continue;
+    }
     if (!EXECUTE && (!appAlreadyExists || context.contractUpdatePending)) {
       actions.push({
         action: context.contractUpdatePending
@@ -728,6 +890,38 @@ async function ensureConsumerOracle(context, consumerHash) {
   };
 }
 
+async function resolvePlatformGameHash() {
+  const envHash = normalizeHash160(
+    process.env.CONTRACT_PLATFORM_GAME_HASH_MAINNET ||
+      process.env.PLATFORM_GAME_HASH_MAINNET ||
+      process.env.CONTRACT_PLATFORM_GAME_HASH
+  );
+  if (envHash) return envHash;
+
+  const candidates = [
+    path.resolve(
+      '..',
+      'neo-miniapps-platform',
+      'contracts',
+      'build',
+      'mainnet_game_deployment.json'
+    ),
+    path.resolve(
+      '..',
+      'neo-miniapps-platform-neo-git',
+      'contracts',
+      'build',
+      'mainnet_game_deployment.json'
+    ),
+  ];
+  for (const candidate of candidates) {
+    const deployment = await loadJsonIfExists(candidate);
+    const hash = normalizeHash160(deployment.platform_game || deployment.PlatformGame || '');
+    if (hash) return hash;
+  }
+  return '';
+}
+
 async function main() {
   process.env.MORPHEUS_NETWORK = 'mainnet';
   await loadDotEnv();
@@ -822,6 +1016,7 @@ async function main() {
     workerHash,
     systemModules,
   };
+  const platformGameHash = await resolvePlatformGameHash();
   const apps = [
     {
       appId: 'morpheus.callback.consumer',
@@ -830,6 +1025,7 @@ async function main() {
       callbackContract: callbackConsumerHash,
       metadataUri: DEFAULT_METADATA_URI,
       metadataHash: 'mainnet-callback-consumer-v1',
+      moduleIds: systemModules,
     },
     {
       appId: 'morpheus.examples.consumer',
@@ -838,14 +1034,27 @@ async function main() {
       callbackContract: exampleConsumerHash,
       metadataUri: DEFAULT_METADATA_URI,
       metadataHash: 'mainnet-example-consumer-v1',
+      moduleIds: systemModules,
     },
   ];
+  if (platformGameHash) {
+    apps.push({
+      appId: PLATFORM_GAME_APP_ID,
+      admin: ADMIN_HASH,
+      feePayer: ADMIN_HASH,
+      callbackContract: platformGameHash,
+      metadataUri: DEFAULT_METADATA_URI,
+      metadataHash: 'mainnet-platform-game-callback-v1',
+      moduleIds: [PLATFORM_GAME_MODULE.moduleId],
+    });
+  }
 
   const report = {
     mode: EXECUTE ? 'execute' : 'dry-run',
     oracle_hash: oracleHash,
     admin_hash: ADMIN_HASH,
     worker_hash: workerHash,
+    platform_game_hash: platformGameHash || null,
     callback_consumer_hash: callbackConsumerHash,
     example_consumer_hash: exampleConsumerHash,
     rpc_url: rpcUrl,
@@ -876,27 +1085,51 @@ async function main() {
       label: 'derived-admin',
     })
   );
+  report.actions.push(await ensureRuntimeUpdater(context));
+  report.actions.push(await ensureRuntimeVerifier(context));
   report.actions.push(await ensureOracleKey(context));
   const updateAction = await ensureContractUpdate(context);
   report.actions.push(updateAction);
   context.contractUpdatePending = !EXECUTE && updateAction.action === 'update-dry-run';
+  if (platformGameHash) {
+    const moduleAction = await ensureSystemModule(context, PLATFORM_GAME_MODULE);
+    report.actions.push(moduleAction);
+    if (!EXECUTE && moduleAction.action === 'module-register-dry-run') {
+      context.pendingSystemModules = new Set([
+        ...(context.pendingSystemModules || []),
+        PLATFORM_GAME_MODULE.moduleId,
+      ]);
+    }
+    context.systemModules = Array.from(
+      new Set(
+        (await invokeRead(rpcClient, oracleHash, 'getAllSystemModuleIds'))
+          .map(String)
+          .concat(PLATFORM_GAME_MODULE.moduleId)
+      )
+    );
+  }
   for (const app of apps) {
     report.actions.push(...(await ensureMiniApp(context, app)));
   }
   report.actions.push(await ensureConsumerOracle(context, callbackConsumerHash));
   report.actions.push(await ensureConsumerOracle(context, exampleConsumerHash));
   if (!SKIP_CREDIT && minCreditRaw > 0n) {
-    report.actions.push(
-      await ensureFeeCredit({
-        rpcClient,
-        rpcUrl,
-        networkMagic,
-        fundingAccount: workerAccount,
-        oracleHash,
-        beneficiaryHash: workerHash,
-        minCreditRaw,
-      })
+    const creditBeneficiaries = Array.from(
+      new Set([workerHash, ...apps.map((app) => app.feePayer)])
     );
+    for (const beneficiaryHash of creditBeneficiaries) {
+      report.actions.push(
+        await ensureFeeCredit({
+          rpcClient,
+          rpcUrl,
+          networkMagic,
+          fundingAccount: workerAccount,
+          oracleHash,
+          beneficiaryHash,
+          minCreditRaw,
+        })
+      );
+    }
   }
 
   console.log(JSON.stringify(report, null, 2));

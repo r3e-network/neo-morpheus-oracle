@@ -355,7 +355,47 @@ test('feed_tick consumer forwards jobs to confidential execution plane feed rout
   assert.equal(state.executionCalls.length, 1);
   assert.equal(state.executionCalls[0].path, '/oracle/feed');
   assert.equal(state.executionCalls[0].body.wif, 'testnet-updater-wif');
+  assert.equal(state.executionCalls[0].body.fast_ack, true);
+  assert.equal(state.executionCalls[0].body.wait, false);
   assert.equal(state.jobs.get('job-feed')?.status, 'succeeded');
+});
+
+test('feed_tick consumer accepts Phala-rendered suffix-scoped updater signer env', async () => {
+  const env = createEnv({
+    MORPHEUS_MAINNET_EXECUTION_BASE_URL: 'https://exec.test',
+    MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF: '',
+    MORPHEUS_MAINNET_UPDATER_NEO_N3_WIF: '',
+    MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET: '',
+    MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET: 'mainnet-rendered-updater-wif',
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-feed-mainnet', {
+    id: 'job-feed-mainnet',
+    network: 'mainnet',
+    queue: 'feed_tick',
+    route: '/feeds/tick',
+    status: 'dispatched',
+    payload: {
+      target_chain: 'neo_n3',
+      symbols: ['TWELVEDATA:NEO-USD'],
+    },
+    metadata: {},
+  });
+
+  const message = createQueueMessage({
+    job_id: 'job-feed-mainnet',
+    network: 'mainnet',
+    queue: 'feed_tick',
+  });
+  await worker.queue({ queue: 'morpheus-feed-tick', messages: [message] }, env);
+
+  assert.equal(message.acked, true);
+  assert.equal(state.executionCalls.length, 1);
+  assert.equal(state.executionCalls[0].path, '/oracle/feed');
+  assert.equal(state.executionCalls[0].body.wif, 'mainnet-rendered-updater-wif');
+  assert.equal(state.jobs.get('job-feed-mainnet')?.status, 'succeeded');
 });
 
 test('feed_tick consumer prefers a dedicated DataFeed execution plane when configured', async () => {

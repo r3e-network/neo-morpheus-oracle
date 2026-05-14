@@ -79,6 +79,15 @@ Use explicit relayer mode per CVM:
 - Oracle CVM: `MORPHEUS_RELAYER_MODE=requests_only`
 - DataFeed CVM: `MORPHEUS_RELAYER_MODE=feed_only`
 
+For mainnet request fulfillment, keep the signer roles explicit and network-scoped:
+
+- `MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET` / `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET`
+- `MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET` / `MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET`
+
+`npm run render:phala-hub-env` reads those values from local secure env
+overrides such as `.env.local` before falling back to packed runtime config.
+Do not use the domain-owner signer for request fulfillment.
+
 Recommended durability settings:
 
 - `MORPHEUS_DURABLE_QUEUE_ENABLED=true`
@@ -108,6 +117,8 @@ Prefer encrypted secrets in the dashboard over copying plaintext env files into 
 ```bash
 phala deploy --cvm-id ac5b6886a2832df36e479294206611652400178f --compose deploy/phala/docker-compose.feed-hub.yml -e deploy/phala/morpheus.hub.env --wait
 phala deploy --cvm-id ddff154546fe22d15b65667156dd4b7c611e6093 --compose deploy/phala/docker-compose.request-hub.yml -e deploy/phala/morpheus.hub.env --wait
+# Include --profile mainnet-requests only after the mainnet request/updater
+# signer pair is present and passes `npm run check:signers`.
 ```
 
 ## Required Runtime Capabilities

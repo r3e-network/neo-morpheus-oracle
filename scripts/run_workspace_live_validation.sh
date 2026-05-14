@@ -128,10 +128,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-WORKSPACE_SECRETS_ENV_FILE="$(mktemp "${TMPDIR:-/tmp}/morpheus-workspace-secrets.XXXXXX.env")"
-WORKSPACE_RUNTIME_CATALOG_FILE="$(mktemp "${TMPDIR:-/tmp}/morpheus-runtime-catalog.XXXXXX.json")"
+WORKSPACE_TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/morpheus-workspace.XXXXXX")"
+WORKSPACE_SECRETS_ENV_FILE="$WORKSPACE_TMP_DIR/morpheus-workspace-secrets.env"
+WORKSPACE_RUNTIME_CATALOG_FILE="$WORKSPACE_TMP_DIR/morpheus-runtime-catalog.json"
 cleanup() {
-  rm -f "$WORKSPACE_SECRETS_ENV_FILE" "$WORKSPACE_RUNTIME_CATALOG_FILE"
+  rm -rf "$WORKSPACE_TMP_DIR"
 }
 trap cleanup EXIT
 

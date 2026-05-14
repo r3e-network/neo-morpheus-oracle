@@ -67,6 +67,7 @@
     "sync:checkly:browser": "node scripts/checkly-sync-browser-checks.mjs",
     "check:betterstack": "node scripts/betterstack-list-heartbeats.mjs",
     "sync:betterstack": "node scripts/betterstack-sync-heartbeats.mjs",
+    "check:web-cron-env": "node scripts/check-web-cron-env.mjs",
     "check:betterstack:monitors": "node scripts/betterstack-list-monitors.mjs",
     "sync:betterstack:monitors": "node scripts/betterstack-sync-monitors.mjs",
     "check:betterstack:sources": "node scripts/betterstack-list-sources.mjs",
@@ -77,6 +78,8 @@
     "test:runtime:matrix": "node --test scripts/runtime-service-matrix.test.mjs",
     "test:testnet:runtime-services": "node scripts/live-validate-runtime-services.mjs",
     "backup:system": "node scripts/backup-system-state.mjs",
+    "db:runtime:analyze": "node scripts/cleanup-supabase-runtime-data.mjs",
+    "db:runtime:cleanup": "node scripts/cleanup-supabase-runtime-data.mjs --apply --vacuum",
     "start:testnet-rng-local": "bash scripts/run-testnet-rng-local.sh",
     "check:env": "node scripts/check-root-env.mjs",
     "check:audit:root": "node scripts/check-root-audit-allowlist.mjs",
@@ -117,7 +120,11 @@
         "picomatch": "4.0.4"
       }
     },
+    "fast-uri": "3.1.2",
     "lodash": "4.18.1",
+    "next": {
+      "postcss": "8.5.10"
+    },
     "postcss": "8.5.10"
   }
 }

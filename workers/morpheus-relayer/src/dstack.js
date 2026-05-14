@@ -18,6 +18,14 @@ export function shouldUseDerivedKeys(config = {}) {
   return normalizeBoolean(config?.useDerivedKeys ?? process.env.PHALA_USE_DERIVED_KEYS, false);
 }
 
+function normalizeRole(role) {
+  const normalized = trimString(role || 'relayer');
+  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(normalized)) {
+    throw new Error('invalid derived Neo N3 key role');
+  }
+  return normalized;
+}
+
 async function tryCreateClient(kind) {
   try {
     if (kind === 'dstack') {
@@ -80,15 +88,22 @@ function normalizePrivateKeyHex(buffer, label) {
   throw new Error(`unable to derive usable private key for ${label}`);
 }
 
-export async function deriveRelayerNeoN3PrivateKeyHex() {
+export async function deriveNeoN3PrivateKeyHex(role = 'relayer') {
+  const normalizedRole = normalizeRole(role);
+  const rolePathEnvKey = `PHALA_DSTACK_${normalizedRole.toUpperCase()}_NEO_N3_KEY_PATH`;
   const keyPath =
-    trimString(
-      process.env.PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH ||
-        process.env.PHALA_DSTACK_NEO_N3_KEY_PATH ||
-        ''
-    ) || 'morpheus/neo-n3/relayer/signing/v1';
+    trimString(process.env[rolePathEnvKey] || process.env.PHALA_DSTACK_NEO_N3_KEY_PATH || '') ||
+    `morpheus/neo-n3/${normalizedRole}/signing/v1`;
   return normalizePrivateKeyHex(
-    await deriveKeyBytes(keyPath, 'neo-n3-relayer-signing'),
-    'neo-n3:relayer'
+    await deriveKeyBytes(keyPath, 'neo-n3-signing'),
+    `neo-n3:${normalizedRole}`
   );
+}
+
+export async function deriveRelayerNeoN3PrivateKeyHex() {
+  return deriveNeoN3PrivateKeyHex('relayer');
+}
+
+export async function deriveUpdaterNeoN3PrivateKeyHex() {
+  return deriveNeoN3PrivateKeyHex('updater');
 }

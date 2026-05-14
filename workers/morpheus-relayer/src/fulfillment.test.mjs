@@ -6,7 +6,9 @@ import {
   computeRetryDelayMs,
   enrichAutomationExecutionPayload,
   isAlreadyFulfilledError,
+  isQueuedAutomationExecutionPayload,
   isTerminalConfigurationError,
+  resolveEventFulfillmentContext,
   resolveFulfillmentSigningContext,
   trimOnchainErrorMessage,
 } from './fulfillment.js';
@@ -270,6 +272,48 @@ describe('resolveFulfillmentSigningContext', () => {
   });
 });
 
+describe('resolveEventFulfillmentContext', () => {
+  it('prefers the on-chain miniapp envelope over the internal route mapping', () => {
+    assert.deepEqual(
+      resolveEventFulfillmentContext(
+        {
+          appId: 'morpheus.platform.game',
+          moduleId: 'vrf_random',
+          operation: 'vrf_random',
+        },
+        {
+          moduleId: 'random.generate',
+          operation: 'vrf_random',
+        }
+      ),
+      {
+        appId: 'morpheus.platform.game',
+        moduleId: 'vrf_random',
+        operation: 'vrf_random',
+      }
+    );
+  });
+
+  it('falls back to the legacy kernel mapping when old events lack envelope fields', () => {
+    assert.deepEqual(
+      resolveEventFulfillmentContext(
+        {
+          requestType: 'privacy_oracle',
+        },
+        {
+          moduleId: 'oracle.fetch',
+          operation: 'privacy_oracle',
+        }
+      ),
+      {
+        appId: '',
+        moduleId: 'oracle.fetch',
+        operation: 'privacy_oracle',
+      }
+    );
+  });
+});
+
 // ===================================================================
 // enrichAutomationExecutionPayload
 // ===================================================================
@@ -295,5 +339,30 @@ describe('enrichAutomationExecutionPayload', () => {
     assert.equal(payload.workflow_id, 'custom.workflow');
     assert.equal(payload.request_id, 'custom-request');
     assert.equal(payload.idempotency_key, 'custom-idempotency');
+  });
+});
+
+describe('isQueuedAutomationExecutionPayload', () => {
+  it('does not treat regular oracle payloads as automation executions', () => {
+    assert.equal(isQueuedAutomationExecutionPayload({ url: 'https://prices.test/neo' }), false);
+    assert.equal(isQueuedAutomationExecutionPayload('raw payload'), false);
+    assert.equal(isQueuedAutomationExecutionPayload(null), false);
+  });
+
+  it('detects scheduler execution payloads', () => {
+    assert.equal(
+      isQueuedAutomationExecutionPayload({
+        automation_id: 'automation:neo_n3:test',
+        workflow_id: 'automation.upkeep',
+      }),
+      true
+    );
+    assert.equal(
+      isQueuedAutomationExecutionPayload({
+        automationId: 'automation:neo_n3:test',
+        executionId: 'execution-1',
+      }),
+      true
+    );
   });
 });

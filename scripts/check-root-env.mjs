@@ -55,7 +55,7 @@ const required = {
   feed_ops: [
     ['MORPHEUS_FEED_PROVIDER'],
     ['MORPHEUS_FEED_PROJECT_SLUG'],
-    ['CRON_SECRET'],
+    ['MORPHEUS_CRON_SECRET'],
     ['MORPHEUS_FEED_SYMBOLS'],
   ],
   n3_scripts: [

@@ -7,6 +7,30 @@ function badRequest(message: string, status = 400) {
   return Response.json({ error: message }, { status });
 }
 
+function shouldServeFeedFallback(status: number) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+}
+
+function feedUnavailableResponse(symbol: string, provider: string | null, upstreamStatus: number) {
+  return Response.json(
+    {
+      status: 'unavailable',
+      degraded: true,
+      symbol,
+      provider: provider || null,
+      error: 'feed_quote_unavailable',
+      upstream_status: upstreamStatus,
+    },
+    {
+      status: 200,
+      headers: {
+        'cache-control': 'no-store',
+        'x-morpheus-upstream-status': String(upstreamStatus),
+      },
+    }
+  );
+}
+
 export async function GET(request: Request, context: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await context.params;
   const url = new URL(request.url);
@@ -42,7 +66,7 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
       fallbackProviderId: provider ? String(provider) : undefined,
     });
 
-    return proxyToPhala(
+    const response = await proxyToPhala(
       '/feeds/price',
       {
         method: 'POST',
@@ -54,6 +78,10 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
         requestPayload: resolved.payload,
       }
     );
+    if (!response.ok && shouldServeFeedFallback(response.status)) {
+      return feedUnavailableResponse(symbol, provider, response.status);
+    }
+    return response;
   } catch (error) {
     await recordOperationLog({
       route: `/api/feeds/${symbol}`,
