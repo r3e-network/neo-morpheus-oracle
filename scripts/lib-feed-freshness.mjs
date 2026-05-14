@@ -257,12 +257,7 @@ function probeNeoInvokeViaCurl(rpcUrl, contractHash, operation, params = []) {
   }
 }
 
-export function resolveReachableNeoRpcUrlsForInvoke(
-  rpcUrls,
-  contractHash,
-  operation,
-  params = []
-) {
+export function resolveReachableNeoRpcUrlsForInvoke(rpcUrls, contractHash, operation, params = []) {
   const candidates = resolveReachableNeoRpcUrls(rpcUrls);
   if (!candidates.length) return [];
   const reachable = [];
@@ -338,22 +333,24 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
     .map((value) => trimString(value))
     .filter(Boolean);
   const strictRpcOverride = trimString(process.env.NEO_RPC_URL_STRICT || '') === '1';
-  const rpcUrls = (explicitRpcUrl
-    ? strictRpcOverride
-      ? [explicitRpcUrl]
-      : [explicitRpcUrl, ...baseRpcUrls]
-    : baseRpcUrls
+  const rpcUrls = (
+    explicitRpcUrl
+      ? strictRpcOverride
+        ? [explicitRpcUrl]
+        : [explicitRpcUrl, ...baseRpcUrls]
+      : baseRpcUrls
   )
     .map((value) => trimString(value))
     .filter(Boolean);
   const datafeedHash = trimString(networkConfig.neo_n3?.contracts?.morpheus_datafeed || '');
   const pairs = parseConfiguredFeedPairs(runtimeConfig);
-  const uniqueRpcUrls = resolveReachableNeoRpcUrlsForInvoke(
+  const rpcUrlsOrdered = resolveReachableNeoRpcUrlsForInvoke(
     rpcUrls,
     datafeedHash,
     'getLatest',
     pairs.length ? [{ type: 'String', value: pairs[0] }] : []
   );
+  const rpcUrlsFallback = [...new Set([...rpcUrlsOrdered, ...rpcUrls])];
   const rows = [];
 
   if (
@@ -364,8 +361,13 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
   }
 
   for (const pair of pairs) {
+    const rotateOffset = rows.length % Math.max(rpcUrlsFallback.length, 1);
+    const rotatedRpcUrls =
+      rpcUrlsFallback.length <= 1
+        ? rpcUrlsFallback
+        : [...rpcUrlsFallback.slice(rotateOffset), ...rpcUrlsFallback.slice(0, rotateOffset)];
     const response = invokeNeoFunctionViaCurlWithFallback(
-      uniqueRpcUrls,
+      rotatedRpcUrls,
       datafeedHash,
       'getLatest',
       [{ type: 'String', value: pair }]
@@ -381,6 +383,10 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
       source_set_id: sourceSetId || '0',
       ...classifyFeedFreshness(timestamp || '0', Date.now(), staleMinutes, decoded[0] || pair),
     });
+
+    if (pairs.length > 1) {
+      await new Promise((resolve) => setTimeout(resolve, 75));
+    }
   }
 
   const stalePairs = [];
