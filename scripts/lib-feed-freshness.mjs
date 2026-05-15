@@ -25,6 +25,10 @@ const CONTINUOUS_FEED_PAIRS = new Set([
   'TWELVEDATA:DOGE-USD',
 ]);
 
+export const FRESHNESS_RPC_PROBE_CONNECT_TIMEOUT_SECONDS = '5';
+export const FRESHNESS_RPC_PROBE_MAX_TIME_SECONDS = '8';
+export const FRESHNESS_RPC_PROBE_TIMEOUT_MS = 10_000;
+
 export function classifyFeedCadence(pair) {
   const normalized = normalizeFeedStoragePair(pair);
   if (!normalized) return 'continuous';
@@ -184,16 +188,16 @@ function probeNeoRpcUrlViaCurl(rpcUrl) {
           '--happy-eyeballs-timeout-ms',
           '200',
           '--connect-timeout',
-          '20',
+          FRESHNESS_RPC_PROBE_CONNECT_TIMEOUT_SECONDS,
           '--max-time',
-          '25',
+          FRESHNESS_RPC_PROBE_MAX_TIME_SECONDS,
           rpcUrl,
           '-H',
           'Content-Type: application/json',
           '-d',
           JSON.stringify(payload),
         ],
-        { encoding: 'utf8', timeout: 30_000 }
+        { encoding: 'utf8', timeout: FRESHNESS_RPC_PROBE_TIMEOUT_MS }
       )
     );
     return !response?.error;
@@ -237,16 +241,16 @@ function probeNeoInvokeViaCurl(rpcUrl, contractHash, operation, params = []) {
           '--happy-eyeballs-timeout-ms',
           '200',
           '--connect-timeout',
-          '20',
+          FRESHNESS_RPC_PROBE_CONNECT_TIMEOUT_SECONDS,
           '--max-time',
-          '25',
+          FRESHNESS_RPC_PROBE_MAX_TIME_SECONDS,
           rpcUrl,
           '-H',
           'Content-Type: application/json',
           '-d',
           JSON.stringify(payload),
         ],
-        { encoding: 'utf8', timeout: 30_000 }
+        { encoding: 'utf8', timeout: FRESHNESS_RPC_PROBE_TIMEOUT_MS }
       )
     );
     if (response.error) return false;
@@ -288,6 +292,42 @@ export function invokeNeoFunctionViaCurlWithFallback(
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+export function mergeFreshnessRpcUrls(reachableRpcUrls, configuredRpcUrls) {
+  const reachable = Array.isArray(reachableRpcUrls)
+    ? reachableRpcUrls.map((value) => trimString(value)).filter(Boolean)
+    : [];
+  if (reachable.length) return rankFreshnessRpcUrls([...new Set(reachable)]);
+  return rankFreshnessRpcUrls([
+    ...new Set(
+      (Array.isArray(configuredRpcUrls) ? configuredRpcUrls : [configuredRpcUrls])
+        .map((value) => trimString(value))
+        .filter(Boolean)
+    ),
+  ]);
+}
+
+function rankFreshnessRpcUrls(rpcUrls) {
+  return [...rpcUrls].sort((left, right) => rpcUrlRank(left) - rpcUrlRank(right));
+}
+
+function rpcUrlRank(value) {
+  const normalized = trimString(value).toLowerCase();
+  if (/^https?:\/\/seed\d+\.neo\.org(?::|\/|$)/.test(normalized)) return 0;
+  if (normalized.includes('neo.org')) return 1;
+  if (normalized.startsWith('https://')) return 2;
+  return 3;
+}
+
+export function selectFreshnessRpcUrlsForPair(rpcUrls) {
+  return [
+    ...new Set(
+      (Array.isArray(rpcUrls) ? rpcUrls : [rpcUrls])
+        .map((value) => trimString(value))
+        .filter(Boolean)
+    ),
+  ];
 }
 
 export function classifyFeedFreshness(
@@ -350,7 +390,7 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
     'getLatest',
     pairs.length ? [{ type: 'String', value: pairs[0] }] : []
   );
-  const rpcUrlsFallback = [...new Set([...rpcUrlsOrdered, ...rpcUrls])];
+  const rpcUrlsFallback = mergeFreshnessRpcUrls(rpcUrlsOrdered, rpcUrls);
   const rows = [];
 
   if (
@@ -361,13 +401,9 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
   }
 
   for (const pair of pairs) {
-    const rotateOffset = rows.length % Math.max(rpcUrlsFallback.length, 1);
-    const rotatedRpcUrls =
-      rpcUrlsFallback.length <= 1
-        ? rpcUrlsFallback
-        : [...rpcUrlsFallback.slice(rotateOffset), ...rpcUrlsFallback.slice(0, rotateOffset)];
+    const selectedRpcUrls = selectFreshnessRpcUrlsForPair(rpcUrlsFallback);
     const response = invokeNeoFunctionViaCurlWithFallback(
-      rotatedRpcUrls,
+      selectedRpcUrls,
       datafeedHash,
       'getLatest',
       [{ type: 'String', value: pair }]

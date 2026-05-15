@@ -3,13 +3,24 @@ import assert from 'node:assert/strict';
 
 import {
   classifyFeedFreshness,
+  FRESHNESS_RPC_PROBE_CONNECT_TIMEOUT_SECONDS,
+  FRESHNESS_RPC_PROBE_MAX_TIME_SECONDS,
+  FRESHNESS_RPC_PROBE_TIMEOUT_MS,
+  mergeFreshnessRpcUrls,
   normalizeFeedStoragePair,
   parseConfiguredFeedPairs,
+  selectFreshnessRpcUrlsForPair,
 } from './lib-feed-freshness.mjs';
 
 test('normalizeFeedStoragePair prefixes bare symbols with TWELVEDATA', () => {
   assert.equal(normalizeFeedStoragePair('NEO-USD'), 'TWELVEDATA:NEO-USD');
   assert.equal(normalizeFeedStoragePair('TWELVEDATA:BTC-USD'), 'TWELVEDATA:BTC-USD');
+});
+
+test('freshness RPC probes use short timeouts so unhealthy endpoints do not stall heartbeats', () => {
+  assert.equal(FRESHNESS_RPC_PROBE_CONNECT_TIMEOUT_SECONDS, '5');
+  assert.equal(FRESHNESS_RPC_PROBE_MAX_TIME_SECONDS, '8');
+  assert.equal(FRESHNESS_RPC_PROBE_TIMEOUT_MS, 10_000);
 });
 
 test('parseConfiguredFeedPairs normalizes configured feed symbols', () => {
@@ -46,4 +57,35 @@ test('classifyFeedFreshness treats sub-12h observations as fresh under the defau
     threshold_min: 1440,
     stale: false,
   });
+});
+
+test('mergeFreshnessRpcUrls excludes unhealthy fallback RPCs once reachable URLs are known', () => {
+  assert.deepEqual(
+    mergeFreshnessRpcUrls(
+      ['http://seed1.neo.org:10332'],
+      [
+        'https://api.n3index.dev/mainnet',
+        'http://seed1.neo.org:10332',
+        'https://mainnet1.neo.coz.io:443',
+      ]
+    ),
+    ['http://seed1.neo.org:10332']
+  );
+});
+
+test('mergeFreshnessRpcUrls prefers stable public seed RPCs over intermittent HTTPS RPCs', () => {
+  assert.deepEqual(
+    mergeFreshnessRpcUrls(['https://mainnet1.neo.coz.io:443', 'http://seed2.neo.org:10332'], []),
+    ['http://seed2.neo.org:10332', 'https://mainnet1.neo.coz.io:443']
+  );
+});
+
+test('selectFreshnessRpcUrlsForPair keeps the same healthy RPC priority for every pair', () => {
+  assert.deepEqual(
+    selectFreshnessRpcUrlsForPair([
+      'http://seed1.neo.org:10332',
+      'https://mainnet1.neo.coz.io:443',
+    ]),
+    ['http://seed1.neo.org:10332', 'https://mainnet1.neo.coz.io:443']
+  );
 });
