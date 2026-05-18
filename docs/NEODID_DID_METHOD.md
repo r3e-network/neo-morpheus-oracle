@@ -58,13 +58,13 @@ Examples:
 
 - `did:morpheus:neo_n3:service:neodid`
 - `did:morpheus:neo_n3:vault:6d0656f6dd91469db1c90cc1e574380613f43738`
-- `did:morpheus:neo_n3:aa:aa-social-recovery-demo`
+- `did:morpheus:neo_n3:aa:<aa-account-id>`
 
 示例：
 
 - `did:morpheus:neo_n3:service:neodid`
 - `did:morpheus:neo_n3:vault:6d0656f6dd91469db1c90cc1e574380613f43738`
-- `did:morpheus:neo_n3:aa:aa-social-recovery-demo`
+- `did:morpheus:neo_n3:aa:<aa-account-id>`
 
 ## 3. Subject Types / Subject 类型
 
@@ -277,7 +277,7 @@ curl "https://oracle.meshmini.app/mainnet/neodid/resolve?did=did:morpheus:neo_n3
 ```
 
 ```bash
-curl "https://oracle.meshmini.app/mainnet/neodid/resolve?did=did:morpheus:neo_n3:aa:aa-social-recovery-demo&format=document"
+curl "https://oracle.meshmini.app/mainnet/neodid/resolve?did=did:morpheus:neo_n3:aa:<aa-account-id>&format=document"
 ```
 
 ## 11. Implementation Notes / 实现说明

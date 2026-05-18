@@ -405,16 +405,25 @@ const vaultAccount = normalizeHash160(
     `0x${wallet.getScriptHashFromAddress('NTmHjwiadq4g3VHpJ5FQigQcD4fF5m8TyX')}`
 );
 const disposableAccountA = normalizeHash160(
-  process.env.NEODID_TEST_DISPOSABLE_A || '0x1111111111111111111111111111111111111111'
+  process.env.NEODID_TEST_DISPOSABLE_A || `0x${new wallet.Account().scriptHash}`
 );
 const disposableAccountB = normalizeHash160(
-  process.env.NEODID_TEST_DISPOSABLE_B || '0x2222222222222222222222222222222222222222'
+  process.env.NEODID_TEST_DISPOSABLE_B || `0x${new wallet.Account().scriptHash}`
 );
 const newOwnerA = normalizeHash160(
-  process.env.NEODID_TEST_NEW_OWNER_A || '0x3333333333333333333333333333333333333333'
+  process.env.NEODID_TEST_NEW_OWNER_A || `0x${new wallet.Account().scriptHash}`
 );
 const newOwnerB = normalizeHash160(
-  process.env.NEODID_TEST_NEW_OWNER_B || '0x4444444444444444444444444444444444444444'
+  process.env.NEODID_TEST_NEW_OWNER_B || `0x${new wallet.Account().scriptHash}`
+);
+const recoveryAccountIdA = trimString(
+  process.env.NEODID_TEST_RECOVERY_ACCOUNT_ID_A || `aa-recovery-${Date.now()}-a`
+);
+const recoveryAccountIdB = trimString(
+  process.env.NEODID_TEST_RECOVERY_ACCOUNT_ID_B || `aa-recovery-${Date.now()}-b`
+);
+const recoveryAccountIdC = trimString(
+  process.env.NEODID_TEST_RECOVERY_ACCOUNT_ID_C || `aa-recovery-${Date.now()}-c`
 );
 
 if (!wif) throw new Error('NEO_N3_WIF or MORPHEUS_RELAYER_NEO_N3_WIF is required');
@@ -532,7 +541,7 @@ const recoveryPayloadA = {
   network: 'neo_n3',
   aa_contract: aaContractHash,
   verifier_contract: aaVerifierHash,
-  account_id: 'aa-social-recovery-demo-a',
+  account_id: recoveryAccountIdA,
   new_owner: newOwnerA,
   recovery_nonce: '7',
   expires_at: '1893456000000',
@@ -544,7 +553,7 @@ const recoveryPayloadB = {
   network: 'neo_n3',
   aa_contract: aaContractHash,
   verifier_contract: aaVerifierHash,
-  account_id: 'aa-social-recovery-demo-b',
+  account_id: recoveryAccountIdB,
   new_owner: newOwnerB,
   recovery_nonce: '7',
   expires_at: '1893456000000',
@@ -556,7 +565,7 @@ const recoveryFailurePayload = {
   network: 'neo_n3',
   aa_contract: aaContractHash,
   verifier_contract: aaVerifierHash,
-  account_id: 'aa-social-recovery-demo-c',
+  account_id: recoveryAccountIdC,
   recovery_nonce: '9',
   expires_at: '1893456000000',
 };

@@ -25,7 +25,6 @@ It serves four roles:
 - `/api/runtime/health`
 - `/api/workflows`
 - `/api/policies`
-- `/api/attestation/demo`
 - `/api/attestation/verify`
 
 ## Operator / internal routes

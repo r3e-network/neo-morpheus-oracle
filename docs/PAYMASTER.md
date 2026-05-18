@@ -86,11 +86,11 @@ This makes the response portable across:
   "network": "testnet",
   "target_chain": "neo_n3",
   "account_id": "0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56",
-  "dapp_id": "demo-dapp",
+  "dapp_id": "<allowlisted-production-dapp-id>",
   "target_contract": "0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2",
   "method": "executeUserOp",
   "estimated_gas_units": 120000,
-  "operation_hash": "0x4444444444444444444444444444444444444444444444444444444444444444"
+  "operation_hash": "<32-byte-operation-hash>"
 }
 ```
 

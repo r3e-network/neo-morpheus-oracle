@@ -162,7 +162,7 @@ export default function DocsCompute() {
         code={`{
  "mode": "script",
  "script_ref": {
- "contract_hash": "0x1111111111111111111111111111111111111111",
+ "contract_hash": "<production-script-registry-hash>",
  "method": "getScript",
  "script_name": "sum"
  },

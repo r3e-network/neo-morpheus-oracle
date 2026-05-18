@@ -31,4 +31,6 @@ export const DEFAULT_NEODID_SERVICE_DID = buildNeoDidServiceDid();
 export const DEFAULT_NEODID_VAULT_DID = buildNeoDidVaultDid(
   '6d0656f6dd91469db1c90cc1e574380613f43738'
 );
-export const DEFAULT_NEODID_AA_DID = buildNeoDidAaDid('aa-social-recovery-demo');
+export const DEFAULT_NEODID_AA_DID = process.env.NEXT_PUBLIC_MORPHEUS_NEODID_AA_ACCOUNT_ID
+  ? buildNeoDidAaDid(process.env.NEXT_PUBLIC_MORPHEUS_NEODID_AA_ACCOUNT_ID)
+  : '';

@@ -188,7 +188,10 @@ export default function StatusPage() {
   };
 
   return (
-    <div className="container" style={{ padding: 'calc(72px + 3rem) 0 4rem' }}>
+    <div
+      className="container"
+      style={{ paddingTop: 'calc(72px + 3rem)', paddingBottom: '4rem' }}
+    >
       <div className="fade-in">
         <div
           style={{

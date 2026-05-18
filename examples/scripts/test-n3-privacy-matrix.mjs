@@ -19,6 +19,13 @@ import {
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const REQUEST_TX_SYSTEM_FEE_BUFFER = BigInt(process.env.EXAMPLE_REQUEST_SYSTEM_FEE_BUFFER || '3000000');
+const CUSTOM_ORACLE_URL = trimString(process.env.MORPHEUS_EXAMPLE_CUSTOM_ORACLE_URL || '');
+const CUSTOM_ORACLE_JSON_PATH = trimString(
+  process.env.MORPHEUS_EXAMPLE_CUSTOM_ORACLE_JSON_PATH || ''
+);
+const CUSTOM_ORACLE_EXPECTED = trimString(
+  process.env.MORPHEUS_EXAMPLE_CUSTOM_ORACLE_EXPECTED || ''
+);
 
 function sha256Hex(value) {
   return createHash('sha256')
@@ -423,10 +430,15 @@ const cases = [
     title: 'Privacy Oracle custom URL, encrypted params',
     requestType: 'oracle',
     async prepare() {
-      const confidentialPatch = { json_path: 'args.probe' };
+      if (!CUSTOM_ORACLE_URL || !CUSTOM_ORACLE_JSON_PATH || !CUSTOM_ORACLE_EXPECTED) {
+        throw new Error(
+          'MORPHEUS_EXAMPLE_CUSTOM_ORACLE_URL, MORPHEUS_EXAMPLE_CUSTOM_ORACLE_JSON_PATH, and MORPHEUS_EXAMPLE_CUSTOM_ORACLE_EXPECTED are required'
+        );
+      }
+      const confidentialPatch = { json_path: CUSTOM_ORACLE_JSON_PATH };
       const encryptedParams = await buildEncryptedJsonPatch('neo_n3', confidentialPatch);
       const publicPayload = {
-        url: 'https://postman-echo.com/get?probe=neo-morpheus',
+        url: CUSTOM_ORACLE_URL,
         target_chain: 'neo_n3',
         encrypted_params: encryptedParams,
       };
@@ -440,7 +452,7 @@ const cases = [
         expectedDescription: 'Custom URL flow returns the echoed probe string.',
         validate(callback) {
           const actual = extractActualValue(callback, 'oracle');
-          if (actual !== 'neo-morpheus') {
+          if (actual !== CUSTOM_ORACLE_EXPECTED) {
             throw new Error(`unexpected custom URL result: ${JSON.stringify(actual)}`);
           }
         },
@@ -452,13 +464,18 @@ const cases = [
     title: 'Privacy Oracle custom URL, encrypted params plus custom JS function',
     requestType: 'oracle',
     async prepare() {
+      if (!CUSTOM_ORACLE_URL || !CUSTOM_ORACLE_JSON_PATH || !CUSTOM_ORACLE_EXPECTED) {
+        throw new Error(
+          'MORPHEUS_EXAMPLE_CUSTOM_ORACLE_URL, MORPHEUS_EXAMPLE_CUSTOM_ORACLE_JSON_PATH, and MORPHEUS_EXAMPLE_CUSTOM_ORACLE_EXPECTED are required'
+        );
+      }
       const confidentialPatch = {
-        json_path: 'args.probe',
-        script: "function process(data) { return data.args.probe + '-script'; }",
+        json_path: CUSTOM_ORACLE_JSON_PATH,
+        script: "function process(data) { return String(data) + '-script'; }",
       };
       const encryptedParams = await buildEncryptedJsonPatch('neo_n3', confidentialPatch);
       const publicPayload = {
-        url: 'https://postman-echo.com/get?probe=neo-morpheus',
+        url: CUSTOM_ORACLE_URL,
         target_chain: 'neo_n3',
         encrypted_params: encryptedParams,
       };
@@ -471,10 +488,10 @@ const cases = [
           ...summarizeCiphertext(encryptedParams),
         },
         expectedDescription:
-          'Encrypted custom script transforms the echoed probe into neo-morpheus-script.',
+          'Encrypted custom script transforms the configured custom oracle value.',
         validate(callback) {
           const actual = extractActualValue(callback, 'oracle');
-          if (actual !== 'neo-morpheus-script') {
+          if (actual !== `${CUSTOM_ORACLE_EXPECTED}-script`) {
             throw new Error(`unexpected custom script oracle result: ${JSON.stringify(actual)}`);
           }
         },

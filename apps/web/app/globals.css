@@ -4,9 +4,9 @@
   --bg-card: rgba(255, 255, 255, 0.88);
   --bg-nav: rgba(255, 255, 255, 0.82);
 
-  --neo-green: #00a86b;
-  --neo-green-dim: rgba(0, 168, 107, 0.12);
-  --neo-green-glow: rgba(0, 168, 107, 0.22);
+  --neo-green: #006b49;
+  --neo-green-dim: rgba(0, 107, 73, 0.12);
+  --neo-green-glow: rgba(0, 107, 73, 0.22);
 
   --accent-purple: #533afd;
   --accent-blue: #2874ad;
@@ -16,8 +16,8 @@
   --border-active: #8aa1bb;
 
   --text-primary: #061b31;
-  --text-secondary: #53657d;
-  --text-muted: #7a8aa1;
+  --text-secondary: #445a74;
+  --text-muted: #53677f;
   --text-dim: #9aa8b8;
 
   --bg-panel: #f8fbff;
@@ -241,17 +241,17 @@ body {
 
 /* --- Inputs & Code --- */
 .code-editor {
-  background: #0d253d;
-  border: 1px solid rgba(83, 58, 253, 0.18);
+  background: #f8fbff;
+  border: 1px solid var(--border-dim);
   border-radius: 8px;
   padding: 1rem;
-  color: #d8fff0;
+  color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 0.85rem;
   line-height: 1.6;
   width: 100%;
   resize: vertical;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
   transition: all 0.3s ease;
 }
 
@@ -259,7 +259,6 @@ body {
   outline: none;
   border-color: var(--neo-green);
   box-shadow: 0 0 10px var(--neo-green-dim);
-  color: #fff;
 }
 
 .neo-input,
@@ -493,13 +492,16 @@ select:focus-visible {
 .docs-content p code,
 .docs-content li code,
 .docs-content td code {
-  background: rgba(83, 58, 253, 0.07);
+  background: rgba(83, 58, 253, 0.09);
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 0.15rem 0.4rem;
   border-radius: 6px;
   font-family: var(--font-mono);
   font-size: 0.85em;
-  color: var(--accent-purple);
-  border: 1px solid rgba(83, 58, 253, 0.14);
+  color: #20106f;
+  border: 1px solid rgba(83, 58, 253, 0.18);
+  word-break: break-word;
 }
 
 /* Code blocks (pre) rendered by markdown */

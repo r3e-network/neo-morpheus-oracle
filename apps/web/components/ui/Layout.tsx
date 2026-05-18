@@ -93,7 +93,7 @@ export function Layout({
               </span>
               <span
                 style={{
-                  color: 'var(--text-muted)',
+                  color: 'var(--text-secondary)',
                   fontSize: '0.65rem',
                   fontFamily: 'var(--font-mono)',
                   marginLeft: '8px',

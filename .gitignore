@@ -8,6 +8,7 @@ node_modules
 .npmrc
 coverage
 npm-debug.log*
+*.tsbuildinfo
 .DS_Store
 .serena
 .claude/
@@ -31,6 +32,7 @@ docs/reports/
 docs/*_20??-??-??.md
 examples/deployments/*.20??-??-??.json
 examples/deployments/control-plane-smoke.*.latest.json
+examples/deployments/*.latest.json
 dist
 
 .worktrees/

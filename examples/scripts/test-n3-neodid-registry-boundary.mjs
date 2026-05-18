@@ -669,7 +669,7 @@ async function main() {
     registry.hash,
     'useActionTicket',
     [
-      sc.ContractParam.hash160('0x1111111111111111111111111111111111111111'),
+      sc.ContractParam.hash160(`0x${new wallet.Account().scriptHash}`),
       sc.ContractParam.string(actionTicket.action_id),
       byteArrayParam(actionTicket.action_nullifier),
       byteArrayParam(actionTicket.verification_signature),

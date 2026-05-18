@@ -37,6 +37,7 @@ function buildSecurityHeaders() {
 /** @type {import('next').NextConfig} */
 export const nextConfig = {
   outputFileTracingRoot: path.resolve(__dirname, '../../'),
+  devIndicators: false,
   images: {
     formats: ['image/avif', 'image/webp'],
   },

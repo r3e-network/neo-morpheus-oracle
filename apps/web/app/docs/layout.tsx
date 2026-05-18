@@ -63,7 +63,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         style={{
           position: 'fixed',
-          top: '80px',
+          top: '96px',
           left: '12px',
           zIndex: 999,
           background: 'var(--bg-card)',
@@ -110,7 +110,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                 style={{
                   fontSize: '0.65rem',
                   fontWeight: 800,
-                  color: 'var(--text-muted)',
+                  color: 'var(--text-secondary)',
                   textTransform: 'uppercase',
                   letterSpacing: 0,
                   fontFamily: 'var(--font-mono)',
@@ -182,7 +182,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                 target="_blank"
                 style={{
                   fontSize: '0.75rem',
-                  color: 'var(--text-dim)',
+                  color: 'var(--text-secondary)',
                   textDecoration: 'none',
                   display: 'flex',
                   alignItems: 'center',
@@ -198,7 +198,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                 rel="noopener noreferrer"
                 style={{
                   fontSize: '0.75rem',
-                  color: 'var(--text-dim)',
+                  color: 'var(--text-secondary)',
                   textDecoration: 'none',
                   display: 'flex',
                   alignItems: 'center',
@@ -215,9 +215,9 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
         {/* Main Content */}
         <main
           className="docs-content fade-up"
-          style={{ flex: 1, padding: '4rem 6rem', minWidth: 0 }}
+          style={{ flex: 1, padding: '4rem 6rem', minWidth: 0, width: '100%' }}
         >
-          <div style={{ maxWidth: '840px' }}>
+          <div className="docs-content-inner" style={{ maxWidth: '840px' }}>
             {children}
 
             {/* Next/Prev Navigation */}
@@ -391,10 +391,12 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
 
  @media (max-width: 1024px) {
  .docs-sidebar {
- position: fixed;
+ position: fixed !important;
  left: 0;
  top: 72px;
  bottom: 0;
+ width: min(320px, 86vw) !important;
+ height: calc(100vh - 72px) !important;
  transform: translateX(-100%);
  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
  background: var(--bg-card);
@@ -403,7 +405,28 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
  .docs-sidebar.open {
  transform: translateX(0);
  }
- .docs-content { padding: 2rem !important; }
+	 .docs-content {
+	 padding: 6rem 1rem 2rem !important;
+	 width: 100% !important;
+	 max-width: 100vw !important;
+	 box-sizing: border-box;
+	 overflow-x: hidden;
+	 }
+ .docs-content-inner {
+ max-width: 100% !important;
+ width: 100%;
+ }
+ .docs-content p,
+ .docs-content li,
+ .docs-content blockquote,
+ .docs-content table,
+ .docs-content code {
+ overflow-wrap: anywhere;
+ word-break: break-word;
+ }
+ .docs-content h1 {
+ font-size: clamp(2rem, 11vw, 2.65rem);
+ }
  .hide-mobile { display: none; }
  }
  @media (min-width: 1025px) {

@@ -66,10 +66,8 @@ function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script:
 
   if (flow === 'oracle_custom') {
     const payload: Record<string, unknown> = {
-      headers: {
-        Authorization: 'Bearer secret_token',
-      },
-      json_path: 'data.score',
+      headers: {},
+      json_path: '',
     };
     if (useScript && script.trim()) {
       payload.script = script.trim();
@@ -83,7 +81,7 @@ function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script:
       {
         mode: 'builtin',
         function: 'privacy.mask',
-        input: { value: '13812345678', unmasked_left: 3, unmasked_right: 4 },
+        input: { value: '', unmasked_left: 0, unmasked_right: 0 },
         target_chain: 'neo_n3',
       },
       null,
@@ -95,7 +93,7 @@ function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script:
     {
       mode: 'builtin',
       function: 'math.modexp',
-      input: { base: '2', exponent: '10', modulus: '17' },
+      input: { base: '', exponent: '', modulus: '' },
       target_chain: 'neo_n3',
     },
     null,
@@ -108,12 +106,12 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || '';
   const [flow, setFlow] = useState('oracle_provider');
   const [symbol, setSymbol] = useState('TWELVEDATA:NEO-USD');
-  const [customUrl, setCustomUrl] = useState('https://postman-echo.com/get?probe=morpheus');
+  const [customUrl, setCustomUrl] = useState('');
   const [jsonPath, setJsonPath] = useState('price');
   const [targetChain, setTargetChain] = useState('neo_n3');
   const [useEncrypted, setUseEncrypted] = useState(true);
   const [useScript, setUseScript] = useState(false);
-  const [script, setScript] = useState('function process(data) { return Number(data.price) > 0; }');
+  const [script, setScript] = useState('');
   const [manualCallbackHash, setManualCallbackHash] = useState(universalConsumer);
   const [manualCallbackMethod, setManualCallbackMethod] = useState('onOracleResult');
   const [confidentialJson, setConfidentialJson] = useState(
@@ -152,7 +150,7 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
       setTargetChain('neo_n3');
       setUseEncrypted(false);
       setUseScript(false);
-      setScript('function process(data) { return Number(data.price) > 0; }');
+      setScript('');
       setConfidentialJson(buildDefaultConfidentialPatch('oracle_provider', false, ''));
       setEncryptedBlob('');
       return;
@@ -160,17 +158,17 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
 
     if (preset === 'oracle_private_api') {
       setFlow('oracle_custom');
-      setCustomUrl('https://api.example.com/private-price');
-      setJsonPath('data.price');
+      setCustomUrl('');
+      setJsonPath('');
       setTargetChain('neo_n3');
       setUseEncrypted(true);
       setUseScript(false);
-      setScript('function process(data) { return Number(data.price) > 0; }');
+      setScript('');
       setConfidentialJson(
         JSON.stringify(
           {
-            headers: { Authorization: 'Bearer secret_token' },
-            json_path: 'data.price',
+            headers: {},
+            json_path: '',
           },
           null,
           2
@@ -182,18 +180,18 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
 
     if (preset === 'oracle_boolean') {
       setFlow('oracle_custom');
-      setCustomUrl('https://api.example.com/private-profile');
-      setJsonPath('data.followers');
+      setCustomUrl('');
+      setJsonPath('');
       setTargetChain('neo_n3');
       setUseEncrypted(true);
       setUseScript(true);
-      const nextScript = 'function process(data) { return Number(data.followers) > 10000; }';
+      const nextScript = '';
       setScript(nextScript);
       setConfidentialJson(
         JSON.stringify(
           {
-            headers: { Authorization: 'Bearer secret_token' },
-            json_path: 'data.followers',
+            headers: {},
+            json_path: '',
             script: nextScript,
             entry_point: 'process',
           },

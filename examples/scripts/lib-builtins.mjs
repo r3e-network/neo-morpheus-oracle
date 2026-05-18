@@ -202,11 +202,11 @@ export async function buildBuiltinComputeCases(targetChain) {
       payload: {
         mode: 'builtin',
         function: 'zkp.public_signal_hash',
-        input: { circuit_id: 'demo', signals: [1, 2, 3] },
+        input: { circuit_id: 'configured-circuit', signals: [1, 2, 3] },
         target_chain: targetChain,
       },
       validate(inner) {
-        assert.equal(inner.digest, sha256Hex({ circuit_id: 'demo', signals: [1, 2, 3] }));
+        assert.equal(inner.digest, sha256Hex({ circuit_id: 'configured-circuit', signals: [1, 2, 3] }));
       },
     },
     {
@@ -226,11 +226,11 @@ export async function buildBuiltinComputeCases(targetChain) {
       payload: {
         mode: 'builtin',
         function: 'zkp.witness_digest',
-        input: { witness: { x: 9 }, circuit_id: 'demo' },
+        input: { witness: { x: 9 }, circuit_id: 'configured-circuit' },
         target_chain: targetChain,
       },
       validate(inner) {
-        assert.equal(inner.digest, sha256Hex({ witness: { x: 9 }, circuit_id: 'demo' }));
+        assert.equal(inner.digest, sha256Hex({ witness: { x: 9 }, circuit_id: 'configured-circuit' }));
       },
     },
     {

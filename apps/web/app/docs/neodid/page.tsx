@@ -173,9 +173,11 @@ export default function DocsNeoDidPage() {
         <li>
           <strong>Vault DID:</strong> <code>{DEFAULT_NEODID_VAULT_DID}</code>
         </li>
-        <li>
-          <strong>AA DID:</strong> <code>{DEFAULT_NEODID_AA_DID}</code>
-        </li>
+        {DEFAULT_NEODID_AA_DID ? (
+          <li>
+            <strong>AA DID:</strong> <code>{DEFAULT_NEODID_AA_DID}</code>
+          </li>
+        ) : null}
       </ul>
       <p>
         The service DID publishes the TEE verification key as a <code>JsonWebKey2020</code>{' '}
@@ -423,7 +425,7 @@ public class NeoDIDRegistry : SmartContract
  "network": "neo_n3",
  "aa_contract": "${networkRegistry.mainnet.neo_n3.contracts.abstract_account}",
  "verifier_contract": "${networkRegistry.mainnet.neo_n3.aa_verifiers.social_recovery}",
- "account_id": "aa-social-recovery-demo",
+ "account_id": "<aa-account-id>",
  "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
  "recovery_nonce": "7",
  "expires_at": "1735689600",

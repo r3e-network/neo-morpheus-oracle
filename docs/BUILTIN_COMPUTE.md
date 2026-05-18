@@ -32,7 +32,7 @@ If the inline script would make the request payload too large, you can store the
 {
   "mode": "script",
   "script_ref": {
-    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "contract_hash": "<production-script-registry-hash>",
     "method": "getScript",
     "script_name": "double"
   },

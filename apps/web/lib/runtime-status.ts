@@ -97,6 +97,13 @@ function summarizeRuntimeHealth(probe: RuntimeProbeSnapshotInput) {
   };
 }
 
+function isNonCriticalInfoAuthFailure(
+  health: ReturnType<typeof summarizeRuntimeHealth>,
+  info: ReturnType<typeof summarizeRuntimeInfo>
+): boolean {
+  return health.state === 'ok' && (info.statusCode === 401 || info.statusCode === 403);
+}
+
 export function buildPublicRuntimeStatusSnapshot(input: {
   checkedAt?: string;
   health: RuntimeProbeSnapshotInput;
@@ -108,7 +115,10 @@ export function buildPublicRuntimeStatusSnapshot(input: {
   let status: PublicRuntimeStatusSnapshot['runtime']['status'] = 'operational';
   if (health.state === 'down') {
     status = 'down';
-  } else if (health.state === 'degraded' || !info.ok) {
+  } else if (
+    health.state === 'degraded' ||
+    (!info.ok && !isNonCriticalInfoAuthFailure(health, info))
+  ) {
     status = 'degraded';
   }
 

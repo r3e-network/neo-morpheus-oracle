@@ -84,7 +84,7 @@ NeoDID identity flows now also fit this same path when the request type is one o
   "script": "function process(data) { return data.age > 80; }",
   "script_base64": "ZnVuY3Rpb24gcHJvY2VzcyhkYXRhKSB7IHJldHVybiBkYXRhLmFnZSA+IDgwOyB9",
   "script_ref": {
-    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "contract_hash": "<production-script-registry-hash>",
     "method": "getScript",
     "script_name": "age_gate"
   },
@@ -100,7 +100,7 @@ For `neodid_recovery_ticket`, a typical on-chain payload is:
   "network": "neo_n3",
   "aa_contract": "0x0268a387913b250166ddec032b03332690a1ef78",
   "verifier_contract": "0x198b3a9cec9bccc2110d19bd929b10374a9d034d",
-  "account_id": "aa-social-recovery-demo",
+  "account_id": "<aa-account-id>",
   "new_owner": "0x89b05cac00804648c666b47ecb1c57bc185821b7",
   "recovery_nonce": "7",
   "expires_at": "1735689600",
@@ -258,7 +258,6 @@ Miniapps and optional callback adapters should interpret the result payload as:
 
 Use:
 
-- `/api/attestation/demo` for a prefilled example
 - `/api/attestation/verify` for server-side verification
 - `/verifier` for the browser verifier UI
 

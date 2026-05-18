@@ -30,6 +30,7 @@ const ADMIN_KEY_REQUIRED_MESSAGE = JSON.stringify(
   null,
   2
 );
+const DEFAULT_PROJECT_SLUG = String(process.env.NEXT_PUBLIC_MORPHEUS_PROJECT_SLUG || '').trim();
 
 async function callJSON(
   path: string,
@@ -57,7 +58,7 @@ async function callJSON(
 }
 
 export function ProviderConfigPanel() {
-  const [projectSlug, setProjectSlug] = useState('demo');
+  const [projectSlug, setProjectSlug] = useState(DEFAULT_PROJECT_SLUG);
   const [providerId, setProviderId] = useState('twelvedata');
   const [configJson, setConfigJson] = useState(DEFAULT_PROVIDER_CONFIGS.twelvedata);
   const [configs, setConfigs] = useState<ProviderConfigRecord[]>([]);
@@ -104,8 +105,8 @@ export function ProviderConfigPanel() {
     (async () => {
       const body = await callJSON('/api/providers');
       setProviders(Array.isArray(body.providers) ? body.providers : []);
-      if (savedKey) {
-        await refresh('demo', savedKey);
+      if (savedKey && DEFAULT_PROJECT_SLUG) {
+        await refresh(DEFAULT_PROJECT_SLUG, savedKey);
       } else {
         setMessage(ADMIN_KEY_REQUIRED_MESSAGE);
       }
@@ -146,7 +147,7 @@ export function ProviderConfigPanel() {
               className="neo-input"
               value={projectSlug}
               onChange={(event) => setProjectSlug(event.target.value)}
-              placeholder="demo"
+              placeholder="production-project-slug"
             />
           </div>
           <div className="form-group">

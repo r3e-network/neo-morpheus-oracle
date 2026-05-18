@@ -66,7 +66,7 @@ const CORE_HASH = process.env.AA_CORE_HASH_TESTNET || '0xdbf38e7b2117186bf7a5e17
 const WEB3AUTH_VERIFIER_HASH =
   process.env.AA_WEB3AUTH_VERIFIER_HASH_TESTNET || '0x7147f9a508594a7656a25f45d0a7a7dede7c227f';
 const PAYMASTER_ACCOUNT_ID_OVERRIDE = trimString(process.env.PAYMASTER_ACCOUNT_ID || '');
-const PAYMASTER_DAPP_ID = process.env.MORPHEUS_PAYMASTER_DAPP_ID || 'demo-dapp';
+let PAYMASTER_DAPP_ID = '';
 const PAYMASTER_APP_ID =
   process.env.MORPHEUS_PAYMASTER_APP_ID || 'ddff154546fe22d15b65667156dd4b7c611e6093';
 const PHALA_SSH_RETRIES = Math.max(1, Number(process.env.PHALA_SSH_RETRIES || 3));
@@ -1097,6 +1097,8 @@ async function waitForQueuedAutomation(
 
 async function main() {
   await loadExampleEnv();
+  PAYMASTER_DAPP_ID = trimString(process.env.MORPHEUS_PAYMASTER_DAPP_ID || '');
+  assertCondition(PAYMASTER_DAPP_ID, 'MORPHEUS_PAYMASTER_DAPP_ID is required');
 
   const TEST_WIF = trimString(process.env.TEST_WIF || resolveNeoN3SignerWif('testnet') || '');
   const deployment = (await readDeploymentRegistry('testnet')).neo_n3 || {};

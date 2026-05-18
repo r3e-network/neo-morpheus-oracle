@@ -39,9 +39,9 @@ const oracleTemplates = [
     title: 'Custom URL + JS Reduction',
     desc: 'Fetch public data and return only a scalar or boolean to the contract.',
     code: `{
- "url": "https://postman-echo.com/get?probe=morpheus",
- "json_path": "args.probe",
- "script": "function process(data) { return data === 'morpheus'; }",
+ "url": "<production-api-url>",
+ "json_path": "<json-path>",
+ "script": "<production-reduction-script>",
  "entry_point": "process",
  "target_chain": "neo_n3"
 }`,

@@ -207,7 +207,7 @@ Example registry-backed compute script:
 {
   "mode": "script",
   "script_ref": {
-    "contract_hash": "0x1111111111111111111111111111111111111111",
+    "contract_hash": "<production-script-registry-hash>",
     "method": "getScript",
     "script_name": "sum"
   },
@@ -548,7 +548,7 @@ curl "http://localhost:3000/api/neodid/resolve?did=did:morpheus:neo_n3:service:n
 Resolve a document-only subject DID:
 
 ```bash
-curl "http://localhost:3000/api/neodid/resolve?did=did:morpheus:neo_n3:aa:aa-social-recovery-demo&format=document"
+curl "http://localhost:3000/api/neodid/resolve?did=did:morpheus:neo_n3:aa:<aa-account-id>&format=document"
 ```
 
 The public DID layer is for:
@@ -642,7 +642,7 @@ curl http://localhost:3000/api/neodid/recovery-ticket \
     "network":"neo_n3",
     "aa_contract":"0x0268a387913b250166ddec032b03332690a1ef78",
     "verifier_contract":"0x198b3a9cec9bccc2110d19bd929b10374a9d034d",
-    "account_id":"aa-social-recovery-demo",
+    "account_id":"<aa-account-id>",
     "new_owner":"0x89b05cac00804648c666b47ecb1c57bc185821b7",
     "recovery_nonce":"7",
     "expires_at":"1735689600",

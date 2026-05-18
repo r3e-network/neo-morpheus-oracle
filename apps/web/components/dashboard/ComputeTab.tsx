@@ -56,7 +56,7 @@ function buildSafeAuthoringPreview({
 }: SafeAuthoringPreviewInput) {
   if (selectedFunc.includes('timestamp')) {
     return {
-      label: typeof input.label === 'string' ? input.label : 'demo',
+      label: typeof input.label === 'string' && input.label.trim() ? input.label : 'request',
       generated_at: Math.floor(Date.now() / 1000),
     };
   }
@@ -71,7 +71,7 @@ function buildSafeAuthoringPreview({
     return {
       mode: 'builtin',
       function: 'privacy.mask',
-      input: { value: '0x1234567890abcdef', unmasked_left: 2, unmasked_right: 2 },
+      input,
     };
   }
 
@@ -79,7 +79,7 @@ function buildSafeAuthoringPreview({
     return {
       mode: 'builtin',
       function: 'zkp.public_signal_hash',
-      input: { circuit_id: 'demo', signals: [1, 2, 3] },
+      input,
     };
   }
 
@@ -87,11 +87,7 @@ function buildSafeAuthoringPreview({
     return {
       mode: 'builtin',
       function: 'zkp.groth16.verify',
-      input: {
-        verifying_key: { protocol: 'groth16', curve: 'bn128' },
-        public_signals: ['1', '2'],
-        proof: { pi_a: [], pi_b: [], pi_c: [] },
-      },
+      input,
     };
   }
 
@@ -99,16 +95,7 @@ function buildSafeAuthoringPreview({
     return {
       mode: 'builtin',
       function: 'zkp.zerc20.single_withdraw.verify',
-      input: {
-        skip_proof_verification: true,
-        public_inputs: {
-          recipient: '0x1111111111111111111111111111111111111111',
-          withdraw_value: '1000000',
-          tree_root: '0x2222222222222222222222222222222222222222222222222222222222222222',
-          path_indices: '0x01',
-          blacklisted_root: '0x3333333333333333333333333333333333333333333333333333333333333333',
-        },
-      },
+      input,
     };
   }
 
@@ -116,7 +103,7 @@ function buildSafeAuthoringPreview({
     return {
       mode: 'builtin',
       function: 'math.modexp',
-      input: { base: '5', exponent: '3', modulus: '13' },
+      input,
     };
   }
 
@@ -124,16 +111,7 @@ function buildSafeAuthoringPreview({
     return {
       mode: 'builtin',
       function: 'matrix.multiply',
-      input: {
-        left: [
-          [1, 2],
-          [3, 4],
-        ],
-        right: [
-          [5, 6],
-          [7, 8],
-        ],
-      },
+      input,
     };
   }
 
@@ -159,13 +137,11 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
   const defaultCallbackHash =
     NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || '';
   const [selectedFunc, setSelectedFunc] = useState<string>('');
-  const [computeInput, setComputeInput] = useState('{\n "values": [1, 2, 3]\n}');
+  const [computeInput, setComputeInput] = useState('{}');
   const [userCode, setUserCode] = useState(
-    `function process(input, helpers) {\n const values = Array.isArray(input.values) ? input.values : [];\n return {\n total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n generated_at: helpers.getCurrentTimestamp(),\n };\n}`
+    `function process(input, helpers) {\n return {\n received: input,\n generated_at: helpers.getCurrentTimestamp(),\n };\n}`
   );
-  const [scriptRefJson, setScriptRefJson] = useState(
-    '{\n "contract_hash": "0x1111111111111111111111111111111111111111",\n "method": "getScript",\n "script_name": "sum"\n}'
-  );
+  const [scriptRefJson, setScriptRefJson] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
   const [generatedPackage, setGeneratedPackage] = useState<{
     requestType: string;
@@ -189,71 +165,71 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
     setSelectedFunc(name);
     if (name.includes('timestamp')) {
       setUserCode(
-        `function process(input, helpers) {\n return {\n label: input.label || "demo",\n generated_at: helpers.getCurrentTimestamp(),\n };\n}`
+        `function process(input, helpers) {\n return {\n label: input.label,\n generated_at: helpers.getCurrentTimestamp(),\n };\n}`
       );
-      setComputeInput('{\n "label": "demo-run"\n}');
+      setComputeInput('{\n "label": ""\n}');
       return;
     }
     if (name.includes('base64_decode')) {
       setUserCode(
         `function process(input, helpers) {\n return {\n decoded: helpers.base64Decode(input.value || ""),\n };\n}`
       );
-      setComputeInput('{\n "value": "bmVvLW1vcnBoZXVz"\n}');
+      setComputeInput('{\n "value": ""\n}');
       return;
     }
     if (name.includes('privacy.mask')) {
       setUserCode(
-        `// Builtin payload reference\nfunction process(input, helpers) {\n return {\n mode: "builtin",\n function: "privacy.mask",\n input: { value: "0x1234567890abcdef", unmasked_left: 2, unmasked_right: 2 }\n };\n}`
+        `function process(input, helpers) {\n return {\n mode: "builtin",\n function: "privacy.mask",\n input\n };\n}`
       );
-      setComputeInput('{\n "note": "reference only"\n}');
+      setComputeInput('{\n "value": "",\n "unmasked_left": 0,\n "unmasked_right": 0\n}');
       return;
     }
     if (name.includes('public_signal_hash')) {
       setUserCode(
-        `// Builtin payload reference\nfunction process(input, helpers) {\n return {\n mode: "builtin",\n function: "zkp.public_signal_hash",\n input: { circuit_id: "demo", signals: [1, 2, 3] }\n };\n}`
+        `function process(input, helpers) {\n return {\n mode: "builtin",\n function: "zkp.public_signal_hash",\n input\n };\n}`
       );
-      setComputeInput('{\n "note": "reference only"\n}');
+      setComputeInput('{\n "circuit_id": "",\n "signals": []\n}');
       return;
     }
     if (name.includes('groth16.verify')) {
       setUserCode(
-        `// Builtin payload reference\nfunction process(input, helpers) {\n return {\n mode: "builtin",\n function: "zkp.groth16.verify",\n input: {\n verifying_key: { protocol: "groth16", curve: "bn128" },\n public_signals: ["1", "2"],\n proof: { pi_a: [], pi_b: [], pi_c: [] }\n }\n };\n}`
+        `function process(input, helpers) {\n return {\n mode: "builtin",\n function: "zkp.groth16.verify",\n input\n };\n}`
       );
-      setComputeInput('{\n "note": "reference only"\n}');
+      setComputeInput('{\n "verifying_key": {},\n "public_signals": [],\n "proof": {}\n}');
       return;
     }
     if (name.includes('zerc20.single_withdraw.verify')) {
       setUserCode(
-        `// Builtin payload reference\nfunction process(input, helpers) {\n return {\n mode: "builtin",\n function: "zkp.zerc20.single_withdraw.verify",\n input: {\n skip_proof_verification: true,\n public_inputs: {\n recipient: "0x1111111111111111111111111111111111111111",\n withdraw_value: "1000000",\n tree_root: "0x2222222222222222222222222222222222222222222222222222222222222222",\n path_indices: "0x01",\n blacklisted_root: "0x3333333333333333333333333333333333333333333333333333333333333333"\n }\n }\n };\n}`
+        `function process(input, helpers) {\n return {\n mode: "builtin",\n function: "zkp.zerc20.single_withdraw.verify",\n input\n };\n}`
       );
-      setComputeInput('{\n "note": "reference only"\n}');
+      setComputeInput('{\n "public_inputs": {},\n "proof": {}\n}');
       return;
     }
     if (name.includes('modexp')) {
       setUserCode(
-        `// Builtin payload reference\nfunction process(input, helpers) {\n return {\n mode: "builtin",\n function: "math.modexp",\n input: { base: "5", exponent: "3", modulus: "13" }\n };\n}`
+        `function process(input, helpers) {\n return {\n mode: "builtin",\n function: "math.modexp",\n input\n };\n}`
       );
-      setComputeInput('{\n "note": "reference only"\n}');
+      setComputeInput('{\n "base": "",\n "exponent": "",\n "modulus": ""\n}');
       return;
     }
     if (name.includes('matrix')) {
       setUserCode(
-        `// Builtin payload reference\nfunction process(input, helpers) {\n return {\n mode: "builtin",\n function: "matrix.multiply",\n input: { left: [[1, 2], [3, 4]], right: [[5, 6], [7, 8]] }\n };\n}`
+        `function process(input, helpers) {\n return {\n mode: "builtin",\n function: "matrix.multiply",\n input\n };\n}`
       );
-      setComputeInput('{\n "note": "reference only"\n}');
+      setComputeInput('{\n "left": [],\n "right": []\n}');
       return;
     }
     if (name.includes('wasm')) {
       setUserCode(
         `// WASM is the recommended path for stronger isolation.\nfunction process(input, helpers) {\n return {\n mode: "wasm",\n note: "Compile a .wasm module and place it into wasm_base64."\n };\n}`
       );
-      setComputeInput('{\n "note": "reference only"\n}');
+      setComputeInput('{\n "wasm_base64": "",\n "input": {}\n}');
       return;
     }
     setUserCode(
-      `function process(input, helpers) {\n const values = Array.isArray(input.values) ? input.values : [];\n return {\n total: values.reduce((sum, value) => sum + Number(value || 0), 0),\n generated_at: helpers.getCurrentTimestamp(),\n };\n}`
+      `function process(input, helpers) {\n return {\n received: input,\n generated_at: helpers.getCurrentTimestamp(),\n };\n}`
     );
-    setComputeInput('{\n "values": [1, 2, 3]\n}');
+    setComputeInput('{}');
   }
 
   async function handleCopy(id: string, value: string) {
@@ -318,58 +294,56 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
 
   const generateOnchainPackage = () => {
     let payload: Record<string, unknown>;
+    let parsedInput: Record<string, unknown> = {};
+    try {
+      parsedInput = JSON.parse(computeInput);
+      if (!parsedInput || typeof parsedInput !== 'object' || Array.isArray(parsedInput)) {
+        throw new Error('Compute input must be a JSON object.');
+      }
+    } catch (err: unknown) {
+      setOutput(`!! [ERROR] ${err instanceof Error ? err.message : String(err)}`);
+      return;
+    }
 
     if (selectedFunc.includes('privacy.mask')) {
       payload = {
         mode: 'builtin',
         function: 'privacy.mask',
-        input: { value: '0x1234567890abcdef', unmasked_left: 2, unmasked_right: 2 },
+        input: parsedInput,
         target_chain: 'neo_n3',
       };
     } else if (selectedFunc.includes('public_signal_hash')) {
       payload = {
         mode: 'builtin',
         function: 'zkp.public_signal_hash',
-        input: { circuit_id: 'demo', signals: [1, 2, 3] },
+        input: parsedInput,
         target_chain: 'neo_n3',
       };
     } else if (selectedFunc.includes('modexp')) {
       payload = {
         mode: 'builtin',
         function: 'math.modexp',
-        input: { base: '5', exponent: '3', modulus: '13' },
+        input: parsedInput,
         target_chain: 'neo_n3',
       };
     } else if (selectedFunc.includes('matrix')) {
       payload = {
         mode: 'builtin',
         function: 'matrix.multiply',
-        input: {
-          left: [
-            [1, 2],
-            [3, 4],
-          ],
-          right: [
-            [5, 6],
-            [7, 8],
-          ],
-        },
+        input: parsedInput,
         target_chain: 'neo_n3',
       };
     } else if (selectedFunc.includes('wasm')) {
       payload = {
         mode: 'wasm',
-        wasm_base64: '<compiled wasm module>',
-        input: { note: 'replace with real input' },
+        wasm_base64: typeof parsedInput.wasm_base64 === 'string' ? parsedInput.wasm_base64 : '',
+        input:
+          parsedInput.input && typeof parsedInput.input === 'object' && !Array.isArray(parsedInput.input)
+            ? (parsedInput.input as Record<string, unknown>)
+            : {},
         target_chain: 'neo_n3',
       };
     } else {
-      let parsedInput: Record<string, unknown> = {};
-      try {
-        parsedInput = JSON.parse(computeInput);
-      } catch {
-        parsedInput = {};
-      }
       let parsedScriptRef: Record<string, unknown> | null = null;
       try {
         parsedScriptRef = scriptRefJson.trim() ? JSON.parse(scriptRefJson) : null;

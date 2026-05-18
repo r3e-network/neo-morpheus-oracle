@@ -51,8 +51,8 @@ const oracleProviders = [
     kind: 'User supplied',
     note: 'Any REST API. Combine with encrypted headers, encrypted token, custom JS, or WASM.',
     example: {
-      url: 'https://postman-echo.com/get?symbol=NEO',
-      json_path: 'args.symbol',
+      url: '<production-api-url>',
+      json_path: '<json-path>',
       target_chain: 'neo_n3',
     },
   },

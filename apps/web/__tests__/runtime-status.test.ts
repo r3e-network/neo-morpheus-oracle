@@ -56,6 +56,29 @@ describe('public runtime status snapshot', () => {
     expect(snapshot.runtime.info.detail).toBe('runtime info unavailable');
   });
 
+  it('keeps runtime operational when optional info metadata is protected but health is ok', async () => {
+    const { buildPublicRuntimeStatusSnapshot } = await import('../lib/runtime-status');
+
+    const snapshot = buildPublicRuntimeStatusSnapshot({
+      checkedAt: '2026-04-10T00:00:00.000Z',
+      health: {
+        ok: true,
+        status: 200,
+        body: { status: 'ok' },
+      },
+      info: {
+        ok: false,
+        status: 401,
+        body: { error: 'unauthorized' },
+      },
+    });
+
+    expect(snapshot.runtime.status).toBe('operational');
+    expect(snapshot.runtime.health.state).toBe('ok');
+    expect(snapshot.runtime.info.ok).toBe(false);
+    expect(snapshot.runtime.info.detail).toBe('unauthorized');
+  });
+
   it('reports runtime down when the health probe is unavailable', async () => {
     const { buildPublicRuntimeStatusSnapshot } = await import('../lib/runtime-status');
 

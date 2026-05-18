@@ -962,7 +962,7 @@ Price-threshold example:
   "execution": {
     "request_type": "privacy_oracle",
     "payload": {
-      "url": "https://postman-echo.com/get?probe=automation-threshold",
+      "url": "<production-api-url>",
       "target_chain": "neo_n3",
       "encrypted_params": "<ciphertext>"
     }

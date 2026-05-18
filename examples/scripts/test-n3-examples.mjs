@@ -24,6 +24,13 @@ import {
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const REQUEST_TX_SYSTEM_FEE_BUFFER = BigInt(process.env.EXAMPLE_REQUEST_SYSTEM_FEE_BUFFER || '3000000');
+const CUSTOM_ORACLE_URL = trimString(process.env.MORPHEUS_EXAMPLE_CUSTOM_ORACLE_URL || '');
+const CUSTOM_ORACLE_JSON_PATH = trimString(
+  process.env.MORPHEUS_EXAMPLE_CUSTOM_ORACLE_JSON_PATH || ''
+);
+const CUSTOM_ORACLE_EXPECTED = trimString(
+  process.env.MORPHEUS_EXAMPLE_CUSTOM_ORACLE_EXPECTED || ''
+);
 
 function parseStackItem(item) {
   if (!item || typeof item !== 'object') return null;
@@ -392,9 +399,16 @@ const sponsoredFeePayer =
   consumerCreditDelta === requestFeeValue ? 'consumer_contract_credit' : 'registered_app_fee_payer';
 
 console.log('Testing Neo N3 custom URL oracle flow...');
-const encryptedOracleParams = await buildEncryptedJsonPatch('neo_n3', { json_path: 'args.probe' });
+if (!CUSTOM_ORACLE_URL || !CUSTOM_ORACLE_JSON_PATH || !CUSTOM_ORACLE_EXPECTED) {
+  throw new Error(
+    'MORPHEUS_EXAMPLE_CUSTOM_ORACLE_URL, MORPHEUS_EXAMPLE_CUSTOM_ORACLE_JSON_PATH, and MORPHEUS_EXAMPLE_CUSTOM_ORACLE_EXPECTED are required'
+  );
+}
+const encryptedOracleParams = await buildEncryptedJsonPatch('neo_n3', {
+  json_path: CUSTOM_ORACLE_JSON_PATH,
+});
 const customOraclePayload = JSON.stringify({
-  url: 'https://postman-echo.com/get?probe=neo-morpheus',
+  url: CUSTOM_ORACLE_URL,
   target_chain: 'neo_n3',
   encrypted_params: encryptedOracleParams,
 });
@@ -414,7 +428,7 @@ if (!customOracleCallback.success) {
     `Neo N3 custom URL callback failed: ${customOracleCallback.error_text || 'unknown error'}`
   );
 }
-if (!JSON.stringify(customOracleCallback.result_json || {}).includes('neo-morpheus')) {
+if (!JSON.stringify(customOracleCallback.result_json || {}).includes(CUSTOM_ORACLE_EXPECTED)) {
   throw new Error('Neo N3 custom URL callback did not return the expected echoed value');
 }
 

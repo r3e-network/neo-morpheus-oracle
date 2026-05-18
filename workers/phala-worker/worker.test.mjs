@@ -1796,7 +1796,7 @@ test('compute execute supports builtin heavy functions', async () => {
   assert.ok(body.signature);
 });
 
-test('compute execute supports zerc20 single-withdraw verification preflight', async () => {
+test('compute execute rejects zerc20 verification without a verifying key', async () => {
   const res = await handler(
     new Request('http://local/compute/execute', {
       method: 'POST',
@@ -1805,7 +1805,6 @@ test('compute execute supports zerc20 single-withdraw verification preflight', a
         mode: 'builtin',
         function: 'zkp.zerc20.single_withdraw.verify',
         input: {
-          skip_proof_verification: true,
           public_inputs: {
             recipient: `0x${'11'.repeat(20)}`,
             withdraw_value: '1000000',
@@ -1820,12 +1819,9 @@ test('compute execute supports zerc20 single-withdraw verification preflight', a
       }),
     })
   );
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 400);
   const body = await res.json();
-  assert.equal(body.function, 'zkp.zerc20.single_withdraw.verify');
-  assert.equal(body.result.is_valid, true);
-  assert.equal(body.result.statement.recipient, `0x${'11'.repeat(20)}`);
-  assert.equal(body.result.checks.withdraw_value.ok, true);
+  assert.match(body.error, /verifying_key is required for zERC20 proof verification/i);
 });
 
 test('compute execute rejects oversized zkp verification payloads before snarkjs verify runs', async () => {

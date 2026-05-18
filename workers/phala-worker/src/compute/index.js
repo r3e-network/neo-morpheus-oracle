@@ -339,9 +339,7 @@ async function verifyZerc20SingleWithdraw(input = {}) {
   };
 
   let proofVerified = null;
-  if (input.skip_proof_verification === true) {
-    proofVerified = 'skipped';
-  } else if (input.verifying_key || input.verifyingKey) {
+  if (input.verifying_key || input.verifyingKey) {
     const proof = input.proof;
     if (!proof || typeof proof !== 'object') {
       throw new Error('proof object is required when verifying_key is supplied');
@@ -357,7 +355,7 @@ async function verifyZerc20SingleWithdraw(input = {}) {
       proof
     );
   } else {
-    throw new Error('verifying_key is required unless skip_proof_verification=true');
+    throw new Error('verifying_key is required for zERC20 proof verification');
   }
 
   const statementsMatch = Object.values(checks).every((entry) => entry.ok);
@@ -369,11 +367,8 @@ async function verifyZerc20SingleWithdraw(input = {}) {
     proof_verified: proofVerified,
     is_valid:
       statementsMatch &&
-      (proofVerified === null || proofVerified === true || proofVerified === 'skipped'),
+      (proofVerified === null || proofVerified === true),
   };
-  if (proofVerified === 'skipped') {
-    result.warning = 'proof verification was skipped by caller';
-  }
   return result;
 }
 

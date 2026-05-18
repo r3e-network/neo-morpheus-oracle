@@ -514,7 +514,7 @@ async function main() {
   const wrongWitnessPreview = await registryContract.testInvoke(
     'useActionTicket',
     [
-      sc.ContractParam.hash160('0x1111111111111111111111111111111111111111'),
+      sc.ContractParam.hash160(`0x${new wallet.Account().scriptHash}`),
       sc.ContractParam.string(compactTicket.action_id),
       byteArrayParam(compactTicket.action_nullifier),
       byteArrayParam(compactTicket.signature),

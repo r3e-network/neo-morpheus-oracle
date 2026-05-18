@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CheckCircle2, ClipboardList, FileSearch, Play, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, ClipboardList, FileSearch, ShieldCheck } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 
@@ -36,7 +36,6 @@ function VerifierPageClient() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [lookupHash, setLookupHash] = useState(initialLookupHash);
   const [isLookingUp, setIsLookuping] = useState(false);
-  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
 
   const normalizedLookupHash = useMemo(() => lookupHash.trim(), [lookupHash]);
 
@@ -129,36 +128,6 @@ function VerifierPageClient() {
     void lookupAttestation(initialLookupHash, false);
   }, [initialLookupHash, lookupAttestation]);
 
-  const handleLoadDemo = async () => {
-    setIsLoadingDemo(true);
-    try {
-      const body = await requestJSON('/api/attestation/demo');
-      if ((body as { error?: string }).error) {
-        setResult(JSON.stringify(body, null, 2));
-        return;
-      }
-
-      const verifierInput =
-        (body as { verifier_input?: Record<string, unknown> }).verifier_input || {};
-      setAttestationJson(
-        JSON.stringify(verifierInput.envelope || verifierInput.attestation || {}, null, 2)
-      );
-      setExpectedPayloadJson(JSON.stringify(verifierInput.expected_payload || {}, null, 2));
-      setExpectedOutputHash(String(verifierInput.expected_output_hash || ''));
-      setExpectedAttestationHash(String(verifierInput.expected_attestation_hash || ''));
-      setExpectedComposeHash(String(verifierInput.expected_compose_hash || ''));
-      setExpectedAppId(String(verifierInput.expected_app_id || ''));
-      setExpectedInstanceId(String(verifierInput.expected_instance_id || ''));
-      setResult(JSON.stringify(body, null, 2));
-    } catch (error) {
-      setResult(
-        JSON.stringify({ error: error instanceof Error ? error.message : String(error) }, null, 2)
-      );
-    } finally {
-      setIsLoadingDemo(false);
-    }
-  };
-
   return (
     <>
       <div className="container" style={{ padding: 'calc(72px + 2rem) 0' }}>
@@ -249,37 +218,6 @@ function VerifierPageClient() {
               style={{ whiteSpace: 'nowrap' }}
             >
               {isLookingUp ? 'Querying...' : 'Lookup'}
-            </button>
-          </div>
-        </Card>
-
-        <Card style={{ marginBottom: '1.5rem' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '1rem',
-            }}
-          >
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Demo Flow</h3>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                Load a sample attested worker response.
-              </p>
-            </div>
-            <button
-              className="btn-secondary"
-              onClick={() => void handleLoadDemo()}
-              disabled={isLoadingDemo}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}
-            >
-              <Play size={14} />
-              {isLoadingDemo ? 'Loading...' : 'Load Demo'}
             </button>
           </div>
         </Card>

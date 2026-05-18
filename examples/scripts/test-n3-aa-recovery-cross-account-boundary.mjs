@@ -615,10 +615,18 @@ async function main() {
     const ownerHash = requesterHash;
     const accountIdA = 'aa-social-recovery-cross-a';
     const accountIdB = 'aa-social-recovery-cross-b';
-    const accountAddressA = '0x1111111111111111111111111111111111111111';
-    const accountAddressB = '0x2222222222222222222222222222222222222222';
-    const newOwnerA = '0x3333333333333333333333333333333333333333';
-    const newOwnerB = '0x4444444444444444444444444444444444444444';
+    const accountAddressA = normalizeHash160(
+      process.env.AA_RECOVERY_BOUNDARY_ACCOUNT_A || `0x${new wallet.Account().scriptHash}`
+    );
+    const accountAddressB = normalizeHash160(
+      process.env.AA_RECOVERY_BOUNDARY_ACCOUNT_B || `0x${new wallet.Account().scriptHash}`
+    );
+    const newOwnerA = normalizeHash160(
+      process.env.AA_RECOVERY_BOUNDARY_NEW_OWNER_A || `0x${new wallet.Account().scriptHash}`
+    );
+    const newOwnerB = normalizeHash160(
+      process.env.AA_RECOVERY_BOUNDARY_NEW_OWNER_B || `0x${new wallet.Account().scriptHash}`
+    );
     const aaCoreHashInternal = toNeoInternalHex(aaCoreHash);
     const verifierHashInternal = toNeoInternalHex(verifier.hash);
     const accountAddressAInternal = toNeoInternalHex(accountAddressA);

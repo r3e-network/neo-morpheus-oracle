@@ -164,4 +164,3 @@ npm run examples:test:n3:attack-regression
 - `docs/PHALA_DUAL_CVM_ATTESTATION_REGISTRY.md`
 - `deploy/phala/README.md`
 - verifier UI: `/verifier`
-- verifier demo API: `/api/attestation/demo`

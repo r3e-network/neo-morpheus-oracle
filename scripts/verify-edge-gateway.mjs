@@ -3,6 +3,12 @@
 const baseUrl = String(process.env.MORPHEUS_EDGE_URL || 'https://edge.meshmini.app')
   .trim()
   .replace(/\/$/, '');
+const paymasterDappId = String(process.env.MORPHEUS_PAYMASTER_DAPP_ID || '').trim();
+
+if (!paymasterDappId) {
+  console.error('MORPHEUS_PAYMASTER_DAPP_ID is required for the edge paymaster probe.');
+  process.exit(1);
+}
 
 async function readJson(pathname, options = {}) {
   const response = await fetch(`${baseUrl}${pathname}`, options);
@@ -30,7 +36,7 @@ async function main() {
       network: 'testnet',
       target_chain: 'neo_n3',
       account_id: '0x0c3146e78efc42bfb7d4cc2e06e3efd063c01c56',
-      dapp_id: 'demo-dapp',
+      dapp_id: paymasterDappId,
       target_contract: '0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2',
       method: 'executeUserOp',
       estimated_gas_units: 120000,

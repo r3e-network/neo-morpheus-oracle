@@ -15,7 +15,7 @@ export default function DocsOracle() {
           style={{
             fontSize: '0.7rem',
             fontWeight: 800,
-            color: 'var(--text-muted)',
+            color: 'var(--text-secondary)',
             textTransform: 'uppercase',
             letterSpacing: 0,
             fontFamily: 'var(--font-mono)',
@@ -239,7 +239,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
           code={`{
  "url": "https://api.example.com/private",
  "script_ref": {
- "contract_hash": "0x1111111111111111111111111111111111111111",
+ "contract_hash": "<production-script-registry-hash>",
  "method": "getScript",
  "script_name": "scoreGate"
  },

@@ -420,7 +420,7 @@ test('execution plan strips ingress details before TEE execution', () => {
     workflow_id: 'oracle.query',
     execution_id: 'exec-1',
     network: 'testnet',
-    payload: { provider: 'coinbase-spot', secret_token: 'never-forward' },
+    payload: { provider: 'coinbase-spot', auth_ref: '<secret-reference>' },
   });
   assert.equal(plan.workflow_id, 'oracle.query');
   assert.equal('route' in plan, false);

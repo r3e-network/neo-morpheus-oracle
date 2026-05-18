@@ -5,7 +5,7 @@ import { Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 
 import hljs from 'highlight.js';
-import 'highlight.js/styles/atom-one-dark.css';
+import 'highlight.js/styles/github.css';
 
 interface CodeBlockProps {
   code: string;
@@ -45,8 +45,10 @@ export function CodeBlock({
         margin: '1.5rem 0',
         borderRadius: '6px',
         overflow: 'hidden',
-        border: '1px solid rgba(255, 255, 255, 0.06)',
-        background: '#0d1117',
+        maxWidth: '100%',
+        minWidth: 0,
+        border: '1px solid var(--border-dim)',
+        background: 'var(--bg-code)',
       }}
     >
       <div
@@ -55,9 +57,10 @@ export function CodeBlock({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '0.5rem 1rem',
-          background: 'rgba(255, 255, 255, 0.02)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+          background: '#f8fbff',
+          borderBottom: '1px solid var(--border-dim)',
           gap: '1rem',
+          minWidth: 0,
         }}
       >
         <div
@@ -71,7 +74,7 @@ export function CodeBlock({
           <span
             style={{
               fontSize: '0.65rem',
-              color: '#888',
+              color: 'var(--text-secondary)',
               fontFamily: 'var(--font-mono)',
               textTransform: 'uppercase',
               letterSpacing: 0,
@@ -84,7 +87,7 @@ export function CodeBlock({
             <span
               style={{
                 fontSize: '0.75rem',
-                color: '#666',
+                color: 'var(--text-muted)',
                 fontFamily: 'var(--font-mono)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -102,7 +105,7 @@ export function CodeBlock({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#666',
+                color: 'var(--text-secondary)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -114,11 +117,11 @@ export function CodeBlock({
                 transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#888';
+                e.currentTarget.style.color = 'var(--text-primary)';
                 e.currentTarget.style.background = 'rgba(83, 58, 253, 0.07)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#666';
+                e.currentTarget.style.color = 'var(--text-secondary)';
                 e.currentTarget.style.background = 'transparent';
               }}
             >
@@ -138,7 +141,7 @@ export function CodeBlock({
             style={{
               background: 'transparent',
               border: 'none',
-              color: copied ? 'var(--neo-green)' : '#666',
+              color: copied ? 'var(--neo-green)' : 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -152,13 +155,13 @@ export function CodeBlock({
             title="Copy code"
             onMouseEnter={(e) => {
               if (!copied) {
-                e.currentTarget.style.color = '#888';
+                e.currentTarget.style.color = 'var(--text-primary)';
                 e.currentTarget.style.background = 'rgba(83, 58, 253, 0.07)';
               }
             }}
             onMouseLeave={(e) => {
               if (!copied) {
-                e.currentTarget.style.color = '#666';
+                e.currentTarget.style.color = 'var(--text-secondary)';
                 e.currentTarget.style.background = 'transparent';
               }
             }}
@@ -180,6 +183,8 @@ export function CodeBlock({
           overflowX: 'auto',
           maxHeight: isExpanded ? maxHeight || 'none' : 'none',
           overflowY: isExpanded ? 'auto' : 'hidden',
+          maxWidth: '100%',
+          minWidth: 0,
         }}
       >
         <table
@@ -198,10 +203,10 @@ export function CodeBlock({
                     textAlign: 'right',
                     verticalAlign: 'top',
                     userSelect: 'none',
-                    color: '#444',
+                    color: '#8b949e',
                     fontSize: '0.75rem',
                     fontFamily: 'var(--font-mono)',
-                    borderRight: '1px solid #222',
+                    borderRight: '1px solid var(--border-dim)',
                     paddingRight: '12px',
                     width: '1%',
                     whiteSpace: 'nowrap',
@@ -226,6 +231,8 @@ export function CodeBlock({
                     background: 'transparent',
                     padding: 0,
                     border: 'none',
+                    whiteSpace: 'pre-wrap',
+                    overflowWrap: 'anywhere',
                   }}
                 >
                   <code
@@ -236,6 +243,9 @@ export function CodeBlock({
                       lineHeight: '1.6',
                       background: 'transparent',
                       padding: 0,
+                      color: 'var(--text-primary)',
+                      whiteSpace: 'pre-wrap',
+                      overflowWrap: 'anywhere',
                     }}
                     dangerouslySetInnerHTML={{ __html: highlighted }}
                   />

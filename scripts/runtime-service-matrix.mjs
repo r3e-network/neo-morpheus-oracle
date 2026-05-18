@@ -359,7 +359,7 @@ export const RUNTIME_SERVICE_MATRIX = [
     capabilityFeature: 'compute/execute',
     path: '/compute/execute',
     payload: computePayload('zkp.public_signal_hash', {
-      circuit_id: 'demo',
+      circuit_id: process.env.MORPHEUS_RUNTIME_MATRIX_CIRCUIT_ID || 'configured-circuit',
       signals: ['1', '2'],
     }),
     requiredFields: ['result', 'verification'],
@@ -382,7 +382,7 @@ export const RUNTIME_SERVICE_MATRIX = [
     capabilityFeature: 'compute/execute',
     path: '/compute/execute',
     payload: computePayload('zkp.witness_digest', {
-      circuit_id: 'demo',
+      circuit_id: process.env.MORPHEUS_RUNTIME_MATRIX_CIRCUIT_ID || 'configured-circuit',
       witness: { secret: 'redacted' },
     }),
     requiredFields: ['result', 'verification'],
@@ -433,12 +433,15 @@ export const RUNTIME_SERVICE_MATRIX = [
     capabilityFeature: 'compute/execute',
     path: '/compute/execute',
     payload: computePayload('zkp.zerc20.single_withdraw.verify', {
+      // The live public runtime API supports skipping Groth16 proof verification for
+      // statement-shape validation flows. The hourly matrix runs without a real
+      // proving key/proof, so validate the request contract using this switch.
+      skip_proof_verification: true,
       recipient: hash160('eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'),
       withdraw_value: '100',
       tree_root: hash32('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
       path_indices: hash32('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'),
       blacklisted_root: hash32('cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'),
-      skip_proof_verification: true,
     }),
     requiredFields: ['result', 'verification'],
     computeFunction: 'zkp.zerc20.single_withdraw.verify',
@@ -690,7 +693,7 @@ function normalizeBaseUrl(value) {
 
 function parseArgs(argv = []) {
   const args = {
-    network: 'testnet',
+    network: '',
     baseUrl: '',
     outputDir: path.resolve(repoRoot, 'docs', 'reports'),
     timeoutMs: 60000,
@@ -978,10 +981,16 @@ export async function runRuntimeServiceMatrix(options = {}) {
   await loadDotEnv(path.resolve(repoRoot, '.env.local'), { override: false });
   await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 
-  const network =
-    trimString(options.network || process.env.MORPHEUS_NETWORK || 'testnet') === 'mainnet'
-      ? 'mainnet'
-      : 'testnet';
+  const explicitNetwork = trimString(options.network || '');
+  const envNetwork = trimString(process.env.MORPHEUS_NETWORK || '');
+  const requestedNetwork = explicitNetwork || envNetwork;
+  let network = requestedNetwork === 'mainnet' ? 'mainnet' : requestedNetwork === 'testnet' ? 'testnet' : '';
+  const normalizedBaseUrl = normalizeBaseUrl(options.baseUrl || '');
+  if (normalizedBaseUrl && !explicitNetwork) {
+    if (/\/mainnet\b/i.test(normalizedBaseUrl)) network = 'mainnet';
+    else if (/\/testnet\b/i.test(normalizedBaseUrl)) network = 'testnet';
+  }
+  if (!network) network = 'testnet';
   const baseUrlCandidates = await resolveBaseUrlCandidates({
     explicitBaseUrl: options.baseUrl,
     network,

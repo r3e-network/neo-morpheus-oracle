@@ -37,20 +37,14 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
   const defaultCallbackHash =
     NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || '';
   const [requestMode, setRequestMode] = useState('provider');
-  const [oracleUrl, setOracleUrl] = useState('https://postman-echo.com/get?probe=morpheus');
+  const [oracleUrl, setOracleUrl] = useState('');
   const [providerSymbol, setProviderSymbol] = useState('TWELVEDATA:NEO-USD');
   const [httpMethod, setHttpMethod] = useState('GET');
   const [oracleEncryptedParams, setOracleEncryptedParams] = useState('');
-  const [oracleConfidentialJson, setOracleConfidentialJson] = useState(
-    '{\n "headers": {\n "Authorization": "Bearer secret_token"\n }\n}'
-  );
-  const [oracleScript, setOracleScript] = useState(
-    "function process(data, context, helpers) {\n return data.args.probe + '-script';\n}"
-  );
-  const [oracleScriptRefJson, setOracleScriptRefJson] = useState(
-    '{\n "contract_hash": "0x1111111111111111111111111111111111111111",\n "method": "getScript",\n "script_name": "scoreGate"\n}'
-  );
-  const [oracleJsonPath, setOracleJsonPath] = useState('price');
+  const [oracleConfidentialJson, setOracleConfidentialJson] = useState('{}');
+  const [oracleScript, setOracleScript] = useState('');
+  const [oracleScriptRefJson, setOracleScriptRefJson] = useState('');
+  const [oracleJsonPath, setOracleJsonPath] = useState('');
   const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState('neo_n3');
   const [walletCallbackHash, setWalletCallbackHash] = useState(defaultCallbackHash);
@@ -81,7 +75,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
 
   useEffect(() => {
     if (requestMode === 'provider') {
-      setOracleUrl('https://postman-echo.com/get?probe=morpheus');
+      setOracleUrl('');
       setHttpMethod('GET');
       setOracleJsonPath('price');
       if (useCustomScript) {
@@ -95,18 +89,14 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       return;
     }
 
-    setOracleUrl('https://postman-echo.com/get?probe=morpheus');
+    setOracleUrl('');
     setHttpMethod('GET');
-    setOracleJsonPath('args.probe');
+    setOracleJsonPath('');
     if (useCustomScript) {
-      setOracleScript(
-        "function process(data, context, helpers) {\n return data.args.probe + '-script';\n}"
-      );
+      setOracleScript('');
     }
     if (!oracleEncryptedParams.trim()) {
-      setOracleConfidentialJson(
-        '{\n "headers": {\n "Authorization": "Bearer secret_token"\n },\n "json_path": "args.probe"\n}'
-      );
+      setOracleConfidentialJson('{\n "headers": {},\n "json_path": ""\n}');
     }
   }, [requestMode, useCustomScript]);
 
@@ -129,15 +119,13 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
 
     if (preset === 'private_api') {
       setRequestMode('url');
-      setOracleUrl('https://api.example.com/private-price');
+      setOracleUrl('');
       setHttpMethod('GET');
-      setOracleJsonPath('data.price');
+      setOracleJsonPath('');
       setOracleTargetChain('neo_n3');
       setUseCustomScript(false);
       setOracleEncryptedParams('');
-      setOracleConfidentialJson(
-        '{\n "headers": {\n "Authorization": "Bearer secret_token"\n },\n "json_path": "data.price"\n}'
-      );
+      setOracleConfidentialJson('{\n "headers": {},\n "json_path": ""\n}');
       setOutput(
         '>> Loaded preset: Private API\n>> Encrypt the confidential JSON patch locally before submitting.'
       );
@@ -146,18 +134,16 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
 
     if (preset === 'boolean_check') {
       const nextScript =
-        'function process(data, context, helpers) {\n return Number(data.followers || 0) > 10000;\n}';
+        '';
       setRequestMode('url');
-      setOracleUrl('https://api.example.com/private-profile');
+      setOracleUrl('');
       setHttpMethod('GET');
-      setOracleJsonPath('data.followers');
+      setOracleJsonPath('');
       setOracleTargetChain('neo_n3');
       setUseCustomScript(true);
       setOracleScript(nextScript);
       setOracleEncryptedParams('');
-      setOracleConfidentialJson(
-        '{\n "headers": {\n "Authorization": "Bearer secret_token"\n },\n "json_path": "data.followers",\n "script": "function process(data, context, helpers) { return Number(data.followers || 0) > 10000; }",\n "entry_point": "process"\n}'
-      );
+      setOracleConfidentialJson('{\n "headers": {},\n "json_path": "",\n "script": "",\n "entry_point": "process"\n}');
       setOutput(
         '>> Loaded preset: Boolean Check\n>> This pattern returns only a boolean to the callback.'
       );

@@ -11,8 +11,8 @@
   "execution": {
     "request_type": "privacy_oracle",
     "payload": {
-      "url": "https://postman-echo.com/get?probe=automation-threshold",
-      "json_path": "args.probe",
+      "url": "<production-api-url>",
+      "json_path": "<json-path>",
       "target_chain": "neo_n3",
       "encrypted_params": "<ciphertext>"
     }

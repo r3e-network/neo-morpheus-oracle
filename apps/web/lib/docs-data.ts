@@ -76,7 +76,7 @@ export const BUILTIN_FUNCTIONS = [
     category: 'ZKP',
     desc: 'Computes a digest over witness material before proving.',
     params: 'witness: any, circuit_id?: string',
-    example: "const digest = await morpheus.zkp.witness_digest({ witness, circuit_id: 'demo' });",
+    example: "const digest = await morpheus.zkp.witness_digest({ witness, circuit_id: '<circuit-id>' });",
   },
   {
     name: 'zkp.groth16.verify',
@@ -105,8 +105,7 @@ export const BUILTIN_FUNCTIONS = [
     name: 'zkp.zerc20.single_withdraw.verify',
     category: 'ZKP',
     desc: 'Checks zERC20 single-withdraw public inputs and can optionally run Groth16 verification.',
-    params:
-      'public_inputs: object, verifying_key?: any, proof?: any, skip_proof_verification?: boolean',
+    params: 'public_inputs: object, verifying_key: any, proof: any',
     example:
       'const verdict = await morpheus.zkp.zerc20.single_withdraw.verify({ public_inputs, proof, verifying_key });',
   },
