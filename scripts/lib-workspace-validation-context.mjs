@@ -396,6 +396,8 @@ export function buildWorkspaceValidationData({
   };
 
   const secretEnv = compactSecretEnv({
+    TEST_WIF: aaTestWif,
+    TEST_PRIVATE_KEY: derivePrivateKeyFromWif(aaTestWif),
     NEO_TESTNET_WIF: neoTestnetWif,
     NEO_TESTNET_PRIVATE_KEY: derivePrivateKeyFromWif(neoTestnetWif),
     FLAGSHIP_LIVE_WIF: flagshipLiveWif,

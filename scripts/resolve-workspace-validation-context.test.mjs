@@ -67,6 +67,7 @@ test('workspace validation context can materialize secrets into a private env fi
   assert.equal(context.secretsEnvFile, secretsEnvFile);
   const secretsFileText = fs.readFileSync(secretsEnvFile, 'utf8');
 
+  assert.match(secretsFileText, /^TEST_WIF=aa-secret-wif$/m);
   assert.match(secretsFileText, /^NEO_TESTNET_WIF=top-secret-testnet-wif$/m);
   assert.match(secretsFileText, /^PHALA_API_TOKEN=runtime-token-secret$/m);
   assert.match(secretsFileText, /^ORACLE_RUNTIME_RELAYER_PRIVATE_KEY=relayer-secret-private-key$/m);
@@ -133,6 +134,7 @@ test('workspace validation defaults resolve sibling worktrees while reading env 
     path.join(oracleCanonicalRoot, '.env.local')
   );
   assert.equal(secretEnv.NEO_TESTNET_WIF, 'canonical-miniapps-wif');
+  assert.equal(secretEnv.TEST_WIF, 'canonical-aa-wif');
   assert.equal(secretEnv.AA_TEST_WIF, 'canonical-aa-wif');
   assert.equal(secretEnv.MORPHEUS_RUNTIME_TOKEN, 'canonical-runtime-token');
 });
