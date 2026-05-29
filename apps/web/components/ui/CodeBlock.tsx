@@ -43,7 +43,7 @@ export function CodeBlock({
       style={{
         position: 'relative',
         margin: '1.5rem 0',
-        borderRadius: '6px',
+        borderRadius: 'var(--ns-radius-sm)',
         overflow: 'hidden',
         maxWidth: '100%',
         minWidth: 0,
@@ -113,7 +113,7 @@ export function CodeBlock({
                 fontSize: '0.7rem',
                 fontFamily: 'var(--font-mono)',
                 padding: '4px 8px',
-                borderRadius: '4px',
+                borderRadius: 'var(--ns-radius-xs)',
                 transition: 'all 0.2s',
               }}
               onMouseEnter={(e) => {
@@ -149,7 +149,7 @@ export function CodeBlock({
               fontSize: '0.7rem',
               fontFamily: 'var(--font-mono)',
               padding: '4px 8px',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-xs)',
               transition: 'all 0.2s',
             }}
             title="Copy code"

@@ -77,7 +77,7 @@ export default function DocsFAQ() {
               padding: '1.5rem',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-md)',
               borderLeft: '3px solid var(--neo-green)',
             }}
           >
@@ -114,7 +114,7 @@ export default function DocsFAQ() {
       <div
         style={{
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-sm)',
           overflow: 'hidden',
           margin: '2rem 0',
           background: 'var(--bg-panel)',

@@ -93,7 +93,7 @@ export default function DocsOracle() {
               padding: '1.25rem',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
@@ -137,7 +137,7 @@ export default function DocsOracle() {
           padding: '1.5rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-md)',
           margin: '2rem 0',
         }}
       >
@@ -178,7 +178,7 @@ export default function DocsOracle() {
           padding: '1.5rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-md)',
           margin: '2rem 0',
         }}
       >
@@ -214,7 +214,7 @@ const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public
           padding: '1.5rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-md)',
           margin: '2rem 0',
         }}
       >

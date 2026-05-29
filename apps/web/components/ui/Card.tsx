@@ -21,8 +21,8 @@ const paddingMap = {
 
 const variantStyles: Record<NonNullable<CardProps['variant']>, { border: string; bg: string }> = {
   default: { border: 'var(--border-dim)', bg: 'var(--bg-card)' },
-  highlighted: { border: 'var(--neo-green)', bg: 'rgba(0, 255, 163, 0.05)' },
-  success: { border: 'var(--neo-green)', bg: 'rgba(0, 255, 163, 0.08)' },
+  highlighted: { border: 'var(--neo-green)', bg: 'var(--neo-green-dim)' },
+  success: { border: 'var(--neo-green)', bg: 'var(--neo-green-dim)' },
   warning: { border: 'var(--warning)', bg: 'rgba(245, 158, 11, 0.08)' },
   error: { border: 'var(--error)', bg: 'rgba(239, 68, 68, 0.08)' },
 };
@@ -57,7 +57,8 @@ export function Card({
       style={{
         background: variantStyle.bg,
         border: `1px solid ${variantStyle.border}`,
-        borderRadius: '4px',
+        borderRadius: 'var(--ns-radius-lg)',
+        boxShadow: 'var(--ns-shadow-md)',
         padding: paddingMap[padding],
         cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
@@ -72,7 +73,7 @@ export function Card({
             top: 0,
             left: 0,
             right: 0,
-            height: '2px',
+            height: '3px',
             background: 'var(--neo-green)',
           }}
         />

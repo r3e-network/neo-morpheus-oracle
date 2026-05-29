@@ -54,7 +54,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             style={{
               background: 'rgba(239, 68, 68, 0.1)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-lg)',
+              boxShadow: 'var(--ns-shadow-md)',
               padding: '2rem',
               marginBottom: '2rem',
               maxWidth: '500px',
@@ -89,7 +90,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   marginTop: '1rem',
                   padding: '0.75rem',
                   background: 'var(--bg-panel)',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-sm)',
                   fontSize: '0.75rem',
                 }}
               >
@@ -128,10 +129,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   gap: '8px',
                   padding: '0.75rem 1.5rem',
                   background: 'var(--neo-green)',
-                  color: 'var(--bg-panel)',
+                  color: '#fff',
                   border: 'none',
-                  borderRadius: '4px',
-                  fontWeight: 600,
+                  borderRadius: 'var(--ns-radius-full)',
+                  fontWeight: 700,
                   fontSize: '0.85rem',
                   cursor: 'pointer',
                 }}
@@ -150,7 +151,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   background: 'transparent',
                   color: 'var(--text-primary)',
                   border: '1px solid var(--border-highlight)',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-full)',
                   fontWeight: 600,
                   fontSize: '0.85rem',
                   textDecoration: 'none',

@@ -39,7 +39,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                   overflowX: 'auto',
                   marginBottom: '2.5rem',
                   border: '1px solid var(--border-dim)',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-sm)',
                 }}
               >
                 <table
@@ -108,7 +108,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                 alt={alt}
                 style={{
                   maxWidth: '100%',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-xs)',
                   border: '1px solid var(--border-dim)',
                   margin: '2rem 0',
                 }}

@@ -208,7 +208,7 @@ export default function FeedStatusPage() {
                 style={{
                   overflowX: 'auto',
                   border: '1px solid var(--border-dim)',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-sm)',
                   background: 'var(--bg-panel)',
                 }}
               >

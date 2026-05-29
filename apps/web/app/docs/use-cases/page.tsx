@@ -293,7 +293,7 @@ export default function DocsUseCases() {
         style={{
           overflowX: 'auto',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-sm)',
           background: 'var(--bg-panel)',
           margin: '2rem 0 3rem',
         }}
@@ -369,7 +369,7 @@ export default function DocsUseCases() {
                 padding: '2rem',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
-                borderRadius: '4px',
+                borderRadius: 'var(--ns-radius-lg)',
                 display: 'flex',
                 flexDirection: 'column',
               }}
@@ -381,9 +381,9 @@ export default function DocsUseCases() {
                   style={{
                     width: '40px',
                     height: '40px',
-                    borderRadius: '4px',
-                    background: 'rgba(0, 168, 107, 0.09)',
-                    border: '1px solid rgba(0,255,163,0.2)',
+                    borderRadius: 'var(--ns-radius-md)',
+                    background: 'var(--neo-green-dim)',
+                    border: '1px solid rgba(22, 199, 132, 0.2)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -407,7 +407,7 @@ export default function DocsUseCases() {
                   padding: '1rem',
                   background: 'rgba(83, 58, 253, 0.045)',
                   border: '1px solid var(--border-dim)',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-sm)',
                   marginTop: 'auto',
                 }}
               >
@@ -458,7 +458,7 @@ export default function DocsUseCases() {
                 padding: '1.75rem',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
-                borderRadius: '4px',
+                borderRadius: 'var(--ns-radius-lg)',
                 borderLeft: '4px solid var(--neo-green)',
               }}
             >
@@ -498,7 +498,7 @@ export default function DocsUseCases() {
                   padding: '1rem',
                   background: 'rgba(83, 58, 253, 0.045)',
                   border: '1px solid var(--border-dim)',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-sm)',
                 }}
               >
                 <div

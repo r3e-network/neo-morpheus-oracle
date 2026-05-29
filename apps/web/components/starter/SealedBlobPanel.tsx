@@ -11,7 +11,8 @@ export function SealedBlobPanel({ blob }: SealedBlobPanelProps) {
         padding: '1rem',
         background: 'var(--bg-panel)',
         border: '1px solid var(--border-dim)',
-        borderLeft: '2px solid var(--neo-green)',
+        borderLeft: '3px solid var(--neo-green)',
+        borderRadius: 'var(--ns-radius-md)',
       }}
     >
       <div

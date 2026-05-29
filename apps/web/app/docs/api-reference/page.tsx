@@ -44,7 +44,7 @@ export default function DocsApiReference() {
           marginBottom: '2.5rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-sm)',
         }}
       >
         <div
@@ -68,14 +68,14 @@ export default function DocsApiReference() {
             Oracle Call Pattern
           </span>
         </div>
-        <div style={{ padding: '1.5rem', background: '#0a0a0a', overflowX: 'auto' }}>
+        <div style={{ padding: '1.5rem', background: 'var(--bg-code)', overflowX: 'auto' }}>
           <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
             <code
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.8rem',
                 lineHeight: 1.6,
-                color: '#e5e5e5',
+                color: 'var(--text-primary)',
               }}
             >{`// ${NETWORKS.neo_n3.name} Oracle: ${NETWORKS.neo_n3.oracle}
 
@@ -113,7 +113,7 @@ Contract.Call(
           marginBottom: '2.5rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-sm)',
         }}
       >
         <div
@@ -137,14 +137,14 @@ Contract.Call(
             GET /api/neodid/resolve
           </span>
         </div>
-        <div style={{ padding: '1.5rem', background: '#0a0a0a', overflowX: 'auto' }}>
+        <div style={{ padding: '1.5rem', background: 'var(--bg-code)', overflowX: 'auto' }}>
           <pre style={{ margin: 0, border: 'none', background: 'transparent' }}>
             <code
               style={{
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.8rem',
                 lineHeight: 1.6,
-                color: '#e5e5e5',
+                color: 'var(--text-primary)',
               }}
             >{`GET /api/neodid/resolve?did=did:morpheus:neo_n3:service:neodid
 Accept: application/ld+json;profile="https://w3id.org/did-resolution"
@@ -180,7 +180,7 @@ Accept: application/did+ld+json`}</code>
             style={{
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-lg)',
               padding: '1.5rem',
               borderTop: '3px solid var(--accent-purple)',
             }}
@@ -228,9 +228,9 @@ Accept: application/did+ld+json`}</code>
             </p>
             <div
               style={{
-                background: '#0a0a0a',
+                background: 'var(--bg-code)',
                 padding: '1rem',
-                borderRadius: '4px',
+                borderRadius: 'var(--ns-radius-sm)',
                 border: '1px solid var(--border-dim)',
               }}
             >

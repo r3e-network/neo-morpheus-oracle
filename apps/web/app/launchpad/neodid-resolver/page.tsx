@@ -159,7 +159,7 @@ function ResolverClient() {
                     border: '1px solid var(--border-dim)',
                     color: 'var(--text-primary)',
                     padding: '0.9rem 1rem',
-                    borderRadius: '2px',
+                    borderRadius: 'var(--ns-radius-md)',
                     fontFamily: 'var(--font-mono)',
                     fontSize: '0.85rem',
                   }}

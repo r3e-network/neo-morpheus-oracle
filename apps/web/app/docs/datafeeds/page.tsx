@@ -68,7 +68,7 @@ export default function DocsDatafeeds() {
           padding: '1.5rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-md)',
           marginBottom: '2.5rem',
         }}
       >
@@ -92,9 +92,9 @@ export default function DocsDatafeeds() {
               style={{
                 color: 'var(--neo-green)',
                 fontSize: '0.7rem',
-                padding: '0.3rem 0.6rem',
-                border: '1px solid rgba(0,255,163,0.3)',
-                background: 'rgba(0, 168, 107, 0.09)',
+                padding: '0.3rem 0.7rem',
+                border: '1px solid rgba(22, 199, 132, 0.3)',
+                background: 'var(--neo-green-dim)',
               }}
             >
               {getFeedDisplaySymbol(pair)}
@@ -137,7 +137,7 @@ export default function DocsDatafeeds() {
       <div
         style={{
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-sm)',
           overflow: 'hidden',
           background: 'var(--bg-panel)',
           marginBottom: '2.5rem',

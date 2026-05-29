@@ -299,7 +299,7 @@ export default function DocsNetworks() {
       <div
         style={{
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-sm)',
           overflow: 'hidden',
           marginBottom: '2rem',
           background: 'var(--bg-panel)',

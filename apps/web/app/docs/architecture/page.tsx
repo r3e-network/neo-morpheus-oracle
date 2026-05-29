@@ -53,7 +53,7 @@ export default function DocsArchitecture() {
           padding: '2rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-lg)',
           textAlign: 'center',
         }}
       >
@@ -93,7 +93,7 @@ export default function DocsArchitecture() {
                   style={{
                     padding: '1rem',
                     border: '1px solid var(--neo-green)',
-                    borderRadius: '4px',
+                    borderRadius: 'var(--ns-radius-sm)',
                     fontSize: '0.8rem',
                     minWidth: '140px',
                     background: index === 3 ? 'var(--neo-green-dim)' : 'transparent',
@@ -118,7 +118,7 @@ export default function DocsArchitecture() {
               padding: '1.5rem',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <h3 style={{ marginTop: 0, marginBottom: '0.75rem' }}>{layer.title}</h3>

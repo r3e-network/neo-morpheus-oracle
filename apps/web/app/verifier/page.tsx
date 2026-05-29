@@ -475,14 +475,15 @@ function VerifierPageClient() {
             <CheckCircle2 size={20} color="var(--neo-green)" />
           </div>
           <pre
+            aria-live="polite"
             style={{
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-sm)',
               padding: '1rem',
               fontSize: '0.8rem',
               fontFamily: 'var(--font-mono)',
-              color: 'var(--neo-green)',
+              color: result ? 'var(--neo-green)' : 'var(--text-muted)',
               overflow: 'auto',
               maxHeight: '400px',
               whiteSpace: 'pre-wrap',

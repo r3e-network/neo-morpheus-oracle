@@ -102,18 +102,22 @@ export function OverviewActivity({
                 tabIndex={0}
                 style={{
                   padding: '1.5rem',
-                  background: selectedPair === pair ? 'var(--bg-dark)' : 'var(--bg-panel)',
+                  background: selectedPair === pair ? 'var(--neo-green-dim)' : 'var(--bg-panel)',
                   position: 'relative',
-                  transition: 'background 0.3s',
+                  transition: 'background 0.2s',
                   textAlign: 'left',
                   cursor: 'pointer',
+                  boxShadow:
+                    selectedPair === pair ? 'inset 0 0 0 1px rgba(22, 199, 132, 0.32)' : 'none',
                 }}
                 onMouseEnter={(event) => {
-                  event.currentTarget.style.background = 'var(--bg-dark)';
+                  if (selectedPair !== pair) {
+                    event.currentTarget.style.background = 'var(--bg-main)';
+                  }
                 }}
                 onMouseLeave={(event) => {
                   event.currentTarget.style.background =
-                    selectedPair === pair ? 'var(--bg-dark)' : 'var(--bg-panel)';
+                    selectedPair === pair ? 'var(--neo-green-dim)' : 'var(--bg-panel)';
                 }}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') setSelectedPair(pair);

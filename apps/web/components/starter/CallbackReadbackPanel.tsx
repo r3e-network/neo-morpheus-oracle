@@ -23,6 +23,7 @@ export function CallbackReadbackPanel({
         borderTop: '1px solid var(--border-dim)',
         borderRight: '1px solid var(--border-dim)',
         borderBottom: '1px solid var(--border-dim)',
+        borderRadius: 'var(--ns-radius-md)',
       }}
     >
       <div

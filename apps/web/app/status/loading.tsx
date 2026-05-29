@@ -10,7 +10,7 @@ export default function StatusLoading() {
       <Skeleton width="260px" height="36px" style={{ marginBottom: '0.75rem' }} />
       <Skeleton width="400px" height="18px" style={{ marginBottom: '2rem' }} />
 
-      <Skeleton height="80px" style={{ marginBottom: '2rem', borderRadius: '4px' }} />
+      <Skeleton height="80px" style={{ marginBottom: '2rem', borderRadius: 'var(--ns-radius-lg)' }} />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
         {[1, 2, 3, 4, 5].map((i) => (

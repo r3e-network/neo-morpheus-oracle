@@ -37,7 +37,7 @@ export default function DocsCompute() {
             padding: '1.5rem',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
@@ -71,7 +71,7 @@ export default function DocsCompute() {
             padding: '1.5rem',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>

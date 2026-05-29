@@ -295,11 +295,12 @@ export function Launchpad({ embedded = false }: LaunchpadProps) {
               <button
                 key={item.id}
                 className="btn-secondary"
+                aria-pressed={active}
                 style={{
                   border: '1px solid',
                   borderColor: active ? 'var(--neo-green)' : 'var(--border-dim)',
                   color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                  background: active ? 'rgba(0, 168, 107, 0.11)' : 'transparent',
+                  background: active ? 'var(--neo-green-dim)' : 'transparent',
                 }}
                 onClick={() => setJourneyId(item.id)}
               >

@@ -22,8 +22,9 @@ export default function GlobalError({
           minHeight: '100vh',
           display: 'grid',
           placeItems: 'center',
-          background: 'var(--bg-main, #000000)',
-          color: 'var(--text-primary, #ffffff)',
+          padding: '2rem',
+          background: 'var(--bg-main, #f4f5f7)',
+          color: 'var(--text-primary, #1e1e2e)',
           fontFamily:
             'var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
         }}
@@ -42,7 +43,7 @@ export default function GlobalError({
               padding: '8px 20px',
               background: 'rgba(239, 68, 68, 0.05)',
               border: '1px solid rgba(239, 68, 68, 0.2)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-full, 9999px)',
               marginBottom: '2rem',
             }}
           >
@@ -73,7 +74,7 @@ export default function GlobalError({
           <p
             style={{
               margin: '0 auto 2rem',
-              color: '#a1a1aa',
+              color: 'var(--text-secondary, #5b6478)',
               lineHeight: 1.7,
               fontSize: '1rem',
               maxWidth: '420px',
@@ -87,7 +88,7 @@ export default function GlobalError({
               style={{
                 margin: '0 0 2rem',
                 fontSize: '0.75rem',
-                color: '#52525b',
+                color: 'var(--text-muted, #8a92a6)',
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               }}
             >
@@ -99,15 +100,16 @@ export default function GlobalError({
               onClick={() => reset()}
               style={{
                 border: 0,
-                borderRadius: '2px',
+                borderRadius: 'var(--ns-radius-full, 9999px)',
                 padding: '0.85rem 2rem',
                 fontWeight: 700,
                 cursor: 'pointer',
-                background: '#ffffff',
-                color: '#000000',
+                background: 'var(--accent-purple, #7b61ff)',
+                color: '#ffffff',
                 fontSize: '0.8rem',
                 letterSpacing: 0,
                 textTransform: 'uppercase',
+                boxShadow: '0 8px 24px rgba(123, 97, 255, 0.22)',
               }}
             >
               Retry
@@ -118,9 +120,10 @@ export default function GlobalError({
                 display: 'inline-flex',
                 alignItems: 'center',
                 padding: '0.85rem 2rem',
-                border: '1px solid #333333',
-                borderRadius: '2px',
-                color: '#ffffff',
+                border: '1px solid var(--border-highlight, #d8dde6)',
+                borderRadius: 'var(--ns-radius-full, 9999px)',
+                background: 'var(--bg-card, #ffffff)',
+                color: 'var(--text-primary, #1e1e2e)',
                 textDecoration: 'none',
                 fontWeight: 700,
                 fontSize: '0.8rem',

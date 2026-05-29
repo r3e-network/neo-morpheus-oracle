@@ -23,7 +23,7 @@ export default function ExplorerLoading() {
         <div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} height="44px" style={{ borderRadius: '4px' }} />
+              <Skeleton key={i} height="58px" style={{ borderRadius: 'var(--ns-radius-md)' }} />
             ))}
           </div>
         </div>

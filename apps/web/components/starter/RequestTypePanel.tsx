@@ -11,6 +11,7 @@ export function RequestTypePanel({ requestType }: RequestTypePanelProps) {
         padding: '1rem',
         background: 'var(--bg-panel)',
         border: '1px solid var(--border-dim)',
+        borderRadius: 'var(--ns-radius-md)',
       }}
     >
       <div

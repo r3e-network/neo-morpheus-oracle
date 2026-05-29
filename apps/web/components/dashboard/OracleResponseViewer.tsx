@@ -116,6 +116,7 @@ export function OracleResponseViewer({
               padding: '1rem',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
@@ -145,6 +146,7 @@ export function OracleResponseViewer({
               padding: '1rem',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
@@ -175,6 +177,7 @@ export function OracleResponseViewer({
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             padding: '1rem',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <div
@@ -208,6 +211,7 @@ export function OracleResponseViewer({
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
@@ -239,6 +243,7 @@ export function OracleResponseViewer({
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
@@ -271,6 +276,7 @@ export function OracleResponseViewer({
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             padding: '1rem',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <div
@@ -303,6 +309,7 @@ export function OracleResponseViewer({
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
@@ -345,6 +352,7 @@ export function OracleResponseViewer({
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
               padding: '1rem',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
@@ -382,6 +390,7 @@ export function OracleResponseViewer({
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
             padding: '1rem',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <div

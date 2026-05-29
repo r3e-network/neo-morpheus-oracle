@@ -17,6 +17,7 @@ export function NeoN3CallArgumentsPanel({
         padding: '1rem',
         background: 'var(--bg-panel)',
         border: '1px solid var(--border-dim)',
+        borderRadius: 'var(--ns-radius-md)',
       }}
     >
       <div

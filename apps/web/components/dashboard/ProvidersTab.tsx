@@ -148,7 +148,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                   borderBottom: '1px solid var(--border-dim)',
                   transition: 'background 0.2s',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(0,255,163,0.02)')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-panel)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
               >
                 <div
@@ -295,12 +295,12 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                       padding: '0.75rem',
                       textAlign: 'center',
                       fontSize: '0.75rem',
-                      background:
-                        selectedPair === s ? 'rgba(0, 168, 107, 0.11)' : 'var(--bg-panel)',
+                      background: selectedPair === s ? 'var(--neo-green-dim)' : 'var(--bg-panel)',
                       border: '1px solid',
                       borderColor: selectedPair === s ? 'var(--neo-green)' : 'var(--border-dim)',
                       color: selectedPair === s ? 'var(--text-primary)' : 'var(--text-secondary)',
                       fontFamily: 'var(--font-mono)',
+                      borderRadius: 'var(--ns-radius-xs)',
                       transition: 'all 0.2s',
                       cursor: 'pointer',
                     }}
@@ -359,6 +359,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                 padding: '1rem',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
+                borderRadius: 'var(--ns-radius-md)',
               }}
             >
               <div
@@ -381,6 +382,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                 padding: '1rem',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
+                borderRadius: 'var(--ns-radius-md)',
               }}
             >
               <div
@@ -401,6 +403,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                 padding: '1rem',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
+                borderRadius: 'var(--ns-radius-md)',
               }}
             >
               <div
@@ -423,6 +426,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                 padding: '1rem',
                 background: 'var(--bg-panel)',
                 border: '1px solid var(--border-dim)',
+                borderRadius: 'var(--ns-radius-md)',
               }}
             >
               <div

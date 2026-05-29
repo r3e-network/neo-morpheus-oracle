@@ -50,7 +50,7 @@ export default function DocsVerifier() {
             padding: '1.25rem',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <span style={{ color: 'var(--neo-green)', fontWeight: 800 }}>✓</span>
@@ -79,7 +79,7 @@ export default function DocsVerifier() {
             padding: '1.25rem',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <span style={{ color: 'var(--neo-green)', fontWeight: 800 }}>✓</span>
@@ -107,7 +107,7 @@ export default function DocsVerifier() {
             padding: '1.25rem',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <span style={{ color: 'var(--neo-green)', fontWeight: 800 }}>✓</span>
@@ -187,7 +187,7 @@ export default function DocsVerifier() {
           padding: '1.5rem',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-md)',
         }}
       >
         <div

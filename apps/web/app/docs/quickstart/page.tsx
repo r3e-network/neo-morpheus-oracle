@@ -201,10 +201,10 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
           <code
             style={{
               color: 'var(--neo-green)',
-              background: 'rgba(0, 168, 107, 0.09)',
+              background: 'var(--neo-green-dim)',
               padding: '0.2rem 0.5rem',
-              borderRadius: '4px',
-              border: '1px solid rgba(0,255,163,0.2)',
+              borderRadius: 'var(--ns-radius-xs)',
+              border: '1px solid rgba(22, 199, 132, 0.2)',
               fontSize: '0.85rem',
               marginLeft: '0.5rem',
             }}

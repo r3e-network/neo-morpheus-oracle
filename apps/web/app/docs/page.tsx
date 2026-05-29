@@ -143,10 +143,11 @@ export default function DocsIntroduction() {
 
       <blockquote
         style={{
-          borderLeft: '2px solid var(--neo-green)',
-          background: 'rgba(0, 255, 163, 0.02)',
+          borderLeft: '3px solid var(--neo-green)',
+          background: 'rgba(22, 199, 132, 0.06)',
           padding: '1.5rem',
           margin: '2rem 0',
+          borderRadius: '0 var(--ns-radius-sm) var(--ns-radius-sm) 0',
         }}
       >
         <strong>Current production rule:</strong> Oracle request/response work runs on the Oracle
@@ -167,16 +168,16 @@ export default function DocsIntroduction() {
               padding: '1.5rem',
               background: 'var(--bg-panel)',
               border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <div
               style={{
-                background: 'rgba(0, 168, 107, 0.09)',
+                background: 'var(--neo-green-dim)',
                 padding: '12px',
-                borderRadius: '4px',
+                borderRadius: 'var(--ns-radius-md)',
                 height: 'fit-content',
-                border: '1px solid rgba(0,255,163,0.1)',
+                border: '1px solid rgba(22, 199, 132, 0.18)',
               }}
             >
               <item.icon size={20} color="var(--neo-green)" />

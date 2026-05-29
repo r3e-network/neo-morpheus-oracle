@@ -68,7 +68,8 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
           zIndex: 999,
           background: 'var(--bg-card)',
           border: '1px solid var(--border-dim)',
-          borderRadius: '4px',
+          borderRadius: 'var(--ns-radius-sm)',
+          boxShadow: 'var(--ns-shadow-sm)',
           padding: '0.5rem',
           color: 'var(--text-primary)',
           cursor: 'pointer',
@@ -135,9 +136,9 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                         alignItems: 'center',
                         gap: '10px',
                         padding: '0.65rem 1rem',
-                        borderRadius: '4px',
+                        borderRadius: 'var(--ns-radius-xs)',
                         color: isActive ? 'var(--neo-green)' : 'var(--text-secondary)',
-                        background: isActive ? 'rgba(255, 255, 255, 0.03)' : 'transparent',
+                        background: isActive ? 'var(--neo-green-dim)' : 'transparent',
                         fontWeight: isActive ? 700 : 500,
                         fontSize: '0.85rem',
                         transition: 'all 0.2s',
@@ -162,7 +163,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
               padding: '1.25rem',
               background: 'rgba(83, 58, 253, 0.045)',
               border: '1px solid var(--border-dim)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-md)',
             }}
           >
             <h4

@@ -72,7 +72,7 @@ export function Layout({
                 background: 'var(--text-primary)',
                 width: '32px',
                 height: '32px',
-                borderRadius: '4px',
+                borderRadius: 'var(--ns-radius-sm)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -135,7 +135,7 @@ export function Layout({
                 background: 'transparent',
                 color: 'var(--text-secondary)',
                 border: '1px solid var(--border-highlight)',
-                borderRadius: '4px',
+                borderRadius: 'var(--ns-radius-full)',
                 fontSize: '0.75rem',
                 fontWeight: 700,
                 textDecoration: 'none',
@@ -182,7 +182,7 @@ export function Layout({
                 onClick={() => setMobileMenuOpen(false)}
                 style={{
                   padding: '0.75rem 1rem',
-                  borderRadius: '4px',
+                  borderRadius: 'var(--ns-radius-sm)',
                   background: pathname === item.href ? 'var(--neo-green-dim)' : 'transparent',
                 }}
               >

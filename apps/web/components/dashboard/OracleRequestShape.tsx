@@ -230,6 +230,7 @@ export function OracleRequestShape({
             padding: '0.9rem 1rem',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border-dim)',
+            borderRadius: 'var(--ns-radius-sm)',
           }}
         >
           <div

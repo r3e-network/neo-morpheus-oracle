@@ -22,7 +22,7 @@ export default function DocsNotFound() {
             padding: '8px 20px',
             background: 'rgba(239, 68, 68, 0.05)',
             border: '1px solid rgba(239, 68, 68, 0.2)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-full)',
             marginBottom: '2rem',
           }}
         >
@@ -112,7 +112,7 @@ export default function DocsNotFound() {
             padding: '1.25rem',
             background: 'rgba(83, 58, 253, 0.045)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-md)',
           }}
         >
           <p

@@ -284,10 +284,11 @@ export default function StatusPage() {
           <button
             onClick={() => void checkServices()}
             disabled={isRefreshing}
+            aria-label="Refresh service status"
             style={{
               background: 'transparent',
               border: '1px solid var(--border-highlight)',
-              borderRadius: '4px',
+              borderRadius: 'var(--ns-radius-full)',
               color: 'var(--text-secondary)',
               cursor: isRefreshing ? 'default' : 'pointer',
               display: 'flex',
@@ -315,7 +316,7 @@ export default function StatusPage() {
       </Card>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', marginBottom: '2.5rem' }}>
-        {services.map((service) => {
+        {services.map((service, index) => {
           const StatusIcon =
             service.status === 'operational'
               ? CheckCircle2
@@ -325,6 +326,8 @@ export default function StatusPage() {
                   ? XCircle
                   : Clock;
           const color = statusColors[service.status];
+          const isFirst = index === 0;
+          const isLast = index === services.length - 1;
 
           return (
             <div
@@ -336,6 +339,10 @@ export default function StatusPage() {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 borderRadius: 0,
+                borderTopLeftRadius: isFirst ? 'var(--ns-radius-lg)' : 0,
+                borderTopRightRadius: isFirst ? 'var(--ns-radius-lg)' : 0,
+                borderBottomLeftRadius: isLast ? 'var(--ns-radius-lg)' : 0,
+                borderBottomRightRadius: isLast ? 'var(--ns-radius-lg)' : 0,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
