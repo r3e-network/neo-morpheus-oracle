@@ -1,3 +1,4 @@
+import { parseTimestampMs } from '@neo-morpheus-oracle/shared/utils';
 import { createRelayerConfig } from './config.js';
 import { sendHeartbeat } from './heartbeat.js';
 import { createLogger } from './logger.js';
@@ -44,11 +45,6 @@ import { processChain, processChainByRequestCursor } from './request-processor.j
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parseTimestampMs(value) {
-  const parsed = Date.parse(String(value || ''));
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function resultHasPersistableActivity(config, result) {
