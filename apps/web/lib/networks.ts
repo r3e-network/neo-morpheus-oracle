@@ -10,15 +10,15 @@ export function resolveSelectedNetworkKey(selectedEnv?: string | null) {
   return selectedEnv === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
+function readSelectedEnv() {
+  return process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || 'mainnet';
+}
+
 export function getSelectedNetwork() {
-  const selectedEnv =
-    process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || 'mainnet';
-  const selected = resolveSelectedNetworkKey(selectedEnv);
+  const selected = resolveSelectedNetworkKey(readSelectedEnv());
   return networkRegistry[selected];
 }
 
 export function getSelectedNetworkKey() {
-  const selectedEnv =
-    process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || 'mainnet';
-  return resolveSelectedNetworkKey(selectedEnv);
+  return resolveSelectedNetworkKey(readSelectedEnv());
 }

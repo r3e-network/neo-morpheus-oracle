@@ -51,12 +51,14 @@ export function OracleEncryptionPanel({
         <div className="form-group" style={{ marginBottom: '1rem' }}>
           <label
             className="form-label"
+            htmlFor="oracle-confidential-json"
             style={{ display: 'flex', justifyContent: 'space-between' }}
           >
             <span>Confidential JSON Patch</span>
             <span style={{ color: 'var(--accent-purple)' }}>Browser Only</span>
           </label>
           <textarea
+            id="oracle-confidential-json"
             className="code-editor"
             value={oracleConfidentialJson}
             onChange={(event) => setOracleConfidentialJson(event.target.value)}

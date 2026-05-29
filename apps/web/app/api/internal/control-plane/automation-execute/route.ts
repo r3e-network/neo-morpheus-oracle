@@ -11,6 +11,7 @@ import {
   buildUpkeepDispatch,
   buildUpkeepExecutionPayload,
 } from '../../../../../../../workers/morpheus-relayer/src/automation-supervisor.js';
+import { badRequest } from '@/lib/api-helpers';
 
 export const runtime = 'nodejs';
 
@@ -20,10 +21,6 @@ function trimString(value: unknown) {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
 }
 
 function parseTimestamp(value: unknown) {

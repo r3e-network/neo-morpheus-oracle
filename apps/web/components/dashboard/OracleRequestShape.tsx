@@ -80,8 +80,11 @@ export function OracleRequestShape({
       <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div className="grid grid-2" style={{ gap: '1rem' }}>
           <div className="form-group">
-            <label className="form-label">Request Mode</label>
+            <label className="form-label" htmlFor="oracle-request-mode">
+              Request Mode
+            </label>
             <select
+              id="oracle-request-mode"
               className="neo-select"
               value={requestMode}
               onChange={(event) => setRequestMode(event.target.value)}
@@ -91,8 +94,11 @@ export function OracleRequestShape({
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Target Chain</label>
+            <label className="form-label" htmlFor="oracle-target-chain">
+              Target Chain
+            </label>
             <select
+              id="oracle-target-chain"
               className="neo-select"
               value={oracleTargetChain}
               onChange={(event) => setOracleTargetChain(event.target.value)}
@@ -119,8 +125,11 @@ export function OracleRequestShape({
               </div>
             </div>
             <div className="form-group">
-              <label className="form-label">Canonical Pair Key</label>
+              <label className="form-label" htmlFor="oracle-canonical-pair-key">
+                Canonical Pair Key
+              </label>
               <input
+                id="oracle-canonical-pair-key"
                 className="neo-input"
                 value={providerSymbol}
                 onChange={(event) => setProviderSymbol(event.target.value)}
@@ -131,8 +140,11 @@ export function OracleRequestShape({
         ) : (
           <>
             <div className="form-group">
-              <label className="form-label">Custom URL</label>
+              <label className="form-label" htmlFor="oracle-custom-url">
+                Custom URL
+              </label>
               <input
+                id="oracle-custom-url"
                 className="neo-input"
                 value={oracleUrl}
                 onChange={(event) => setOracleUrl(event.target.value)}
@@ -140,8 +152,11 @@ export function OracleRequestShape({
               />
             </div>
             <div className="form-group">
-              <label className="form-label">HTTP Method</label>
+              <label className="form-label" htmlFor="oracle-http-method">
+                HTTP Method
+              </label>
               <select
+                id="oracle-http-method"
                 className="neo-select"
                 value={httpMethod}
                 onChange={(event) => setHttpMethod(event.target.value)}
@@ -154,8 +169,11 @@ export function OracleRequestShape({
         )}
 
         <div className="form-group">
-          <label className="form-label">JSON Path</label>
+          <label className="form-label" htmlFor="oracle-json-path">
+            JSON Path
+          </label>
           <input
+            id="oracle-json-path"
             className="neo-input"
             value={oracleJsonPath}
             onChange={(event) => setOracleJsonPath(event.target.value)}
@@ -165,8 +183,11 @@ export function OracleRequestShape({
 
         <div className="grid grid-2" style={{ gap: '1rem' }}>
           <div className="form-group">
-            <label className="form-label">Wallet / Direct Test Callback Hash</label>
+            <label className="form-label" htmlFor="oracle-wallet-callback-hash">
+              Wallet / Direct Test Callback Hash
+            </label>
             <input
+              id="oracle-wallet-callback-hash"
               className="neo-input"
               value={walletCallbackHash}
               onChange={(event) => setWalletCallbackHash(event.target.value)}
@@ -174,8 +195,11 @@ export function OracleRequestShape({
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Callback Method</label>
+            <label className="form-label" htmlFor="oracle-callback-method">
+              Callback Method
+            </label>
             <input
+              id="oracle-callback-method"
               className="neo-input"
               value={walletCallbackMethod}
               onChange={(event) => setWalletCallbackMethod(event.target.value)}
@@ -228,8 +252,11 @@ export function OracleRequestShape({
 
         {useCustomScript && (
           <div className="form-group">
-            <label className="form-label">Oracle Script</label>
+            <label className="form-label" htmlFor="oracle-script">
+              Oracle Script
+            </label>
             <textarea
+              id="oracle-script"
               className="code-editor"
               value={oracleScript}
               onChange={(event) => setOracleScript(event.target.value)}
@@ -251,6 +278,7 @@ export function OracleRequestShape({
               className="code-editor"
               value={oracleScriptRefJson}
               onChange={(event) => setOracleScriptRefJson(event.target.value)}
+              aria-label="Optional script_ref JSON"
               style={{ minHeight: '110px' }}
             />
           </div>

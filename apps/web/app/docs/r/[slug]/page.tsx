@@ -15,7 +15,16 @@ function extractToc(content: string): TocItem[] {
   return headings.map((heading) => {
     const level = heading.match(/^(#+)/)![1].length;
     let text = heading.replace(/^(#+)\s+/, '');
+    // Drop image syntax entirely (rehype-slug ignores <img> in heading text).
+    text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, '');
+    // Reduce links to their visible label, matching the rendered text content.
     text = text.replace(/\[(.*?)\]\(.*?\)/g, '$1');
+    // The slug must be derived from the same plain text content that
+    // rehype-slug sees in MarkdownRenderer, so strip inline markdown syntax
+    // (code backticks and emphasis markers) that would otherwise be slugged.
+    text = text.replace(/`/g, '');
+    text = text.replace(/(\*\*|__|\*|_|~~)/g, '');
+    text = text.trim();
     return {
       id: slugger.slug(text),
       text,

@@ -16,3 +16,12 @@ export function apiError(message: string, code: string, status = 500) {
 export function apiSuccess<T extends Record<string, unknown>>(body: T, status = 200) {
   return NextResponse.json(body, { status });
 }
+
+/**
+ * Minimal error response preserving the `{ error }` JSON shape used by the
+ * relayer/oracle/control-plane route handlers. Kept separate from `apiError`
+ * (which adds `error_code`) so the existing response bodies stay byte-identical.
+ */
+export function badRequest(message: string, status = 400) {
+  return Response.json({ error: message }, { status });
+}

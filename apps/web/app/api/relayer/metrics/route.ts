@@ -1,31 +1,16 @@
-import {
-  getServerSupabaseClient,
-  isAuthorizedAdminRequest,
-  resolveSupabaseNetwork,
-} from '@/lib/server-supabase';
+import { getServerSupabaseClient, resolveSupabaseNetwork } from '@/lib/server-supabase';
 import { recordOperationLog } from '@/lib/operation-logs';
-
-function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
-
-function requireAdmin(request: Request) {
-  if (isAuthorizedAdminRequest(request, 'relayer_ops')) return null;
-  return badRequest('unauthorized', 401);
-}
+import { badRequest } from '@/lib/api-helpers';
+import { logRelayerUnauthorized, requireRelayerAdmin } from '@/lib/relayer-auth';
 
 export async function GET(request: Request) {
-  const unauthorized = requireAdmin(request);
+  const unauthorized = requireRelayerAdmin(request);
   if (unauthorized) {
-    await recordOperationLog({
-      route: '/api/relayer/metrics',
-      method: 'GET',
-      category: 'relayer',
-      requestPayload: Object.fromEntries(new URL(request.url).searchParams.entries()),
-      responsePayload: { error: 'unauthorized' },
-      httpStatus: 401,
-      error: 'unauthorized',
-    });
+    await logRelayerUnauthorized(
+      '/api/relayer/metrics',
+      'GET',
+      Object.fromEntries(new URL(request.url).searchParams.entries())
+    );
     return unauthorized;
   }
 

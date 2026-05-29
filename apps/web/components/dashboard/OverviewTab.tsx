@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 
 import { DEFAULT_PAIRS, NETWORKS } from '@/lib/onchain-data';
@@ -32,8 +32,14 @@ export function OverviewTab({ setOutput }: any) {
   const [liveQuote, setLiveQuote] = useState<any>(null);
   const [liveQuoteLoading, setLiveQuoteLoading] = useState(false);
   const { addToast } = useToast();
+  // Monotonic request id so only the latest loadState() invocation may setState,
+  // preventing out-of-order resolution from overlapping interval/manual fetches
+  // (mirrors the `cancelled` guard used by loadLiveQuote below).
+  const loadStateRequestId = useRef(0);
 
   const loadState = useCallback(async () => {
+    const requestId = ++loadStateRequestId.current;
+    const isLatest = () => loadStateRequestId.current === requestId;
     setIsRefreshing(true);
     setError(null);
     try {
@@ -45,6 +51,7 @@ export function OverviewTab({ setOutput }: any) {
         stateResponse.json().catch(() => ({})),
         runtimeResponse.json().catch(() => ({})),
       ]);
+      if (!isLatest()) return;
       setOnchainState(stateBody);
       setRuntimeStatus(runtimeBody as PublicRuntimeStatusSnapshot);
 
@@ -72,13 +79,16 @@ export function OverviewTab({ setOutput }: any) {
         ].join('\n')
       );
     } catch (error) {
+      if (!isLatest()) return;
       const errorMsg = error instanceof Error ? error.message : String(error);
       setError(errorMsg);
       setOutput(`!! Failed to load on-chain state: ${errorMsg}`);
       addToast('error', `Failed to load on-chain state: ${errorMsg}`);
     } finally {
-      setIsRefreshing(false);
-      setIsInitialLoading(false);
+      if (isLatest()) {
+        setIsRefreshing(false);
+        setIsInitialLoading(false);
+      }
     }
   }, [setOutput, addToast]);
 

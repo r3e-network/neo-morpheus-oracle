@@ -248,6 +248,7 @@ export function ProvidersTab({ providers }: ProvidersTabProps) {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search index (e.g. BTC, NEO)..."
+                  aria-label="Search pairs"
                   style={{ paddingLeft: '40px', background: 'var(--bg-panel)' }}
                 />
                 <Search

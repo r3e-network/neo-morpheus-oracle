@@ -2,10 +2,7 @@ import { parseJsonObjectParam, resolveProviderAwarePayload } from '@/lib/provide
 import { appConfig } from '@/lib/config';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { proxyToPhala } from '@/lib/phala';
-
-function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
+import { badRequest } from '@/lib/api-helpers';
 
 function shouldServeFeedFallback(status: number) {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;

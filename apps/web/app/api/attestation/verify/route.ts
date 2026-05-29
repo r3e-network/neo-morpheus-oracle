@@ -1,9 +1,6 @@
 import { verifyAttestation } from '@/lib/attestation';
 import { recordOperationLog } from '@/lib/operation-logs';
-
-function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
+import { badRequest } from '@/lib/api-helpers';
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);

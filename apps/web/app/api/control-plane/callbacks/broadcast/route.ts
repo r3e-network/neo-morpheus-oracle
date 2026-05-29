@@ -1,11 +1,8 @@
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 import { appConfig } from '@/lib/config';
+import { badRequest } from '@/lib/api-helpers';
 
 export const runtime = 'nodejs';
-
-function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

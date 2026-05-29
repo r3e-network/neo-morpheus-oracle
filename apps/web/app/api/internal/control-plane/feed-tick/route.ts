@@ -1,12 +1,9 @@
 import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 import { runFeedSyncJob } from '@/lib/feed-sync';
 import { sendHeartbeat } from '@/lib/heartbeat';
+import { badRequest } from '@/lib/api-helpers';
 
 export const runtime = 'nodejs';
-
-function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

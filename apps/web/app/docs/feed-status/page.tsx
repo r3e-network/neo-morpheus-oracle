@@ -58,8 +58,8 @@ export default function FeedStatusPage() {
       setLoading(true);
       try {
         const response = await fetch('/api/feeds/status');
-        const body = await response.json();
-        if (!cancelled) setData(body);
+        const body = await response.json().catch(() => null);
+        if (!cancelled && body) setData(body);
       } finally {
         if (!cancelled) setLoading(false);
       }

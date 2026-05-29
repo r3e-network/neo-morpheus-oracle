@@ -20,6 +20,9 @@ export function Skeleton({
   return (
     <div
       className={className}
+      role="status"
+      aria-busy="true"
+      aria-label="Loading"
       style={{
         width: typeof width === 'number' ? `${width}px` : width,
         height: typeof height === 'number' ? `${height}px` : height,

@@ -142,8 +142,11 @@ export function ProviderConfigPanel() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <div className="grid grid-2">
           <div className="form-group">
-            <label className="form-label">Project Slug</label>
+            <label className="form-label" htmlFor="provider-config-project-slug">
+              Project Slug
+            </label>
             <input
+              id="provider-config-project-slug"
               className="neo-input"
               value={projectSlug}
               onChange={(event) => setProjectSlug(event.target.value)}
@@ -151,8 +154,11 @@ export function ProviderConfigPanel() {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Admin API Key</label>
+            <label className="form-label" htmlFor="provider-config-admin-key">
+              Admin API Key
+            </label>
             <input
+              id="provider-config-admin-key"
               className="neo-input"
               type="password"
               value={adminApiKey}
@@ -167,8 +173,11 @@ export function ProviderConfigPanel() {
 
         <div className="grid grid-2">
           <div className="form-group">
-            <label className="form-label">Provider ID</label>
+            <label className="form-label" htmlFor="provider-config-provider-id">
+              Provider ID
+            </label>
             <input
+              id="provider-config-provider-id"
               className="neo-input"
               value={providerId}
               list="builtin-provider-ids"
@@ -195,8 +204,11 @@ export function ProviderConfigPanel() {
         </datalist>
 
         <div className="form-group">
-          <label className="form-label">Configuration JSON</label>
+          <label className="form-label" htmlFor="provider-config-json">
+            Configuration JSON
+          </label>
           <textarea
+            id="provider-config-json"
             className="code-editor"
             value={configJson}
             onChange={(event) => setConfigJson(event.target.value)}

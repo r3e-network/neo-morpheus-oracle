@@ -7,10 +7,7 @@ import { resolveProviderAwarePayload } from '@/lib/provider-configs';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { proxyToPhala } from '@/lib/phala';
 import { createRateLimitedHandler } from '@/lib/rate-limit';
-
-function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
-}
+import { badRequest } from '@/lib/api-helpers';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

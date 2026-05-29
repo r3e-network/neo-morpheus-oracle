@@ -42,6 +42,18 @@ export function Card({
     <div
       className={`${className}${hoverable || onClick ? ' card-hoverable' : ''}`}
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                if (event.key === ' ') event.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
       style={{
         background: variantStyle.bg,
         border: `1px solid ${variantStyle.border}`,

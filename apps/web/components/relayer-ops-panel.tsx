@@ -132,8 +132,11 @@ export function RelayerOpsPanel() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <div className="grid grid-2">
           <div className="form-group">
-            <label className="form-label">Relayer Admin Key</label>
+            <label className="form-label" htmlFor="relayer-admin-key">
+              Relayer Admin Key
+            </label>
             <input
+              id="relayer-admin-key"
               className="neo-input"
               type="password"
               value={adminApiKey}
@@ -312,8 +315,11 @@ export function RelayerOpsPanel() {
           <h4 className="text-sm font-bold uppercase mb-4">Manual Control</h4>
           <div className="grid grid-3" style={{ alignItems: 'flex-end', gap: '1rem' }}>
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Event Key</label>
+              <label className="form-label" htmlFor="relayer-event-key">
+                Event Key
+              </label>
               <input
+                id="relayer-event-key"
                 className="neo-input"
                 value={selectedEventKey}
                 onChange={(event) => setSelectedEventKey(event.target.value)}

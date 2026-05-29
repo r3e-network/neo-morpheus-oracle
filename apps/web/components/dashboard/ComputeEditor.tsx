@@ -63,6 +63,7 @@ export function ComputeEditor({
             className="code-editor"
             value={userCode}
             onChange={(e) => setUserCode(e.target.value)}
+            aria-label="Runtime logic source"
             style={{
               minHeight: '220px',
               border: 'none',
@@ -93,6 +94,7 @@ export function ComputeEditor({
               className="code-editor"
               value={scriptRefJson}
               onChange={(e) => setScriptRefJson(e.target.value)}
+              aria-label="Optional script_ref JSON"
               style={{
                 minHeight: '120px',
                 border: 'none',
@@ -131,8 +133,11 @@ export function ComputeEditor({
         <div style={{ padding: '1.5rem' }}>
           <div className="grid grid-2" style={{ gap: '1rem', marginBottom: '1rem' }}>
             <div className="form-group">
-              <label className="form-label">Wallet / Direct Test Callback Hash</label>
+              <label className="form-label" htmlFor="compute-wallet-callback-hash">
+                Wallet / Direct Test Callback Hash
+              </label>
               <input
+                id="compute-wallet-callback-hash"
                 className="neo-input"
                 value={walletCallbackHash}
                 onChange={(event) => setWalletCallbackHash(event.target.value)}
@@ -140,8 +145,11 @@ export function ComputeEditor({
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Callback Method</label>
+              <label className="form-label" htmlFor="compute-callback-method">
+                Callback Method
+              </label>
               <input
+                id="compute-callback-method"
                 className="neo-input"
                 value={walletCallbackMethod}
                 onChange={(event) => setWalletCallbackMethod(event.target.value)}

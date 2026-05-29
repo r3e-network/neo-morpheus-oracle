@@ -82,9 +82,13 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
       const n3IndexNetwork = selectedNetwork.network === 'mainnet' ? 'mainnet' : 'testnet';
       const url = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.${n3IndexNetwork}&contract_hash=eq.${NETWORKS.neo_n3.datafeed}&event_name=eq.FeedUpdated&limit=100&order=block_index.desc`;
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
-      body = await response.json();
-      n3IndexCache = body;
-      n3IndexCacheTime = now;
+      body = await response.json().catch(() => null);
+      // Only cache valid array responses so a transient non-array error
+      // (HTML 5xx, error object) does not poison the 10s window.
+      if (Array.isArray(body)) {
+        n3IndexCache = body;
+        n3IndexCacheTime = now;
+      }
     }
 
     if (body && Array.isArray(body)) {
@@ -103,17 +107,26 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
       });
 
       if (event) {
-        const stateArray = event.state_json.value;
-        const priceItem = stateArray[2];
-        const tsItem = stateArray[3];
+        const stateArray = event.state_json?.value;
+        // Guard array length and element shape before indexing, mirroring the
+        // hardened parser in app/api/attestation/lookup/route.ts. A malformed or
+        // partial upstream event (fewer than 4 entries) must not throw.
+        if (Array.isArray(stateArray) && stateArray.length >= 4 && stateArray[2] && stateArray[3]) {
+          const priceItem = stateArray[2];
+          const tsItem = stateArray[3];
+          const price = Number(priceItem.value);
+          const timestamp = Number(tsItem.value);
 
-        return {
-          price: (Number(priceItem.value) / PRICE_SCALE).toFixed(PRICE_SCALE_DECIMALS),
-          timestamp: Number(tsItem.value) * 1000,
-          pair: getFeedDisplaySymbol(canonicalPair),
-          network: 'Neo N3',
-          contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`,
-        };
+          if (Number.isFinite(price) && Number.isFinite(timestamp)) {
+            return {
+              price: (price / PRICE_SCALE).toFixed(PRICE_SCALE_DECIMALS),
+              timestamp: timestamp * 1000,
+              pair: getFeedDisplaySymbol(canonicalPair),
+              network: 'Neo N3',
+              contractLink: `${NETWORKS.neo_n3.explorer}${NETWORKS.neo_n3.datafeed}`,
+            };
+          }
+        }
       }
     }
     return null;

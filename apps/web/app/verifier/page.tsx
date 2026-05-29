@@ -207,6 +207,7 @@ function VerifierPageClient() {
               value={lookupHash}
               onChange={(event) => setLookupHash(event.target.value)}
               placeholder="0x attestation hash"
+              aria-label="Attestation hash"
               style={{ flex: 1, minWidth: '200px' }}
             />
             <button
