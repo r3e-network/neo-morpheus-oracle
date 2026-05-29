@@ -147,6 +147,10 @@ namespace MorpheusOracle.Contracts
             public bool Success;
             public ByteString Result;
             public string Error;
+            // Exact request fee debited from the sponsor at submission time.
+            // Stored so that an expiry refund returns precisely what was paid
+            // even if the admin changes the fee via SetRequestFee in between.
+            public BigInteger FeePaid;
         }
 
         public struct InboxItem
@@ -462,7 +466,8 @@ namespace MorpheusOracle.Contracts
                     FulfilledAt = 0,
                     Success = false,
                     Result = (ByteString)"",
-                    Error = ""
+                    Error = "",
+                    FeePaid = 0
                 };
             }
 
@@ -637,24 +642,34 @@ namespace MorpheusOracle.Contracts
             IncrementTotalFulfilled();
             IncrementMiniAppFulfilled(req.AppId);
 
-            // Refund the fee credit to the sponsor who originally paid.
-            // This ensures fee credits are not permanently lost when requests
-            // go unfulfilled due to worker or relayer downtime.
-            BigInteger fee = SystemRequestFee();
-            if (fee > 0 && req.Sponsor != null && req.Sponsor.IsValid)
+            // Refund the exact fee that was debited from the sponsor at
+            // submission time.  Using the live SystemRequestFee() here would be
+            // incorrect: the admin may have changed the fee via SetRequestFee
+            // between submission and expiry, so the current fee can differ from
+            // what was actually paid and charged into the accrued pool.
+            BigInteger refund = 0;
+            if (req.Sponsor != null && req.Sponsor.IsValid && req.FeePaid > 0)
             {
-                BigInteger currentCredit = FeeCreditOf(req.Sponsor);
-                RequestCreditMap().Put((byte[])req.Sponsor, currentCredit + fee);
-
-                // Reduce accrued fees since we are returning the fee
+                // Clamp the refund to the fees still held in the accrued pool and
+                // adjust the sponsor credit and the accrued pool by the SAME
+                // amount.  This keeps the two ledgers symmetric so outstanding
+                // fee-credit liabilities can never exceed the GAS the contract
+                // actually holds.  In normal operation this request's fee is
+                // still accrued (accrued >= FeePaid) and the sponsor is made
+                // whole; the clamp only reduces the refund when the accrued pool
+                // was already drained via WithdrawAccruedFees.
                 BigInteger accrued = AccruedRequestFees();
-                if (accrued >= fee)
+                refund = accrued < req.FeePaid ? accrued : req.FeePaid;
+
+                if (refund > 0)
                 {
-                    Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, accrued - fee);
+                    BigInteger currentCredit = FeeCreditOf(req.Sponsor);
+                    RequestCreditMap().Put((byte[])req.Sponsor, currentCredit + refund);
+                    Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, accrued - refund);
                 }
             }
 
-            OnRequestExpired(requestId, req.AppId, req.Requester, req.Sponsor, fee);
+            OnRequestExpired(requestId, req.AppId, req.Requester, req.Sponsor, refund);
             OnMiniAppRequestCompleted(
                 requestId,
                 req.AppId,
@@ -1200,7 +1215,7 @@ namespace MorpheusOracle.Contracts
             MiniAppRecord app = RequireActiveMiniApp(appId);
 
             UInt160 sponsor = ResolveFeePayer(requester, app.FeePayer);
-            ConsumeRequestFeeFromPayer(sponsor);
+            BigInteger feePaid = ConsumeRequestFeeFromPayer(sponsor);
 
             BigInteger requestId = NextRequestId();
             KernelRequest req = new KernelRequest
@@ -1218,7 +1233,8 @@ namespace MorpheusOracle.Contracts
                 FulfilledAt = 0,
                 Success = false,
                 Result = (ByteString)"",
-                Error = ""
+                Error = "",
+                FeePaid = feePaid
             };
 
             RequestMap().Put(requestId.ToByteArray(), StdLib.Serialize(req));
@@ -1253,17 +1269,20 @@ namespace MorpheusOracle.Contracts
             return from;
         }
 
-        private static void ConsumeRequestFeeFromPayer(UInt160 feePayer)
+        // Returns the exact fee debited from the payer so the caller can record
+        // it on the request for a symmetric refund if the request later expires.
+        private static BigInteger ConsumeRequestFeeFromPayer(UInt160 feePayer)
         {
             ExecutionEngine.Assert(feePayer != null && feePayer.IsValid, "fee payer required");
 
             BigInteger fee = SystemRequestFee();
-            if (fee <= 0) return;
+            if (fee <= 0) return 0;
 
             BigInteger credit = FeeCreditOf(feePayer);
             ExecutionEngine.Assert(credit >= fee, "request fee not paid");
             RequestCreditMap().Put((byte[])feePayer, credit - fee);
             Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, AccruedRequestFees() + fee);
+            return fee;
         }
 
         private static MiniAppRecord FindMiniAppByCallback(UInt160 callbackContract)
