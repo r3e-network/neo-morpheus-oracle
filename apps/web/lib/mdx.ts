@@ -12,7 +12,22 @@ export function getDocSlugs() {
 
 export function getDocBySlug(slug: string) {
   const realSlug = slug.replace(/\.md$/, '');
-  const fullPath = path.join(docsDirectory, `${realSlug}.md`);
+
+  // Doc slugs are flat filenames under docs/. The /docs/r/[slug] route is
+  // public and unauthenticated, so reject anything containing path separators
+  // or parent-directory segments before touching the filesystem to prevent
+  // traversal to arbitrary .md files on the host.
+  if (!/^[A-Za-z0-9._-]+$/.test(realSlug) || realSlug.includes('..')) {
+    return null;
+  }
+
+  const docsRoot = path.resolve(docsDirectory);
+  const fullPath = path.resolve(docsRoot, `${realSlug}.md`);
+
+  // Defense in depth: ensure the resolved path stays inside the docs directory.
+  if (!fullPath.startsWith(docsRoot + path.sep)) {
+    return null;
+  }
 
   if (!fs.existsSync(fullPath)) {
     return null;
