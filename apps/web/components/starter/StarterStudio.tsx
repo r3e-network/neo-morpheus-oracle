@@ -2,10 +2,20 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { Boxes, ArrowRight, Lock, Cpu, Shield, Copy } from 'lucide-react';
+import { Boxes, ArrowRight, Copy } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import { NETWORKS } from '@/lib/onchain-data';
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
+import { PresetBar, type PresetId } from './PresetBar';
+import { RequestTypePanel } from './RequestTypePanel';
+import { SealedBlobPanel } from './SealedBlobPanel';
+import { EncryptionErrorBanner } from './EncryptionErrorBanner';
+import { SnippetIssuesBanner } from './SnippetIssuesBanner';
+import { KeyMetaPanels } from './KeyMetaPanels';
+import { ZeroCodeTestModePanel } from './ZeroCodeTestModePanel';
+import { CallbackReadbackPanel } from './CallbackReadbackPanel';
+import { NeoLineManualEntryPanel } from './NeoLineManualEntryPanel';
+import { NeoN3CallArgumentsPanel } from './NeoN3CallArgumentsPanel';
 const neoGasHash = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 
 function escapeForCSharp(value: string) {
@@ -40,13 +50,6 @@ function isNeoMethodName(value: string) {
 type StarterStudioProps = {
   embedded?: boolean;
 };
-
-type PresetId =
-  | 'oracle_quote'
-  | 'oracle_private_api'
-  | 'oracle_boolean'
-  | 'compute_mask'
-  | 'compute_modexp';
 
 function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script: string) {
   if (flow === 'oracle_provider') {
@@ -445,52 +448,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
         </p>
       )}
 
-      <div
-        className="card-industrial"
-        style={{
-          padding: '1.25rem 1.5rem',
-          borderLeft: '4px solid var(--neo-green)',
-          marginBottom: '2rem',
-        }}
-      >
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-          <button
-            className="btn-secondary"
-            style={{ border: '1px solid var(--border-dim)' }}
-            onClick={() => applyPreset('oracle_quote')}
-          >
-            Preset: Public Quote
-          </button>
-          <button
-            className="btn-secondary"
-            style={{ border: '1px solid var(--border-dim)' }}
-            onClick={() => applyPreset('oracle_private_api')}
-          >
-            Preset: Private API
-          </button>
-          <button
-            className="btn-secondary"
-            style={{ border: '1px solid var(--border-dim)' }}
-            onClick={() => applyPreset('oracle_boolean')}
-          >
-            Preset: Boolean Check
-          </button>
-          <button
-            className="btn-secondary"
-            style={{ border: '1px solid var(--border-dim)' }}
-            onClick={() => applyPreset('compute_mask')}
-          >
-            Preset: privacy.mask
-          </button>
-          <button
-            className="btn-secondary"
-            style={{ border: '1px solid var(--border-dim)' }}
-            onClick={() => applyPreset('compute_modexp')}
-          >
-            Preset: Encrypted modexp
-          </button>
-        </div>
-      </div>
+      <PresetBar onApplyPreset={applyPreset} />
 
       <div className="grid grid-2" style={{ gap: '2rem', alignItems: 'start' }}>
         <div className="card-industrial" style={{ padding: '1.75rem' }}>
@@ -719,65 +677,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
 
             {useEncrypted && (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                  <div
-                    style={{
-                      padding: '1rem',
-                      background: 'var(--bg-panel)',
-                      border: '1px solid var(--border-dim)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.65rem',
-                        color: 'var(--text-secondary)',
-                        fontWeight: 800,
-                        marginBottom: '0.35rem',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      ALGORITHM
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-primary)',
-                        fontFamily: 'var(--font-mono)',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {oracleKeyMeta?.algorithm || 'X25519-HKDF-SHA256-AES-256-GCM'}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      padding: '1rem',
-                      background: 'var(--bg-panel)',
-                      border: '1px solid var(--border-dim)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.65rem',
-                        color: 'var(--text-secondary)',
-                        fontWeight: 800,
-                        marginBottom: '0.35rem',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      KEY SOURCE
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-primary)',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      {oracleKeyMeta?.key_source || 'loading'}
-                    </div>
-                  </div>
-                </div>
+                <KeyMetaPanels oracleKeyMeta={oracleKeyMeta} />
 
                 <label>
                   <div
@@ -825,54 +725,9 @@ BigInteger requestId = (BigInteger)Contract.Call(
                   )}
                 </div>
 
-                {encryptionError && (
-                  <div
-                    role="status"
-                    style={{
-                      padding: '0.85rem 1rem',
-                      background: 'rgba(239, 68, 68, 0.08)',
-                      border: '1px solid rgba(239, 68, 68, 0.28)',
-                      color: 'var(--error)',
-                      fontSize: '0.85rem',
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    {encryptionError}
-                  </div>
-                )}
+                {encryptionError && <EncryptionErrorBanner message={encryptionError} />}
 
-                {encryptedBlob && (
-                  <div
-                    style={{
-                      padding: '1rem',
-                      background: 'var(--bg-panel)',
-                      border: '1px solid var(--border-dim)',
-                      borderLeft: '2px solid var(--neo-green)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: '0.65rem',
-                        color: 'var(--text-secondary)',
-                        fontWeight: 800,
-                        marginBottom: '0.5rem',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      SEALED BLOB
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--neo-green)',
-                        wordBreak: 'break-all',
-                        fontFamily: 'var(--font-mono)',
-                      }}
-                    >
-                      {encryptedBlob}
-                    </div>
-                  </div>
-                )}
+                {encryptedBlob && <SealedBlobPanel blob={encryptedBlob} />}
               </>
             )}
           </div>
@@ -882,46 +737,9 @@ BigInteger requestId = (BigInteger)Contract.Call(
           <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>2. Use The Output</h3>
 
           <div style={{ display: 'grid', gap: '1rem' }}>
-            {snippetIssues.length > 0 && (
-              <div
-                role="status"
-                style={{
-                  padding: '1rem',
-                  background: 'rgba(245, 158, 11, 0.08)',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  color: '#fcd34d',
-                  fontSize: '0.85rem',
-                  lineHeight: 1.7,
-                }}
-              >
-                {snippetIssues.map((issue) => (
-                  <div key={issue}>{issue}</div>
-                ))}
-              </div>
-            )}
+            {snippetIssues.length > 0 && <SnippetIssuesBanner issues={snippetIssues} />}
 
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border-dim)',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.65rem',
-                  color: 'var(--text-secondary)',
-                  fontWeight: 800,
-                  marginBottom: '0.35rem',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                REQUEST TYPE
-              </div>
-              <div style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                {generated.requestType}
-              </div>
-            </div>
+            <RequestTypePanel requestType={generated.requestType} />
 
             <CodeBlock language="json" title="Payload JSON" code={payloadJson} />
             <CodeBlock language="csharp" title="Neo N3 Request Snippet" code={neoN3Snippet} />
@@ -941,191 +759,31 @@ BigInteger requestId = (BigInteger)Contract.Call(
               code={callbackQueryTemplate}
             />
 
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border-dim)',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.65rem',
-                  color: 'var(--text-secondary)',
-                  fontWeight: 800,
-                  marginBottom: '0.5rem',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                NEOLINE MANUAL ENTRY
-              </div>
-              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Contract:</strong>{' '}
-                  <code>{NETWORKS.neo_n3.oracle}</code>
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Method:</strong>{' '}
-                  <code>request</code>
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 1 / String:</strong>{' '}
-                  <code>{generated.requestType}</code>
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 2 / ByteArray:</strong> use
-                  the base64 payload above
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 3 / Hash160:</strong>{' '}
-                  <code>{callbackHashForSnippet}</code>
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 4 / String:</strong>{' '}
-                  <code>{callbackMethodForSnippet}</code>
-                </div>
-              </div>
-            </div>
+            <NeoLineManualEntryPanel
+              oracleHash={NETWORKS.neo_n3.oracle}
+              requestType={generated.requestType}
+              callbackHash={callbackHashForSnippet}
+              callbackMethod={callbackMethodForSnippet}
+            />
 
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-panel)',
-                border: '1px solid var(--border-dim)',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '0.65rem',
-                  color: 'var(--text-secondary)',
-                  fontWeight: 800,
-                  marginBottom: '0.5rem',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                NEO N3 CALL ARGUMENTS
-              </div>
-              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 1:</strong>{' '}
-                  <code>{generated.requestType}</code>
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 2:</strong> UTF-8 payload
-                  JSON bytes
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 3:</strong> callback contract
-                  = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or{' '}
-                  <code>{callbackHashForSnippet}</code> for direct wallet testing
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Arg 4:</strong> callback method ={' '}
-                  <code>{callbackMethodForSnippet}</code>
-                </div>
-                <div>
-                  <strong style={{ color: 'var(--text-primary)' }}>Fee:</strong>{' '}
-                  <code>0.01 GAS</code>
-                </div>
-              </div>
-            </div>
+            <NeoN3CallArgumentsPanel
+              requestType={generated.requestType}
+              callbackHash={callbackHashForSnippet}
+              callbackMethod={callbackMethodForSnippet}
+            />
 
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-panel)',
-                borderLeft: '4px solid var(--neo-green)',
-                borderTop: '1px solid var(--border-dim)',
-                borderRight: '1px solid var(--border-dim)',
-                borderBottom: '1px solid var(--border-dim)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                <Shield size={16} color="var(--neo-green)" />
-                <strong style={{ color: 'var(--text-primary)' }}>
-                  Zero-Code {NETWORKS.neo_n3.environmentLabel} Test Mode
-                </strong>
-              </div>
-              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-                <div>
-                  1. Keep callback hash at <code>{universalConsumer}</code>.
-                </div>
-                <div>
-                  2. Before calling <code>request</code>, pre-fund fee credit with a GAS transfer to{' '}
-                  <code>{NETWORKS.neo_n3.oracle}</code>.
-                </div>
-                <div>
-                  3. Neo N3 GAS token hash: <code>{neoGasHash}</code>.
-                </div>
-                <div>
-                  4. Oracle will consume prepaid credit from the callback contract first, otherwise
-                  from the requester address.
-                </div>
-                <div>
-                  5. After submission, call <code>getCallback(requestId)</code> on{' '}
-                  <code>{universalConsumer}</code>.
-                </div>
-              </div>
-            </div>
+            <ZeroCodeTestModePanel
+              universalConsumer={universalConsumer}
+              oracleHash={NETWORKS.neo_n3.oracle}
+              environmentLabel={NETWORKS.neo_n3.environmentLabel}
+              neoGasHash={neoGasHash}
+            />
 
-            <div
-              style={{
-                padding: '1rem',
-                background: 'var(--bg-panel)',
-                borderLeft: '4px solid var(--neo-green)',
-                borderTop: '1px solid var(--border-dim)',
-                borderRight: '1px solid var(--border-dim)',
-                borderBottom: '1px solid var(--border-dim)',
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  marginBottom: '0.5rem',
-                }}
-              >
-                {generated.requestType.includes('compute') ? (
-                  <Cpu size={16} color="var(--neo-green)" />
-                ) : generated.requestType.includes('privacy') ? (
-                  <Lock size={16} color="var(--neo-green)" />
-                ) : (
-                  <Shield size={16} color="var(--neo-green)" />
-                )}
-                <strong style={{ color: 'var(--text-primary)' }}>Callback Readback</strong>
-              </div>
-              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-                <div>
-                  1. Submit the request through <code>{NETWORKS.neo_n3.oracle}</code>.
-                </div>
-                <div>
-                  2. Read the emitted <code>requestId</code> from your transaction result.
-                </div>
-                <div>
-                  3. If using the universal consumer, call <code>getCallback(requestId)</code> on{' '}
-                  <code>{universalConsumer}</code>.
-                </div>
-                <div>
-                  4. Verify <code>output_hash</code>, <code>attestation_hash</code>, and{' '}
-                  <code>tee_attestation.report_data</code> in{' '}
-                  <Link
-                    href="/verifier"
-                    style={{ color: 'var(--neo-green)', textDecoration: 'none' }}
-                  >
-                    Attestation Verifier
-                  </Link>
-                  .
-                </div>
-              </div>
-            </div>
+            <CallbackReadbackPanel
+              requestType={generated.requestType}
+              oracleHash={NETWORKS.neo_n3.oracle}
+              universalConsumer={universalConsumer}
+            />
           </div>
         </div>
       </div>
