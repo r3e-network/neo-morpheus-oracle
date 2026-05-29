@@ -13,7 +13,7 @@ type SkeletonProps = {
 export function Skeleton({
   width = '100%',
   height = '20px',
-  borderRadius = '4px',
+  borderRadius = '8px',
   className = '',
   style,
 }: SkeletonProps) {
@@ -56,7 +56,7 @@ export function SkeletonCard() {
       style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border-dim)',
-        borderRadius: '4px',
+        borderRadius: 'var(--ns-radius-lg)',
         padding: '1.5rem',
       }}
     >
@@ -110,7 +110,7 @@ export function SkeletonStats() {
           style={{
             background: 'var(--bg-card)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: 'var(--ns-radius-lg)',
             padding: '1.5rem',
           }}
         >

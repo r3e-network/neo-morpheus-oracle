@@ -44,9 +44,9 @@ export function NetworkSelector() {
           alignItems: 'center',
           gap: '8px',
           padding: '0.5rem 0.75rem',
-          background: isMainnet ? 'rgba(0, 107, 73, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-          border: `1px solid ${isMainnet ? 'rgba(0, 107, 73, 0.28)' : 'rgba(245, 158, 11, 0.3)'}`,
-          borderRadius: '4px',
+          background: isMainnet ? 'var(--neo-green-dim)' : 'rgba(245, 158, 11, 0.1)',
+          border: `1px solid ${isMainnet ? 'rgba(22, 199, 132, 0.28)' : 'rgba(245, 158, 11, 0.3)'}`,
+          borderRadius: '12px',
           color: isMainnet ? 'var(--neo-green)' : 'var(--warning)',
           fontSize: '0.75rem',
           fontWeight: 700,
@@ -76,11 +76,11 @@ export function NetworkSelector() {
             marginTop: '8px',
             background: 'var(--bg-card)',
             border: '1px solid var(--border-dim)',
-            borderRadius: '4px',
+            borderRadius: '12px',
             minWidth: '180px',
             zIndex: 1000,
             overflow: 'hidden',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+            boxShadow: 'var(--ns-shadow-lg)',
           }}
         >
           <div

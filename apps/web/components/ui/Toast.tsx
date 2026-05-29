@@ -36,7 +36,7 @@ const icons: Record<ToastType, typeof CheckCircle2> = {
 };
 
 const colors: Record<ToastType, { bg: string; border: string; icon: string }> = {
-  success: { bg: 'rgba(0, 255, 163, 0.1)', border: 'var(--neo-green)', icon: 'var(--neo-green)' },
+  success: { bg: 'var(--neo-green-dim)', border: 'var(--neo-green)', icon: 'var(--neo-green)' },
   error: { bg: 'rgba(239, 68, 68, 0.1)', border: 'var(--error)', icon: 'var(--error)' },
   warning: { bg: 'rgba(245, 158, 11, 0.1)', border: 'var(--warning)', icon: 'var(--warning)' },
   info: { bg: 'rgba(59, 130, 246, 0.1)', border: 'var(--accent-blue)', icon: 'var(--accent-blue)' },
@@ -65,6 +65,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
       {children}
       <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
         style={{
           position: 'fixed',
           bottom: '24px',
@@ -86,7 +89,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               style={{
                 background: color.bg,
                 border: `1px solid ${color.border}`,
-                borderRadius: '4px',
+                borderRadius: '16px',
                 padding: '16px',
                 display: 'flex',
                 alignItems: 'flex-start',
@@ -108,6 +111,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               </div>
               <button
                 onClick={() => removeToast(toast.id)}
+                aria-label="Dismiss notification"
                 style={{
                   background: 'none',
                   border: 'none',

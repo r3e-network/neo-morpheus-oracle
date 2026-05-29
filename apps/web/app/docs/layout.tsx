@@ -180,6 +180,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
               <a
                 href="https://github.com/r3e-network/neo-morpheus-oracle"
                 target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   fontSize: '0.75rem',
                   color: 'var(--text-secondary)',
@@ -372,6 +373,7 @@ export default function DocsLayout({ children }: { children: ReactNode }) {
                 <a
                   href="https://github.com/r3e-network/neo-morpheus-oracle"
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="btn btn-secondary btn-sm"
                   style={{ fontSize: '0.7rem' }}
                 >

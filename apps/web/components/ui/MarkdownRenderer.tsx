@@ -58,7 +58,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                   padding: '0.75rem 1rem',
                   textAlign: 'left',
                   borderBottom: '1px solid var(--border-dim)',
-                  background: 'rgba(0, 255, 163, 0.04)',
+                  background: 'rgba(83, 58, 253, 0.06)',
                   color: 'var(--text-primary)',
                   fontSize: '0.8rem',
                   fontWeight: 700,
@@ -76,7 +76,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
               <td
                 style={{
                   padding: '0.75rem 1rem',
-                  borderBottom: '1px solid rgba(255, 255, 255, 0.03)',
+                  borderBottom: '1px solid var(--border-dim)',
                   color: 'var(--text-secondary)',
                   fontSize: '0.85rem',
                 }}
@@ -93,7 +93,7 @@ export function MarkdownRenderer({ content }: MarkdownRendererProps) {
                 style={{
                   color: 'var(--neo-green)',
                   textDecoration: 'none',
-                  borderBottom: '1px solid rgba(0,255,163,0.3)',
+                  borderBottom: '1px solid var(--neo-green)',
                 }}
                 {...props}
               >

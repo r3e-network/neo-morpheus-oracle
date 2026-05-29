@@ -46,12 +46,13 @@ describe('production security headers', () => {
   });
 
   it('allows unsafe-eval only in development so Next dev can hydrate interactive pages', async () => {
-    const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
+    const mutableEnv = process.env as Record<string, string | undefined>;
+    const previousNodeEnv = mutableEnv.NODE_ENV;
+    mutableEnv.NODE_ENV = 'development';
     try {
       await expectSecurityHeaders(nextConfig, { allowUnsafeEval: true });
     } finally {
-      process.env.NODE_ENV = previousNodeEnv;
+      mutableEnv.NODE_ENV = previousNodeEnv;
     }
   });
 });

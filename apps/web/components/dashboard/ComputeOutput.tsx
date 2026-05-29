@@ -94,7 +94,7 @@ export function ComputeOutput({
           </button>
           {onSubmitWithWallet && (
             <button
-              className="btn-primary"
+              className="btn btn-primary"
               onClick={onSubmitWithWallet}
               disabled={isWalletSubmitting}
               aria-label="Submit compute request with NEP-21 wallet"
@@ -126,7 +126,7 @@ export function ComputeOutput({
               margin: 0,
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
-              color: 'var(--neo-green)',
+              color: 'var(--text-primary)',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.78rem',
             }}
@@ -158,7 +158,7 @@ export function ComputeOutput({
                 margin: 0,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-all',
-                color: 'var(--neo-green)',
+                color: 'var(--text-primary)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.78rem',
               }}
