@@ -54,6 +54,14 @@ export default function HomePage() {
         <div className="container">
           <div className="workbench-hero-grid">
             <div className="workbench-hero-copy">
+              <img
+                src="/brand/neo-mascot.svg"
+                alt=""
+                aria-hidden
+                width={112}
+                height={112}
+                style={{ marginBottom: "0.85rem", display: "block" }}
+              />
               <h1>Morpheus Oracle Workbench</h1>
               <p>
                 A production console for Neo N3 oracle requests, confidential compute, feed
