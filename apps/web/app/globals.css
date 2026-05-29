@@ -1,35 +1,46 @@
 :root {
-  /* Premium light product palette: airy, fintech-grade, still technical. */
-  --bg-main: #f6f9fc;
-  --bg-card: rgba(255, 255, 255, 0.88);
-  --bg-nav: rgba(255, 255, 255, 0.82);
+  /* Neo Soft — soft, friendly, professional fintech. See docs/DESIGN_SYSTEM.md */
+  --bg-main: #f4f5f7;
+  --bg-card: #ffffff;
+  --bg-nav: rgba(255, 255, 255, 0.8);
 
-  --neo-green: #006b49;
-  --neo-green-dim: rgba(0, 107, 73, 0.12);
-  --neo-green-glow: rgba(0, 107, 73, 0.22);
+  --neo-green: #16c784;
+  --neo-green-dim: rgba(22, 199, 132, 0.12);
+  --neo-green-glow: rgba(22, 199, 132, 0.22);
 
-  --accent-purple: #533afd;
-  --accent-blue: #2874ad;
+  --accent-purple: #7b61ff;
+  --accent-blue: #3e8cff;
 
-  --border-dim: #dce7f3;
-  --border-highlight: #b9c8da;
-  --border-active: #8aa1bb;
+  --border-dim: #e6e8ee;
+  --border-highlight: #d8dde6;
+  --border-active: #c2c8d2;
 
-  --text-primary: #061b31;
-  --text-secondary: #445a74;
-  --text-muted: #53677f;
-  --text-dim: #9aa8b8;
+  --text-primary: #1e1e2e;
+  --text-secondary: #5b6478;
+  --text-muted: #8a92a6;
+  --text-dim: #aeb4c2;
 
-  --bg-panel: #f8fbff;
-  --bg-code: #eef6ff;
+  --bg-panel: #f7f8fa;
+  --bg-code: #f4f5f7;
   --bg-dark: #1c1e54;
   --bg-surface: #ffffff;
 
-  --error: #d92d20;
-  --warning: #b7791f;
+  --error: #ea3943;
+  --warning: #f5a623;
 
-  --shadow-soft: rgba(50, 50, 93, 0.16) 0 24px 48px -28px, rgba(0, 0, 0, 0.08) 0 16px 32px -24px;
-  --shadow-card: rgba(50, 50, 93, 0.18) 0 30px 45px -34px, rgba(0, 0, 0, 0.08) 0 18px 36px -26px;
+  --shadow-soft: 0 8px 24px rgba(20, 22, 38, 0.06);
+  --shadow-card: 0 16px 40px rgba(20, 22, 38, 0.1);
+
+  /* Neo Soft canonical aliases */
+  --ns-ink: #1e1e2e;
+  --ns-brand: #16c784;
+  --ns-violet: #7b61ff;
+  --ns-surface: #ffffff;
+  --ns-bg: #f4f5f7;
+  --ns-radius-lg: 20px;
+  --ns-shadow-md: 0 8px 24px rgba(20, 22, 38, 0.06);
+  --ns-shadow-lg: 0 16px 40px rgba(20, 22, 38, 0.1);
+  --ns-focus-ring: 0 0 0 4px rgba(123, 97, 255, 0.18);
 
   --font-sans:
     Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
@@ -49,7 +60,7 @@ html {
 }
 
 body {
-  background: linear-gradient(180deg, #ffffff 0%, var(--bg-main) 44%, #eef4fb 100%);
+  background: linear-gradient(180deg, #fafbfc 0%, var(--bg-main) 100%);
   color: var(--text-primary);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -162,7 +173,7 @@ body {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, #061b31 0%, #533afd 52%, #2874ad 100%);
+  background: linear-gradient(135deg, #1e1e2e 0%, #7b61ff 55%, #3e8cff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -181,9 +192,9 @@ body {
 .glass-card {
   background: var(--bg-card);
   border: 1px solid var(--border-dim);
-  border-radius: 8px;
+  border-radius: 20px;
   padding: 2rem;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-soft);
   backdrop-filter: blur(16px) saturate(1.08);
   transition:
     border-color 0.3s ease,
@@ -206,6 +217,7 @@ body {
   border: 1px solid transparent;
   transition: border-color 0.3s ease;
   pointer-events: none;
+  display: none;
 }
 .glass-card::before {
   top: -1px;
@@ -227,7 +239,7 @@ body {
 .card-industrial {
   background: var(--bg-card);
   border: 1px solid var(--border-dim);
-  border-radius: 8px;
+  border-radius: 20px;
   padding: 2rem;
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px);
@@ -263,9 +275,9 @@ body {
 
 .neo-input,
 .neo-select {
-  background: rgba(255, 255, 255, 0.92);
+  background: #ffffff;
   border: 1px solid var(--border-dim);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: 0.75rem 1rem;
   color: var(--text-primary);
   font-size: 0.85rem;
@@ -279,13 +291,14 @@ body {
 .neo-input:focus,
 .neo-select:focus {
   outline: none;
-  border-color: var(--neo-green);
+  border-color: var(--ns-violet);
+  box-shadow: var(--ns-focus-ring);
 }
 
 /* --- Buttons --- */
 .btn {
   padding: 0.75rem 1.5rem;
-  border-radius: 2px;
+  border-radius: 999px;
   font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
@@ -302,11 +315,11 @@ body {
 .btn-primary {
   background: var(--accent-purple);
   color: #fff;
-  box-shadow: 0 12px 24px rgba(83, 58, 253, 0.2);
+  box-shadow: 0 8px 24px rgba(123, 97, 255, 0.22);
 }
 
 .btn-primary:hover {
-  background: #4434d4;
+  background: #6a4df4;
 }
 
 .btn-secondary {
@@ -326,8 +339,8 @@ body {
 }
 
 .btn-neo:hover {
-  background: #008f5d;
-  box-shadow: 0 0 15px var(--neo-green-glow);
+  background: #0fb174;
+  box-shadow: 0 8px 24px var(--neo-green-glow);
 }
 
 .btn-ata {
@@ -339,18 +352,18 @@ body {
   font-size: 0.8rem;
   letter-spacing: 0;
   border: none;
-  border-radius: 10px;
+  border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 14px 30px rgba(83, 58, 253, 0.22);
+  box-shadow: 0 8px 24px rgba(123, 97, 255, 0.22);
 }
 
 .btn-ata:hover {
-  background: #4434d4;
+  background: #6a4df4;
   transform: translateY(-1px);
 }
 
