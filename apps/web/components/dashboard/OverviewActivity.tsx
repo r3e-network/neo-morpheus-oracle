@@ -56,6 +56,19 @@ export function OverviewActivity({
           >
             On-Chain Feed Records
           </h3>
+          {!isInitialLoading && (
+            <span
+              className="badge-outline"
+              style={{
+                color: 'var(--text-muted)',
+                borderColor: 'var(--border-dim)',
+                padding: '2px 8px',
+                fontSize: '0.6rem',
+              }}
+            >
+              {DEFAULT_PAIRS.length} pairs
+            </span>
+          )}
         </div>
         <button
           onClick={onRefresh}
@@ -82,11 +95,17 @@ export function OverviewActivity({
         <SkeletonGrid count={6} />
       ) : (
         <div
+          className="feed-records-scroll"
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: '1px',
             background: 'var(--border-dim)',
+            maxHeight: '560px',
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            borderBottomLeftRadius: '20px',
+            borderBottomRightRadius: '20px',
           }}
         >
           {DEFAULT_PAIRS.map((pair) => {

@@ -1102,6 +1102,31 @@ select:focus-visible {
   padding: 1.25rem;
 }
 
+/* On-chain feed records: keep the long pair list from dominating the home page. */
+.feed-records-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-active) transparent;
+  scroll-behavior: smooth;
+}
+
+.feed-records-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.feed-records-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.feed-records-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-highlight);
+  border-radius: var(--ns-radius-full);
+  border: 2px solid var(--bg-card);
+}
+
+.feed-records-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--border-active);
+}
+
 .dashboard-workflow-header {
   display: flex;
   justify-content: space-between;
