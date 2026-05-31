@@ -77,6 +77,9 @@ export async function proxyToPhala(
         ...init,
         headers,
         cache: 'no-store',
+        // Per-candidate timeout so a stalled CVM endpoint fails over to the
+        // next URL (caught below) instead of hanging the whole request.
+        signal: AbortSignal.timeout(30000),
       });
       const text = await response.text();
       lastResponse = {
