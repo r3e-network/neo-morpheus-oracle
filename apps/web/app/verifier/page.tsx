@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, ClipboardList, FileSearch, ShieldCheck } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyStateArt } from '@/components/illustrations';
 
 async function requestJSON(path: string, body?: Record<string, unknown>) {
   const response = await fetch(path, {

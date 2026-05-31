@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle, Shield } from 'lucide-react';
+import { Check, CheckCircle, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { networkRegistry } from '@/lib/networks';
 
@@ -53,7 +53,7 @@ export default function DocsVerifier() {
             borderRadius: 'var(--ns-radius-md)',
           }}
         >
-          <span style={{ color: 'var(--neo-green)', fontWeight: 800 }}>✓</span>
+          <Check size={18} color="var(--neo-green)" strokeWidth={3} style={{ flexShrink: 0, marginTop: '0.15rem' }} aria-hidden="true" />
           <div>
             <strong
               style={{
@@ -82,7 +82,7 @@ export default function DocsVerifier() {
             borderRadius: 'var(--ns-radius-md)',
           }}
         >
-          <span style={{ color: 'var(--neo-green)', fontWeight: 800 }}>✓</span>
+          <Check size={18} color="var(--neo-green)" strokeWidth={3} style={{ flexShrink: 0, marginTop: '0.15rem' }} aria-hidden="true" />
           <div>
             <strong
               style={{
@@ -110,7 +110,7 @@ export default function DocsVerifier() {
             borderRadius: 'var(--ns-radius-md)',
           }}
         >
-          <span style={{ color: 'var(--neo-green)', fontWeight: 800 }}>✓</span>
+          <Check size={18} color="var(--neo-green)" strokeWidth={3} style={{ flexShrink: 0, marginTop: '0.15rem' }} aria-hidden="true" />
           <div>
             <strong
               style={{

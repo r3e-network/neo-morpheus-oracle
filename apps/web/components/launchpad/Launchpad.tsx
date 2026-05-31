@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { NETWORKS } from '@/lib/onchain-data';
+import { NeoMascot } from '@/components/illustrations';
 
 type LaunchpadProps = {
   embedded?: boolean;
@@ -238,24 +239,37 @@ export function Launchpad({ embedded = false }: LaunchpadProps) {
   return (
     <div className={embedded ? 'fade-up' : 'fade-in'}>
       {!embedded && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-            <Boxes size={14} color="var(--neo-green)" />
-            <span
-              style={{
-                fontSize: '0.7rem',
-                fontWeight: 800,
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: 0,
-                fontFamily: 'var(--font-mono)',
-              }}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1.5rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}
             >
-              UNIFIED LAUNCHPAD
-            </span>
+              <Boxes size={14} color="var(--neo-green)" />
+              <span
+                style={{
+                  fontSize: '0.7rem',
+                  fontWeight: 800,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0,
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                UNIFIED LAUNCHPAD
+              </span>
+            </div>
+            <h1>Launchpad</h1>
           </div>
-          <h1>Launchpad</h1>
-        </>
+          <NeoMascot variant="brand" size={108} />
+        </div>
       )}
 
       <p

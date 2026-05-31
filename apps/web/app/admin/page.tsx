@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ProviderConfigPanel } from '../../components/provider-config-panel';
 import { RelayerOpsPanel } from '../../components/relayer-ops-panel';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('providers');
@@ -171,7 +171,7 @@ export default function AdminPage() {
               textDecoration: 'none',
             }}
           >
-            ← Back to Home
+            <ArrowLeft size={14} aria-hidden="true" /> Back to Home
           </Link>
         </div>
       </div>

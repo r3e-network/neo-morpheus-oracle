@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 
+import { ErrorArt } from '@/components/illustrations';
 import { DEFAULT_PAIRS, NETWORKS } from '@/lib/onchain-data';
 import { getDeprecatedFeedInfo, getFeedDescriptor } from '@/lib/feed-defaults';
 import { Card } from '@/components/ui/Card';
@@ -224,8 +225,10 @@ export function OverviewTab({ setOutput }: any) {
         <SkeletonStats />
       ) : error ? (
         <Card variant="error" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Info size={20} color="var(--error)" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span style={{ flexShrink: 0, lineHeight: 0 }}>
+              <ErrorArt size={72} title="Failed to load network data" />
+            </span>
             <div>
               <div style={{ fontWeight: 800, marginBottom: '4px' }}>
                 Failed to load network data
