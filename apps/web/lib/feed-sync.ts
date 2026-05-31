@@ -87,28 +87,38 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
         let lastStatus = 503;
         let lastBody: unknown = { error: 'upstream unavailable' };
         for (const apiBaseUrl of candidateUrls) {
-          const response = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/oracle/feed`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(resolved.payload),
-            cache: 'no-store',
-          });
-          const text = await response.text();
-          let body: unknown = text;
           try {
-            body = text ? JSON.parse(text) : {};
-          } catch {}
-          lastStatus = response.status;
-          lastBody = body;
-          if (
-            response.ok ||
-            (response.status !== 408 &&
-              response.status !== 409 &&
-              response.status !== 425 &&
-              response.status !== 429 &&
-              response.status < 500)
-          ) {
-            break;
+            const response = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/oracle/feed`, {
+              method: 'POST',
+              headers,
+              body: JSON.stringify(resolved.payload),
+              cache: 'no-store',
+              // Per-candidate timeout so a stalled endpoint fails over to the
+              // next URL instead of hanging the request.
+              signal: AbortSignal.timeout(15000),
+            });
+            const text = await response.text();
+            let body: unknown = text;
+            try {
+              body = text ? JSON.parse(text) : {};
+            } catch {}
+            lastStatus = response.status;
+            lastBody = body;
+            if (
+              response.ok ||
+              (response.status !== 408 &&
+                response.status !== 409 &&
+                response.status !== 425 &&
+                response.status !== 429 &&
+                response.status < 500)
+            ) {
+              break;
+            }
+          } catch (error) {
+            // Transport error/timeout: record and try the next candidate URL
+            // instead of aborting the whole failover loop.
+            lastStatus = 503;
+            lastBody = { error: error instanceof Error ? error.message : 'fetch failed' };
           }
         }
         return { target_chain: targetChain, status: lastStatus, body: lastBody };
