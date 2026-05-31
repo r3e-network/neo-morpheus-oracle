@@ -475,23 +475,45 @@ function VerifierPageClient() {
             </div>
             <CheckCircle2 size={20} color="var(--neo-green)" />
           </div>
-          <pre
-            aria-live="polite"
-            style={{
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border-dim)',
-              borderRadius: 'var(--ns-radius-sm)',
-              padding: '1rem',
-              fontSize: '0.8rem',
-              fontFamily: 'var(--font-mono)',
-              color: result ? 'var(--neo-green)' : 'var(--text-muted)',
-              overflow: 'auto',
-              maxHeight: '400px',
-              whiteSpace: 'pre-wrap',
-            }}
-          >
-            {result || 'Awaiting verification input...'}
-          </pre>
+          {result ? (
+            <pre
+              aria-live="polite"
+              style={{
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+                borderRadius: 'var(--ns-radius-sm)',
+                padding: '1rem',
+                fontSize: '0.8rem',
+                fontFamily: 'var(--font-mono)',
+                color: 'var(--neo-green)',
+                overflow: 'auto',
+                maxHeight: '400px',
+                whiteSpace: 'pre-wrap',
+              }}
+            >
+              {result}
+            </pre>
+          ) : (
+            <div
+              aria-live="polite"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                padding: '2rem 1.5rem',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-dim)',
+                borderRadius: 'var(--ns-radius-sm)',
+                color: 'var(--text-muted)',
+              }}
+            >
+              <EmptyStateArt size={172} title="Awaiting verification input" />
+              <p style={{ fontSize: '0.85rem', marginTop: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                Awaiting verification input...
+              </p>
+            </div>
+          )}
         </Card>
       </div>
     </>

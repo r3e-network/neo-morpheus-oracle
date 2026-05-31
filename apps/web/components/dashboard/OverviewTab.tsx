@@ -1,8 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Info } from 'lucide-react';
-
 import { ErrorArt } from '@/components/illustrations';
 import { DEFAULT_PAIRS, NETWORKS } from '@/lib/onchain-data';
 import { getDeprecatedFeedInfo, getFeedDescriptor } from '@/lib/feed-defaults';
