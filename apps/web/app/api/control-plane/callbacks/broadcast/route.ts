@@ -16,11 +16,12 @@ function resolveNetwork(value: unknown) {
   return trimString(value) === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
-function resolveControlPlaneUrl(value: unknown) {
-  const text = trimString(value);
-  if (!text) return appConfig.controlPlaneUrl;
-  if (!/^https:\/\//i.test(text)) return '';
-  return text.replace(/\/$/, '');
+function resolveControlPlaneUrl() {
+  // Always use the server-configured control-plane host. A caller-supplied URL
+  // must never be honored here: this request attaches the server's admin API
+  // key, so trusting client input would let an authorized caller exfiltrate the
+  // credential to an arbitrary host (SSRF + credential leak).
+  return (appConfig.controlPlaneUrl || '').replace(/\/$/, '');
 }
 
 export async function POST(request: Request) {
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   if (!isPlainObject(body)) return badRequest('invalid JSON body');
-  const controlPlaneUrl = resolveControlPlaneUrl(body.control_plane_url);
+  const controlPlaneUrl = resolveControlPlaneUrl();
   if (!controlPlaneUrl) return badRequest('MORPHEUS_CONTROL_PLANE_URL is not configured', 500);
 
   const headers = new Headers({ 'content-type': 'application/json' });
