@@ -27,7 +27,12 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 export function parseJsonObjectParam(rawValue: string | null) {
   const value = trimString(rawValue);
   if (!value) return undefined;
-  const parsed = JSON.parse(value);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('provider_params must be valid JSON');
+  }
   if (!isPlainObject(parsed)) {
     throw new Error('provider_params must be a JSON object');
   }
