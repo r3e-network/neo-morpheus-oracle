@@ -154,6 +154,9 @@ async function fetchJsonRpc(url: string, body: Record<string, unknown>) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
     cache: 'no-store',
+    // Bound the request so a stalled Neo RPC endpoint cannot hang the
+    // dashboard-polled /api/onchain path; callers already handle rejections.
+    signal: AbortSignal.timeout(10000),
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
