@@ -165,7 +165,11 @@ export function OverviewTab({ setOutput }: any) {
   const livePrice = liveQuote?.price ? Number(liveQuote.price) : null;
   const onchainPrice = selectedRecord?.price_display ? Number(selectedRecord.price_display) : null;
   const liveDeltaPct =
-    livePrice !== null && onchainPrice !== null && onchainPrice > 0
+    livePrice !== null &&
+    Number.isFinite(livePrice) &&
+    onchainPrice !== null &&
+    Number.isFinite(onchainPrice) &&
+    onchainPrice > 0
       ? ((livePrice - onchainPrice) / onchainPrice) * 100
       : null;
 
