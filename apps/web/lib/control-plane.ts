@@ -103,6 +103,9 @@ export async function dispatchToControlPlane(
       ...init,
       headers,
       cache: 'no-store',
+      // Bound the request so a stalled control plane can't hang the caller;
+      // the surrounding catch already handles the failure/fail-open path.
+      signal: AbortSignal.timeout(10000),
     });
     text = await response.text();
     contentType = response.headers.get('content-type') || 'application/json';
