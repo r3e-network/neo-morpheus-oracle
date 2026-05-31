@@ -269,7 +269,7 @@ async function fetchNeoN3State(
 
 export async function fetchOnchainState(limit = 12) {
   const selected = getSelectedNetwork();
-  const boundedLimit = Number.isFinite(limit) ? Math.max(Math.floor(limit), 1) : 12;
+  const boundedLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 200) : 12;
 
   const neoN3 = await fetchNeoN3State(
     trimString(selected.neo_n3.rpc_url),
