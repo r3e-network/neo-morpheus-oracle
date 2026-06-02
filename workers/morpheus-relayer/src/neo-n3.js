@@ -303,6 +303,64 @@ export function buildNeoN3EventFromRequestRecord(decoded, requestId) {
   return null;
 }
 
+// Event names emitted by the oracle request entry points. The current kernel
+// contract (MorpheusOracle) emits `MiniAppRequestQueued`; legacy oracle
+// contracts emit `OracleRequested`. The relayer accepts both so a single
+// notification/block-cursor scan works against either deployment.
+const NEO_N3_REQUEST_EVENT_NAMES = new Set(['MiniAppRequestQueued', 'OracleRequested']);
+
+/**
+ * Normalize a Neo N3 request notification into the internal event shape used by
+ * the fulfillment pipeline. The two supported events have different state
+ * layouts:
+ *   - MiniAppRequestQueued: [requestId, appId, moduleId, operation, requester,
+ *       sponsor, payload] (kernel contract). `requestType` is the operation so
+ *       it matches the working `request_cursor` path which derives the kernel
+ *       intent from `operation`.
+ *   - OracleRequested: [requestId, requestType, requester, callbackContract,
+ *       callbackMethod, payload] (legacy contract).
+ * Returns null when the event name is unknown or the decoded state is empty.
+ */
+function buildNeoN3EventFromNotificationState(eventName, decodedState, meta = {}) {
+  const state = Array.isArray(decodedState) ? decodedState : [];
+  if (eventName === 'MiniAppRequestQueued') {
+    const [requestId, appId, moduleId, operation, requester, , payload] = state;
+    if (!trimString(operation)) return null;
+    return {
+      chain: 'neo_n3',
+      requestId: String(requestId || '0'),
+      requestType: String(operation || ''),
+      appId: String(appId || ''),
+      moduleId: String(moduleId || ''),
+      operation: String(operation || ''),
+      requester: String(requester || ''),
+      callbackContract: '',
+      callbackMethod: 'onOracleResult',
+      payloadText: String(payload || ''),
+      blockNumber: Number(meta.blockNumber ?? 0),
+      txHash: String(meta.txHash || ''),
+      ...(meta.logIndex !== undefined ? { logIndex: Number(meta.logIndex) } : {}),
+    };
+  }
+  if (eventName === 'OracleRequested') {
+    const [requestId, requestType, requester, callbackContract, callbackMethod, payload] = state;
+    if (!trimString(requestType)) return null;
+    return {
+      chain: 'neo_n3',
+      requestId: String(requestId || '0'),
+      requestType: String(requestType || ''),
+      requester: String(requester || ''),
+      callbackContract: String(callbackContract || ''),
+      callbackMethod: String(callbackMethod || ''),
+      payloadText: String(payload || ''),
+      blockNumber: Number(meta.blockNumber ?? 0),
+      txHash: String(meta.txHash || ''),
+      ...(meta.logIndex !== undefined ? { logIndex: Number(meta.logIndex) } : {}),
+    };
+  }
+  return null;
+}
+
 export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
   if (fromBlock > toBlock) return [];
   const out = [];
@@ -320,23 +378,21 @@ export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
         const notifications = Array.isArray(execution?.notifications)
           ? execution.notifications
           : [];
+        let logIndex = 0;
         for (const notification of notifications) {
+          const notificationIndex = logIndex;
+          logIndex += 1;
           if (strip0x(notification.contract) !== targetContract) continue;
-          if (trimString(notification.eventname) !== 'OracleRequested') continue;
+          const eventName = trimString(notification.eventname);
+          if (!NEO_N3_REQUEST_EVENT_NAMES.has(eventName)) continue;
           const state = Array.isArray(notification.state?.value) ? notification.state.value : [];
-          const [requestId, requestType, requester, callbackContract, callbackMethod, payload] =
-            state.map((entry) => decodeNeoItem(entry));
-          out.push({
-            chain: 'neo_n3',
-            requestId: String(requestId || '0'),
-            requestType: String(requestType || ''),
-            requester: String(requester || ''),
-            callbackContract: String(callbackContract || ''),
-            callbackMethod: String(callbackMethod || ''),
-            payloadText: String(payload || ''),
+          const decodedState = state.map((entry) => decodeNeoItem(entry));
+          const event = buildNeoN3EventFromNotificationState(eventName, decodedState, {
             blockNumber: height,
             txHash,
+            logIndex: notificationIndex,
           });
+          if (event) out.push(event);
         }
       }
     }
@@ -355,7 +411,8 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
   const url = new URL(`${baseUrl}/contract_notifications`);
   url.searchParams.set('network', `eq.${network}`);
   url.searchParams.set('contract_hash', `eq.${config.neo_n3.oracleContract}`);
-  url.searchParams.set('event_name', 'eq.OracleRequested');
+  // Accept both the current kernel event and the legacy oracle event.
+  url.searchParams.set('event_name', `in.(${[...NEO_N3_REQUEST_EVENT_NAMES].join(',')})`);
   url.searchParams.set('order', 'block_index.desc');
   url.searchParams.set('limit', String(Math.max(config.maxBlocksPerTick * 4, 500)));
 
@@ -365,7 +422,7 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
   });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
-    throw new Error(`n3index OracleRequested scan failed: ${response.status} ${text}`.trim());
+    throw new Error(`n3index oracle request scan failed: ${response.status} ${text}`.trim());
   }
 
   const rows = await response.json().catch(() => []);
@@ -388,22 +445,14 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
         : Array.isArray(row?.raw_json?.state?.value)
           ? row.raw_json.state.value
           : [];
-      const [requestId, requestType, requester, callbackContract, callbackMethod, payload] =
-        state.map((entry) => decodeNeoItem(entry));
-      return {
-        chain: 'neo_n3',
-        requestId: String(requestId || '0'),
-        requestType: String(requestType || ''),
-        requester: String(requester || ''),
-        callbackContract: String(callbackContract || ''),
-        callbackMethod: String(callbackMethod || ''),
-        payloadText: String(payload || ''),
+      const decodedState = state.map((entry) => decodeNeoItem(entry));
+      return buildNeoN3EventFromNotificationState(trimString(row?.event_name), decodedState, {
         blockNumber: Number(row?.block_index || 0),
         txHash: String(row?.txid || ''),
         logIndex: Number(row?.notification_index || 0),
-      };
+      });
     })
-    .filter((event) => trimString(event.requestType));
+    .filter((event) => event && trimString(event.requestType));
 }
 
 export async function scanNeoN3OracleRequestsById(config, fromRequestId, toRequestId) {
@@ -791,6 +840,59 @@ export function assertNeoN3HaltExecution(requestId, txHash, execution) {
   return { vm_state: vmState, exception: exception || undefined };
 }
 
+const DEFAULT_FULFILL_CONFIRM_TIMEOUT_MS = 45_000;
+
+function getNeoN3FulfillConfirmTimeoutMs(config) {
+  const explicit = Number(config?.neo_n3?.fulfillConfirmTimeoutMs);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const fromFeeTopUp = Number(config?.neo_n3?.feeTopUp?.waitTimeoutMs);
+  if (Number.isFinite(fromFeeTopUp) && fromFeeTopUp > 0) return fromFeeTopUp;
+  return DEFAULT_FULFILL_CONFIRM_TIMEOUT_MS;
+}
+
+/**
+ * Confirm a broadcast fulfillRequest transaction by polling its application log
+ * until the VM result is available. `contract.invoke` and `sendrawtransaction`
+ * return immediately after broadcast, so a single getapplicationlog call races
+ * the chain: the log may not exist yet (RPC throws / no executions), which would
+ * otherwise let a FAULT be recorded as a successful HALT. We poll until a
+ * concrete vmstate is observed:
+ *   - HALT  -> resolve with vm_state HALT
+ *   - FAULT -> throw (never record a faulted tx as fulfilled)
+ * If the log never becomes available before the timeout we degrade to UNKNOWN
+ * (best-effort) rather than throwing, preserving prior behavior for genuinely
+ * un-indexable broadcasts while never masking a confirmed FAULT.
+ */
+async function confirmNeoN3FulfillExecution(config, requestId, txHash) {
+  const deadline = Date.now() + getNeoN3FulfillConfirmTimeoutMs(config);
+  let lastError = null;
+  for (;;) {
+    try {
+      const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
+      const execution = appLog?.executions?.[0];
+      const vmState = trimString(execution?.vmstate || '').toUpperCase();
+      if (vmState) {
+        // A concrete VM state is present: validate it (throws on FAULT).
+        return assertNeoN3HaltExecution(requestId, txHash, execution);
+      }
+      // Log exists but has no execution result yet; keep polling.
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('Neo N3 fulfillRequest faulted')) {
+        throw error;
+      }
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+    if (Date.now() >= deadline) {
+      return {
+        vm_state: 'UNKNOWN',
+        exception:
+          lastError?.message || 'fulfillRequest application log unavailable before timeout',
+      };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+}
+
 async function resolveNeoN3UpdaterPayload(config) {
   if (config.neo_n3.updaterWif) {
     return { wif: config.neo_n3.updaterWif };
@@ -846,27 +948,14 @@ export async function fulfillNeoN3Request(
       verificationSignature
     );
   }
-  let vmState = 'HALT';
-  let exception;
-  try {
-    const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
-    const execution = appLog?.executions?.[0];
-    const outcome = assertNeoN3HaltExecution(requestId, txHash, execution);
-    vmState = outcome.vm_state;
-    exception = outcome.exception;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('Neo N3 fulfillRequest faulted')) {
-      throw error;
-    }
-    // Best-effort: ignore RPC call failure for application log
-    vmState = 'UNKNOWN';
-    exception = error instanceof Error ? error.message : String(error);
-  }
+  // Wait for the broadcast to be applied and confirm the VM result. A confirmed
+  // FAULT throws here so it is never recorded as a successful fulfillment.
+  const outcome = await confirmNeoN3FulfillExecution(config, requestId, txHash);
   return {
     request_id: buildNeoN3RelayRequestId('fulfill', requestId),
     tx_hash: txHash,
-    vm_state: vmState,
-    exception,
+    vm_state: outcome.vm_state,
+    exception: outcome.exception,
     target_chain: 'neo_n3',
   };
 }
