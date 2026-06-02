@@ -296,12 +296,27 @@ export function buildFulfillmentDigestBytes(
   result,
   error,
   resultBytesBase64 = '',
-  { chain = 'neo_n3', appId = '', moduleId = '', operation = '' } = {}
+  { chain = 'neo_n3', appId = '', moduleId = '', operation = '', contractScriptHash = '', networkMagic } = {}
 ) {
   const successByte = Buffer.from([success ? 1 : 0]);
   const resultBytes = trimString(resultBytesBase64)
     ? Buffer.from(trimString(resultBytesBase64), 'base64')
     : Buffer.from(String(result || ''), 'utf8');
+
+  // Deployment + network binding (kernel ComputeFulfillmentDigest): the contract
+  // appends (ByteString)Runtime.ExecutingScriptHash (20 bytes, little-endian) and
+  // a 4-byte little-endian network magic. The on-chain script hash is the reverse
+  // of the 0x big-endian display form. Only appended when both are supplied, so
+  // legacy/older deployments keep the unbound digest.
+  const hashHex = strip0x(trimString(contractScriptHash || ''));
+  const bindDeployment = /^[0-9a-fA-F]{40}$/.test(hashHex) && Number.isFinite(Number(networkMagic));
+  const deploymentSuffix = [];
+  if (bindDeployment) {
+    deploymentSuffix.push(Buffer.from(hashHex, 'hex').reverse()); // big-endian display -> little-endian VM bytes
+    const magicLe = Buffer.alloc(4);
+    magicLe.writeUInt32LE(Number(networkMagic) >>> 0);
+    deploymentSuffix.push(magicLe);
+  }
 
   if (chain === 'legacy') {
     return createHash('sha256')
@@ -331,6 +346,7 @@ export function buildFulfillmentDigestBytes(
         successByte,
         sha256Buffer(resultBytes),
         sha256Buffer(trimString(error || '')),
+        ...deploymentSuffix,
       ])
     )
     .digest();

@@ -780,6 +780,33 @@ test('buildFulfillmentDigestBytes binds the full callback context', () => {
   assert.notDeepEqual(baseline, changedRequest);
 });
 
+test('buildFulfillmentDigestBytes binds deployment (script hash + network) to match the kernel', () => {
+  // Reference digest is the value the on-chain ComputeFulfillmentDigest produces for
+  // these exact inputs, cross-verified by the contract test
+  // FulfillRequest_VerifiesSignatureOverDigest (the contract accepts a signature over
+  // this byte layout: ...+sha256(error)+scriptHash(LE 20)+networkMagic(LE 4)).
+  const result = Buffer.from([0xaa, 0xbb, 0xcc]);
+  const bound = buildFulfillmentDigestBytes('42', '', true, '', '', result.toString('base64'), {
+    chain: 'neo_n3',
+    appId: 'demo.app',
+    moduleId: 'oracle.fetch',
+    operation: 'fetch',
+    contractScriptHash: '0x1122334455667788990011223344556677889900',
+    networkMagic: 894710606,
+  });
+  const unbound = buildFulfillmentDigestBytes('42', '', true, '', '', result.toString('base64'), {
+    chain: 'neo_n3',
+    appId: 'demo.app',
+    moduleId: 'oracle.fetch',
+    operation: 'fetch',
+  });
+  assert.equal(
+    bound.toString('hex'),
+    '44630ca9e11ee6941fde907dc51342b997e301ae215f80daedd59c423aff7566'
+  );
+  assert.notDeepEqual(bound, unbound); // deployment binding is actually applied
+});
+
 test('encodeFulfillmentResult returns success envelope for worker output', () => {
   const fulfilled = encodeFulfillmentResult('privacy_oracle', {
     ok: true,

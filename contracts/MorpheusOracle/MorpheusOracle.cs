@@ -1415,7 +1415,27 @@ namespace MorpheusOracle.Contracts
             payload = Helper.Concat(payload, new byte[] { success ? (byte)0x01 : (byte)0x00 });
             payload = Helper.Concat(payload, ComputeResultHash(result));
             payload = Helper.Concat(payload, CryptoLib.Sha256((ByteString)(error ?? "")));
+            // Bind the signature to this exact contract deployment and network so a
+            // fulfillment signature cannot be replayed against another deployment
+            // (e.g. testnet -> mainnet) or a redeploy that shares the same requestId.
+            payload = Helper.Concat(payload, (ByteString)Runtime.ExecutingScriptHash);
+            payload = Helper.Concat(payload, NetworkMagicLe4());
             return CryptoLib.Sha256((ByteString)payload);
+        }
+
+        // 4-byte little-endian encoding of the network magic. Uses BigInteger
+        // arithmetic so it lowers cleanly through nccs. The off-chain signer
+        // (relayer buildFulfillmentDigestBytes) must reproduce these exact bytes.
+        private static byte[] NetworkMagicLe4()
+        {
+            BigInteger net = (BigInteger)Runtime.GetNetwork();
+            return new byte[]
+            {
+                (byte)(net & 0xFF),
+                (byte)((net / 256) & 0xFF),
+                (byte)((net / 65536) & 0xFF),
+                (byte)((net / 16777216) & 0xFF),
+            };
         }
 
         private static byte[] BuildGrantKey(string appId, string moduleId)

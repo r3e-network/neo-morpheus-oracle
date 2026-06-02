@@ -179,6 +179,13 @@ function resolveLocalVerifierAccount(config) {
 
 export async function signFulfillmentPayload(config, chain, fulfillment) {
   const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
+  // Bind the digest to the exact deployed contract + network so the signature
+  // cannot be replayed across deployments/networks (matches the kernel's
+  // ComputeFulfillmentDigest which appends the executing script hash + magic).
+  if (chain === 'neo_n3') {
+    digestContext.contractScriptHash = config?.neo_n3?.oracleContract || '';
+    digestContext.networkMagic = config?.neo_n3?.networkMagic;
+  }
   // Pass chain + kernel envelope fields so the digest matches the on-chain
   // contract's ComputeFulfillmentDigest. Legacy Neo N3 callbacks still use
   // the requestType-based digest when appId/moduleId/operation are absent.

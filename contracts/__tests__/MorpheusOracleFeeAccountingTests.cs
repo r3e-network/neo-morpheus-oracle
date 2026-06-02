@@ -243,5 +243,80 @@ namespace MorpheusOracle.Contracts.Tests
             Assert.Equal(BigInteger.Zero, h.Contract.AccruedRequestFees!.Value);
             AssertSolvent(h);
         }
+
+        // Behavioral coverage for the fulfillment signature path: the off-chain
+        // oracle signs ComputeFulfillmentDigest with the runtime verifier key, and
+        // FulfillRequest must recompute the identical digest and accept the secp256r1
+        // signature. This pins the exact digest byte layout that the relayer's
+        // buildFulfillmentDigestBytes must reproduce; a divergence here would mean a
+        // signature mismatch and a stalled oracle.
+        [Fact]
+        public void FulfillRequest_VerifiesSignatureOverDigest_AndMarksSucceeded()
+        {
+            Harness h = Deploy();
+            Bootstrap(h, 10 * DefaultFee);
+            BigInteger id = Submit(h); // appId=demo.app, moduleId=oracle.fetch, operation="fetch"
+            Assert.Equal(BigInteger.Zero, RequestField(h, id, StatusIndex)); // Pending
+
+            byte[] priv = new byte[32];
+            priv[31] = 7;
+            KeyPair verifier = new KeyPair(priv);
+
+            h.Engine.SetTransactionSigners(h.Owner); // admin sets verifier + updater
+            h.Contract.SetRuntimeVerificationPublicKey(verifier.PublicKey);
+            h.Contract.SetUpdater(h.Owner);          // owner submits the fulfill tx (updater witness)
+
+            byte[] result = new byte[] { 0xAA, 0xBB, 0xCC };
+            string error = "";
+            byte[] scriptHashLe = h.Contract.Hash.GetSpan().ToArray(); // (ByteString)Runtime.ExecutingScriptHash (LE)
+            uint network = ProtocolSettings.Default.Network;        // == Runtime.GetNetwork() in the engine
+            byte[] digest = ComputeFulfillmentDigest(
+                id, AppId, ModuleId, "fetch", true, result, error, scriptHashLe, network);
+            byte[] signature = Neo.Cryptography.Crypto.Sign(
+                digest, verifier.PrivateKey, Neo.Cryptography.ECC.ECCurve.Secp256r1);
+
+            h.Engine.SetTransactionSigners(h.Owner);
+            h.Contract.FulfillRequest(id, true, result, error, signature);
+
+            Assert.Equal(BigInteger.One, RequestField(h, id, StatusIndex)); // Succeeded
+        }
+
+        // C# replica of the contract's ComputeFulfillmentDigest (and the relayer's
+        // buildFulfillmentDigestBytes). If FulfillRequest above accepts a signature
+        // over this, the contract computes the identical bytes.
+        private static byte[] ComputeFulfillmentDigest(
+            BigInteger requestId, string appId, string moduleId, string operation,
+            bool success, byte[] result, string error, byte[] scriptHashLe, uint network)
+        {
+            static byte[] Sha(byte[] b)
+            {
+                using var sha = System.Security.Cryptography.SHA256.Create();
+                return sha.ComputeHash(b);
+            }
+            var payload = new List<byte>();
+            payload.AddRange(System.Text.Encoding.ASCII.GetBytes("miniapp-os-fulfillment-v1"));
+            payload.AddRange(ToUInt256BE(requestId));
+            payload.AddRange(Sha(System.Text.Encoding.UTF8.GetBytes(appId)));
+            payload.AddRange(Sha(System.Text.Encoding.UTF8.GetBytes(moduleId)));
+            payload.AddRange(Sha(System.Text.Encoding.UTF8.GetBytes(operation)));
+            payload.Add(success ? (byte)0x01 : (byte)0x00);
+            payload.AddRange(Sha(result ?? System.Array.Empty<byte>()));
+            payload.AddRange(Sha(System.Text.Encoding.UTF8.GetBytes(error ?? "")));
+            payload.AddRange(scriptHashLe);
+            payload.Add((byte)(network & 0xFF));
+            payload.Add((byte)((network >> 8) & 0xFF));
+            payload.Add((byte)((network >> 16) & 0xFF));
+            payload.Add((byte)((network >> 24) & 0xFF));
+            return Sha(payload.ToArray());
+        }
+
+        // Mirrors the contract's ToUInt256Bytes: big-endian 32-byte encoding.
+        private static byte[] ToUInt256BE(BigInteger value)
+        {
+            byte[] raw = value.ToByteArray(); // little-endian, two's complement
+            byte[] outp = new byte[32];
+            for (int i = 0; i < raw.Length && i < 32; i++) outp[31 - i] = raw[i];
+            return outp;
+        }
     }
 }
