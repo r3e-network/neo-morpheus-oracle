@@ -14,11 +14,20 @@ const MAX_REQUEST_TIMEOUT_MS = 10_000;
 const MAX_FEED_SYNC_TIMEOUT_MS = 30_000;
 const DEFAULT_NEO_N3_RPC_URLS = {
   mainnet: [
+    'http://seed1.neo.org:10332',
+    'http://seed2.neo.org:10332',
+    'http://seed3.neo.org:10332',
     'https://api.n3index.dev/mainnet',
     'https://mainnet1.neo.coz.io:443',
     'https://mainnet2.neo.coz.io:443',
   ],
-  testnet: ['https://api.n3index.dev/testnet', 'https://testnet1.neo.coz.io:443'],
+  testnet: [
+    'http://seed3.neo.org:20332',
+    'http://seed4.neo.org:20332',
+    'http://seed5.neo.org:20332',
+    'https://api.n3index.dev/testnet',
+    'https://testnet1.neo.coz.io:443',
+  ],
 };
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '../../..');
@@ -49,6 +58,18 @@ function uniqueOrdered(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function rpcUrlRank(value) {
+  const normalized = trimString(value).toLowerCase();
+  if (/^https?:\/\/seed\d+\.neo\.org(?::|\/|$)/.test(normalized)) return 0;
+  if (normalized.includes('neo.org')) return 1;
+  if (normalized.startsWith('https://')) return 2;
+  return 3;
+}
+
+function uniqueRankedRpcUrls(values) {
+  return uniqueOrdered(values).sort((left, right) => rpcUrlRank(left) - rpcUrlRank(right));
+}
+
 function resolveNeoN3RpcUrls(network, registry) {
   const scopedRpcUrls =
     network === 'mainnet'
@@ -73,7 +94,7 @@ function resolveNeoN3RpcUrls(network, registry) {
           )
         );
   const genericRpcUrls = parseUrlList(env('NEO_RPC_URLS', 'NEO_RPC_URL'));
-  return uniqueOrdered([
+  return uniqueRankedRpcUrls([
     ...scopedRpcUrls,
     ...parseUrlList(registry.neo_n3?.rpc_urls || []),
     trimString(registry.neo_n3?.rpc_url || ''),

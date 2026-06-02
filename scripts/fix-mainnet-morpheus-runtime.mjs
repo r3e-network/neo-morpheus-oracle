@@ -8,6 +8,7 @@ import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-sign
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const ADMIN_ADDRESS = 'NUVmRwZDoSZMKcPj9UCQLHkpno2TPqYVxC';
 const ADMIN_HASH = `0x${wallet.getScriptHashFromAddress(ADMIN_ADDRESS).toLowerCase()}`;
+const ADMIN_DSTACK_KEY_ROLE = trimString(process.env.MORPHEUS_ADMIN_DSTACK_KEY_ROLE) || 'neodid';
 const DEFAULT_METADATA_URI = 'https://oracle.meshmini.app/mainnet/runtime/catalog';
 const DEFAULT_CREDIT_REQUESTS = 20n;
 const PLATFORM_GAME_APP_ID = 'morpheus.platform.game';
@@ -263,7 +264,7 @@ async function signWithDerivedAdmin(runtimeUrls, token, messageHex) {
             target_chain: 'neo_n3',
             data_hex: messageHex,
             use_derived_keys: true,
-            dstack_key_role: 'worker',
+            dstack_key_role: ADMIN_DSTACK_KEY_ROLE,
           }),
         });
         if (!response.ok) {

@@ -1460,6 +1460,50 @@ test('createRelayerConfig prefers network-scoped Neo N3 contract hashes over sta
   }
 });
 
+test('createRelayerConfig ranks stable mainnet Neo N3 RPC fallbacks before n3index', () => {
+  const keys = [
+    'MORPHEUS_NETWORK',
+    'MORPHEUS_RUNTIME_CONFIG_JSON',
+    'NEO_MAINNET_RPC_URLS',
+    'MAINNET_RPC_URLS',
+    'NEO_RPC_URLS_MAINNET',
+    'NEO_MAINNET_RPC_URL',
+    'MAINNET_RPC_URL',
+    'NEO_RPC_MAINNET',
+    'NEO_RPC_URLS',
+    'NEO_RPC_URL',
+    'ALLOW_GENERIC_NEO_RPC_URL',
+  ];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  delete process.env.MORPHEUS_RUNTIME_CONFIG_JSON;
+  delete process.env.NEO_MAINNET_RPC_URLS;
+  delete process.env.MAINNET_RPC_URLS;
+  delete process.env.NEO_RPC_URLS_MAINNET;
+  delete process.env.NEO_MAINNET_RPC_URL;
+  delete process.env.MAINNET_RPC_URL;
+  delete process.env.NEO_RPC_MAINNET;
+  delete process.env.NEO_RPC_URLS;
+  delete process.env.NEO_RPC_URL;
+  delete process.env.ALLOW_GENERIC_NEO_RPC_URL;
+
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(config.neo_n3.rpcUrl, 'http://seed1.neo.org:10332');
+    assert.ok(
+      config.neo_n3.rpcUrls.indexOf('http://seed1.neo.org:10332') <
+        config.neo_n3.rpcUrls.indexOf('https://api.n3index.dev/mainnet'),
+      'mainnet seed RPC should be tried before intermittent n3index RPC'
+    );
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('createRelayerConfig defaults active chains to neo_n3 only', () => {
   const previous = process.env.MORPHEUS_ACTIVE_CHAINS;
   delete process.env.MORPHEUS_ACTIVE_CHAINS;

@@ -871,6 +871,103 @@ export async function fulfillNeoN3Request(
   };
 }
 
+async function queueNeoN3AutomationRequestWithRuntimeDerivedUpdater(
+  config,
+  requester,
+  requestType,
+  payloadText,
+  callbackContract,
+  callbackMethod,
+  requestId
+) {
+  const updater = await resolveRuntimeDerivedUpdater(config);
+  const script = sc.createScript({
+    scriptHash: strip0x(config.neo_n3.oracleContract),
+    operation: 'queueAutomationRequest',
+    args: [
+      sc.ContractParam.hash160(requester),
+      sc.ContractParam.string(requestType),
+      sc.ContractParam.byteArray(Buffer.from(payloadText || '', 'utf8').toString('base64')),
+      sc.ContractParam.hash160(callbackContract),
+      sc.ContractParam.string(callbackMethod),
+    ],
+  });
+  const blockCount = Number(await neoRpcCall(config, 'getblockcount'));
+  const transaction = new tx.Transaction({
+    version: 0,
+    nonce: Math.floor(Math.random() * 2 ** 32),
+    script: u.HexString.fromHex(script),
+    validUntilBlock: blockCount + 120,
+    signers: [{ account: strip0x(updater.scriptHash), scopes: tx.WitnessScope.CalledByEntry }],
+    attributes: [],
+    witnesses: [],
+  });
+
+  const testInvoke = await neoRpcCall(config, 'invokescript', [
+    transaction.script.toBase64(),
+    [{ account: strip0x(updater.scriptHash), scopes: 'CalledByEntry' }],
+  ]);
+  if (String(testInvoke?.state || '').toUpperCase() === 'FAULT') {
+    throw new Error(
+      testInvoke?.exception || `Neo N3 automation queue test invoke faulted for ${requester}`
+    );
+  }
+  const gasConsumed = BigInt(testInvoke?.gasconsumed || testInvoke?.gas_consumed || '0');
+  transaction.systemFee = u.BigInteger.fromDecimal(
+    String(gasConsumed + gasConsumed / 5n + 100000n),
+    0
+  );
+
+  const feeSignature = await signNeoN3TransactionWithRuntimeUpdater(
+    config,
+    transaction.getMessageForSigning(config.neo_n3.networkMagic),
+    updater.publicKey
+  );
+  transaction.witnesses = [buildSignatureWitness(feeSignature.signature, feeSignature.publicKey)];
+  const networkFeeResponse = await neoRpcCall(config, 'calculatenetworkfee', [
+    Buffer.from(transaction.serialize(true), 'hex').toString('base64'),
+  ]);
+  const networkFeeRaw =
+    typeof networkFeeResponse === 'string'
+      ? networkFeeResponse
+      : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
+  transaction.networkFee = u.BigInteger.fromDecimal(
+    String(BigInt(networkFeeRaw || '0') + 100000n),
+    0
+  );
+  await ensureNeoN3FeeBalance(
+    config,
+    updater,
+    gasConsumed + gasConsumed / 5n + 100000n + BigInt(networkFeeRaw || '0') + 100000n
+  );
+
+  const finalSignature = await signNeoN3TransactionWithRuntimeUpdater(
+    config,
+    transaction.getMessageForSigning(config.neo_n3.networkMagic),
+    updater.publicKey
+  );
+  transaction.witnesses = [
+    buildSignatureWitness(finalSignature.signature, finalSignature.publicKey),
+  ];
+  const witnessHash = normalizeHash160(`0x${transaction.witnesses[0].scriptHash}`);
+  if (witnessHash !== updater.scriptHash) {
+    throw new Error(
+      `runtime derived updater witness mismatch: expected ${updater.scriptHash}, got ${witnessHash}`
+    );
+  }
+
+  const txHash = `0x${transaction.hash()}`;
+  const signedBase64 = Buffer.from(transaction.serialize(true), 'hex').toString('base64');
+  await neoRpcCall(config, 'sendrawtransaction', [signedBase64]);
+  return {
+    tx_hash: txHash,
+    request_id: requestId,
+    vm_state: 'UNKNOWN',
+    target_chain: 'neo_n3',
+    signer_source: 'runtime_derived_updater',
+  };
+}
+
 export async function queueNeoN3AutomationRequest(
   config,
   requester,
@@ -881,24 +978,46 @@ export async function queueNeoN3AutomationRequest(
   requestIdOverride = ''
 ) {
   await ensureHealthyNeoN3Rpc(config);
-  const signerPayload = await resolveNeoN3UpdaterPayload(config);
   const requestId = trimString(requestIdOverride) || `automation:n3:${Date.now()}`;
-  const invoke = await relayNeoN3Invocation({
-    request_id: requestId,
-    contract_hash: config.neo_n3.oracleContract,
-    method: 'queueAutomationRequest',
-    params: [
-      { type: 'Hash160', value: requester },
-      { type: 'String', value: requestType },
-      { type: 'ByteArray', value: encodeUtf8ByteArrayParamValue(payloadText || '') },
-      { type: 'Hash160', value: callbackContract },
-      { type: 'String', value: callbackMethod },
-    ],
-    wait: true,
-    rpc_url: config.neo_n3.rpcUrl,
-    network_magic: config.neo_n3.networkMagic,
-    ...signerPayload,
-  });
+  let invoke;
+  try {
+    const signerPayload = await resolveNeoN3UpdaterPayload(config);
+    invoke = await relayNeoN3Invocation({
+      request_id: requestId,
+      contract_hash: config.neo_n3.oracleContract,
+      method: 'queueAutomationRequest',
+      params: [
+        { type: 'Hash160', value: requester },
+        { type: 'String', value: requestType },
+        { type: 'ByteArray', value: encodeUtf8ByteArrayParamValue(payloadText || '') },
+        { type: 'Hash160', value: callbackContract },
+        { type: 'String', value: callbackMethod },
+      ],
+      wait: true,
+      rpc_url: config.neo_n3.rpcUrl,
+      network_magic: config.neo_n3.networkMagic,
+      ...signerPayload,
+    });
+  } catch (localError) {
+    if (!shouldUseDerivedKeys(config)) throw localError;
+    try {
+      const runtimeInvoke = await queueNeoN3AutomationRequestWithRuntimeDerivedUpdater(
+        config,
+        requester,
+        requestType,
+        payloadText,
+        callbackContract,
+        callbackMethod,
+        requestId
+      );
+      return runtimeInvoke;
+    } catch (runtimeError) {
+      if (/request_id already used/i.test(String(runtimeError?.message || ''))) {
+        return { duplicate: true, request_id: requestId, target_chain: 'neo_n3' };
+      }
+      throw runtimeError;
+    }
+  }
 
   if (invoke.status >= 400) {
     if (/request_id already used/i.test(String(invoke.body?.error || ''))) {

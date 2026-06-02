@@ -1,4 +1,5 @@
 import { getServerSupabaseClient } from '@/lib/server-supabase';
+import { buildN3IndexFeedNotificationUrl } from '@/lib/n3index-feed';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { getSelectedNetworkKey, networkRegistry, resolveSelectedNetworkKey } from '@/lib/networks';
 
@@ -126,7 +127,7 @@ function buildFeedLookupUrl(networkKey: 'mainnet' | 'testnet') {
   const contractHash = String(registry.neo_n3?.contracts?.morpheus_datafeed || '').trim();
   if (!contractHash) return '';
   const n3IndexNetwork = networkKey === 'mainnet' ? 'mainnet' : 'testnet';
-  return `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.${n3IndexNetwork}&contract_hash=eq.${contractHash}&event_name=eq.FeedUpdated&limit=200&order=block_index.desc`;
+  return buildN3IndexFeedNotificationUrl(n3IndexNetwork, contractHash, 200);
 }
 
 async function lookupFeedNotifications(attestationHash: string, networkKey: 'mainnet' | 'testnet') {
@@ -136,12 +137,19 @@ async function lookupFeedNotifications(attestationHash: string, networkKey: 'mai
   const response = await fetch(lookupUrl, {
     headers: { accept: 'application/json' },
     cache: 'no-store',
+    signal: AbortSignal.timeout(8000),
   });
+  if (!response.ok) return [];
   const body = await response.json().catch(() => []);
   if (!Array.isArray(body)) return [];
 
+  const registry = networkRegistry[networkKey];
+  const contractHash = String(registry.neo_n3?.contracts?.morpheus_datafeed || '').trim();
   return body
     .map((entry) => {
+      if (String(entry?.contract_hash || '').toLowerCase() !== contractHash.toLowerCase()) {
+        return null;
+      }
       const state = entry?.state_json?.value;
       if (!Array.isArray(state) || state.length < 6) return null;
       const actualHash = normalizeHex(

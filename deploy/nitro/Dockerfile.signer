@@ -1,0 +1,22 @@
+FROM node:22-bookworm-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates socat \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install --omit=dev --no-audit --no-fund @cityofzion/neon-js@^5.8.1
+
+COPY config ./config
+COPY scripts/lib-neo-signers.mjs ./scripts/lib-neo-signers.mjs
+COPY deploy/nitro/nitro-signer-server.mjs ./deploy/nitro/nitro-signer-server.mjs
+COPY deploy/nitro/entrypoint-signer.sh ./deploy/nitro/entrypoint-signer.sh
+RUN chmod +x /app/deploy/nitro/entrypoint-signer.sh
+
+ENV MORPHEUS_NETWORK=mainnet
+ENV PORT=8080
+ENV NITRO_SIGNER_VSOCK_PORT=8787
+
+ENTRYPOINT ["/app/deploy/nitro/entrypoint-signer.sh"]
