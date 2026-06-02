@@ -44,6 +44,8 @@ export type MorpheusOracleInvokeRequest = {
   payloadBase64: string;
   callbackHash: string;
   callbackMethod: string;
+  expectedNetworkMagic?: number;
+  expectedNetworkLabel?: string;
 };
 
 function isDapiProvider(value: unknown): value is DapiProvider {
@@ -83,6 +85,84 @@ function normalizeTxResult(result: unknown) {
   return {};
 }
 
+function stripHexPrefix(value: string) {
+  return String(value || '').trim().replace(/^0x/i, '');
+}
+
+function assertHash160(value: string, label: string) {
+  const normalized = stripHexPrefix(value);
+  if (!/^[0-9a-f]{40}$/i.test(normalized)) {
+    throw new Error(`${label} must be a 20-byte Hash160 value`);
+  }
+}
+
+function assertBase64Payload(value: string) {
+  const payload = String(value || '').trim();
+  if (!payload) throw new Error('Oracle payload is empty');
+  try {
+    if (typeof atob === 'function') {
+      atob(payload);
+    } else {
+      Buffer.from(payload, 'base64');
+    }
+  } catch {
+    throw new Error('Oracle payload must be valid base64');
+  }
+}
+
+function assertInvokeRequest(request: MorpheusOracleInvokeRequest) {
+  if (!String(request.requestType || '').trim()) {
+    throw new Error('Oracle request type is required');
+  }
+  assertBase64Payload(request.payloadBase64);
+  assertHash160(request.oracleHash, 'Oracle contract hash');
+  assertHash160(request.callbackHash, 'Callback contract hash');
+  if (!String(request.callbackMethod || '').trim()) {
+    throw new Error('Callback method is required');
+  }
+}
+
+function assertExpectedNetwork(
+  provider: DapiProvider,
+  expectedNetworkMagic?: number,
+  expectedNetworkLabel = 'selected Neo N3 network'
+) {
+  if (!expectedNetworkMagic) return;
+  if (provider.network === expectedNetworkMagic) return;
+  if (typeof provider.network === 'number') {
+    throw new Error(
+      `NEP-21 wallet is connected to network magic ${provider.network}, but this page targets ${expectedNetworkLabel} (${expectedNetworkMagic}). Switch wallet network before submitting.`
+    );
+  }
+  if (provider.supportedNetworks?.length && !provider.supportedNetworks.includes(expectedNetworkMagic)) {
+    throw new Error(
+      `NEP-21 wallet does not advertise ${expectedNetworkLabel} (${expectedNetworkMagic}). Switch to a compatible Neo N3 wallet/network before submitting.`
+    );
+  }
+  throw new Error(
+    `NEP-21 wallet network could not be verified. Switch wallet to ${expectedNetworkLabel} (${expectedNetworkMagic}) and reconnect before submitting.`
+  );
+}
+
+function assertAuthenticatedNetwork(
+  authenticatedNetwork: number | undefined,
+  expectedNetworkMagic?: number,
+  expectedNetworkLabel = 'selected Neo N3 network'
+) {
+  if (!expectedNetworkMagic || authenticatedNetwork === undefined) return;
+  if (authenticatedNetwork === expectedNetworkMagic) return;
+  throw new Error(
+    `NEP-21 wallet authenticated on network magic ${authenticatedNetwork}, but this page targets ${expectedNetworkLabel} (${expectedNetworkMagic}). Switch wallet network before submitting.`
+  );
+}
+
+function resolveVerifiedNetwork(provider: DapiProvider, authenticatedNetwork?: number) {
+  if (typeof provider.network === 'number') return provider.network;
+  if (typeof authenticatedNetwork === 'number') return authenticatedNetwork;
+  if (provider.supportedNetworks?.length === 1) return provider.supportedNetworks[0];
+  return undefined;
+}
+
 export function requestNeoDapiProvider(timeoutMs = 3000): Promise<DapiProvider> {
   const immediate = readImmediateProvider();
   if (immediate) return Promise.resolve(immediate);
@@ -120,13 +200,14 @@ export function requestNeoDapiProvider(timeoutMs = 3000): Promise<DapiProvider> 
   });
 }
 
-async function resolveAccount(provider: DapiProvider) {
+async function resolveAccount(provider: DapiProvider, request: MorpheusOracleInvokeRequest) {
   const accounts = (await provider.getAccounts?.().catch(() => [])) ?? [];
   const account = accounts.find((entry) => entry.isDefault) ?? accounts[0];
   if (account?.hash || account?.address) {
     return {
       address: account.address ?? account.hash ?? '',
       accountHash: account.hash,
+      authenticatedNetwork: undefined,
     };
   }
 
@@ -145,19 +226,33 @@ async function resolveAccount(provider: DapiProvider) {
     nonce: createNonce(),
     timestamp: Date.now(),
   });
+  assertAuthenticatedNetwork(
+    authenticated.network,
+    request.expectedNetworkMagic,
+    request.expectedNetworkLabel
+  );
 
   const address = String(authenticated.address ?? '').trim();
   if (!address) throw new Error('NEP-21 wallet authentication did not return an address');
   const refreshedAccounts = (await provider.getAccounts?.().catch(() => [])) ?? [];
   const refreshedAccount =
     refreshedAccounts.find((entry) => entry.address === address) ?? refreshedAccounts[0];
-  return { address, accountHash: refreshedAccount?.hash };
+  return { address, accountHash: refreshedAccount?.hash, authenticatedNetwork: authenticated.network };
 }
 
 export async function invokeMorpheusOracleRequest(request: MorpheusOracleInvokeRequest) {
+  assertInvokeRequest(request);
   const provider = await requestNeoDapiProvider();
   if (!provider.invoke) throw new Error('NEP-21 wallet does not support invoke');
-  const account = await resolveAccount(provider);
+  const account = await resolveAccount(provider, request);
+  assertExpectedNetwork(
+    {
+      ...provider,
+      network: resolveVerifiedNetwork(provider, account.authenticatedNetwork),
+    },
+    request.expectedNetworkMagic,
+    request.expectedNetworkLabel
+  );
   const signers = account.accountHash
     ? [{ account: account.accountHash, scopes: 'CalledByEntry' }]
     : undefined;
@@ -167,6 +262,7 @@ export async function invokeMorpheusOracleRequest(request: MorpheusOracleInvokeR
       {
         hash: request.oracleHash,
         operation: 'request',
+        abortOnFail: true,
         args: [
           { type: 'String', value: request.requestType },
           { type: 'ByteArray', value: request.payloadBase64 },

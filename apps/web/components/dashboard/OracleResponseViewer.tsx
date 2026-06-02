@@ -1,7 +1,6 @@
 'use client';
 
 import { CheckCircle2, Copy, Send } from 'lucide-react';
-import { NETWORKS } from '@/lib/onchain-data';
 
 interface GeneratedRequest {
   requestType: string;
@@ -15,6 +14,7 @@ interface OracleResponseViewerProps {
   oracleState: any;
   walletCallbackHash: string;
   walletCallbackMethod: string;
+  oracleContract: string;
   payloadBase64: string;
   neoRpcInvoke: string;
   callbackQueryTemplate: string;
@@ -22,6 +22,10 @@ interface OracleResponseViewerProps {
   onCopy: (id: string, value: string) => void;
   isWalletSubmitting?: boolean;
   onSubmitWithWallet?: () => void;
+  canSubmitWithWallet?: boolean;
+  readinessLabel?: string;
+  readinessDetail?: string;
+  readinessTone?: 'success' | 'warning';
 }
 
 export function OracleResponseViewer({
@@ -29,6 +33,7 @@ export function OracleResponseViewer({
   oracleState,
   walletCallbackHash,
   walletCallbackMethod,
+  oracleContract,
   payloadBase64,
   neoRpcInvoke,
   callbackQueryTemplate,
@@ -36,7 +41,13 @@ export function OracleResponseViewer({
   onCopy,
   isWalletSubmitting = false,
   onSubmitWithWallet,
+  canSubmitWithWallet = false,
+  readinessLabel = 'Package generated',
+  readinessDetail = '',
+  readinessTone = 'success',
 }: OracleResponseViewerProps) {
+  const readinessColor = readinessTone === 'success' ? 'var(--neo-green)' : 'var(--warning)';
+
   return (
     <div className="card-industrial stagger-3" style={{ padding: '0' }}>
       <div
@@ -47,6 +58,8 @@ export function OracleResponseViewer({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: '1rem',
+          flexWrap: 'wrap',
         }}
       >
         <div>
@@ -73,10 +86,14 @@ export function OracleResponseViewer({
         </div>
         <div
           className="badge-outline"
-          style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}
+          title={readinessDetail || undefined}
+          style={{
+            color: readinessColor,
+            borderColor: readinessColor,
+          }}
         >
           <CheckCircle2 size={12} style={{ marginRight: '6px' }} />
-          READY
+          {readinessLabel}
         </div>
       </div>
 
@@ -102,13 +119,35 @@ export function OracleResponseViewer({
             <button
               className="btn btn-primary"
               onClick={onSubmitWithWallet}
-              disabled={isWalletSubmitting}
+              disabled={isWalletSubmitting || !canSubmitWithWallet}
+              title={!canSubmitWithWallet && readinessDetail ? readinessDetail : undefined}
               aria-label="Submit oracle request with NEP-21 wallet"
             >
               <Send size={14} /> {isWalletSubmitting ? 'Submitting...' : 'Submit with NEP-21'}
             </button>
           )}
         </div>
+
+        {readinessDetail && (
+          <div
+            aria-live="polite"
+            style={{
+              padding: '0.95rem 1rem',
+              background:
+                readinessTone === 'success'
+                  ? 'rgba(35, 134, 54, 0.08)'
+                  : 'rgba(245, 158, 11, 0.1)',
+              border: `1px solid ${readinessColor}`,
+              borderRadius: 'var(--ns-radius-md)',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.7,
+              overflowWrap: 'anywhere',
+              wordBreak: 'break-word',
+            }}
+          >
+            {readinessDetail}
+          </div>
+        )}
 
         <div className="grid grid-2" style={{ gap: '1rem' }}>
           <div
@@ -138,7 +177,7 @@ export function OracleResponseViewer({
                 wordBreak: 'break-word',
               }}
             >
-              {oracleState?.contract || NETWORKS.neo_n3.oracle}
+              {oracleState?.contract || oracleContract}
             </div>
           </div>
           <div
@@ -368,7 +407,7 @@ export function OracleResponseViewer({
             </div>
             <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
               <div>
-                1. Submit to <code>{oracleState?.contract || NETWORKS.neo_n3.oracle}</code>.
+                1. Submit to <code>{oracleState?.contract || oracleContract}</code>.
               </div>
               <div>
                 2. Read the emitted <code>requestId</code>.

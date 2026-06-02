@@ -4,12 +4,14 @@ type NeoN3CallArgumentsPanelProps = {
   requestType: string;
   callbackHash: string;
   callbackMethod: string;
+  requestFeeDisplay?: string;
 };
 
 export function NeoN3CallArgumentsPanel({
   requestType,
   callbackHash,
   callbackMethod,
+  requestFeeDisplay = 'unverified',
 }: NeoN3CallArgumentsPanelProps) {
   return (
     <div
@@ -51,7 +53,7 @@ export function NeoN3CallArgumentsPanel({
         </div>
         <div>
           <strong style={{ color: 'var(--text-primary)' }}>Fee:</strong>{' '}
-          <code>0.01 GAS</code>
+          <code>{requestFeeDisplay}</code>
         </div>
       </div>
     </div>

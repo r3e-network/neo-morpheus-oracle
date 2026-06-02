@@ -2,11 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
-import { NETWORKS } from '@/lib/onchain-data';
 
 import { ComputeFunctions } from './ComputeFunctions';
 import { ComputeEditor } from './ComputeEditor';
 import { ComputeOutput } from './ComputeOutput';
+import { getDashboardNetworkConfig } from './networkSelection';
+import {
+  ORACLE_STATE_LOADING_STATUS,
+  buildNetworkQueryPart,
+  derivePackageReadiness,
+  evaluateOracleStateStatus,
+  getReadinessAccent,
+  readOracleStateFromBody,
+  type OracleState,
+  type RuntimeStatus,
+} from './oracleReadiness';
 
 function encodeUtf8Base64(value: string) {
   const bytes = new TextEncoder().encode(value);
@@ -134,8 +144,9 @@ function buildSafeAuthoringPreview({
 }
 
 export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: ComputeTabProps) {
-  const defaultCallbackHash =
-    NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || '';
+  const initialNetworkConfig = getDashboardNetworkConfig();
+  const [selectedNetworkKey, setSelectedNetworkKey] = useState(initialNetworkConfig.networkKey);
+  const selectedNetworkConfig = getDashboardNetworkConfig(selectedNetworkKey);
   const [selectedFunc, setSelectedFunc] = useState<string>('');
   const [computeInput, setComputeInput] = useState('{}');
   const [userCode, setUserCode] = useState(
@@ -149,17 +160,51 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
     payloadJson: string;
     neoN3Snippet: string;
   } | null>(null);
-  const [walletCallbackHash, setWalletCallbackHash] = useState(defaultCallbackHash);
+  const [walletCallbackHash, setWalletCallbackHash] = useState(initialNetworkConfig.callbackConsumer);
   const [walletCallbackMethod, setWalletCallbackMethod] = useState('onOracleResult');
+  const [oracleState, setOracleState] = useState<OracleState>(null);
+  const [oracleStateStatus, setOracleStateStatus] =
+    useState<RuntimeStatus>(ORACLE_STATE_LOADING_STATUS);
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const [isWalletSubmitting, setIsWalletSubmitting] = useState(false);
   const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const browserNetworkConfig = getDashboardNetworkConfig();
+    setSelectedNetworkKey(browserNetworkConfig.networkKey);
+    setWalletCallbackHash(browserNetworkConfig.callbackConsumer);
+    void loadOracleState(browserNetworkConfig.networkKey);
     return () => {
       if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
     };
   }, []);
+
+  async function loadOracleState(networkKey = selectedNetworkKey) {
+    setOracleStateStatus(ORACLE_STATE_LOADING_STATUS);
+    try {
+      const response = await fetch(`/api/onchain/state?limit=20${buildNetworkQueryPart(networkKey, '&')}`);
+      const body = await response.json().catch(() => ({}));
+      const bodyNetworkConfig = getDashboardNetworkConfig(body?.network || networkKey);
+      setSelectedNetworkKey(bodyNetworkConfig.networkKey);
+      setOracleState(readOracleStateFromBody(body));
+      setOracleStateStatus(
+        evaluateOracleStateStatus({
+          responseOk: response.ok,
+          responseStatus: response.status,
+          body,
+          selectedNetworkName: bodyNetworkConfig.name,
+        })
+      );
+    } catch (err) {
+      console.error('Failed to load on-chain compute state', err);
+      setOracleState(null);
+      setOracleStateStatus({
+        level: 'blocked',
+        label: 'On-chain state unavailable',
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   function applyComputePreset(name: string) {
     setSelectedFunc(name);
@@ -245,14 +290,21 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
 
   async function submitGeneratedWithWallet() {
     if (!generatedPackage) return;
+    if (!oracleSubmitReady) {
+      setOutput(`!! NEP-21 wallet submit blocked: ${oracleStateStatus.detail}`);
+      return;
+    }
     setIsWalletSubmitting(true);
+    setOutput('>> Waiting for NEP-21 wallet approval...');
     try {
       const result = await invokeMorpheusOracleRequest({
-        oracleHash: NETWORKS.neo_n3.oracle,
+        oracleHash: oracleContract,
         requestType: generatedPackage.requestType,
         payloadBase64,
         callbackHash: walletCallbackHash,
         callbackMethod: walletCallbackMethod,
+        expectedNetworkMagic: selectedNetworkConfig.networkMagic,
+        expectedNetworkLabel: selectedNetworkConfig.name,
       });
       setOutput(
         [
@@ -388,7 +440,9 @@ BigInteger requestId = (BigInteger)Contract.Call(
       [
         '>> Compute request package generated.',
         '>> Request type: compute',
-        `>> Oracle contract: ${NETWORKS.neo_n3.oracle}`,
+        `>> Oracle readiness: ${oracleStateStatus.label}`,
+        `>> Neo N3 request fee: ${oracleState?.request_fee_display || 'unverified'}`,
+        `>> Oracle contract: ${oracleContract}`,
         '>> Submit this payload through the on-chain Oracle contract.',
         '',
         payloadJson,
@@ -396,6 +450,19 @@ BigInteger requestId = (BigInteger)Contract.Call(
     );
   };
 
+  const oracleContract = oracleState?.contract || selectedNetworkConfig.oracleContract;
+  const oracleSubmitReady = oracleStateStatus.level === 'ready' && Boolean(oracleState?.contract);
+  const packageReadiness = derivePackageReadiness({
+    oracleSubmitReady,
+    oracleStateStatus,
+  });
+  const computeStatusAccent =
+    oracleStateStatus.level === 'ready'
+      ? 'var(--neo-green)'
+      : oracleStateStatus.level === 'loading'
+        ? 'var(--accent-blue)'
+        : 'var(--warning)';
+  const readinessAccent = getReadinessAccent([oracleStateStatus], computeStatusAccent);
   const payloadBase64 = generatedPackage
     ? encodeUtf8Base64(JSON.stringify(generatedPackage.payload))
     : '';
@@ -406,7 +473,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
           id: 1,
           method: 'invokefunction',
           params: [
-            NETWORKS.neo_n3.oracle,
+            oracleContract,
             'request',
             [
               { type: 'String', value: 'compute' },
@@ -430,7 +497,6 @@ BigInteger requestId = (BigInteger)Contract.Call(
     null,
     2
   );
-
   return (
     <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
       <div
@@ -458,7 +524,41 @@ BigInteger requestId = (BigInteger)Contract.Call(
             live confidential runtime expects.
           </p>
         </div>
+        <div style={{ textAlign: 'right' }}>
+          <div
+            style={{
+              fontSize: '0.65rem',
+              color: 'var(--text-secondary)',
+              fontWeight: 800,
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            ORACLE STATUS
+          </div>
+          <div
+            style={{
+              fontSize: '0.8rem',
+              color: computeStatusAccent,
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            {oracleSubmitReady ? oracleState?.request_fee_display || '0.01 GAS' : oracleStateStatus.label}
+          </div>
+        </div>
       </div>
+
+      {oracleStateStatus.level !== 'ready' && (
+        <div
+          className="card-industrial"
+          style={{ padding: '1.25rem 1.5rem', borderLeft: `4px solid ${readinessAccent}` }}
+        >
+          <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+            <strong style={{ color: 'var(--text-primary)' }}>{oracleStateStatus.label}:</strong>{' '}
+            {oracleStateStatus.detail}
+          </p>
+        </div>
+      )}
 
       <ComputeFunctions selectedFunc={selectedFunc} onSelectPreset={applyComputePreset} />
 
@@ -481,6 +581,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
       {generatedPackage && (
         <ComputeOutput
           generatedPackage={generatedPackage}
+          oracleContract={oracleContract}
           payloadBase64={payloadBase64}
           neoRpcInvoke={neoRpcInvoke}
           callbackQueryTemplate={callbackQueryTemplate}
@@ -488,6 +589,10 @@ BigInteger requestId = (BigInteger)Contract.Call(
           onCopy={handleCopy}
           isWalletSubmitting={isWalletSubmitting}
           onSubmitWithWallet={submitGeneratedWithWallet}
+          canSubmitWithWallet={oracleSubmitReady}
+          readinessLabel={packageReadiness.label}
+          readinessDetail={packageReadiness.detail}
+          readinessTone={packageReadiness.tone}
         />
       )}
     </div>

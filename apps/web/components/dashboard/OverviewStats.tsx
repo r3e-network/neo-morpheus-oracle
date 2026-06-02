@@ -1,15 +1,27 @@
 'use client';
 
 import { Activity, ExternalLink, Fingerprint, Radio, ShieldCheck } from 'lucide-react';
-import { NETWORKS, DEFAULT_PAIRS } from '@/lib/onchain-data';
+import { DEFAULT_PAIRS } from '@/lib/onchain-data';
 
 interface OverviewStatsProps {
   oracleState: any;
   dstack: any;
   configuredSyncedCount: number;
+  oracleDomain: string;
+  datafeedDomain: string;
+  oracleAttestationExplorerUrl: string;
+  datafeedAttestationExplorerUrl: string;
 }
 
-export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: OverviewStatsProps) {
+export function OverviewStats({
+  oracleState,
+  dstack,
+  configuredSyncedCount,
+  oracleDomain,
+  datafeedDomain,
+  oracleAttestationExplorerUrl,
+  datafeedAttestationExplorerUrl,
+}: OverviewStatsProps) {
   return (
     <div className="grid grid-3 stagger-1">
       <div
@@ -44,7 +56,7 @@ export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: Ov
             {oracleState?.request_fee_display || '0.01 GAS'}
           </div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            {oracleState?.domain || NETWORKS.neo_n3.domains.oracle}
+            {oracleState?.domain || oracleDomain || 'NNS not configured'}
           </div>
         </div>
       </div>
@@ -94,9 +106,9 @@ export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: Ov
               fontFamily: 'var(--font-mono)',
             }}
           >
-            {NETWORKS.neo_n3.oracleAttestationExplorerUrl ? (
+            {oracleAttestationExplorerUrl ? (
               <a
-                href={NETWORKS.neo_n3.oracleAttestationExplorerUrl}
+                href={oracleAttestationExplorerUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -111,9 +123,9 @@ export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: Ov
                 <ExternalLink size={12} />
               </a>
             ) : null}
-            {NETWORKS.neo_n3.datafeedAttestationExplorerUrl ? (
+            {datafeedAttestationExplorerUrl ? (
               <a
-                href={NETWORKS.neo_n3.datafeedAttestationExplorerUrl}
+                href={datafeedAttestationExplorerUrl}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -172,7 +184,7 @@ export function OverviewStats({ oracleState, dstack, configuredSyncedCount }: Ov
             {configuredSyncedCount} Synced / {DEFAULT_PAIRS.length} Configured
           </div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            NNS: {NETWORKS.neo_n3.domains.datafeed}
+            NNS: {datafeedDomain || 'not configured'}
           </div>
         </div>
       </div>

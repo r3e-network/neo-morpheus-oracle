@@ -4,12 +4,13 @@ import { recordOperationLog } from '@/lib/operation-logs';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const limit = Number(url.searchParams.get('limit') || '12');
-  const state = await fetchOnchainState(limit);
+  const network = url.searchParams.get('network');
+  const state = await fetchOnchainState(limit, network);
   await recordOperationLog({
     route: '/api/onchain/state',
     method: 'GET',
     category: 'network',
-    requestPayload: { limit },
+    requestPayload: { limit, network },
     responsePayload: state,
     httpStatus: 200,
   });

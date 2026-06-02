@@ -5,7 +5,15 @@ import { proxyToPhala } from '@/lib/phala';
 import { badRequest } from '@/lib/api-helpers';
 
 function shouldServeFeedFallback(status: number) {
-  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
+  return (
+    status === 401 ||
+    status === 403 ||
+    status === 408 ||
+    status === 409 ||
+    status === 425 ||
+    status === 429 ||
+    status >= 500
+  );
 }
 
 function feedUnavailableResponse(symbol: string, provider: string | null, upstreamStatus: number) {

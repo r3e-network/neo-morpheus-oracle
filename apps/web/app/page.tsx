@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { Dashboard } from '@/components/dashboard';
-import { NETWORKS } from '@/lib/onchain-data';
+import { getSelectedNetwork, getSelectedNetworkKey } from '@/lib/networks';
 
 const serviceCards = [
   {
@@ -47,7 +47,32 @@ const validationItems = [
   'Callback readback and verifier templates',
 ];
 
-export default function HomePage() {
+type HomePageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function firstSearchValue(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function getNetworkSummary(networkOverride?: string) {
+  const key = getSelectedNetworkKey(networkOverride);
+  const network = getSelectedNetwork(key);
+  const environmentLabel = key === 'mainnet' ? 'Mainnet' : 'Testnet';
+
+  return {
+    key,
+    name: network.network === 'mainnet' ? 'Neo N3 Mainnet' : 'Neo N3 Testnet',
+    environmentLabel,
+    oracle: network.neo_n3?.contracts?.morpheus_oracle || '',
+  };
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const network = getNetworkSummary(firstSearchValue(resolvedSearchParams.network));
+  const networkQuery = `?network=${network.key}`;
+
   return (
     <div className="workbench-home">
       <section className="workbench-hero">
@@ -68,10 +93,13 @@ export default function HomePage() {
                 inspection, callback verification, and developer handoff.
               </p>
               <div className="workbench-hero-actions" aria-label="Primary workbench actions">
-                <Link href="/explorer" className="btn-ata">
+                <Link href={`/explorer${networkQuery}`} className="btn-ata">
                   Open Workbench <ArrowRight size={16} />
                 </Link>
-                <Link href="/docs/api-reference" className="btn-secondary workbench-link-button">
+                <Link
+                  href={`/docs/api-reference${networkQuery}`}
+                  className="btn-secondary workbench-link-button"
+                >
                   API Reference
                 </Link>
               </div>
@@ -80,8 +108,8 @@ export default function HomePage() {
             <div className="workbench-status-panel" aria-label="Service readiness">
               <div className="workbench-status-header">
                 <div>
-                  <strong>{NETWORKS.neo_n3.name}</strong>
-                  <span>{NETWORKS.neo_n3.environmentLabel}</span>
+                  <strong>{network.name}</strong>
+                  <span>{network.environmentLabel}</span>
                 </div>
                 <span className="workbench-status-pill">
                   <Activity size={13} />
@@ -98,7 +126,7 @@ export default function HomePage() {
               </div>
               <div className="workbench-contract-strip">
                 <span>Oracle contract</span>
-                <code>{NETWORKS.neo_n3.oracle}</code>
+                <code>{network.oracle || 'Not configured'}</code>
               </div>
             </div>
           </div>
@@ -131,21 +159,21 @@ export default function HomePage() {
 
       <section className="workbench-support-section">
         <div className="container workbench-support-grid">
-          <Link href="/verifier" className="workbench-support-link">
+          <Link href={`/verifier${networkQuery}`} className="workbench-support-link">
             <KeyRound size={18} />
             <span>
               <strong>Verifier</strong>
               <small>Check result envelopes and attestation hashes.</small>
             </span>
           </Link>
-          <Link href="/status" className="workbench-support-link">
+          <Link href={`/status${networkQuery}`} className="workbench-support-link">
             <Activity size={18} />
             <span>
               <strong>Runtime Status</strong>
               <small>Inspect public health and runtime catalog metadata.</small>
             </span>
           </Link>
-          <Link href="/launchpad" className="workbench-support-link">
+          <Link href={`/launchpad${networkQuery}`} className="workbench-support-link">
             <ArrowRight size={18} />
             <span>
               <strong>Launchpad</strong>

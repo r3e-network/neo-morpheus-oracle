@@ -21,6 +21,18 @@ const mainNavItems: NavItem[] = [
   { label: 'Status', href: '/status' },
 ];
 
+function getBrowserNetworkKey() {
+  if (typeof window === 'undefined') return getSelectedNetworkKey();
+  const url = new URL(window.location.href);
+  return getSelectedNetworkKey(url.searchParams.get('network'));
+}
+
+function withNetworkQuery(href: string, selectedNetworkKey: string) {
+  if (selectedNetworkKey === getSelectedNetworkKey()) return href;
+  const separator = href.includes('?') ? '&' : '?';
+  return `${href}${separator}network=${encodeURIComponent(selectedNetworkKey)}`;
+}
+
 type LayoutProps = {
   children: React.ReactNode;
   showNav?: boolean;
@@ -39,6 +51,7 @@ export function Layout({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline'>('online');
+  const [selectedNetworkKey, setSelectedNetworkKey] = useState(getSelectedNetworkKey);
 
   useEffect(() => {
     setNetworkStatus(window.navigator.onLine ? 'online' : 'offline');
@@ -52,6 +65,15 @@ export function Layout({
     };
   }, []);
 
+  useEffect(() => {
+    const syncSelectedNetwork = () => setSelectedNetworkKey(getBrowserNetworkKey());
+    syncSelectedNetwork();
+    window.addEventListener('popstate', syncSelectedNetwork);
+    return () => window.removeEventListener('popstate', syncSelectedNetwork);
+  }, [pathname]);
+
+  const networkHref = (href: string) => withNetworkQuery(href, selectedNetworkKey);
+
   return (
     <div className="min-h-screen flex flex-col relative">
       <div className="bg-grid" />
@@ -59,7 +81,7 @@ export function Layout({
       {showNav && (
         <nav className="navbar">
           <Link
-            href="/"
+            href={networkHref('/')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -99,7 +121,7 @@ export function Layout({
                   marginLeft: '8px',
                 }}
               >
-                {getSelectedNetworkKey().toUpperCase()}
+                {selectedNetworkKey.toUpperCase()}
               </span>
             </div>
           </Link>
@@ -111,7 +133,7 @@ export function Layout({
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={networkHref(item.href)}
                   className="nav-link"
                   style={{
                     color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
@@ -177,7 +199,7 @@ export function Layout({
             {mainNavItems.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={networkHref(item.href)}
                 className="nav-link"
                 onClick={() => setMobileMenuOpen(false)}
                 style={{
@@ -270,7 +292,7 @@ export function Layout({
                   {mainNavItems.map((item) => (
                     <Link
                       key={item.href}
-                      href={item.href}
+                      href={networkHref(item.href)}
                       className="nav-link"
                       style={{ fontSize: '0.8rem' }}
                     >
@@ -292,16 +314,24 @@ export function Layout({
                     Resources
                   </span>
                   <Link
-                    href="/docs/api-reference"
+                    href={networkHref('/docs/api-reference')}
                     className="nav-link"
                     style={{ fontSize: '0.8rem' }}
                   >
                     API Reference
                   </Link>
-                  <Link href="/docs/networks" className="nav-link" style={{ fontSize: '0.8rem' }}>
+                  <Link
+                    href={networkHref('/docs/networks')}
+                    className="nav-link"
+                    style={{ fontSize: '0.8rem' }}
+                  >
                     Networks
                   </Link>
-                  <Link href="/verifier" className="nav-link" style={{ fontSize: '0.8rem' }}>
+                  <Link
+                    href={networkHref('/verifier')}
+                    className="nav-link"
+                    style={{ fontSize: '0.8rem' }}
+                  >
                     Verifier
                   </Link>
                   <a

@@ -14,11 +14,11 @@ function readSelectedEnv() {
   return process.env.NEXT_PUBLIC_MORPHEUS_NETWORK || process.env.MORPHEUS_NETWORK || 'mainnet';
 }
 
-export function getSelectedNetwork() {
-  const selected = resolveSelectedNetworkKey(readSelectedEnv());
+export function getSelectedNetwork(networkOverride?: string | null) {
+  const selected = resolveSelectedNetworkKey(networkOverride || readSelectedEnv());
   return networkRegistry[selected];
 }
 
-export function getSelectedNetworkKey() {
-  return resolveSelectedNetworkKey(readSelectedEnv());
+export function getSelectedNetworkKey(networkOverride?: string | null) {
+  return resolveSelectedNetworkKey(networkOverride || readSelectedEnv());
 }

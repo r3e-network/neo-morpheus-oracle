@@ -1,4 +1,5 @@
 import { appConfig } from './config';
+import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 import { recordOperationLog } from './operation-logs';
 
 type ProxyOperation = {
@@ -14,6 +15,7 @@ type ProxyOperation = {
     | 'system';
   requestPayload?: unknown;
   metadata?: Record<string, unknown>;
+  network?: string | null;
 };
 
 function maybeParseJson(text: string) {
@@ -30,17 +32,48 @@ function isRetryableStatus(status: number) {
 
 const RUNTIME_URL_ERROR = 'MORPHEUS_RUNTIME_URL is not configured';
 
+function trimString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function networkScopedEnv(baseKey: string, networkKey: string) {
+  const upper = getSelectedNetworkKey(networkKey) === 'mainnet' ? 'MAINNET' : 'TESTNET';
+  return trimString(process.env[`${baseKey}_${upper}` as keyof NodeJS.ProcessEnv]);
+}
+
+function resolveRuntimeCandidates(networkOverride?: string | null) {
+  const networkKey = getSelectedNetworkKey(networkOverride || appConfig.selectedNetworkKey);
+  if (!networkOverride || networkKey === appConfig.selectedNetworkKey) {
+    return Array.isArray(appConfig.phalaApiUrls) && appConfig.phalaApiUrls.length > 0
+      ? appConfig.phalaApiUrls
+      : appConfig.phalaApiUrl
+        ? [appConfig.phalaApiUrl]
+        : [];
+  }
+
+  const selectedNetwork = getSelectedNetwork(networkKey);
+  const defaults = [
+    networkScopedEnv('MORPHEUS_RUNTIME_URL', networkKey),
+    networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL', networkKey),
+    selectedNetwork.phala?.public_api_url || '',
+    `https://oracle.meshmini.app/${networkKey}`,
+    `https://edge.meshmini.app/${networkKey}`,
+    trimString(process.env.MORPHEUS_RUNTIME_URL || ''),
+    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || ''),
+  ]
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  return [...new Set(defaults)];
+}
+
 export async function proxyToPhala(
   path: string,
   init: RequestInit = {},
   operation?: ProxyOperation
 ) {
-  const candidateUrls =
-    Array.isArray(appConfig.phalaApiUrls) && appConfig.phalaApiUrls.length > 0
-      ? appConfig.phalaApiUrls
-      : appConfig.phalaApiUrl
-        ? [appConfig.phalaApiUrl]
-        : [];
+  const networkKey = getSelectedNetworkKey(operation?.network || appConfig.selectedNetworkKey);
+  const candidateUrls = resolveRuntimeCandidates(operation?.network);
 
   if (candidateUrls.length === 0) {
     if (operation) {
@@ -66,6 +99,7 @@ export async function proxyToPhala(
     headers.set('authorization', `Bearer ${appConfig.phalaToken}`);
     headers.set('x-phala-token', appConfig.phalaToken);
   }
+  headers.set('x-morpheus-network', networkKey);
 
   let lastResponse: { status: number; text: string; contentType: string; url: string } | null =
     null;
@@ -132,6 +166,7 @@ export async function proxyToPhala(
           upstream_path: path,
           upstream_url: lastResponse.url,
           upstream_candidates: candidateUrls,
+          network: networkKey,
           ...operation.metadata,
         },
       });

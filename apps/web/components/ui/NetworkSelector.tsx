@@ -9,10 +9,20 @@ const networks = [
   { key: 'testnet' as const, label: 'Testnet', color: 'var(--warning)' },
 ];
 
+function getBrowserNetworkKey() {
+  if (typeof window === 'undefined') return getSelectedNetworkKey();
+  const url = new URL(window.location.href);
+  return getSelectedNetworkKey(url.searchParams.get('network'));
+}
+
 export function NetworkSelector() {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedKey, setSelectedKey] = useState(getSelectedNetworkKey());
+  const [selectedKey, setSelectedKey] = useState(getSelectedNetworkKey);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setSelectedKey(getBrowserNetworkKey());
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

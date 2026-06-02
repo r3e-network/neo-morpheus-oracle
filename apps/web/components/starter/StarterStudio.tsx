@@ -4,8 +4,19 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { Boxes, ArrowRight, Copy } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
-import { NETWORKS } from '@/lib/onchain-data';
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
+import { getDashboardNetworkConfig } from '@/components/dashboard/networkSelection';
+import {
+  ORACLE_KEY_LOADING_STATUS,
+  ORACLE_STATE_LOADING_STATUS,
+  buildNetworkQueryPart,
+  evaluateOracleKeyStatus,
+  evaluateOracleStateStatus,
+  getReadinessAccent,
+  readOracleStateFromBody,
+  type OracleState,
+  type RuntimeStatus,
+} from '@/components/dashboard/oracleReadiness';
 import { PresetBar, type PresetId } from './PresetBar';
 import { RequestTypePanel } from './RequestTypePanel';
 import { SealedBlobPanel } from './SealedBlobPanel';
@@ -105,8 +116,10 @@ function buildDefaultConfidentialPatch(flow: string, useScript: boolean, script:
 }
 
 export function StarterStudio({ embedded = false }: StarterStudioProps) {
-  const universalConsumer =
-    NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || '';
+  const initialNetworkConfig = getDashboardNetworkConfig('testnet');
+  const [selectedNetworkKey, setSelectedNetworkKey] = useState(initialNetworkConfig.networkKey);
+  const selectedNetworkConfig = getDashboardNetworkConfig(selectedNetworkKey);
+  const universalConsumer = selectedNetworkConfig.callbackConsumer;
   const [flow, setFlow] = useState('oracle_provider');
   const [symbol, setSymbol] = useState('TWELVEDATA:NEO-USD');
   const [customUrl, setCustomUrl] = useState('');
@@ -115,30 +128,80 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   const [useEncrypted, setUseEncrypted] = useState(true);
   const [useScript, setUseScript] = useState(false);
   const [script, setScript] = useState('');
-  const [manualCallbackHash, setManualCallbackHash] = useState(universalConsumer);
+  const [manualCallbackHash, setManualCallbackHash] = useState(initialNetworkConfig.callbackConsumer);
   const [manualCallbackMethod, setManualCallbackMethod] = useState('onOracleResult');
   const [confidentialJson, setConfidentialJson] = useState(
     buildDefaultConfidentialPatch('oracle_provider', false, '')
   );
   const [encryptedBlob, setEncryptedBlob] = useState('');
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
+  const [oracleKeyStatus, setOracleKeyStatus] =
+    useState<RuntimeStatus>(ORACLE_KEY_LOADING_STATUS);
+  const [oracleState, setOracleState] = useState<OracleState>(null);
+  const [oracleStateStatus, setOracleStateStatus] =
+    useState<RuntimeStatus>(ORACLE_STATE_LOADING_STATUS);
   const [isEncrypting, setIsEncrypting] = useState(false);
   const [encryptionError, setEncryptionError] = useState('');
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        const response = await fetch('/api/oracle/public-key');
-        const body = await response.json().catch(() => ({}));
-        if (response.ok && body?.public_key) {
-          setOracleKeyMeta(body);
-        }
-      } catch {
-        // best effort only
-      }
-    })();
+    const browserNetworkConfig = getDashboardNetworkConfig();
+    setSelectedNetworkKey(browserNetworkConfig.networkKey);
+    setManualCallbackHash(browserNetworkConfig.callbackConsumer);
+    void loadOracleKey(browserNetworkConfig.networkKey);
+    void loadOracleState(browserNetworkConfig.networkKey);
   }, []);
+
+  async function loadOracleKey(networkKey = selectedNetworkKey) {
+    setOracleKeyStatus(ORACLE_KEY_LOADING_STATUS);
+    try {
+      const response = await fetch(`/api/oracle/public-key${buildNetworkQueryPart(networkKey, '?')}`);
+      const body = await response.json().catch(() => ({}));
+      setOracleKeyMeta(response.ok && body?.public_key ? body : null);
+      setOracleKeyStatus(
+        evaluateOracleKeyStatus({
+          responseOk: response.ok,
+          responseStatus: response.status,
+          body,
+        })
+      );
+      return body;
+    } catch (err) {
+      setOracleKeyMeta(null);
+      setOracleKeyStatus({
+        level: 'blocked',
+        label: 'Public key unavailable',
+        detail: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+  }
+
+  async function loadOracleState(networkKey = selectedNetworkKey) {
+    setOracleStateStatus(ORACLE_STATE_LOADING_STATUS);
+    try {
+      const response = await fetch(`/api/onchain/state?limit=20${buildNetworkQueryPart(networkKey, '&')}`);
+      const body = await response.json().catch(() => ({}));
+      const bodyNetworkConfig = getDashboardNetworkConfig(body?.network || networkKey);
+      setSelectedNetworkKey(bodyNetworkConfig.networkKey);
+      setOracleState(readOracleStateFromBody(body));
+      setOracleStateStatus(
+        evaluateOracleStateStatus({
+          responseOk: response.ok,
+          responseStatus: response.status,
+          body,
+          selectedNetworkName: bodyNetworkConfig.name,
+        })
+      );
+    } catch (err) {
+      setOracleState(null);
+      setOracleStateStatus({
+        level: 'blocked',
+        label: 'On-chain state unavailable',
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   useEffect(() => {
     setEncryptedBlob('');
@@ -230,14 +293,11 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     try {
       const keyMeta = oracleKeyMeta?.public_key
         ? oracleKeyMeta
-        : await (async () => {
-            const response = await fetch('/api/oracle/public-key');
-            const body = await response.json();
-            setOracleKeyMeta(body);
-            return body;
-          })();
+        : await loadOracleKey(selectedNetworkKey);
 
-      if (!keyMeta?.public_key) throw new Error('Oracle public key unavailable');
+      if (!keyMeta?.public_key) {
+        throw new Error(oracleKeyStatus.detail || 'Oracle public key unavailable');
+      }
       const ciphertext = await encryptJsonWithOraclePublicKey(keyMeta.public_key, confidentialJson);
       setEncryptedBlob(ciphertext);
     } catch (error) {
@@ -332,12 +392,32 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     if (useEncrypted && !encryptedBlob) {
       issues.push('Encrypt the confidential patch before submitting an encrypted flow.');
     }
+    if (useEncrypted && oracleKeyStatus.level !== 'ready') {
+      issues.push(`${oracleKeyStatus.label}: ${oracleKeyStatus.detail}`);
+    }
+    if (oracleStateStatus.level !== 'ready') {
+      issues.push(`${oracleStateStatus.label}: ${oracleStateStatus.detail}`);
+    }
     return issues;
-  }, [encryptedBlob, normalizedCallbackHash, normalizedCallbackMethod, useEncrypted]);
+  }, [
+    encryptedBlob,
+    normalizedCallbackHash,
+    normalizedCallbackMethod,
+    oracleKeyStatus,
+    oracleStateStatus,
+    useEncrypted,
+  ]);
 
   const payloadJson = JSON.stringify(generated.payload, null, 2);
   const compactPayloadJson = JSON.stringify(generated.payload);
   const payloadBase64 = useMemo(() => encodeUtf8Base64(compactPayloadJson), [compactPayloadJson]);
+  const oracleContract = oracleState?.contract || selectedNetworkConfig.oracleContract;
+  const oracleDomain = oracleState?.domain || selectedNetworkConfig.oracleDomain;
+  const requestFeeDisplay = oracleState?.request_fee_display || 'unverified';
+  const readinessMessages = [oracleStateStatus, ...(useEncrypted ? [oracleKeyStatus] : [])].filter(
+    (status) => status.level !== 'ready'
+  );
+  const readinessAccent = getReadinessAccent(readinessMessages);
   const neoN3Snippet = `string payloadJson = "${escapeForCSharp(compactPayloadJson)}";
 
 BigInteger requestId = (BigInteger)Contract.Call(
@@ -356,7 +436,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
       id: 1,
       method: 'invokefunction',
       params: [
-        NETWORKS.neo_n3.oracle,
+        oracleContract,
         'request',
         [
           { type: 'String', value: generated.requestType },
@@ -369,7 +449,6 @@ BigInteger requestId = (BigInteger)Contract.Call(
     null,
     2
   );
-
   const callbackQueryTemplate = JSON.stringify(
     {
       jsonrpc: '2.0',
@@ -447,6 +526,43 @@ BigInteger requestId = (BigInteger)Contract.Call(
           snippet you need next.
         </p>
       )}
+
+      {readinessMessages.length > 0 && (
+        <div
+          className="card-industrial"
+          style={{
+            padding: '1.25rem 1.5rem',
+            borderLeft: `4px solid ${readinessAccent}`,
+            marginBottom: '1.5rem',
+          }}
+        >
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            {readinessMessages.map((status) => (
+              <p key={status.label} style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                <strong style={{ color: 'var(--text-primary)' }}>{status.label}:</strong>{' '}
+                {status.detail}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div
+        className="card-industrial"
+        style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <span style={{ color: 'var(--text-secondary)' }}>
+            Network: <code>{selectedNetworkConfig.name}</code>
+          </span>
+          <span style={{ color: 'var(--text-secondary)' }}>
+            Oracle: <code>{oracleDomain || oracleContract || 'unverified'}</code>
+          </span>
+          <span style={{ color: 'var(--text-secondary)' }}>
+            Fee: <code>{requestFeeDisplay}</code>
+          </span>
+        </div>
+      </div>
 
       <PresetBar onApplyPreset={applyPreset} />
 
@@ -677,7 +793,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
 
             {useEncrypted && (
               <>
-                <KeyMetaPanels oracleKeyMeta={oracleKeyMeta} />
+                <KeyMetaPanels oracleKeyMeta={oracleKeyMeta} keyStatus={oracleKeyStatus} />
 
                 <label>
                   <div
@@ -708,7 +824,10 @@ BigInteger requestId = (BigInteger)Contract.Call(
                   <button
                     className="btn-ata"
                     onClick={() => void encryptPatch()}
-                    disabled={isEncrypting}
+                    disabled={isEncrypting || oracleKeyStatus.level !== 'ready'}
+                    title={
+                      oracleKeyStatus.level !== 'ready' ? oracleKeyStatus.detail : undefined
+                    }
                     style={{ justifyContent: 'center' }}
                   >
                     {isEncrypting ? 'Encrypting...' : 'Encrypt Patch Locally'}
@@ -760,7 +879,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
             />
 
             <NeoLineManualEntryPanel
-              oracleHash={NETWORKS.neo_n3.oracle}
+              oracleHash={oracleContract}
               requestType={generated.requestType}
               callbackHash={callbackHashForSnippet}
               callbackMethod={callbackMethodForSnippet}
@@ -770,18 +889,19 @@ BigInteger requestId = (BigInteger)Contract.Call(
               requestType={generated.requestType}
               callbackHash={callbackHashForSnippet}
               callbackMethod={callbackMethodForSnippet}
+              requestFeeDisplay={requestFeeDisplay}
             />
 
             <ZeroCodeTestModePanel
               universalConsumer={universalConsumer}
-              oracleHash={NETWORKS.neo_n3.oracle}
-              environmentLabel={NETWORKS.neo_n3.environmentLabel}
+              oracleHash={oracleContract}
+              environmentLabel={selectedNetworkConfig.label}
               neoGasHash={neoGasHash}
             />
 
             <CallbackReadbackPanel
               requestType={generated.requestType}
-              oracleHash={NETWORKS.neo_n3.oracle}
+              oracleHash={oracleContract}
               universalConsumer={universalConsumer}
             />
           </div>

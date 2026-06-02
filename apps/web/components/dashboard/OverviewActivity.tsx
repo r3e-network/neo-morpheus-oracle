@@ -1,9 +1,10 @@
 'use client';
 
 import { Clock, Database, ExternalLink, RefreshCcw } from 'lucide-react';
-import { DEFAULT_PAIRS, NETWORKS } from '@/lib/onchain-data';
+import { DEFAULT_PAIRS } from '@/lib/onchain-data';
 import { getFeedDescriptor, getFeedDisplaySymbol, getFeedUnitLabel } from '@/lib/feed-defaults';
 import { SkeletonGrid } from '@/components/ui/Skeleton';
+import { getContractExplorerUrl } from './networkSelection';
 
 type OnchainRecord = {
   pair: string;
@@ -20,6 +21,9 @@ interface OverviewActivityProps {
   setSelectedPair: (pair: string) => void;
   recordsByPair: Map<string, OnchainRecord>;
   onRefresh: () => void;
+  networkKey: string;
+  datafeedContract: string;
+  datafeedDomain: string;
 }
 
 export function OverviewActivity({
@@ -29,7 +33,12 @@ export function OverviewActivity({
   setSelectedPair,
   recordsByPair,
   onRefresh,
+  networkKey,
+  datafeedContract,
+  datafeedDomain,
 }: OverviewActivityProps) {
+  const datafeedExplorerUrl = getContractExplorerUrl(networkKey, datafeedContract);
+
   return (
     <div className="card-industrial stagger-2" style={{ padding: '0' }}>
       <div
@@ -178,23 +187,25 @@ export function OverviewActivity({
                         fontFamily: 'var(--font-mono)',
                       }}
                     >
-                      {NETWORKS.neo_n3.domains.datafeed}
+                      {datafeedDomain || 'NNS not configured'}
                     </span>
                   </div>
-                  <a
-                    href={NETWORKS.neo_n3.explorer + NETWORKS.neo_n3.datafeed}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: 'var(--text-muted)', transition: 'color 0.2s' }}
-                    onMouseEnter={(event) => {
-                      event.currentTarget.style.color = 'var(--text-primary)';
-                    }}
-                    onMouseLeave={(event) => {
-                      event.currentTarget.style.color = 'var(--text-muted)';
-                    }}
-                  >
-                    <ExternalLink size={14} />
-                  </a>
+                  {datafeedExplorerUrl && (
+                    <a
+                      href={datafeedExplorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: 'var(--text-muted)', transition: 'color 0.2s' }}
+                      onMouseEnter={(event) => {
+                        event.currentTarget.style.color = 'var(--text-primary)';
+                      }}
+                      onMouseLeave={(event) => {
+                        event.currentTarget.style.color = 'var(--text-muted)';
+                      }}
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
                 </div>
 
                 <div

@@ -267,8 +267,8 @@ async function fetchNeoN3State(
   }
 }
 
-export async function fetchOnchainState(limit = 12) {
-  const selected = getSelectedNetwork();
+export async function fetchOnchainState(limit = 12, networkOverride?: string | null) {
+  const selected = getSelectedNetwork(networkOverride);
   const boundedLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 200) : 12;
 
   const neoN3 = await fetchNeoN3State(

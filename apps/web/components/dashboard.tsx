@@ -121,7 +121,7 @@ export function Dashboard() {
   const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!['providers', 'oracle'].includes(activeTab) || providers.length > 0) {
+    if (activeTab !== 'providers' || providers.length > 0) {
       return;
     }
 
@@ -218,9 +218,9 @@ export function Dashboard() {
       </aside>
 
       <main className="dashboard-main" aria-label={`${activeWorkflow.label} workspace`}>
-        {isProvidersLoading && ['providers', 'oracle'].includes(activeTab) ? (
+        {isProvidersLoading && activeTab === 'providers' ? (
           <TabFallback />
-        ) : providersError && ['providers', 'oracle'].includes(activeTab) ? (
+        ) : providersError && activeTab === 'providers' ? (
           <div className="dashboard-loading-panel dashboard-loading-panel--error" role="alert">
             <p>Provider catalog unavailable: {providersError}</p>
             <button

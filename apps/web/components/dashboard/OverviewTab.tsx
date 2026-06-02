@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorArt } from '@/components/illustrations';
-import { DEFAULT_PAIRS, NETWORKS } from '@/lib/onchain-data';
+import { DEFAULT_PAIRS } from '@/lib/onchain-data';
 import { getDeprecatedFeedInfo, getFeedDescriptor } from '@/lib/feed-defaults';
 import { Card } from '@/components/ui/Card';
 import { SkeletonStats } from '@/components/ui/Skeleton';
@@ -12,6 +12,7 @@ import type { PublicRuntimeStatusSnapshot } from '@/lib/runtime-status';
 import { OverviewStats } from './OverviewStats';
 import { OverviewNetwork } from './OverviewNetwork';
 import { OverviewActivity } from './OverviewActivity';
+import { getDashboardNetworkConfig } from './networkSelection';
 
 type OnchainRecord = {
   pair: string;
@@ -20,6 +21,22 @@ type OnchainRecord = {
   timestamp_iso: string | null;
   attestation_hash: string;
 };
+
+function getSelectedNetworkQuerySuffix() {
+  if (typeof window === 'undefined') return '';
+  const network = new URL(window.location.href).searchParams.get('network');
+  return network ? `&network=${encodeURIComponent(network)}` : '';
+}
+
+function getOverviewNetworkConfig(onchainState: any) {
+  const networkConfig = getDashboardNetworkConfig(onchainState?.network);
+  return {
+    ...networkConfig,
+    oracleDomain: onchainState?.neo_n3?.oracle?.domain || networkConfig.oracleDomain,
+    datafeedDomain: onchainState?.neo_n3?.datafeed?.domain || networkConfig.datafeedDomain,
+    datafeedContract: onchainState?.neo_n3?.datafeed?.contract || networkConfig.datafeedContract,
+  };
+}
 
 export function OverviewTab({ setOutput }: any) {
   const [onchainState, setOnchainState] = useState<any>(null);
@@ -43,7 +60,7 @@ export function OverviewTab({ setOutput }: any) {
     setError(null);
     try {
       const [stateResponse, runtimeResponse] = await Promise.all([
-        fetch('/api/onchain/state?limit=50'),
+        fetch(`/api/onchain/state?limit=50${getSelectedNetworkQuerySuffix()}`),
         fetch('/api/runtime/status'),
       ]);
       const [stateBody, runtimeBody] = await Promise.all([
@@ -56,6 +73,7 @@ export function OverviewTab({ setOutput }: any) {
 
       const recordCount = Number(stateBody?.neo_n3?.datafeed?.pair_count || 0);
       const requestFee = stateBody?.neo_n3?.oracle?.request_fee_display || '0.01 GAS';
+      const networkConfig = getOverviewNetworkConfig(stateBody);
       const appId = runtimeBody?.runtime?.info?.appId || 'unavailable';
       const runtimeState = runtimeBody?.runtime?.status || 'unknown';
       const executionPlane = runtimeBody?.catalog?.topology?.executionPlane || 'unknown';
@@ -73,8 +91,10 @@ export function OverviewTab({ setOutput }: any) {
           `>> Runtime risk plane: ${riskPlane}`,
           `>> Automation triggers: ${triggerKinds}`,
           `>> Phala app id: ${appId}`,
-          `>> Oracle attestation: ${NETWORKS.selected.oracleAttestationExplorerUrl || 'unpublished'}`,
-          `>> Datafeed attestation: ${NETWORKS.selected.datafeedAttestationExplorerUrl || 'unpublished'}`,
+          `>> Oracle attestation: ${networkConfig.oracleAttestationExplorerUrl || 'unpublished'}`,
+          `>> Datafeed attestation: ${
+            networkConfig.datafeedAttestationExplorerUrl || 'unpublished'
+          }`,
         ].join('\n')
       );
     } catch (error) {
@@ -162,6 +182,7 @@ export function OverviewTab({ setOutput }: any) {
   const configuredSyncedCount = DEFAULT_PAIRS.filter((pair) => recordsByPair.has(pair)).length;
   const selectedRecord = recordsByPair.get(selectedPair) || null;
   const selectedDescriptor = getFeedDescriptor(selectedPair);
+  const networkConfig = useMemo(() => getOverviewNetworkConfig(onchainState), [onchainState]);
   const livePrice = liveQuote?.price ? Number(liveQuote.price) : null;
   const onchainPrice = selectedRecord?.price_display ? Number(selectedRecord.price_display) : null;
   const liveDeltaPct =
@@ -244,6 +265,10 @@ export function OverviewTab({ setOutput }: any) {
           oracleState={oracleState}
           dstack={dstack}
           configuredSyncedCount={configuredSyncedCount}
+          oracleDomain={networkConfig.oracleDomain}
+          datafeedDomain={networkConfig.datafeedDomain}
+          oracleAttestationExplorerUrl={networkConfig.oracleAttestationExplorerUrl}
+          datafeedAttestationExplorerUrl={networkConfig.datafeedAttestationExplorerUrl}
         />
       )}
 
@@ -264,6 +289,9 @@ export function OverviewTab({ setOutput }: any) {
         setSelectedPair={setSelectedPair}
         recordsByPair={recordsByPair}
         onRefresh={() => void loadState()}
+        networkKey={networkConfig.networkKey}
+        datafeedContract={networkConfig.datafeedContract}
+        datafeedDomain={networkConfig.datafeedDomain}
       />
     </div>
   );

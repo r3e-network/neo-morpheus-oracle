@@ -337,13 +337,17 @@ button[disabled] {
   gap: 2rem;
 }
 .grid-2 {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .grid-3 {
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .grid-4 {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.grid > * {
+  min-width: 0;
 }
 
 /* --- Responsive --- */
@@ -1100,6 +1104,24 @@ select:focus-visible {
 .dashboard-main {
   min-width: 0;
   padding: 1.25rem;
+}
+
+.dashboard-shell > *,
+.dashboard-main > *,
+.dashboard-main .card-industrial {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-main pre,
+.dashboard-main code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.dashboard-main pre {
+  overflow-x: auto;
 }
 
 /* On-chain feed records: keep the long pair list from dominating the home page. */

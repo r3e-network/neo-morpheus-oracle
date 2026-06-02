@@ -1,7 +1,6 @@
 'use client';
 
 import { CheckCircle2, Copy, Send } from 'lucide-react';
-import { NETWORKS } from '@/lib/onchain-data';
 
 interface GeneratedPackage {
   requestType: string;
@@ -12,6 +11,7 @@ interface GeneratedPackage {
 
 interface ComputeOutputProps {
   generatedPackage: GeneratedPackage;
+  oracleContract: string;
   payloadBase64: string;
   neoRpcInvoke: string;
   callbackQueryTemplate: string;
@@ -19,10 +19,15 @@ interface ComputeOutputProps {
   onCopy: (id: string, value: string) => void;
   isWalletSubmitting?: boolean;
   onSubmitWithWallet?: () => void;
+  canSubmitWithWallet?: boolean;
+  readinessLabel?: string;
+  readinessDetail?: string;
+  readinessTone?: 'success' | 'warning';
 }
 
 export function ComputeOutput({
   generatedPackage,
+  oracleContract,
   payloadBase64,
   neoRpcInvoke,
   callbackQueryTemplate,
@@ -30,7 +35,13 @@ export function ComputeOutput({
   onCopy,
   isWalletSubmitting = false,
   onSubmitWithWallet,
+  canSubmitWithWallet = true,
+  readinessLabel = 'Package generated',
+  readinessDetail = '',
+  readinessTone = 'success',
 }: ComputeOutputProps) {
+  const readinessColor = readinessTone === 'success' ? 'var(--neo-green)' : 'var(--warning)';
+
   return (
     <div className="card-industrial stagger-3" style={{ padding: '0' }}>
       <div
@@ -67,10 +78,11 @@ export function ComputeOutput({
         </div>
         <div
           className="badge-outline"
-          style={{ color: 'var(--neo-green)', borderColor: 'var(--neo-green)' }}
+          title={readinessDetail || undefined}
+          style={{ color: readinessColor, borderColor: readinessColor }}
         >
           <CheckCircle2 size={12} style={{ marginRight: '6px' }} />
-          READY
+          {readinessLabel}
         </div>
       </div>
       <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -96,13 +108,28 @@ export function ComputeOutput({
             <button
               className="btn btn-primary"
               onClick={onSubmitWithWallet}
-              disabled={isWalletSubmitting}
+              disabled={isWalletSubmitting || !canSubmitWithWallet}
+              title={!canSubmitWithWallet && readinessDetail ? readinessDetail : undefined}
               aria-label="Submit compute request with NEP-21 wallet"
             >
               <Send size={14} /> {isWalletSubmitting ? 'Submitting...' : 'Submit with NEP-21'}
             </button>
           )}
         </div>
+        {readinessDetail && (
+          <div
+            style={{
+              padding: '0.95rem 1rem',
+              background: readinessTone === 'success' ? 'rgba(35, 134, 54, 0.08)' : 'rgba(245, 158, 11, 0.1)',
+              border: `1px solid ${readinessColor}`,
+              borderRadius: 'var(--ns-radius-md)',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.7,
+            }}
+          >
+            {readinessDetail}
+          </div>
+        )}
         <div
           style={{
             background: 'var(--bg-panel)',
@@ -253,7 +280,7 @@ export function ComputeOutput({
             </div>
             <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
               <div>
-                1. Submit to <code>{NETWORKS.neo_n3.oracle}</code> with request type{' '}
+                1. Submit to <code>{oracleContract}</code> with request type{' '}
                 <code>compute</code>.
               </div>
               <div>

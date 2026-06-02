@@ -204,20 +204,33 @@ export function ComputeFunctions({ selectedFunc, onSelectPreset }: ComputeFuncti
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
+                  alignItems: 'flex-start',
                   width: '100%',
+                  gap: '0.75rem',
+                  minWidth: 0,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    minWidth: 0,
+                    flex: '1 1 auto',
+                  }}
+                >
                   <Fingerprint
                     size={16}
                     color={selectedFunc === f.name ? 'var(--neo-green)' : 'var(--text-muted)'}
+                    style={{ flexShrink: 0, marginTop: '0.1rem' }}
                   />
                   <span
                     style={{
                       fontWeight: 700,
                       fontSize: '0.9rem',
                       fontFamily: 'var(--font-mono)',
+                      overflowWrap: 'anywhere',
+                      wordBreak: 'break-word',
                     }}
                   >
                     {f.name}
@@ -225,7 +238,11 @@ export function ComputeFunctions({ selectedFunc, onSelectPreset }: ComputeFuncti
                 </div>
                 <span
                   className="badge-outline"
-                  style={{ color: 'var(--accent-purple)', borderColor: 'var(--accent-purple)' }}
+                  style={{
+                    color: 'var(--accent-purple)',
+                    borderColor: 'var(--accent-purple)',
+                    flexShrink: 0,
+                  }}
                 >
                   {f.cat}
                 </span>

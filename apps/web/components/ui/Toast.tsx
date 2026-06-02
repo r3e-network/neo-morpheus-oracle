@@ -70,14 +70,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         aria-atomic="true"
         style={{
           position: 'fixed',
-          bottom: '24px',
-          right: '24px',
+          bottom: 'clamp(16px, 4vw, 24px)',
+          right: 'clamp(16px, 4vw, 24px)',
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
           zIndex: 9999,
-          maxWidth: '420px',
-          width: '100%',
+          width: 'min(420px, calc(100vw - 32px))',
+          maxWidth: 'calc(100vw - 32px)',
+          pointerEvents: 'none',
         }}
       >
         {toasts.map((toast) => {
@@ -96,6 +97,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 gap: '12px',
                 backdropFilter: 'blur(12px)',
                 animation: 'slideInRight 0.3s ease-out',
+                pointerEvents: 'auto',
               }}
             >
               <Icon size={20} color={color.icon} style={{ flexShrink: 0, marginTop: '2px' }} />
@@ -105,6 +107,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   color: 'var(--text-primary)',
                   fontSize: '0.9rem',
                   lineHeight: 1.5,
+                  minWidth: 0,
+                  overflowWrap: 'anywhere',
                 }}
               >
                 {toast.message}

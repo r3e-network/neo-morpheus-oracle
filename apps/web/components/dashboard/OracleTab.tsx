@@ -4,11 +4,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
-import { NETWORKS } from '@/lib/onchain-data';
 
 import { OracleSettings } from './OracleSettings';
 import { OracleRequestForm } from './OracleRequestForm';
 import { OracleResponseViewer } from './OracleResponseViewer';
+import { getDashboardNetworkConfig } from './networkSelection';
+import {
+  ORACLE_KEY_LOADING_STATUS,
+  ORACLE_STATE_LOADING_STATUS,
+  derivePackageReadiness,
+  evaluateOracleKeyStatus,
+  evaluateOracleStateStatus,
+  getReadinessAccent,
+  readOracleStateFromBody,
+  type RuntimeStatus,
+} from './oracleReadiness';
 
 interface OracleTabProps {
   providers: any[];
@@ -33,9 +43,20 @@ function copyText(value: string) {
   return navigator.clipboard.writeText(value);
 }
 
+function getSelectedNetworkQueryPart(separator: '?' | '&' = '?') {
+  if (typeof window === 'undefined') return '';
+  const network = new URL(window.location.href).searchParams.get('network');
+  return network ? `${separator}network=${encodeURIComponent(network)}` : '';
+}
+
 export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) {
-  const defaultCallbackHash =
-    NETWORKS.neo_n3.exampleConsumer || NETWORKS.neo_n3.callbackConsumer || '';
+  const initialNetworkConfig = getDashboardNetworkConfig();
+  const [selectedNetworkKey, setSelectedNetworkKey] = useState(initialNetworkConfig.networkKey);
+  const selectedNetworkConfig = useMemo(
+    () => getDashboardNetworkConfig(selectedNetworkKey),
+    [selectedNetworkKey]
+  );
+  const defaultCallbackHash = selectedNetworkConfig.callbackConsumer;
   const [requestMode, setRequestMode] = useState('provider');
   const [oracleUrl, setOracleUrl] = useState('');
   const [providerSymbol, setProviderSymbol] = useState('TWELVEDATA:NEO-USD');
@@ -47,10 +68,14 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
   const [oracleJsonPath, setOracleJsonPath] = useState('');
   const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState('neo_n3');
-  const [walletCallbackHash, setWalletCallbackHash] = useState(defaultCallbackHash);
+  const [walletCallbackHash, setWalletCallbackHash] = useState(initialNetworkConfig.callbackConsumer);
   const [walletCallbackMethod, setWalletCallbackMethod] = useState('onOracleResult');
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
   const [oracleState, setOracleState] = useState<any>(null);
+  const [oracleKeyStatus, setOracleKeyStatus] =
+    useState<RuntimeStatus>(ORACLE_KEY_LOADING_STATUS);
+  const [oracleStateStatus, setOracleStateStatus] =
+    useState<RuntimeStatus>(ORACLE_STATE_LOADING_STATUS);
   const [isEncrypting, setIsEncrypting] = useState(false);
   const [generatedRequest, setGeneratedRequest] = useState<{
     requestType: string;
@@ -63,6 +88,9 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
   const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const browserNetworkConfig = getDashboardNetworkConfig();
+    setSelectedNetworkKey(browserNetworkConfig.networkKey);
+    setWalletCallbackHash(browserNetworkConfig.callbackConsumer);
     void loadOracleKey();
     void loadOracleState();
   }, []);
@@ -112,7 +140,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       setOracleEncryptedParams('');
       setOracleConfidentialJson('{\n "json_path": "price"\n}');
       setOutput(
-        `>> Loaded preset: Public Quote\n>> Built-in provider quote request for ${NETWORKS.neo_n3.name}.`
+        `>> Loaded preset: Public Quote\n>> Built-in provider quote request for ${selectedNetworkConfig.name}.`
       );
       return;
     }
@@ -163,24 +191,64 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
   }
 
   async function loadOracleKey() {
+    setOracleKeyStatus(ORACLE_KEY_LOADING_STATUS);
     try {
-      const response = await fetch('/api/oracle/public-key');
+      const response = await fetch(`/api/oracle/public-key${getSelectedNetworkQueryPart('?')}`);
       const body = await response.json().catch(() => ({}));
       if (response.ok && body?.public_key) {
         setOracleKeyMeta(body);
+        setOracleKeyStatus(
+          evaluateOracleKeyStatus({
+            responseOk: response.ok,
+            responseStatus: response.status,
+            body,
+          })
+        );
+        return;
       }
+      setOracleKeyMeta(null);
+      setOracleKeyStatus(
+        evaluateOracleKeyStatus({
+          responseOk: response.ok,
+          responseStatus: response.status,
+          body,
+        })
+      );
     } catch (err) {
       console.error('Failed to load oracle public key', err);
+      setOracleKeyMeta(null);
+      setOracleKeyStatus({
+        level: 'blocked',
+        label: 'Public key unavailable',
+        detail: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
   async function loadOracleState() {
+    setOracleStateStatus(ORACLE_STATE_LOADING_STATUS);
     try {
-      const response = await fetch('/api/onchain/state?limit=20');
+      const response = await fetch(`/api/onchain/state?limit=20${getSelectedNetworkQueryPart('&')}`);
       const body = await response.json().catch(() => ({}));
-      setOracleState(body?.neo_n3?.oracle || null);
+      setSelectedNetworkKey(getDashboardNetworkConfig(body?.network).networkKey);
+      const nextOracleState = readOracleStateFromBody(body);
+      setOracleState(nextOracleState);
+      setOracleStateStatus(
+        evaluateOracleStateStatus({
+          responseOk: response.ok,
+          responseStatus: response.status,
+          body,
+          selectedNetworkName: getDashboardNetworkConfig(body?.network).name,
+        })
+      );
     } catch (err) {
       console.error('Failed to load on-chain oracle state', err);
+      setOracleState(null);
+      setOracleStateStatus({
+        level: 'blocked',
+        label: 'On-chain state unavailable',
+        detail: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -190,9 +258,19 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       const keyMeta = oracleKeyMeta?.public_key
         ? oracleKeyMeta
         : await (async () => {
-            const response = await fetch('/api/oracle/public-key');
+            const response = await fetch(`/api/oracle/public-key${getSelectedNetworkQueryPart('?')}`);
             const body = await response.json();
-            setOracleKeyMeta(body);
+            setOracleKeyMeta(body?.public_key ? body : null);
+            if (!body?.public_key) {
+              setOracleKeyStatus({
+                level: 'blocked',
+                label: 'Public key unavailable',
+                detail:
+                  body?.message ||
+                  body?.error ||
+                  `Runtime public key request returned ${response.status}. Encryption is disabled until protected runtime access is available.`,
+              });
+            }
             return body;
           })();
 
@@ -278,8 +356,9 @@ BigInteger requestId = (BigInteger)Contract.Call(
       [
         '>> Oracle request package generated.',
         `>> Request type: ${requestType}`,
-        `>> Neo N3 request fee: ${oracleState?.request_fee_display || '0.01 GAS'}`,
-        `>> Oracle contract: ${oracleState?.contract || NETWORKS.neo_n3.oracle}`,
+        `>> Oracle readiness: ${oracleStateStatus.label}`,
+        `>> Neo N3 request fee: ${oracleState?.request_fee_display || 'unverified'}`,
+        `>> Oracle contract: ${oracleState?.contract || selectedNetworkConfig.oracleContract}`,
         '>> Submit this payload through the on-chain Oracle contract. Do not call /oracle/smart-fetch directly from user flows.',
         '',
         payloadJson,
@@ -300,14 +379,21 @@ BigInteger requestId = (BigInteger)Contract.Call(
 
   async function submitGeneratedWithWallet() {
     if (!generatedRequest) return;
+    if (!oracleSubmitReady) {
+      setOutput(`!! NEP-21 wallet submit blocked: ${oracleStateStatus.detail}`);
+      return;
+    }
     setIsWalletSubmitting(true);
+    setOutput('>> Waiting for NEP-21 wallet approval...');
     try {
       const result = await invokeMorpheusOracleRequest({
-        oracleHash: oracleState?.contract || NETWORKS.neo_n3.oracle,
+        oracleHash: oracleState?.contract || selectedNetworkConfig.oracleContract,
         requestType: generatedRequest.requestType,
         payloadBase64,
         callbackHash: walletCallbackHash,
         callbackMethod: walletCallbackMethod,
+        expectedNetworkMagic: selectedNetworkConfig.networkMagic,
+        expectedNetworkLabel: selectedNetworkConfig.name,
       });
       setOutput(
         [
@@ -332,6 +418,25 @@ BigInteger requestId = (BigInteger)Contract.Call(
     [oracleKeyMeta]
   );
 
+  const oracleSubmitReady = oracleStateStatus.level === 'ready' && Boolean(oracleState?.contract);
+  const protectedKeyReady = oracleKeyStatus.level === 'ready';
+  const packageReadiness = derivePackageReadiness({
+    oracleSubmitReady,
+    protectedKeyReady,
+    oracleStateStatus,
+    oracleKeyStatus,
+  });
+  const oracleStatusAccent =
+    oracleStateStatus.level === 'ready'
+      ? 'var(--neo-green)'
+      : oracleStateStatus.level === 'loading'
+        ? 'var(--accent-blue)'
+        : 'var(--warning)';
+  const readinessMessages = [oracleStateStatus, oracleKeyStatus].filter(
+    (status) => status.level !== 'ready'
+  );
+  const readinessAccent = getReadinessAccent(readinessMessages, oracleStatusAccent);
+
   const payloadBase64 = generatedRequest ? encodeUtf8Base64(generatedRequest.payloadJson) : '';
   const neoRpcInvoke = generatedRequest
     ? JSON.stringify(
@@ -340,7 +445,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
           id: 1,
           method: 'invokefunction',
           params: [
-            oracleState?.contract || NETWORKS.neo_n3.oracle,
+            oracleState?.contract || selectedNetworkConfig.oracleContract,
             'request',
             [
               { type: 'String', value: generatedRequest.requestType },
@@ -401,28 +506,42 @@ BigInteger requestId = (BigInteger)Contract.Call(
               fontFamily: 'var(--font-mono)',
             }}
           >
-            LIVE ORACLE
+            ORACLE STATUS
           </div>
           <div
             style={{
               fontSize: '0.8rem',
-              color: 'var(--neo-green)',
+              color: oracleStatusAccent,
               fontWeight: 700,
               fontFamily: 'var(--font-mono)',
             }}
           >
-            {oracleState?.request_fee_display || '0.01 GAS'}
+            {oracleSubmitReady ? oracleState?.request_fee_display || '0.01 GAS' : oracleStateStatus.label}
           </div>
         </div>
       </div>
+
+      {readinessMessages.length > 0 && (
+        <div className="card-industrial" style={{ padding: '1.25rem 1.5rem', borderLeft: `4px solid ${readinessAccent}` }}>
+          <div style={{ display: 'grid', gap: '0.75rem' }}>
+            {readinessMessages.map((status) => (
+              <p key={status.label} style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+                <strong style={{ color: 'var(--text-primary)' }}>{status.label}:</strong>{' '}
+                {status.detail}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div
         className="card-industrial"
         style={{ padding: '1.25rem 1.5rem', borderLeft: '4px solid var(--neo-green)' }}
       >
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
-          Local encryption happens in the browser. The generated payload is intended for on-chain
-          submission through <code>{oracleState?.domain || NETWORKS.neo_n3.domains.oracle}</code>.
+          Local encryption happens in the browser when the protected runtime key is available. The
+          generated payload is intended for on-chain submission through{' '}
+          <code>{oracleState?.domain || selectedNetworkConfig.oracleDomain || 'configured oracle contract'}</code>.
           You can also move <code>json_path</code> or <code>script</code> into the encrypted JSON if
           you want those fields hidden from the public transaction.
         </p>
@@ -481,6 +600,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
           oracleState={oracleState}
           walletCallbackHash={walletCallbackHash}
           walletCallbackMethod={walletCallbackMethod}
+          oracleContract={selectedNetworkConfig.oracleContract}
           payloadBase64={payloadBase64}
           neoRpcInvoke={neoRpcInvoke}
           callbackQueryTemplate={callbackQueryTemplate}
@@ -488,6 +608,10 @@ BigInteger requestId = (BigInteger)Contract.Call(
           onCopy={handleCopy}
           isWalletSubmitting={isWalletSubmitting}
           onSubmitWithWallet={submitGeneratedWithWallet}
+          canSubmitWithWallet={oracleSubmitReady}
+          readinessLabel={packageReadiness.label}
+          readinessDetail={packageReadiness.detail}
+          readinessTone={packageReadiness.tone}
         />
       )}
     </div>
