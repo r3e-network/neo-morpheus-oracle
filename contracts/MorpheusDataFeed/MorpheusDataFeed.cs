@@ -126,6 +126,14 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
             ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
 
+            ByteString existingRaw = FeedMap().Get(pair);
+            if (existingRaw != null)
+            {
+                FeedRecord existing = GetLatest(pair);
+                ExecutionEngine.Assert(roundId > existing.RoundId, "stale round");
+                ExecutionEngine.Assert(timestamp >= existing.Timestamp, "stale timestamp");
+            }
+
             IndexPairIfNeeded(pair);
 
             FeedRecord record = new FeedRecord

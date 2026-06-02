@@ -639,8 +639,11 @@ namespace MorpheusOracle.Contracts
             req.Error = "request expired: TTL exceeded";
             RequestMap().Put(requestId.ToByteArray(), StdLib.Serialize(req));
 
-            IncrementTotalFulfilled();
-            IncrementMiniAppFulfilled(req.AppId);
+            // NOTE: expiry is NOT a fulfillment.  We deliberately do not call
+            // IncrementTotalFulfilled()/IncrementMiniAppFulfilled() here so the
+            // fulfillment SLA metrics are not inflated by stale, never-answered
+            // requests.  The RequestExpired event below provides off-chain
+            // accounting for expiries.
 
             // Refund the exact fee that was debited from the sponsor at
             // submission time.  Using the live SystemRequestFee() here would be
@@ -1263,10 +1266,53 @@ namespace MorpheusOracle.Contracts
         {
             if (data is ByteString byteString && byteString != null && byteString.Length == 20)
             {
-                return (UInt160)(byte[])byteString;
+                UInt160 beneficiary = (UInt160)(byte[])byteString;
+                ExecutionEngine.Assert(beneficiary.IsValid && beneficiary != UInt160.Zero, "invalid beneficiary");
+
+                // Reject arbitrary 20-byte beneficiary injection.  Crediting an
+                // attacker-chosen account is dangerous because any account with
+                // fee credit can be auto-charged as a sponsor (see ResolveFeePayer).
+                // A directed beneficiary is only honoured when it is sane:
+                //   1. it is the depositor itself, or
+                //   2. the beneficiary also witnesses this transaction, or
+                //   3. it is a registered miniapp account (admin or fee-payer),
+                //      i.e. a known sponsor rather than an arbitrary address.
+                // This mirrors the contract's account validation elsewhere
+                // (CheckWitness / registered-account checks).
+                bool authorized = beneficiary == from
+                    || Runtime.CheckWitness(beneficiary)
+                    || IsRegisteredMiniAppAccount(beneficiary);
+                ExecutionEngine.Assert(authorized, "beneficiary not authorized");
+
+                return beneficiary;
             }
 
             return from;
+        }
+
+        // True when the account is a registered miniapp admin or fee-payer.
+        // Used to allow directed fee-credit deposits to known sponsors while
+        // rejecting arbitrary 20-byte beneficiary injection on NEP-17 payments.
+        private static bool IsRegisteredMiniAppAccount(UInt160 account)
+        {
+            if (account == null || !account.IsValid || account == UInt160.Zero)
+            {
+                return false;
+            }
+
+            int count = (int)GetMiniAppCount();
+            for (int index = 0; index < count; index++)
+            {
+                string appId = GetMiniAppIdByIndex(index);
+                MiniAppRecord app = GetMiniApp(appId);
+                if ((app.Admin != null && app.Admin == account)
+                    || (app.FeePayer != null && app.FeePayer == account))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // Returns the exact fee debited from the payer so the caller can record
