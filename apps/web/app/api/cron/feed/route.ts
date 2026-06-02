@@ -30,6 +30,11 @@ function isAuthorized(request: Request) {
 }
 
 function isVercelCronRequest(request: Request) {
+  // The `vercel-cron` User-Agent is trivially spoofable, so it is only an
+  // acceptable fallback in non-production environments. In production a real
+  // shared secret (MORPHEUS_CRON_SECRET/CRON_SECRET) or an authorized
+  // control-plane request is required.
+  if (process.env.NODE_ENV === 'production') return false;
   const routeUrl = new URL(request.url);
   const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
   return userAgent.includes('vercel-cron') && Array.from(routeUrl.searchParams.keys()).length === 0;

@@ -383,6 +383,10 @@ BigInteger requestId = (BigInteger)Contract.Call(
       setOutput(`!! NEP-21 wallet submit blocked: ${oracleStateStatus.detail}`);
       return;
     }
+    if (Boolean(generatedRequest.payload?.encrypted_params) && oracleKeyStatus.level !== 'ready') {
+      setOutput(`!! NEP-21 wallet submit blocked: ${oracleKeyStatus.detail}`);
+      return;
+    }
     setIsWalletSubmitting(true);
     setOutput('>> Waiting for NEP-21 wallet approval...');
     try {
@@ -420,6 +424,12 @@ BigInteger requestId = (BigInteger)Contract.Call(
 
   const oracleSubmitReady = oracleStateStatus.level === 'ready' && Boolean(oracleState?.contract);
   const protectedKeyReady = oracleKeyStatus.level === 'ready';
+  // A payload that carries encrypted_params depends on the protected runtime
+  // public key. If that runtime is unavailable, the sealed params cannot be
+  // honored, so wallet submission must be blocked even when on-chain state is ready.
+  const payloadNeedsProtectedRuntime = Boolean(generatedRequest?.payload?.encrypted_params);
+  const walletSubmitReady =
+    oracleSubmitReady && (!payloadNeedsProtectedRuntime || protectedKeyReady);
   const packageReadiness = derivePackageReadiness({
     oracleSubmitReady,
     protectedKeyReady,
@@ -608,7 +618,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
           onCopy={handleCopy}
           isWalletSubmitting={isWalletSubmitting}
           onSubmitWithWallet={submitGeneratedWithWallet}
-          canSubmitWithWallet={oracleSubmitReady}
+          canSubmitWithWallet={walletSubmitReady}
           readinessLabel={packageReadiness.label}
           readinessDetail={packageReadiness.detail}
           readinessTone={packageReadiness.tone}

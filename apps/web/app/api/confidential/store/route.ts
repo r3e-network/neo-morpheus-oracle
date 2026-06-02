@@ -6,6 +6,7 @@ import { recordOperationLog } from '@/lib/operation-logs';
 import { createRateLimitedHandler } from '@/lib/rate-limit';
 import {
   getServerSupabaseClient,
+  isAuthorizedAdminRequest,
   resolveProjectIdBySlug,
   resolveSupabaseNetwork,
 } from '@/lib/server-supabase';
@@ -55,11 +56,31 @@ const handlePost = createRateLimitedHandler(
       body?.callback_contract || body?.callbackContract
     );
 
+    if (!isAuthorizedAdminRequest(request, 'provider_config')) {
+      await recordOperationLog({
+        route: '/api/confidential/store',
+        method: 'POST',
+        category: 'system',
+        requestPayload: {
+          project_slug: projectSlug || null,
+          network,
+          target_chain: targetChain,
+        },
+        responsePayload: { error: 'unauthorized' },
+        httpStatus: 401,
+        error: 'unauthorized',
+      });
+      return apiError('unauthorized', 'UNAUTHORIZED', 401);
+    }
+
     if (!ciphertext) {
       return apiError('ciphertext is required', 'MISSING_CIPHERTEXT', 400);
     }
     if (targetChain !== 'neo_n3') {
       return apiError('target_chain must be neo_n3', 'UNSUPPORTED_CHAIN', 400);
+    }
+    if (!projectSlug) {
+      return apiError('project_slug is required', 'MISSING_PROJECT_SLUG', 400);
     }
 
     const supabase = getServerSupabaseClient();
@@ -68,9 +89,27 @@ const handlePost = createRateLimitedHandler(
     }
 
     try {
-      const projectId = projectSlug
-        ? await resolveProjectIdBySlug(supabase, projectSlug, network)
-        : null;
+      const projectId = await resolveProjectIdBySlug(supabase, projectSlug, network);
+      if (!projectId) {
+        await recordOperationLog({
+          route: '/api/confidential/store',
+          method: 'POST',
+          category: 'system',
+          requestPayload: {
+            project_slug: projectSlug,
+            network,
+            target_chain: targetChain,
+          },
+          responsePayload: { error: `project not found: ${projectSlug} on ${network}` },
+          httpStatus: 404,
+          error: `project not found: ${projectSlug} on ${network}`,
+        });
+        return apiError(
+          `project not found: ${projectSlug} on ${network}`,
+          'PROJECT_NOT_FOUND',
+          404
+        );
+      }
       const row: EncryptedSecretInsertRow = {
         project_id: projectId,
         network,
