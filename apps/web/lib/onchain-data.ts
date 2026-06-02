@@ -1,4 +1,6 @@
 import { DEFAULT_FEED_SYMBOLS, getFeedDisplaySymbol, normalizeFeedSymbol } from './feed-defaults';
+export { buildN3IndexFeedNotificationUrl } from './n3index-feed';
+import { buildN3IndexFeedNotificationUrl } from './n3index-feed';
 import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 
 export const DEFAULT_PAIRS = [...DEFAULT_FEED_SYMBOLS];
@@ -80,13 +82,14 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
     // Cache for 10 seconds to deduplicate the 14 parallel frontend fetch calls
     if (!body || now - n3IndexCacheTime > 10000) {
       const n3IndexNetwork = selectedNetwork.network === 'mainnet' ? 'mainnet' : 'testnet';
-      const url = `https://api.n3index.dev/rest/v1/contract_notifications?network=eq.${n3IndexNetwork}&contract_hash=eq.${NETWORKS.neo_n3.datafeed}&event_name=eq.FeedUpdated&limit=100&order=block_index.desc`;
+      const url = buildN3IndexFeedNotificationUrl(n3IndexNetwork, NETWORKS.neo_n3.datafeed, 100);
       const response = await fetch(url, {
         headers: { Accept: 'application/json' },
         // Bound the request so a stalled n3index endpoint can't hang the
         // caller; the surrounding try/catch maps a failure to a null result.
         signal: AbortSignal.timeout(10000),
       });
+      if (!response.ok) return null;
       body = await response.json().catch(() => null);
       // Only cache valid array responses so a transient non-array error
       // (HTML 5xx, error object) does not poison the 10s window.
@@ -98,6 +101,9 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
 
     if (body && Array.isArray(body)) {
       const event = body.find((b: any) => {
+        if (String(b.contract_hash || '').toLowerCase() !== NETWORKS.neo_n3.datafeed.toLowerCase()) {
+          return false;
+        }
         const pairB64 = b.state_json?.value?.[0]?.value;
         if (!pairB64) return false;
 

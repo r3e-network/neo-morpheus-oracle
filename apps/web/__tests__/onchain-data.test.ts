@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { buildN3IndexFeedNotificationUrl } from '../lib/n3index-feed';
+
 /**
  * Unit tests for the hardened FeedUpdated state parser in lib/onchain-data.ts
  * (commit "fix: guard on-chain parsing ..."). The parser is reached through the
@@ -36,6 +38,7 @@ type StateItem = { value: unknown } | null | undefined;
 /** Build a single FeedUpdated notification with an arbitrary state array. */
 function feedEvent(pairB64: string, stateArray: StateItem[] | unknown) {
   return {
+    contract_hash: MAINNET_DATAFEED,
     txid: '0xfeed',
     block_index: 123,
     state_json: { value: stateArray },
@@ -313,5 +316,24 @@ describe('fetchNeoN3Price FeedUpdated state parser', () => {
       expect(gas?.price).toBe('3.140000');
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('on-chain feed event lookup', () => {
+  it('avoids the slow n3index contract_hash plus event_name query shape', () => {
+    const url = buildN3IndexFeedNotificationUrl('mainnet', '0xfeed', 100);
+
+    expect(url).toContain('network=eq.mainnet');
+    expect(url).toContain('event_name=eq.FeedUpdated');
+    expect(url).not.toContain('contract_hash=eq.');
+  });
+
+  it('supports the higher attestation lookup limit with the same broad n3index query shape', () => {
+    const url = buildN3IndexFeedNotificationUrl('mainnet', '0xfeed', 200);
+
+    expect(url).toContain('network=eq.mainnet');
+    expect(url).toContain('event_name=eq.FeedUpdated');
+    expect(url).toContain('limit=200');
+    expect(url).not.toContain('contract_hash=eq.');
   });
 });
