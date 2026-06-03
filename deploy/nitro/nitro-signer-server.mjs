@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { execFileSync } from 'node:child_process';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { normalizeMorpheusNetwork, reportPinnedNeoN3Role } from '../../scripts/lib-neo-signers.mjs';
 
@@ -6,6 +7,7 @@ const port = Math.max(Number(process.env.PORT || process.env.NITRO_SIGNER_PORT |
 const host = trimString(process.env.NITRO_SIGNER_HOST || process.env.HOST || '0.0.0.0');
 const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'mainnet');
 const maxBodyBytes = Math.max(Number(process.env.NITRO_SIGNER_MAX_BODY_BYTES || 65536), 1024);
+const attestBin = trimString(process.env.NITRO_ATTEST_BIN) || '/app/bin/nsm-attest';
 const runtimeTrustedTokens = new Set([
   process.env.NITRO_SIGNER_TOKEN,
   process.env.MORPHEUS_RUNTIME_TOKEN,
@@ -196,6 +198,82 @@ function handleSignPayload(payload) {
   };
 }
 
+function attestationUserDataHex() {
+  // Bind the signer's pinned identities + network into the attestation document so
+  // a verifier can confirm WHICH Neo signing keys this enclave is provisioned with.
+  const roles = signerHealth().map((entry) => ({
+    role: entry.role,
+    ok: entry.ok,
+    public_key: entry.identity ? entry.identity.public_key || null : null,
+    script_hash: entry.identity ? entry.identity.script_hash || null : null,
+  }));
+  const userData = { runtime: 'aws-nitro-signer', network, roles };
+  return Buffer.from(JSON.stringify(userData), 'utf8').toString('hex');
+}
+
+function selectAttestationPublicKey(payload) {
+  const requested = payload && (payload.role || payload.key_role);
+  const order = requested ? [normalizeRole(requested)] : ['oracle_verifier', 'updater'];
+  for (const role of order) {
+    try {
+      const report = resolveRole(role);
+      const pub = normalizeHex(publicNeoIdentity(report).public_key);
+      if (pub) return { role, publicKeyHex: pub };
+    } catch (_error) {
+      // role not provisioned yet — try the next one
+    }
+  }
+  return { role: order[0], publicKeyHex: '' };
+}
+
+function handleAttestation(payload) {
+  const nonceHex = normalizeHex(payload.nonce || payload.report_data || payload.report_data_hex || '');
+  if (nonceHex && (!/^[0-9a-f]*$/.test(nonceHex) || nonceHex.length % 2 !== 0)) {
+    throw new Error('nonce must be even-length hex');
+  }
+  const { role, publicKeyHex } = selectAttestationPublicKey(payload);
+  const userDataHex = attestationUserDataHex();
+
+  const args = ['--user-data', userDataHex];
+  if (nonceHex) args.push('--nonce', nonceHex);
+  if (publicKeyHex) args.push('--public-key', publicKeyHex);
+
+  let raw;
+  try {
+    raw = execFileSync(attestBin, args, { timeout: 8000, maxBuffer: 4 * 1024 * 1024 }).toString('utf8');
+  } catch (error) {
+    const detail = error && error.stderr ? error.stderr.toString().slice(0, 300) : (error && error.message) || 'spawn failed';
+    const wrapped = new Error(`nsm attestation helper failed: ${detail}`);
+    wrapped.status = 503;
+    throw wrapped;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw.trim().split('\n').filter(Boolean).pop());
+  } catch (_error) {
+    const wrapped = new Error('nsm attestation helper returned invalid output');
+    wrapped.status = 503;
+    throw wrapped;
+  }
+  if (!parsed.ok) {
+    const wrapped = new Error(parsed.error || 'nsm attestation failed');
+    wrapped.status = 503;
+    throw wrapped;
+  }
+  return {
+    status: 'ok',
+    runtime: 'aws-nitro-signer',
+    network,
+    role,
+    format: 'cose-sign1-cbor-base64',
+    public_key: publicKeyHex || null,
+    nonce: nonceHex || null,
+    user_data_hex: userDataHex,
+    document_len: parsed.document_len || null,
+    attestation_document: parsed.attestation_b64,
+  };
+}
+
 async function dispatchSignerRequest({ method, rawUrl, headers, payloadProvider }) {
   const url = new URL(rawUrl || '/', `http://${headers.host || '127.0.0.1'}`);
   const path = url.pathname.replace(/\/$/, '') || '/';
@@ -209,6 +287,9 @@ async function dispatchSignerRequest({ method, rawUrl, headers, payloadProvider 
     });
   }
   const payload = method === 'GET' ? Object.fromEntries(url.searchParams) : await payloadProvider();
+  if (path.endsWith('/attestation')) {
+    return jsonPayload(200, handleAttestation(payload));
+  }
   if (method === 'POST' && path.endsWith('/provision')) {
     if (runtimeTrustedTokens.size) assertAuthorized({ headers });
     return jsonPayload(200, handleProvision(payload));
