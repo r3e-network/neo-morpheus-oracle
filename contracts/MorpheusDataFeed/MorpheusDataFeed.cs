@@ -180,6 +180,39 @@ namespace MorpheusOracle.Contracts
         }
 
         /// <summary>
+        /// Audit fix (feed-stall recovery): admin-only forced feed write that BYPASSES the
+        /// roundId/timestamp monotonicity guard in UpdateFeedInternal. That guard rejects
+        /// stale/replayed updates, but a single bad publish (a far-future timestamp or an
+        /// oversized roundId) would otherwise permanently reject every subsequent legitimate
+        /// update and stall the feed. This admin-gated escape hatch resets a stalled feed to a
+        /// sane round/timestamp. It is restricted to the admin so producers cannot abuse it to
+        /// rewind/replay prices.
+        /// </summary>
+        public static void AdminResetFeed(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
+        {
+            ValidateAdmin();
+            ExecutionEngine.Assert(pair != null && pair.Length > 0, "pair required");
+            ExecutionEngine.Assert(roundId >= 0, "invalid round");
+            ExecutionEngine.Assert(price >= 0, "invalid price");
+            ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
+            ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
+            ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
+
+            IndexPairIfNeeded(pair);
+            FeedRecord record = new FeedRecord
+            {
+                Pair = pair,
+                RoundId = roundId,
+                Price = price,
+                Timestamp = timestamp,
+                AttestationHash = attestationHash ?? (ByteString)"",
+                SourceSetId = sourceSetId
+            };
+            FeedMap().Put(pair, StdLib.Serialize(record));
+            OnFeedUpdated(pair, roundId, price, timestamp, record.AttestationHash, sourceSetId);
+        }
+
+        /// <summary>
         /// Generic alias for shared numeric resources.
         /// </summary>
         public static void UpdateResource(string resourceId, BigInteger version, BigInteger value, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)

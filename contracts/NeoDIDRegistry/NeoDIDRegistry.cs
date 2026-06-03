@@ -284,6 +284,9 @@ namespace MorpheusOracle.Contracts
             payload = Helper.Concat(payload, EncodeSegment(claimValue ?? ""));
             payload = Helper.Concat(payload, masterNullifier);
             payload = Helper.Concat(payload, metadataHash);
+            // Audit fix (cross-network replay): bind the signature to this network so it cannot
+            // be replayed against another deployment/network that shares the verifier key.
+            payload = Helper.Concat(payload, (ByteString)NetworkMagicLe4());
             return CryptoLib.Sha256(payload);
         }
 
@@ -293,7 +296,23 @@ namespace MorpheusOracle.Contracts
             payload = Helper.Concat(payload, EncodeCanonicalHash160(disposableAccount));
             payload = Helper.Concat(payload, EncodeSegment(actionId ?? ""));
             payload = Helper.Concat(payload, actionNullifier);
+            // Audit fix (cross-network replay): bind the action ticket signature to this network.
+            payload = Helper.Concat(payload, (ByteString)NetworkMagicLe4());
             return CryptoLib.Sha256(payload);
+        }
+
+        // 4-byte little-endian network magic (Runtime.GetNetwork). The off-chain NeoDID signer
+        // must reproduce these exact bytes when signing binding/action digests.
+        private static byte[] NetworkMagicLe4()
+        {
+            BigInteger net = (BigInteger)Runtime.GetNetwork();
+            return new byte[]
+            {
+                (byte)(net & 0xFF),
+                (byte)((net / 256) & 0xFF),
+                (byte)((net / 65536) & 0xFF),
+                (byte)((net / 16777216) & 0xFF),
+            };
         }
 
         private static ByteString EncodeSegment(string value)

@@ -84,6 +84,18 @@ namespace MorpheusOracle.Contracts
         private static readonly byte[] PREFIX_APP_INBOX = new byte[] { 0x23 };
         private static readonly byte[] PREFIX_APP_STATE = new byte[] { 0x24 };
         private static readonly byte[] PREFIX_REQUEST_TTL = new byte[] { 0x25 };
+        // Subset of PREFIX_ACCRUED_REQUEST_FEES that backs still-pending (refundable) requests.
+        // Invariant: AccruedRequestFees() >= ReservedRequestFees() at all times. Only the free
+        // surplus (accrued - reserved) is withdrawable by the admin; the reserved portion is
+        // held to guarantee every pending request's expiry refund can be paid in full.
+        private static readonly byte[] PREFIX_RESERVED_REQUEST_FEES = new byte[] { 0x26 };
+        // Reverse index callbackContract(UInt160) -> appId(string) so request submission can
+        // resolve the owning miniapp in O(1) instead of scanning every registered app (DoS).
+        private static readonly byte[] PREFIX_CALLBACK_INDEX = new byte[] { 0x27 };
+        // Monotonic membership set: account(UInt160) -> 1 if it is (or ever was) a registered
+        // miniapp admin or fee-payer. Replaces the O(n) registry scan for directed-deposit auth.
+        // Idempotent by design so the post-upgrade backfill (RebuildIndexes) cannot drift.
+        private static readonly byte[] PREFIX_ACCOUNT_REGISTERED = new byte[] { 0x28 };
         private static readonly byte[] FULFILLMENT_SIGNATURE_DOMAIN = new byte[] { 109, 105, 110, 105, 97, 112, 112, 45, 111, 115, 45, 102, 117, 108, 102, 105, 108, 108, 109, 101, 110, 116, 45, 118, 49 };
 
         private const int MAX_APP_ID_LENGTH = 64;
@@ -325,6 +337,38 @@ namespace MorpheusOracle.Contracts
         {
             ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES);
             return raw == null ? 0 : (BigInteger)raw;
+        }
+
+        // Fees currently reserved against pending (refundable) requests.
+        [Safe]
+        public static BigInteger ReservedRequestFees()
+        {
+            ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_RESERVED_REQUEST_FEES);
+            return raw == null ? 0 : (BigInteger)raw;
+        }
+
+        // Free surplus the admin may withdraw without touching pending-request backing.
+        [Safe]
+        public static BigInteger WithdrawableFees()
+        {
+            BigInteger free = AccruedRequestFees() - ReservedRequestFees();
+            return free > 0 ? free : 0;
+        }
+
+        private static void ReserveRequestFee(BigInteger amount)
+        {
+            if (amount <= 0) return;
+            Storage.Put(Storage.CurrentContext, PREFIX_RESERVED_REQUEST_FEES, ReservedRequestFees() + amount);
+        }
+
+        // Releases a pending request's reserved fee once it leaves the pending state (fulfilled =
+        // earned, expired = refunded). Clamped so the reserved ledger can never underflow.
+        private static void ReleaseReservedFee(BigInteger amount)
+        {
+            if (amount <= 0) return;
+            BigInteger reserved = ReservedRequestFees();
+            BigInteger next = reserved > amount ? reserved - amount : 0;
+            Storage.Put(Storage.CurrentContext, PREFIX_RESERVED_REQUEST_FEES, next);
         }
 
         [Safe]
@@ -579,7 +623,13 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(amount > 0, "invalid amount");
 
             BigInteger accrued = AccruedRequestFees();
-            ExecutionEngine.Assert(accrued >= amount, "insufficient accrued fees");
+            // Audit fix: only the surplus over the reserved (pending-request-backing) pool is
+            // withdrawable. This prevents the admin from draining fees that back pending requests,
+            // which would otherwise shrink their expiry refunds (the old clamp). Reserved fees
+            // become withdrawable automatically once their requests are fulfilled.
+            BigInteger reserved = ReservedRequestFees();
+            BigInteger free = accrued - reserved;
+            ExecutionEngine.Assert(free >= amount, "amount exceeds withdrawable (unreserved) fees");
             ExecutionEngine.Assert(
                 GAS.Transfer(Runtime.ExecutingScriptHash, to, amount, null),
                 "fee transfer failed"
@@ -671,6 +721,12 @@ namespace MorpheusOracle.Contracts
                     Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, accrued - refund);
                 }
             }
+
+            // The request has left the pending state, so release its reserved fee regardless of
+            // whether a refund was paid (no valid sponsor => the fee simply becomes earned surplus).
+            // With the reserve invariant (accrued >= reserved) the refund above is always the full
+            // FeePaid, so accrued and reserved stay symmetric after both decrements.
+            ReleaseReservedFee(req.FeePaid);
 
             OnRequestExpired(requestId, req.AppId, req.Requester, req.Sponsor, refund);
             OnMiniAppRequestCompleted(
@@ -895,6 +951,10 @@ namespace MorpheusOracle.Contracts
             req.Result = result ?? (ByteString)"";
             req.Error = error ?? "";
             RequestMap().Put(requestId.ToByteArray(), StdLib.Serialize(req));
+
+            // The request is no longer pending/refundable: the oracle has earned the fee, so
+            // release it from the reserved pool into the withdrawable surplus.
+            ReleaseReservedFee(req.FeePaid);
 
             IncrementTotalFulfilled();
             IncrementMiniAppFulfilled(req.AppId);
@@ -1125,12 +1185,40 @@ namespace MorpheusOracle.Contracts
             Storage.Put(Storage.CurrentContext, PREFIX_MODULE_COUNT, count + 1);
         }
 
+        private static StorageMap CallbackIndexMap() => new StorageMap(Storage.CurrentContext, PREFIX_CALLBACK_INDEX);
+        private static StorageMap AccountRegisteredMap() => new StorageMap(Storage.CurrentContext, PREFIX_ACCOUNT_REGISTERED);
+
+        private static void MarkAccountRegistered(UInt160 account)
+        {
+            if (account != null && account.IsValid && account != UInt160.Zero)
+            {
+                AccountRegisteredMap().Put((byte[])account, 1);
+            }
+        }
+
         private static void PutMiniApp(string appId, UInt160 appAdmin, UInt160 feePayer, UInt160 callbackContract, string metadataUri, string metadataHash, bool active, BigInteger createdAt)
         {
-            if (GetMiniApp(appId).CreatedAt == 0)
+            MiniAppRecord prior = GetMiniApp(appId);
+            if (prior.CreatedAt == 0)
             {
                 IndexMiniAppIfNeeded(appId);
             }
+
+            // Maintain the callback->appId reverse index. Drop the stale mapping when the
+            // callback is cleared or repointed (e.g. via ConfigureMiniApp); skip null callbacks.
+            UInt160 priorCallback = prior.CallbackContract;
+            if (priorCallback != null && priorCallback.IsValid && priorCallback != callbackContract)
+            {
+                CallbackIndexMap().Delete((byte[])priorCallback);
+            }
+            if (callbackContract != null && callbackContract.IsValid)
+            {
+                CallbackIndexMap().Put((byte[])callbackContract, appId);
+            }
+
+            // Record admin/fee-payer membership for O(1) directed-deposit authorization.
+            MarkAccountRegistered(appAdmin);
+            MarkAccountRegistered(feePayer);
 
             MiniAppRecord app = new MiniAppRecord
             {
@@ -1290,29 +1378,50 @@ namespace MorpheusOracle.Contracts
             return from;
         }
 
-        // True when the account is a registered miniapp admin or fee-payer.
-        // Used to allow directed fee-credit deposits to known sponsors while
-        // rejecting arbitrary 20-byte beneficiary injection on NEP-17 payments.
+        // True when the account is (or was) a registered miniapp admin or fee-payer.
+        // Used to allow directed fee-credit deposits to known sponsors while rejecting arbitrary
+        // 20-byte beneficiary injection on NEP-17 payments. O(1) membership lookup (was an O(n)
+        // registry scan -> per-deposit DoS). Membership is monotonic: a former sponsor remains
+        // depositable, which only ever permits crediting real, previously-vetted addresses.
         private static bool IsRegisteredMiniAppAccount(UInt160 account)
         {
             if (account == null || !account.IsValid || account == UInt160.Zero)
             {
                 return false;
             }
+            return AccountRegisteredMap().Get((byte[])account) != null;
+        }
 
-            int count = (int)GetMiniAppCount();
-            for (int index = 0; index < count; index++)
+        /// <summary>
+        /// One-time post-upgrade backfill of the callback and account-membership reverse indexes
+        /// from existing miniapp records. Required after a ContractManagement.Update that
+        /// introduces these indexes, because storage persists but the new index prefixes start
+        /// empty — without backfill, existing integration contracts could not resolve their app
+        /// and existing sponsors could not receive directed deposits. Process a bounded
+        /// [startIndex, startIndex+count) slice per call to stay within gas limits on large
+        /// registries; both writes are idempotent so re-running a slice is harmless.
+        /// </summary>
+        public static void RebuildIndexes(BigInteger startIndex, BigInteger count)
+        {
+            ValidateAdmin();
+            ExecutionEngine.Assert(startIndex >= 0 && count > 0, "invalid range");
+
+            BigInteger total = GetMiniAppCount();
+            BigInteger end = startIndex + count;
+            if (end > total) end = total;
+
+            for (BigInteger i = startIndex; i < end; i++)
             {
-                string appId = GetMiniAppIdByIndex(index);
+                string appId = GetMiniAppIdByIndex(i);
                 MiniAppRecord app = GetMiniApp(appId);
-                if ((app.Admin != null && app.Admin == account)
-                    || (app.FeePayer != null && app.FeePayer == account))
+                if (app.CreatedAt == 0) continue;
+                if (app.CallbackContract != null && app.CallbackContract.IsValid)
                 {
-                    return true;
+                    CallbackIndexMap().Put((byte[])app.CallbackContract, appId);
                 }
+                MarkAccountRegistered(app.Admin);
+                MarkAccountRegistered(app.FeePayer);
             }
-
-            return false;
         }
 
         // Returns the exact fee debited from the payer so the caller can record
@@ -1328,9 +1437,15 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(credit >= fee, "request fee not paid");
             RequestCreditMap().Put((byte[])feePayer, credit - fee);
             Storage.Put(Storage.CurrentContext, PREFIX_ACCRUED_REQUEST_FEES, AccruedRequestFees() + fee);
+            // The request is now pending and its fee is refundable on expiry, so reserve the fee
+            // against withdrawal until it is fulfilled (earned) or expired (refunded).
+            ReserveRequestFee(fee);
             return fee;
         }
 
+        // O(1) reverse-index lookup (was an O(n) scan over every registered miniapp, which made
+        // every integration-driven request cost more GAS as the registry grew -> DoS). The
+        // returned app's callback is re-checked so a stale index entry can never misroute.
         private static MiniAppRecord FindMiniAppByCallback(UInt160 callbackContract)
         {
             if (callbackContract == null || !callbackContract.IsValid)
@@ -1338,15 +1453,16 @@ namespace MorpheusOracle.Contracts
                 return EmptyMiniApp("");
             }
 
-            int count = (int)GetMiniAppCount();
-            for (int index = 0; index < count; index++)
+            ByteString appIdRaw = CallbackIndexMap().Get((byte[])callbackContract);
+            if (appIdRaw == null)
             {
-                string appId = GetMiniAppIdByIndex(index);
-                MiniAppRecord app = GetMiniApp(appId);
-                if (app.CallbackContract != null && app.CallbackContract == callbackContract)
-                {
-                    return app;
-                }
+                return EmptyMiniApp("");
+            }
+
+            MiniAppRecord app = GetMiniApp((string)appIdRaw);
+            if (app.CreatedAt != 0 && app.CallbackContract != null && app.CallbackContract == callbackContract)
+            {
+                return app;
             }
 
             return EmptyMiniApp("");
