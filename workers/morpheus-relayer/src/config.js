@@ -41,9 +41,11 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+const SUPPORTED_CHAINS = ['neo_n3', 'neox'];
+
 function parseActiveChains(value) {
   const requested = parseList(value).map((entry) => entry.toLowerCase());
-  const filtered = requested.filter((entry) => entry === 'neo_n3');
+  const filtered = requested.filter((entry) => SUPPORTED_CHAINS.includes(entry));
   return filtered.length > 0 ? filtered : ['neo_n3'];
 }
 
@@ -267,8 +269,11 @@ export function createRelayerConfig() {
         ? '.morpheus-relayer-state.json'
         : `.morpheus-relayer-state.${mode}.json`)
   );
+  const activeChains = parseActiveChains(env('MORPHEUS_ACTIVE_CHAINS') || 'neo_n3');
+  // Neo N3 updater signer material is only required when Neo N3 is an active
+  // chain — a neox-only (or feed-only / derived-key) relayer must not demand it.
   const updaterSigner =
-    mode === 'feed_only' || useDerivedKeys
+    mode === 'feed_only' || useDerivedKeys || !activeChains.includes('neo_n3')
       ? { materialized: null }
       : resolvePinnedNeoN3Role(network, 'updater', {
           env: snapshotSignerEnv(),
@@ -282,7 +287,7 @@ export function createRelayerConfig() {
     instanceId:
       trimString(env('MORPHEUS_RELAYER_INSTANCE_ID')) ||
       `${mode}:${network}:${trimString(os.hostname() || 'host')}:${process.pid}`,
-    activeChains: parseActiveChains(env('MORPHEUS_ACTIVE_CHAINS') || 'neo_n3'),
+    activeChains,
     pollIntervalMs: Number(env('MORPHEUS_RELAYER_POLL_INTERVAL_MS') || 5000),
     concurrency: Math.max(Number(env('MORPHEUS_RELAYER_CONCURRENCY') || 4), 1),
     maxBlocksPerTick: Math.max(Number(env('MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK') || 250), 1),
@@ -357,15 +362,22 @@ export function createRelayerConfig() {
     logLevel: env('MORPHEUS_RELAYER_LOG_LEVEL', 'LOG_LEVEL') || 'info',
     confirmations: {
       neo_n3: Number(env('MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS') || 1),
+      neox: Number(env('MORPHEUS_RELAYER_NEOX_CONFIRMATIONS') || 2),
     },
     startRequestIds: {
       neo_n3: env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID')
         ? Number(env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID'))
         : null,
+      neox: env('MORPHEUS_RELAYER_NEOX_START_REQUEST_ID')
+        ? Number(env('MORPHEUS_RELAYER_NEOX_START_REQUEST_ID'))
+        : null,
     },
     startBlocks: {
       neo_n3: env('MORPHEUS_RELAYER_NEO_N3_START_BLOCK')
         ? Number(env('MORPHEUS_RELAYER_NEO_N3_START_BLOCK'))
+        : null,
+      neox: env('MORPHEUS_RELAYER_NEOX_START_BLOCK')
+        ? Number(env('MORPHEUS_RELAYER_NEOX_START_BLOCK'))
         : null,
     },
     stateFile,
@@ -443,6 +455,31 @@ export function createRelayerConfig() {
           'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'
         ),
       },
+    },
+    neox: {
+      // EVM kernel uses request-cursor discovery (getRequest/totalRequests) — no
+      // genesis block scan, cold-starts at the request-id tail like Neo N3.
+      scanMode: trimString(env('MORPHEUS_RELAYER_NEOX_SCAN_MODE')) || 'request_cursor',
+      rpcUrl:
+        trimString(env('MORPHEUS_RELAYER_NEOX_RPC_URL', 'NEOX_RPC')) ||
+        trimString(registry.neox?.rpc_url || '') ||
+        (network === 'mainnet' ? 'https://mainnet-1.rpc.banelabs.org' : ''),
+      chainId: Number(
+        env('MORPHEUS_RELAYER_NEOX_CHAIN_ID', 'NEOX_CHAIN_ID') ||
+          registry.neox?.chain_id ||
+          (network === 'mainnet' ? 47763 : 0)
+      ),
+      oracleContract:
+        trimString(env('MORPHEUS_RELAYER_NEOX_ORACLE', 'NEOX_ORACLE')) ||
+        trimString(registry.neox?.contracts?.morpheus_oracle || ''),
+      // EVM signer is a raw secp256k1 key (the Nitro enclave signs secp256r1 only).
+      updaterPrivateKey: trimString(
+        env('MORPHEUS_RELAYER_NEOX_UPDATER_PK', 'NEOX_UPDATER_PK', 'NEOX_FEED_PK')
+      ),
+      verifierPrivateKey: trimString(
+        env('MORPHEUS_RELAYER_NEOX_VERIFIER_PK', 'NEOX_VERIFIER_PK')
+      ),
+      workerUrl: trimString(env('MORPHEUS_RELAYER_NEOX_WORKER_URL', 'NEOX_WORKER_URL')),
     },
     metricsServer: {
       host: env('MORPHEUS_RELAYER_METRICS_HOST') || '127.0.0.1',

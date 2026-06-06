@@ -16,6 +16,7 @@ import {
 } from './automation.js';
 import { buildUpkeepDispatch } from './automation-supervisor.js';
 import { fulfillNeoN3Request } from './neo-n3.js';
+import { fulfillNeoXRequest, signNeoXFulfillment } from './neox.js';
 import {
   buildEventKey,
   clearRetryItem,
@@ -179,6 +180,11 @@ function resolveLocalVerifierAccount(config) {
 }
 
 export async function signFulfillmentPayload(config, chain, fulfillment) {
+  // Neo X (EVM): keccak digest + secp256k1 EIP-191 signature (ecrecover on-chain).
+  // The Nitro enclave signs secp256r1 only, so this never touches /sign/payload.
+  if (chain === 'neox') {
+    return signNeoXFulfillment(config, fulfillment);
+  }
   const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
   // Bind the digest to the exact deployed contract + network so the signature
   // cannot be replayed across deployments/networks (matches the kernel's
@@ -239,6 +245,18 @@ async function fulfillNeoRequest(config, event, fulfillment, verification) {
       fulfillment,
       verification,
     });
+  }
+  // Neo X (EVM): submit fulfillRequest via ethers to the MorpheusOracleEVM kernel.
+  if (event.chain === 'neox') {
+    return fulfillNeoXRequest(
+      config,
+      event.requestId,
+      fulfillment.success,
+      fulfillment.result,
+      fulfillment.error,
+      verification.signature,
+      fulfillment.result_bytes_base64
+    );
   }
   try {
     return await fulfillNeoN3Request(

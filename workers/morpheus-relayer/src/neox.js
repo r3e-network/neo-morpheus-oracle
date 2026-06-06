@@ -1,0 +1,238 @@
+// Neo X (EVM) chain adapter for the multi-chain oracle relayer.
+//
+// Implements the same adapter shape the generic engine (request-processor.js)
+// already uses for Neo N3: hasConfig / getLatestRequestId / scan(byRequestId),
+// plus the two chain-specific fulfillment primitives the shared fulfillment
+// pipeline branches into — signNeoXFulfillment (EVM keccak digest + secp256k1
+// EIP-191 signature) and fulfillNeoXRequest (ethers fulfillRequest submission).
+//
+// Work lanes (VRF / oracle.fetch / compute) are produced chain-agnostically by
+// fulfillment.js BEFORE these run; this module only encodes/signs/submits the
+// result for the EVM MorpheusOracleEVM kernel.
+import { ethers } from 'ethers';
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
+
+// Minimal ABI for the MorpheusOracleEVM kernel (request_cursor scan + fulfil).
+const ORACLE_ABI = [
+  'function totalRequests() view returns (uint256)',
+  'function oracleVerifier() view returns (address)',
+  // NB: 'error' is a reserved word in ethers' human-readable ABI grammar, so the
+  // string fields are named errorText/errorArg (param names do not affect encoding).
+  'function getRequest(uint256) view returns (tuple(uint256 id, string appId, string moduleId, string operation, bytes payload, address requester, address callbackContract, uint8 status, uint64 createdAt, uint64 fulfilledAt, bool success, bytes resultBytes, string errorText))',
+  'function fulfillRequest(uint256 requestId, bool success, bytes result, string errorArg, bytes signature)',
+];
+
+const FULFILLMENT_DOMAIN = 'morpheus-evm-fulfillment-v1';
+const STATUS_PENDING = 1; // Status enum: None=0, Pending=1, Succeeded=2, Failed=3
+
+const providerCache = new Map();
+const signerCache = new Map();
+
+function getProvider(config) {
+  const rpcUrl = trimString(config?.neox?.rpcUrl || '');
+  const chainId = Number(config?.neox?.chainId || 0) || undefined;
+  const key = `${rpcUrl}|${chainId || ''}`;
+  let provider = providerCache.get(key);
+  if (!provider) {
+    provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
+    providerCache.set(key, provider);
+  }
+  return provider;
+}
+
+function readContract(config) {
+  return new ethers.Contract(config.neox.oracleContract, ORACLE_ABI, getProvider(config));
+}
+
+// Cached NonceManager-wrapped updater so concurrent fulfilments (the engine
+// processes events with config.concurrency) get sequential nonces instead of
+// colliding on the same pending nonce.
+function updaterSigner(config) {
+  const pk = trimString(config?.neox?.updaterPrivateKey || '');
+  if (!pk) throw new Error('neox updater private key is not configured');
+  const provider = getProvider(config);
+  const key = `${pk}|${trimString(config?.neox?.rpcUrl || '')}`;
+  let signer = signerCache.get(key);
+  if (!signer) {
+    signer = new ethers.NonceManager(new ethers.Wallet(pk, provider));
+    signerCache.set(key, signer);
+  }
+  return signer;
+}
+
+function verifierWallet(config) {
+  const pk =
+    trimString(config?.neox?.verifierPrivateKey || '') ||
+    trimString(config?.neox?.updaterPrivateKey || '');
+  if (!pk) throw new Error('neox verifier private key is not configured');
+  return new ethers.Wallet(pk);
+}
+
+export function hasNeoXRelayerConfig(config) {
+  return Boolean(
+    trimString(config?.neox?.rpcUrl || '') &&
+      trimString(config?.neox?.oracleContract || '') &&
+      trimString(config?.neox?.updaterPrivateKey || '')
+  );
+}
+
+export async function getNeoXLatestBlock(config) {
+  return getProvider(config).getBlockNumber();
+}
+
+export async function getNeoXLatestRequestId(config) {
+  const total = await readContract(config).totalRequests();
+  return Number(total);
+}
+
+function decodePayload(payloadHex) {
+  try {
+    return ethers.toUtf8String(payloadHex);
+  } catch {
+    return trimString(payloadHex || '');
+  }
+}
+
+function buildNeoXEventFromRequest(record) {
+  const requestId = record.id.toString();
+  const operation = trimString(record.operation || '');
+  if (!operation) return null;
+  // Only surface still-pending requests; the engine + reconciliation dedupe the rest.
+  if (Number(record.status) !== STATUS_PENDING) return null;
+  return {
+    chain: 'neox',
+    requestId,
+    // requestType drives resolveKernelIntent (e.g. 'random' -> random.generate).
+    requestType: operation,
+    appId: trimString(record.appId || ''),
+    moduleId: trimString(record.moduleId || ''),
+    operation,
+    payloadText: decodePayload(record.payload),
+    requester: trimString(record.requester || ''),
+    callbackContract:
+      record.callbackContract && record.callbackContract !== ethers.ZeroAddress
+        ? trimString(record.callbackContract)
+        : '',
+    callbackMethod: 'onOracleResult',
+    blockNumber: Number(record.createdAt || 0),
+    createdAtMs: Number(record.createdAt || 0) * 1000,
+    txHash: '',
+    logIndex: 0,
+  };
+}
+
+export async function scanNeoXOracleRequestsById(config, fromRequestId, toRequestId) {
+  const contract = readContract(config);
+  const events = [];
+  for (let id = fromRequestId; id <= toRequestId; id += 1) {
+    let record;
+    try {
+      record = await contract.getRequest(id);
+    } catch {
+      continue;
+    }
+    const event = buildNeoXEventFromRequest(record);
+    if (event) events.push(event);
+  }
+  return events;
+}
+
+// Raw result bytes the EVM kernel stores + keccaks: the compact callback bytes
+// (e.g. 32-byte VRF randomness) when present, otherwise the utf8 result string.
+export function resolveResultBytesHex(result, resultBytesBase64) {
+  const compact = trimString(resultBytesBase64 || '');
+  if (compact) return `0x${Buffer.from(compact, 'base64').toString('hex')}`;
+  const text = String(result || '');
+  return `0x${Buffer.from(text, 'utf8').toString('hex')}`;
+}
+
+// keccak digest matching MorpheusOracleEVM.fulfillmentDigest (bound to chain+contract).
+export function buildNeoXDigest(config, fulfillment, resultBytesHex) {
+  const enc = ethers.AbiCoder.defaultAbiCoder().encode(
+    ['string', 'uint256', 'address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'bool', 'bytes32', 'bytes32'],
+    [
+      FULFILLMENT_DOMAIN,
+      BigInt(config.neox.chainId),
+      ethers.getAddress(config.neox.oracleContract),
+      BigInt(fulfillment.requestId),
+      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.appId || ''))),
+      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.moduleId || ''))),
+      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.operation || ''))),
+      Boolean(fulfillment.success),
+      ethers.keccak256(resultBytesHex),
+      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.error || ''))),
+    ]
+  );
+  return ethers.keccak256(enc);
+}
+
+export async function signNeoXFulfillment(config, fulfillment) {
+  const resultBytesHex = resolveResultBytesHex(
+    fulfillment.result,
+    fulfillment.result_bytes_base64
+  );
+  const digest = buildNeoXDigest(config, fulfillment, resultBytesHex);
+  const wallet = verifierWallet(config);
+  // EIP-191 personal-sign over the 32-byte digest (matches the kernel's
+  // "\x19Ethereum Signed Message:\n32" + ecrecover == oracleVerifier check).
+  const signature = await wallet.signMessage(ethers.getBytes(digest));
+  return {
+    signature,
+    public_key: wallet.signingKey.publicKey,
+    address: wallet.address,
+    source: 'relayer_local_evm',
+  };
+}
+
+function normalizeNeoXRevert(error) {
+  const reason = trimString(error?.shortMessage || error?.reason || error?.message || String(error));
+  const lower = reason.toLowerCase();
+  // Map kernel custom errors onto the relayer's error classifier vocabulary.
+  if (lower.includes('requestnotpending')) return new Error('request already fulfilled');
+  if (lower.includes('badsignature')) return new Error('invalid signature: verifier rejected signature');
+  if (lower.includes('notupdater')) return new Error('unauthorized: updater not set');
+  return error instanceof Error ? error : new Error(reason);
+}
+
+export async function fulfillNeoXRequest(
+  config,
+  requestId,
+  success,
+  result,
+  error,
+  verificationSignature,
+  resultBytesBase64 = ''
+) {
+  const resultBytesHex = resolveResultBytesHex(result, resultBytesBase64);
+  const kernel = new ethers.Contract(config.neox.oracleContract, ORACLE_ABI, updaterSigner(config));
+  let receipt;
+  try {
+    const tx = await kernel.fulfillRequest(
+      BigInt(requestId),
+      Boolean(success),
+      resultBytesHex,
+      String(error || ''),
+      verificationSignature
+    );
+    receipt = await tx.wait();
+    if (!receipt || receipt.status !== 1) {
+      throw new Error(`fulfillRequest reverted (status ${receipt?.status})`);
+    }
+    return {
+      request_id: `neox:fulfill:${requestId}`,
+      tx_hash: tx.hash,
+      vm_state: 'HALT',
+      exception: null,
+      target_chain: 'neox',
+    };
+  } catch (err) {
+    // Re-sync the local nonce from chain so a failed/replaced tx doesn't wedge
+    // subsequent fulfilments behind a stale cached nonce.
+    try {
+      updaterSigner(config).reset();
+    } catch {
+      /* ignore */
+    }
+    throw normalizeNeoXRevert(err);
+  }
+}

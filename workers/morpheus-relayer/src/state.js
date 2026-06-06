@@ -2,6 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveKernelIntent } from './router.js';
 
+// Per-chain state is keyed by these chain ids. Adding a chain here makes the
+// relayer engine track its cursor/retry/dead-letter state automatically.
+export const RELAYER_CHAINS = ['neo_n3', 'neox'];
+
 function defaultChainState() {
   return {
     last_block: null,
@@ -11,6 +15,14 @@ function defaultChainState() {
     retry_queue: [],
     dead_letters: [],
   };
+}
+
+function buildChainStates(source, normalize) {
+  const out = {};
+  for (const chain of RELAYER_CHAINS) {
+    out[chain] = normalize ? normalizeChainState(source?.[chain]) : defaultChainState();
+  }
+  return out;
 }
 
 function defaultMetrics() {
@@ -51,7 +63,7 @@ export function createEmptyRelayerState() {
   return {
     version: 2,
     updated_at: null,
-    neo_n3: defaultChainState(),
+    ...buildChainStates(null, false),
     metrics: defaultMetrics(),
   };
 }
@@ -77,7 +89,7 @@ export function loadRelayerState(filePath) {
     return {
       version: parsed?.version || 2,
       updated_at: parsed?.updated_at || null,
-      neo_n3: normalizeChainState(parsed?.neo_n3),
+      ...buildChainStates(parsed, true),
       metrics: {
         ...defaultMetrics(),
         ...(parsed?.metrics && typeof parsed.metrics === 'object' ? parsed.metrics : {}),
@@ -130,20 +142,24 @@ export function incrementMetric(state, metricName, delta = 1) {
 }
 
 export function snapshotMetrics(state) {
+  const retry_queue_sizes = {};
+  const dead_letter_sizes = {};
+  const checkpoints = {};
+  const request_checkpoints = {};
+  for (const chain of RELAYER_CHAINS) {
+    const chainState = state[chain];
+    if (!chainState) continue;
+    retry_queue_sizes[chain] = chainState.retry_queue.length;
+    dead_letter_sizes[chain] = chainState.dead_letters.length;
+    checkpoints[chain] = chainState.last_block;
+    request_checkpoints[chain] = chainState.last_request_id;
+  }
   return {
     ...state.metrics,
-    retry_queue_sizes: {
-      neo_n3: state.neo_n3.retry_queue.length,
-    },
-    dead_letter_sizes: {
-      neo_n3: state.neo_n3.dead_letters.length,
-    },
-    checkpoints: {
-      neo_n3: state.neo_n3.last_block,
-    },
-    request_checkpoints: {
-      neo_n3: state.neo_n3.last_request_id,
-    },
+    retry_queue_sizes,
+    dead_letter_sizes,
+    checkpoints,
+    request_checkpoints,
   };
 }
 

@@ -18,6 +18,11 @@ import {
   scanNeoN3OracleRequestsById,
   scanNeoN3OracleRequestsViaN3Index,
 } from './neo-n3.js';
+import {
+  hasNeoXRelayerConfig,
+  getNeoXLatestRequestId,
+  scanNeoXOracleRequestsById,
+} from './neox.js';
 import { getFeedSyncDelayMs, processFeedSync } from './feed-sync.js';
 export { buildFeedSyncPayload } from './feed-sync.js';
 export { getFeedSyncDelayMs } from './feed-sync.js';
@@ -47,18 +52,24 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function resultHasPersistableActivity(config, result) {
-  if (result.feed_sync?.skipped === false) return true;
-
-  const neoN3 = result.neo_n3 || {};
-  if (Array.isArray(neoN3.events) && neoN3.events.length > 0) return true;
-  if (Array.isArray(neoN3.retries) && neoN3.retries.length > 0) return true;
+function chainResultHasActivity(chainResult) {
+  const chain = chainResult || {};
+  if (Array.isArray(chain.events) && chain.events.length > 0) return true;
+  if (Array.isArray(chain.retries) && chain.retries.length > 0) return true;
   if (
-    Array.isArray(neoN3.request_reconciliation?.events) &&
-    neoN3.request_reconciliation.events.length > 0
+    Array.isArray(chain.request_reconciliation?.events) &&
+    chain.request_reconciliation.events.length > 0
   ) {
     return true;
   }
+  return false;
+}
+
+function resultHasPersistableActivity(config, result) {
+  if (result.feed_sync?.skipped === false) return true;
+
+  if (chainResultHasActivity(result.neo_n3)) return true;
+  if (chainResultHasActivity(result.neox)) return true;
 
   const automation = result.automation || {};
   return (
@@ -156,6 +167,16 @@ export async function runRelayerOnce(options = {}) {
             scanByRequestId: scanNeoN3OracleRequestsById,
           })
       : { skipped: true, chain: 'neo_n3' };
+  // Neo X (EVM): request-cursor discovery + shared fulfillment pipeline. Gated by
+  // activeChains AND adapter hasConfig, so default Neo-N3-only deploys are unchanged.
+  const neox =
+    shouldRunRequestProcessing(config) && config.activeChains.includes('neox')
+      ? await processChainByRequestCursor(config, state, logger, 'neox', {
+          hasConfig: hasNeoXRelayerConfig,
+          getLatestRequestId: getNeoXLatestRequestId,
+          scan: scanNeoXOracleRequestsById,
+        })
+      : { skipped: true, chain: 'neox' };
   const automation = shouldRunRequestProcessing(config)
     ? await processAutomationJobs(config, logger)
     : { skipped: true, mode: config.mode };
@@ -168,6 +189,7 @@ export async function runRelayerOnce(options = {}) {
     instance_id: config.instanceId,
     mode: config.mode,
     neo_n3: neoN3,
+    neox,
     feed_sync: feedSync,
     automation,
     state,
