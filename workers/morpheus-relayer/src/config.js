@@ -371,6 +371,13 @@ export function createRelayerConfig() {
     stateFile,
     nitro: {
       apiUrl: resolveNitroApiUrls(network, registry),
+      // Endpoint that holds the signing keys (enclave). Used for /sign/payload +
+      // key derivation. Defaults to the worker apiUrl so single-endpoint
+      // deployments are unchanged; set NITRO_SIGNER_URL when the worker (compute)
+      // and the signer (enclave) run on separate ports.
+      signerUrl:
+        trimString(env('NITRO_SIGNER_URL', 'MORPHEUS_SIGNER_URL')) ||
+        resolveNitroApiUrls(network, registry),
       token: env(
         'MORPHEUS_RUNTIME_TOKEN',
         'NITRO_API_TOKEN',

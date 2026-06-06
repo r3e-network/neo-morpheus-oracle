@@ -38,7 +38,10 @@ function decorateWorkerPayload(config, payload) {
 }
 
 export async function callNitro(config, path, payload, options = {}) {
-  const candidateApiUrls = resolveCandidateApiUrls(config.nitro.apiUrl);
+  // options.baseUrl lets callers target a specific endpoint (e.g. the enclave
+  // signer URL for /sign/payload) instead of the worker apiUrl. Falls back to
+  // the worker apiUrl so existing single-endpoint deployments are unchanged.
+  const candidateApiUrls = resolveCandidateApiUrls(options.baseUrl || config.nitro.apiUrl);
   if (candidateApiUrls.length === 0) {
     throw new Error('MORPHEUS_RUNTIME_URL or NITRO_API_URL is not configured');
   }

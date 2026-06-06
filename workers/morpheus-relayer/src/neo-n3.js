@@ -698,13 +698,18 @@ function buildFulfillRequestParams(requestId, success, resultHex, error, verific
 }
 
 async function resolveRuntimeDerivedUpdater(config) {
-  const response = await callNitro(config, '/keys/derived', {
-    role: 'updater',
-    key_role: 'updater',
-    dstack_key_role: 'updater',
-    target_chain: 'neo_n3',
-    use_derived_keys: true,
-  });
+  const response = await callNitro(
+    config,
+    '/keys/derived',
+    {
+      role: 'updater',
+      key_role: 'updater',
+      dstack_key_role: 'updater',
+      target_chain: 'neo_n3',
+      use_derived_keys: true,
+    },
+    { baseUrl: config.nitro.signerUrl }
+  );
   if (!response.ok) {
     throw new Error(`runtime derived updater lookup failed with status ${response.status}`);
   }
@@ -722,13 +727,18 @@ async function resolveRuntimeDerivedUpdater(config) {
 }
 
 async function signNeoN3TransactionWithRuntimeUpdater(config, messageHex, expectedPublicKey) {
-  const response = await callNitro(config, '/sign/payload', {
-    target_chain: 'neo_n3',
-    key_role: 'updater',
-    dstack_key_role: 'updater',
-    data_hex: trimString(messageHex).replace(/^0x/i, ''),
-    use_derived_keys: true,
-  });
+  const response = await callNitro(
+    config,
+    '/sign/payload',
+    {
+      target_chain: 'neo_n3',
+      key_role: 'updater',
+      dstack_key_role: 'updater',
+      data_hex: trimString(messageHex).replace(/^0x/i, ''),
+      use_derived_keys: true,
+    },
+    { baseUrl: config.nitro.signerUrl }
+  );
   if (!response.ok) {
     throw new Error(`runtime derived updater signing failed with status ${response.status}`);
   }

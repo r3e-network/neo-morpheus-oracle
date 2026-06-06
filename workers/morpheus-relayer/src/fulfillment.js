@@ -211,11 +211,16 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
       };
     }
   }
-  const response = await callNitro(config, '/sign/payload', {
-    target_chain: chain,
-    key_role: 'oracle_verifier',
-    data_hex: digestBytes.toString('hex'),
-  });
+  const response = await callNitro(
+    config,
+    '/sign/payload',
+    {
+      target_chain: chain,
+      key_role: 'oracle_verifier',
+      data_hex: digestBytes.toString('hex'),
+    },
+    { baseUrl: config.nitro.signerUrl }
+  );
   if (!response.ok || typeof response.body?.signature !== 'string' || !response.body.signature) {
     throw new Error(
       typeof response.body?.error === 'string'
