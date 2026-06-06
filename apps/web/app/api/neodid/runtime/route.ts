@@ -1,7 +1,7 @@
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 
 export async function GET() {
-  return proxyToPhala(
+  return proxyToNitro(
     '/neodid/runtime',
     { method: 'GET' },
     {

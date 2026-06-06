@@ -1,4 +1,4 @@
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 
 async function parseResponseBody(response: Response) {
   return response.json().catch(() => ({}));
@@ -14,7 +14,7 @@ function readNetwork(request: Request) {
 
 export async function GET(request: Request) {
   const network = readNetwork(request);
-  const response = await proxyToPhala(
+  const response = await proxyToNitro(
     '/oracle/public-key',
     { method: 'GET' },
     {

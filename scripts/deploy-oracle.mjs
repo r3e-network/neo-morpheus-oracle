@@ -279,7 +279,7 @@ async function main() {
     console.log(`  2. apps/web/public/morpheus-runtime-catalog.json`);
     console.log(`  3. examples/deployments/mainnet.json`);
     console.log(`  4. .env.production.example`);
-    console.log(`  5. deploy/phala/morpheus.env.example`);
+    console.log(`  5. deploy/nitro/morpheus.env.example`);
     console.log(`  6. apps/web/lib/docs-data.ts`);
     console.log(`  7. docs/USER_GUIDE.md, docs/ASYNC_PRIVACY_ORACLE_SPEC.md`);
     console.log(`  8. MAINNET_RUNTIME_CONFIG_JSON in morpheus.hub.env`);

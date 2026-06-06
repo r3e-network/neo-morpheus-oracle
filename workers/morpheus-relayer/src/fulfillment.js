@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { callPhala } from './phala.js';
+import { callNitro } from './nitro.js';
 import {
   buildFulfillmentDigestBytes,
   buildWorkerPayload,
@@ -211,7 +211,7 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
       };
     }
   }
-  const response = await callPhala(config, '/sign/payload', {
+  const response = await callNitro(config, '/sign/payload', {
     target_chain: chain,
     key_role: 'oracle_verifier',
     data_hex: digestBytes.toString('hex'),
@@ -555,7 +555,7 @@ async function prepareOracleFulfillment(config, event, logger = null) {
   }
   // Local VRF handler: kernel random.generate needs no compute worker — verifiable
   // randomness is just 32 CSPRNG bytes signed by the oracle_verifier. Mirrors the
-  // operator-only / automation local branches above (no callPhala). The on-chain
+  // operator-only / automation local branches above (no callNitro). The on-chain
   // compact callback is the raw 32-byte randomness (resolveCompactCallbackBytes).
   if (kernelIntent.moduleId === 'random.generate') {
     const randomness = crypto.randomBytes(32).toString('hex');
@@ -592,7 +592,7 @@ async function prepareOracleFulfillment(config, event, logger = null) {
     }
   );
   const workerStartedAt = Date.now();
-  const workerResponse = await callPhala(config, route, workerPayload);
+  const workerResponse = await callNitro(config, route, workerPayload);
   const workerDurationMs = Date.now() - workerStartedAt;
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
   const verificationStartedAt = Date.now();

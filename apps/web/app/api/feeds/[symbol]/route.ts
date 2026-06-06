@@ -1,7 +1,7 @@
 import { parseJsonObjectParam, resolveProviderAwarePayload } from '@/lib/provider-configs';
 import { appConfig } from '@/lib/config';
 import { recordOperationLog } from '@/lib/operation-logs';
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 import { badRequest } from '@/lib/api-helpers';
 
 function shouldServeFeedFallback(status: number) {
@@ -71,7 +71,7 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
       fallbackProviderId: provider ? String(provider) : undefined,
     });
 
-    const response = await proxyToPhala(
+    const response = await proxyToNitro(
       '/feeds/price',
       {
         method: 'POST',

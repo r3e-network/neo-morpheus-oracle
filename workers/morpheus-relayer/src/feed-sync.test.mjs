@@ -104,7 +104,7 @@ test('feed sync marks HTTP 200 worker payload errors as failed syncs', async () 
     stateFile,
     network: 'mainnet',
     activeChains: ['neo_n3'],
-    phala: {
+    nitro: {
       apiUrl: 'https://worker.test',
       token: '',
       timeoutMs: 1000,

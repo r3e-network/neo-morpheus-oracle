@@ -140,7 +140,7 @@ const localEnvPath = path.resolve(process.cwd(), '.env');
 const backupNetwork =
   trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet') ||
   'mainnet';
-const phalaEnvPath = path.resolve(process.cwd(), `deploy/phala/morpheus.${backupNetwork}.env`);
+const phalaEnvPath = path.resolve(process.cwd(), `deploy/nitro/morpheus.${backupNetwork}.env`);
 const keystoreBackupPath = path.join(backupRoot, 'oracle-key.json');
 const runtimeConfigPath = path.join(backupRoot, 'runtime-config.json');
 const localEnvBackupPath = path.join(backupRoot, '.env.snapshot.json');
@@ -175,7 +175,7 @@ const rows = [
     metadata: {
       timestamp,
       network: backupNetwork,
-      source_path: `deploy/phala/morpheus.${backupNetwork}.env`,
+      source_path: `deploy/nitro/morpheus.${backupNetwork}.env`,
     },
   },
   {

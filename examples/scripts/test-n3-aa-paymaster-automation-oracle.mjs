@@ -547,7 +547,7 @@ async function callPaymasterAuthorize(endpoint, apiToken, body) {
     let lastError = networkError;
     const shellScript = `
 set -e
-WORKER_CONTAINER="$(docker ps --format '{{.Names}}' | grep 'phala-worker' | head -n1)"
+WORKER_CONTAINER="$(docker ps --format '{{.Names}}' | grep 'nitro-worker' | head -n1)"
 test -n "$WORKER_CONTAINER"
 docker exec -i "$WORKER_CONTAINER" node --input-type=module - <<'JS'
 const body = ${JSON.stringify(body)};

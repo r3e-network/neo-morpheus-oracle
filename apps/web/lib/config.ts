@@ -6,7 +6,7 @@ const selectedNetwork = getSelectedNetwork();
 const defaultNeoRpcUrl = selectedNetwork.neo_n3?.rpc_url || '';
 const defaultControlPlaneUrl =
   process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
-const defaultPhalaApiUrl = selectedNetwork.phala?.public_api_url || '';
+const defaultNitroApiUrl = selectedNetwork.phala?.public_api_url || '';
 
 function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -17,12 +17,12 @@ function networkScopedEnv(baseKey: string) {
   return trimString(process.env[`${baseKey}_${upper}` as keyof NodeJS.ProcessEnv]);
 }
 
-const defaultPhalaApiCandidates = [
+const defaultNitroApiCandidates = [
   networkScopedEnv('MORPHEUS_RUNTIME_URL'),
   trimString(process.env.MORPHEUS_RUNTIME_URL || ''),
   networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL'),
   trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || ''),
-  defaultPhalaApiUrl,
+  defaultNitroApiUrl,
   `https://oracle.meshmini.app/${selectedNetworkKey}`,
   `https://edge.meshmini.app/${selectedNetworkKey}`,
 ]
@@ -33,16 +33,18 @@ export const appConfig = {
   name: process.env.NEXT_PUBLIC_APP_NAME || 'Morpheus Oracle',
   appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
   selectedNetworkKey,
-  phalaApiUrl:
+  nitroApiUrl:
     networkScopedEnv('MORPHEUS_RUNTIME_URL') ||
     trimString(process.env.MORPHEUS_RUNTIME_URL || '') ||
     networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL') ||
     trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || '') ||
-    defaultPhalaApiUrl,
-  phalaApiUrls: [...new Set(defaultPhalaApiCandidates)],
-  phalaToken:
+    defaultNitroApiUrl,
+  nitroApiUrls: [...new Set(defaultNitroApiCandidates)],
+  nitroToken:
     trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '') ||
+    trimString(process.env.NITRO_API_TOKEN || '') ||
     trimString(process.env.PHALA_API_TOKEN || '') ||
+    trimString(process.env.NITRO_SHARED_SECRET || '') ||
     trimString(process.env.PHALA_SHARED_SECRET || '') ||
     trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_TOKEN || '') ||
     '',
@@ -55,7 +57,9 @@ export const appConfig = {
     process.env.MORPHEUS_PROVIDER_CONFIG_API_KEY ||
     process.env.MORPHEUS_OPERATOR_API_KEY ||
     process.env.ADMIN_CONSOLE_API_KEY ||
+    process.env.NITRO_API_TOKEN ||
     process.env.PHALA_API_TOKEN ||
+    process.env.NITRO_SHARED_SECRET ||
     process.env.PHALA_SHARED_SECRET ||
     '',
   feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || 'morpheus',

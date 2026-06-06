@@ -116,13 +116,15 @@ function parseMorpheusDid(rawDid: string): ParsedMorpheusDid | null {
 
 async function fetchNeoDidRuntimeSnapshot(): Promise<NeoDidRuntimeSnapshot | null> {
   const headers = new Headers({ accept: 'application/json' });
-  if (appConfig.phalaToken) {
-    headers.set('authorization', `Bearer ${appConfig.phalaToken}`);
-    headers.set('x-phala-token', appConfig.phalaToken);
+  if (appConfig.nitroToken) {
+    headers.set('authorization', `Bearer ${appConfig.nitroToken}`);
+    // Emit both header names for backward-compat with the legacy Phala runtime.
+    headers.set('x-nitro-token', appConfig.nitroToken);
+    headers.set('x-phala-token', appConfig.nitroToken);
   }
 
   try {
-    const response = await fetch(`${appConfig.phalaApiUrl.replace(/\/$/, '')}/neodid/runtime`, {
+    const response = await fetch(`${appConfig.nitroApiUrl.replace(/\/$/, '')}/neodid/runtime`, {
       method: 'GET',
       headers,
       cache: 'no-store',
@@ -235,7 +237,7 @@ function buildServiceDidDocument(
         id: `${did}#runtime`,
         type: 'MorpheusNeoDIDRuntime',
         serviceEndpoint: {
-          runtime_url: `${appConfig.phalaApiUrl.replace(/\/$/, '')}/neodid/runtime`,
+          runtime_url: `${appConfig.nitroApiUrl.replace(/\/$/, '')}/neodid/runtime`,
           viewer_url: `${origin}/launchpad/neodid-resolver?did=${encodeURIComponent(did)}`,
           documentation_url: `${origin}/docs/neodid`,
           app_id: runtime?.app_id || null,

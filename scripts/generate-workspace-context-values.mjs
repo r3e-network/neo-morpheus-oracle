@@ -193,9 +193,9 @@ function main() {
   const miniappsRoot = path.join(siblingRoot, 'neo-miniapps-platform');
 
   const oracleExtra = [
-    'deploy/phala/morpheus.env',
-    'deploy/phala/morpheus.mainnet.env',
-    'deploy/phala/morpheus.testnet.env',
+    'deploy/nitro/morpheus.env',
+    'deploy/nitro/morpheus.mainnet.env',
+    'deploy/nitro/morpheus.testnet.env',
     'deploy/cloudflare/morpheus-edge-gateway/wrangler.meshmini.toml',
     'deploy/cloudflare/morpheus-control-plane/wrangler.meshmini.toml',
     'apps/web/.env.local',

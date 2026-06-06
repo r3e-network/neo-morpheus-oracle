@@ -10,7 +10,7 @@ async function main() {
   const requestedNetwork = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
   await loadDotEnv();
   const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || requestedNetwork);
-  await loadDotEnv(new URL(`../deploy/phala/morpheus.${network}.env`, import.meta.url), {
+  await loadDotEnv(new URL(`../deploy/nitro/morpheus.${network}.env`, import.meta.url), {
     override: true,
   });
   const phalaUrl = (

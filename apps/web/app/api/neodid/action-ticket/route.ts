@@ -3,7 +3,7 @@ import {
   shouldDispatchToControlPlane,
   shouldUseControlPlaneFallback,
 } from '@/lib/control-plane';
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       return controlPlaneResponse;
     }
   }
-  return proxyToPhala(
+  return proxyToNitro(
     '/neodid/action-ticket',
     {
       method: 'POST',

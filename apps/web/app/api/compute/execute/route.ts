@@ -3,7 +3,7 @@ import {
   shouldDispatchToControlPlane,
   shouldUseControlPlaneFallback,
 } from '@/lib/control-plane';
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 import { createRateLimitedHandler } from '@/lib/rate-limit';
 
 function trimString(value: unknown) {
@@ -44,7 +44,7 @@ const handlePost = createRateLimitedHandler(
         return controlPlaneResponse;
       }
     }
-    return proxyToPhala(
+    return proxyToNitro(
       '/compute/execute',
       { method: 'POST', body },
       {

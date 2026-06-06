@@ -16,7 +16,7 @@ import {
   resolveKernelIntent,
   resolveWorkerRoute,
 } from './src/router.js';
-import { callPhala } from './src/phala.js';
+import { callNitro } from './src/nitro.js';
 import {
   guardQueuedAutomationExecution,
   isAutomationControlRequestType,
@@ -179,15 +179,15 @@ test('isAutomationControlRequestType detects automation registration flows', () 
   assert.equal(isAutomationControlRequestType('privacy_oracle'), false);
 });
 
-test('callPhala rejects when the worker fetch never resolves', async () => {
+test('callNitro rejects when the worker fetch never resolves', async () => {
   const originalFetch = global.fetch;
   try {
     global.fetch = () => new Promise(() => {});
 
     await assert.rejects(
-      callPhala(
+      callNitro(
         {
-          phala: {
+          nitro: {
             apiUrl: 'https://worker.test',
             token: 'secret',
             timeoutMs: 25,
@@ -196,14 +196,14 @@ test('callPhala rejects when the worker fetch never resolves', async () => {
         '/oracle/query',
         { ping: true }
       ),
-      /phala request timed out after 1000ms/
+      /nitro request timed out after 1000ms/
     );
   } finally {
     global.fetch = originalFetch;
   }
 });
 
-test('callPhala rejects when the worker response body never resolves', async () => {
+test('callNitro rejects when the worker response body never resolves', async () => {
   const originalFetch = global.fetch;
   try {
     global.fetch = async () => ({
@@ -213,9 +213,9 @@ test('callPhala rejects when the worker response body never resolves', async () 
     });
 
     await assert.rejects(
-      callPhala(
+      callNitro(
         {
-          phala: {
+          nitro: {
             apiUrl: 'https://worker.test',
             token: 'secret',
             timeoutMs: 25,
@@ -224,14 +224,14 @@ test('callPhala rejects when the worker response body never resolves', async () 
         '/oracle/query',
         { ping: true }
       ),
-      /phala request timed out after 1000ms/
+      /nitro request timed out after 1000ms/
     );
   } finally {
     global.fetch = originalFetch;
   }
 });
 
-test('callPhala allows a longer timeout when explicitly requested for feed sync', async () => {
+test('callNitro allows a longer timeout when explicitly requested for feed sync', async () => {
   const originalFetch = global.fetch;
   try {
     global.fetch = async () => ({
@@ -240,9 +240,9 @@ test('callPhala allows a longer timeout when explicitly requested for feed sync'
       text: async () => JSON.stringify({ ok: true }),
     });
 
-    const response = await callPhala(
+    const response = await callNitro(
       {
-        phala: {
+        nitro: {
           apiUrl: 'https://worker.test',
           token: 'secret',
           timeoutMs: 90000,
@@ -259,7 +259,7 @@ test('callPhala allows a longer timeout when explicitly requested for feed sync'
   }
 });
 
-test('callPhala falls back to the next configured worker endpoint', async () => {
+test('callNitro falls back to the next configured worker endpoint', async () => {
   const originalFetch = global.fetch;
   try {
     const calls = [];
@@ -274,9 +274,9 @@ test('callPhala falls back to the next configured worker endpoint', async () => 
       });
     };
 
-    const response = await callPhala(
+    const response = await callNitro(
       {
-        phala: {
+        nitro: {
           apiUrl: 'https://worker-a.test, https://worker-b.test',
           token: 'secret',
           timeoutMs: 1000,
@@ -299,7 +299,7 @@ test('callPhala falls back to the next configured worker endpoint', async () => 
   }
 });
 
-test('callPhala can disable fallback for mutating worker calls', async () => {
+test('callNitro can disable fallback for mutating worker calls', async () => {
   const originalFetch = global.fetch;
   const requestedUrls = [];
   try {
@@ -309,9 +309,9 @@ test('callPhala can disable fallback for mutating worker calls', async () => {
     };
 
     await assert.rejects(
-      callPhala(
+      callNitro(
         {
-          phala: {
+          nitro: {
             apiUrl: 'https://primary.worker,https://fallback.worker',
             token: 'secret',
             timeoutMs: 1000,
@@ -365,7 +365,7 @@ test('getNeoN3LatestBlock falls back to a healthy Neo RPC endpoint and promotes 
   }
 });
 
-test('callPhala injects the relayer network when the payload omits it', async () => {
+test('callNitro injects the relayer network when the payload omits it', async () => {
   const originalFetch = global.fetch;
   try {
     let postedBody = null;
@@ -377,10 +377,10 @@ test('callPhala injects the relayer network when the payload omits it', async ()
       });
     };
 
-    const response = await callPhala(
+    const response = await callNitro(
       {
         network: 'mainnet',
-        phala: {
+        nitro: {
           apiUrl: 'https://worker.test',
           token: 'secret',
           timeoutMs: 1000,
@@ -397,7 +397,7 @@ test('callPhala injects the relayer network when the payload omits it', async ()
   }
 });
 
-test('callPhala forwards the relayer derived-key preference to the worker', async () => {
+test('callNitro forwards the relayer derived-key preference to the worker', async () => {
   const originalFetch = global.fetch;
   try {
     let postedBody = null;
@@ -409,11 +409,11 @@ test('callPhala forwards the relayer derived-key preference to the worker', asyn
       });
     };
 
-    const response = await callPhala(
+    const response = await callNitro(
       {
         network: 'testnet',
         useDerivedKeys: true,
-        phala: {
+        nitro: {
           apiUrl: 'https://worker.test',
           token: 'secret',
           timeoutMs: 1000,
@@ -1154,7 +1154,7 @@ test('Neo N3 fulfill signs derived-updater transactions through the runtime when
       {
         network: 'mainnet',
         useDerivedKeys: true,
-        phala: { apiUrl: 'https://runtime.test', token: '', timeoutMs: 1000, useDerivedKeys: true },
+        nitro: { apiUrl: 'https://runtime.test', token: '', timeoutMs: 1000, useDerivedKeys: true },
         neo_n3: {
           rpcUrl: 'https://neo.test',
           rpcUrls: ['https://neo.test'],
@@ -1278,7 +1278,7 @@ test('Neo N3 fulfill auto-funds the derived updater when GAS fee reserve is low'
       {
         network: 'mainnet',
         useDerivedKeys: true,
-        phala: { apiUrl: 'https://runtime.test', token: '', timeoutMs: 1000, useDerivedKeys: true },
+        nitro: { apiUrl: 'https://runtime.test', token: '', timeoutMs: 1000, useDerivedKeys: true },
         neo_n3: {
           rpcUrl: 'https://neo.test',
           rpcUrls: ['https://neo.test'],
@@ -1321,7 +1321,7 @@ test('createRelayerConfig exposes the shared-worker derived-key preference', () 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.useDerivedKeys, true);
-    assert.equal(config.phala.useDerivedKeys, true);
+    assert.equal(config.nitro.useDerivedKeys, true);
   } finally {
     if (previous === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
     else process.env.PHALA_USE_DERIVED_KEYS = previous;
@@ -1609,7 +1609,7 @@ test('createRelayerConfig caps worker and retry waits at the request SLO', () =>
   process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS = '90000';
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.equal(config.phala.timeoutMs, 10000);
+    assert.equal(config.nitro.timeoutMs, 10000);
     assert.equal(config.retryMaxDelayMs, 10000);
   } finally {
     if (previousPhalaTimeout === undefined) delete process.env.MORPHEUS_PHALA_TIMEOUT_MS;
@@ -1630,9 +1630,9 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.match(config.phala.apiUrl, /^http:\/\/phala-worker:8080,/);
-    assert.match(config.phala.apiUrl, /https:\/\/oracle\.meshmini\.app\/testnet/);
-    assert.match(config.phala.apiUrl, /https:\/\/edge\.meshmini\.app\/testnet/);
+    assert.match(config.nitro.apiUrl, /^http:\/\/phala-worker:8080,/);
+    assert.match(config.nitro.apiUrl, /https:\/\/oracle\.meshmini\.app\/testnet/);
+    assert.match(config.nitro.apiUrl, /https:\/\/edge\.meshmini\.app\/testnet/);
   } finally {
     if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
     else process.env.MORPHEUS_NETWORK = previousNetwork;
@@ -1656,7 +1656,7 @@ test('createRelayerConfig lets direct env override packed runtime URL candidates
 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.equal(config.phala.apiUrl.split(',')[0], 'http://mainnet-feed-worker:8080');
+    assert.equal(config.nitro.apiUrl.split(',')[0], 'http://mainnet-feed-worker:8080');
   } finally {
     if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
     else process.env.MORPHEUS_NETWORK = previousNetwork;
@@ -2322,7 +2322,7 @@ test('processEvent uses local prepared fulfillment checkpoint when Supabase dura
         { status: 503, headers: { 'content-type': 'application/json' } }
       );
     }
-    if (value === 'https://phala.test/oracle/smart-fetch') {
+    if (value === 'https://nitro.test/oracle/smart-fetch') {
       return new Response(JSON.stringify({ price: '42.10', source: 'test' }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
@@ -2337,7 +2337,7 @@ test('processEvent uses local prepared fulfillment checkpoint when Supabase dura
         ...retryConfig,
         network: 'testnet',
         durableQueue: { enabled: true, failClosed: true, syncLimit: 10, staleProcessingMs: 1000 },
-        phala: { apiUrl: 'https://phala.test', token: 'runtime-token' },
+        nitro: { apiUrl: 'https://nitro.test', token: 'runtime-token' },
         hooks: {
           fulfillNeoRequest: async () => {
             localCheckpointSeenBeforeCallback = state.neo_n3.retry_queue.some(

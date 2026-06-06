@@ -1,0 +1,162 @@
+# Nitro / CVM Deployment
+
+This directory contains the canonical Morpheus deployment layout for the confidential
+execution plane (AWS Nitro signer plus the worker runtime).
+
+For environment variable details, see `docs/ENVIRONMENT.md`.
+
+## Current CVM Topology
+
+Morpheus uses **two role-specialized CVMs**.
+
+### Oracle CVM
+
+- name: `oracle-morpheus-neo-r3e`
+- app id: `ddff154546fe22d15b65667156dd4b7c611e6093`
+- baseline size: `Large TDX`
+- responsibilities:
+  - request/response oracle
+  - confidential compute
+  - NeoDID private flows
+  - confidential signing
+  - attested response generation
+
+### DataFeed CVM
+
+- name: `datafeed-morpheus-neo-r3e`
+- app id: `ac5b6886a2832df36e479294206611652400178f`
+- baseline size: `Small TDX`
+- responsibilities:
+  - feed synchronization
+  - feed publication
+  - continuous market-data lane isolation
+
+This split ensures pricefeeds keep running even when request/response traffic is bursty.
+
+## Routing Model
+
+- Oracle public entry:
+  - `https://oracle.meshmini.app/mainnet`
+  - `https://oracle.meshmini.app/testnet`
+- Oracle attestation explorer:
+  - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+- DataFeed attestation explorer:
+  - `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
+
+Mainnet and testnet share the same Oracle and DataFeed CVMs. Network selection is path-based and config-based.
+
+## Launcher Files
+
+- `nitro.request-hub.toml`
+- `nitro.feed-hub.toml`
+
+Compose files:
+
+- `deploy/nitro/docker-compose.request-hub.yml`
+- `deploy/nitro/docker-compose.feed-hub.yml`
+- `deploy/nitro/docker-compose.ui.yml`
+- `deploy/nitro/docker-compose.ingress.ui.yml`
+
+## Recommended Render Flow
+
+```bash
+npm run render:nitro-env:mainnet
+npm run render:nitro-env:testnet
+npm run render:nitro-hub-env
+npm run check:signers
+npm run check:nitro-env
+```
+
+Notes:
+
+- `npm run render:nitro-env` aliases mainnet
+- signer identities are pinned in `config/signer-identities.json`
+- generated env files stay local and uncommitted
+
+## Relayer Modes
+
+Use explicit relayer mode per CVM:
+
+- Oracle CVM: `MORPHEUS_RELAYER_MODE=requests_only`
+- DataFeed CVM: `MORPHEUS_RELAYER_MODE=feed_only`
+
+For mainnet request fulfillment, keep the signer roles explicit and network-scoped:
+
+- `MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET` / `MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET`
+- `MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET` / `MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET`
+
+`npm run render:nitro-hub-env` reads those values from local secure env
+overrides such as `.env.local` before falling back to packed runtime config.
+Do not use the domain-owner signer for request fulfillment.
+
+Recommended durability settings:
+
+- `MORPHEUS_DURABLE_QUEUE_ENABLED=true`
+- `MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED=true`
+- `MORPHEUS_RELAYER_INSTANCE_ID=<stable-id>`
+
+## Deployment Options
+
+### Option A: Phala UI
+
+Use the dashboard and deploy one compose per CVM.
+
+Recommended:
+
+- Oracle CVM:
+  - launcher: `nitro.request-hub.toml`
+  - compose: `deploy/nitro/docker-compose.request-hub.yml`
+- DataFeed CVM:
+  - launcher: `nitro.feed-hub.toml`
+  - compose: `deploy/nitro/docker-compose.feed-hub.yml`
+  - public execution URL: `https://ac5b6886a2832df36e479294206611652400178f-3000.dstack-pha-prod5.phala.network/{network}`
+
+Prefer encrypted secrets in the dashboard over copying plaintext env files into the guest.
+
+### Option B: CLI
+
+```bash
+phala deploy --cvm-id ac5b6886a2832df36e479294206611652400178f --compose deploy/nitro/docker-compose.feed-hub.yml -e deploy/nitro/morpheus.hub.env --wait
+phala deploy --cvm-id ddff154546fe22d15b65667156dd4b7c611e6093 --compose deploy/nitro/docker-compose.request-hub.yml -e deploy/nitro/morpheus.hub.env --wait
+# Include --profile mainnet-requests only after the mainnet request/updater
+# signer pair is present and passes `npm run check:signers`.
+```
+
+## Required Runtime Capabilities
+
+The Oracle runtime should be provisioned with:
+
+- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN`
+- `PHALA_SHARED_SECRET`
+- `MORPHEUS_RUNTIME_CONFIG_JSON`
+- Supabase server credentials
+- pinned N3 signing identities
+- optional Better Stack telemetry values
+
+The DataFeed runtime should be provisioned with the same runtime config but operate in feed-only mode.
+The DataFeed compose also exposes a small Caddy router on `MORPHEUS_PUBLIC_PORT` so the control
+plane can route `feed_tick` jobs to the dedicated feed workers instead of the request hub.
+
+## Key Operational Notes
+
+- keep `/var/run/dstack.sock` mounted
+- keep the Oracle transport key sealed in the CVM volume
+- do not rotate worker or verifier signers accidentally
+- use `request_cursor` scan mode on testnet
+- keep DataFeed isolated; do not merge it back into the Oracle runtime
+
+## Post-Deploy Verification
+
+```bash
+npm run smoke:n3
+npm run smoke:control-plane
+npm run check:signers
+MORPHEUS_NETWORK=testnet npm run verify:n3
+```
+
+If you need direct runtime confirmation inside the guest:
+
+```bash
+curl http://127.0.0.1:8080/health
+docker exec -it morpheus-relayer npm --prefix workers/morpheus-relayer run metrics
+```

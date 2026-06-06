@@ -292,7 +292,7 @@ async function waitForContainersRunning(appId, timeoutMs = 300000) {
         timeout: REMOTE_COMMAND_TIMEOUT_MS,
       });
       const relayerRunning = /dstack-morpheus-relayer-1.*running/i.test(stdout);
-      const workerRunning = /dstack-phala-worker-1.*running/i.test(stdout);
+      const workerRunning = /nitro-worker.*running/i.test(stdout);
       if (relayerRunning && workerRunning) return;
     } catch {}
     await sleep(3000);

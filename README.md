@@ -61,16 +61,16 @@
 
 - `config/networks/mainnet.json` is the canonical mainnet registry.
 - `config/networks/testnet.json` is the canonical testnet registry.
-- `phala.request-hub.toml` points to the Oracle CVM launcher.
-- `phala.feed-hub.toml` points to the DataFeed CVM launcher.
-- `deploy/phala/morpheus.mainnet.env` and `deploy/phala/morpheus.testnet.env` are generated local env files and must remain uncommitted.
+- `nitro.request-hub.toml` points to the Oracle CVM launcher.
+- `nitro.feed-hub.toml` points to the DataFeed CVM launcher.
+- `deploy/nitro/morpheus.mainnet.env` and `deploy/nitro/morpheus.testnet.env` are generated local env files and must remain uncommitted.
 - `scripts/export-public-network-registry.mjs` emits the canonical public network registry for consumer repos.
 - `scripts/export-public-runtime-catalog.mjs` emits the public workflow and envelope catalog for consumer repos.
 
 ## Repository Layout
 
 - `apps/web` — Next.js dashboard, docs, explorer, and backend routes used by the control plane
-- `workers/phala-worker` — confidential execution runtime
+- `workers/nitro-worker` — confidential execution runtime
 - `workers/morpheus-relayer` — on-chain async bridge and callback relayer
 - `deploy/cloudflare` — edge gateway and control-plane workers
 - `contracts` — Neo N3 MiniApp OS kernel and built-in modules
@@ -162,5 +162,5 @@ npm run examples:test:n3:attack-regression
 - `docs/EXAMPLES.md`
 - `docs/SAAS_STACK_INTEGRATION.md`
 - `docs/PHALA_DUAL_CVM_ATTESTATION_REGISTRY.md`
-- `deploy/phala/README.md`
+- `deploy/nitro/README.md`
 - verifier UI: `/verifier`

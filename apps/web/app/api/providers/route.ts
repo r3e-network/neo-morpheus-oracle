@@ -1,4 +1,4 @@
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 
 function readNetwork(request: Request) {
   return new URL(request.url).searchParams.get('network');
@@ -6,7 +6,7 @@ function readNetwork(request: Request) {
 
 export async function GET(request: Request) {
   const network = readNetwork(request);
-  return proxyToPhala(
+  return proxyToNitro(
     '/providers',
     { method: 'GET' },
     {

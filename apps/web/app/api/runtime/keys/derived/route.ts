@@ -1,9 +1,9 @@
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const role = (url.searchParams.get('role') || 'worker').trim() || 'worker';
-  return proxyToPhala(
+  return proxyToNitro(
     `/keys/derived?role=${encodeURIComponent(role)}`,
     { method: 'GET' },
     {

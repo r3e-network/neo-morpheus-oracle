@@ -18,7 +18,7 @@ Morpheus now deploys by responsibility, not by network.
 - `config/networks/mainnet.json`
 - `config/networks/testnet.json`
 - `docs/ENVIRONMENT.md`
-- `deploy/phala/README.md`
+- `deploy/nitro/README.md`
 
 Recommended operator rules:
 
@@ -177,16 +177,16 @@ Current public pattern:
 Generate fresh env files before each deployment:
 
 ```bash
-npm run render:phala-env:mainnet
-npm run render:phala-env:testnet
-npm run render:phala-hub-env
+npm run render:nitro-compose-env:mainnet
+npm run render:nitro-compose-env:testnet
+npm run render:nitro-hub-env
 npm run check:signers
-npm run check:phala-env
+npm run check:nitro-env
 ```
 
 Notes:
 
-- `npm run render:phala-env` aliases mainnet generation
+- `npm run render:nitro-compose-env` aliases mainnet generation
 - signer drift should fail deployment review
 - generated env files stay local and uncommitted
 
@@ -208,13 +208,13 @@ Notes:
 
 Tracked launchers:
 
-- `phala.request-hub.toml`
-- `phala.feed-hub.toml`
+- `nitro.request-hub.toml`
+- `nitro.feed-hub.toml`
 
 Deployment files:
 
-- `deploy/phala/docker-compose.request-hub.yml`
-- `deploy/phala/docker-compose.feed-hub.yml`
+- `deploy/nitro/docker-compose.request-hub.yml`
+- `deploy/nitro/docker-compose.feed-hub.yml`
 - `workers/phala-worker/Dockerfile`
 - `workers/morpheus-relayer/Dockerfile`
 

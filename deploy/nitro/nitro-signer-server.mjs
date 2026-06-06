@@ -11,6 +11,9 @@ const attestBin = trimString(process.env.NITRO_ATTEST_BIN) || '/app/bin/nsm-atte
 const runtimeTrustedTokens = new Set([
   process.env.NITRO_SIGNER_TOKEN,
   process.env.MORPHEUS_RUNTIME_TOKEN,
+  process.env.NITRO_API_TOKEN,
+  process.env.PHALA_API_TOKEN,
+  process.env.NITRO_SHARED_SECRET,
   process.env.PHALA_SHARED_SECRET,
 ]
   .map((value) => trimString(value))
@@ -41,7 +44,12 @@ function assertAuthorized(req) {
     ? authorization.slice('bearer '.length).trim()
     : '';
   const token =
-    bearer || trimString(req.headers['x-phala-token'] || req.headers['x-runtime-token']);
+    bearer ||
+    trimString(
+      req.headers['x-nitro-token'] ||
+        req.headers['x-phala-token'] ||
+        req.headers['x-runtime-token']
+    );
   if (!runtimeTrustedTokens.has(token)) {
     const error = new Error('unauthorized');
     error.status = 401;
@@ -147,7 +155,14 @@ function handleProvision(payload) {
     if (text) nextEnv[key] = text;
   }
   provisionedEnv = { ...provisionedEnv, ...nextEnv };
-  for (const key of ['NITRO_SIGNER_TOKEN', 'MORPHEUS_RUNTIME_TOKEN', 'PHALA_SHARED_SECRET']) {
+  for (const key of [
+    'NITRO_SIGNER_TOKEN',
+    'MORPHEUS_RUNTIME_TOKEN',
+    'NITRO_API_TOKEN',
+    'PHALA_API_TOKEN',
+    'NITRO_SHARED_SECRET',
+    'PHALA_SHARED_SECRET',
+  ]) {
     if (provisionedEnv[key]) runtimeTrustedTokens.add(provisionedEnv[key]);
   }
   const roles = signerHealth();

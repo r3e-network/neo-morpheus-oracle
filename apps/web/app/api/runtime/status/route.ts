@@ -1,4 +1,4 @@
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 import {
   buildPublicRuntimeStatusSnapshot,
   type RuntimeProbeSnapshotInput,
@@ -16,7 +16,7 @@ async function readRuntimeProbe(
   path: string,
   probe: 'health' | 'info'
 ): Promise<RuntimeProbeSnapshotInput> {
-  const response = await proxyToPhala(
+  const response = await proxyToNitro(
     path,
     { method: 'GET' },
     {

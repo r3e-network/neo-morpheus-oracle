@@ -30,7 +30,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm --prefix workers/phala-worker test
+      - run: npm --prefix workers/nitro-worker test
       - run: npm --prefix workers/morpheus-relayer test
       - run: npm --prefix apps/web run test:run
       - run: npm --prefix apps/web run build

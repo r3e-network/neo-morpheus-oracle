@@ -5,7 +5,7 @@ import {
 } from '@/lib/control-plane';
 import { resolveProviderAwarePayload } from '@/lib/provider-configs';
 import { recordOperationLog } from '@/lib/operation-logs';
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 import { createRateLimitedHandler } from '@/lib/rate-limit';
 import { badRequest } from '@/lib/api-helpers';
 
@@ -50,7 +50,7 @@ const handlePost = createRateLimitedHandler(
           return controlPlaneResponse;
         }
       }
-      return proxyToPhala(
+      return proxyToNitro(
         '/oracle/query',
         {
           method: 'POST',

@@ -12,12 +12,12 @@ import {
   getDefaultFeedSymbols,
   getFeedDisplaySymbol,
   getFeedUnitLabel,
-} from '../../workers/phala-worker/src/oracle/feed-registry.js';
+} from '../../workers/nitro-worker/src/oracle/feed-registry.js';
 import {
   buildProviderRequest,
   fetchProviderJSON,
   resolveProviderPayload,
-} from '../../workers/phala-worker/src/oracle/providers.js';
+} from '../../workers/nitro-worker/src/oracle/providers.js';
 
 function extractQuotePrice(data) {
   return data?.price ?? data?.value ?? data?.close ?? data?.data?.amount ?? null;

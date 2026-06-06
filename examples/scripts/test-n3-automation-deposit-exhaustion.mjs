@@ -490,7 +490,7 @@ async function waitForContainersRunning(appId, timeoutMs = 300000) {
         maxBuffer: 10 * 1024 * 1024,
       });
       const relayerRunning = /morpheus-relayer.*running/i.test(stdout);
-      const workerRunning = /phala-worker.*running/i.test(stdout);
+      const workerRunning = /nitro-worker.*running/i.test(stdout);
       if (relayerRunning && workerRunning) return;
     } catch {}
     await sleep(3000);

@@ -93,11 +93,11 @@ const [
   deploymentDocText,
 ] = await Promise.all([
   read('apps/web/lib/docs-data.ts'),
-  read('workers/phala-worker/src/compute/index.js'),
+  read('workers/nitro-worker/src/compute/index.js'),
   read('apps/web/lib/onchain-data.ts'),
   read('apps/web/lib/networks.ts'),
   read('apps/web/lib/feed-defaults.ts'),
-  read('workers/phala-worker/src/oracle/feed-registry.js'),
+  read('workers/nitro-worker/src/oracle/feed-registry.js'),
   read('config/networks/mainnet.json'),
   read('config/networks/testnet.json'),
   read('apps/web/app/docs/oracle/page.tsx'),
@@ -247,9 +247,9 @@ assert(
 );
 assert(
   deploymentDocText.includes('NeoDIDRegistry') &&
-    deploymentDocText.includes('phala.request-hub.toml') &&
-    deploymentDocText.includes('phala.feed-hub.toml'),
-  'docs/DEPLOYMENT.md must document NeoDID anchors and both role-split Phala descriptors'
+    deploymentDocText.includes('nitro.request-hub.toml') &&
+    deploymentDocText.includes('nitro.feed-hub.toml'),
+  'docs/DEPLOYMENT.md must document NeoDID anchors and both role-split Nitro descriptors'
 );
 const versionedDocsText = [
   docsIndexText,

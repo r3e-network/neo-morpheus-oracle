@@ -21,18 +21,20 @@ function normalizeChainPair(value: string) {
 }
 
 async function fetchLiveQuote(pair: string) {
-  if (!appConfig.phalaApiUrl) {
+  if (!appConfig.nitroApiUrl) {
     return { error: 'MORPHEUS_RUNTIME_URL is not configured' };
   }
 
   const headers = new Headers({ accept: 'application/json' });
-  if (appConfig.phalaToken) {
-    headers.set('authorization', `Bearer ${appConfig.phalaToken}`);
-    headers.set('x-phala-token', appConfig.phalaToken);
+  if (appConfig.nitroToken) {
+    headers.set('authorization', `Bearer ${appConfig.nitroToken}`);
+    // Emit both header names for backward-compat with the legacy Phala runtime.
+    headers.set('x-nitro-token', appConfig.nitroToken);
+    headers.set('x-phala-token', appConfig.nitroToken);
   }
 
   const quoteUrl = new URL(
-    `${appConfig.phalaApiUrl.replace(/\/$/, '')}/feeds/price/${encodeURIComponent(pair)}`
+    `${appConfig.nitroApiUrl.replace(/\/$/, '')}/feeds/price/${encodeURIComponent(pair)}`
   );
   if (appConfig.feedProjectSlug) {
     quoteUrl.searchParams.set('project_slug', appConfig.feedProjectSlug);

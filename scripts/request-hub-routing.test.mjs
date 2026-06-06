@@ -27,8 +27,8 @@ function extractBareCaddyNetwork(source) {
 
 test('request-hub bare routes stay aligned with the edge default network', () => {
   const edgeWorker = readRepoFile('deploy/cloudflare/morpheus-edge-gateway/worker.mjs');
-  const standaloneCaddy = readRepoFile('deploy/phala/Caddyfile.request-hub');
-  const inlineCompose = readRepoFile('deploy/phala/docker-compose.request-hub.yml');
+  const standaloneCaddy = readRepoFile('deploy/nitro/Caddyfile.request-hub');
+  const inlineCompose = readRepoFile('deploy/nitro/docker-compose.request-hub.yml');
 
   const defaultNetwork = extractCloudflareDefaultNetwork(edgeWorker);
   assert.equal(defaultNetwork, 'testnet');
@@ -46,10 +46,10 @@ function extractServiceBlock(source, serviceName) {
 
 for (const [composePath, services] of [
   [
-    'deploy/phala/docker-compose.request-hub.yml',
+    'deploy/nitro/docker-compose.request-hub.yml',
     ['mainnet-request-relayer', 'testnet-request-relayer'],
   ],
-  ['deploy/phala/docker-compose.feed-hub.yml', ['mainnet-feed-relayer', 'testnet-feed-relayer']],
+  ['deploy/nitro/docker-compose.feed-hub.yml', ['mainnet-feed-relayer', 'testnet-feed-relayer']],
 ]) {
   test(`${composePath} relayers expose tick-freshness healthchecks`, () => {
     const source = readRepoFile(composePath);
@@ -66,7 +66,7 @@ for (const [composePath, services] of [
 }
 
 test('request-hub relayers receive network-scoped signer env from rendered hub env', () => {
-  const source = readRepoFile('deploy/phala/docker-compose.request-hub.yml');
+  const source = readRepoFile('deploy/nitro/docker-compose.request-hub.yml');
   const mainnetBlock = extractServiceBlock(source, 'mainnet-request-relayer');
   const testnetBlock = extractServiceBlock(source, 'testnet-request-relayer');
 
@@ -93,7 +93,7 @@ test('request-hub relayers receive network-scoped signer env from rendered hub e
 });
 
 test('request-hub deploy keeps both network request relayers active by default', () => {
-  const source = readRepoFile('deploy/phala/docker-compose.request-hub.yml');
+  const source = readRepoFile('deploy/nitro/docker-compose.request-hub.yml');
   const mainnetBlock = extractServiceBlock(source, 'mainnet-request-relayer');
   const testnetBlock = extractServiceBlock(source, 'testnet-request-relayer');
 

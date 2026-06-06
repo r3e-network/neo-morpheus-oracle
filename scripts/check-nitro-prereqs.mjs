@@ -39,8 +39,8 @@ const sources = args.source.filter(Boolean).length
   : [
       '.env',
       '.env.local',
-      `deploy/phala/morpheus.${network}.env`,
-      'deploy/phala/morpheus.hub.env',
+      `deploy/nitro/morpheus.${network}.env`,
+      'deploy/nitro/morpheus.hub.env',
       '.automation-logs/hourly-full-stack-validation/20260522-090604/workspace-secrets.env',
     ];
 const env = await readMergedDotEnvFiles(sources.map((entry) => path.resolve(repoRoot, entry)));

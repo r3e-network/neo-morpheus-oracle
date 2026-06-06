@@ -30,10 +30,10 @@ type FeedSyncOptions = {
 
 export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
   const candidateUrls =
-    Array.isArray(appConfig.phalaApiUrls) && appConfig.phalaApiUrls.length > 0
-      ? appConfig.phalaApiUrls
-      : appConfig.phalaApiUrl
-        ? [appConfig.phalaApiUrl]
+    Array.isArray(appConfig.nitroApiUrls) && appConfig.nitroApiUrls.length > 0
+      ? appConfig.nitroApiUrls
+      : appConfig.nitroApiUrl
+        ? [appConfig.nitroApiUrl]
         : [];
   if (candidateUrls.length === 0) {
     throw new Error('MORPHEUS_RUNTIME_URL is not configured');
@@ -57,9 +57,11 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
       : parseFeedSymbols(process.env.MORPHEUS_FEED_SYMBOLS);
 
   const headers = new Headers({ 'content-type': 'application/json' });
-  if (appConfig.phalaToken) {
-    headers.set('authorization', `Bearer ${appConfig.phalaToken}`);
-    headers.set('x-phala-token', appConfig.phalaToken);
+  if (appConfig.nitroToken) {
+    headers.set('authorization', `Bearer ${appConfig.nitroToken}`);
+    // Emit both header names for backward-compat with the legacy Phala runtime.
+    headers.set('x-nitro-token', appConfig.nitroToken);
+    headers.set('x-phala-token', appConfig.nitroToken);
   }
 
   const results = await Promise.all(

@@ -9,7 +9,7 @@ import {
 } from './lib/neo-signers.js';
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
-const DEFAULT_PHALA_TIMEOUT_MS = 10_000;
+const DEFAULT_NITRO_TIMEOUT_MS = 10_000;
 const MAX_REQUEST_TIMEOUT_MS = 10_000;
 const MAX_FEED_SYNC_TIMEOUT_MS = 30_000;
 const DEFAULT_NEO_N3_RPC_URLS = {
@@ -198,13 +198,15 @@ function resolvePublicRuntimeCandidates(network, registry) {
   ]);
 }
 
-function resolvePhalaApiUrls(network, registry) {
+function resolveNitroApiUrls(network, registry) {
   const explicit = uniqueOrdered(
     parseUrlList(
       env(
         `MORPHEUS_${network.toUpperCase()}_RUNTIME_URL`,
         'MORPHEUS_RUNTIME_URL',
+        `MORPHEUS_${network.toUpperCase()}_NITRO_API_URL`,
         `MORPHEUS_${network.toUpperCase()}_PHALA_API_URL`,
+        'NITRO_API_URL',
         'PHALA_API_URL'
       )
     )
@@ -238,7 +240,7 @@ export function createRelayerConfig() {
   const registry = loadNetworkRegistry(network);
   const neoN3RpcUrls = resolveNeoN3RpcUrls(network, registry);
   const mode = resolveRelayerMode(env('MORPHEUS_RELAYER_MODE') || 'combined');
-  const useDerivedKeys = parseBoolean(env('PHALA_USE_DERIVED_KEYS'), false);
+  const useDerivedKeys = parseBoolean(env('NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'), false);
   const hasSupabaseUrl = Boolean(
     env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL')
   );
@@ -364,11 +366,20 @@ export function createRelayerConfig() {
         : null,
     },
     stateFile,
-    phala: {
-      apiUrl: resolvePhalaApiUrls(network, registry),
-      token: env('MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'),
+    nitro: {
+      apiUrl: resolveNitroApiUrls(network, registry),
+      token: env(
+        'MORPHEUS_RUNTIME_TOKEN',
+        'NITRO_API_TOKEN',
+        'PHALA_API_TOKEN',
+        'NITRO_SHARED_SECRET',
+        'PHALA_SHARED_SECRET'
+      ),
       timeoutMs: Math.min(
-        Math.max(Number(env('MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_PHALA_TIMEOUT_MS), 1000),
+        Math.max(
+          Number(env('MORPHEUS_NITRO_TIMEOUT_MS', 'MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_NITRO_TIMEOUT_MS),
+          1000
+        ),
         MAX_REQUEST_TIMEOUT_MS
       ),
       useDerivedKeys,
@@ -410,12 +421,14 @@ export function createRelayerConfig() {
         funderWif: env(
           'MORPHEUS_RELAYER_NEO_N3_FEE_FUNDER_WIF',
           'MORPHEUS_NEO_N3_FEE_FUNDER_WIF',
+          'NITRO_NEO_N3_WIF',
           'PHALA_NEO_N3_WIF',
           'MORPHEUS_RELAYER_NEO_N3_WIF'
         ),
         funderPrivateKey: env(
           'MORPHEUS_RELAYER_NEO_N3_FEE_FUNDER_PRIVATE_KEY',
           'MORPHEUS_NEO_N3_FEE_FUNDER_PRIVATE_KEY',
+          'NITRO_NEO_N3_PRIVATE_KEY',
           'PHALA_NEO_N3_PRIVATE_KEY',
           'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'
         ),

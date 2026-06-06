@@ -1,4 +1,4 @@
-import { proxyToPhala } from '@/lib/phala';
+import { proxyToNitro } from '@/lib/nitro';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { isAuthorizedAdminRequest } from '@/lib/server-supabase';
 
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     });
     return Response.json({ error: 'unauthorized' }, { status: 401 });
   }
-  return proxyToPhala(
+  return proxyToNitro(
     '/sign/payload',
     { method: 'POST', body },
     {

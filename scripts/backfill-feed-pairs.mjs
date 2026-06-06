@@ -81,7 +81,7 @@ async function main() {
       ? args.symbols.map((entry) => (entry.includes(':') ? entry : `TWELVEDATA:${entry}`))
       : configuredPairs;
 
-  const { handleOracleFeed } = await import('../workers/phala-worker/src/oracle/feeds.js');
+  const { handleOracleFeed } = await import('../workers/nitro-worker/src/oracle/feeds.js');
 
   const results = [];
   for (const symbols of chunk(targetPairs, Math.max(Number(args.batchSize) || 5, 1))) {

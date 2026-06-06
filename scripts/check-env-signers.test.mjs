@@ -32,7 +32,7 @@ function generatedSignerLines() {
   };
 }
 
-test('check-phala-env accepts suffix-scoped mainnet worker, relayer, and updater signers', () => {
+test('check-nitro-env accepts suffix-scoped mainnet worker, relayer, and updater signers', () => {
   const signer = generatedSignerLines();
   const envPath = writeEnvFile([
     'PHALA_SHARED_SECRET=test-secret',
@@ -50,7 +50,7 @@ test('check-phala-env accepts suffix-scoped mainnet worker, relayer, and updater
     `MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET=${signer.wif}`,
   ]);
 
-  const result = spawnSync(process.execPath, ['scripts/check-phala-env.mjs'], {
+  const result = spawnSync(process.execPath, ['scripts/check-nitro-env.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',
     env: baseSpawnEnv({ PHALA_ENV_FILE: envPath }),

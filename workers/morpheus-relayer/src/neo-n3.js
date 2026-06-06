@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { relayNeoN3Invocation } from '../../phala-worker/src/chain/index.js';
+import { relayNeoN3Invocation } from '../../nitro-worker/src/chain/index.js';
 import { experimental, sc, tx, u, wallet as neonWallet } from '@cityofzion/neon-js';
-import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './dstack.js';
-import { callPhala } from './phala.js';
+import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './nitro-signer.js';
+import { callNitro } from './nitro.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -698,7 +698,7 @@ function buildFulfillRequestParams(requestId, success, resultHex, error, verific
 }
 
 async function resolveRuntimeDerivedUpdater(config) {
-  const response = await callPhala(config, '/keys/derived', {
+  const response = await callNitro(config, '/keys/derived', {
     role: 'updater',
     key_role: 'updater',
     dstack_key_role: 'updater',
@@ -722,7 +722,7 @@ async function resolveRuntimeDerivedUpdater(config) {
 }
 
 async function signNeoN3TransactionWithRuntimeUpdater(config, messageHex, expectedPublicKey) {
-  const response = await callPhala(config, '/sign/payload', {
+  const response = await callNitro(config, '/sign/payload', {
     target_chain: 'neo_n3',
     key_role: 'updater',
     dstack_key_role: 'updater',

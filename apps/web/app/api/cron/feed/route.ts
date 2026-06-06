@@ -115,7 +115,7 @@ export async function GET(request: Request) {
     return jsonNoStore(body, { status: 401 });
   }
 
-  if (!appConfig.phalaApiUrl) {
+  if (!appConfig.nitroApiUrl) {
     const body = { error: 'MORPHEUS_RUNTIME_URL is not configured' };
     await recordOperationLog({
       route: '/api/cron/feed',

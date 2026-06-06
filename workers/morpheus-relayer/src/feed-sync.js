@@ -1,4 +1,4 @@
-import { callPhala } from './phala.js';
+import { callNitro } from './nitro.js';
 import { incrementMetric, saveRelayerState } from './state.js';
 
 export function getFeedSyncDelayMs(config, state, nowMs = Date.now()) {
@@ -139,7 +139,7 @@ export async function processFeedSync(config, state, logger) {
     try {
       const payload = buildFeedSyncPayload(config, targetChain);
 
-      const timeoutAwareResponse = await callPhala(config, '/oracle/feed', payload, {
+      const timeoutAwareResponse = await callNitro(config, '/oracle/feed', payload, {
         timeoutMs: config.feedSync.timeoutMs,
         maxTimeoutMs: config.feedSync.timeoutMs,
         allowFallback: false,

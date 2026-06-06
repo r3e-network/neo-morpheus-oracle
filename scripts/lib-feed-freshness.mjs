@@ -4,7 +4,7 @@ import path from 'node:path';
 import {
   fetchPriceQuote,
   decimalToIntegerString,
-} from '../workers/phala-worker/src/oracle/index.js';
+} from '../workers/nitro-worker/src/oracle/index.js';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
