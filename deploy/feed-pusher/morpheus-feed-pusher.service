@@ -1,0 +1,9 @@
+[Unit]
+Description=Morpheus DataFeed pusher (8787-signed)
+After=network-online.target morpheus-nitro-signer.service
+Wants=network-online.target
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/morpheus/nitro/feed-pusher.env
+WorkingDirectory=/opt/morpheus/neo-morpheus-oracle
+ExecStart=/usr/bin/node feed-pusher.mjs
