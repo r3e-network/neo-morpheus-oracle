@@ -6,7 +6,7 @@ const selectedNetwork = getSelectedNetwork();
 const defaultNeoRpcUrl = selectedNetwork.neo_n3?.rpc_url || '';
 const defaultControlPlaneUrl =
   process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
-const defaultNitroApiUrl = selectedNetwork.phala?.public_api_url || '';
+const defaultNitroApiUrl = selectedNetwork.nitro?.public_api_url || '';
 
 function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';

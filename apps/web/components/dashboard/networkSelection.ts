@@ -25,8 +25,8 @@ export function getDashboardNetworkConfig(networkOverride?: string | null) {
     callbackConsumer: examples.oracle_callback_consumer || contracts.oracle_callback_consumer || '',
     oracleDomain: domains.morpheus_oracle || '',
     datafeedDomain: domains.morpheus_datafeed || '',
-    oracleAttestationExplorerUrl: selectedNetwork.phala?.oracle_attestation_explorer_url || '',
-    datafeedAttestationExplorerUrl: selectedNetwork.phala?.datafeed_attestation_explorer_url || '',
+    oracleAttestationExplorerUrl: selectedNetwork.nitro?.oracle_attestation_explorer_url || '',
+    datafeedAttestationExplorerUrl: selectedNetwork.nitro?.datafeed_attestation_explorer_url || '',
   };
 }
 

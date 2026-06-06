@@ -55,7 +55,7 @@ function resolveRuntimeCandidates(networkOverride?: string | null) {
   const defaults = [
     networkScopedEnv('MORPHEUS_RUNTIME_URL', networkKey),
     networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL', networkKey),
-    selectedNetwork.phala?.public_api_url || '',
+    selectedNetwork.nitro?.public_api_url || '',
     `https://oracle.meshmini.app/${networkKey}`,
     `https://edge.meshmini.app/${networkKey}`,
     trimString(process.env.MORPHEUS_RUNTIME_URL || ''),

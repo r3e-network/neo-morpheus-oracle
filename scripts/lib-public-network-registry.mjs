@@ -106,10 +106,12 @@ function buildDomains(rawRegistry) {
 }
 
 function buildMorpheusRuntime(network, rawRegistry) {
-  const phala = rawRegistry?.phala || {};
-  const publicApiUrl = trimString(phala.public_api_url);
-  const edgeUrl = trimString(phala.edge_public_url);
-  const controlPlaneBaseUrl = trimString(phala.control_plane_url);
+  // Prefer the `nitro` registry key; fall back to the legacy `phala` key so a
+  // live box whose deployed registry has not yet been redeployed still loads.
+  const nitro = rawRegistry?.nitro ?? rawRegistry?.phala ?? {};
+  const publicApiUrl = trimString(nitro.public_api_url);
+  const edgeUrl = trimString(nitro.edge_public_url);
+  const controlPlaneBaseUrl = trimString(nitro.control_plane_url);
   const runtimeUrls = [publicApiUrl, edgeUrl].filter(Boolean);
 
   return {
@@ -120,12 +122,12 @@ function buildMorpheusRuntime(network, rawRegistry) {
     edgeUrl,
     controlPlaneBaseUrl,
     controlPlaneUrl: withNetworkSuffix(controlPlaneBaseUrl, network),
-    oracleCvmId: trimString(phala.cvm_id),
-    oracleCvmName: trimString(phala.cvm_name),
-    oracleAttestationExplorerUrl: trimString(phala.oracle_attestation_explorer_url),
-    datafeedCvmId: trimString(phala.datafeed_cvm_id),
-    datafeedCvmName: trimString(phala.datafeed_cvm_name),
-    datafeedAttestationExplorerUrl: trimString(phala.datafeed_attestation_explorer_url),
+    oracleCvmId: trimString(nitro.cvm_id),
+    oracleCvmName: trimString(nitro.cvm_name),
+    oracleAttestationExplorerUrl: trimString(nitro.oracle_attestation_explorer_url),
+    datafeedCvmId: trimString(nitro.datafeed_cvm_id),
+    datafeedCvmName: trimString(nitro.datafeed_cvm_name),
+    datafeedAttestationExplorerUrl: trimString(nitro.datafeed_attestation_explorer_url),
     neoDidServiceDid: MORPHEUS_NEODID_SERVICE_DID,
   };
 }

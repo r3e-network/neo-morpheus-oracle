@@ -1,15 +1,15 @@
 {
   "network": "mainnet",
-  "phala": {
+  "nitro": {
     "cvm_id": "ddff154546fe22d15b65667156dd4b7c611e6093",
     "cvm_name": "oracle-morpheus-neo-r3e",
     "public_api_url": "https://oracle.meshmini.app/mainnet",
     "edge_public_url": "https://edge.meshmini.app/mainnet",
     "control_plane_url": "https://control.meshmini.app",
-    "oracle_attestation_explorer_url": "https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093",
+    "oracle_attestation_explorer_url": "",
     "datafeed_cvm_id": "ac5b6886a2832df36e479294206611652400178f",
     "datafeed_cvm_name": "datafeed-morpheus-neo-r3e",
-    "datafeed_attestation_explorer_url": "https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f"
+    "datafeed_attestation_explorer_url": ""
   },
   "neo_n3": {
     "rpc_url": "https://api.n3index.dev/mainnet",

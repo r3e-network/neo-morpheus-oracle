@@ -969,14 +969,15 @@ async function main() {
       process.env.PHALA_API_TOKEN ||
       process.env.PHALA_SHARED_SECRET
   );
+  const runtimeRegistry = networkConfig.nitro ?? networkConfig.phala;
   const runtimeKeyUrls = [
     trimString(process.env.MORPHEUS_PUBLIC_API_URL),
-    trimString(networkConfig.phala?.public_api_url),
+    trimString(runtimeRegistry?.public_api_url),
     runtimeUrl,
   ].filter(Boolean);
   const runtimeSignUrls = [
     trimString(process.env.MORPHEUS_SIGNING_URL),
-    trimString(networkConfig.phala?.public_api_url),
+    trimString(runtimeRegistry?.public_api_url),
     runtimeUrl,
   ].filter(Boolean);
 

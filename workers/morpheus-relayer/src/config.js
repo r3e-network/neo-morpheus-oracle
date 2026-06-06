@@ -191,8 +191,11 @@ function resolveNetworkName() {
 }
 
 function resolvePublicRuntimeCandidates(network, registry) {
+  // Prefer the `nitro` registry key; fall back to the legacy `phala` key so a
+  // live box whose deployed registry has not yet been redeployed still resolves.
+  const runtimeRegistry = registry.nitro ?? registry.phala;
   return uniqueOrdered([
-    trimString(registry.phala?.public_api_url || ''),
+    trimString(runtimeRegistry?.public_api_url || ''),
     `https://oracle.meshmini.app/${network}`,
     `https://edge.meshmini.app/${network}`,
   ]);

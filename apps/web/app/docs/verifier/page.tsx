@@ -6,9 +6,9 @@ import { networkRegistry } from '@/lib/networks';
 
 export default function DocsVerifier() {
   const oracleAttestationExplorer =
-    networkRegistry.mainnet.phala?.oracle_attestation_explorer_url || '';
+    networkRegistry.mainnet.nitro?.oracle_attestation_explorer_url || '';
   const datafeedAttestationExplorer =
-    networkRegistry.mainnet.phala?.datafeed_attestation_explorer_url || '';
+    networkRegistry.mainnet.nitro?.datafeed_attestation_explorer_url || '';
 
   return (
     <div className="fade-in">

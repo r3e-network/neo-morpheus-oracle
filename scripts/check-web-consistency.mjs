@@ -162,8 +162,8 @@ assert(
   'apps/web/lib/onchain-data.ts must expose the selected-network example consumer'
 );
 assert(
-  onchainDataText.includes('selectedNetwork.phala?.public_api_url'),
-  'apps/web/lib/onchain-data.ts must expose the selected-network Phala endpoint'
+  onchainDataText.includes('selectedNetwork.nitro?.public_api_url'),
+  'apps/web/lib/onchain-data.ts must expose the selected-network Nitro endpoint'
 );
 
 assert(
