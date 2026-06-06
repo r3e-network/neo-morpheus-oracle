@@ -56,7 +56,7 @@ async function fetchRuntimeConfig(appId, apiToken) {
 }
 
 async function backupOracleKeystore(appId, apiToken, destination) {
-  const candidateContainers = ['morpheus-phala-worker', 'dstack-phala-worker-1'];
+  const candidateContainers = ['morpheus-nitro-worker', 'nitro-worker', 'morpheus-phala-worker'];
 
   let lastError = null;
   for (const containerName of candidateContainers) {
