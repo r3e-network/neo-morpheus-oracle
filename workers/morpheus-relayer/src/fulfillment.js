@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { callPhala } from './phala.js';
 import {
   buildFulfillmentDigestBytes,
@@ -551,6 +552,32 @@ async function prepareOracleFulfillment(config, event, logger = null) {
         verification_signature: verification.signature,
       }
     );
+  }
+  // Local VRF handler: kernel random.generate needs no compute worker — verifiable
+  // randomness is just 32 CSPRNG bytes signed by the oracle_verifier. Mirrors the
+  // operator-only / automation local branches above (no callPhala). The on-chain
+  // compact callback is the raw 32-byte randomness (resolveCompactCallbackBytes).
+  if (kernelIntent.moduleId === 'random.generate') {
+    const randomness = crypto.randomBytes(32).toString('hex');
+    const vrfResponse = { ok: true, status: 200, body: { randomness } };
+    const vrfFulfillment = encodeFulfillmentResult(event.requestType, vrfResponse);
+    const vrfVerification = await signFulfillmentPayload(config, event.chain, {
+      requestId: event.requestId,
+      requestType: event.requestType,
+      ...fulfillmentContext,
+      success: vrfFulfillment.success,
+      result: vrfFulfillment.result || '',
+      result_bytes_base64: vrfFulfillment.result_bytes_base64 || '',
+      error: vrfFulfillment.error || '',
+    });
+    return buildPreparedFulfillment(vrfFulfillment, {
+      route: 'local:vrf',
+      module_id: fulfillmentContext.moduleId,
+      operation: fulfillmentContext.operation,
+      worker_response: vrfResponse.body,
+      worker_status: 200,
+      verification_signature: vrfVerification.signature,
+    });
   }
   const route = resolveWorkerRoute(event.requestType, payload);
   const workerPayload = buildWorkerPayload(
