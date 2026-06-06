@@ -192,7 +192,7 @@ async function loadStableOracleKeyMaterial() {
     }
     const publicKeyRawBytes = Buffer.from(parsed.public_key_raw, 'base64');
     const privateKeyPkcs8Bytes = decryptPrivateKey(parsed.sealed_private_key, wrapKey);
-    return formatKeyMaterial({ publicKeyRawBytes, privateKeyPkcs8Bytes, source: 'dstack-sealed' });
+    return formatKeyMaterial({ publicKeyRawBytes, privateKeyPkcs8Bytes, source: 'nitro-sealed' });
   } catch {}
 
   const generated = await generateX25519KeyMaterial();
@@ -210,7 +210,7 @@ async function loadStableOracleKeyMaterial() {
   return formatKeyMaterial({
     publicKeyRawBytes: generated.publicKeyRawBytes,
     privateKeyPkcs8Bytes: generated.privateKeyPkcs8Bytes,
-    source: 'dstack-sealed:new',
+    source: 'nitro-sealed:new',
   });
 }
 
@@ -564,7 +564,7 @@ export async function ensureOracleKeyMaterial(payload = {}) {
 
       if (!normalizeBoolean(env('MORPHEUS_ALLOW_EPHEMERAL_KEY'), false)) {
         throw new Error(
-          'oracle key material unavailable: no configured key, dstack sealed keystore, or ephemeral key not allowed'
+          'oracle key material unavailable: no configured key, Secrets Manager sealed keystore, or ephemeral key not allowed'
         );
       }
 

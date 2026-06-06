@@ -12,7 +12,8 @@
   "dependencies": {
     "@cityofzion/neon-js": "^5.8.1",
     "ethers": "^6.16.0",
-    "jose": "^6.2.1"
+    "jose": "^6.2.1",
+    "@aws-sdk/client-secrets-manager": "^3.0.0"
   },
   "overrides": {
     "@cityofzion/neon-core": {

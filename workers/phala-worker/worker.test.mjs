@@ -90,8 +90,12 @@ for (const key of Object.keys(process.env)) {
 const baselineEnv = { ...process.env };
 
 const { default: handler } = await import('./src/worker.js');
-const { __setDstackClientFactoryForTests, __resetDstackClientStateForTests } =
-  await import('./src/platform/dstack.js');
+const {
+  __setDstackClientFactoryForTests,
+  __resetDstackClientStateForTests,
+  __setSecretsProviderForTests,
+  __resetSecretsProviderStateForTests,
+} = await import('./src/platform/nitro-signer.js');
 const { __resetOracleKeyMaterialForTests, decryptEncryptedToken } =
   await import('./src/oracle/crypto.js');
 const { __drainOracleFeedBackgroundTasksForTests, __resetFeedStateForTests } =
@@ -1548,25 +1552,15 @@ test('oracle public key endpoint returns X25519 metadata', async () => {
   assert.deepEqual(body.supported_payload_encryption, [TEST_ORACLE_ENCRYPTION_ALGORITHM]);
 });
 
-test('oracle public key prefers a dstack-sealed keystore whenever dstack is available', async () => {
+test('oracle public key prefers a Secrets Manager sealed keystore', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-oracle-key-'));
   const keystorePath = path.join(tempDir, 'oracle-key.json');
   process.env.PHALA_USE_DERIVED_KEYS = 'false';
   process.env.PHALA_ORACLE_KEYSTORE_PATH = keystorePath;
 
-  __setDstackClientFactoryForTests(async () => ({
-    isReachable: async () => true,
-    getKey: async () => ({ key: Uint8Array.from(Buffer.from('11'.repeat(32), 'hex')) }),
-    info: async () => ({
-      app_id: 'app',
-      instance_id: 'inst',
-      compose_hash: 'compose',
-      app_name: 'Morpheus',
-      device_id: 'device',
-      key_provider_info: 'mock',
-      tcb_info: null,
-    }),
-    getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
+  // Nitro: the X25519 wrap key comes from Secrets Manager (read via the box instance role).
+  __setSecretsProviderForTests(() => ({
+    getSecret: async () => Buffer.from('11'.repeat(32), 'hex').toString('base64'),
   }));
 
   __resetOracleKeyMaterialForTests();
@@ -1575,7 +1569,7 @@ test('oracle public key prefers a dstack-sealed keystore whenever dstack is avai
   );
   assert.equal(first.status, 200);
   const firstBody = await first.json();
-  assert.match(firstBody.key_source, /dstack-sealed/);
+  assert.match(firstBody.key_source, /nitro-sealed/);
   assert.ok(firstBody.public_key);
 
   __resetOracleKeyMaterialForTests();
@@ -1585,7 +1579,7 @@ test('oracle public key prefers a dstack-sealed keystore whenever dstack is avai
   assert.equal(second.status, 200);
   const secondBody = await second.json();
   assert.equal(secondBody.public_key, firstBody.public_key);
-  assert.match(secondBody.key_source, /dstack-sealed/);
+  assert.match(secondBody.key_source, /nitro-sealed/);
 });
 
 test('oracle key material can be restored explicitly from env configuration', async () => {
@@ -2859,38 +2853,20 @@ test('sign-payload can use the oracle_verifier signing role when configured', as
   }
 });
 
-test('sign-payload falls back to the worker derived key when oracle_verifier derivation is unavailable', async () => {
+test('sign-payload signs with the oracle_verifier key derived from Secrets Manager', async () => {
   global.fetch = originalFetch;
   const previousUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
   const previousWorkerKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
   const previousOracleVerifierKey = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
-  const requestedPaths = [];
 
   process.env.PHALA_USE_DERIVED_KEYS = 'true';
   delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
   delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
 
-  __setDstackClientFactoryForTests(async () => ({
-    getKey: async (keyPath) => {
-      requestedPaths.push(String(keyPath));
-      if (String(keyPath).endsWith('/oracle_verifier/signing/v1')) {
-        throw new Error('oracle_verifier path missing');
-      }
-      if (String(keyPath).endsWith('/worker/signing/v1')) {
-        return { key: Uint8Array.from(Buffer.from('22'.repeat(32), 'hex')) };
-      }
-      throw new Error(`unexpected key path ${keyPath}`);
-    },
-    info: async () => ({
-      app_id: 'app',
-      instance_id: 'inst',
-      compose_hash: 'compose',
-      app_name: 'Morpheus',
-      device_id: 'device',
-      key_provider_info: 'mock',
-      tcb_info: null,
-    }),
-    getQuote: async () => ({ quote: '0x01', event_log: '[]', report_data: '0x02' }),
+  // Nitro: derived signing keys are derived from the Secrets Manager wrap master
+  // (per-role, deterministic). oracle_verifier derivation succeeds directly.
+  __setSecretsProviderForTests(() => ({
+    getSecret: async () => Buffer.from('22'.repeat(32), 'hex').toString('base64'),
   }));
 
   try {
@@ -2901,7 +2877,7 @@ test('sign-payload falls back to the worker derived key when oracle_verifier der
         body: JSON.stringify({
           target_chain: 'neo_n3',
           key_role: 'oracle_verifier',
-          message: 'oracle verifier fallback path',
+          message: 'oracle verifier derived path',
         }),
       })
     );
@@ -2910,8 +2886,6 @@ test('sign-payload falls back to the worker derived key when oracle_verifier der
     assert.ok(body.signature);
     assert.ok(body.public_key);
     assert.ok(body.address);
-    assert.ok(requestedPaths.some((value) => value.endsWith('/oracle_verifier/signing/v1')));
-    assert.ok(requestedPaths.some((value) => value.endsWith('/worker/signing/v1')));
   } finally {
     if (previousUseDerivedKeys === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
     else process.env.PHALA_USE_DERIVED_KEYS = previousUseDerivedKeys;
@@ -2923,7 +2897,7 @@ test('sign-payload falls back to the worker derived key when oracle_verifier der
       delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
     else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = previousOracleVerifierKey;
 
-    __resetDstackClientStateForTests();
+    __resetSecretsProviderStateForTests();
   }
 });
 
