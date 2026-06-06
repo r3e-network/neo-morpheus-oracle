@@ -44,3 +44,4 @@ examples/contracts/n3/obj/
 .ops-backups/
 .ops-backups/
 .automation-logs/
+contracts-evm/build/*.bin
