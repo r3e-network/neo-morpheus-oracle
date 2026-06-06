@@ -127,9 +127,9 @@ async function loadEnvSnapshot(filePath) {
 const requestedRpcUrl = trimString(process.env.NEO_RPC_URL || '');
 const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
 const explicitContractEnvSnapshot = snapshotEnv(CONTRACT_ENV_KEYS);
-const selectedPhalaEnvPath = path.resolve('deploy', 'phala', `morpheus.${network}.env`);
-const selectedPhalaEnvSnapshot = await loadEnvSnapshot(selectedPhalaEnvPath);
-await loadDotEnv(selectedPhalaEnvPath, { override: false });
+const selectedNitroEnvPath = path.resolve('deploy', 'nitro', `morpheus.${network}.env`);
+const selectedPhalaEnvSnapshot = await loadEnvSnapshot(selectedNitroEnvPath);
+await loadDotEnv(selectedNitroEnvPath, { override: false });
 await loadDotEnv();
 const networkConfig = await loadJsonIfExists(path.resolve('config', 'networks', `${network}.json`));
 const deploymentRegistry = await loadJsonIfExists(

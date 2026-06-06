@@ -926,7 +926,7 @@ async function resolvePlatformGameHash() {
 async function main() {
   process.env.MORPHEUS_NETWORK = 'mainnet';
   await loadDotEnv();
-  await loadDotEnv(path.resolve('deploy', 'phala', 'morpheus.mainnet.env'), { override: true });
+  await loadDotEnv(path.resolve('deploy', 'nitro', 'morpheus.mainnet.env'), { override: true });
 
   const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'mainnet');
   if (network !== 'mainnet') throw new Error('this repair script only runs on mainnet');

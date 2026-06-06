@@ -487,7 +487,7 @@ const lines = [
     'MORPHEUS_NITRO_WORKER_IMAGE',
     getInputOnly('MORPHEUS_NITRO_WORKER_IMAGE') ||
       getInputOnly('MORPHEUS_PHALA_WORKER_IMAGE') ||
-      'ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:latest'
+      'ghcr.io/r3e-network/neo-morpheus-oracle-nitro-worker:latest'
   ),
   line(
     'MORPHEUS_RELAYER_IMAGE',

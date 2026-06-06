@@ -85,11 +85,11 @@ const reports = await Promise.all([
   buildReport('root_env', [path.resolve(repoRoot, '.env'), path.resolve(repoRoot, '.env.local')], {
     allowMissing: true,
   }),
-  buildReport('testnet_phala_env', path.resolve(repoRoot, 'deploy/nitro/morpheus.testnet.env'), {
+  buildReport('testnet_nitro_env', path.resolve(repoRoot, 'deploy/nitro/morpheus.testnet.env'), {
     allowMissing: false,
     network: 'testnet',
   }),
-  buildReport('mainnet_phala_env', path.resolve(repoRoot, 'deploy/nitro/morpheus.mainnet.env'), {
+  buildReport('mainnet_nitro_env', path.resolve(repoRoot, 'deploy/nitro/morpheus.mainnet.env'), {
     allowMissing: false,
     network: 'mainnet',
   }),

@@ -125,7 +125,7 @@ async function patchJob(network, eventKey, fields) {
 }
 
 const args = parseArgs();
-await loadDotEnv(path.resolve('deploy', 'phala', `morpheus.${args.network}.env`), {
+await loadDotEnv(path.resolve('deploy', 'nitro', `morpheus.${args.network}.env`), {
   override: false,
 });
 await loadDotEnv();

@@ -17,15 +17,15 @@ async function main() {
   await loadDotEnv(new URL(`../deploy/nitro/morpheus.${network}.env`, import.meta.url), {
     override: true,
   });
-  const phalaUrl = (
+  const nitroUrl = (
     process.env[`MORPHEUS_${network.toUpperCase()}_RUNTIME_URL`] ||
     process.env.MORPHEUS_RUNTIME_URL ||
-    process.env.PHALA_API_URL ||
+    process.env.NITRO_RUNTIME_URL || process.env.MORPHEUS_RUNTIME_URL || process.env.NITRO_API_URL || process.env.PHALA_API_URL ||
     ''
   ).replace(/\/$/, '');
-  const phalaToken =
+  const nitroToken =
     process.env.MORPHEUS_RUNTIME_TOKEN ||
-    process.env.PHALA_API_TOKEN ||
+    process.env.NITRO_API_TOKEN || process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN ||
     process.env.PHALA_SHARED_SECRET ||
     '';
   const rpcUrl =
@@ -38,16 +38,16 @@ async function main() {
   const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
   const wif = signer.materialized?.wif || signer.materialized?.private_key || '';
 
-  if (!phalaUrl || !oracleHash || !wif) {
+  if (!nitroUrl || !oracleHash || !wif) {
     throw new Error(
       'MORPHEUS_RUNTIME_URL or PHALA_API_URL, CONTRACT_MORPHEUS_ORACLE_HASH, and NEO_N3_WIF are required'
     );
   }
 
-  const headers = phalaToken ? { authorization: `Bearer ${phalaToken}` } : {};
+  const headers = nitroToken ? { authorization: `Bearer ${nitroToken}` } : {};
   let publicKey = resolvePinnedNeoN3VerifierPublicKey(network, process.env);
   if (!publicKey) {
-    const res = await fetch(`${phalaUrl}/keys/derived?role=worker`, { headers });
+    const res = await fetch(`${nitroUrl}/keys/derived?role=worker`, { headers });
     if (!res.ok) throw new Error(`failed to fetch derived keys: ${res.status}`);
     const body = await res.json();
     publicKey = body?.derived?.neo_n3?.public_key || body?.neo_n3?.public_key || '';

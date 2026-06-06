@@ -26,7 +26,7 @@ jobs:
         include:
           - name: nitro-worker
             dockerfile: workers/nitro-worker/Dockerfile
-            image: ghcr.io/${{ github.repository_owner }}/neo-morpheus-oracle-phala-worker
+            image: ghcr.io/${{ github.repository_owner }}/neo-morpheus-oracle-nitro-worker
           - name: morpheus-relayer
             dockerfile: workers/morpheus-relayer/Dockerfile
             image: ghcr.io/${{ github.repository_owner }}/neo-morpheus-oracle-relayer

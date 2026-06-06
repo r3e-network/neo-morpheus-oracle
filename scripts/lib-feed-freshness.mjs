@@ -363,7 +363,7 @@ export async function buildFeedFreshnessReport({ repoRoot, network, staleMinutes
     await fs.readFile(path.join(repoRoot, 'config', 'networks', `${network}.json`), 'utf8')
   );
   const runtimeConfig = await loadRuntimeConfigFromEnvFile(
-    path.join(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`)
+    path.join(repoRoot, 'deploy', 'nitro', `morpheus.${network}.env`)
   );
   const explicitRpcUrl = trimString(process.env.NEO_RPC_URL || '');
   const baseRpcUrls = [

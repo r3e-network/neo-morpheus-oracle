@@ -66,7 +66,7 @@ function chunk(values, size) {
 async function main() {
   const args = parseArgs();
   const network = args.network === 'testnet' ? 'testnet' : 'mainnet';
-  const envPath = path.resolve('deploy', 'phala', `morpheus.${network}.env`);
+  const envPath = path.resolve('deploy', 'nitro', `morpheus.${network}.env`);
   const env = parseDotEnv(await fs.readFile(envPath, 'utf8'));
   for (const [key, value] of Object.entries(env)) {
     process.env[key] = value;

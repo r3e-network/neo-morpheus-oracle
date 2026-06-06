@@ -1,6 +1,6 @@
 services:
   nitro-worker:
-    image: ${MORPHEUS_NITRO_WORKER_IMAGE:-ghcr.io/r3e-network/neo-morpheus-oracle-phala-worker:latest}
+    image: ${MORPHEUS_NITRO_WORKER_IMAGE:-ghcr.io/r3e-network/neo-morpheus-oracle-nitro-worker:latest}
     container_name: morpheus-nitro-worker
     restart: unless-stopped
     env_file:

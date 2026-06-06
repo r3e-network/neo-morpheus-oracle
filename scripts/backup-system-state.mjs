@@ -46,6 +46,9 @@ async function ensureBackupDir(baseDir) {
   await fs.mkdir(baseDir, { recursive: true });
 }
 
+// DEPRECATED: targets the legacy Phala CVM via the 'phala' CLI. The Nitro deployment
+// stores keystore material in AWS Secrets Manager (morpheus/x25519-wrap, morpheus/neodid-salt)
+// and runtime config on the box; these functions are retained only for legacy-CVM recovery.
 async function fetchRuntimeConfig(appId, apiToken) {
   const { stdout } = await execFileAsync(
     'phala',
@@ -140,21 +143,21 @@ const localEnvPath = path.resolve(process.cwd(), '.env');
 const backupNetwork =
   trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet') ||
   'mainnet';
-const phalaEnvPath = path.resolve(process.cwd(), `deploy/nitro/morpheus.${backupNetwork}.env`);
+const nitroEnvPath = path.resolve(process.cwd(), `deploy/nitro/morpheus.${backupNetwork}.env`);
 const keystoreBackupPath = path.join(backupRoot, 'oracle-key.json');
 const runtimeConfigPath = path.join(backupRoot, 'runtime-config.json');
 const localEnvBackupPath = path.join(backupRoot, '.env.snapshot.json');
-const phalaEnvBackupPath = path.join(backupRoot, `morpheus.${backupNetwork}.env.snapshot.json`);
+const nitroEnvBackupPath = path.join(backupRoot, `morpheus.${backupNetwork}.env.snapshot.json`);
 
-const [localEnvRaw, phalaEnvRaw, runtimeConfig, oracleKeystore] = await Promise.all([
+const [localEnvRaw, nitroEnvRaw, runtimeConfig, oracleKeystore] = await Promise.all([
   readEnvFile(localEnvPath),
-  readEnvFile(phalaEnvPath),
+  readEnvFile(nitroEnvPath),
   fetchRuntimeConfig(appId, apiToken),
   backupOracleKeystore(appId, apiToken, keystoreBackupPath),
 ]);
 
 await fs.writeFile(localEnvBackupPath, JSON.stringify(localEnvRaw, null, 2) + '\n', 'utf8');
-await fs.writeFile(phalaEnvBackupPath, JSON.stringify(phalaEnvRaw, null, 2) + '\n', 'utf8');
+await fs.writeFile(nitroEnvBackupPath, JSON.stringify(nitroEnvRaw, null, 2) + '\n', 'utf8');
 await fs.writeFile(runtimeConfigPath, JSON.stringify(runtimeConfig, null, 2) + '\n', 'utf8');
 
 const rows = [
@@ -170,8 +173,8 @@ const rows = [
     backup_kind: 'phala_env',
     network: backupNetwork,
     backup_scope: appId,
-    checksum: sha256Hex(phalaEnvRaw),
-    payload: sanitizeEnvObject(phalaEnvRaw),
+    checksum: sha256Hex(nitroEnvRaw),
+    payload: sanitizeEnvObject(nitroEnvRaw),
     metadata: {
       timestamp,
       network: backupNetwork,

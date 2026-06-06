@@ -57,7 +57,7 @@ export async function buildFeedRegistryDriftReport({ repoRoot, network, staleMin
     await fs.readFile(path.join(repoRoot, 'config', 'networks', `${network}.json`), 'utf8')
   );
   const runtimeConfig = await loadRuntimeConfigFromEnvFile(
-    path.join(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`)
+    path.join(repoRoot, 'deploy', 'nitro', `morpheus.${network}.env`)
   );
   const rpcUrl = trimString(networkConfig.neo_n3?.rpc_url || '');
   const datafeedHash = trimString(networkConfig.neo_n3?.contracts?.morpheus_datafeed || '');

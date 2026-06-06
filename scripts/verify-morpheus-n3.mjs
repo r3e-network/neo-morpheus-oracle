@@ -163,9 +163,9 @@ const explicitContractEnvSnapshot = snapshotEnv(CONTRACT_ENV_KEYS);
 await loadDotEnv();
 const network =
   trimString(requestedNetwork || process.env.MORPHEUS_NETWORK || 'testnet') || 'testnet';
-const selectedPhalaEnvPath = path.resolve('deploy', 'phala', `morpheus.${network}.env`);
-await loadDotEnv(selectedPhalaEnvPath, { override: true });
-const signerEnvSnapshot = await loadEnvSnapshot(selectedPhalaEnvPath);
+const selectedNitroEnvPath = path.resolve('deploy', 'nitro', `morpheus.${network}.env`);
+await loadDotEnv(selectedNitroEnvPath, { override: true });
+const signerEnvSnapshot = await loadEnvSnapshot(selectedNitroEnvPath);
 
 const registry = await loadRegistry(network);
 const deployments = await loadDeploymentRegistry(network);

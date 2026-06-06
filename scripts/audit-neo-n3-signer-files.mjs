@@ -10,7 +10,7 @@ const DEFAULT_ROOTS = [
 ];
 
 const roots = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_ROOTS;
-const wanted = /(^|\/)(\.env[^/]*|.*env.*|.*secret.*|.*phala.*|.*morpheus.*)$/i;
+const wanted = /(^|\/)(\.env[^/]*|.*env.*|.*secret.*|.*phala.*|.*nitro.*|.*morpheus.*)$/i;
 const skipPath =
   /\/node_modules\/|\/\.git\/|\/\.next\/|\/dist\/|\/build\/|\/coverage\/|\.(png|jpe?g|gif|webp|pdf|zip|gz|tar|sqlite|db|log)$/i;
 const keyLike =

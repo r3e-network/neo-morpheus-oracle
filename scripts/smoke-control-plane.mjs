@@ -263,7 +263,7 @@ const network =
       ? 'testnet'
       : resolveNetwork();
 await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
-await loadDotEnv(path.resolve(repoRoot, 'deploy', 'phala', `morpheus.${network}.env`), {
+await loadDotEnv(path.resolve(repoRoot, 'deploy', 'nitro', `morpheus.${network}.env`), {
   override: false,
 });
 
