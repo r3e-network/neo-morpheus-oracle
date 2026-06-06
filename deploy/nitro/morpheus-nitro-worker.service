@@ -1,0 +1,15 @@
+[Unit]
+Description=Morpheus Nitro compute worker (HTTP/compute/privacy/neodid lanes)
+After=network-online.target morpheus-nitro-signer.service
+
+[Service]
+Type=simple
+User=morpheus
+WorkingDirectory=/opt/morpheus/neo-morpheus-oracle/workers/nitro-worker
+EnvironmentFile=/opt/morpheus/nitro/nitro-worker.env
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
