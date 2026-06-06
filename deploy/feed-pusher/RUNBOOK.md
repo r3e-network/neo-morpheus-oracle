@@ -50,3 +50,47 @@ host (`i-0c52851f134db20ee`) as a systemd timer.
 ## Known limitations
 - Single enclave signer on one box (SPOF). `/sign/payload` blind-signs for a bearer token — scope/rate-limit/replay-guard it.
 - Worker-dependent oracle lanes (VRF/HTTP/compute/privacy/DID/paymaster) remain 404 until `workers/phala-worker` is redeployed on Nitro. VRF alone is restorable relayer-locally (32 random bytes + oracle_verifier signature).
+
+---
+
+# Morpheus relayer (request fulfillment) — operations
+
+The `morpheus-relayer-nitro` systemd service fulfills MiniApp oracle requests on the
+**deployer-owned kernel** `0xf54d8584ef82315c1800373272ab08ae0db2d5ef` (mainnet). It signs
+fulfillments via the Nitro enclave (`oracle_verifier` role, 8787) and witnesses the
+`fulfillRequest` tx with the enclave `updater` (`0x9fb28bda…`). Both keys are already pinned
+in the kernel (`runtimeVerificationPublicKey` / `updater`).
+
+## Critical operational settings (env: /opt/morpheus/nitro/morpheus-relayer.env)
+- **`MORPHEUS_DURABLE_QUEUE_ENABLED=false`** — REQUIRED. The durable queue used the morpheus
+  Supabase project, which is over its size quota (402 `exceed_db_size_quota`). With it enabled,
+  claims flap between "unavailable" and stale "processing" and requests never fulfill. Disabled,
+  the single-box relayer coordinates on local state (the state file) — correct + robust for one
+  instance. (Re-enable only after the morpheus Supabase project is cleaned below quota.)
+- `MORPHEUS_SUPABASE_BACKOFF_MS=600000` — fail-fast on the residual (non-fatal, caught) Supabase
+  automation/manual-action calls.
+
+## Block checkpoint
+- The relayer block cursor (`neo_n3.last_block` in the state file) MUST be near chain head.
+  If it falls millions of blocks behind, each tick scans only `MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK`
+  (default 250) blocks at ~0.45 s/block → ~113 s ticks and current requests are never reached via
+  the block path (only the slower request-id path finds them). Symptom: tick_ms ~110000.
+  Fix: stop service → set `state.neo_n3.last_block = <head-3>` (+ `last_request_id=0` to re-scan) →
+  start. Healthy ticks are ~1.5–7 s. The request-id path finds requests regardless of block cursor.
+
+## Relayer code requirement (digest binding)
+- `fulfillRequest` verifies an ECDSA sig over `ComputeFulfillmentDigest` which appends the
+  **executing script hash (LE) + network magic (LE)** to bind the sig to this deployment+network.
+  The relayer must run router.js/fulfillment.js that include the deployment-suffix binding
+  (`buildFulfillmentDigestBytes` deploymentSuffix; `signFulfillmentPayload` sets
+  `digestContext.contractScriptHash`/`networkMagic`). Older code signs the unbound digest →
+  `ABORTMSG: invalid verification signature`. Committed in repo (`feat(relayer): local VRF handler`).
+- The kernel attempts the app's callback (`onOracleResult`) inside FulfillRequest; a callback to a
+  non-existent/zero contract FAULTS the whole tx (the try/catch does not swallow
+  "Called Contract Does Not Exist"). Every registered miniapp must use a real callback contract.
+
+## VRF (random.generate) — no compute worker needed
+- The relayer fulfills `operation` containing `random`/`vrf`/`rng` locally: 32 CSPRNG bytes signed
+  by `oracle_verifier`. The kernel needs the `random.generate` system module registered + granted
+  to the app. Validated e2e on mainnet 2026-06-06 (request #2, app `vrf-e2e`, callback
+  OracleCallbackConsumer 0xe1226268).
