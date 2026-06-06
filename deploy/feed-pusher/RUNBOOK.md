@@ -94,3 +94,21 @@ in the kernel (`runtimeVerificationPublicKey` / `updater`).
   by `oracle_verifier`. The kernel needs the `random.generate` system module registered + granted
   to the app. Validated e2e on mainnet 2026-06-06 (request #2, app `vrf-e2e`, callback
   OracleCallbackConsumer 0xe1226268).
+
+---
+
+# Multi-chain price feed (Neo N3 + Neo X)
+
+The feed pusher (`feed-pusher.mjs`) reads TwelveData once per cycle and pushes to
+every configured chain. Currently two chains:
+
+| Chain | Kind | Contract | Signer |
+|---|---|---|---|
+| Neo N3 mainnet | NeoVM | MorpheusDataFeed `0x03013f49…` | enclave `updater` via 8787 |
+| Neo X mainnet (chainId 47763) | EVM | MorpheusPriceFeed `0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB` | raw key `NEOX_FEED_PK` (ethers) |
+
+- **MorpheusPriceFeed.sol** (`contracts-evm/`, solc 0.8.24): `updateFeeds(symbols,prices,timestamps,roundIds)` (updater-gated, strictly-increasing roundId), `getLatest(symbol)`, `DECIMALS=6` (same 1e6 scaling as Neo N3 so the same integer is written to both chains). owner+updater = the deployer.
+- **NeoX env** (`/opt/morpheus/nitro/feed-pusher.env`): `NEOX_FEED_PK` (updater key, address `0x622ae03BDB6d7E2A29BE853c75d625bB25c0139C`), `NEOX_RPC=https://mainnet-1.rpc.banelabs.org`, `NEOX_CHAIN_ID=47763`, `NEOX_FEED=0x38DD…`. NeoX disabled automatically if `NEOX_FEED_PK` is unset.
+- **Gas**: the NeoX updater pays its own gas (self-funded; ~100 GAS at deploy). The pusher logs `[neox] ⚠️ LOW GAS` when balance `< NEOX_GAS_WARN` (default 5). For reserve-based auto-topup, fund `0x622ae03B…` from an external source (a single key is self-funding; the enclave cannot sign EVM/secp256k1, so NeoX uses a raw key rather than the 8787 enclave).
+- **Add a chain**: append to the `CHAINS` array in feed-pusher.mjs with a `push(prices, now)` impl (EVM chains can reuse `pushNeoX`'s pattern with a different RPC/chainId/contract/key).
+- Compile EVM contract: `node` a solc compile of `contracts-evm/MorpheusPriceFeed.sol` → `contracts-evm/build/`. Deploy via ethers with the deployer key.
