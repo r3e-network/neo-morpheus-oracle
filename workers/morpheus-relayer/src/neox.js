@@ -20,6 +20,13 @@ const ORACLE_ABI = [
   // string fields are named errorText/errorArg (param names do not affect encoding).
   'function getRequest(uint256) view returns (tuple(uint256 id, string appId, string moduleId, string operation, bytes payload, address requester, address callbackContract, uint8 status, uint64 createdAt, uint64 fulfilledAt, bool success, bytes resultBytes, string errorText))',
   'function fulfillRequest(uint256 requestId, bool success, bytes result, string errorArg, bytes signature)',
+  // Custom errors — required so ethers decodes the revert reason (name) from a
+  // failed staticCall simulation; without these fragments the reason is opaque.
+  'error RequestNotPending()',
+  'error BadSignature()',
+  'error NotUpdater()',
+  'error AppNotFound()',
+  'error ModuleNotGranted()',
 ];
 
 const FULFILLMENT_DOMAIN = 'morpheus-evm-fulfillment-v1';
@@ -27,6 +34,27 @@ const STATUS_PENDING = 1; // Status enum: None=0, Pending=1, Succeeded=2, Failed
 
 const providerCache = new Map();
 const signerCache = new Map();
+// Per-signer submission queue: serialize tx build+send+wait+reset so concurrent
+// engine workers never race on the shared NonceManager (out-of-order nonces) or
+// reset() it mid-flight. EVM submission is fast + Neo X volume is low.
+const submitQueues = new Map();
+
+function signerKey(config) {
+  return `${trimString(config?.neox?.updaterPrivateKey || '')}|${trimString(config?.neox?.rpcUrl || '')}`;
+}
+
+function runExclusive(key, fn) {
+  const prev = submitQueues.get(key) || Promise.resolve();
+  const run = prev.then(fn, fn); // run after the previous settles (success or failure)
+  submitQueues.set(
+    key,
+    run.then(
+      () => {},
+      () => {}
+    )
+  );
+  return run;
+}
 
 function getProvider(config) {
   const rpcUrl = trimString(config?.neox?.rpcUrl || '');
@@ -184,13 +212,19 @@ export async function signNeoXFulfillment(config, fulfillment) {
   };
 }
 
-function normalizeNeoXRevert(error) {
+// Map a Neo X kernel revert onto the relayer's error-classifier vocabulary
+// (fulfillment.js classifyError / isAlreadyFulfilledError / isTerminalConfigurationError).
+// ethers surfaces a decoded custom error as error.revert.name (when the error
+// fragments are in the ABI); fall back to scanning the message text.
+export function normalizeNeoXRevert(error) {
+  const name = trimString(error?.revert?.name || error?.errorName || '');
   const reason = trimString(error?.shortMessage || error?.reason || error?.message || String(error));
-  const lower = reason.toLowerCase();
-  // Map kernel custom errors onto the relayer's error classifier vocabulary.
-  if (lower.includes('requestnotpending')) return new Error('request already fulfilled');
-  if (lower.includes('badsignature')) return new Error('invalid signature: verifier rejected signature');
-  if (lower.includes('notupdater')) return new Error('unauthorized: updater not set');
+  const probe = `${name} ${reason}`.toLowerCase();
+  if (probe.includes('requestnotpending')) return new Error('request already fulfilled');
+  if (probe.includes('badsignature')) {
+    return new Error('invalid signature: verifier rejected signature');
+  }
+  if (probe.includes('notupdater')) return new Error('unauthorized: updater not set');
   return error instanceof Error ? error : new Error(reason);
 }
 
@@ -204,35 +238,42 @@ export async function fulfillNeoXRequest(
   resultBytesBase64 = ''
 ) {
   const resultBytesHex = resolveResultBytesHex(result, resultBytesBase64);
-  const kernel = new ethers.Contract(config.neox.oracleContract, ORACLE_ABI, updaterSigner(config));
-  let receipt;
-  try {
-    const tx = await kernel.fulfillRequest(
-      BigInt(requestId),
-      Boolean(success),
-      resultBytesHex,
-      String(error || ''),
-      verificationSignature
-    );
-    receipt = await tx.wait();
-    if (!receipt || receipt.status !== 1) {
-      throw new Error(`fulfillRequest reverted (status ${receipt?.status})`);
-    }
-    return {
-      request_id: `neox:fulfill:${requestId}`,
-      tx_hash: tx.hash,
-      vm_state: 'HALT',
-      exception: null,
-      target_chain: 'neox',
-    };
-  } catch (err) {
-    // Re-sync the local nonce from chain so a failed/replaced tx doesn't wedge
-    // subsequent fulfilments behind a stale cached nonce.
+  const args = [BigInt(requestId), Boolean(success), resultBytesHex, String(error || ''), verificationSignature];
+  // Serialize per signer: only one simulate→send→wait runs at a time so the
+  // shared NonceManager produces sequential nonces and reset() is never racy.
+  return runExclusive(signerKey(config), async () => {
+    const signer = updaterSigner(config);
+    const kernel = new ethers.Contract(config.neox.oracleContract, ORACLE_ABI, signer);
+    // Simulate first (eth_call): decodes custom errors (RequestNotPending /
+    // BadSignature / NotUpdater) so they classify correctly, and avoids burning
+    // gas on a transaction that would revert on-chain.
     try {
-      updaterSigner(config).reset();
-    } catch {
-      /* ignore */
+      await kernel.fulfillRequest.staticCall(...args);
+    } catch (simErr) {
+      throw normalizeNeoXRevert(simErr);
     }
-    throw normalizeNeoXRevert(err);
-  }
+    try {
+      const tx = await kernel.fulfillRequest(...args);
+      const receipt = await tx.wait();
+      if (!receipt || receipt.status !== 1) {
+        throw new Error(`neox fulfillRequest reverted on-chain (status ${receipt?.status})`);
+      }
+      return {
+        request_id: `neox:fulfill:${requestId}`,
+        tx_hash: tx.hash,
+        vm_state: 'HALT',
+        exception: null,
+        target_chain: 'neox',
+      };
+    } catch (err) {
+      // Re-sync the local nonce from chain so a failed/replaced tx doesn't wedge
+      // subsequent fulfilments (safe here: submission is serialized per signer).
+      try {
+        signer.reset();
+      } catch {
+        /* ignore */
+      }
+      throw normalizeNeoXRevert(err);
+    }
+  });
 }

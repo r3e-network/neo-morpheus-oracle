@@ -463,11 +463,15 @@ export function createRelayerConfig() {
       rpcUrl:
         trimString(env('MORPHEUS_RELAYER_NEOX_RPC_URL', 'NEOX_RPC')) ||
         trimString(registry.neox?.rpc_url || '') ||
-        (network === 'mainnet' ? 'https://mainnet-1.rpc.banelabs.org' : ''),
+        (network === 'mainnet'
+          ? 'https://mainnet-1.rpc.banelabs.org'
+          : 'https://neoxt4seed1.ngd.network'),
+      // Neo X chain ids: mainnet 47763 (0xba93), T4 testnet 12227332 (0xba9304).
+      // Must be correct — it is bound into the fulfillment digest the kernel verifies.
       chainId: Number(
         env('MORPHEUS_RELAYER_NEOX_CHAIN_ID', 'NEOX_CHAIN_ID') ||
           registry.neox?.chain_id ||
-          (network === 'mainnet' ? 47763 : 0)
+          (network === 'mainnet' ? 47763 : 12227332)
       ),
       oracleContract:
         trimString(env('MORPHEUS_RELAYER_NEOX_ORACLE', 'NEOX_ORACLE')) ||

@@ -6,7 +6,9 @@ import {
   resolveResultBytesHex,
   buildNeoXDigest,
   signNeoXFulfillment,
+  normalizeNeoXRevert,
 } from './neox.js';
+import { classifyError, isAlreadyFulfilledError, isTerminalConfigurationError } from './fulfillment.js';
 
 // Deterministic throwaway test key (not used anywhere live).
 const TEST_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
@@ -93,6 +95,25 @@ test('signNeoXFulfillment produces an EIP-191 signature recoverable to the verif
   const digest = buildNeoXDigest(baseConfig, fulfillment, resultHex);
   const recovered = ethers.verifyMessage(ethers.getBytes(digest), out.signature);
   assert.equal(recovered, TEST_ADDR);
+});
+
+test('normalizeNeoXRevert maps decoded custom errors to the classifier vocabulary', () => {
+  // ethers surfaces a decoded custom error as error.revert.name (needs error
+  // fragments in the ABI, which neox.js now includes for the staticCall path).
+  const notPending = normalizeNeoXRevert({ revert: { name: 'RequestNotPending' }, shortMessage: 'execution reverted' });
+  assert.ok(isAlreadyFulfilledError(notPending.message), 'RequestNotPending -> already fulfilled (settled)');
+  assert.equal(classifyError(notPending), 'settled');
+
+  const badSig = normalizeNeoXRevert({ revert: { name: 'BadSignature' }, shortMessage: 'execution reverted' });
+  assert.ok(isTerminalConfigurationError(badSig.message), 'BadSignature -> terminal config');
+  assert.equal(classifyError(badSig), 'permanent');
+
+  const notUpdater = normalizeNeoXRevert({ revert: { name: 'NotUpdater' } });
+  assert.equal(classifyError(notUpdater), 'permanent');
+
+  // Fallback: name absent but present in the message text still classifies.
+  const textOnly = normalizeNeoXRevert({ message: 'execution reverted: RequestNotPending()' });
+  assert.equal(classifyError(textOnly), 'settled');
 });
 
 test('signNeoXFulfillment honours a separate verifier key', async () => {
