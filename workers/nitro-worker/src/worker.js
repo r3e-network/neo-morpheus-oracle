@@ -13,13 +13,15 @@ import { normalizeExecutionPlan } from './platform/execution-plan.js';
 import { buildResultEnvelope } from './platform/result-envelope.js';
 import { resolveCapability, listCapabilityFeatures } from './capabilities.js';
 
+const WORKER_SUPPORTED_CHAINS = ['neo_n3', 'neox'];
+
 function resolveActiveTargetChains() {
   const raw = String(process.env.MORPHEUS_ACTIVE_CHAINS || '').trim();
   if (!raw) return ['neo_n3'];
   const chains = raw
     .split(',')
     .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => entry === 'neo_n3');
+    .filter((entry) => WORKER_SUPPORTED_CHAINS.includes(entry));
   return chains.length > 0 ? chains : ['neo_n3'];
 }
 

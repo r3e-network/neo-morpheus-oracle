@@ -1,6 +1,9 @@
 import { createHash } from 'node:crypto';
 
-export const SUPPORTED_ORACLE_TARGET_CHAINS = new Set(['neo_n3']);
+// Chains the worker will fetch/compute for. The worker is chain-agnostic for the
+// HTTP/compute lanes (it returns the result; the relayer signs per chain — Neo N3
+// secp256r1 via the enclave, Neo X secp256k1), so Neo X is an accepted target.
+export const SUPPORTED_ORACLE_TARGET_CHAINS = new Set(['neo_n3', 'neox']);
 export const DEFAULT_NEO_NETWORK_MAGIC = 894710606;
 export const DEFAULT_WAIT_TIMEOUT_MS = 10_000;
 export const DEFAULT_POLL_INTERVAL_MS = 2000;
