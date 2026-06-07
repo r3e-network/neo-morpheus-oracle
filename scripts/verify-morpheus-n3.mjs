@@ -113,7 +113,13 @@ async function loadDeploymentRegistry(network) {
 }
 
 async function loadEnvSnapshot(filePath) {
-  const text = await fs.readFile(filePath, 'utf8');
+  let text = '';
+  try {
+    text = await fs.readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return {};
+    throw error;
+  }
   const snapshot = {};
   for (const line of text.split(/\r?\n/)) {
     const trimmed = trimString(line);
