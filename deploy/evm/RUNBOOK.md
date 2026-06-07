@@ -66,8 +66,14 @@ ethers `fulfillRequest`). Work lanes (VRF/HTTP/compute) are shared across chains
 - Enable on the box relayer (`/opt/morpheus/nitro/morpheus-relayer.env`):
   `MORPHEUS_ACTIVE_CHAINS=neo_n3,neox` plus `NEOX_ORACLE`, `NEOX_CHAIN_ID`,
   `NEOX_RPC`, `NEOX_UPDATER_PK` (sourced from `feed-pusher.env`'s `NEOX_FEED_PK`).
-  Optional: `NEOX_VERIFIER_PK` (separate signer), `MORPHEUS_RELAYER_NEOX_WORKER_URL`
-  (HTTP/compute lanes via the Nitro worker), `MORPHEUS_RELAYER_NEOX_CONFIRMATIONS`.
+  Optional: `NEOX_VERIFIER_PK` (separate signer), `MORPHEUS_RELAYER_NEOX_CONFIRMATIONS`.
+- Lanes: **VRF** (`random.generate`) is computed locally in the relayer; **HTTP**
+  (`oracle.fetch`) and **compute** (`compute.run`) route to the shared Nitro worker
+  (`config.nitro.apiUrl`) — the worker accepts `neox` as a target chain and returns
+  the result, the relayer signs it secp256k1. No extra worker URL needed; just set
+  `MORPHEUS_ACTIVE_CHAINS=neo_n3,neox` on the worker too (for its `/health` advert).
+  All three lanes are validated e2e on Neo X mainnet
+  (`deploy/evm/validate-vrf.mjs`, `validate-http.mjs`).
 - Adding a chain = a new `src/<chain>.js` adapter + a `config.js` block + the chain
   id in `state.js` `RELAYER_CHAINS` + a branch in `relayer.js` / `fulfillment.js`.
 - Operate: `systemctl status|restart morpheus-relayer-nitro`,
