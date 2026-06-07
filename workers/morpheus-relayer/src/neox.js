@@ -244,16 +244,22 @@ export async function fulfillNeoXRequest(
   return runExclusive(signerKey(config), async () => {
     const signer = updaterSigner(config);
     const kernel = new ethers.Contract(config.neox.oracleContract, ORACLE_ABI, signer);
-    // Simulate first (eth_call): decodes custom errors (RequestNotPending /
-    // BadSignature / NotUpdater) so they classify correctly, and avoids burning
-    // gas on a transaction that would revert on-chain.
+    // Estimate gas first: this also simulates (decodes custom errors like
+    // RequestNotPending / BadSignature so they classify correctly, and avoids
+    // burning gas on a tx that would revert). Then send with a generous buffer
+    // so the kernel's nested onOracleResult callback (best-effort `.call`) is
+    // never starved by the EVM 63/64 gas-forwarding rule — without the buffer a
+    // cold-storage callback can run out of gas while the outer tx still succeeds,
+    // leaving the consumer's state unsettled.
+    let gasLimit;
     try {
-      await kernel.fulfillRequest.staticCall(...args);
+      const estimate = await kernel.fulfillRequest.estimateGas(...args);
+      gasLimit = estimate * 2n;
     } catch (simErr) {
       throw normalizeNeoXRevert(simErr);
     }
     try {
-      const tx = await kernel.fulfillRequest(...args);
+      const tx = await kernel.fulfillRequest(...args, { gasLimit });
       const receipt = await tx.wait();
       if (!receipt || receipt.status !== 1) {
         throw new Error(`neox fulfillRequest reverted on-chain (status ${receipt?.status})`);
