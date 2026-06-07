@@ -22,6 +22,10 @@ async function requestJSON(path: string, body?: Record<string, unknown>) {
   }
 }
 
+function isValidLookupHash(value: string): boolean {
+  return /^0x[0-9a-fA-F]{64}$/.test(value.trim());
+}
+
 function VerifierPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,6 +74,20 @@ function VerifierPageClient() {
     async (hash: string, updateUrl = true) => {
       const value = hash.trim();
       if (!value) return;
+      if (!isValidLookupHash(value)) {
+        setExpectedAttestationHash(value);
+        setResult(
+          JSON.stringify(
+            {
+              error: 'Invalid attestation hash',
+              detail: 'Use a 0x-prefixed 32-byte hash before lookup.',
+            },
+            null,
+            2
+          )
+        );
+        return;
+      }
 
       if (updateUrl) {
         router.replace(`/verifier?attestation_hash=${encodeURIComponent(value)}`);
