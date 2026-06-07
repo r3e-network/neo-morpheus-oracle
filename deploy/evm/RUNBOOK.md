@@ -55,16 +55,32 @@ node deploy/evm/oracle-admin.mjs request <id>
 NEOX_REQUESTER_PK=0x.. node deploy/evm/validate-vrf.mjs
 ```
 
-## Fulfiller service (box)
+## Fulfilment: the multi-chain relayer (primary)
 
-- Unit: `deploy/evm/morpheus-neox-fulfiller.service` → `/etc/systemd/system/`.
-  Runs `node deploy/evm/neox-fulfiller.mjs` from `/opt/morpheus/neo-morpheus-oracle`
-  (so ethers resolves from the repo `node_modules`), `Restart=always`, poll 5 s.
-- Env: `/opt/morpheus/nitro/neox-fulfiller.env` (600). The updater key is sourced
-  from `feed-pusher.env`'s `NEOX_FEED_PK` at deploy time (same key — not re-transmitted).
-- State cursor: `/opt/morpheus/nitro/neox-fulfiller-state.json` (last scanned block).
-- Operate: `systemctl status|restart morpheus-neox-fulfiller`,
-  `journalctl -u morpheus-neox-fulfiller -f`.
+Neo X is a first-class chain in the unified relayer (`workers/morpheus-relayer`),
+the same engine that runs Neo N3 — not a separate process. The engine
+(`processChainByRequestCursor`) is generic over a per-chain adapter; the Neo X
+adapter is `src/neox.js` (request-cursor discovery + keccak/secp256k1 signing +
+ethers `fulfillRequest`). Work lanes (VRF/HTTP/compute) are shared across chains.
+
+- Enable on the box relayer (`/opt/morpheus/nitro/morpheus-relayer.env`):
+  `MORPHEUS_ACTIVE_CHAINS=neo_n3,neox` plus `NEOX_ORACLE`, `NEOX_CHAIN_ID`,
+  `NEOX_RPC`, `NEOX_UPDATER_PK` (sourced from `feed-pusher.env`'s `NEOX_FEED_PK`).
+  Optional: `NEOX_VERIFIER_PK` (separate signer), `MORPHEUS_RELAYER_NEOX_WORKER_URL`
+  (HTTP/compute lanes via the Nitro worker), `MORPHEUS_RELAYER_NEOX_CONFIRMATIONS`.
+- Adding a chain = a new `src/<chain>.js` adapter + a `config.js` block + the chain
+  id in `state.js` `RELAYER_CHAINS` + a branch in `relayer.js` / `fulfillment.js`.
+- Operate: `systemctl status|restart morpheus-relayer-nitro`,
+  `journalctl -u morpheus-relayer-nitro -f` (look for `"chain":"neox"`).
+
+## Standalone fulfiller (alternative — retired on the box)
+
+`deploy/evm/neox-fulfiller.mjs` + `morpheus-neox-fulfiller.service` is a
+self-contained Neo X fulfiller (eth_getLogs watch, local state cursor). It was the
+bootstrap path and remains a valid standalone option, but the box now runs Neo X
+through the unified relayer, so the service is **disabled** there (running both
+double-submits — idempotent but wastes gas). Re-enable only if the relayer's Neo X
+lane is taken offline: `systemctl enable --now morpheus-neox-fulfiller`.
 
 ## Adding a lane / app
 
