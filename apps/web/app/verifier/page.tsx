@@ -131,8 +131,11 @@ function VerifierPageClient() {
 
   return (
     <>
-      <div className="container" style={{ padding: 'calc(72px + 2rem) 0' }}>
-        <Card style={{ marginBottom: '2rem', borderLeft: '4px solid var(--neo-green)' }}>
+      <div className="container oracle-tool-page" style={{ padding: 'calc(72px + 1.25rem) 0 3rem' }}>
+        <Card
+          className="oracle-tool-hero-card"
+          style={{ marginBottom: '1.25rem', borderLeft: '4px solid var(--neo-green)' }}
+        >
           <div
             style={{
               display: 'flex',
@@ -183,7 +186,7 @@ function VerifierPageClient() {
           </div>
         </Card>
 
-        <Card style={{ marginBottom: '1.5rem' }}>
+        <Card className="oracle-tool-card" style={{ marginBottom: '1rem' }}>
           <div
             style={{
               display: 'flex',
@@ -224,8 +227,8 @@ function VerifierPageClient() {
           </div>
         </Card>
 
-        <div className="grid grid-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
-          <Card>
+        <div className="grid grid-2 oracle-tool-grid" style={{ gap: '1rem', marginBottom: '1rem' }}>
+          <Card className="oracle-tool-card">
             <div
               style={{
                 display: 'flex',
@@ -253,7 +256,7 @@ function VerifierPageClient() {
             />
           </Card>
 
-          <Card>
+          <Card className="oracle-tool-card">
             <div
               style={{
                 display: 'flex',
@@ -458,7 +461,7 @@ function VerifierPageClient() {
           </Card>
         </div>
 
-        <Card>
+        <Card className="oracle-tool-card">
           <div
             style={{
               display: 'flex',

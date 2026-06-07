@@ -5,12 +5,12 @@ import { Dashboard } from '../../components/dashboard';
 
 export default function ExplorerPage() {
   return (
-    <div className="container" style={{ padding: 'calc(72px + 2rem) 0 3rem' }}>
+    <div className="container oracle-tool-page" style={{ padding: 'calc(72px + 1.25rem) 0 3rem' }}>
       <div
-        className="fade-in"
+        className="fade-in oracle-tool-hero"
         style={{
-          marginBottom: '2rem',
-          paddingBottom: '1.5rem',
+          marginBottom: '1.25rem',
+          paddingBottom: '1rem',
           borderBottom: '1px solid var(--border-dim)',
         }}
       >
@@ -36,14 +36,14 @@ export default function ExplorerPage() {
             MORPHEUS WORKBENCH
           </span>
         </div>
-        <h1 style={{ marginBottom: '0.75rem' }}>Workbench</h1>
+        <h1 style={{ marginBottom: '0.5rem' }}>Workbench</h1>
         <p
           style={{
             color: 'var(--text-secondary)',
             maxWidth: '760px',
             fontSize: '1rem',
             lineHeight: 1.7,
-            marginBottom: '1rem',
+            marginBottom: '0.9rem',
           }}
         >
           Inspect runtime health, data catalogs, oracle requests, compute routes, and attested

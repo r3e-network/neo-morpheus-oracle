@@ -189,10 +189,10 @@ export default function StatusPage() {
 
   return (
     <div
-      className="container"
-      style={{ paddingTop: 'calc(72px + 3rem)', paddingBottom: '4rem' }}
+      className="container oracle-tool-page"
+      style={{ paddingTop: 'calc(72px + 1.5rem)', paddingBottom: '4rem' }}
     >
-      <div className="fade-in">
+      <div className="fade-in oracle-tool-hero">
         <div
           style={{
             display: 'inline-flex',
@@ -231,7 +231,7 @@ export default function StatusPage() {
             maxWidth: '640px',
             fontSize: '1rem',
             lineHeight: 1.7,
-            marginBottom: '2rem',
+            marginBottom: '1.25rem',
           }}
         >
           Real-time health checks for Morpheus Oracle infrastructure services and the public runtime
@@ -241,8 +241,9 @@ export default function StatusPage() {
       </div>
 
       <Card
+        className="oracle-tool-card"
         style={{
-          marginBottom: '2rem',
+          marginBottom: '1.25rem',
           borderLeft: `4px solid ${statusColors[overallStatus]}`,
         }}
       >

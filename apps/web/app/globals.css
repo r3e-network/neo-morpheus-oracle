@@ -1683,6 +1683,48 @@ button:disabled,
   box-shadow: var(--ns-shadow-lg);
 }
 
+/* --- Focus tool pages --- */
+.oracle-tool-page {
+  --tool-gap: 1rem;
+}
+
+.oracle-tool-hero h1,
+.oracle-tool-hero-card h1 {
+  letter-spacing: 0;
+}
+
+.oracle-tool-hero-card {
+  background: #fbfcfa !important;
+}
+
+.oracle-tool-card {
+  background: #ffffff !important;
+}
+
+.oracle-tool-grid {
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .oracle-tool-page {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .oracle-tool-hero-card > div,
+  .oracle-tool-card > div:first-child {
+    gap: 1rem !important;
+  }
+
+  .oracle-tool-hero-card svg {
+    display: none;
+  }
+
+  .oracle-tool-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* --- Accessibility: reduced motion --- */
 @media (prefers-reduced-motion: reduce) {
   *,
