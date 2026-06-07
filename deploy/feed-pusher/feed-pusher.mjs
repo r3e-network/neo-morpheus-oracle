@@ -124,10 +124,16 @@ async function pushNeoX(prices, now) {
 }
 
 // ── Multi-chain main loop ─────────────────────────────────────────────────────
+// FEED_CHAINS (comma list) scopes a run to specific chains so each chain can run
+// on its own timer cadence (e.g. neox every 2m, neo-n3 every 5m). Unset = all.
+const FEED_CHAINS = (process.env.FEED_CHAINS || '')
+  .split(',')
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 const CHAINS = [
   { name: 'neo-n3', enabled: true, push: pushNeoN3 },
   { name: 'neox', enabled: !!NEOX_PK, push: pushNeoX },
-];
+].filter((c) => FEED_CHAINS.length === 0 || FEED_CHAINS.includes(c.name));
 
 (async () => {
   const now = Math.floor(Date.now() / 1000);
