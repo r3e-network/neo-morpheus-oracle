@@ -3,42 +3,11 @@ import {
   Activity,
   ArrowRight,
   CheckCircle2,
-  Cpu,
-  Database,
   KeyRound,
-  Lock,
-  Shield,
 } from 'lucide-react';
 
 import { Dashboard } from '@/components/dashboard';
 import { getSelectedNetwork, getSelectedNetworkKey } from '@/lib/networks';
-
-const serviceCards = [
-  {
-    icon: Shield,
-    title: 'Oracle Requests',
-    value: '0.01 GAS',
-    description: 'Encrypted payloads, callback contracts, NEP-21 wallet submission.',
-  },
-  {
-    icon: Cpu,
-    title: 'Private Compute',
-    value: 'JS / WASM',
-    description: 'Author bounded compute packages and verify callback readback shape.',
-  },
-  {
-    icon: Database,
-    title: 'Data Catalog',
-    value: '35+ pairs',
-    description: 'Provider-scoped feed keys with on-chain 1e6 USD scaled storage.',
-  },
-  {
-    icon: Lock,
-    title: 'Attested Runtime',
-    value: 'Dual CVM',
-    description: 'Separated oracle and datafeed runtimes with published attestation anchors.',
-  },
-];
 
 const validationItems = [
   'Local encryption before payload submission',
@@ -75,9 +44,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
   return (
     <div className="workbench-home">
-      <section className="workbench-hero">
+      <section className="workbench-focus-band">
         <div className="container">
-          <div className="workbench-hero-grid">
+          <div className="workbench-focus-grid">
             <div className="workbench-hero-copy">
               <img
                 src="/brand/neo-mascot.svg"
@@ -89,13 +58,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               />
               <h1>Morpheus Oracle Workbench</h1>
               <p>
-                A production console for Neo N3 oracle requests, confidential compute, feed
-                inspection, callback verification, and developer handoff.
+                Start with an oracle request, encrypt private fields locally, preview the callback,
+                and submit through the Neo N3 wallet path.
               </p>
               <div className="workbench-hero-actions" aria-label="Primary workbench actions">
-                <Link href={`/explorer${networkQuery}`} className="btn-ata">
-                  Open Workbench <ArrowRight size={16} />
-                </Link>
+                <a href="#oracle-workbench" className="btn-ata">
+                  Compose Request <ArrowRight size={16} />
+                </a>
                 <Link
                   href={`/docs/api-reference${networkQuery}`}
                   className="btn-secondary workbench-link-button"
@@ -105,7 +74,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               </div>
             </div>
 
-            <div className="workbench-status-panel" aria-label="Service readiness">
+            <aside className="workbench-status-panel" aria-label="Deployment reference">
               <div className="workbench-status-header">
                 <div>
                   <strong>{network.name}</strong>
@@ -116,42 +85,31 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                   Ready
                 </span>
               </div>
-              <div className="workbench-validation-list">
-                {validationItems.map((item) => (
-                  <div key={item} className="workbench-validation-row">
-                    <CheckCircle2 size={16} />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
+              <details className="workbench-reference-details">
+                <summary>Deployment reference</summary>
+                <div className="workbench-validation-list">
+                  {validationItems.map((item) => (
+                    <div key={item} className="workbench-validation-row">
+                      <CheckCircle2 size={16} />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
               <div className="workbench-contract-strip">
                 <span>Oracle contract</span>
                 <code>{network.oracle || 'Not configured'}</code>
               </div>
-            </div>
-          </div>
-
-          <div className="workbench-service-grid" aria-label="Workbench services">
-            {serviceCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <article key={card.title} className="workbench-service-card">
-                  <div className="workbench-service-icon">
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <div className="workbench-service-title">{card.title}</div>
-                    <div className="workbench-service-value">{card.value}</div>
-                    <p>{card.description}</p>
-                  </div>
-                </article>
-              );
-            })}
+            </aside>
           </div>
         </div>
       </section>
 
-      <section className="workbench-dashboard-section" aria-label="Morpheus operator workbench">
+      <section
+        id="oracle-workbench"
+        className="workbench-dashboard-section"
+        aria-label="Morpheus operator workbench"
+      >
         <div className="container">
           <Dashboard />
         </div>

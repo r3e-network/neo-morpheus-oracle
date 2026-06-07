@@ -37,20 +37,6 @@ type WorkflowTab = {
 
 const WORKFLOW_TABS: WorkflowTab[] = [
   {
-    id: 'overview',
-    label: 'Network Monitor',
-    description: 'Runtime health, on-chain state, feed synchronization, and attestation anchors.',
-    status: 'Live state',
-    icon: Globe,
-  },
-  {
-    id: 'providers',
-    label: 'Data Catalog',
-    description: 'Provider adapters, canonical feed keys, pair semantics, and storage units.',
-    status: 'Feed catalog',
-    icon: Database,
-  },
-  {
     id: 'oracle',
     label: 'Oracle Requests',
     description: 'Encrypt private fields and generate on-chain Oracle.request packages.',
@@ -65,6 +51,13 @@ const WORKFLOW_TABS: WorkflowTab[] = [
     icon: Cpu,
   },
   {
+    id: 'providers',
+    label: 'Data Catalog',
+    description: 'Provider adapters, canonical feed keys, pair semantics, and storage units.',
+    status: 'Feed catalog',
+    icon: Database,
+  },
+  {
     id: 'studio',
     label: 'Starter Studio',
     description: 'Guided templates for oracle, compute, NeoDID, and developer onboarding.',
@@ -77,6 +70,13 @@ const WORKFLOW_TABS: WorkflowTab[] = [
     description: 'Reference snippets, API entry points, contract flow notes, and handoff material.',
     status: 'Docs',
     icon: BookOpen,
+  },
+  {
+    id: 'overview',
+    label: 'Runtime Status',
+    description: 'Runtime health, on-chain state, feed synchronization, and attestation anchors.',
+    status: 'Reference',
+    icon: Globe,
   },
 ];
 
@@ -111,7 +111,7 @@ const StarterStudio = dynamic(
 );
 
 export function Dashboard() {
-  const [activeTab, setActiveTab] = useState<DashboardTabId>('overview');
+  const [activeTab, setActiveTab] = useState<DashboardTabId>('oracle');
   const [output, setOutput] = useState<string>('');
   const [providers, setProviders] = useState<ProviderSummary[]>([]);
   const [isProvidersLoading, setIsProvidersLoading] = useState(false);
@@ -191,7 +191,7 @@ export function Dashboard() {
       <aside className="dashboard-sidebar" aria-label="Workbench workflows">
         <div className="dashboard-sidebar-header">
           <span>Workbench</span>
-          <strong>Operations</strong>
+          <strong>Focus flow</strong>
         </div>
         <nav className="dashboard-tab-list">
           {WORKFLOW_TABS.map((tab) => {
@@ -250,11 +250,11 @@ export function Dashboard() {
         <section className="dashboard-rail-card">
           <div className="dashboard-rail-title">
             <CheckCircle2 size={15} />
-            Service Summary
+            Request Preview
           </div>
           <div className="dashboard-summary-list">
             <div>
-              <span>Selected workflow</span>
+              <span>Active workflow</span>
               <strong>{activeWorkflow.label}</strong>
             </div>
             <div>
@@ -268,8 +268,8 @@ export function Dashboard() {
               </strong>
             </div>
             <div>
-              <span>Wallet path</span>
-              <strong>NEP-21 supported</strong>
+              <span>Submit path</span>
+              <strong>NEP-21 wallet ready</strong>
             </div>
           </div>
         </section>
