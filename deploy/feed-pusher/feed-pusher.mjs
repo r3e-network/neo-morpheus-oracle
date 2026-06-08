@@ -93,6 +93,12 @@ const NEOX_RPC = process.env.NEOX_RPC || 'https://mainnet-1.rpc.banelabs.org';
 const NEOX_CHAIN_ID = Number(process.env.NEOX_CHAIN_ID || 47763);
 const NEOX_FEED = process.env.NEOX_FEED || '0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB';
 const NEOX_GAS_WARN = Number(process.env.NEOX_GAS_WARN || 5);
+// Neo X pushes real EVM gas every cycle, so it runs a crypto-only subset of the
+// feed by default (TradFi forex/commodity quotes are dropped to save gas). Falls
+// back to the full SYMBOLS list if NEOX_SYMBOLS is unset, so behaviour is
+// unchanged unless explicitly configured. Neo N3 always uses the full SYMBOLS.
+const NEOX_SYMBOLS = (process.env.NEOX_SYMBOLS || process.env.SYMBOLS || 'NEO-USD,GAS-USD,BTC-USD,ETH-USD')
+  .split(',').map((s) => s.trim()).filter(Boolean);
 const NEOX_ABI = [
   'function updateFeeds(string[] symbols, uint256[] prices, uint256[] timestamps, uint256[] roundIds) external',
   'function getLatest(string symbol) view returns (uint256 price, uint256 timestamp, uint256 roundId, bool exists)',
@@ -104,7 +110,7 @@ async function pushNeoX(prices, now) {
   const wallet2 = new ethers.Wallet(NEOX_PK, provider);
   const c = new ethers.Contract(NEOX_FEED, NEOX_ABI, wallet2);
   const syms = [], px = [], ts = [], rounds = []; let skipped = 0, missing = 0;
-  for (const s of SYMBOLS) {
+  for (const s of NEOX_SYMBOLS) {
     if (!(s in prices)) { missing++; continue; }
     let cur; try { cur = await c.getLatest('TWELVEDATA:' + s); } catch { cur = [0n, 0n, 0n, false]; }
     const curPrice = Number(cur[0]) / 1e6, curRound = Number(cur[2]);
@@ -131,13 +137,18 @@ const FEED_CHAINS = (process.env.FEED_CHAINS || '')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 const CHAINS = [
-  { name: 'neo-n3', enabled: true, push: pushNeoN3 },
-  { name: 'neox', enabled: !!NEOX_PK, push: pushNeoX },
+  { name: 'neo-n3', enabled: true, symbols: SYMBOLS, push: pushNeoN3 },
+  { name: 'neox', enabled: !!NEOX_PK, symbols: NEOX_SYMBOLS, push: pushNeoX },
 ].filter((c) => FEED_CHAINS.length === 0 || FEED_CHAINS.includes(c.name));
 
 (async () => {
   const now = Math.floor(Date.now() / 1000);
-  let prices; try { prices = await td(SYMBOLS); } catch (e) { log('TD fetch error (skip cycle): ' + e.message); return; }
+  // Fetch only the prices the enabled chains actually need (each chain pushes its
+  // own symbol list). Per-chain timers scope a run to one chain, so the neox unit
+  // only fetches its crypto-only subset — saving both EVM gas and TwelveData quota.
+  const fetchSet = [...new Set(CHAINS.filter((c) => c.enabled).flatMap((c) => c.symbols))];
+  if (!fetchSet.length) { log('no enabled chains/symbols (nothing to fetch)'); return; }
+  let prices; try { prices = await td(fetchSet); } catch (e) { log('TD fetch error (skip cycle): ' + e.message); return; }
   for (const chain of CHAINS) {
     if (!chain.enabled) continue;
     try { await chain.push(prices, now); } catch (e) { log(`[${chain.name}] push error (recovers next cycle): ${e.message}`); }
