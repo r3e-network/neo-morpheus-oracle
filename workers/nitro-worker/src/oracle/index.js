@@ -20,3 +20,11 @@ export {
 } from './feeds.js';
 
 export { handleVrf } from './vrf.js';
+
+export {
+  handleMessageReveal,
+  buildRevealStatement,
+  recoverRevealSigner,
+  addressesEqual,
+  isRevealTimestampFresh,
+} from './message-reveal.js';

@@ -9,6 +9,7 @@ import {
   listFeedSymbols,
   handleVrf,
   decryptEncryptedToken,
+  handleMessageReveal,
 } from './oracle/index.js';
 import {
   handleComputeExecute,
@@ -189,6 +190,13 @@ const CAPABILITIES = [
     actions: ['decrypt'],
     featurePath: 'oracle/decrypt',
     handler: handleOracleDecrypt,
+  },
+  {
+    id: 'oracle_message_reveal',
+    paths: [{ match: '/oracle/message-reveal' }],
+    actions: ['message_reveal'],
+    featurePath: 'oracle/message-reveal',
+    handler: async ({ payload }) => handleMessageReveal(payload),
   },
   {
     id: 'oracle_heartbeat',
