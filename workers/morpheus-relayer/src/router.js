@@ -188,6 +188,16 @@ export function resolveKernelIntent(requestType) {
     };
   }
 
+  if (normalized === 'decrypt' || normalized.includes('decrypt') || normalized.includes('reveal')) {
+    return {
+      legacyRequestType: normalized,
+      moduleId: 'confidential.decrypt',
+      operation: normalized || 'decrypt',
+      workerRoute: '/oracle/decrypt',
+      operatorOnly: false,
+    };
+  }
+
   if (normalized.startsWith('neodid')) {
     if (normalized.includes('zklogin')) {
       return {

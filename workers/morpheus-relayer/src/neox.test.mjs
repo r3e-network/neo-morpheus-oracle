@@ -7,6 +7,7 @@ import {
   buildNeoXDigest,
   signNeoXFulfillment,
   normalizeNeoXRevert,
+  decodeConfidentialEnvelope,
 } from './neox.js';
 import { classifyError, isAlreadyFulfilledError, isTerminalConfigurationError } from './fulfillment.js';
 
@@ -124,4 +125,25 @@ test('signNeoXFulfillment honours a separate verifier key', async () => {
     success: true, result: '', result_bytes_base64: '', error: '',
   });
   assert.equal(out.address, new ethers.Wallet(verifierPk).address);
+});
+
+test('decodeConfidentialEnvelope recovers the base64 envelope from abi.encode(id,bytes)', () => {
+  // MiniAppMessageEVM.requestReveal submits abi.encode(uint256 id, bytes envelope);
+  // the envelope itself is the base64 of the X25519 confidential JSON.
+  const envelopeB64 = Buffer.from(
+    JSON.stringify({ v: 2, alg: 'X25519-HKDF-SHA256-AES-256-GCM', epk: 'e', iv: 'i', ct: 'c', tag: 't' })
+  ).toString('base64');
+  const payload = ethers.AbiCoder.defaultAbiCoder().encode(
+    ['uint256', 'bytes'],
+    [4, ethers.toUtf8Bytes(envelopeB64)]
+  );
+  assert.equal(decodeConfidentialEnvelope(payload), envelopeB64);
+});
+
+test('decodeConfidentialEnvelope falls back to utf8 for a raw (non-abi) payload', () => {
+  // A payload that is itself the utf8 of the envelope string (not abi.encode-wrapped)
+  // must still decode to that string rather than throwing.
+  const raw = 'plain-base64-envelope-string';
+  const payload = `0x${Buffer.from(raw, 'utf8').toString('hex')}`;
+  assert.equal(decodeConfidentialEnvelope(payload), raw);
 });

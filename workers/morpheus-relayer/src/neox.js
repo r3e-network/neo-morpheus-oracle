@@ -121,6 +121,30 @@ function decodePayload(payloadHex) {
   }
 }
 
+// The confidential decrypt lane receives its envelope wrapped by the miniapp
+// callback contract as abi.encode(uint256 messageId, bytes envelope) — the same
+// abi.encode(...) payload convention dice uses (abi.encode(face)). Recover the
+// raw base64 envelope string so the decrypt fulfilment lane receives it verbatim;
+// fall back to the generic utf8 decode if the payload isn't in that shape.
+export function decodeConfidentialEnvelope(payloadHex) {
+  try {
+    const [, envelopeBytes] = ethers.AbiCoder.defaultAbiCoder().decode(
+      ['uint256', 'bytes'],
+      payloadHex
+    );
+    const decoded = ethers.toUtf8String(envelopeBytes);
+    if (decoded) return decoded;
+  } catch {
+    // not abi.encode(uint256,bytes) — fall through to the generic decode
+  }
+  return decodePayload(payloadHex);
+}
+
+function isConfidentialDecryptOperation(operation) {
+  const normalized = operation.toLowerCase();
+  return normalized === 'decrypt' || normalized.includes('decrypt');
+}
+
 function buildNeoXEventFromRequest(record) {
   const requestId = record.id.toString();
   const operation = trimString(record.operation || '');
@@ -135,7 +159,9 @@ function buildNeoXEventFromRequest(record) {
     appId: trimString(record.appId || ''),
     moduleId: trimString(record.moduleId || ''),
     operation,
-    payloadText: decodePayload(record.payload),
+    payloadText: isConfidentialDecryptOperation(operation)
+      ? decodeConfidentialEnvelope(record.payload)
+      : decodePayload(record.payload),
     requester: trimString(record.requester || ''),
     callbackContract:
       record.callbackContract && record.callbackContract !== ethers.ZeroAddress

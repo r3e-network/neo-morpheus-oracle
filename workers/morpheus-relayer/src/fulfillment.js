@@ -602,6 +602,45 @@ async function prepareOracleFulfillment(config, event, logger = null) {
       verification_signature: vrfVerification.signature,
     });
   }
+  // Confidential reveal: the request payload is an X25519 sealed envelope; the
+  // enclave decrypts it and the plaintext becomes the on-chain fulfillment result
+  // (Neo Message time-locked reveal). The kernel/contract already gated the
+  // unlock time, so this is a trusted, relayer-mediated decrypt.
+  if (kernelIntent.moduleId === 'confidential.decrypt') {
+    const envelope = trimString(event.payloadText || '');
+    const decResponse = await callNitro(config, '/oracle/decrypt', { envelope });
+    const ok = decResponse.ok && typeof decResponse.body?.plaintext === 'string';
+    const decryptFulfillment = ok
+      ? {
+          success: true,
+          result: '',
+          result_bytes_base64: Buffer.from(decResponse.body.plaintext, 'utf8').toString('base64'),
+          error: '',
+        }
+      : {
+          success: false,
+          result: '',
+          result_bytes_base64: '',
+          error: trimOnchainErrorMessage(decResponse.body?.error || 'confidential decrypt failed'),
+        };
+    const decryptVerification = await signFulfillmentPayload(config, event.chain, {
+      requestId: event.requestId,
+      requestType: event.requestType,
+      ...fulfillmentContext,
+      success: decryptFulfillment.success,
+      result: decryptFulfillment.result,
+      result_bytes_base64: decryptFulfillment.result_bytes_base64,
+      error: decryptFulfillment.error,
+    });
+    return buildPreparedFulfillment(decryptFulfillment, {
+      route: 'oracle:decrypt',
+      module_id: fulfillmentContext.moduleId,
+      operation: fulfillmentContext.operation,
+      worker_response: decResponse.body,
+      worker_status: decResponse.status,
+      verification_signature: decryptVerification.signature,
+    });
+  }
   const route = resolveWorkerRoute(event.requestType, payload);
   const workerPayload = buildWorkerPayload(
     event.chain,

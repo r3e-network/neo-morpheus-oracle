@@ -157,6 +157,16 @@ test('resolveKernelIntent maps legacy request types to kernel module and operati
     workerRoute: '/oracle/feed',
     operatorOnly: true,
   });
+  // Neo Message confidential reveal: 'decrypt' (and reveal-ish aliases) route to
+  // the enclave decrypt lane, never operator-only (permissionless reveal).
+  assert.deepEqual(resolveKernelIntent('decrypt'), {
+    legacyRequestType: 'decrypt',
+    moduleId: 'confidential.decrypt',
+    operation: 'decrypt',
+    workerRoute: '/oracle/decrypt',
+    operatorOnly: false,
+  });
+  assert.equal(resolveKernelIntent('message-reveal').moduleId, 'confidential.decrypt');
 });
 
 test('isOperatorOnlyRequestType flags feed sync requests', () => {
