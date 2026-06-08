@@ -638,6 +638,7 @@ test('workflow: every capability registered in the registry resolves and handles
     '/neodid/runtime',
     '/providers',
     '/oracle/public-key',
+    '/oracle/decrypt',
     '/oracle/query',
     '/oracle/smart-fetch',
     '/feeds/catalog',
@@ -667,5 +668,5 @@ test('workflow: every capability registered in the registry resolves and handles
   }
 
   // Verify feature count matches capabilities
-  assert.equal(features.length, 25, 'should have 25 registered capabilities');
+  assert.equal(features.length, 26, 'should have 26 registered capabilities');
 });

@@ -8,6 +8,7 @@ import {
   handleFeedsPrice,
   listFeedSymbols,
   handleVrf,
+  decryptEncryptedToken,
 } from './oracle/index.js';
 import {
   handleComputeExecute,
@@ -46,6 +47,30 @@ async function handleOraclePublicKey({ payload }) {
     recommended_payload_encryption: keyMaterial.algorithm,
     supported_payload_encryption: [keyMaterial.algorithm],
   });
+}
+
+// Decrypt an X25519-HKDF-SHA256-AES-256-GCM envelope (sealed to the oracle key)
+// inside the enclave and return the plaintext. Token-protected — only trusted
+// callers (the relayer's time-locked reveal lane, or an auth proxy that has
+// already verified the recipient) reach this; it is never a public decryption
+// oracle. Used by Neo Message (recipient reveal + time-locked reveal).
+async function handleOracleDecrypt({ payload }) {
+  const ciphertext =
+    (typeof payload.envelope === 'string' && payload.envelope.trim()) ||
+    (typeof payload.ciphertext === 'string' && payload.ciphertext.trim()) ||
+    (typeof payload.sealed === 'string' && payload.sealed.trim()) ||
+    (typeof payload.encrypted_payload === 'string' && payload.encrypted_payload.trim()) ||
+    '';
+  if (!ciphertext) {
+    return json(400, { error: 'sealed envelope required (field: envelope)' });
+  }
+  try {
+    const plaintext = await decryptEncryptedToken(ciphertext, payload);
+    if (plaintext == null) return json(400, { error: 'decryption returned empty result' });
+    return json(200, { plaintext });
+  } catch (error) {
+    return json(400, { error: error instanceof Error ? error.message : 'decrypt failed' });
+  }
 }
 
 function handleFeedsCatalog() {
@@ -157,6 +182,13 @@ const CAPABILITIES = [
     paths: [{ match: '/oracle/public-key' }],
     featurePath: 'oracle/public-key',
     handler: handleOraclePublicKey,
+  },
+  {
+    id: 'oracle_decrypt',
+    paths: [{ match: '/oracle/decrypt' }],
+    actions: ['decrypt'],
+    featurePath: 'oracle/decrypt',
+    handler: handleOracleDecrypt,
   },
   {
     id: 'oracle_heartbeat',
