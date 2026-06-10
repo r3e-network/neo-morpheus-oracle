@@ -1,7 +1,12 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 const RPCS=['https://api.n3index.dev/mainnet','https://rpc10.n3.nspcc.ru:10331','https://mainnet1.neo.coz.io:443'];
 const FEED='0x03013f49c42a14546c8bbe58f9d434c3517fccab', UPDATER='0x9fb28bdacfaa7fcc0a4d660d0dc990b0e7d46118', GASH='0xd2a4cff31913016155e38e474a2c06d08be276cf';
-const MAX_AGE=Number(process.env.MAX_AGE_SEC||1200), MIN_GAS=Number(process.env.MIN_GAS||12);
+// Alert only on GENUINE staleness, i.e. above the pusher's own force-refresh
+// interval (MAX_STALE_SEC) plus margin. A flat symbol legitimately ages up to
+// MAX_STALE_SEC + a push cycle before its scheduled refresh, so a tighter
+// threshold (the old 1200s) false-alarms whenever the price simply hasn't moved.
+const STALE_REFRESH=Number(process.env.MAX_STALE_SEC||1800);
+const MAX_AGE=Number(process.env.MAX_AGE_SEC||(STALE_REFRESH+900)), MIN_GAS=Number(process.env.MIN_GAS||12);
 const LOG='/opt/morpheus/nitro/feed-monitor.log', STATUS='/opt/morpheus/nitro/feed-status.json';
 const log=m=>{const l=`[${new Date().toISOString()}] ${m}`;try{appendFileSync(LOG,l+'\n');}catch{}console.log(l);};
 async function rpc(m,p){let last;for(const url of RPCS){try{const r=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:m,params:p}),signal:AbortSignal.timeout(12000)});const t=await r.text();let j;try{j=JSON.parse(t);}catch{throw new Error('non-JSON');}if(j.error)throw new Error('rpcerr');return j.result;}catch(e){last=e;}}throw last;}
