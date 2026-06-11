@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Reflection;
@@ -11,7 +12,8 @@ using Kernel = Neo.SmartContract.Testing.MorpheusOracle;
 namespace MorpheusOracle.Contracts.Tests
 {
     /// <summary>
-    /// VM-level coverage for the request fee-accounting lifecycle (submit -> expire).
+    /// VM-level coverage for the request fee-accounting lifecycle
+    /// (submit -> fulfill -> expire).
     ///
     /// Unlike the source-text assertions in <see cref="MorpheusOracleTest"/>, these
     /// tests deploy the compiled NEF into an emulated Neo VM and exercise real
@@ -21,6 +23,13 @@ namespace MorpheusOracle.Contracts.Tests
     /// decrementing the accrued pool when it still held enough, which both
     /// over-refunded after a fee change and could leave fee-credit liabilities
     /// exceeding the GAS the contract actually holds.
+    ///
+    /// Current semantics under test (the reserve invariant): every pending request's
+    /// FeePaid is mirrored into ReservedRequestFees, AccruedRequestFees >=
+    /// ReservedRequestFees at all times, only the free surplus (WithdrawableFees =
+    /// accrued - reserved) is admin-withdrawable, fulfillment releases the reserve
+    /// into the withdrawable surplus, and expiry refunds the FULL FeePaid (the
+    /// reserve guarantees its backing can never have been withdrawn).
     ///
     /// The deployed contract is the generated artifact under Generated/ (produced by
     /// `nccs MorpheusOracle.csproj --generate-artifacts Source`).  Regenerate it when
@@ -125,12 +134,77 @@ namespace MorpheusOracle.Contracts.Tests
         // Core invariant the fix protects: outstanding fee-credit liabilities must
         // never exceed the GAS the contract actually holds.  Only the owner carries
         // credit in these tests, so its credit plus the accrued pool is the full
-        // liability.
+        // liability.  The reserve ledger must additionally never exceed the accrued
+        // pool it is carved out of.
         private static void AssertSolvent(Harness h)
         {
             BigInteger gas = h.Engine.Native.GAS.BalanceOf(h.Contract.Hash)!.Value;
-            BigInteger liabilities = h.Contract.FeeCreditOf(h.Owner)!.Value + h.Contract.AccruedRequestFees!.Value;
+            BigInteger accrued = h.Contract.AccruedRequestFees!.Value;
+            BigInteger reserved = h.Contract.ReservedRequestFees!.Value;
+            BigInteger liabilities = h.Contract.FeeCreditOf(h.Owner)!.Value + accrued;
             Assert.True(gas >= liabilities, $"under-collateralized: gas={gas} < liabilities={liabilities}");
+            Assert.True(accrued >= reserved, $"reserve overhang: accrued={accrued} < reserved={reserved}");
+        }
+
+        // Asserts the accrued/reserved/withdrawable triple in one shot so every
+        // lifecycle step pins the full fee ledger, not just the accrued pool.
+        private static void AssertFeeLedger(
+            Harness h, BigInteger accrued, BigInteger reserved, BigInteger withdrawable)
+        {
+            Assert.Equal(accrued, h.Contract.AccruedRequestFees!.Value);
+            Assert.Equal(reserved, h.Contract.ReservedRequestFees!.Value);
+            Assert.Equal(withdrawable, h.Contract.WithdrawableFees!.Value);
+        }
+
+        // The testing engine surfaces a VM FAULT as a thrown exception whose text
+        // includes the contract's assert message.
+        private static void AssertReverts(Action action, string messageFragment)
+        {
+            Exception ex = Assert.ThrowsAny<Exception>(action);
+            Assert.Contains(messageFragment, ex.ToString());
+        }
+
+        // Crypto.Sign on this platform (observed on macOS/arm64) emits an invalid
+        // signature for roughly 2% of nonces; Neo's own VerifySignature and pure
+        // .NET ECDsa both reject those deterministically.  Re-sign until the
+        // signature round-trips locally: the VM's CryptoLib.VerifyWithECDsa uses
+        // the same managed verifier, so a locally verified signature is guaranteed
+        // to verify in-contract and the suite stays deterministic.
+        private static byte[] SignVerified(byte[] digest, KeyPair key)
+        {
+            for (int attempt = 0; attempt < 16; attempt++)
+            {
+                byte[] signature = Neo.Cryptography.Crypto.Sign(
+                    digest, key.PrivateKey, Neo.Cryptography.ECC.ECCurve.Secp256r1);
+                if (Neo.Cryptography.Crypto.VerifySignature(digest, signature, key.PublicKey))
+                    return signature;
+            }
+            throw new InvalidOperationException("could not produce a locally verifiable signature");
+        }
+
+        // Configures the runtime verifier + updater (both admin-gated) and fulfills
+        // the request through the real secp256r1 signature path, mirroring what the
+        // off-chain oracle does.  Fulfillment is the only transition that releases a
+        // pending request's reserved fee into the withdrawable surplus.
+        private static void Fulfill(Harness h, BigInteger requestId)
+        {
+            byte[] priv = new byte[32];
+            priv[31] = 7;
+            KeyPair verifier = new KeyPair(priv);
+
+            h.Engine.SetTransactionSigners(h.Owner);
+            h.Contract.SetRuntimeVerificationPublicKey(verifier.PublicKey);
+            h.Contract.SetUpdater(h.Owner);
+
+            byte[] result = new byte[] { 0x01 };
+            byte[] scriptHashLe = h.Contract.Hash.GetSpan().ToArray();
+            uint network = ProtocolSettings.Default.Network;
+            byte[] digest = ComputeFulfillmentDigest(
+                requestId, AppId, ModuleId, "fetch", true, result, "", scriptHashLe, network);
+            byte[] signature = SignVerified(digest, verifier);
+
+            h.Contract.FulfillRequest(requestId, true, result, "", signature);
+            Assert.Equal(BigInteger.One, RequestField(h, requestId, StatusIndex)); // Succeeded
         }
 
         [Fact]
@@ -142,20 +216,22 @@ namespace MorpheusOracle.Contracts.Tests
 
             BigInteger id = Submit(h);
 
-            // Fee debited from the sponsor, mirrored into the accrued pool, and the
-            // exact amount recorded on the request for a later symmetric refund.
+            // Fee debited from the sponsor, mirrored into the accrued pool AND the
+            // reserved ledger (nothing is withdrawable while the request is
+            // pending), and the exact amount recorded on the request for a later
+            // symmetric refund.
             Assert.Equal(deposit - DefaultFee, h.Contract.FeeCreditOf(h.Owner)!.Value);
-            Assert.Equal(new BigInteger(DefaultFee), h.Contract.AccruedRequestFees!.Value);
+            AssertFeeLedger(h, DefaultFee, DefaultFee, 0);
             Assert.Equal(new BigInteger(DefaultFee), RequestField(h, id, FeePaidIndex));
             Assert.Equal(BigInteger.Zero, RequestField(h, id, StatusIndex)); // Pending
 
             AdvancePastTtl(h);
             Expire(h, id);
 
-            // Sponsor made whole; accrued returns to zero (credit and accrued moved
-            // by the same amount).
+            // Sponsor made whole; accrued and reserved both return to zero (credit,
+            // accrued and reserved all moved by the same amount).
             Assert.Equal(deposit, h.Contract.FeeCreditOf(h.Owner)!.Value);
-            Assert.Equal(BigInteger.Zero, h.Contract.AccruedRequestFees!.Value);
+            AssertFeeLedger(h, 0, 0, 0);
             Assert.Equal(new BigInteger(2), RequestField(h, id, StatusIndex)); // Failed
             AssertSolvent(h);
         }
@@ -169,6 +245,7 @@ namespace MorpheusOracle.Contracts.Tests
 
             BigInteger id = Submit(h); // pays DefaultFee (1,000,000)
             Assert.Equal(deposit - DefaultFee, h.Contract.FeeCreditOf(h.Owner)!.Value);
+            AssertFeeLedger(h, DefaultFee, DefaultFee, 0);
 
             // Admin raises the fee 5x AFTER submission but before expiry.
             h.Engine.SetTransactionSigners(h.Owner);
@@ -183,64 +260,81 @@ namespace MorpheusOracle.Contracts.Tests
             // sponsor credit to deposit + 4,000,000 and leaving 1,000,000 stuck in
             // the accrued pool.
             Assert.Equal(deposit, h.Contract.FeeCreditOf(h.Owner)!.Value);
-            Assert.Equal(BigInteger.Zero, h.Contract.AccruedRequestFees!.Value);
+            AssertFeeLedger(h, 0, 0, 0);
             AssertSolvent(h);
         }
 
         [Fact]
-        public void Expire_AfterAccruedFullyWithdrawn_DoesNotRefundUnbackedCredit()
+        public void WithdrawAccruedFees_OfReservedPendingBacking_Reverts_AndExpiryRefundsInFull()
         {
             Harness h = Deploy();
             BigInteger deposit = 10 * DefaultFee;
             Bootstrap(h, deposit);
 
             BigInteger id = Submit(h);
-            Assert.Equal(new BigInteger(DefaultFee), h.Contract.AccruedRequestFees!.Value);
+            AssertFeeLedger(h, DefaultFee, DefaultFee, 0);
 
-            // Admin withdraws the full accrued fee (as revenue) before expiry: the
-            // GAS backing that fee has now left the contract.
+            // The whole accrued pool backs the pending request, so the admin may
+            // not withdraw any of it.  The pre-reserve code clamped the LATER
+            // expiry refund instead, silently shorting the sponsor.
             h.Engine.SetTransactionSigners(h.Owner);
-            h.Contract.WithdrawAccruedFees(h.Owner, DefaultFee);
-            Assert.Equal(BigInteger.Zero, h.Contract.AccruedRequestFees!.Value);
-            Assert.Equal(deposit - DefaultFee, h.Engine.Native.GAS.BalanceOf(h.Contract.Hash)!.Value);
+            AssertReverts(
+                () => h.Contract.WithdrawAccruedFees(h.Owner, DefaultFee),
+                "exceeds withdrawable");
+
+            // The failed withdrawal must not have moved any GAS or ledger state.
+            Assert.Equal(deposit, h.Engine.Native.GAS.BalanceOf(h.Contract.Hash)!.Value);
+            AssertFeeLedger(h, DefaultFee, DefaultFee, 0);
 
             AdvancePastTtl(h);
             Expire(h, id);
 
-            // The accrued pool is empty, so the refund is clamped to 0 and the
-            // sponsor credit is left untouched.  The pre-fix code blindly added the
-            // fee back, producing credit (deposit) the contract could no longer back
-            // with GAS (deposit - fee).
-            Assert.Equal(deposit - DefaultFee, h.Contract.FeeCreditOf(h.Owner)!.Value);
-            Assert.Equal(BigInteger.Zero, h.Contract.AccruedRequestFees!.Value);
+            // With its backing protected by the reserve, the expiry refund is the
+            // FULL FeePaid and the sponsor is made whole.
+            Assert.Equal(deposit, h.Contract.FeeCreditOf(h.Owner)!.Value);
+            AssertFeeLedger(h, 0, 0, 0);
             AssertSolvent(h);
         }
 
         [Fact]
-        public void Expire_WithPartiallyWithdrawnAccrued_RefundsOnlyBackedPortion()
+        public void Fulfillment_ReleasesReserve_MakingFeeWithdrawable_WhilePendingStaysProtected()
         {
             Harness h = Deploy();
             BigInteger deposit = 10 * DefaultFee;
             Bootstrap(h, deposit);
 
             BigInteger id1 = Submit(h);
-            Submit(h); // second pending request, also paid by the sponsor
+            BigInteger id2 = Submit(h); // second pending request, also paid by the sponsor
             Assert.Equal(deposit - 2 * DefaultFee, h.Contract.FeeCreditOf(h.Owner)!.Value);
-            Assert.Equal(new BigInteger(2 * DefaultFee), h.Contract.AccruedRequestFees!.Value);
+            AssertFeeLedger(h, 2 * DefaultFee, 2 * DefaultFee, 0);
 
-            // Withdraw 1.5x the per-request fee, leaving only 0.5x backed in the pool.
-            BigInteger withdraw = 3 * DefaultFee / 2; // 1,500,000
+            // Both fees back pending requests: even a partial withdrawal reverts.
             h.Engine.SetTransactionSigners(h.Owner);
-            h.Contract.WithdrawAccruedFees(h.Owner, withdraw);
-            Assert.Equal(new BigInteger(DefaultFee / 2), h.Contract.AccruedRequestFees!.Value); // 500,000
+            AssertReverts(
+                () => h.Contract.WithdrawAccruedFees(h.Owner, DefaultFee / 2),
+                "exceeds withdrawable");
+
+            // Fulfilling request 1 earns its fee: the reserve releases exactly that
+            // request's FeePaid into the withdrawable surplus.
+            Fulfill(h, id1);
+            AssertFeeLedger(h, 2 * DefaultFee, DefaultFee, DefaultFee);
+
+            // The earned fee is now withdrawable as revenue...
+            h.Contract.WithdrawAccruedFees(h.Owner, DefaultFee);
+            AssertFeeLedger(h, DefaultFee, DefaultFee, 0);
+
+            // ...but nothing beyond it: request 2's backing is still reserved.
+            AssertReverts(
+                () => h.Contract.WithdrawAccruedFees(h.Owner, 1),
+                "exceeds withdrawable");
 
             AdvancePastTtl(h);
-            Expire(h, id1); // FeePaid = 1,000,000 but only 500,000 remains accrued
+            Expire(h, id2);
 
-            // Refund is clamped to the 500,000 still backed; credit and accrued move
-            // together so the contract stays solvent.
-            Assert.Equal(deposit - 2 * DefaultFee + DefaultFee / 2, h.Contract.FeeCreditOf(h.Owner)!.Value);
-            Assert.Equal(BigInteger.Zero, h.Contract.AccruedRequestFees!.Value);
+            // Request 2's refund is the FULL FeePaid; only the fulfilled request's
+            // fee was spendable revenue, so the sponsor ends down exactly one fee.
+            Assert.Equal(deposit - DefaultFee, h.Contract.FeeCreditOf(h.Owner)!.Value);
+            AssertFeeLedger(h, 0, 0, 0);
             AssertSolvent(h);
         }
 
@@ -257,6 +351,7 @@ namespace MorpheusOracle.Contracts.Tests
             Bootstrap(h, 10 * DefaultFee);
             BigInteger id = Submit(h); // appId=demo.app, moduleId=oracle.fetch, operation="fetch"
             Assert.Equal(BigInteger.Zero, RequestField(h, id, StatusIndex)); // Pending
+            AssertFeeLedger(h, DefaultFee, DefaultFee, 0);
 
             byte[] priv = new byte[32];
             priv[31] = 7;
@@ -272,13 +367,14 @@ namespace MorpheusOracle.Contracts.Tests
             uint network = ProtocolSettings.Default.Network;        // == Runtime.GetNetwork() in the engine
             byte[] digest = ComputeFulfillmentDigest(
                 id, AppId, ModuleId, "fetch", true, result, error, scriptHashLe, network);
-            byte[] signature = Neo.Cryptography.Crypto.Sign(
-                digest, verifier.PrivateKey, Neo.Cryptography.ECC.ECCurve.Secp256r1);
+            byte[] signature = SignVerified(digest, verifier);
 
             h.Engine.SetTransactionSigners(h.Owner);
             h.Contract.FulfillRequest(id, true, result, error, signature);
 
             Assert.Equal(BigInteger.One, RequestField(h, id, StatusIndex)); // Succeeded
+            // Fulfillment earned the fee: reserve released, surplus withdrawable.
+            AssertFeeLedger(h, DefaultFee, 0, DefaultFee);
         }
 
         // C# replica of the contract's ComputeFulfillmentDigest (and the relayer's

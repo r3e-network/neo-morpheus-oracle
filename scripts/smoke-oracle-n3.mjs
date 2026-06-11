@@ -1,5 +1,6 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
+import { parseGasToRaw } from './lib-gas-units.mjs';
 import { resolveCallbackWithLocalFallback } from './lib-smoke-oracle-fallback.mjs';
 import {
   buildFulfillmentVerificationSignature,
@@ -223,14 +224,6 @@ function toGasString(rawValue) {
     .replace(/0+$/, '');
   const suffix = fraction ? `.${fraction}` : '';
   return `${negative ? '-' : ''}${whole}${suffix}`;
-}
-
-function parseGasToRaw(value, fallbackRaw) {
-  const text = trimString(value);
-  if (!text) return fallbackRaw;
-  const asNumber = Number(text);
-  if (!Number.isFinite(asNumber) || asNumber < 0) return fallbackRaw;
-  return BigInt(Math.ceil(asNumber * 100000000));
 }
 
 async function ensureGasBudget(rpcClient, account) {

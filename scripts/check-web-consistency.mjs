@@ -9,8 +9,12 @@ async function read(relativePath) {
   return fs.readFile(path.resolve(repoRoot, relativePath), 'utf8');
 }
 
+// Every extractor below accepts BOTH quote styles: the web sources are
+// prettier-formatted to single quotes while older revisions (and JSON-ish
+// worker literals) used double quotes; a quote-style-only reformat must never
+// silently empty a dataset and turn its comparison into a vacuous pass.
 function extractBuiltinNames(sourceText) {
-  return [...sourceText.matchAll(/name:\s*"([^"]+)"/g)].map((match) => match[1]);
+  return [...sourceText.matchAll(/name:\s*(['"])([^'"]+)\1/g)].map((match) => match[2]);
 }
 
 function extractQuotedArrayStrings(sourceText, arrayName) {
@@ -18,7 +22,7 @@ function extractQuotedArrayStrings(sourceText, arrayName) {
     new RegExp(`(?:export\\s+)?const ${arrayName} = \\[(.*?)\\]`, 's')
   );
   if (!blockMatch) return [];
-  return [...blockMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  return [...blockMatch[1].matchAll(/(['"])([^'"]+)\1/g)].map((match) => match[2]);
 }
 
 function extractFrontendFeedSymbols(sourceText) {
@@ -28,9 +32,16 @@ function extractFrontendFeedSymbols(sourceText) {
   const baseSymbols = extractQuotedArrayStrings(sourceText, 'DEFAULT_FEED_BASE_SYMBOLS');
   if (baseSymbols.length === 0) return [];
 
-  const prefixMatch = sourceText.match(/export const CANONICAL_FEED_PROVIDER_PREFIX = "([^"]+)";/);
-  const prefix = prefixMatch?.[1] || '';
-  return baseSymbols.map((symbol) => `${prefix}${symbol}`);
+  // Base symbols without their provider prefix are useless for comparison, so
+  // a failed prefix match is a hard error rather than a silent '' fallback.
+  const prefixMatch = sourceText.match(
+    /export const CANONICAL_FEED_PROVIDER_PREFIX = (['"])([^'"]+)\1;/
+  );
+  assert(
+    prefixMatch,
+    'failed to parse CANONICAL_FEED_PROVIDER_PREFIX from apps/web/lib/feed-defaults.ts'
+  );
+  return baseSymbols.map((symbol) => `${prefixMatch[2]}${symbol}`);
 }
 
 function normalizeFeedSymbolForComparison(symbol) {
@@ -40,7 +51,7 @@ function normalizeFeedSymbolForComparison(symbol) {
 function extractFeedRegistryPairs(sourceText) {
   const blockMatch = sourceText.match(/export const DEFAULT_FEED_PAIRS = \{(.*?)\n\};/s);
   if (!blockMatch) return [];
-  return [...blockMatch[1].matchAll(/'([A-Z0-9-]+)':\s*\{/g)].map((match) => match[1]);
+  return [...blockMatch[1].matchAll(/(['"])([A-Z0-9-]+)\1:\s*\{/g)].map((match) => match[2]);
 }
 
 function assert(condition, message) {
@@ -119,6 +130,18 @@ const [
 
 const frontendBuiltinNames = new Set(extractBuiltinNames(docsDataText));
 const workerBuiltinNames = new Set(extractBuiltinNames(workerComputeText));
+
+// Guard against extractor rot: empty sets would make the missing/extra
+// comparison below pass vacuously, exactly the failure mode that previously
+// hid behind a quote-style mismatch.
+assert(
+  frontendBuiltinNames.size > 0,
+  'failed to parse frontend builtin names from apps/web/lib/docs-data.ts'
+);
+assert(
+  workerBuiltinNames.size > 0,
+  'failed to parse worker builtin names from workers/nitro-worker/src/compute/index.js'
+);
 
 const missingBuiltinNames = [...workerBuiltinNames].filter(
   (name) => !frontendBuiltinNames.has(name)
