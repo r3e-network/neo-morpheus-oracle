@@ -15,6 +15,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Guard against package-lock drift
+        run: |
+          npm install --package-lock-only
+          git diff --exit-code package-lock.json
       - run: node scripts/export-public-runtime-catalog.mjs --output /tmp/morpheus-runtime-catalog.json >/dev/null
       - run: cmp -s /tmp/morpheus-runtime-catalog.json apps/web/public/morpheus-runtime-catalog.json
       - run: node scripts/check-web-consistency.mjs
