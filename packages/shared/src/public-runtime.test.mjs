@@ -53,3 +53,50 @@ test('buildPublicRuntimeStatusSnapshot combines origin probes into an operationa
   assert.equal(snapshot.runtime.info.appId, 'app-123');
   assert.equal(snapshot.runtime.info.composeHash, 'compose-hash-123');
 });
+
+test('buildPublicRuntimeStatusSnapshot reports the emergency shim payload as degraded despite status ok', () => {
+  // Exact live payload served by the emergency fallback runtime during a TEE
+  // outage: HTTP 200 + status 'ok' but explicitly degraded with a reason.
+  const snapshot = buildPublicRuntimeStatusSnapshot({
+    catalog: runtimeCatalog,
+    checkedAt: '2026-06-11T00:00:00.000Z',
+    health: {
+      ok: true,
+      status: 200,
+      body: {
+        status: 'ok',
+        degraded: true,
+        reason: 'phala_runtime_control_plane_disabled',
+      },
+    },
+    info: {
+      ok: true,
+      status: 200,
+      body: { version: 'emergency-vercel-runtime' },
+    },
+  });
+
+  assert.equal(snapshot.runtime.status, 'degraded');
+  assert.equal(snapshot.runtime.health.state, 'degraded');
+  assert.equal(snapshot.runtime.health.detail, 'phala_runtime_control_plane_disabled');
+});
+
+test('buildPublicRuntimeStatusSnapshot keeps a down status string authoritative over the degraded flag', () => {
+  const snapshot = buildPublicRuntimeStatusSnapshot({
+    catalog: runtimeCatalog,
+    checkedAt: '2026-06-11T00:00:00.000Z',
+    health: {
+      ok: true,
+      status: 200,
+      body: { status: 'down', degraded: true, reason: 'runtime offline' },
+    },
+    info: {
+      ok: false,
+      status: 503,
+      body: { error: 'runtime info unavailable' },
+    },
+  });
+
+  assert.equal(snapshot.runtime.status, 'down');
+  assert.equal(snapshot.runtime.health.state, 'down');
+});

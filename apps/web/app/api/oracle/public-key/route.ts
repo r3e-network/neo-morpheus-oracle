@@ -1,3 +1,5 @@
+import { badRequest } from '@/lib/api-helpers';
+import { isKnownNetworkKey } from '@/lib/networks';
 import { proxyToNitro } from '@/lib/nitro';
 
 async function parseResponseBody(response: Response) {
@@ -14,6 +16,9 @@ function readNetwork(request: Request) {
 
 export async function GET(request: Request) {
   const network = readNetwork(request);
+  if (network && !isKnownNetworkKey(network)) {
+    return badRequest(`unknown network "${network}"; expected "mainnet" or "testnet"`);
+  }
   const response = await proxyToNitro(
     '/oracle/public-key',
     { method: 'GET' },

@@ -13,11 +13,33 @@ describe('rate-limit utilities', () => {
   });
 
   describe('getClientIp', () => {
-    it('should extract first IP from x-forwarded-for header', () => {
+    it('should use the last x-forwarded-for hop (the one the nearest proxy vouches for)', () => {
       const request = new Request('http://localhost', {
         headers: { 'x-forwarded-for': '1.2.3.4, 5.6.7.8' },
       });
-      expect(getClientIp(request)).toBe('1.2.3.4');
+      expect(getClientIp(request)).toBe('5.6.7.8');
+    });
+
+    it('should ignore client-controlled XFF prefixes so spoofing cannot mint fresh keys', () => {
+      const spoofedA = new Request('http://localhost', {
+        headers: { 'x-forwarded-for': '203.0.113.1, 9.9.9.9' },
+      });
+      const spoofedB = new Request('http://localhost', {
+        headers: { 'x-forwarded-for': '203.0.113.2, 9.9.9.9' },
+      });
+      expect(getClientIp(spoofedA)).toBe('9.9.9.9');
+      expect(getClientIp(spoofedA)).toBe(getClientIp(spoofedB));
+    });
+
+    it('should prefer platform-set headers over x-forwarded-for', () => {
+      const request = new Request('http://localhost', {
+        headers: {
+          'cf-connecting-ip': '2.2.2.2',
+          'x-real-ip': '3.3.3.3',
+          'x-forwarded-for': '1.1.1.1',
+        },
+      });
+      expect(getClientIp(request)).toBe('2.2.2.2');
     });
 
     it('should use x-real-ip header when x-forwarded-for is absent', () => {

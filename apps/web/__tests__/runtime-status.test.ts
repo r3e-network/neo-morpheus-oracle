@@ -79,6 +79,55 @@ describe('public runtime status snapshot', () => {
     expect(snapshot.runtime.info.detail).toBe('unauthorized');
   });
 
+  it('reports a degraded runtime for the emergency shim payload despite status ok', async () => {
+    const { buildPublicRuntimeStatusSnapshot } = await import('../lib/runtime-status');
+
+    // Exact live payload served by app/api/emergency-runtime during a TEE
+    // outage: HTTP 200 + status 'ok' but explicitly degraded with a reason.
+    const snapshot = buildPublicRuntimeStatusSnapshot({
+      checkedAt: '2026-06-11T00:00:00.000Z',
+      health: {
+        ok: true,
+        status: 200,
+        body: {
+          status: 'ok',
+          degraded: true,
+          reason: 'phala_runtime_control_plane_disabled',
+        },
+      },
+      info: {
+        ok: true,
+        status: 200,
+        body: { version: 'emergency-vercel-runtime' },
+      },
+    });
+
+    expect(snapshot.runtime.status).toBe('degraded');
+    expect(snapshot.runtime.health.state).toBe('degraded');
+    expect(snapshot.runtime.health.detail).toBe('phala_runtime_control_plane_disabled');
+  });
+
+  it('keeps reporting down when a degraded flag accompanies a down status string', async () => {
+    const { buildPublicRuntimeStatusSnapshot } = await import('../lib/runtime-status');
+
+    const snapshot = buildPublicRuntimeStatusSnapshot({
+      checkedAt: '2026-06-11T00:00:00.000Z',
+      health: {
+        ok: true,
+        status: 200,
+        body: { status: 'down', degraded: true, reason: 'runtime offline' },
+      },
+      info: {
+        ok: false,
+        status: 503,
+        body: { error: 'runtime info unavailable' },
+      },
+    });
+
+    expect(snapshot.runtime.status).toBe('down');
+    expect(snapshot.runtime.health.state).toBe('down');
+  });
+
   it('reports runtime down when the health probe is unavailable', async () => {
     const { buildPublicRuntimeStatusSnapshot } = await import('../lib/runtime-status');
 

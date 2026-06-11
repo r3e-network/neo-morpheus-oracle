@@ -1,4 +1,14 @@
 import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
+import { publicConfig } from './public-config';
+
+// appConfig carries server credentials (runtime bearer token, control-plane
+// API keys), so this module is server-only. The guard substitutes for the
+// `server-only` package (not part of this workspace): any accidental client
+// bundle import fails loudly instead of shipping secrets to the browser.
+// Client components must import lib/public-config instead.
+if (typeof window !== 'undefined') {
+  throw new Error('lib/config is server-only; import lib/public-config from client components');
+}
 
 const selectedNetworkKey = getSelectedNetworkKey();
 const selectedNetwork = getSelectedNetwork();
@@ -30,8 +40,8 @@ const defaultNitroApiCandidates = [
   .filter(Boolean);
 
 export const appConfig = {
-  name: process.env.NEXT_PUBLIC_APP_NAME || 'Morpheus Oracle',
-  appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  name: publicConfig.name,
+  appUrl: publicConfig.appUrl,
   selectedNetworkKey,
   nitroApiUrl:
     networkScopedEnv('MORPHEUS_RUNTIME_URL') ||
@@ -40,13 +50,15 @@ export const appConfig = {
     trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || '') ||
     defaultNitroApiUrl,
   nitroApiUrls: [...new Set(defaultNitroApiCandidates)],
+  // Server-only env names exclusively: a NEXT_PUBLIC_* fallback here would
+  // invite operators to configure the runtime bearer secret as a value that
+  // Next.js inlines into public client bundles.
   nitroToken:
     trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '') ||
     trimString(process.env.NITRO_API_TOKEN || '') ||
     trimString(process.env.PHALA_API_TOKEN || '') ||
     trimString(process.env.NITRO_SHARED_SECRET || '') ||
     trimString(process.env.PHALA_SHARED_SECRET || '') ||
-    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_TOKEN || '') ||
     '',
   controlPlaneUrl:
     process.env.MORPHEUS_CONTROL_PLANE_URL ||
@@ -64,7 +76,7 @@ export const appConfig = {
     '',
   feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || 'morpheus',
   feedProvider: process.env.MORPHEUS_FEED_PROVIDER || 'twelvedata',
-  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+  supabaseUrl: publicConfig.supabaseUrl,
+  supabaseAnonKey: publicConfig.supabaseAnonKey,
   neoRpcUrl: process.env.NEO_RPC_URL || defaultNeoRpcUrl,
 };

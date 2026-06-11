@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { appConfig } from './config';
+import { publicConfig } from './public-config';
 
 export function getBrowserSupabaseClient() {
-  if (!appConfig.supabaseUrl || !appConfig.supabaseAnonKey) return null;
-  return createClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey);
+  if (!publicConfig.supabaseUrl || !publicConfig.supabaseAnonKey) return null;
+  return createClient(publicConfig.supabaseUrl, publicConfig.supabaseAnonKey);
 }

@@ -18,6 +18,7 @@ import {
   getPublicRuntimeStatusNotes,
   type PublicRuntimeStatusSnapshot,
 } from '@/lib/runtime-status';
+import { getServiceProblemDetail } from '@/lib/service-health';
 
 type ServiceStatus = {
   name: string;
@@ -124,7 +125,10 @@ export default function StatusPage() {
             };
           }
 
-          if (response.ok) {
+          // Inspect the body too: routes can answer HTTP 200 while carrying
+          // an explicit failure payload (ok:false, error strings).
+          const problemDetail = getServiceProblemDetail(body);
+          if (response.ok && !problemDetail) {
             return {
               ...service,
               status: 'operational' as const,
@@ -137,7 +141,7 @@ export default function StatusPage() {
             status: 'degraded' as const,
             latencyMs,
             lastChecked: new Date(),
-            detail: `HTTP ${response.status}`,
+            detail: problemDetail || `HTTP ${response.status}`,
           };
         } catch (err) {
           const latencyMs = Math.round(performance.now() - start);

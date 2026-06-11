@@ -22,7 +22,12 @@ function getBodyDetail(body) {
   if (!isPlainObject(body)) {
     return null;
   }
-  return readString(body.error) || readString(body.detail) || readString(body.message);
+  return (
+    readString(body.error) ||
+    readString(body.detail) ||
+    readString(body.message) ||
+    readString(body.reason)
+  );
 }
 
 function getHealthState(probe) {
@@ -33,14 +38,18 @@ function getHealthState(probe) {
   const body = isPlainObject(probe.body) ? probe.body : {};
   const normalizedState = (readString(body.status) || readString(body.state) || '').toLowerCase();
 
-  if (!normalizedState || ['ok', 'healthy', 'ready', 'operational'].includes(normalizedState)) {
-    return 'ok';
+  if (['down', 'error', 'failed', 'unhealthy'].includes(normalizedState)) {
+    return 'down';
+  }
+  // Emergency/fallback runtimes answer with status 'ok' plus an explicit
+  // degraded flag and reason (e.g. {status:'ok', degraded:true,
+  // reason:'phala_runtime_control_plane_disabled'} during a TEE outage), so
+  // the status string alone must not certify the runtime as healthy.
+  if (body.degraded === true || readString(body.reason)) {
+    return 'degraded';
   }
   if (['degraded', 'warning'].includes(normalizedState)) {
     return 'degraded';
-  }
-  if (['down', 'error', 'failed', 'unhealthy'].includes(normalizedState)) {
-    return 'down';
   }
 
   return 'ok';

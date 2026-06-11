@@ -36,4 +36,17 @@ describe('providers route', () => {
     const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
     expect(headers.get('x-morpheus-network')).toBe('testnet');
   });
+
+  it('rejects unknown network query params with 400 before proxying upstream', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { GET } = await import('../app/api/providers/route');
+    const response = await GET(new Request('https://example.test/api/providers?network=banana'));
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.error).toContain('unknown network');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

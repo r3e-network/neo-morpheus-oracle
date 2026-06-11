@@ -62,14 +62,27 @@ function cleanupStaleEntries(): void {
 }
 
 export function getClientIp(request: Request): string {
+  // Platform-set single-value headers first, mirroring the shared package's
+  // getClientIp precedence (packages/shared/src/utils.js).
+  const platformIp =
+    request.headers.get('cf-connecting-ip')?.trim() ||
+    request.headers.get('x-real-ip')?.trim() ||
+    request.headers.get('x-client-ip')?.trim();
+  if (platformIp) {
+    return platformIp;
+  }
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
-    const ip = forwarded.split(',')[0].trim();
-    return ip;
-  }
-  const realIp = request.headers.get('x-real-ip');
-  if (realIp) {
-    return realIp;
+    // Proxies append the connecting peer, so only the LAST hop is vouched for
+    // by the nearest trusted proxy; earlier entries are client-controlled and
+    // would let callers mint a fresh rate-limit key per request.
+    const hops = forwarded
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    if (hops.length > 0) {
+      return hops[hops.length - 1];
+    }
   }
   return 'unknown';
 }

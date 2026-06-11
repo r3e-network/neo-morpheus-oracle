@@ -1,3 +1,5 @@
+import { badRequest } from '@/lib/api-helpers';
+import { isKnownNetworkKey } from '@/lib/networks';
 import { proxyToNitro } from '@/lib/nitro';
 
 function readNetwork(request: Request) {
@@ -6,6 +8,9 @@ function readNetwork(request: Request) {
 
 export async function GET(request: Request) {
   const network = readNetwork(request);
+  if (network && !isKnownNetworkKey(network)) {
+    return badRequest(`unknown network "${network}"; expected "mainnet" or "testnet"`);
+  }
   return proxyToNitro(
     '/providers',
     { method: 'GET' },
