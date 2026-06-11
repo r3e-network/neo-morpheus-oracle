@@ -222,6 +222,31 @@ export const RUNTIME_SERVICE_MATRIX = [
     description: 'Confidential encrypted privacy oracle query.',
   }),
   baseProbe({
+    id: 'oracle:decrypt',
+    serviceClass: 'privacy_oracle',
+    capabilityFeature: 'oracle/decrypt',
+    path: '/oracle/decrypt',
+    payload: {
+      envelope: 'bm90LWEtdmFsaWQtc2VhbGVkLWVudmVsb3Bl',
+    },
+    expectedStatuses: [400],
+    expectation: 'fail_closed',
+    description: 'Confidential decrypt lane rejects envelopes not sealed to the oracle key.',
+  }),
+  baseProbe({
+    id: 'oracle:message-reveal',
+    serviceClass: 'privacy_oracle',
+    capabilityFeature: 'oracle/message-reveal',
+    path: '/oracle/message-reveal',
+    payload: {
+      chain: 'neox',
+      messageId: '1',
+    },
+    expectedStatuses: [400],
+    expectation: 'fail_closed',
+    description: 'Recipient message reveal rejects requests without a recipient signature.',
+  }),
+  baseProbe({
     id: 'oracle:feed',
     serviceClass: 'datafeed',
     capabilityFeature: 'oracle/feed',
