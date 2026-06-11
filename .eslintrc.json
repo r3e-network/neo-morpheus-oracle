@@ -8,6 +8,10 @@
       "jsx": true
     }
   },
+  "env": {
+    "node": true,
+    "es2022": true
+  },
   "settings": {
     "react": {
       "version": "detect"
@@ -25,12 +29,9 @@
     "contracts/neox/cache/",
     "contracts/neox/node_modules/",
     "apps/web/.next/",
-    "workers/**/*.js",
-    "workers/**/*.mjs",
     "supabase/**",
     "contracts/**",
-    "examples/**",
-    "scripts/**"
+    "examples/**"
   ],
   "plugins": ["@typescript-eslint"],
   "rules": {
