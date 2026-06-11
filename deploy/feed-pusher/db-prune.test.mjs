@@ -31,8 +31,12 @@ function runPrune(envFile) {
     });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
     child.on('error', reject);
     child.on('close', (code) => resolve({ code, stdout, stderr }));
   });
@@ -50,7 +54,11 @@ test('prune exits 0 and deletes from every table when all DELETEs succeed', asyn
   const { port } = server.address();
   try {
     const result = await runPrune(writeEnvFile(`http://127.0.0.1:${port}`));
-    assert.equal(result.code, 0, `expected success, got ${result.code}: ${result.stdout}${result.stderr}`);
+    assert.equal(
+      result.code,
+      0,
+      `expected success, got ${result.code}: ${result.stdout}${result.stderr}`
+    );
     assert.match(result.stdout, /prune complete/);
     assert.equal(requests.length, 7);
     assert.ok(requests.every((r) => r.method === 'DELETE'));
@@ -66,7 +74,11 @@ test('prune exits 1 when any DELETE returns a non-2xx so systemd surfaces the fa
   const { port } = server.address();
   try {
     const result = await runPrune(writeEnvFile(`http://127.0.0.1:${port}`));
-    assert.equal(result.code, 1, `expected failure exit, got ${result.code}: ${result.stdout}${result.stderr}`);
+    assert.equal(
+      result.code,
+      1,
+      `expected failure exit, got ${result.code}: ${result.stdout}${result.stderr}`
+    );
     assert.match(result.stdout, /FATAL: 1\/7 tables failed to prune/);
     assert.match(result.stdout, /morpheus_operation_logs: HTTP 500/);
   } finally {

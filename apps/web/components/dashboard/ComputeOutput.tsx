@@ -120,7 +120,8 @@ export function ComputeOutput({
           <div
             style={{
               padding: '0.95rem 1rem',
-              background: readinessTone === 'success' ? 'rgba(35, 134, 54, 0.08)' : 'rgba(245, 158, 11, 0.1)',
+              background:
+                readinessTone === 'success' ? 'rgba(35, 134, 54, 0.08)' : 'rgba(245, 158, 11, 0.1)',
               border: `1px solid ${readinessColor}`,
               borderRadius: 'var(--ns-radius-md)',
               color: 'var(--text-secondary)',
@@ -280,8 +281,7 @@ export function ComputeOutput({
             </div>
             <div style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
               <div>
-                1. Submit to <code>{oracleContract}</code> with request type{' '}
-                <code>compute</code>.
+                1. Submit to <code>{oracleContract}</code> with request type <code>compute</code>.
               </div>
               <div>
                 2. Read the emitted <code>requestId</code>.

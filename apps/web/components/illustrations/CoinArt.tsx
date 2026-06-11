@@ -1,6 +1,6 @@
-import React from "react";
+import React from 'react';
 
-export type CoinKind = "neo" | "generic" | "violet" | "stack";
+export type CoinKind = 'neo' | 'generic' | 'violet' | 'stack';
 
 export interface CoinArtProps {
   /** Which coin to render. */
@@ -13,10 +13,10 @@ export interface CoinArtProps {
 }
 
 const KIND_LABEL: Record<CoinKind, string> = {
-  neo: "Neo coin",
-  generic: "Token coin",
-  violet: "Token coin",
-  stack: "Stack of coins",
+  neo: 'Neo coin',
+  generic: 'Token coin',
+  violet: 'Token coin',
+  stack: 'Stack of coins',
 };
 
 /**
@@ -24,13 +24,8 @@ const KIND_LABEL: Record<CoinKind, string> = {
  * `neo` renders the Neo "N" coin, `generic`/`violet` render plain tokens,
  * and `stack` renders a small pile of coins.
  */
-export const CoinArt: React.FC<CoinArtProps> = ({
-  kind = "neo",
-  size = 96,
-  title,
-  className,
-}) => {
-  const uid = React.useId().replace(/:/g, "");
+export const CoinArt: React.FC<CoinArtProps> = ({ kind = 'neo', size = 96, title, className }) => {
+  const uid = React.useId().replace(/:/g, '');
   const faceGreen = `ca-fg-${uid}`;
   const faceViolet = `ca-fv-${uid}`;
   const faceGold = `ca-gold-${uid}`;
@@ -68,7 +63,7 @@ export const CoinArt: React.FC<CoinArtProps> = ({
     </defs>
   );
 
-  if (kind === "stack") {
+  if (kind === 'stack') {
     return (
       <svg
         className={className}
@@ -85,13 +80,37 @@ export const CoinArt: React.FC<CoinArtProps> = ({
         <ellipse cx="48" cy="84" rx="32" ry="7" fill={`url(#${shadowId})`} />
         {/* bottom coin (gold) */}
         <ellipse cx="48" cy="64" rx="28" ry="11" fill="#E0A94E" />
-        <ellipse cx="48" cy="60" rx="28" ry="11" fill={`url(#${faceGold})`} stroke="#E0A94E" strokeWidth="1.5" />
+        <ellipse
+          cx="48"
+          cy="60"
+          rx="28"
+          ry="11"
+          fill={`url(#${faceGold})`}
+          stroke="#E0A94E"
+          strokeWidth="1.5"
+        />
         {/* middle coin (violet) */}
         <ellipse cx="48" cy="50" rx="26" ry="10" fill="#5E45E0" />
-        <ellipse cx="48" cy="46" rx="26" ry="10" fill={`url(#${faceViolet})`} stroke="#5E45E0" strokeWidth="1.5" />
+        <ellipse
+          cx="48"
+          cy="46"
+          rx="26"
+          ry="10"
+          fill={`url(#${faceViolet})`}
+          stroke="#5E45E0"
+          strokeWidth="1.5"
+        />
         {/* top coin (green) */}
         <ellipse cx="48" cy="36" rx="24" ry="9.5" fill="#0FB174" />
-        <ellipse cx="48" cy="32" rx="24" ry="9.5" fill={`url(#${faceGreen})`} stroke="#0FB174" strokeWidth="1.5" />
+        <ellipse
+          cx="48"
+          cy="32"
+          rx="24"
+          ry="9.5"
+          fill={`url(#${faceGreen})`}
+          stroke="#0FB174"
+          strokeWidth="1.5"
+        />
         <ellipse cx="40" cy="29" rx="9" ry="3.5" fill={`url(#${sheen})`} />
         {/* N mark on top coin */}
         <path
@@ -106,10 +125,8 @@ export const CoinArt: React.FC<CoinArtProps> = ({
     );
   }
 
-  const face =
-    kind === "violet" ? faceViolet : kind === "generic" ? faceGold : faceGreen;
-  const edge =
-    kind === "violet" ? "#5E45E0" : kind === "generic" ? "#E0A94E" : "#0FB174";
+  const face = kind === 'violet' ? faceViolet : kind === 'generic' ? faceGold : faceGreen;
+  const edge = kind === 'violet' ? '#5E45E0' : kind === 'generic' ? '#E0A94E' : '#0FB174';
 
   return (
     <svg
@@ -133,9 +150,16 @@ export const CoinArt: React.FC<CoinArtProps> = ({
       {/* inner ring */}
       <circle cx="48" cy="46" r="26" stroke="#FFFFFF" strokeOpacity="0.35" strokeWidth="2" />
       {/* sheen */}
-      <ellipse cx="36" cy="32" rx="13" ry="8" fill={`url(#${sheen})`} transform="rotate(-24 36 32)" />
+      <ellipse
+        cx="36"
+        cy="32"
+        rx="13"
+        ry="8"
+        fill={`url(#${sheen})`}
+        transform="rotate(-24 36 32)"
+      />
 
-      {kind === "neo" ? (
+      {kind === 'neo' ? (
         <path
           d="M37 34v24M37 34l22 24M59 34v24"
           stroke="#FFFFFF"

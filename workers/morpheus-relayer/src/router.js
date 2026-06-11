@@ -306,7 +306,14 @@ export function buildFulfillmentDigestBytes(
   result,
   error,
   resultBytesBase64 = '',
-  { chain = 'neo_n3', appId = '', moduleId = '', operation = '', contractScriptHash = '', networkMagic } = {}
+  {
+    chain = 'neo_n3',
+    appId = '',
+    moduleId = '',
+    operation = '',
+    contractScriptHash = '',
+    networkMagic,
+  } = {}
 ) {
   const successByte = Buffer.from([success ? 1 : 0]);
   const resultBytes = trimString(resultBytesBase64)

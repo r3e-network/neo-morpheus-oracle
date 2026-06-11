@@ -149,7 +149,10 @@ function VerifierPageClient() {
 
   return (
     <>
-      <div className="container oracle-tool-page" style={{ padding: 'calc(72px + 1.25rem) 0 3rem' }}>
+      <div
+        className="container oracle-tool-page"
+        style={{ padding: 'calc(72px + 1.25rem) 0 3rem' }}
+      >
         <Card
           className="oracle-tool-hero-card"
           style={{ marginBottom: '1.25rem', borderLeft: '4px solid var(--neo-green)' }}
@@ -530,7 +533,13 @@ function VerifierPageClient() {
               }}
             >
               <EmptyStateArt size={172} title="Awaiting verification input" />
-              <p style={{ fontSize: '0.85rem', marginTop: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+              <p
+                style={{
+                  fontSize: '0.85rem',
+                  marginTop: '0.75rem',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
                 Awaiting verification input...
               </p>
             </div>

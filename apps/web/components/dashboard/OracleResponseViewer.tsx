@@ -134,9 +134,7 @@ export function OracleResponseViewer({
             style={{
               padding: '0.95rem 1rem',
               background:
-                readinessTone === 'success'
-                  ? 'rgba(35, 134, 54, 0.08)'
-                  : 'rgba(245, 158, 11, 0.1)',
+                readinessTone === 'success' ? 'rgba(35, 134, 54, 0.08)' : 'rgba(245, 158, 11, 0.1)',
               border: `1px solid ${readinessColor}`,
               borderRadius: 'var(--ns-radius-md)',
               color: 'var(--text-secondary)',

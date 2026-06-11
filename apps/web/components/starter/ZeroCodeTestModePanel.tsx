@@ -52,8 +52,8 @@ export function ZeroCodeTestModePanel({
           3. Neo N3 GAS token hash: <code>{neoGasHash}</code>.
         </div>
         <div>
-          4. Oracle will consume prepaid credit from the callback contract first, otherwise
-          from the requester address.
+          4. Oracle will consume prepaid credit from the callback contract first, otherwise from the
+          requester address.
         </div>
         <div>
           5. After submission, call <code>getCallback(requestId)</code> on{' '}

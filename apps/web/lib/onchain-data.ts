@@ -101,7 +101,9 @@ export async function fetchNeoN3Price(pair: string): Promise<OnChainPrice | null
 
     if (body && Array.isArray(body)) {
       const event = body.find((b: any) => {
-        if (String(b.contract_hash || '').toLowerCase() !== NETWORKS.neo_n3.datafeed.toLowerCase()) {
+        if (
+          String(b.contract_hash || '').toLowerCase() !== NETWORKS.neo_n3.datafeed.toLowerCase()
+        ) {
           return false;
         }
         const pairB64 = b.state_json?.value?.[0]?.value;

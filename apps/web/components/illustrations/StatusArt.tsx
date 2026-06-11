@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 export interface StatusArtProps {
   /** Width/height in px (square). */
@@ -14,10 +14,10 @@ export interface StatusArtProps {
  */
 export const SuccessArt: React.FC<StatusArtProps> = ({
   size = 128,
-  title = "Success",
+  title = 'Success',
   className,
 }) => {
-  const uid = React.useId().replace(/:/g, "");
+  const uid = React.useId().replace(/:/g, '');
   const badge = `sa-badge-${uid}`;
   const body = `sa-body-${uid}`;
   const sheen = `sa-sheen-${uid}`;
@@ -58,7 +58,15 @@ export const SuccessArt: React.FC<StatusArtProps> = ({
 
       {/* confetti */}
       <rect x="22" y="30" width="7" height="7" rx="2" fill="#7B61FF" transform="rotate(20 22 30)" />
-      <rect x="98" y="26" width="7" height="7" rx="2" fill="#FFC773" transform="rotate(-15 98 26)" />
+      <rect
+        x="98"
+        y="26"
+        width="7"
+        height="7"
+        rx="2"
+        fill="#FFC773"
+        transform="rotate(-15 98 26)"
+      />
       <circle cx="104" cy="64" r="3.5" fill="#16C784" />
       <circle cx="20" cy="62" r="3.5" fill="#FF8E6E" />
       <path d="M30 92l4 4M96 96l4-4" stroke="#7B61FF" strokeWidth="3" strokeLinecap="round" />
@@ -78,15 +86,16 @@ export const SuccessArt: React.FC<StatusArtProps> = ({
       <path d="M53 60c1.6-2 4.4-2 6 0" stroke="#16C784" strokeWidth="3" strokeLinecap="round" />
       <path d="M69 60c1.6-2 4.4-2 6 0" stroke="#16C784" strokeWidth="3" strokeLinecap="round" />
       {/* check / smile combo */}
-      <path
-        d="M55 70c3 4 15 4 18 0"
-        stroke="#16C784"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
+      <path d="M55 70c3 4 15 4 18 0" stroke="#16C784" strokeWidth="3" strokeLinecap="round" />
       {/* check mark badge */}
       <circle cx="92" cy="92" r="14" fill="#16C784" stroke="#FFFFFF" strokeWidth="3" />
-      <path d="M86 92l4 4 8-9" stroke="#FFFFFF" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M86 92l4 4 8-9"
+        stroke="#FFFFFF"
+        strokeWidth="3.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 };
@@ -98,10 +107,10 @@ export const SuccessArt: React.FC<StatusArtProps> = ({
  */
 export const ErrorArt: React.FC<StatusArtProps> = ({
   size = 128,
-  title = "Something went wrong",
+  title = 'Something went wrong',
   className,
 }) => {
-  const uid = React.useId().replace(/:/g, "");
+  const uid = React.useId().replace(/:/g, '');
   const badge = `ea-badge-${uid}`;
   const body = `ea-body-${uid}`;
   const sheen = `ea-sheen-${uid}`;
@@ -165,7 +174,15 @@ export const ErrorArt: React.FC<StatusArtProps> = ({
 
       {/* "!" marker badge */}
       <circle cx="92" cy="92" r="14" fill="#F0744F" stroke="#FFFFFF" strokeWidth="3" />
-      <line x1="92" y1="86" x2="92" y2="93" stroke="#FFFFFF" strokeWidth="3.4" strokeLinecap="round" />
+      <line
+        x1="92"
+        y1="86"
+        x2="92"
+        y2="93"
+        stroke="#FFFFFF"
+        strokeWidth="3.4"
+        strokeLinecap="round"
+      />
       <circle cx="92" cy="98" r="1.9" fill="#FFFFFF" />
     </svg>
   );

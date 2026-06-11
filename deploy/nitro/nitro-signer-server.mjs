@@ -9,16 +9,18 @@ const host = trimString(process.env.NITRO_SIGNER_HOST || process.env.HOST || '0.
 const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'mainnet');
 const maxBodyBytes = Math.max(Number(process.env.NITRO_SIGNER_MAX_BODY_BYTES || 65536), 1024);
 const attestBin = trimString(process.env.NITRO_ATTEST_BIN) || '/app/bin/nsm-attest';
-const runtimeTrustedTokens = new Set([
-  process.env.NITRO_SIGNER_TOKEN,
-  process.env.MORPHEUS_RUNTIME_TOKEN,
-  process.env.NITRO_API_TOKEN,
-  process.env.PHALA_API_TOKEN,
-  process.env.NITRO_SHARED_SECRET,
-  process.env.PHALA_SHARED_SECRET,
-]
-  .map((value) => trimString(value))
-  .filter(Boolean));
+const runtimeTrustedTokens = new Set(
+  [
+    process.env.NITRO_SIGNER_TOKEN,
+    process.env.MORPHEUS_RUNTIME_TOKEN,
+    process.env.NITRO_API_TOKEN,
+    process.env.PHALA_API_TOKEN,
+    process.env.NITRO_SHARED_SECRET,
+    process.env.PHALA_SHARED_SECRET,
+  ]
+    .map((value) => trimString(value))
+    .filter(Boolean)
+);
 let provisionedEnv = {};
 
 function trimString(value) {
@@ -54,9 +56,7 @@ function assertAuthorized(req) {
   const token =
     bearer ||
     trimString(
-      req.headers['x-nitro-token'] ||
-        req.headers['x-phala-token'] ||
-        req.headers['x-runtime-token']
+      req.headers['x-nitro-token'] || req.headers['x-phala-token'] || req.headers['x-runtime-token']
     );
   let authorized = false;
   for (const trusted of runtimeTrustedTokens) {
@@ -157,9 +157,10 @@ function signerHealth() {
 }
 
 function handleProvision(payload) {
-  const env = payload?.env && typeof payload.env === 'object' && !Array.isArray(payload.env)
-    ? payload.env
-    : {};
+  const env =
+    payload?.env && typeof payload.env === 'object' && !Array.isArray(payload.env)
+      ? payload.env
+      : {};
   const nextEnv = {};
   for (const [key, value] of Object.entries(env)) {
     if (!/^[A-Z0-9_]{1,96}$/.test(key)) continue;
@@ -254,7 +255,9 @@ function selectAttestationPublicKey(payload) {
 }
 
 function handleAttestation(payload) {
-  const nonceHex = normalizeHex(payload.nonce || payload.report_data || payload.report_data_hex || '');
+  const nonceHex = normalizeHex(
+    payload.nonce || payload.report_data || payload.report_data_hex || ''
+  );
   if (nonceHex && (!/^[0-9a-f]*$/.test(nonceHex) || nonceHex.length % 2 !== 0)) {
     throw new Error('nonce must be even-length hex');
   }
@@ -267,9 +270,14 @@ function handleAttestation(payload) {
 
   let raw;
   try {
-    raw = execFileSync(attestBin, args, { timeout: 8000, maxBuffer: 4 * 1024 * 1024 }).toString('utf8');
+    raw = execFileSync(attestBin, args, { timeout: 8000, maxBuffer: 4 * 1024 * 1024 }).toString(
+      'utf8'
+    );
   } catch (error) {
-    const detail = error && error.stderr ? error.stderr.toString().slice(0, 300) : (error && error.message) || 'spawn failed';
+    const detail =
+      error && error.stderr
+        ? error.stderr.toString().slice(0, 300)
+        : (error && error.message) || 'spawn failed';
     const wrapped = new Error(`nsm attestation helper failed: ${detail}`);
     wrapped.status = 503;
     throw wrapped;

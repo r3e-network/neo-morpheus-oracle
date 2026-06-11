@@ -52,7 +52,11 @@ async function sealForOracle(publicKeyBase64, plaintext) {
     await subtle.exportKey('raw', ephemeralKeyPair.publicKey)
   );
   const sharedSecret = new Uint8Array(
-    await subtle.deriveBits({ name: 'X25519', public: recipientKey }, ephemeralKeyPair.privateKey, 256)
+    await subtle.deriveBits(
+      { name: 'X25519', public: recipientKey },
+      ephemeralKeyPair.privateKey,
+      256
+    )
   );
   const keyMaterial = await subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveKey']);
   const info = new Uint8Array([
@@ -92,8 +96,18 @@ async function signedRevealPayload(messageId, issuedAt) {
 }
 
 test('buildRevealStatement is deterministic and lowercases the contract', () => {
-  const a = buildRevealStatement(47763, '0xABCdef0000000000000000000000000000000001', '5', 1700000000);
-  const b = buildRevealStatement('47763', '0xabcdef0000000000000000000000000000000001', 5, '1700000000');
+  const a = buildRevealStatement(
+    47763,
+    '0xABCdef0000000000000000000000000000000001',
+    '5',
+    1700000000
+  );
+  const b = buildRevealStatement(
+    '47763',
+    '0xabcdef0000000000000000000000000000000001',
+    5,
+    '1700000000'
+  );
   assert.equal(a, b);
   assert.ok(a.includes('contract: 0xabcdef0000000000000000000000000000000001'));
   assert.ok(a.includes('message: 5'));
@@ -101,11 +115,21 @@ test('buildRevealStatement is deterministic and lowercases the contract', () => 
 });
 
 test('recoverRevealSigner round-trips an EIP-191 signature to the signer', async () => {
-  const statement = buildRevealStatement(47763, '0xd1906192c2308ae416acda96238ca846ebb83f15', '7', 1700000000);
+  const statement = buildRevealStatement(
+    47763,
+    '0xd1906192c2308ae416acda96238ca846ebb83f15',
+    '7',
+    1700000000
+  );
   const sig = await wallet.signMessage(statement);
   assert.equal(recoverRevealSigner(statement, sig), wallet.address);
   // tampered statement must NOT recover to the signer
-  const tampered = buildRevealStatement(47763, '0xd1906192c2308ae416acda96238ca846ebb83f15', '8', 1700000000);
+  const tampered = buildRevealStatement(
+    47763,
+    '0xd1906192c2308ae416acda96238ca846ebb83f15',
+    '8',
+    1700000000
+  );
   assert.notEqual(recoverRevealSigner(tampered, sig), wallet.address);
   // malformed signature returns null rather than throwing
   assert.equal(recoverRevealSigner(statement, '0xdeadbeef'), null);
@@ -158,7 +182,12 @@ test('handleMessageReveal returns 503 when the worker is not configured for reve
   }
   try {
     const now = 1700000000;
-    const statement = buildRevealStatement(47763, '0xd1906192c2308ae416acda96238ca846ebb83f15', '1', now);
+    const statement = buildRevealStatement(
+      47763,
+      '0xd1906192c2308ae416acda96238ca846ebb83f15',
+      '1',
+      now
+    );
     const sig = await wallet.signMessage(statement);
     const resp = await handleMessageReveal(
       { chain: 'neox', signature: sig, messageId: 1, issuedAt: now },

@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 export interface EmptyStateArtProps {
   /** Width in px. Height scales to the 200x160 aspect ratio. */
@@ -15,10 +15,10 @@ export interface EmptyStateArtProps {
  */
 export const EmptyStateArt: React.FC<EmptyStateArtProps> = ({
   size = 220,
-  title = "Nothing here yet",
+  title = 'Nothing here yet',
   className,
 }) => {
-  const uid = React.useId().replace(/:/g, "");
+  const uid = React.useId().replace(/:/g, '');
   const card = `esa-card-${uid}`;
   const body = `esa-body-${uid}`;
   const panel = `esa-panel-${uid}`;
@@ -78,23 +78,71 @@ export const EmptyStateArt: React.FC<EmptyStateArtProps> = ({
       <g>
         <ellipse cx="44" cy="60" rx="16" ry="15.5" fill="#0FB174" />
         <circle cx="44" cy="56" r="16" fill={`url(#${coin})`} stroke="#0FB174" strokeWidth="1.5" />
-        <path d="M38 49v14M38 49l12 14M50 49v14" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M38 49v14M38 49l12 14M50 49v14"
+          stroke="#FFFFFF"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </g>
       <g>
         <ellipse cx="160" cy="46" rx="12" ry="11.5" fill="#5E45E0" />
-        <circle cx="160" cy="42" r="12" fill={`url(#${coin2})`} stroke="#5E45E0" strokeWidth="1.5" />
+        <circle
+          cx="160"
+          cy="42"
+          r="12"
+          fill={`url(#${coin2})`}
+          stroke="#5E45E0"
+          strokeWidth="1.5"
+        />
         <circle cx="160" cy="42" r="4.5" stroke="#FFFFFF" strokeWidth="2.4" fillOpacity="0" />
       </g>
 
       {/* empty card */}
-      <rect x="40" y="78" width="120" height="64" rx="18" fill={`url(#${card})`} stroke="#E2E5F1" strokeWidth="2" />
+      <rect
+        x="40"
+        y="78"
+        width="120"
+        height="64"
+        rx="18"
+        fill={`url(#${card})`}
+        stroke="#E2E5F1"
+        strokeWidth="2"
+      />
       {/* dashed "empty" placeholder lines */}
-      <line x1="64" y1="116" x2="136" y2="116" stroke="#D7DBEA" strokeWidth="4" strokeLinecap="round" strokeDasharray="2 12" />
-      <line x1="76" y1="128" x2="124" y2="128" stroke="#E3E6F1" strokeWidth="4" strokeLinecap="round" strokeDasharray="2 12" />
+      <line
+        x1="64"
+        y1="116"
+        x2="136"
+        y2="116"
+        stroke="#D7DBEA"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray="2 12"
+      />
+      <line
+        x1="76"
+        y1="128"
+        x2="124"
+        y2="128"
+        stroke="#E3E6F1"
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray="2 12"
+      />
 
       {/* mascot peeking over the card */}
       <g>
-        <line x1="100" y1="26" x2="100" y2="16" stroke="#D3D8EB" strokeWidth="3.5" strokeLinecap="round" />
+        <line
+          x1="100"
+          y1="26"
+          x2="100"
+          y2="16"
+          stroke="#D3D8EB"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+        />
         <circle cx="100" cy="13" r="5" fill="#16C784" />
         <path
           d="M100 24c20 0 33 14 33 33v8H67v-8c0-19 13-33 33-33Z"
@@ -108,7 +156,12 @@ export const EmptyStateArt: React.FC<EmptyStateArtProps> = ({
         <circle cx="89.8" cy="58.8" r="1.1" fill="#FFFFFF" />
         <circle cx="109" cy="60" r="3.6" fill="#16C784" />
         <circle cx="107.8" cy="58.8" r="1.1" fill="#FFFFFF" />
-        <path d="M93 69c2.5 2.4 8.5 2.4 11 0" stroke="#16C784" strokeWidth="2.2" strokeLinecap="round" />
+        <path
+          d="M93 69c2.5 2.4 8.5 2.4 11 0"
+          stroke="#16C784"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+        />
         <ellipse cx="92" cy="36" rx="9" ry="5" fill={`url(#${sheen})`} />
         {/* little hands gripping card edge */}
         <circle cx="70" cy="80" r="6" fill="#E9ECF6" stroke="#D3D8EB" strokeWidth="1.5" />

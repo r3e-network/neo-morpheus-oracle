@@ -57,10 +57,7 @@ export function CallbackReadbackPanel({
         <div>
           4. Verify <code>output_hash</code>, <code>attestation_hash</code>, and{' '}
           <code>tee_attestation.report_data</code> in{' '}
-          <Link
-            href="/verifier"
-            style={{ color: 'var(--neo-green)', textDecoration: 'none' }}
-          >
+          <Link href="/verifier" style={{ color: 'var(--neo-green)', textDecoration: 'none' }}>
             Attestation Verifier
           </Link>
           .

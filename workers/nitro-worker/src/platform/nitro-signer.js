@@ -15,10 +15,15 @@ let secretsFactoryForTests = null;
 
 // Secret IDs (overridable via env); created on the box: 32 random bytes, base64.
 function x25519SecretId() {
-  return trimString(env('NITRO_X25519_SECRET_ID', 'MORPHEUS_X25519_SECRET_ID')) || 'morpheus/x25519-wrap';
+  return (
+    trimString(env('NITRO_X25519_SECRET_ID', 'MORPHEUS_X25519_SECRET_ID')) || 'morpheus/x25519-wrap'
+  );
 }
 function neodidSaltSecretId() {
-  return trimString(env('NITRO_NEODID_SALT_SECRET_ID', 'MORPHEUS_NEODID_SALT_SECRET_ID')) || 'morpheus/neodid-salt';
+  return (
+    trimString(env('NITRO_NEODID_SALT_SECRET_ID', 'MORPHEUS_NEODID_SALT_SECRET_ID')) ||
+    'morpheus/neodid-salt'
+  );
 }
 
 function normalizeBoolean(value, fallback = false) {
@@ -28,7 +33,10 @@ function normalizeBoolean(value, fallback = false) {
 }
 
 export function shouldUseDerivedKeys(payload = {}) {
-  return normalizeBoolean(payload.use_derived_keys ?? env('NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'), false);
+  return normalizeBoolean(
+    payload.use_derived_keys ?? env('NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'),
+    false
+  );
 }
 
 export function validateKeyRole(role) {
@@ -45,7 +53,9 @@ export function validateKeyRole(role) {
 
 export function shouldEmitAttestation(payload = {}) {
   return normalizeBoolean(
-    payload.include_attestation ?? payload.emit_attestation ?? env('NITRO_EMIT_ATTESTATION', 'PHALA_EMIT_ATTESTATION'),
+    payload.include_attestation ??
+      payload.emit_attestation ??
+      env('NITRO_EMIT_ATTESTATION', 'PHALA_EMIT_ATTESTATION'),
     false
   );
 }
@@ -128,7 +138,10 @@ export async function deriveKeyBytes(path, purpose = '') {
       cacheKey,
       (async () => {
         const master = await fetchSecretBytes(selectMasterSecretId(keyPath, purpose));
-        const material = Buffer.concat([master, Buffer.from(`\x00${keyPath}\x00${purpose}`, 'utf8')]);
+        const material = Buffer.concat([
+          master,
+          Buffer.from(`\x00${keyPath}\x00${purpose}`, 'utf8'),
+        ]);
         return Buffer.from(sha256Hex(material), 'hex');
       })()
     );
@@ -148,22 +161,32 @@ function normalizePrivateKeyHex(buffer, label) {
 
 export async function deriveNeoN3PrivateKeyHex(role = 'worker') {
   validateKeyRole(role);
-  const keyPath = trimString(
-    env(`NITRO_${role.toUpperCase()}_NEO_N3_KEY_PATH`, `PHALA_DSTACK_${role.toUpperCase()}_NEO_N3_KEY_PATH`)
-  ) || `morpheus/neo-n3/${role}/signing/v1`;
+  const keyPath =
+    trimString(
+      env(
+        `NITRO_${role.toUpperCase()}_NEO_N3_KEY_PATH`,
+        `PHALA_DSTACK_${role.toUpperCase()}_NEO_N3_KEY_PATH`
+      )
+    ) || `morpheus/neo-n3/${role}/signing/v1`;
   return normalizePrivateKeyHex(await deriveKeyBytes(keyPath, 'neo-n3-signing'), `neo-n3:${role}`);
 }
 
 export async function getNitroInfo({ required = false } = {}) {
   // The Nitro signer (8787) holds the Neo signing keys; surface a light runtime marker.
-  const endpoint = trimString(env('NITRO_SIGNER_ENDPOINT', 'MORPHEUS_NITRO_SIGNER_ENDPOINT')) || 'http://127.0.0.1:8787';
+  const endpoint =
+    trimString(env('NITRO_SIGNER_ENDPOINT', 'MORPHEUS_NITRO_SIGNER_ENDPOINT')) ||
+    'http://127.0.0.1:8787';
   try {
     const res = await fetch(new URL('/health', endpoint).toString(), {
       method: 'GET',
       signal: AbortSignal.timeout(10_000),
     });
     const body = await res.json().catch(() => ({}));
-    return { runtime: body.runtime || 'aws-nitro-signer', network: body.network || null, client_kind: 'nitro' };
+    return {
+      runtime: body.runtime || 'aws-nitro-signer',
+      network: body.network || null,
+      client_kind: 'nitro',
+    };
   } catch (error) {
     if (required) throw new Error('Nitro signer health endpoint is unavailable');
     return { runtime: 'aws-nitro-signer', network: null, client_kind: 'nitro' };
@@ -191,7 +214,8 @@ export async function getDerivedKeySummary(role = 'worker') {
       public_key: neoN3Account.publicKey,
       script_hash: `0x${neoN3Account.scriptHash}`,
       key_path:
-        trimString(env(`NITRO_${role.toUpperCase()}_NEO_N3_KEY_PATH`)) || `morpheus/neo-n3/${role}/signing/v1`,
+        trimString(env(`NITRO_${role.toUpperCase()}_NEO_N3_KEY_PATH`)) ||
+        `morpheus/neo-n3/${role}/signing/v1`,
     },
   };
 }
@@ -210,7 +234,8 @@ function normalizeReportData(input) {
 // NSM attestation (optional). Routes to the enclave's attestation endpoint if present;
 // returns null otherwise. Attestation is optional metadata, never required for fulfillment.
 export async function buildNitroAttestation(reportInput, { required = false } = {}) {
-  const endpoint = trimString(env('NITRO_ATTEST_ENDPOINT', 'NITRO_SIGNER_ENDPOINT')) || 'http://127.0.0.1:8787';
+  const endpoint =
+    trimString(env('NITRO_ATTEST_ENDPOINT', 'NITRO_SIGNER_ENDPOINT')) || 'http://127.0.0.1:8787';
   const reportData = normalizeReportData(reportInput);
   try {
     const res = await fetch(new URL('/attest', endpoint).toString(), {

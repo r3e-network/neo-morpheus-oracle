@@ -15,9 +15,13 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const RPC = process.env.NEOX_RPC || 'https://mainnet-1.rpc.banelabs.org';
 const CHAIN_ID = Number(process.env.NEOX_CHAIN_ID || 47763);
 const NET = process.env.NEOX_NET || 'neox-mainnet';
-const rec = JSON.parse(readFileSync(resolve(ROOT, `contracts-evm/build/MorpheusOracleEVM.${NET}.json`), 'utf8'));
+const rec = JSON.parse(
+  readFileSync(resolve(ROOT, `contracts-evm/build/MorpheusOracleEVM.${NET}.json`), 'utf8')
+);
 const ADDR = process.env.NEOX_ORACLE || rec.address;
-const abi = JSON.parse(readFileSync(resolve(ROOT, 'contracts-evm/build/MorpheusOracleEVM.abi.json'), 'utf8'));
+const abi = JSON.parse(
+  readFileSync(resolve(ROOT, 'contracts-evm/build/MorpheusOracleEVM.abi.json'), 'utf8')
+);
 const provider = new ethers.JsonRpcProvider(RPC, CHAIN_ID);
 
 const [cmd, ...a] = process.argv.slice(2);
@@ -55,12 +59,31 @@ if (cmd === 'info') {
 } else if (cmd === 'request') {
   const c = new ethers.Contract(ADDR, abi, provider);
   const r = await c.getRequest(a[0]);
-  const dec = (h) => { try { return ethers.toUtf8String(h); } catch { return h; } };
-  console.log({ id: r.id.toString(), appId: r.appId, moduleId: r.moduleId, operation: r.operation,
-    requester: r.requester, callback: r.callbackContract, status: Number(r.status),
-    success: r.success, result: r.result, resultText: dec(r.result), error: r.error,
-    createdAt: Number(r.createdAt), fulfilledAt: Number(r.fulfilledAt) });
+  const dec = (h) => {
+    try {
+      return ethers.toUtf8String(h);
+    } catch {
+      return h;
+    }
+  };
+  console.log({
+    id: r.id.toString(),
+    appId: r.appId,
+    moduleId: r.moduleId,
+    operation: r.operation,
+    requester: r.requester,
+    callback: r.callbackContract,
+    status: Number(r.status),
+    success: r.success,
+    result: r.result,
+    resultText: dec(r.result),
+    error: r.error,
+    createdAt: Number(r.createdAt),
+    fulfilledAt: Number(r.fulfilledAt),
+  });
 } else {
-  console.error('commands: info | register-module <id> | register-app <appId> <admin> [callback] | grant <appId> <moduleId> | request <id>');
+  console.error(
+    'commands: info | register-module <id> | register-app <appId> <admin> [callback] | grant <appId> <moduleId> | request <id>'
+  );
   process.exit(1);
 }

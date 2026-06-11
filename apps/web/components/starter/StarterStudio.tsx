@@ -128,18 +128,20 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   const [useEncrypted, setUseEncrypted] = useState(true);
   const [useScript, setUseScript] = useState(false);
   const [script, setScript] = useState('');
-  const [manualCallbackHash, setManualCallbackHash] = useState(initialNetworkConfig.callbackConsumer);
+  const [manualCallbackHash, setManualCallbackHash] = useState(
+    initialNetworkConfig.callbackConsumer
+  );
   const [manualCallbackMethod, setManualCallbackMethod] = useState('onOracleResult');
   const [confidentialJson, setConfidentialJson] = useState(
     buildDefaultConfidentialPatch('oracle_provider', false, '')
   );
   const [encryptedBlob, setEncryptedBlob] = useState('');
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
-  const [oracleKeyStatus, setOracleKeyStatus] =
-    useState<RuntimeStatus>(ORACLE_KEY_LOADING_STATUS);
+  const [oracleKeyStatus, setOracleKeyStatus] = useState<RuntimeStatus>(ORACLE_KEY_LOADING_STATUS);
   const [oracleState, setOracleState] = useState<OracleState>(null);
-  const [oracleStateStatus, setOracleStateStatus] =
-    useState<RuntimeStatus>(ORACLE_STATE_LOADING_STATUS);
+  const [oracleStateStatus, setOracleStateStatus] = useState<RuntimeStatus>(
+    ORACLE_STATE_LOADING_STATUS
+  );
   const [isEncrypting, setIsEncrypting] = useState(false);
   const [encryptionError, setEncryptionError] = useState('');
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
@@ -155,7 +157,9 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   async function loadOracleKey(networkKey = selectedNetworkKey) {
     setOracleKeyStatus(ORACLE_KEY_LOADING_STATUS);
     try {
-      const response = await fetch(`/api/oracle/public-key${buildNetworkQueryPart(networkKey, '?')}`);
+      const response = await fetch(
+        `/api/oracle/public-key${buildNetworkQueryPart(networkKey, '?')}`
+      );
       const body = await response.json().catch(() => ({}));
       setOracleKeyMeta(response.ok && body?.public_key ? body : null);
       setOracleKeyStatus(
@@ -180,7 +184,9 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
   async function loadOracleState(networkKey = selectedNetworkKey) {
     setOracleStateStatus(ORACLE_STATE_LOADING_STATUS);
     try {
-      const response = await fetch(`/api/onchain/state?limit=20${buildNetworkQueryPart(networkKey, '&')}`);
+      const response = await fetch(
+        `/api/onchain/state?limit=20${buildNetworkQueryPart(networkKey, '&')}`
+      );
       const body = await response.json().catch(() => ({}));
       const bodyNetworkConfig = getDashboardNetworkConfig(body?.network || networkKey);
       setSelectedNetworkKey(bodyNetworkConfig.networkKey);
@@ -538,7 +544,10 @@ BigInteger requestId = (BigInteger)Contract.Call(
         >
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             {readinessMessages.map((status) => (
-              <p key={status.label} style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              <p
+                key={status.label}
+                style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}
+              >
                 <strong style={{ color: 'var(--text-primary)' }}>{status.label}:</strong>{' '}
                 {status.detail}
               </p>
@@ -547,11 +556,15 @@ BigInteger requestId = (BigInteger)Contract.Call(
         </div>
       )}
 
-      <div
-        className="card-industrial"
-        style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem' }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+      <div className="card-industrial" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
+          }}
+        >
           <span style={{ color: 'var(--text-secondary)' }}>
             Network: <code>{selectedNetworkConfig.name}</code>
           </span>
@@ -825,9 +838,7 @@ BigInteger requestId = (BigInteger)Contract.Call(
                     className="btn-ata"
                     onClick={() => void encryptPatch()}
                     disabled={isEncrypting || oracleKeyStatus.level !== 'ready'}
-                    title={
-                      oracleKeyStatus.level !== 'ready' ? oracleKeyStatus.detail : undefined
-                    }
+                    title={oracleKeyStatus.level !== 'ready' ? oracleKeyStatus.detail : undefined}
                     style={{ justifyContent: 'center' }}
                   >
                     {isEncrypting ? 'Encrypting...' : 'Encrypt Patch Locally'}

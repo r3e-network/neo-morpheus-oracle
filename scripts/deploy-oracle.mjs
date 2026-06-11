@@ -19,9 +19,15 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const CVM_URL =
-  process.env.NITRO_RUNTIME_URL || process.env.MORPHEUS_RUNTIME_URL || process.env.PHALA_CVM_URL ||
+  process.env.NITRO_RUNTIME_URL ||
+  process.env.MORPHEUS_RUNTIME_URL ||
+  process.env.PHALA_CVM_URL ||
   'https://oracle.meshmini.app/mainnet';
-const AUTH_TOKEN = process.env.NITRO_API_TOKEN || process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN || '';
+const AUTH_TOKEN =
+  process.env.NITRO_API_TOKEN ||
+  process.env.MORPHEUS_RUNTIME_TOKEN ||
+  process.env.PHALA_API_TOKEN ||
+  '';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = parseInt(process.env.NEO_NETWORK_MAGIC || '860833102');
 

@@ -99,8 +99,8 @@ function verifierWallet(config) {
 export function hasNeoXRelayerConfig(config) {
   return Boolean(
     trimString(config?.neox?.rpcUrl || '') &&
-      trimString(config?.neox?.oracleContract || '') &&
-      trimString(config?.neox?.updaterPrivateKey || '')
+    trimString(config?.neox?.oracleContract || '') &&
+    trimString(config?.neox?.updaterPrivateKey || '')
   );
 }
 
@@ -175,7 +175,12 @@ function buildNeoXEventFromRequest(record) {
   };
 }
 
-export async function scanNeoXOracleRequestsById(config, fromRequestId, toRequestId, contract = null) {
+export async function scanNeoXOracleRequestsById(
+  config,
+  fromRequestId,
+  toRequestId,
+  contract = null
+) {
   const kernel = contract || readContract(config);
   const events = [];
   for (let id = fromRequestId; id <= toRequestId; id += 1) {
@@ -208,7 +213,18 @@ export function resolveResultBytesHex(result, resultBytesBase64) {
 // keccak digest matching MorpheusOracleEVM.fulfillmentDigest (bound to chain+contract).
 export function buildNeoXDigest(config, fulfillment, resultBytesHex) {
   const enc = ethers.AbiCoder.defaultAbiCoder().encode(
-    ['string', 'uint256', 'address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'bool', 'bytes32', 'bytes32'],
+    [
+      'string',
+      'uint256',
+      'address',
+      'uint256',
+      'bytes32',
+      'bytes32',
+      'bytes32',
+      'bool',
+      'bytes32',
+      'bytes32',
+    ],
     [
       FULFILLMENT_DOMAIN,
       BigInt(config.neox.chainId),
@@ -226,10 +242,7 @@ export function buildNeoXDigest(config, fulfillment, resultBytesHex) {
 }
 
 export async function signNeoXFulfillment(config, fulfillment) {
-  const resultBytesHex = resolveResultBytesHex(
-    fulfillment.result,
-    fulfillment.result_bytes_base64
-  );
+  const resultBytesHex = resolveResultBytesHex(fulfillment.result, fulfillment.result_bytes_base64);
   const digest = buildNeoXDigest(config, fulfillment, resultBytesHex);
   const wallet = verifierWallet(config);
   // EIP-191 personal-sign over the 32-byte digest (matches the kernel's
@@ -249,7 +262,9 @@ export async function signNeoXFulfillment(config, fulfillment) {
 // fragments are in the ABI); fall back to scanning the message text.
 export function normalizeNeoXRevert(error) {
   const name = trimString(error?.revert?.name || error?.errorName || '');
-  const reason = trimString(error?.shortMessage || error?.reason || error?.message || String(error));
+  const reason = trimString(
+    error?.shortMessage || error?.reason || error?.message || String(error)
+  );
   const probe = `${name} ${reason}`.toLowerCase();
   if (probe.includes('requestnotpending')) return new Error('request already fulfilled');
   if (probe.includes('badsignature')) {
@@ -303,7 +318,13 @@ export async function fulfillNeoXRequest(
   resultBytesBase64 = ''
 ) {
   const resultBytesHex = resolveResultBytesHex(result, resultBytesBase64);
-  const args = [BigInt(requestId), Boolean(success), resultBytesHex, String(error || ''), verificationSignature];
+  const args = [
+    BigInt(requestId),
+    Boolean(success),
+    resultBytesHex,
+    String(error || ''),
+    verificationSignature,
+  ];
   // Serialize per signer: only one simulate→send→wait runs at a time so the
   // shared NonceManager produces sequential nonces and reset() is never racy.
   return runExclusive(signerKey(config), async () => {

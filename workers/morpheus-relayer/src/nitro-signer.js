@@ -165,7 +165,11 @@ export async function getNitroInfo({ required = false } = {}) {
   try {
     const res = await fetch(new URL('/health', endpoint).toString(), { method: 'GET' });
     const body = await res.json().catch(() => ({}));
-    return { runtime: body.runtime || 'aws-nitro-signer', network: body.network || null, client_kind: 'nitro' };
+    return {
+      runtime: body.runtime || 'aws-nitro-signer',
+      network: body.network || null,
+      client_kind: 'nitro',
+    };
   } catch (error) {
     if (required) throw new Error('Nitro signer health endpoint is unavailable');
     return { runtime: 'aws-nitro-signer', network: null, client_kind: 'nitro' };

@@ -450,7 +450,12 @@ describe('processEvent delivery retry exhaustion', () => {
 
   it('keeps retrying transient delivery errors below the callback ceiling', async () => {
     const state = createEmptyRelayerState();
-    const event = { chain: 'neo_n3', requestId: '300', requestType: 'privacy_oracle', txHash: '0x300' };
+    const event = {
+      chain: 'neo_n3',
+      requestId: '300',
+      requestType: 'privacy_oracle',
+      txHash: '0x300',
+    };
     const result = await processEvent(
       throwingDeliveryConfig('ECONNRESET'),
       state,
@@ -467,7 +472,12 @@ describe('processEvent delivery retry exhaustion', () => {
 
   it('dead-letters prepared callback redelivery once the retry ceiling is exceeded', async () => {
     const state = createEmptyRelayerState();
-    const event = { chain: 'neo_n3', requestId: '301', requestType: 'privacy_oracle', txHash: '0x301' };
+    const event = {
+      chain: 'neo_n3',
+      requestId: '301',
+      requestType: 'privacy_oracle',
+      txHash: '0x301',
+    };
     // attempts 6 == maxRetries * 2 -> the next failure (attempt 7) exhausts.
     const result = await processEvent(
       throwingDeliveryConfig('mempool rejected the transaction'),
@@ -490,7 +500,12 @@ describe('processEvent delivery retry exhaustion', () => {
 
   it('short-circuits a permanently FAULTing callback delivery to the dead-letter lane', async () => {
     const state = createEmptyRelayerState();
-    const event = { chain: 'neo_n3', requestId: '302', requestType: 'privacy_oracle', txHash: '0x302' };
+    const event = {
+      chain: 'neo_n3',
+      requestId: '302',
+      requestType: 'privacy_oracle',
+      txHash: '0x302',
+    };
     // classifyError('... faulted ...') === 'permanent': no point redelivering
     // the same prepared payload, even on the very first attempt.
     const result = await processEvent(

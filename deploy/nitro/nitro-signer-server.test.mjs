@@ -28,8 +28,12 @@ function stdioRequest(rawRequest) {
     });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
     child.on('error', reject);
     child.on('close', () => resolve({ stdout, stderr }));
     child.stdin.write(rawRequest);
@@ -47,7 +51,9 @@ test('signer rejects a wrong bearer token of the same length', async () => {
 test('signer rejects a wrong token of a different length without crashing', async () => {
   // regression: a bare crypto.timingSafeEqual throws on length mismatch — the
   // length guard must turn this into a clean 401, not a 500
-  const { stdout } = await stdioRequest(buildSignRequest([`authorization: Bearer ${TOKEN}-extended`]));
+  const { stdout } = await stdioRequest(
+    buildSignRequest([`authorization: Bearer ${TOKEN}-extended`])
+  );
   assert.match(stdout, /^HTTP\/1\.1 401 Unauthorized/);
 });
 

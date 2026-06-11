@@ -86,7 +86,9 @@ function normalizeTxResult(result: unknown) {
 }
 
 function stripHexPrefix(value: string) {
-  return String(value || '').trim().replace(/^0x/i, '');
+  return String(value || '')
+    .trim()
+    .replace(/^0x/i, '');
 }
 
 function assertHash160(value: string, label: string) {
@@ -134,7 +136,10 @@ function assertExpectedNetwork(
       `NEP-21 wallet is connected to network magic ${provider.network}, but this page targets ${expectedNetworkLabel} (${expectedNetworkMagic}). Switch wallet network before submitting.`
     );
   }
-  if (provider.supportedNetworks?.length && !provider.supportedNetworks.includes(expectedNetworkMagic)) {
+  if (
+    provider.supportedNetworks?.length &&
+    !provider.supportedNetworks.includes(expectedNetworkMagic)
+  ) {
     throw new Error(
       `NEP-21 wallet does not advertise ${expectedNetworkLabel} (${expectedNetworkMagic}). Switch to a compatible Neo N3 wallet/network before submitting.`
     );
@@ -237,7 +242,11 @@ async function resolveAccount(provider: DapiProvider, request: MorpheusOracleInv
   const refreshedAccounts = (await provider.getAccounts?.().catch(() => [])) ?? [];
   const refreshedAccount =
     refreshedAccounts.find((entry) => entry.address === address) ?? refreshedAccounts[0];
-  return { address, accountHash: refreshedAccount?.hash, authenticatedNetwork: authenticated.network };
+  return {
+    address,
+    accountHash: refreshedAccount?.hash,
+    authenticatedNetwork: authenticated.network,
+  };
 }
 
 export async function invokeMorpheusOracleRequest(request: MorpheusOracleInvokeRequest) {

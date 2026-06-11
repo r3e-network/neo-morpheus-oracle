@@ -18,8 +18,8 @@
  *   <CategoryIcon name="finance" size={40} />
  */
 
-export * from "./NeoMascot";
-export * from "./EmptyStateArt";
-export * from "./StatusArt";
-export * from "./CoinArt";
-export * from "./CategoryIcon";
+export * from './NeoMascot';
+export * from './EmptyStateArt';
+export * from './StatusArt';
+export * from './CoinArt';
+export * from './CategoryIcon';

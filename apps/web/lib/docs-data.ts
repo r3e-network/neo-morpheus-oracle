@@ -76,7 +76,8 @@ export const BUILTIN_FUNCTIONS = [
     category: 'ZKP',
     desc: 'Computes a digest over witness material before proving.',
     params: 'witness: any, circuit_id?: string',
-    example: "const digest = await morpheus.zkp.witness_digest({ witness, circuit_id: '<circuit-id>' });",
+    example:
+      "const digest = await morpheus.zkp.witness_digest({ witness, circuit_id: '<circuit-id>' });",
   },
   {
     name: 'zkp.groth16.verify',

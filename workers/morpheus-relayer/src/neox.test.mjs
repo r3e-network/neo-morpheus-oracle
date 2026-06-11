@@ -12,7 +12,11 @@ import {
   scanNeoXOracleRequestsById,
   waitForNeoXReceipt,
 } from './neox.js';
-import { classifyError, isAlreadyFulfilledError, isTerminalConfigurationError } from './fulfillment.js';
+import {
+  classifyError,
+  isAlreadyFulfilledError,
+  isTerminalConfigurationError,
+} from './fulfillment.js';
 
 // Deterministic throwaway test key (not used anywhere live).
 const TEST_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
@@ -41,7 +45,10 @@ test('resolveResultBytesHex prefers compact bytes, falls back to utf8', () => {
   const b64 = randomness.toString('base64');
   assert.equal(resolveResultBytesHex('', b64), `0x${randomness.toString('hex')}`);
   // No compact bytes -> utf8 encode of the result string
-  assert.equal(resolveResultBytesHex('hello', ''), `0x${Buffer.from('hello', 'utf8').toString('hex')}`);
+  assert.equal(
+    resolveResultBytesHex('hello', ''),
+    `0x${Buffer.from('hello', 'utf8').toString('hex')}`
+  );
   // Empty -> 0x
   assert.equal(resolveResultBytesHex('', ''), '0x');
 });
@@ -61,7 +68,18 @@ test('buildNeoXDigest matches the contract ABI encoding spec', () => {
   // Independent reference computation of MorpheusOracleEVM.fulfillmentDigest.
   const ref = ethers.keccak256(
     ethers.AbiCoder.defaultAbiCoder().encode(
-      ['string', 'uint256', 'address', 'uint256', 'bytes32', 'bytes32', 'bytes32', 'bool', 'bytes32', 'bytes32'],
+      [
+        'string',
+        'uint256',
+        'address',
+        'uint256',
+        'bytes32',
+        'bytes32',
+        'bytes32',
+        'bool',
+        'bytes32',
+        'bytes32',
+      ],
       [
         'morpheus-evm-fulfillment-v1',
         47763n,
@@ -104,11 +122,20 @@ test('signNeoXFulfillment produces an EIP-191 signature recoverable to the verif
 test('normalizeNeoXRevert maps decoded custom errors to the classifier vocabulary', () => {
   // ethers surfaces a decoded custom error as error.revert.name (needs error
   // fragments in the ABI, which neox.js now includes for the staticCall path).
-  const notPending = normalizeNeoXRevert({ revert: { name: 'RequestNotPending' }, shortMessage: 'execution reverted' });
-  assert.ok(isAlreadyFulfilledError(notPending.message), 'RequestNotPending -> already fulfilled (settled)');
+  const notPending = normalizeNeoXRevert({
+    revert: { name: 'RequestNotPending' },
+    shortMessage: 'execution reverted',
+  });
+  assert.ok(
+    isAlreadyFulfilledError(notPending.message),
+    'RequestNotPending -> already fulfilled (settled)'
+  );
   assert.equal(classifyError(notPending), 'settled');
 
-  const badSig = normalizeNeoXRevert({ revert: { name: 'BadSignature' }, shortMessage: 'execution reverted' });
+  const badSig = normalizeNeoXRevert({
+    revert: { name: 'BadSignature' },
+    shortMessage: 'execution reverted',
+  });
   assert.ok(isTerminalConfigurationError(badSig.message), 'BadSignature -> terminal config');
   assert.equal(classifyError(badSig), 'permanent');
 
@@ -124,8 +151,14 @@ test('signNeoXFulfillment honours a separate verifier key', async () => {
   const verifierPk = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba';
   const cfg = { neox: { ...baseConfig.neox, verifierPrivateKey: verifierPk } };
   const out = await signNeoXFulfillment(cfg, {
-    requestId: '1', appId: 'a', moduleId: 'random.generate', operation: 'random',
-    success: true, result: '', result_bytes_base64: '', error: '',
+    requestId: '1',
+    appId: 'a',
+    moduleId: 'random.generate',
+    operation: 'random',
+    success: true,
+    result: '',
+    result_bytes_base64: '',
+    error: '',
   });
   assert.equal(out.address, new ethers.Wallet(verifierPk).address);
 });
@@ -134,7 +167,14 @@ test('decodeConfidentialEnvelope recovers the base64 envelope from abi.encode(id
   // MiniAppMessageEVM.requestReveal submits abi.encode(uint256 id, bytes envelope);
   // the envelope itself is the base64 of the X25519 confidential JSON.
   const envelopeB64 = Buffer.from(
-    JSON.stringify({ v: 2, alg: 'X25519-HKDF-SHA256-AES-256-GCM', epk: 'e', iv: 'i', ct: 'c', tag: 't' })
+    JSON.stringify({
+      v: 2,
+      alg: 'X25519-HKDF-SHA256-AES-256-GCM',
+      epk: 'e',
+      iv: 'i',
+      ct: 'c',
+      tag: 't',
+    })
   ).toString('base64');
   const payload = ethers.AbiCoder.defaultAbiCoder().encode(
     ['uint256', 'bytes'],

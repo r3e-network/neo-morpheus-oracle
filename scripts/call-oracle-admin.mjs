@@ -11,9 +11,15 @@ import neon from '@cityofzion/neon-js';
 import crypto from 'crypto';
 
 const CVM_URL =
-  process.env.NITRO_RUNTIME_URL || process.env.MORPHEUS_RUNTIME_URL || process.env.PHALA_CVM_URL ||
+  process.env.NITRO_RUNTIME_URL ||
+  process.env.MORPHEUS_RUNTIME_URL ||
+  process.env.PHALA_CVM_URL ||
   'https://oracle.meshmini.app/mainnet';
-const AUTH_TOKEN = process.env.NITRO_API_TOKEN || process.env.MORPHEUS_RUNTIME_TOKEN || process.env.PHALA_API_TOKEN || '';
+const AUTH_TOKEN =
+  process.env.NITRO_API_TOKEN ||
+  process.env.MORPHEUS_RUNTIME_TOKEN ||
+  process.env.PHALA_API_TOKEN ||
+  '';
 const ORACLE_CONTRACT = process.env.ORACLE_CONTRACT || '0x5b492098fc094c760402e01f7e0b631b939d2bea';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = parseInt(process.env.NEO_NETWORK_MAGIC || '860833102');

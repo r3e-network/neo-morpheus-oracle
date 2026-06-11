@@ -41,7 +41,10 @@ function isBlockedIpAddress(rawAddress) {
 
 function isBlockedIpv4(address) {
   const octets = address.split('.').map((part) => Number.parseInt(part, 10));
-  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+  if (
+    octets.length !== 4 ||
+    octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
     return true;
   }
   const [a, b] = octets;

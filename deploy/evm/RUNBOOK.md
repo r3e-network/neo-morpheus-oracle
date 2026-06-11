@@ -6,13 +6,14 @@ Neo N3 `MorpheusOracle` kernel. Price feeds are a separate concern — see
 
 ## Components
 
-| Piece | Where | What |
-|---|---|---|
-| `MorpheusOracleEVM` | NeoX mainnet `0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2` | request lifecycle + ecrecover-verified fulfilment + callbacks |
-| `neox-fulfiller.mjs` | box `morpheus-neox-fulfiller.service` | watches `RequestQueued` → does work → signs → `fulfillRequest` |
-| `MorpheusPriceFeed` | NeoX mainnet `0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB` | price feed (fed by the multi-chain feed pusher) |
+| Piece                | Where                                                     | What                                                           |
+| -------------------- | --------------------------------------------------------- | -------------------------------------------------------------- |
+| `MorpheusOracleEVM`  | NeoX mainnet `0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2` | request lifecycle + ecrecover-verified fulfilment + callbacks  |
+| `neox-fulfiller.mjs` | box `morpheus-neox-fulfiller.service`                     | watches `RequestQueued` → does work → signs → `fulfillRequest` |
+| `MorpheusPriceFeed`  | NeoX mainnet `0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB` | price feed (fed by the multi-chain feed pusher)                |
 
 Keys (all currently the single deployer `0x622ae03BDB6d7E2A29BE853c75d625bB25c0139C`):
+
 - **owner** — admin (register modules/apps, set updater/verifier, fees).
 - **updater** — sends `fulfillRequest` (gas payer / witness).
 - **oracle verifier** — secp256k1 key whose signature over the fulfilment digest the
@@ -27,7 +28,7 @@ Keys (all currently the single deployer `0x622ae03BDB6d7E2A29BE853c75d625bB25c01
 2. The fulfiller sees the event, runs the lane (VRF locally; HTTP/compute via the
    Nitro worker when `NEOX_WORKER_URL` is set), and signs
    `digest = keccak(abi.encode("morpheus-evm-fulfillment-v1", chainId, oracle, id,
-   keccak(appId), keccak(moduleId), keccak(operation), success, keccak(result), keccak(error)))`
+keccak(appId), keccak(moduleId), keccak(operation), success, keccak(result), keccak(error)))`
    with the verifier key (EIP-191 personal-sign over the 32-byte digest).
 3. `fulfillRequest(id, success, result, error, signature)` — `onlyUpdater`; the kernel
    recomputes the digest and requires `ecrecover == oracleVerifier`, stores the result,

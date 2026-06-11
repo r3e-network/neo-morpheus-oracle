@@ -39,16 +39,15 @@ export function NeoLineManualEntryPanel({
           <code>{oracleHash}</code>
         </div>
         <div>
-          <strong style={{ color: 'var(--text-primary)' }}>Method:</strong>{' '}
-          <code>request</code>
+          <strong style={{ color: 'var(--text-primary)' }}>Method:</strong> <code>request</code>
         </div>
         <div>
           <strong style={{ color: 'var(--text-primary)' }}>Arg 1 / String:</strong>{' '}
           <code>{requestType}</code>
         </div>
         <div>
-          <strong style={{ color: 'var(--text-primary)' }}>Arg 2 / ByteArray:</strong> use
-          the base64 payload above
+          <strong style={{ color: 'var(--text-primary)' }}>Arg 2 / ByteArray:</strong> use the
+          base64 payload above
         </div>
         <div>
           <strong style={{ color: 'var(--text-primary)' }}>Arg 3 / Hash160:</strong>{' '}

@@ -49,9 +49,9 @@ function ResolverClient() {
   const examples = useMemo(
     () =>
       [
-      { label: 'Service DID', value: DEFAULT_NEODID_SERVICE_DID },
-      { label: 'Vault DID', value: DEFAULT_NEODID_VAULT_DID },
-      { label: 'AA DID', value: DEFAULT_NEODID_AA_DID },
+        { label: 'Service DID', value: DEFAULT_NEODID_SERVICE_DID },
+        { label: 'Vault DID', value: DEFAULT_NEODID_VAULT_DID },
+        { label: 'AA DID', value: DEFAULT_NEODID_AA_DID },
       ].filter((item) => item.value),
     []
   );

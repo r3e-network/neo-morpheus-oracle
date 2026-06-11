@@ -4,7 +4,9 @@ import { getServiceProblemDetail } from '../lib/service-health';
 describe('getServiceProblemDetail', () => {
   it('returns null for healthy payloads', () => {
     expect(getServiceProblemDetail({ status: 'ok', service: 'morpheus-web' })).toBeNull();
-    expect(getServiceProblemDetail({ ok: true, network: 'testnet', neo_n3: { error: null } })).toBeNull();
+    expect(
+      getServiceProblemDetail({ ok: true, network: 'testnet', neo_n3: { error: null } })
+    ).toBeNull();
     expect(getServiceProblemDetail({ providers: [] })).toBeNull();
     expect(getServiceProblemDetail(null)).toBeNull();
     expect(getServiceProblemDetail('plain text')).toBeNull();

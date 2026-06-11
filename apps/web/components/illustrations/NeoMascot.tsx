@@ -1,6 +1,6 @@
-import React from "react";
+import React from 'react';
 
-export type NeoMascotVariant = "default" | "brand" | "violet";
+export type NeoMascotVariant = 'default' | 'brand' | 'violet';
 
 export interface NeoMascotProps {
   /** Color theme of the mascot body. */
@@ -24,31 +24,31 @@ interface MascotPalette {
 
 const PALETTES: Record<NeoMascotVariant, MascotPalette> = {
   default: {
-    bodyTop: "#FFFFFF",
-    bodyBottom: "#E9ECF6",
-    bodyEdge: "#D3D8EB",
-    panelTop: "#2A2A3E",
-    panelBottom: "#1E1E2E",
-    glow: "#16C784",
-    antenna: "#16C784",
+    bodyTop: '#FFFFFF',
+    bodyBottom: '#E9ECF6',
+    bodyEdge: '#D3D8EB',
+    panelTop: '#2A2A3E',
+    panelBottom: '#1E1E2E',
+    glow: '#16C784',
+    antenna: '#16C784',
   },
   brand: {
-    bodyTop: "#4BE2A6",
-    bodyBottom: "#16C784",
-    bodyEdge: "#0FB174",
-    panelTop: "#15243A",
-    panelBottom: "#0E1A2C",
-    glow: "#BFF6E1",
-    antenna: "#FFFFFF",
+    bodyTop: '#4BE2A6',
+    bodyBottom: '#16C784',
+    bodyEdge: '#0FB174',
+    panelTop: '#15243A',
+    panelBottom: '#0E1A2C',
+    glow: '#BFF6E1',
+    antenna: '#FFFFFF',
   },
   violet: {
-    bodyTop: "#A795FF",
-    bodyBottom: "#7B61FF",
-    bodyEdge: "#5E45E0",
-    panelTop: "#231C45",
-    panelBottom: "#171234",
-    glow: "#E0E2FF",
-    antenna: "#FFFFFF",
+    bodyTop: '#A795FF',
+    bodyBottom: '#7B61FF',
+    bodyEdge: '#5E45E0',
+    panelTop: '#231C45',
+    panelBottom: '#171234',
+    glow: '#E0E2FF',
+    antenna: '#FFFFFF',
   },
 };
 
@@ -59,13 +59,13 @@ const PALETTES: Record<NeoMascotVariant, MascotPalette> = {
  * violet.
  */
 export const NeoMascot: React.FC<NeoMascotProps> = ({
-  variant = "default",
+  variant = 'default',
   size = 160,
-  title = "Neo mascot",
+  title = 'Neo mascot',
   className,
 }) => {
   const p = PALETTES[variant];
-  const uid = React.useId().replace(/:/g, "");
+  const uid = React.useId().replace(/:/g, '');
   const bodyGrad = `nm-body-${uid}`;
   const panelGrad = `nm-panel-${uid}`;
   const cheekGrad = `nm-cheek-${uid}`;
@@ -85,11 +85,25 @@ export const NeoMascot: React.FC<NeoMascotProps> = ({
     >
       <title>{title}</title>
       <defs>
-        <linearGradient id={bodyGrad} x1="40" y1="28" x2="120" y2="140" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id={bodyGrad}
+          x1="40"
+          y1="28"
+          x2="120"
+          y2="140"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop stopColor={p.bodyTop} />
           <stop offset="1" stopColor={p.bodyBottom} />
         </linearGradient>
-        <linearGradient id={panelGrad} x1="52" y1="58" x2="108" y2="112" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id={panelGrad}
+          x1="52"
+          y1="58"
+          x2="108"
+          y2="112"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop stopColor={p.panelTop} />
           <stop offset="1" stopColor={p.panelBottom} />
         </linearGradient>
@@ -111,7 +125,15 @@ export const NeoMascot: React.FC<NeoMascotProps> = ({
       <ellipse cx="80" cy="142" rx="44" ry="9" fill={`url(#${shadowId})`} />
 
       {/* antenna */}
-      <line x1="80" y1="30" x2="80" y2="16" stroke={p.bodyEdge} strokeWidth="4" strokeLinecap="round" />
+      <line
+        x1="80"
+        y1="30"
+        x2="80"
+        y2="16"
+        stroke={p.bodyEdge}
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
       <circle cx="80" cy="13" r="6" fill={p.antenna} />
       <circle cx="78" cy="11" r="2" fill="#FFFFFF" fillOpacity="0.7" />
 
@@ -131,7 +153,16 @@ export const NeoMascot: React.FC<NeoMascotProps> = ({
 
       {/* face panel */}
       <rect x="48" y="58" width="64" height="50" rx="22" fill={`url(#${panelGrad})`} />
-      <rect x="48" y="58" width="64" height="50" rx="22" stroke="#000000" strokeOpacity="0.15" strokeWidth="1.5" />
+      <rect
+        x="48"
+        y="58"
+        width="64"
+        height="50"
+        rx="22"
+        stroke="#000000"
+        strokeOpacity="0.15"
+        strokeWidth="1.5"
+      />
 
       {/* eyes */}
       <circle cx="68" cy="82" r="9" fill={`url(#${eyeGlow})`} />
@@ -149,8 +180,26 @@ export const NeoMascot: React.FC<NeoMascotProps> = ({
       <ellipse cx="104" cy="93" rx="6" ry="4" fill={`url(#${cheekGrad})`} />
 
       {/* side ears */}
-      <rect x="24" y="74" width="10" height="22" rx="5" fill={p.bodyBottom} stroke={p.bodyEdge} strokeWidth="1.5" />
-      <rect x="126" y="74" width="10" height="22" rx="5" fill={p.bodyBottom} stroke={p.bodyEdge} strokeWidth="1.5" />
+      <rect
+        x="24"
+        y="74"
+        width="10"
+        height="22"
+        rx="5"
+        fill={p.bodyBottom}
+        stroke={p.bodyEdge}
+        strokeWidth="1.5"
+      />
+      <rect
+        x="126"
+        y="74"
+        width="10"
+        height="22"
+        rx="5"
+        fill={p.bodyBottom}
+        stroke={p.bodyEdge}
+        strokeWidth="1.5"
+      />
     </svg>
   );
 };

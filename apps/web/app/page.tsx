@@ -1,10 +1,5 @@
 import Link from 'next/link';
-import {
-  Activity,
-  ArrowRight,
-  CheckCircle2,
-  KeyRound,
-} from 'lucide-react';
+import { Activity, ArrowRight, CheckCircle2, KeyRound } from 'lucide-react';
 
 import { Dashboard } from '@/components/dashboard';
 import { getSelectedNetwork, getSelectedNetworkKey } from '@/lib/networks';
@@ -54,7 +49,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
                 aria-hidden
                 width={112}
                 height={112}
-                style={{ marginBottom: "0.85rem", display: "block" }}
+                style={{ marginBottom: '0.85rem', display: 'block' }}
               />
               <h1>Morpheus Oracle Workbench</h1>
               <p>

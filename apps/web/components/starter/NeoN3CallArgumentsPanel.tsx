@@ -39,12 +39,11 @@ export function NeoN3CallArgumentsPanel({
           <code>{requestType}</code>
         </div>
         <div>
-          <strong style={{ color: 'var(--text-primary)' }}>Arg 2:</strong> UTF-8 payload
-          JSON bytes
+          <strong style={{ color: 'var(--text-primary)' }}>Arg 2:</strong> UTF-8 payload JSON bytes
         </div>
         <div>
-          <strong style={{ color: 'var(--text-primary)' }}>Arg 3:</strong> callback contract
-          = <code>Runtime.ExecutingScriptHash</code> for your own consumer, or{' '}
+          <strong style={{ color: 'var(--text-primary)' }}>Arg 3:</strong> callback contract ={' '}
+          <code>Runtime.ExecutingScriptHash</code> for your own consumer, or{' '}
           <code>{callbackHash}</code> for direct wallet testing
         </div>
         <div>

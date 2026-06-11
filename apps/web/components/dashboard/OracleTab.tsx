@@ -68,14 +68,16 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
   const [oracleJsonPath, setOracleJsonPath] = useState('');
   const [useCustomScript, setUseCustomScript] = useState(false);
   const [oracleTargetChain, setOracleTargetChain] = useState('neo_n3');
-  const [walletCallbackHash, setWalletCallbackHash] = useState(initialNetworkConfig.callbackConsumer);
+  const [walletCallbackHash, setWalletCallbackHash] = useState(
+    initialNetworkConfig.callbackConsumer
+  );
   const [walletCallbackMethod, setWalletCallbackMethod] = useState('onOracleResult');
   const [oracleKeyMeta, setOracleKeyMeta] = useState<any>(null);
   const [oracleState, setOracleState] = useState<any>(null);
-  const [oracleKeyStatus, setOracleKeyStatus] =
-    useState<RuntimeStatus>(ORACLE_KEY_LOADING_STATUS);
-  const [oracleStateStatus, setOracleStateStatus] =
-    useState<RuntimeStatus>(ORACLE_STATE_LOADING_STATUS);
+  const [oracleKeyStatus, setOracleKeyStatus] = useState<RuntimeStatus>(ORACLE_KEY_LOADING_STATUS);
+  const [oracleStateStatus, setOracleStateStatus] = useState<RuntimeStatus>(
+    ORACLE_STATE_LOADING_STATUS
+  );
   const [isEncrypting, setIsEncrypting] = useState(false);
   const [generatedRequest, setGeneratedRequest] = useState<{
     requestType: string;
@@ -161,8 +163,7 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
     }
 
     if (preset === 'boolean_check') {
-      const nextScript =
-        '';
+      const nextScript = '';
       setRequestMode('url');
       setOracleUrl('');
       setHttpMethod('GET');
@@ -171,7 +172,9 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       setUseCustomScript(true);
       setOracleScript(nextScript);
       setOracleEncryptedParams('');
-      setOracleConfidentialJson('{\n "headers": {},\n "json_path": "",\n "script": "",\n "entry_point": "process"\n}');
+      setOracleConfidentialJson(
+        '{\n "headers": {},\n "json_path": "",\n "script": "",\n "entry_point": "process"\n}'
+      );
       setOutput(
         '>> Loaded preset: Boolean Check\n>> This pattern returns only a boolean to the callback.'
       );
@@ -228,7 +231,9 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
   async function loadOracleState() {
     setOracleStateStatus(ORACLE_STATE_LOADING_STATUS);
     try {
-      const response = await fetch(`/api/onchain/state?limit=20${getSelectedNetworkQueryPart('&')}`);
+      const response = await fetch(
+        `/api/onchain/state?limit=20${getSelectedNetworkQueryPart('&')}`
+      );
       const body = await response.json().catch(() => ({}));
       setSelectedNetworkKey(getDashboardNetworkConfig(body?.network).networkKey);
       const nextOracleState = readOracleStateFromBody(body);
@@ -258,7 +263,9 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
       const keyMeta = oracleKeyMeta?.public_key
         ? oracleKeyMeta
         : await (async () => {
-            const response = await fetch(`/api/oracle/public-key${getSelectedNetworkQueryPart('?')}`);
+            const response = await fetch(
+              `/api/oracle/public-key${getSelectedNetworkQueryPart('?')}`
+            );
             const body = await response.json();
             setOracleKeyMeta(body?.public_key ? body : null);
             if (!body?.public_key) {
@@ -526,16 +533,24 @@ BigInteger requestId = (BigInteger)Contract.Call(
               fontFamily: 'var(--font-mono)',
             }}
           >
-            {oracleSubmitReady ? oracleState?.request_fee_display || '0.01 GAS' : oracleStateStatus.label}
+            {oracleSubmitReady
+              ? oracleState?.request_fee_display || '0.01 GAS'
+              : oracleStateStatus.label}
           </div>
         </div>
       </div>
 
       {readinessMessages.length > 0 && (
-        <div className="card-industrial" style={{ padding: '1.25rem 1.5rem', borderLeft: `4px solid ${readinessAccent}` }}>
+        <div
+          className="card-industrial"
+          style={{ padding: '1.25rem 1.5rem', borderLeft: `4px solid ${readinessAccent}` }}
+        >
           <div style={{ display: 'grid', gap: '0.75rem' }}>
             {readinessMessages.map((status) => (
-              <p key={status.label} style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              <p
+                key={status.label}
+                style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}
+              >
                 <strong style={{ color: 'var(--text-primary)' }}>{status.label}:</strong>{' '}
                 {status.detail}
               </p>
@@ -551,9 +566,13 @@ BigInteger requestId = (BigInteger)Contract.Call(
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           Local encryption happens in the browser when the protected runtime key is available. The
           generated payload is intended for on-chain submission through{' '}
-          <code>{oracleState?.domain || selectedNetworkConfig.oracleDomain || 'configured oracle contract'}</code>.
-          You can also move <code>json_path</code> or <code>script</code> into the encrypted JSON if
-          you want those fields hidden from the public transaction.
+          <code>
+            {oracleState?.domain ||
+              selectedNetworkConfig.oracleDomain ||
+              'configured oracle contract'}
+          </code>
+          . You can also move <code>json_path</code> or <code>script</code> into the encrypted JSON
+          if you want those fields hidden from the public transaction.
         </p>
       </div>
 

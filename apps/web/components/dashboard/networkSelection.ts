@@ -7,7 +7,9 @@ export function getBrowserNetworkKey() {
 }
 
 export function getDashboardNetworkConfig(networkOverride?: string | null) {
-  const networkKey = networkOverride ? getSelectedNetworkKey(networkOverride) : getBrowserNetworkKey();
+  const networkKey = networkOverride
+    ? getSelectedNetworkKey(networkOverride)
+    : getBrowserNetworkKey();
   const selectedNetwork = getSelectedNetwork(networkKey);
   const neoN3 = selectedNetwork.neo_n3 || {};
   const contracts = neoN3.contracts || {};

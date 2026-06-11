@@ -98,7 +98,10 @@ const signerEnv =
     line('MORPHEUS_NETWORK', network),
     line('PORT', '8080'),
     line('NITRO_SIGNER_VSOCK_PORT', '8787'),
-    line('MORPHEUS_ALLOW_UNPINNED_SIGNERS', pick(env, ['MORPHEUS_ALLOW_UNPINNED_SIGNERS']) || 'true'),
+    line(
+      'MORPHEUS_ALLOW_UNPINNED_SIGNERS',
+      pick(env, ['MORPHEUS_ALLOW_UNPINNED_SIGNERS']) || 'true'
+    ),
     line('NITRO_SIGNER_TOKEN', runtimeToken),
     line('MORPHEUS_RUNTIME_TOKEN', runtimeToken),
     line(

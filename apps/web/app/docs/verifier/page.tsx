@@ -53,7 +53,13 @@ export default function DocsVerifier() {
             borderRadius: 'var(--ns-radius-md)',
           }}
         >
-          <Check size={18} color="var(--neo-green)" strokeWidth={3} style={{ flexShrink: 0, marginTop: '0.15rem' }} aria-hidden="true" />
+          <Check
+            size={18}
+            color="var(--neo-green)"
+            strokeWidth={3}
+            style={{ flexShrink: 0, marginTop: '0.15rem' }}
+            aria-hidden="true"
+          />
           <div>
             <strong
               style={{
@@ -82,7 +88,13 @@ export default function DocsVerifier() {
             borderRadius: 'var(--ns-radius-md)',
           }}
         >
-          <Check size={18} color="var(--neo-green)" strokeWidth={3} style={{ flexShrink: 0, marginTop: '0.15rem' }} aria-hidden="true" />
+          <Check
+            size={18}
+            color="var(--neo-green)"
+            strokeWidth={3}
+            style={{ flexShrink: 0, marginTop: '0.15rem' }}
+            aria-hidden="true"
+          />
           <div>
             <strong
               style={{
@@ -110,7 +122,13 @@ export default function DocsVerifier() {
             borderRadius: 'var(--ns-radius-md)',
           }}
         >
-          <Check size={18} color="var(--neo-green)" strokeWidth={3} style={{ flexShrink: 0, marginTop: '0.15rem' }} aria-hidden="true" />
+          <Check
+            size={18}
+            color="var(--neo-green)"
+            strokeWidth={3}
+            style={{ flexShrink: 0, marginTop: '0.15rem' }}
+            aria-hidden="true"
+          />
           <div>
             <strong
               style={{

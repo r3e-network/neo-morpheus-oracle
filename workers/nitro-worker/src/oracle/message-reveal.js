@@ -60,7 +60,11 @@ export function addressesEqual(a, b) {
   );
 }
 
-export function isRevealTimestampFresh(issuedAt, nowSeconds, window = REVEAL_FRESHNESS_WINDOW_SECONDS) {
+export function isRevealTimestampFresh(
+  issuedAt,
+  nowSeconds,
+  window = REVEAL_FRESHNESS_WINDOW_SECONDS
+) {
   if (!Number.isFinite(issuedAt) || issuedAt <= 0) return false;
   if (!Number.isFinite(nowSeconds) || nowSeconds <= 0) return false;
   return Math.abs(nowSeconds - issuedAt) <= window;

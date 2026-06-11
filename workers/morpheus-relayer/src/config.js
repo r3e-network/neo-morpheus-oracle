@@ -249,7 +249,10 @@ export function createRelayerConfig() {
   const registry = loadNetworkRegistry(network);
   const neoN3RpcUrls = resolveNeoN3RpcUrls(network, registry);
   const mode = resolveRelayerMode(env('MORPHEUS_RELAYER_MODE') || 'combined');
-  const useDerivedKeys = parseBoolean(env('NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'), false);
+  const useDerivedKeys = parseBoolean(
+    env('NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'),
+    false
+  );
   const hasSupabaseUrl = Boolean(
     env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL')
   );
@@ -418,7 +421,10 @@ export function createRelayerConfig() {
       ),
       timeoutMs: Math.min(
         Math.max(
-          Number(env('MORPHEUS_NITRO_TIMEOUT_MS', 'MORPHEUS_PHALA_TIMEOUT_MS') || DEFAULT_NITRO_TIMEOUT_MS),
+          Number(
+            env('MORPHEUS_NITRO_TIMEOUT_MS', 'MORPHEUS_PHALA_TIMEOUT_MS') ||
+              DEFAULT_NITRO_TIMEOUT_MS
+          ),
           1000
         ),
         MAX_REQUEST_TIMEOUT_MS
@@ -499,9 +505,7 @@ export function createRelayerConfig() {
       updaterPrivateKey: trimString(
         env('MORPHEUS_RELAYER_NEOX_UPDATER_PK', 'NEOX_UPDATER_PK', 'NEOX_FEED_PK')
       ),
-      verifierPrivateKey: trimString(
-        env('MORPHEUS_RELAYER_NEOX_VERIFIER_PK', 'NEOX_VERIFIER_PK')
-      ),
+      verifierPrivateKey: trimString(env('MORPHEUS_RELAYER_NEOX_VERIFIER_PK', 'NEOX_VERIFIER_PK')),
       // Deadline for the fulfillRequest receipt wait — a never-mined tx must not
       // wedge the per-signer submission queue (mirrors the Neo N3 45s default).
       confirmTimeoutMs: Math.max(

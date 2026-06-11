@@ -26,7 +26,9 @@ describe('oracle public key route', () => {
     );
 
     const { GET } = await import('../app/api/oracle/public-key/route');
-    const response = await GET(new Request('https://example.test/api/oracle/public-key?network=testnet'));
+    const response = await GET(
+      new Request('https://example.test/api/oracle/public-key?network=testnet')
+    );
 
     expect(response.status).toBe(200);
     expect(response.headers.get('x-morpheus-upstream-status')).toBe('401');
@@ -53,7 +55,9 @@ describe('oracle public key route', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const { GET } = await import('../app/api/oracle/public-key/route');
-    const response = await GET(new Request('https://example.test/api/oracle/public-key?network=testnet'));
+    const response = await GET(
+      new Request('https://example.test/api/oracle/public-key?network=testnet')
+    );
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledWith(

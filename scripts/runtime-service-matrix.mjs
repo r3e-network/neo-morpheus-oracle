@@ -1010,7 +1010,8 @@ export async function runRuntimeServiceMatrix(options = {}) {
   const explicitNetwork = trimString(options.network || '');
   const envNetwork = trimString(process.env.MORPHEUS_NETWORK || '');
   const requestedNetwork = explicitNetwork || envNetwork;
-  let network = requestedNetwork === 'mainnet' ? 'mainnet' : requestedNetwork === 'testnet' ? 'testnet' : '';
+  let network =
+    requestedNetwork === 'mainnet' ? 'mainnet' : requestedNetwork === 'testnet' ? 'testnet' : '';
   const normalizedBaseUrl = normalizeBaseUrl(options.baseUrl || '');
   if (normalizedBaseUrl && !explicitNetwork) {
     if (/\/mainnet\b/i.test(normalizedBaseUrl)) network = 'mainnet';

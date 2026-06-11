@@ -160,11 +160,14 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
     payloadJson: string;
     neoN3Snippet: string;
   } | null>(null);
-  const [walletCallbackHash, setWalletCallbackHash] = useState(initialNetworkConfig.callbackConsumer);
+  const [walletCallbackHash, setWalletCallbackHash] = useState(
+    initialNetworkConfig.callbackConsumer
+  );
   const [walletCallbackMethod, setWalletCallbackMethod] = useState('onOracleResult');
   const [oracleState, setOracleState] = useState<OracleState>(null);
-  const [oracleStateStatus, setOracleStateStatus] =
-    useState<RuntimeStatus>(ORACLE_STATE_LOADING_STATUS);
+  const [oracleStateStatus, setOracleStateStatus] = useState<RuntimeStatus>(
+    ORACLE_STATE_LOADING_STATUS
+  );
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
   const [isWalletSubmitting, setIsWalletSubmitting] = useState(false);
   const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -182,7 +185,9 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
   async function loadOracleState(networkKey = selectedNetworkKey) {
     setOracleStateStatus(ORACLE_STATE_LOADING_STATUS);
     try {
-      const response = await fetch(`/api/onchain/state?limit=20${buildNetworkQueryPart(networkKey, '&')}`);
+      const response = await fetch(
+        `/api/onchain/state?limit=20${buildNetworkQueryPart(networkKey, '&')}`
+      );
       const body = await response.json().catch(() => ({}));
       const bodyNetworkConfig = getDashboardNetworkConfig(body?.network || networkKey);
       setSelectedNetworkKey(bodyNetworkConfig.networkKey);
@@ -390,7 +395,9 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
         mode: 'wasm',
         wasm_base64: typeof parsedInput.wasm_base64 === 'string' ? parsedInput.wasm_base64 : '',
         input:
-          parsedInput.input && typeof parsedInput.input === 'object' && !Array.isArray(parsedInput.input)
+          parsedInput.input &&
+          typeof parsedInput.input === 'object' &&
+          !Array.isArray(parsedInput.input)
             ? (parsedInput.input as Record<string, unknown>)
             : {},
         target_chain: 'neo_n3',
@@ -543,7 +550,9 @@ BigInteger requestId = (BigInteger)Contract.Call(
               fontFamily: 'var(--font-mono)',
             }}
           >
-            {oracleSubmitReady ? oracleState?.request_fee_display || '0.01 GAS' : oracleStateStatus.label}
+            {oracleSubmitReady
+              ? oracleState?.request_fee_display || '0.01 GAS'
+              : oracleStateStatus.label}
           </div>
         </div>
       </div>

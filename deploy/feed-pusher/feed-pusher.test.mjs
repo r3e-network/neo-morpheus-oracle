@@ -36,7 +36,10 @@ test('planFeedUpdate force-refreshes a stale round even when the price is flat',
 test('planFeedUpdate pushes when there is no current record or a zero price', () => {
   const now = 1_780_000_000;
   assert.equal(planFeedUpdate({ round: 0, price: 0, ts: 0 }, 100, now, OPTS).push, true);
-  assert.equal(planFeedUpdate({ round: now - 60, price: 0, ts: now - 60 }, 100, now, OPTS).push, true);
+  assert.equal(
+    planFeedUpdate({ round: now - 60, price: 0, ts: now - 60 }, 100, now, OPTS).push,
+    true
+  );
 });
 
 test('planFeedUpdate never regresses the on-chain timestamp or round', () => {
@@ -72,15 +75,27 @@ test('parseGetLatestStack decodes the FeedRecord struct and tolerates faults', (
     ],
   };
   assert.deepEqual(parseGetLatestStack(halt), { round: 42, price: 5.25, ts: 1_780_000_000 });
-  assert.deepEqual(parseGetLatestStack({ state: 'FAULT', stack: [] }), { round: 0, price: 0, ts: 0 });
-  assert.deepEqual(parseGetLatestStack({ state: 'HALT', stack: [] }), { round: 0, price: 0, ts: 0 });
+  assert.deepEqual(parseGetLatestStack({ state: 'FAULT', stack: [] }), {
+    round: 0,
+    price: 0,
+    ts: 0,
+  });
+  assert.deepEqual(parseGetLatestStack({ state: 'HALT', stack: [] }), {
+    round: 0,
+    price: 0,
+    ts: 0,
+  });
   assert.deepEqual(parseGetLatestStack(null), { round: 0, price: 0, ts: 0 });
 });
 
 test('feed-pusher still runs its main cycle when executed as the systemd entrypoint', () => {
   // FEED_CHAINS=none filters every chain out, so the cycle exits before any
   // network call — proving the entry path runs without touching live RPCs.
-  const env = { ...process.env, FEED_CHAINS: 'none', PUSH_LOG: path.join(os.tmpdir(), 'feed-pusher-test.log') };
+  const env = {
+    ...process.env,
+    FEED_CHAINS: 'none',
+    PUSH_LOG: path.join(os.tmpdir(), 'feed-pusher-test.log'),
+  };
   delete env.FEED_PUSHER_SKIP_MAIN;
   const result = spawnSync(process.execPath, [PUSHER], { env, encoding: 'utf8', timeout: 30000 });
   assert.equal(result.status, 0);

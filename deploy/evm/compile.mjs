@@ -10,7 +10,10 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const name = process.argv[2];
-if (!name) { console.error('usage: compile.mjs <ContractName>'); process.exit(1); }
+if (!name) {
+  console.error('usage: compile.mjs <ContractName>');
+  process.exit(1);
+}
 
 const src = readFileSync(resolve(ROOT, `contracts-evm/${name}.sol`), 'utf8');
 const solc = require('solc');
@@ -27,11 +30,19 @@ const input = {
 
 const out = JSON.parse(solc.compile(JSON.stringify(input)));
 const errors = (out.errors || []).filter((e) => e.severity === 'error');
-if (errors.length) { for (const e of errors) console.error(e.formattedMessage); process.exit(1); }
+if (errors.length) {
+  for (const e of errors) console.error(e.formattedMessage);
+  process.exit(1);
+}
 for (const w of out.errors || []) console.warn(w.formattedMessage);
 
 const c = out.contracts[`${name}.sol`][name];
 mkdirSync(resolve(ROOT, 'contracts-evm/build'), { recursive: true });
-writeFileSync(resolve(ROOT, `contracts-evm/build/${name}.abi.json`), JSON.stringify(c.abi, null, 2));
+writeFileSync(
+  resolve(ROOT, `contracts-evm/build/${name}.abi.json`),
+  JSON.stringify(c.abi, null, 2)
+);
 writeFileSync(resolve(ROOT, `contracts-evm/build/${name}.bin`), c.evm.bytecode.object);
-console.log(`compiled ${name}: ${c.evm.bytecode.object.length / 2} bytes, ${c.abi.length} abi entries`);
+console.log(
+  `compiled ${name}: ${c.evm.bytecode.object.length / 2} bytes, ${c.abi.length} abi entries`
+);
