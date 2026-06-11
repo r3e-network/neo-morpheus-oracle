@@ -12,6 +12,10 @@ import { trimString } from '@neo-morpheus-oracle/shared/utils';
 const DEFAULT_NITRO_TIMEOUT_MS = 10_000;
 const MAX_REQUEST_TIMEOUT_MS = 10_000;
 const MAX_FEED_SYNC_TIMEOUT_MS = 30_000;
+// Sanity ceiling for the retry backoff cap — generous enough that operators can
+// slow poison-item retries to minutes, while still bounding accidental
+// misconfiguration (the default cap stays at 10s).
+const MAX_RETRY_MAX_DELAY_MS = 600_000;
 const DEFAULT_NEO_N3_RPC_URLS = {
   mainnet: [
     'http://seed1.neo.org:10332',
@@ -270,6 +274,7 @@ export function createRelayerConfig() {
         : `.morpheus-relayer-state.${mode}.json`)
   );
   const activeChains = parseActiveChains(env('MORPHEUS_ACTIVE_CHAINS') || 'neo_n3');
+  const maxRetries = Math.max(Number(env('MORPHEUS_RELAYER_MAX_RETRIES') || 5), 0);
   // Neo N3 updater signer material is only required when Neo N3 is an active
   // chain — a neox-only (or feed-only / derived-key) relayer must not demand it.
   const updaterSigner =
@@ -291,11 +296,25 @@ export function createRelayerConfig() {
     pollIntervalMs: Number(env('MORPHEUS_RELAYER_POLL_INTERVAL_MS') || 5000),
     concurrency: Math.max(Number(env('MORPHEUS_RELAYER_CONCURRENCY') || 4), 1),
     maxBlocksPerTick: Math.max(Number(env('MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK') || 250), 1),
-    maxRetries: Math.max(Number(env('MORPHEUS_RELAYER_MAX_RETRIES') || 5), 0),
+    maxRetries,
+    // Ceiling on callback-delivery / failure-finalize redelivery attempts; once a
+    // prepared fulfillment exceeds it the request is dead-lettered for manual
+    // replay instead of retrying forever.
+    maxCallbackRetries: Math.max(
+      Number(env('MORPHEUS_RELAYER_MAX_CALLBACK_RETRIES') || maxRetries * 2),
+      1
+    ),
     retryBaseDelayMs: Math.max(Number(env('MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS') || 5000), 250),
     retryMaxDelayMs: Math.min(
       Math.max(Number(env('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || 10_000), 1000),
-      10_000
+      MAX_RETRY_MAX_DELAY_MS
+    ),
+    // Minimum interval between local state-file writes; bursts of persistState
+    // calls inside one processEvent coalesce into a single trailing write. 0
+    // restores write-on-every-call.
+    statePersistMinIntervalMs: Math.max(
+      Number(env('MORPHEUS_RELAYER_STATE_PERSIST_MIN_INTERVAL_MS') || 250),
+      0
     ),
     processedCacheSize: Math.max(Number(env('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || 5000), 100),
     deadLetterLimit: Math.max(Number(env('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || 500), 10),
@@ -482,6 +501,12 @@ export function createRelayerConfig() {
       ),
       verifierPrivateKey: trimString(
         env('MORPHEUS_RELAYER_NEOX_VERIFIER_PK', 'NEOX_VERIFIER_PK')
+      ),
+      // Deadline for the fulfillRequest receipt wait — a never-mined tx must not
+      // wedge the per-signer submission queue (mirrors the Neo N3 45s default).
+      confirmTimeoutMs: Math.max(
+        Number(env('MORPHEUS_RELAYER_NEOX_CONFIRM_TIMEOUT_MS') || 45_000),
+        1000
       ),
       workerUrl: trimString(env('MORPHEUS_RELAYER_NEOX_WORKER_URL', 'NEOX_WORKER_URL')),
     },

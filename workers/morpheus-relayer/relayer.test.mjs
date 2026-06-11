@@ -1612,7 +1612,7 @@ test('createRelayerConfig caps dedicated feed sync timeout at the feed SLO', () 
   }
 });
 
-test('createRelayerConfig caps worker and retry waits at the request SLO', () => {
+test('createRelayerConfig caps worker waits at the request SLO and bounds retry backoff sanely', () => {
   const previousPhalaTimeout = process.env.MORPHEUS_PHALA_TIMEOUT_MS;
   const previousRetryMaxDelay = process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS;
   process.env.MORPHEUS_PHALA_TIMEOUT_MS = '90000';
@@ -1620,12 +1620,54 @@ test('createRelayerConfig caps worker and retry waits at the request SLO', () =>
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.nitro.timeoutMs, 10000);
-    assert.equal(config.retryMaxDelayMs, 10000);
+    // Operators may slow poison-item retries beyond the 10s default; only a
+    // sanity ceiling (10 minutes) bounds the env override.
+    assert.equal(config.retryMaxDelayMs, 90000);
+
+    process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS = '99999999';
+    const capped = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(capped.retryMaxDelayMs, 600000);
+
+    delete process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS;
+    const defaults = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(defaults.retryMaxDelayMs, 10000);
   } finally {
     if (previousPhalaTimeout === undefined) delete process.env.MORPHEUS_PHALA_TIMEOUT_MS;
     else process.env.MORPHEUS_PHALA_TIMEOUT_MS = previousPhalaTimeout;
     if (previousRetryMaxDelay === undefined) delete process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS;
     else process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS = previousRetryMaxDelay;
+  }
+});
+
+test('createRelayerConfig exposes callback ceiling, neox confirm timeout, and persist interval knobs', () => {
+  const keys = [
+    'MORPHEUS_RELAYER_MAX_RETRIES',
+    'MORPHEUS_RELAYER_MAX_CALLBACK_RETRIES',
+    'MORPHEUS_RELAYER_NEOX_CONFIRM_TIMEOUT_MS',
+    'MORPHEUS_RELAYER_STATE_PERSIST_MIN_INTERVAL_MS',
+  ];
+  const previous = new Map(keys.map((key) => [key, process.env[key]]));
+  for (const key of keys) delete process.env[key];
+
+  try {
+    const defaults = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(defaults.maxRetries, 5);
+    assert.equal(defaults.maxCallbackRetries, 10);
+    assert.equal(defaults.neox.confirmTimeoutMs, 45000);
+    assert.equal(defaults.statePersistMinIntervalMs, 250);
+
+    process.env.MORPHEUS_RELAYER_MAX_CALLBACK_RETRIES = '4';
+    process.env.MORPHEUS_RELAYER_NEOX_CONFIRM_TIMEOUT_MS = '20000';
+    process.env.MORPHEUS_RELAYER_STATE_PERSIST_MIN_INTERVAL_MS = '0';
+    const overridden = withIsolatedRelayerSigner(() => createRelayerConfig());
+    assert.equal(overridden.maxCallbackRetries, 4);
+    assert.equal(overridden.neox.confirmTimeoutMs, 20000);
+    assert.equal(overridden.statePersistMinIntervalMs, 0);
+  } finally {
+    for (const [key, value] of previous.entries()) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   }
 });
 
@@ -1820,6 +1862,44 @@ test('decodeNeoItem decodes Neo VM structs recursively', () => {
   });
 
   assert.deepEqual(decoded, ['150', 'compute', true]);
+});
+
+test('decodeNeoItem with a base64 hint decodes hex-look-alike base64 correctly', () => {
+  // 'h xh y' base64-encodes to 'aCB4aCB5' — every character is a hex digit and
+  // the length is even, so the legacy sniffing heuristic mis-decodes it as hex.
+  const payload = 'h xh y';
+  const item = { type: 'ByteString', value: Buffer.from(payload, 'utf8').toString('base64') };
+  assert.equal(item.value, 'aCB4aCB5');
+  assert.equal(decodeNeoItem(item, 'base64'), payload);
+  // Without the hint the heuristic still hex-decodes (last-resort behavior for
+  // unknown sources) — this documents WHY RPC call sites must pin base64.
+  assert.notEqual(decodeNeoItem(item), payload);
+});
+
+test('decodeNeoItem propagates the encoding hint through structs', () => {
+  const decoded = decodeNeoItem(
+    {
+      type: 'Struct',
+      value: [
+        { type: 'ByteString', value: Buffer.from('h xh y', 'utf8').toString('base64') },
+        { type: 'Integer', value: '7' },
+      ],
+    },
+    'base64'
+  );
+  assert.deepEqual(decoded, ['h xh y', '7']);
+});
+
+test('decodeNeoItem base64 hint still maps 20-byte values onto hash160', () => {
+  const littleEndianHashBytes = Buffer.from(
+    '6d0656f6dd91469db1c90cc1e574380613f43738',
+    'hex'
+  ).reverse();
+  const decoded = decodeNeoItem(
+    { type: 'ByteString', value: littleEndianHashBytes.toString('base64') },
+    'base64'
+  );
+  assert.equal(decoded, '0x6d0656f6dd91469db1c90cc1e574380613f43738');
 });
 
 test('buildOnchainResultEnvelope keeps working when verification is missing', () => {

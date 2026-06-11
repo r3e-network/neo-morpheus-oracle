@@ -1,12 +1,17 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import {
   claimDurableJobForProcessing,
+  createPersistor,
   extractDurableRetryMeta,
   isDurableQueueReadyJob,
   isTransientDurableQueueError,
 } from './queue.js';
+import { createEmptyRelayerState } from './state.js';
 import {
   markSupabasePersistenceUnavailable,
   resetSupabasePersistenceBackoffForTests,
@@ -334,5 +339,64 @@ describe('isDurableQueueReadyJob', () => {
   it('returns false for job with empty status', () => {
     assert.equal(isDurableQueueReadyJob({ status: '' }, NOW, STALE_MS), false);
     assert.equal(isDurableQueueReadyJob({}, NOW, STALE_MS), false);
+  });
+});
+
+// ===================================================================
+// createPersistor
+// ===================================================================
+
+describe('createPersistor', () => {
+  function tempStateFile() {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'morpheus-relayer-persistor-'));
+    return path.join(dir, '.morpheus-relayer-state.json');
+  }
+
+  function readTicks(stateFile) {
+    return JSON.parse(fs.readFileSync(stateFile, 'utf8')).metrics.ticks_total;
+  }
+
+  it('writes on every call when no minimum interval is configured', () => {
+    const stateFile = tempStateFile();
+    const state = createEmptyRelayerState();
+    const persist = createPersistor({ stateFile }, state);
+
+    persist();
+    assert.equal(readTicks(stateFile), 0);
+    state.metrics.ticks_total = 5;
+    persist();
+    assert.equal(readTicks(stateFile), 5);
+  });
+
+  it('coalesces bursts within the interval and flushes the trailing state', async () => {
+    const stateFile = tempStateFile();
+    const state = createEmptyRelayerState();
+    const persist = createPersistor({ stateFile, statePersistMinIntervalMs: 60 }, state);
+
+    persist(); // leading write
+    assert.equal(readTicks(stateFile), 0);
+
+    state.metrics.ticks_total = 3;
+    persist(); // within the interval -> deferred
+    state.metrics.ticks_total = 7;
+    persist(); // still deferred, same trailing timer
+    assert.equal(readTicks(stateFile), 0);
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    // The trailing flush wrote the LATEST in-memory state exactly once.
+    assert.equal(readTicks(stateFile), 7);
+  });
+
+  it('exposes flush() to force an immediate write', () => {
+    const stateFile = tempStateFile();
+    const state = createEmptyRelayerState();
+    const persist = createPersistor({ stateFile, statePersistMinIntervalMs: 60_000 }, state);
+
+    persist();
+    state.metrics.ticks_total = 9;
+    persist(); // deferred behind a long interval
+    assert.equal(readTicks(stateFile), 0);
+    persist.flush();
+    assert.equal(readTicks(stateFile), 9);
   });
 });

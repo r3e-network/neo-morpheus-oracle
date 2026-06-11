@@ -83,9 +83,23 @@ function normalizeChainState(raw) {
   };
 }
 
-export function loadRelayerState(filePath) {
+export function loadRelayerState(filePath, logger = null) {
+  let raw;
   try {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    raw = fs.readFileSync(filePath, 'utf8');
+  } catch (error) {
+    // A missing file is the normal cold-start path; anything else (EACCES,
+    // EISDIR, ...) silently dropping cursors/retry state deserves a warning.
+    if (error?.code !== 'ENOENT') {
+      logger?.warn?.(
+        { state_file: filePath, error },
+        'Failed to read relayer state file; starting from empty state'
+      );
+    }
+    return createEmptyRelayerState();
+  }
+  try {
+    const parsed = JSON.parse(raw);
     return {
       version: parsed?.version || 2,
       updated_at: parsed?.updated_at || null,
@@ -95,7 +109,11 @@ export function loadRelayerState(filePath) {
         ...(parsed?.metrics && typeof parsed.metrics === 'object' ? parsed.metrics : {}),
       },
     };
-  } catch {
+  } catch (error) {
+    logger?.warn?.(
+      { state_file: filePath, error },
+      'Relayer state file is corrupt; starting from empty state'
+    );
     return createEmptyRelayerState();
   }
 }
@@ -107,7 +125,11 @@ export function saveRelayerState(filePath, state) {
   } catch (error) {
     if (error.code !== 'EEXIST') throw error;
   }
-  fs.writeFileSync(filePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  // Atomic replace: write the snapshot to a sibling temp file and rename it over
+  // the live file so a crash/power loss mid-write can never truncate the state.
+  const tmpPath = `${filePath}.tmp`;
+  fs.writeFileSync(tmpPath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  fs.renameSync(tmpPath, filePath);
 }
 
 export function buildEventKey(event) {

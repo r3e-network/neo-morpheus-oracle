@@ -40,7 +40,12 @@ import { trimString } from '@neo-morpheus-oracle/shared/utils';
 export { normalizeErrorMessage };
 
 export function trimOnchainErrorMessage(value, maxLength = 240) {
-  const text = normalizeErrorMessage(value).trim();
+  // Finalized error text lands in immutable chain state and Supabase last_error;
+  // redact URLs so infrastructure endpoints (and any credentials embedded in
+  // authenticated RPC URLs) can never leak through an error message.
+  const text = normalizeErrorMessage(value)
+    .replace(/https?:\/\/[^\s\]]+/gi, '[redacted-url]')
+    .trim();
   if (!text) return 'request execution failed';
   return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text;
 }
@@ -103,6 +108,20 @@ export function classifyError(err) {
 
 export function computeRetryDelayMs(config, attempts) {
   return Math.min(config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0), config.retryMaxDelayMs);
+}
+
+/**
+ * Ceiling on callback-delivery / failure-finalize redelivery attempts. The
+ * prepared-fulfillment and finalize-only retry lanes bypass scheduleRetry's
+ * maxRetries check (the payload is already prepared, only the on-chain
+ * submission is retried), so without this cap a poison request would redeliver
+ * forever. Defaults to maxRetries * 2 when MORPHEUS_RELAYER_MAX_CALLBACK_RETRIES
+ * is not configured.
+ */
+export function resolveCallbackRetryCeiling(config) {
+  const explicit = Number(config?.maxCallbackRetries);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  return Math.max(Number(config?.maxRetries || 0) * 2, 1);
 }
 
 export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
@@ -271,11 +290,11 @@ async function fulfillNeoRequest(config, event, fulfillment, verification) {
   } catch (error) {
     const message = normalizeErrorMessage(error);
     if (message.toLowerCase().includes('request not found') && event.chain === 'neo_n3') {
-      const oracleContract = trimString(config?.neo_n3?.oracleContract || '');
-      const rpcUrl = trimString(config?.neo_n3?.rpcUrl || '');
-      throw new Error(
-        `${message} [chain=${event.chain} request_id=${event.requestId} oracle_contract=${oracleContract} rpc_url=${rpcUrl}]`
-      );
+      // Keep the disambiguating chain/request context, but never inject the
+      // oracle contract or RPC URL into the message — it can be finalized
+      // on-chain as the request error. Endpoint diagnostics belong in logger
+      // fields (processEvent already logs chain/request_id alongside the error).
+      throw new Error(`${message} [chain=${event.chain} request_id=${event.requestId}]`);
     }
     throw error;
   }
@@ -704,6 +723,76 @@ async function processOracleRequest(config, event, logger = null) {
   return deliverPreparedFulfillment(config, event, prepared);
 }
 
+// Dead-letter a delivery lane that is permanently failing or has exceeded the
+// callback retry ceiling: record 'exhausted' locally (recordProcessedEvent
+// pushes it into the chain's dead_letters) and mirror the status to the durable
+// Supabase queue, which the /api/relayer/dead-letters lane already reads for
+// manual replay.
+async function recordDeliveryExhaustion(
+  config,
+  state,
+  persistState,
+  logger,
+  event,
+  kernelIntent,
+  { attempts, route, errorMessage, errorClass, terminalError = null }
+) {
+  const eventKey = buildEventKey(event);
+  const lastError = trimOnchainErrorMessage(errorMessage);
+  incrementMetric(state, 'retries_exhausted_total');
+  recordProcessedEvent(
+    state,
+    event.chain,
+    event,
+    'exhausted',
+    {
+      attempts,
+      route,
+      module_id: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
+      last_error: lastError,
+      ...(terminalError ? { terminal_error: terminalError } : {}),
+    },
+    config
+  );
+  clearRetryItem(state, event.chain, eventKey);
+  persistState();
+
+  await maybeUpsertJob(logger, event, {
+    event_key: eventKey,
+    status: 'exhausted',
+    attempts,
+    route,
+    last_error: lastError,
+    completed_at: new Date().toISOString(),
+    next_retry_at: null,
+  });
+
+  logger.error(
+    {
+      chain: event.chain,
+      request_id: event.requestId,
+      request_type: event.requestType,
+      module_id: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
+      event_key: eventKey,
+      attempts,
+      route,
+      error_class: errorClass,
+      error: lastError,
+      terminal_error: terminalError,
+    },
+    'Callback delivery retries exhausted; dead-lettered oracle request for manual replay'
+  );
+  return {
+    event,
+    error: lastError,
+    retry_status: 'exhausted',
+    event_key: eventKey,
+    attempts,
+  };
+}
+
 export async function processEvent(config, state, persistState, logger, event, retryItem = null) {
   const eventKey = buildEventKey(event);
   const kernelIntent = resolveKernelIntent(event.requestType);
@@ -951,6 +1040,22 @@ export async function processEvent(config, state, persistState, logger, event, r
 
     if (preparedForRedelivery) {
       const nextAttempts = attempts + 1;
+      // Delivery errors never reach scheduleRetry, so enforce the callback
+      // ceiling here and short-circuit permanently failing callbacks (e.g. a
+      // consumer contract that FAULTs on every test invoke) to the dead-letter
+      // lane instead of redelivering the same prepared payload forever.
+      const deliveryErrorClass = classifyError(message);
+      if (
+        deliveryErrorClass === 'permanent' ||
+        nextAttempts > resolveCallbackRetryCeiling(config)
+      ) {
+        return recordDeliveryExhaustion(config, state, persistState, logger, event, kernelIntent, {
+          attempts: nextAttempts,
+          route: preparedForRedelivery.route || 'callback-delivery',
+          errorMessage: message,
+          errorClass: deliveryErrorClass,
+        });
+      }
       const retryItemNext = enqueueRetryItem(state, event.chain, event, {
         attempts: nextAttempts,
         next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
@@ -997,6 +1102,21 @@ export async function processEvent(config, state, persistState, logger, event, r
 
     if (isFinalizeOnly) {
       const nextAttempts = attempts + 1;
+      // The failure-finalize lane re-enqueues without scheduleRetry too: cap it
+      // and dead-letter a finalize callback that fails permanently.
+      const finalizeErrorClass = classifyError(message);
+      if (
+        finalizeErrorClass === 'permanent' ||
+        nextAttempts > resolveCallbackRetryCeiling(config)
+      ) {
+        return recordDeliveryExhaustion(config, state, persistState, logger, event, kernelIntent, {
+          attempts: nextAttempts,
+          route: 'failure-finalize',
+          errorMessage: message,
+          errorClass: finalizeErrorClass,
+          terminalError,
+        });
+      }
       const retryItemNext = enqueueRetryItem(state, event.chain, event, {
         attempts: nextAttempts,
         next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
@@ -1103,6 +1223,27 @@ export async function processEvent(config, state, persistState, logger, event, r
         return { event, result, event_key: eventKey, attempts: retry.attempts };
       } catch (finalizeError) {
         const nextAttempts = retry.attempts + 1;
+        const finalizeErrorClass = classifyError(finalizeError);
+        if (
+          finalizeErrorClass === 'permanent' ||
+          nextAttempts > resolveCallbackRetryCeiling(config)
+        ) {
+          return recordDeliveryExhaustion(
+            config,
+            state,
+            persistState,
+            logger,
+            event,
+            kernelIntent,
+            {
+              attempts: nextAttempts,
+              route: 'failure-finalize',
+              errorMessage: finalizeError,
+              errorClass: finalizeErrorClass,
+              terminalError: trimOnchainErrorMessage(message),
+            }
+          );
+        }
         const retryItemNext = enqueueRetryItem(state, event.chain, event, {
           attempts: nextAttempts,
           next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),

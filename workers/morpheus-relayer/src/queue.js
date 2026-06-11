@@ -25,7 +25,43 @@ import { getRequestCursorFloor } from './chain-cursor.js';
 import { parseTimestampMs } from '@neo-morpheus-oracle/shared/utils';
 
 export function createPersistor(config, state) {
-  return () => saveRelayerState(config.stateFile, state);
+  const minIntervalMs = Math.max(Number(config.statePersistMinIntervalMs || 0), 0);
+  if (minIntervalMs <= 0) {
+    return () => saveRelayerState(config.stateFile, state);
+  }
+  let lastWriteAtMs = 0;
+  let timer = null;
+  let dirty = false;
+  const flush = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    dirty = false;
+    lastWriteAtMs = Date.now();
+    saveRelayerState(config.stateFile, state);
+  };
+  const persist = () => {
+    const elapsedMs = Date.now() - lastWriteAtMs;
+    if (elapsedMs >= minIntervalMs) {
+      flush();
+      return;
+    }
+    // Coalesce bursts: processEvent persists at several sync points per event;
+    // mark dirty and schedule a single trailing write so the full state JSON is
+    // not re-serialized for every call. The trailing timer keeps the on-disk
+    // snapshot within minIntervalMs of the in-memory state.
+    dirty = true;
+    if (!timer) {
+      timer = setTimeout(() => {
+        timer = null;
+        if (dirty) flush();
+      }, minIntervalMs - elapsedMs);
+      timer.unref?.();
+    }
+  };
+  persist.flush = flush;
+  return persist;
 }
 
 export async function maybeUpsertJob(logger, event, details) {

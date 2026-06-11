@@ -8,10 +8,13 @@ import {
   isAlreadyFulfilledError,
   isQueuedAutomationExecutionPayload,
   isTerminalConfigurationError,
+  processEvent,
+  resolveCallbackRetryCeiling,
   resolveEventFulfillmentContext,
   resolveFulfillmentSigningContext,
   trimOnchainErrorMessage,
 } from './fulfillment.js';
+import { buildEventKey, createEmptyRelayerState } from './state.js';
 
 // ===================================================================
 // trimOnchainErrorMessage
@@ -49,6 +52,24 @@ describe('trimOnchainErrorMessage', () => {
     const result = trimOnchainErrorMessage(msg, 20);
     assert.ok(result.length <= 20);
     assert.ok(result.endsWith('...'));
+  });
+
+  it('redacts URLs so finalized error text cannot leak infrastructure endpoints', () => {
+    const message =
+      'request 42 not found [oracle_contract=0xabc rpc_url=https://user:secret@mainnet1.neo.coz.io:443/rpc]';
+    const result = trimOnchainErrorMessage(message);
+    assert.ok(!result.includes('http'), `expected no URL in: ${result}`);
+    assert.ok(!result.includes('secret'));
+    assert.match(result, /\[redacted-url\]/);
+    assert.match(result, /request 42 not found/);
+  });
+
+  it('redacts RPC endpoints embedded by the Neo RPC error formatter', () => {
+    const result = trimOnchainErrorMessage(
+      'Neo RPC invokefunction failed via http://seed1.neo.org:10332 (503): unavailable'
+    );
+    assert.ok(!result.includes('seed1.neo.org'));
+    assert.match(result, /Neo RPC invokefunction failed via \[redacted-url\] \(503\)/);
   });
 });
 
@@ -364,5 +385,154 @@ describe('isQueuedAutomationExecutionPayload', () => {
       }),
       true
     );
+  });
+});
+
+// ===================================================================
+// resolveCallbackRetryCeiling
+// ===================================================================
+
+describe('resolveCallbackRetryCeiling', () => {
+  it('defaults to maxRetries * 2', () => {
+    assert.equal(resolveCallbackRetryCeiling({ maxRetries: 5 }), 10);
+    assert.equal(resolveCallbackRetryCeiling({ maxRetries: 3 }), 6);
+  });
+
+  it('honours an explicit maxCallbackRetries', () => {
+    assert.equal(resolveCallbackRetryCeiling({ maxRetries: 5, maxCallbackRetries: 3 }), 3);
+  });
+
+  it('never drops below one attempt', () => {
+    assert.equal(resolveCallbackRetryCeiling({ maxRetries: 0 }), 1);
+    assert.equal(resolveCallbackRetryCeiling({}), 1);
+  });
+});
+
+// ===================================================================
+// processEvent retry exhaustion (callback delivery + failure finalize)
+// ===================================================================
+
+describe('processEvent delivery retry exhaustion', () => {
+  // Deterministic throwaway test key (not used anywhere live).
+  const TEST_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  const silentLogger = { info() {}, warn() {}, error() {} };
+  const baseRetryConfig = {
+    network: 'testnet',
+    maxRetries: 3,
+    retryBaseDelayMs: 10,
+    retryMaxDelayMs: 100,
+    processedCacheSize: 100,
+    deadLetterLimit: 10,
+    durableQueue: { enabled: false },
+  };
+  const preparedFulfillment = {
+    success: true,
+    result: '{"answer":42}',
+    error: '',
+    result_bytes_base64: '',
+    route: '/oracle/fetch',
+    module_id: 'oracle.fetch',
+    operation: 'privacy_oracle',
+    worker_status: 200,
+    verification_signature: 'signed-result',
+  };
+
+  function throwingDeliveryConfig(errorMessage) {
+    return {
+      ...baseRetryConfig,
+      hooks: {
+        fulfillNeoRequest: async () => {
+          throw new Error(errorMessage);
+        },
+      },
+    };
+  }
+
+  it('keeps retrying transient delivery errors below the callback ceiling', async () => {
+    const state = createEmptyRelayerState();
+    const event = { chain: 'neo_n3', requestId: '300', requestType: 'privacy_oracle', txHash: '0x300' };
+    const result = await processEvent(
+      throwingDeliveryConfig('ECONNRESET'),
+      state,
+      () => {},
+      silentLogger,
+      event,
+      { attempts: 1, prepared_fulfillment: preparedFulfillment, durable_claimed: true }
+    );
+
+    assert.equal(result.retry_status, 'callback_retry_scheduled');
+    assert.equal(state.neo_n3.retry_queue.length, 1);
+    assert.equal(state.neo_n3.dead_letters.length, 0);
+  });
+
+  it('dead-letters prepared callback redelivery once the retry ceiling is exceeded', async () => {
+    const state = createEmptyRelayerState();
+    const event = { chain: 'neo_n3', requestId: '301', requestType: 'privacy_oracle', txHash: '0x301' };
+    // attempts 6 == maxRetries * 2 -> the next failure (attempt 7) exhausts.
+    const result = await processEvent(
+      throwingDeliveryConfig('mempool rejected the transaction'),
+      state,
+      () => {},
+      silentLogger,
+      event,
+      { attempts: 6, prepared_fulfillment: preparedFulfillment, durable_claimed: true }
+    );
+
+    assert.equal(result.retry_status, 'exhausted');
+    assert.equal(result.attempts, 7);
+    const key = buildEventKey(event);
+    assert.equal(state.neo_n3.processed_records[key].status, 'exhausted');
+    assert.equal(state.neo_n3.dead_letters.length, 1);
+    assert.equal(state.neo_n3.dead_letters[0].request_id, '301');
+    assert.equal(state.neo_n3.retry_queue.length, 0);
+    assert.equal(state.metrics.retries_exhausted_total, 1);
+  });
+
+  it('short-circuits a permanently FAULTing callback delivery to the dead-letter lane', async () => {
+    const state = createEmptyRelayerState();
+    const event = { chain: 'neo_n3', requestId: '302', requestType: 'privacy_oracle', txHash: '0x302' };
+    // classifyError('... faulted ...') === 'permanent': no point redelivering
+    // the same prepared payload, even on the very first attempt.
+    const result = await processEvent(
+      throwingDeliveryConfig(
+        'Neo N3 fulfillRequest test invoke faulted for request 302: callback exploded'
+      ),
+      state,
+      () => {},
+      silentLogger,
+      event,
+      { attempts: 0, prepared_fulfillment: preparedFulfillment, durable_claimed: true }
+    );
+
+    assert.equal(result.retry_status, 'exhausted');
+    assert.equal(state.neo_n3.dead_letters.length, 1);
+    assert.equal(state.neo_n3.retry_queue.length, 0);
+  });
+
+  it('dead-letters the failure-finalize lane once the callback ceiling is exceeded', async () => {
+    const state = createEmptyRelayerState();
+    // Neo X event: signNeoXFulfillment signs locally, so finalizeFailedRequest
+    // runs fully offline before the delivery hook rejects.
+    const event = { chain: 'neox', requestId: '7', requestType: 'random', txHash: '' };
+    const config = {
+      ...throwingDeliveryConfig('mempool rejected the transaction'),
+      neox: {
+        chainId: 47763,
+        oracleContract: '0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2',
+        updaterPrivateKey: TEST_PK,
+      },
+    };
+    const result = await processEvent(config, state, () => {}, silentLogger, event, {
+      attempts: 6,
+      finalize_only: true,
+      terminal_error: 'worker exploded upstream',
+      durable_claimed: true,
+    });
+
+    assert.equal(result.retry_status, 'exhausted');
+    assert.equal(result.attempts, 7);
+    assert.equal(state.neox.dead_letters.length, 1);
+    assert.equal(state.neox.dead_letters[0].terminal_error, 'worker exploded upstream');
+    assert.equal(state.neox.retry_queue.length, 0);
   });
 });

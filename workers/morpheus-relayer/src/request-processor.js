@@ -20,6 +20,30 @@ import {
   pruneRetryQueueBelowRequestFloor,
 } from './chain-cursor.js';
 
+// Process due retry-queue items under the backpressure cap. Shared by every
+// chain-processing branch so maxRetryEventsPerTick (and its skip metric) apply
+// uniformly — including the quiet-chain early return, where the retry queue is
+// otherwise the only work source.
+async function runDueRetries(config, state, logger, chain, persistState) {
+  const dueRetries = getDueRetryItems(state, chain);
+  const retryBatch = dueRetries.slice(
+    0,
+    Math.max(Number(config.backpressure?.maxRetryEventsPerTick || dueRetries.length), 1)
+  );
+  if (dueRetries.length > retryBatch.length) {
+    incrementMetric(
+      state,
+      'backpressure_retry_skipped_total',
+      dueRetries.length - retryBatch.length
+    );
+  }
+  return retryBatch.length
+    ? mapWithConcurrency(retryBatch, config.concurrency, (item) =>
+        processEvent(config, state, persistState, logger, item.event, item)
+      )
+    : [];
+}
+
 export function filterNewEvents(state, chain, events) {
   const unique = [];
   const seenKeys = new Set();
@@ -156,23 +180,7 @@ export async function processChain(config, state, logger, chain, options) {
     }
   }
 
-  const dueRetries = getDueRetryItems(state, chain);
-  const retryBatch = dueRetries.slice(
-    0,
-    Math.max(Number(config.backpressure?.maxRetryEventsPerTick || dueRetries.length), 1)
-  );
-  if (dueRetries.length > retryBatch.length) {
-    incrementMetric(
-      state,
-      'backpressure_retry_skipped_total',
-      dueRetries.length - retryBatch.length
-    );
-  }
-  const retryResults = retryBatch.length
-    ? await mapWithConcurrency(retryBatch, config.concurrency, (item) =>
-        processEvent(config, state, persistState, logger, item.event, item)
-      )
-    : [];
+  const retryResults = await runDueRetries(config, state, logger, chain, persistState);
 
   const requestReconciliation = await reconcilePendingRequests(
     config,
@@ -216,12 +224,7 @@ export async function processChainByRequestCursor(config, state, logger, chain, 
   const latestRequestId = await options.getLatestRequestId(config);
   const fromRequestId = resolveRequestCursor(config, state, chain, latestRequestId, logger);
   if (fromRequestId > latestRequestId) {
-    const dueRetries = getDueRetryItems(state, chain);
-    const retryResults = dueRetries.length
-      ? await mapWithConcurrency(dueRetries, config.concurrency, (item) =>
-          processEvent(config, state, persistState, logger, item.event, item)
-        )
-      : [];
+    const retryResults = await runDueRetries(config, state, logger, chain, persistState);
     return { scanned_requests: null, retries: retryResults, events: [] };
   }
 
@@ -245,23 +248,7 @@ export async function processChainByRequestCursor(config, state, logger, chain, 
       )
     : [];
 
-  const dueRetries = getDueRetryItems(state, chain);
-  const retryBatch = dueRetries.slice(
-    0,
-    Math.max(Number(config.backpressure?.maxRetryEventsPerTick || dueRetries.length), 1)
-  );
-  if (dueRetries.length > retryBatch.length) {
-    incrementMetric(
-      state,
-      'backpressure_retry_skipped_total',
-      dueRetries.length - retryBatch.length
-    );
-  }
-  const retryResults = retryBatch.length
-    ? await mapWithConcurrency(retryBatch, config.concurrency, (item) =>
-        processEvent(config, state, persistState, logger, item.event, item)
-      )
-    : [];
+  const retryResults = await runDueRetries(config, state, logger, chain, persistState);
 
   state[chain].last_request_id = toRequestId;
   persistState();

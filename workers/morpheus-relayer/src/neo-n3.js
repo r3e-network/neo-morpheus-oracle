@@ -110,7 +110,13 @@ async function ensureHealthyNeoN3Rpc(config) {
   return trimString(config?.neo_n3?.rpcUrl || '');
 }
 
-export function decodeNeoItem(item) {
+// Decode a Neo VM stack/notification item. `encoding` pins how ByteString /
+// ByteArray values are encoded by the source: Neo JSON-RPC and n3index both
+// emit base64, so all in-repo call sites pass 'base64'. The 'auto' default
+// keeps the legacy hex-vs-base64 sniffing only as a last resort for sources
+// whose encoding is unknown — a base64 payload made entirely of hex characters
+// (e.g. 'abcd') would otherwise be mis-decoded as hex.
+export function decodeNeoItem(item, encoding = 'auto') {
   if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
   switch (type) {
@@ -127,7 +133,9 @@ export function decodeNeoItem(item) {
     case 'bytearray': {
       const raw = trimString(item.value);
       if (!raw) return '';
-      if (/^[0-9a-fA-F]+$/.test(raw) && raw.length % 2 === 0) {
+      const looksHex = /^[0-9a-fA-F]+$/.test(raw) && raw.length % 2 === 0;
+      if (encoding === 'hex' || (encoding !== 'base64' && looksHex)) {
+        if (!looksHex) return raw;
         const bytes = Buffer.from(raw, 'hex');
         const text = tryDecodeUtf8(bytes);
         if (isPrintableText(text)) return text;
@@ -152,7 +160,9 @@ export function decodeNeoItem(item) {
     }
     case 'array':
     case 'struct':
-      return Array.isArray(item.value) ? item.value.map((entry) => decodeNeoItem(entry)) : [];
+      return Array.isArray(item.value)
+        ? item.value.map((entry) => decodeNeoItem(entry, encoding))
+        : [];
     default:
       return item.value ?? null;
   }
@@ -208,7 +218,7 @@ export async function getNeoN3LatestRequestId(config) {
   if (String(result?.state || '').toUpperCase() === 'FAULT') {
     throw new Error(result?.exception || 'Neo N3 getTotalRequests faulted');
   }
-  return Number(decodeNeoItem(result?.stack?.[0]) || '0');
+  return Number(decodeNeoItem(result?.stack?.[0], 'base64') || '0');
 }
 
 export function buildNeoN3RelayRequestId(scope, requestId) {
@@ -386,7 +396,7 @@ export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
           const eventName = trimString(notification.eventname);
           if (!NEO_N3_REQUEST_EVENT_NAMES.has(eventName)) continue;
           const state = Array.isArray(notification.state?.value) ? notification.state.value : [];
-          const decodedState = state.map((entry) => decodeNeoItem(entry));
+          const decodedState = state.map((entry) => decodeNeoItem(entry, 'base64'));
           const event = buildNeoN3EventFromNotificationState(eventName, decodedState, {
             blockNumber: height,
             txHash,
@@ -445,7 +455,9 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
         : Array.isArray(row?.raw_json?.state?.value)
           ? row.raw_json.state.value
           : [];
-      const decodedState = state.map((entry) => decodeNeoItem(entry));
+      // n3index serves state_json/raw_json values base64-encoded, mirroring the
+      // node's JSON-RPC notification format.
+      const decodedState = state.map((entry) => decodeNeoItem(entry, 'base64'));
       return buildNeoN3EventFromNotificationState(trimString(row?.event_name), decodedState, {
         blockNumber: Number(row?.block_index || 0),
         txHash: String(row?.txid || ''),
@@ -469,7 +481,10 @@ export async function scanNeoN3OracleRequestsById(config, fromRequestId, toReque
       throw new Error(result?.exception || `Neo N3 getRequest faulted for request ${requestId}`);
     }
 
-    const event = buildNeoN3EventFromRequestRecord(decodeNeoItem(result?.stack?.[0]), requestId);
+    const event = buildNeoN3EventFromRequestRecord(
+      decodeNeoItem(result?.stack?.[0], 'base64'),
+      requestId
+    );
     if (event) out.push(event);
   }
 
@@ -551,7 +566,7 @@ async function readNeoN3GasBalance(config, scriptHash) {
   if (String(result?.state || '').toUpperCase() === 'FAULT') {
     throw new Error(result?.exception || 'Neo N3 GAS balance read faulted');
   }
-  return BigInt(decodeNeoItem(result?.stack?.[0]) || '0');
+  return BigInt(decodeNeoItem(result?.stack?.[0], 'base64') || '0');
 }
 
 async function waitForNeoN3TransactionHalt(config, txHash, label) {
@@ -1147,7 +1162,7 @@ export async function fetchNeoN3FeedRecord(config, pair) {
   if (String(result?.state || '').toUpperCase() === 'FAULT') {
     throw new Error(result?.exception || `Neo N3 getLatest faulted for ${pair}`);
   }
-  const decoded = decodeNeoItem(result?.stack?.[0]);
+  const decoded = decodeNeoItem(result?.stack?.[0], 'base64');
   if (!Array.isArray(decoded) || decoded.length < 6) {
     throw new Error(`Neo N3 feed response malformed for ${pair}`);
   }

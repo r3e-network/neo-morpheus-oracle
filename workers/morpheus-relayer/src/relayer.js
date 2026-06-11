@@ -135,7 +135,7 @@ async function maybePersistRun(logger, config, result) {
 export async function runRelayerOnce(options = {}) {
   const config = options.config || createRelayerConfig();
   const logger = options.logger || createLogger(config);
-  const state = loadRelayerState(config.stateFile);
+  const state = loadRelayerState(config.stateFile, logger);
   const startedAt = Date.now();
   state.metrics.last_tick_started_at = new Date(startedAt).toISOString();
   incrementMetric(state, 'ticks_total', 1);

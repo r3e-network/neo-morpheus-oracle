@@ -175,15 +175,20 @@ function buildNeoXEventFromRequest(record) {
   };
 }
 
-export async function scanNeoXOracleRequestsById(config, fromRequestId, toRequestId) {
-  const contract = readContract(config);
+export async function scanNeoXOracleRequestsById(config, fromRequestId, toRequestId, contract = null) {
+  const kernel = contract || readContract(config);
   const events = [];
   for (let id = fromRequestId; id <= toRequestId; id += 1) {
     let record;
     try {
-      record = await contract.getRequest(id);
-    } catch {
-      continue;
+      record = await kernel.getRequest(id);
+    } catch (err) {
+      // The EVM kernel's getRequest never reverts (missing ids return a zeroed
+      // struct), so only a genuine CALL_EXCEPTION (decode failure) is safe to
+      // skip. Transport/RPC failures must abort the tick so the request cursor
+      // does not advance past an unscanned id (matches the Neo N3 adapter).
+      if (err?.code === 'CALL_EXCEPTION') continue;
+      throw err;
     }
     const event = buildNeoXEventFromRequest(record);
     if (event) events.push(event);
@@ -254,6 +259,40 @@ export function normalizeNeoXRevert(error) {
   return error instanceof Error ? error : new Error(reason);
 }
 
+const DEFAULT_NEOX_CONFIRM_TIMEOUT_MS = 45_000;
+
+export function getNeoXConfirmTimeoutMs(config) {
+  const explicit = Number(config?.neox?.confirmTimeoutMs);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  return DEFAULT_NEOX_CONFIRM_TIMEOUT_MS;
+}
+
+// Bound the receipt wait. ethers' tx.wait(1, timeout) rejects on its own once
+// the timeout elapses, but the Promise.race deadline also covers a provider
+// whose wait() never settles at all (dropped tx + dead subscription) — without
+// it a single stuck submission would wedge the per-signer queue and, because
+// the relayer awaits each tick, the whole relayer loop. The timeout message
+// contains "timed out" so classifyError treats it as transient and the
+// fulfillment is retried after signer.reset().
+export async function waitForNeoXReceipt(tx, timeoutMs) {
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error(`neox fulfillRequest confirmation timed out after ${timeoutMs}ms (${tx.hash})`)
+        ),
+      timeoutMs
+    );
+    timer.unref?.();
+  });
+  try {
+    return await Promise.race([tx.wait(1, timeoutMs), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function fulfillNeoXRequest(
   config,
   requestId,
@@ -286,7 +325,7 @@ export async function fulfillNeoXRequest(
     }
     try {
       const tx = await kernel.fulfillRequest(...args, { gasLimit });
-      const receipt = await tx.wait();
+      const receipt = await waitForNeoXReceipt(tx, getNeoXConfirmTimeoutMs(config));
       if (!receipt || receipt.status !== 1) {
         throw new Error(`neox fulfillRequest reverted on-chain (status ${receipt?.status})`);
       }

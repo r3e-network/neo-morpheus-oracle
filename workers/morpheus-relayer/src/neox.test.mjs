@@ -8,6 +8,9 @@ import {
   signNeoXFulfillment,
   normalizeNeoXRevert,
   decodeConfidentialEnvelope,
+  getNeoXConfirmTimeoutMs,
+  scanNeoXOracleRequestsById,
+  waitForNeoXReceipt,
 } from './neox.js';
 import { classifyError, isAlreadyFulfilledError, isTerminalConfigurationError } from './fulfillment.js';
 
@@ -146,4 +149,84 @@ test('decodeConfidentialEnvelope falls back to utf8 for a raw (non-abi) payload'
   const raw = 'plain-base64-envelope-string';
   const payload = `0x${Buffer.from(raw, 'utf8').toString('hex')}`;
   assert.equal(decodeConfidentialEnvelope(payload), raw);
+});
+
+// Still-pending getRequest record in the shape ethers decodes from the kernel ABI.
+function pendingNeoXRecord(id) {
+  return {
+    id: BigInt(id),
+    appId: 'vrf-e2e',
+    moduleId: 'random.generate',
+    operation: 'random',
+    payload: '0x',
+    requester: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    callbackContract: ethers.ZeroAddress,
+    status: 1,
+    createdAt: 1n,
+    fulfilledAt: 0n,
+    success: false,
+    resultBytes: '0x',
+    errorText: '',
+  };
+}
+
+test('scanNeoXOracleRequestsById skips ids that revert with CALL_EXCEPTION', async () => {
+  const stub = {
+    getRequest: async (id) => {
+      if (id === 2) {
+        throw Object.assign(new Error('could not decode result data'), {
+          code: 'CALL_EXCEPTION',
+        });
+      }
+      return pendingNeoXRecord(id);
+    },
+  };
+  const events = await scanNeoXOracleRequestsById(baseConfig, 1, 3, stub);
+  assert.deepEqual(
+    events.map((event) => event.requestId),
+    ['1', '3']
+  );
+});
+
+test('scanNeoXOracleRequestsById rethrows transport errors so the cursor tick aborts', async () => {
+  // A transient RPC failure mid-range must abort the scan: the caller only
+  // advances last_request_id after a successful scan, so the failed id (and the
+  // rest of the range) is rescanned next tick instead of being orphaned.
+  const seen = [];
+  const stub = {
+    getRequest: async (id) => {
+      seen.push(id);
+      if (id === 2) throw new Error('ECONNRESET');
+      return pendingNeoXRecord(id);
+    },
+  };
+  await assert.rejects(scanNeoXOracleRequestsById(baseConfig, 1, 4, stub), /ECONNRESET/);
+  assert.deepEqual(seen, [1, 2]);
+});
+
+test('waitForNeoXReceipt rejects within the deadline when wait() never settles', async () => {
+  const startedAt = Date.now();
+  await assert.rejects(
+    waitForNeoXReceipt({ hash: '0xdead', wait: () => new Promise(() => {}) }, 50),
+    /timed out/
+  );
+  assert.ok(Date.now() - startedAt < 5000);
+  // The timeout error must classify as transient so the fulfillment is retried.
+  try {
+    await waitForNeoXReceipt({ hash: '0xdead', wait: () => new Promise(() => {}) }, 50);
+    assert.fail('expected waitForNeoXReceipt to reject');
+  } catch (error) {
+    assert.equal(classifyError(error), 'transient');
+  }
+});
+
+test('waitForNeoXReceipt resolves with the receipt when wait settles in time', async () => {
+  const receipt = { status: 1 };
+  assert.equal(await waitForNeoXReceipt({ hash: '0x1', wait: async () => receipt }, 1000), receipt);
+});
+
+test('getNeoXConfirmTimeoutMs honours the config knob and defaults to 45s', () => {
+  assert.equal(getNeoXConfirmTimeoutMs({}), 45_000);
+  assert.equal(getNeoXConfirmTimeoutMs({ neox: { confirmTimeoutMs: 12_000 } }), 12_000);
+  assert.equal(getNeoXConfirmTimeoutMs({ neox: { confirmTimeoutMs: 0 } }), 45_000);
 });
