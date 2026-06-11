@@ -1209,10 +1209,27 @@ namespace MorpheusOracle.Contracts
             UInt160 priorCallback = prior.CallbackContract;
             if (priorCallback != null && priorCallback.IsValid && priorCallback != callbackContract)
             {
-                CallbackIndexMap().Delete((byte[])priorCallback);
+                // Only drop the entry when it actually points at THIS app. Legacy registries
+                // (created before the reverse index existed) can hold several records naming
+                // the same callback; after RebuildIndexes only the earliest-registered keeps
+                // the mapping, and a later duplicate repointing away must not clear it.
+                ByteString priorOwner = CallbackIndexMap().Get((byte[])priorCallback);
+                if (priorOwner != null && (string)priorOwner == appId)
+                {
+                    CallbackIndexMap().Delete((byte[])priorCallback);
+                }
             }
             if (callbackContract != null && callbackContract.IsValid)
             {
+                // Uniqueness: a callback contract may route to at most one miniapp. Without
+                // this assert any account could register a fresh appId over an existing app's
+                // callback and repoint its legacy request routing (last-write-wins takeover /
+                // permissionless DoS). Re-registering or reconfiguring the SAME app is allowed.
+                ByteString mappedAppId = CallbackIndexMap().Get((byte[])callbackContract);
+                ExecutionEngine.Assert(
+                    mappedAppId == null || (string)mappedAppId == appId,
+                    "callback already registered"
+                );
                 CallbackIndexMap().Put((byte[])callbackContract, appId);
             }
 
@@ -1399,7 +1416,9 @@ namespace MorpheusOracle.Contracts
         /// empty — without backfill, existing integration contracts could not resolve their app
         /// and existing sponsors could not receive directed deposits. Process a bounded
         /// [startIndex, startIndex+count) slice per call to stay within gas limits on large
-        /// registries; both writes are idempotent so re-running a slice is harmless.
+        /// registries; both writes are idempotent so re-running a slice is harmless. When
+        /// legacy records share a callback contract, the earliest-registered app keeps the
+        /// mapping (first-wins, mirroring the pre-index O(n) resolver's semantics).
         /// </summary>
         public static void RebuildIndexes(BigInteger startIndex, BigInteger count)
         {
@@ -1417,7 +1436,16 @@ namespace MorpheusOracle.Contracts
                 if (app.CreatedAt == 0) continue;
                 if (app.CallbackContract != null && app.CallbackContract.IsValid)
                 {
-                    CallbackIndexMap().Put((byte[])app.CallbackContract, appId);
+                    // First-wins, matching the legacy O(n) resolver which returned the
+                    // earliest-registered match (index order == registration order). Legacy
+                    // registries can hold several records naming the same callback (mainnet
+                    // does), so a foreign duplicate is SKIPPED rather than overwriting the
+                    // earlier mapping or reverting (a revert would brick the whole backfill).
+                    ByteString mappedAppId = CallbackIndexMap().Get((byte[])app.CallbackContract);
+                    if (mappedAppId == null || (string)mappedAppId == appId)
+                    {
+                        CallbackIndexMap().Put((byte[])app.CallbackContract, appId);
+                    }
                 }
                 MarkAccountRegistered(app.Admin);
                 MarkAccountRegistered(app.FeePayer);

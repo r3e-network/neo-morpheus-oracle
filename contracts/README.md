@@ -72,3 +72,29 @@ cd contracts
 ```bash
 dotnet test __tests__/NeoContracts.Tests.csproj
 ```
+
+## Next-upgrade notes (deployed N3 kernel `0xf54d8584`; tracked from the 2026-06-11 review)
+
+The deployed kernel is upgradeable (admin-gated `Update`), but until the next upgrade ships
+the following are live behaviors integrators must account for — and required fixes for the
+next `ContractManagement.Update`:
+
+- **Callback reverse-mapping uniqueness (OR-D-03)**: `PutMiniApp` (and `RebuildIndexes`) must
+  assert `CallbackIndexMap[callbackContract]` is empty or already equals the appId before
+  writing, or any account can repoint another app's callback routing (last-write-wins).
+- **`onOracleResult` is the only dispatched callback**: `FulfillRequest` always calls
+  `onOracleResult(requestId, operation, success, result, error)`; `onMiniAppResult` is never
+  invoked (dead constant + manifest permission). A consumer implementing only `onMiniAppResult`
+  silently receives nothing — the failure is swallowed by the kernel's try/catch.
+- **`ExpireStaleRequest` writes no inbox item**: expiry refunds and emits
+  `RequestExpired`/`MiniAppRequestCompleted` but stores no `InboxItem`, so inbox polling can
+  never observe it. Consumers must treat `GetRequest().Status` as the source of truth and
+  handle the Failed/expired state. Next upgrade: persist a failed inbox item on expiry.
+- **Identifier charset**: `ValidateIdentifier` is length-only, but the relayer trims before
+  hashing — whitespace-padded appId/moduleId/operation values produce a digest mismatch and
+  can never be fulfilled (stall until expiry). Next upgrade: constrain identifiers to a safe
+  charset (e.g. `[a-z0-9._-]`).
+- **Hot-path triple deserialize**: `SubmitMiniAppRequestInternal` loads + deserializes the
+  MiniApp record three times (`ValidateRequestInputs` twice internally, then
+  `RequireActiveMiniApp` again) and re-asserts `Active` redundantly. Next rebuild: have
+  `ValidateRequestInputs` return the record (single load). Pure GAS savings.
