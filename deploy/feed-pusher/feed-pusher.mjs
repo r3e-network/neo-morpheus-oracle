@@ -11,6 +11,24 @@ const LOG = process.env.PUSH_LOG || '/opt/morpheus/nitro/feed-pusher.log';
 const SYMBOLS = (process.env.SYMBOLS || 'NEO-USD,GAS-USD,BTC-USD,ETH-USD').split(',');
 const log = (m) => { const line = `[${new Date().toISOString()}] ${m}`; try { appendFileSync(LOG, line + '\n'); } catch {} console.log(line); };
 
+// ── Push decision core (shared by both chains, exported for tests) ───────────
+// Single writer invariant: a signed batch must never regress the on-chain round
+// OR timestamp. The N3 contract asserts timestamp monotonicity itself, but the
+// deployed MorpheusPriceFeed.sol on Neo X only checks roundId, so the pusher is
+// the sole enforcement point for timestamps there.
+export function planFeedUpdate(cur, newPrice, now, { thresholdBps = THRESHOLD_BPS, maxStaleSec = MAX_STALE_SEC } = {}) {
+  const recent = cur.round > 0 && now - cur.round < maxStaleSec;
+  const unchanged = cur.price > 0 && (Math.abs(newPrice - cur.price) / cur.price) * 10000 < thresholdBps;
+  if (recent && unchanged) return { push: false, round: cur.round, ts: cur.ts };
+  return { push: true, round: Math.max(cur.round + 1, now), ts: Math.max(cur.ts, now) };
+}
+
+// FeedRecord = [Pair, RoundId, Price, Timestamp, AttestationHash, SourceSetId]
+export function parseGetLatestStack(result) {
+  const v = result && result.state === 'HALT' ? result.stack && result.stack[0] && result.stack[0].value : null;
+  return Array.isArray(v) ? { round: Number(v[1].value || 0), price: Number(v[2].value || 0) / 1e6, ts: Number(v[3].value || 0) } : { round: 0, price: 0, ts: 0 };
+}
+
 async function td(syms) {
   const t = syms.map((s) => s.replace('-', '/'));
   const r = await fetch(`https://api.twelvedata.com/price?symbol=${encodeURIComponent(t.join(','))}&apikey=${TD_KEY}`, { signal: AbortSignal.timeout(25000) });
@@ -45,7 +63,7 @@ async function n3rpc(method, params) {
   }
   throw lastErr;
 }
-async function n3cur(pair) { const j = await n3rpc('invokefunction', [`0x${N3_FEED}`, 'getLatest', [{ type: 'String', value: 'TWELVEDATA:' + pair }]]); const v = j.state === 'HALT' ? j.stack && j.stack[0] && j.stack[0].value : null; return Array.isArray(v) ? { round: Number(v[1].value || 0), price: Number(v[2].value || 0) / 1e6, ts: Number(v[3].value || 0) } : { round: 0, price: 0, ts: 0 }; }
+async function n3cur(pair) { const j = await n3rpc('invokefunction', [`0x${N3_FEED}`, 'getLatest', [{ type: 'String', value: 'TWELVEDATA:' + pair }]]); return parseGetLatestStack(j); }
 async function nitroSign(msg) { const r = await fetch(`${SIGNER}/sign/payload`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + TOKEN }, body: JSON.stringify({ role: 'updater', data_hex: msg }), signal: AbortSignal.timeout(15000) }); const j = await r.json(); if (j.status !== 'ok' || !j.signature) throw new Error('8787 sign failed'); return j.signature; }
 async function n3UpdaterGas() { try { const j = await n3rpc('invokefunction', [`0x${GASH}`, 'balanceOf', [{ type: 'Hash160', value: '0x' + N3_UPDATER_SH }]]); return Number(j.stack && j.stack[0] && j.stack[0].value || 0) / 1e8; } catch { return -1; } }
 
@@ -55,10 +73,9 @@ async function pushNeoN3(prices, now) {
     if (!(s in prices)) { missing++; continue; }
     const c = await n3cur(s);
     const px = Math.round(prices[s] * 1e6);
-    const recent = c.round > 0 && now - c.round < MAX_STALE_SEC;
-    const unchanged = c.price > 0 && (Math.abs(prices[s] - c.price) / c.price) * 10000 < THRESHOLD_BPS;
-    if (recent && unchanged) { skipped++; continue; }
-    const round = Math.max(c.round + 1, now), ts = Math.max(c.ts, now);
+    const plan = planFeedUpdate(c, prices[s], now);
+    if (!plan.push) { skipped++; continue; }
+    const round = plan.round, ts = plan.ts;
     AH.push(createHash('sha256').update(`${s}|${px}|${ts}`).digest('hex').slice(0, 32));
     P.push('TWELVEDATA:' + s); R.push(round); PX.push(px); TS.push(ts); SS.push(0);
   }
@@ -113,11 +130,10 @@ async function pushNeoX(prices, now) {
   for (const s of NEOX_SYMBOLS) {
     if (!(s in prices)) { missing++; continue; }
     let cur; try { cur = await c.getLatest('TWELVEDATA:' + s); } catch { cur = [0n, 0n, 0n, false]; }
-    const curPrice = Number(cur[0]) / 1e6, curRound = Number(cur[2]);
-    const recent = curRound > 0 && now - curRound < MAX_STALE_SEC;
-    const unchanged = curPrice > 0 && (Math.abs(prices[s] - curPrice) / curPrice) * 10000 < THRESHOLD_BPS;
-    if (recent && unchanged) { skipped++; continue; }
-    syms.push('TWELVEDATA:' + s); px.push(BigInt(Math.round(prices[s] * 1e6))); ts.push(BigInt(now)); rounds.push(BigInt(Math.max(curRound + 1, now)));
+    // getLatest returns (price, timestamp, roundId, exists)
+    const plan = planFeedUpdate({ round: Number(cur[2]), price: Number(cur[0]) / 1e6, ts: Number(cur[1]) }, prices[s], now);
+    if (!plan.push) { skipped++; continue; }
+    syms.push('TWELVEDATA:' + s); px.push(BigInt(Math.round(prices[s] * 1e6))); ts.push(BigInt(plan.ts)); rounds.push(BigInt(plan.round));
   }
   if (!syms.length) { log(`[neox] no updates (skipped ${skipped}, missing ${missing})`); }
   else {
@@ -141,16 +157,21 @@ const CHAINS = [
   { name: 'neox', enabled: !!NEOX_PK, symbols: NEOX_SYMBOLS, push: pushNeoX },
 ].filter((c) => FEED_CHAINS.length === 0 || FEED_CHAINS.includes(c.name));
 
-(async () => {
-  const now = Math.floor(Date.now() / 1000);
-  // Fetch only the prices the enabled chains actually need (each chain pushes its
-  // own symbol list). Per-chain timers scope a run to one chain, so the neox unit
-  // only fetches its crypto-only subset — saving both EVM gas and TwelveData quota.
-  const fetchSet = [...new Set(CHAINS.filter((c) => c.enabled).flatMap((c) => c.symbols))];
-  if (!fetchSet.length) { log('no enabled chains/symbols (nothing to fetch)'); return; }
-  let prices; try { prices = await td(fetchSet); } catch (e) { log('TD fetch error (skip cycle): ' + e.message); return; }
-  for (const chain of CHAINS) {
-    if (!chain.enabled) continue;
-    try { await chain.push(prices, now); } catch (e) { log(`[${chain.name}] push error (recovers next cycle): ${e.message}`); }
-  }
-})().catch((e) => { log('FATAL (recovers next cycle): ' + e.message); process.exitCode = 1; });
+// FEED_PUSHER_SKIP_MAIN=1 lets tests import planFeedUpdate/parseGetLatestStack
+// without running a live push cycle; the systemd entrypoint never sets it, so
+// `node feed-pusher.mjs` behaves exactly as before.
+if (process.env.FEED_PUSHER_SKIP_MAIN !== '1') {
+  (async () => {
+    const now = Math.floor(Date.now() / 1000);
+    // Fetch only the prices the enabled chains actually need (each chain pushes its
+    // own symbol list). Per-chain timers scope a run to one chain, so the neox unit
+    // only fetches its crypto-only subset — saving both EVM gas and TwelveData quota.
+    const fetchSet = [...new Set(CHAINS.filter((c) => c.enabled).flatMap((c) => c.symbols))];
+    if (!fetchSet.length) { log('no enabled chains/symbols (nothing to fetch)'); return; }
+    let prices; try { prices = await td(fetchSet); } catch (e) { log('TD fetch error (skip cycle): ' + e.message); return; }
+    for (const chain of CHAINS) {
+      if (!chain.enabled) continue;
+      try { await chain.push(prices, now); } catch (e) { log(`[${chain.name}] push error (recovers next cycle): ${e.message}`); }
+    }
+  })().catch((e) => { log('FATAL (recovers next cycle): ' + e.message); process.exitCode = 1; });
+}

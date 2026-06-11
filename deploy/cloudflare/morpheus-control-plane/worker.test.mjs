@@ -212,6 +212,57 @@ test.afterEach(() => {
   global.fetch = originalFetch;
 });
 
+test('control plane fails closed when no API keys are configured', async () => {
+  const env = createEnv({
+    MORPHEUS_CONTROL_PLANE_API_KEY: '',
+    MORPHEUS_OPERATOR_API_KEY: '',
+    MORPHEUS_PROVIDER_CONFIG_API_KEY: '',
+    PHALA_API_TOKEN: '',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/health', { method: 'GET' }),
+    env
+  );
+
+  assert.equal(response.status, 503);
+  const body = await response.json();
+  assert.equal(body.error, 'auth_not_configured');
+});
+
+test('control plane allows an empty key set only with the explicit anonymous opt-in', async () => {
+  const env = createEnv({
+    MORPHEUS_CONTROL_PLANE_API_KEY: '',
+    MORPHEUS_OPERATOR_API_KEY: '',
+    MORPHEUS_PROVIDER_CONFIG_API_KEY: '',
+    PHALA_API_TOKEN: '',
+    MORPHEUS_CONTROL_PLANE_ALLOW_ANONYMOUS: '1',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/health', { method: 'GET' }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+});
+
+test('control plane rejects requests with an invalid bearer token', async () => {
+  const env = createEnv();
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/health', {
+      method: 'GET',
+      headers: { authorization: 'Bearer not-the-configured-key' },
+    }),
+    env
+  );
+
+  assert.equal(response.status, 401);
+  const body = await response.json();
+  assert.equal(body.error, 'unauthorized');
+});
+
 test('control plane enqueues oracle request jobs and persists dispatched status', async () => {
   const env = createEnv();
   const state = createState();

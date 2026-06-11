@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { execFileSync } from 'node:child_process';
+import { timingSafeEqual } from 'node:crypto';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { normalizeMorpheusNetwork, reportPinnedNeoN3Role } from '../../scripts/lib-neo-signers.mjs';
 
@@ -37,6 +38,13 @@ function normalizeRole(value) {
   return 'updater';
 }
 
+function timingSafeTokenMatch(candidate, trusted) {
+  const a = Buffer.from(String(candidate), 'utf8');
+  const b = Buffer.from(String(trusted), 'utf8');
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
 function assertAuthorized(req) {
   if (!runtimeTrustedTokens.size) return;
   const authorization = trimString(req.headers.authorization || req.headers.Authorization || '');
@@ -50,7 +58,11 @@ function assertAuthorized(req) {
         req.headers['x-phala-token'] ||
         req.headers['x-runtime-token']
     );
-  if (!runtimeTrustedTokens.has(token)) {
+  let authorized = false;
+  for (const trusted of runtimeTrustedTokens) {
+    if (timingSafeTokenMatch(token, trusted)) authorized = true;
+  }
+  if (!authorized) {
     const error = new Error('unauthorized');
     error.status = 401;
     throw error;
@@ -234,7 +246,7 @@ function selectAttestationPublicKey(payload) {
       const report = resolveRole(role);
       const pub = normalizeHex(publicNeoIdentity(report).public_key);
       if (pub) return { role, publicKeyHex: pub };
-    } catch (_error) {
+    } catch {
       // role not provisioned yet — try the next one
     }
   }
@@ -265,7 +277,7 @@ function handleAttestation(payload) {
   let parsed;
   try {
     parsed = JSON.parse(raw.trim().split('\n').filter(Boolean).pop());
-  } catch (_error) {
+  } catch {
     const wrapped = new Error('nsm attestation helper returned invalid output');
     wrapped.status = 503;
     throw wrapped;

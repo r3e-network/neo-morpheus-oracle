@@ -16,7 +16,7 @@
 //   POLL_MS              poll interval (default 5000)
 //   LOOKBACK_BLOCKS      first-run lookback (default 5000)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { randomBytes, createHash } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { ethers } from 'ethers';

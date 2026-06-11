@@ -26,7 +26,12 @@ function resolveAcceptedKeys(env) {
 
 function validateAuth(request, env) {
   const keys = resolveAcceptedKeys(env);
-  if (keys.length === 0) return null;
+  if (keys.length === 0) {
+    // Fail closed: an empty accepted-key set means a deploy/secret mistake, not
+    // an open ingress. Local/dev must opt in to anonymous access explicitly.
+    if (trimString(env.MORPHEUS_CONTROL_PLANE_ALLOW_ANONYMOUS) === '1') return null;
+    return json(503, { error: 'auth_not_configured' });
+  }
   const bearer = trimString(request.headers.get('authorization'));
   const admin = trimString(request.headers.get('x-admin-api-key'));
   for (const key of keys) {
