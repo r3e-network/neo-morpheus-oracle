@@ -1,4 +1,4 @@
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import pkg from '@cityofzion/neon-js';
 const { sc, wallet, tx, u } = pkg;
@@ -9,6 +9,12 @@ const THRESHOLD_BPS = Number(process.env.THRESHOLD_BPS || 10);
 const MAX_STALE_SEC = Number(process.env.MAX_STALE_SEC || 1800);
 const LOG = process.env.PUSH_LOG || '/opt/morpheus/nitro/feed-pusher.log';
 const SYMBOLS = (process.env.SYMBOLS || 'NEO-USD,GAS-USD,BTC-USD,ETH-USD').split(',');
+// Consecutive-cycle missing-symbol alerting: each oneshot cycle persists the
+// per-symbol miss counters here so a symbol TwelveData stopped serving raises
+// an explicit ALERT line (picked up by log monitoring) instead of silently
+// counting as "missing N" forever.
+const MISSING_STATE = process.env.MISSING_STATE || '/opt/morpheus/nitro/feed-pusher-missing.json';
+const MISSING_ALERT_CYCLES = Number(process.env.MISSING_ALERT_CYCLES || 3);
 const log = (m) => {
   const line = `[${new Date().toISOString()}] ${m}`;
   try {
@@ -48,6 +54,70 @@ export function parseGetLatestStack(result) {
         ts: Number(v[3].value || 0),
       }
     : { round: 0, price: 0, ts: 0 };
+}
+
+// Batched read: getAllFeedRecords returns every registered FeedRecord in one
+// invoke. Returns a Map keyed by the on-chain pair string (e.g.
+// 'TWELVEDATA:NEO-USD') → { round, price, ts }, or null when the invoke did not
+// HALT (caller falls back to per-pair getLatest). A pair absent from the map is
+// simply not registered yet — same zeroed default getLatest would return.
+export function parseGetAllFeedRecordsStack(result) {
+  if (!result || result.state !== 'HALT') return null;
+  const records =
+    result.stack && result.stack[0] && Array.isArray(result.stack[0].value)
+      ? result.stack[0].value
+      : [];
+  const byPair = new Map();
+  for (const record of records) {
+    const v = record && record.value;
+    if (!Array.isArray(v) || v.length < 4) continue;
+    const pair = Buffer.from(String(v[0].value || ''), 'base64').toString('utf8');
+    if (!pair) continue;
+    byPair.set(pair, {
+      round: Number(v[1].value || 0),
+      price: Number(v[2].value || 0) / 1e6,
+      ts: Number(v[3].value || 0),
+    });
+  }
+  return byPair;
+}
+
+// Consecutive-cycle missing-symbol tracking (pure, exported for tests): symbols
+// present in `prices` reset their counter; requested-but-missing symbols
+// increment it, and once a counter reaches `alertAfter` the symbol is reported
+// every cycle until it recovers (or is pruned from SYMBOLS).
+export function trackMissingSymbols(
+  prevCounts,
+  requested,
+  prices,
+  alertAfter = MISSING_ALERT_CYCLES
+) {
+  const counts = { ...(prevCounts && typeof prevCounts === 'object' ? prevCounts : {}) };
+  const alerts = [];
+  for (const symbol of requested) {
+    if (symbol in prices) {
+      delete counts[symbol];
+      continue;
+    }
+    counts[symbol] = (Number(counts[symbol]) || 0) + 1;
+    if (counts[symbol] >= alertAfter) alerts.push({ symbol, cycles: counts[symbol] });
+  }
+  return { counts, alerts };
+}
+
+function readMissingState() {
+  try {
+    const parsed = JSON.parse(readFileSync(MISSING_STATE, 'utf8'));
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeMissingState(counts) {
+  try {
+    writeFileSync(MISSING_STATE, JSON.stringify(counts));
+  } catch {}
 }
 
 async function td(syms) {
@@ -156,12 +226,25 @@ async function pushNeoN3(prices, now) {
     SS = [];
   let skipped = 0,
     missing = 0;
+  // Batched current-state read: one getAllFeedRecords invoke per cycle instead
+  // of one getLatest per symbol. Falls back to the per-pair reads when the
+  // batched invoke fails (e.g. an RPC that rejects the larger response).
+  let recordMap = null;
+  try {
+    recordMap = parseGetAllFeedRecordsStack(
+      await n3rpc('invokefunction', [`0x${N3_FEED}`, 'getAllFeedRecords', []])
+    );
+  } catch (e) {
+    log('[neo-n3] getAllFeedRecords failed (falling back to per-pair reads): ' + e.message);
+  }
   for (const s of SYMBOLS) {
     if (!(s in prices)) {
       missing++;
       continue;
     }
-    const c = await n3cur(s);
+    const c = recordMap
+      ? recordMap.get('TWELVEDATA:' + s) || { round: 0, price: 0, ts: 0 }
+      : await n3cur(s);
     const px = Math.round(prices[s] * 1e6);
     const plan = planFeedUpdate(c, prices[s], now);
     if (!plan.push) {
@@ -266,17 +349,29 @@ async function pushNeoX(prices, now) {
     rounds = [];
   let skipped = 0,
     missing = 0;
-  for (const s of NEOX_SYMBOLS) {
-    if (!(s in prices)) {
+  // Batched current-state reads: the per-symbol getLatest calls are independent
+  // eth_call reads, so issue them in parallel (the symbol list is small and
+  // bounded). Each read keeps its own zeroed-record fallback, and the results
+  // are consumed in symbol order so the planned batch matches the sequential
+  // path exactly.
+  const reads = await Promise.all(
+    NEOX_SYMBOLS.map(async (s) => {
+      if (!(s in prices)) return { s, missing: true };
+      let cur;
+      try {
+        cur = await c.getLatest('TWELVEDATA:' + s);
+      } catch {
+        cur = [0n, 0n, 0n, false];
+      }
+      return { s, cur };
+    })
+  );
+  for (const read of reads) {
+    if (read.missing) {
       missing++;
       continue;
     }
-    let cur;
-    try {
-      cur = await c.getLatest('TWELVEDATA:' + s);
-    } catch {
-      cur = [0n, 0n, 0n, false];
-    }
+    const { s, cur } = read;
     // getLatest returns (price, timestamp, roundId, exists)
     const plan = planFeedUpdate(
       { round: Number(cur[2]), price: Number(cur[0]) / 1e6, ts: Number(cur[1]) },
@@ -340,6 +435,17 @@ if (process.env.FEED_PUSHER_SKIP_MAIN !== '1') {
     } catch (e) {
       log('TD fetch error (skip cycle): ' + e.message);
       return;
+    }
+    // Consecutive-cycle missing-symbol alerting: only symbols this run actually
+    // requested are counted (per-chain timer units leave the other chain's
+    // counters untouched). A TD outage skips the cycle above, so misses here
+    // mean TwelveData answered without that symbol.
+    const { counts, alerts } = trackMissingSymbols(readMissingState(), fetchSet, prices);
+    writeMissingState(counts);
+    for (const alert of alerts) {
+      log(
+        `⚠️ ALERT: ${alert.symbol} missing from TwelveData for ${alert.cycles} consecutive cycles — prune it from SYMBOLS or fix the feed`
+      );
     }
     for (const chain of CHAINS) {
       if (!chain.enabled) continue;

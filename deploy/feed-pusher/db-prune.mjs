@@ -1,9 +1,11 @@
 import { readFileSync, appendFileSync } from 'node:fs';
 const ENV_FILE = process.env.RELAYER_ENV_FILE || '/opt/morpheus/nitro/morpheus-relayer.env';
 const env = {};
+// Keep this parser byte-identical with feed-topup.mjs (each box script is deployed
+// as a standalone file): [A-Z0-9_] key charset + matched surrounding-quote strip.
 for (const l of readFileSync(ENV_FILE, 'utf8').split('\n')) {
-  const m = l.match(/^([A-Z_]+)=(.*)$/);
-  if (m) env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
+  const m = l.match(/^([A-Z0-9_]+)=(.*)$/);
+  if (m) env[m[1]] = m[2].trim().replace(/^(['"])(.*)\1$/, '$2');
 }
 const URL = env.SUPABASE_URL,
   KEY = env.SUPABASE_SECRET_KEY || env.SUPABASE_SERVICE_ROLE_KEY;

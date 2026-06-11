@@ -232,6 +232,8 @@ test('scanNeoXOracleRequestsById rethrows transport errors so the cursor tick ab
   // A transient RPC failure mid-range must abort the scan: the caller only
   // advances last_request_id after a successful scan, so the failed id (and the
   // rest of the range) is rescanned next tick instead of being orphaned.
+  // concurrency: 1 pins the batched scan to the exact sequential behavior this
+  // test has always asserted (stop issuing reads after the failed id).
   const seen = [];
   const stub = {
     getRequest: async (id) => {
@@ -240,8 +242,69 @@ test('scanNeoXOracleRequestsById rethrows transport errors so the cursor tick ab
       return pendingNeoXRecord(id);
     },
   };
-  await assert.rejects(scanNeoXOracleRequestsById(baseConfig, 1, 4, stub), /ECONNRESET/);
+  await assert.rejects(
+    scanNeoXOracleRequestsById({ ...baseConfig, concurrency: 1 }, 1, 4, stub),
+    /ECONNRESET/
+  );
   assert.deepEqual(seen, [1, 2]);
+});
+
+test('scanNeoXOracleRequestsById batched scan is equivalent to the sequential path', async () => {
+  // Equivalence gate for the bounded-concurrency scan (OR-W2-04): the same
+  // stubbed provider is scanned sequentially (concurrency 1) and concurrently;
+  // both must produce identical, ascending-id event lists. The stub delays
+  // earlier ids longer than later ids so out-of-order completion would surface
+  // as a reordered result if index ordering ever regressed.
+  const makeStub = () => ({
+    getRequest: async (id) => {
+      await new Promise((resolve) => setTimeout(resolve, (6 - id) * 5));
+      if (id === 2) {
+        throw Object.assign(new Error('could not decode result data'), {
+          code: 'CALL_EXCEPTION',
+        });
+      }
+      if (id === 4) return { ...pendingNeoXRecord(id), status: 2 }; // already settled
+      return pendingNeoXRecord(id);
+    },
+  });
+  const sequential = await scanNeoXOracleRequestsById(
+    { ...baseConfig, concurrency: 1 },
+    1,
+    5,
+    makeStub()
+  );
+  const batched = await scanNeoXOracleRequestsById(
+    { ...baseConfig, concurrency: 4 },
+    1,
+    5,
+    makeStub()
+  );
+  assert.deepEqual(batched, sequential);
+  assert.deepEqual(
+    batched.map((event) => event.requestId),
+    ['1', '3', '5']
+  );
+});
+
+test('scanNeoXOracleRequestsById stops pulling new ids once a transport error fails the scan', async () => {
+  // Fail-fast under concurrency: ids beyond the in-flight window must never be
+  // fetched after the failure surfaces.
+  const seen = [];
+  const stub = {
+    getRequest: async (id) => {
+      seen.push(id);
+      if (id === 1) throw new Error('ECONNRESET');
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return pendingNeoXRecord(id);
+    },
+  };
+  await assert.rejects(
+    scanNeoXOracleRequestsById({ ...baseConfig, concurrency: 2 }, 1, 20, stub),
+    /ECONNRESET/
+  );
+  // Workers stop pulling after the failure: at most the two in-flight ids plus
+  // one follow-up pulled before the rejection propagated.
+  assert.ok(seen.length <= 4, `expected fail-fast, scanned ${seen.length} ids`);
 });
 
 test('waitForNeoXReceipt rejects within the deadline when wait() never settles', async () => {

@@ -171,7 +171,7 @@ export async function getNitroInfo({ required = false } = {}) {
       network: body.network || null,
       client_kind: 'nitro',
     };
-  } catch (error) {
+  } catch {
     if (required) throw new Error('Nitro signer health endpoint is unavailable');
     return { runtime: 'aws-nitro-signer', network: null, client_kind: 'nitro' };
   }

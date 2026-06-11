@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
-import { buildSignAndBroadcastNeoN3Tx } from './neo-n3.js';
+import { buildSignAndBroadcastNeoN3Tx, scanNeoN3OracleRequestsById } from './neo-n3.js';
 
 // Deterministic throwaway test key (not used anywhere live).
 const TEST_PK = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
@@ -193,6 +193,126 @@ test('buildSignAndBroadcastNeoN3Tx lets call sites shape the FAULT error message
       ),
       { message: 'request fee not paid' }
     );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+// ===================================================================
+// scanNeoN3OracleRequestsById — batched-scan equivalence (OR-W2-04)
+// ===================================================================
+
+function byteString(text) {
+  return { type: 'ByteString', value: Buffer.from(text, 'utf8').toString('base64') };
+}
+
+function integerItem(value) {
+  return { type: 'Integer', value: String(value) };
+}
+
+// 14-field kernel getRequest record: [id, appId, moduleId, operation, payload,
+// requester, sponsor, callbackContract, callbackMethod, createdAtMs,
+// fulfilledAtMs, status, resultText, errorText].
+function kernelRequestRecord(requestId, { fulfilled = false } = {}) {
+  return {
+    type: 'Array',
+    value: [
+      integerItem(requestId),
+      byteString('miniapp-os'),
+      byteString('oracle.fetch'),
+      byteString('privacy_oracle'),
+      byteString('{"url":"https://example.test"}'),
+      byteString('NScanner1111111111111111111111111'),
+      byteString(''),
+      byteString('0x0123456789012345678901234567890101234567'),
+      byteString('onOracleResult'),
+      integerItem(1700000000000),
+      integerItem(fulfilled ? 1700000001000 : 0),
+      integerItem(fulfilled ? 2 : 1),
+      byteString(''),
+      byteString(''),
+    ],
+  };
+}
+
+function emptyKernelRequestRecord() {
+  return {
+    type: 'Array',
+    value: Array.from({ length: 14 }, (_, index) =>
+      index === 0 || index === 9 || index === 10 ? integerItem(0) : byteString('')
+    ),
+  };
+}
+
+function stubGetRequestRpc(recordsById, calls) {
+  return stubNeoRpc(
+    {
+      invokefunction: (params) => {
+        const requestId = Number(params?.[2]?.[0]?.value || 0);
+        const entry = recordsById[requestId];
+        if (entry === 'FAULT') {
+          return { state: 'FAULT', exception: `boom for ${requestId}`, stack: [] };
+        }
+        return { state: 'HALT', stack: [entry || emptyKernelRequestRecord()] };
+      },
+    },
+    calls
+  );
+}
+
+const scanConfig = (concurrency) => ({
+  concurrency,
+  neo_n3: {
+    rpcUrl: 'https://neo-rpc.test',
+    oracleContract: '0xaabbccddeeff00112233445566778899aabbccdd',
+    networkMagic: 894710606,
+  },
+});
+
+test('scanNeoN3OracleRequestsById batched scan is equivalent to the sequential path', async () => {
+  // Equivalence gate for the bounded-concurrency scan: the same stubbed RPC is
+  // scanned sequentially (concurrency 1) and concurrently; both must produce
+  // identical, ascending-id pending-only event lists.
+  const recordsById = {
+    1: kernelRequestRecord(1),
+    2: kernelRequestRecord(2, { fulfilled: true }),
+    3: kernelRequestRecord(3),
+    4: emptyKernelRequestRecord(),
+    5: kernelRequestRecord(5),
+  };
+  const originalFetch = global.fetch;
+  try {
+    const sequentialCalls = [];
+    global.fetch = stubGetRequestRpc(recordsById, sequentialCalls);
+    const sequential = await scanNeoN3OracleRequestsById(scanConfig(1), 1, 5);
+
+    const batchedCalls = [];
+    global.fetch = stubGetRequestRpc(recordsById, batchedCalls);
+    const batched = await scanNeoN3OracleRequestsById(scanConfig(4), 1, 5);
+
+    assert.deepEqual(batched, sequential);
+    assert.deepEqual(
+      batched.map((event) => event.requestId),
+      ['1', '3', '5']
+    );
+    // Both paths issue exactly one getRequest per id in the range.
+    assert.equal(sequentialCalls.length, 5);
+    assert.equal(batchedCalls.length, 5);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('scanNeoN3OracleRequestsById still aborts the scan on a FAULTed getRequest', async () => {
+  const recordsById = {
+    1: kernelRequestRecord(1),
+    2: 'FAULT',
+    3: kernelRequestRecord(3),
+  };
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = stubGetRequestRpc(recordsById, []);
+    await assert.rejects(scanNeoN3OracleRequestsById(scanConfig(4), 1, 3), /boom for 2/);
   } finally {
     global.fetch = originalFetch;
   }

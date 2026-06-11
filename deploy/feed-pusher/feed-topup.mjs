@@ -13,10 +13,13 @@ const UPDATER = '0x9fb28bdacfaa7fcc0a4d660d0dc990b0e7d46118';
 const THRESHOLD = Number(process.env.TOPUP_THRESHOLD || 25),
   AMOUNT = Number(process.env.TOPUP_AMOUNT || 40);
 const LOG = '/opt/morpheus/nitro/feed-topup.log';
+const ENV_FILE = process.env.FEED_TOPUP_ENV_FILE || '/opt/morpheus/nitro/feed-topup.env';
 const env = {};
-for (const l of readFileSync('/opt/morpheus/nitro/feed-topup.env', 'utf8').split('\n')) {
-  const m = l.match(/^([A-Z_]+)=(.*)$/);
-  if (m) env[m[1]] = m[2].trim();
+// Keep this parser byte-identical with db-prune.mjs (each box script is deployed
+// as a standalone file): [A-Z0-9_] key charset + matched surrounding-quote strip.
+for (const l of readFileSync(ENV_FILE, 'utf8').split('\n')) {
+  const m = l.match(/^([A-Z0-9_]+)=(.*)$/);
+  if (m) env[m[1]] = m[2].trim().replace(/^(['"])(.*)\1$/, '$2');
 }
 const account = new wallet.Account(env.TOPUP_WIF);
 const log = (m) => {

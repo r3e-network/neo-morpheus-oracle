@@ -126,9 +126,14 @@ export function resolveCallbackRetryCeiling(config) {
 
 export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
   const normalizedChain = trimString(chain || '') || 'neo_n3';
-  const appId = trimString(fulfillment.appId || '');
-  const moduleId = trimString(fulfillment.moduleId || '');
-  const operation = trimString(fulfillment.operation || '');
+  // Identifier hygiene: pass the identifier bytes through VERBATIM. The on-chain
+  // digest hashes the stored request identifiers exactly as written, so trimming
+  // here would produce a signature the contract rejects whenever an identifier
+  // carries whitespace (malformed identifiers are rejected at ingestion instead,
+  // and the failure-finalize path must still sign a digest the contract accepts).
+  const appId = String(fulfillment.appId ?? '');
+  const moduleId = String(fulfillment.moduleId ?? '');
+  const operation = String(fulfillment.operation ?? '');
 
   // Legacy Neo N3 requests do not carry appId and still verify against the
   // legacy digest domain, even though the relayer can infer a synthetic
@@ -146,11 +151,46 @@ export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
 }
 
 export function resolveEventFulfillmentContext(event = {}, kernelIntent = {}) {
+  // Verbatim on-chain identifiers; the internal kernel-intent mapping only fills
+  // genuinely absent (empty) fields so the digest always covers the exact bytes
+  // the contract stored.
   return {
-    appId: trimString(event.appId || ''),
-    moduleId: trimString(event.moduleId || '') || trimString(kernelIntent.moduleId || ''),
-    operation: trimString(event.operation || '') || trimString(kernelIntent.operation || ''),
+    appId: String(event.appId ?? ''),
+    moduleId: String(event.moduleId ?? '') || String(kernelIntent.moduleId ?? ''),
+    operation: String(event.operation ?? '') || String(kernelIntent.operation ?? ''),
   };
+}
+
+/**
+ * Identifier hygiene gate (ingestion): kernel identifiers (appId, moduleId,
+ * operation — and requestType, which mirrors operation) are routing keys and
+ * fulfillment-digest inputs. None of the kernel-defined identifier vocabularies
+ * contain whitespace, so any whitespace-bearing identifier is malformed (or
+ * adversarial — e.g. an id crafted to alias a different worker route after
+ * normalization). Returns the first offending field or null.
+ */
+export function findWhitespaceIdentifier(event = {}) {
+  for (const field of ['appId', 'moduleId', 'operation', 'requestType']) {
+    const value = event[field];
+    if (typeof value === 'string' && /\s/.test(value)) {
+      return { field, value };
+    }
+  }
+  return null;
+}
+
+// Throws the classified ingestion-rejection error for whitespace-bearing
+// identifiers. The message classifies as 'permanent' (classifyError matches
+// 'invalid'), so processEvent skips the worker/retry lanes and finalizes the
+// request on-chain with a failure callback — which verifies because the digest
+// now covers the on-chain identifier bytes verbatim.
+function assertEventIdentifiersClean(event) {
+  const offending = findWhitespaceIdentifier(event);
+  if (offending) {
+    throw new Error(
+      `invalid identifier: request ${String(event.requestId || '')} field ${offending.field} contains whitespace`
+    );
+  }
 }
 
 function normalizePublicKey(value) {
@@ -505,6 +545,9 @@ export function isQueuedAutomationExecutionPayload(payload) {
 }
 
 async function prepareOracleFulfillment(config, event, logger = null) {
+  // Ingestion gate: reject whitespace-bearing identifiers before any routing or
+  // worker call (classified permanent -> on-chain failure finalize).
+  assertEventIdentifiersClean(event);
   const payload = enrichAutomationExecutionPayload(event, decodePayloadText(event.payloadText));
   const kernelIntent = resolveKernelIntent(event.requestType);
   const fulfillmentContext = resolveEventFulfillmentContext(event, kernelIntent);

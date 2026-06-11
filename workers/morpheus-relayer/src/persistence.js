@@ -276,6 +276,16 @@ export async function claimRelayerJob(eventKey, fields, options = {}) {
   }
 }
 
+// PostgREST `in.(...)` value quoting: event keys contain `:` (and other PostgREST
+// reserved characters could appear in principle), so each value is double-quoted
+// with embedded quotes/backslashes escaped.
+function quotePostgrestInValue(value) {
+  return `"${String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+// Bound URL length: PATCH targets are addressed by event_key=in.(...), chunked.
+const QUARANTINE_PATCH_CHUNK_SIZE = 40;
+
 export async function quarantineRelayerJobsBelowRequestId({
   network = resolveSupabaseNetwork(),
   chain = 'neo_n3',
@@ -284,41 +294,71 @@ export async function quarantineRelayerJobsBelowRequestId({
   note = '',
 }) {
   if (!Number.isFinite(Number(ltRequestId))) return 0;
-  const rows = await fetchRelayerJobsByStatuses(statuses, chain, 5000);
+  // Status/chain/network filtering happens server-side in the PostgREST query;
+  // the request-id floor comparison stays client-side because request_id is a
+  // text column, so a PostgREST `lt.` filter would compare lexicographically
+  // ('9' > '10') instead of numerically. Only the columns the quarantine needs
+  // are selected.
+  const rows = await fetchRelayerJobsByStatuses(statuses, chain, 5000, {
+    select: 'event_key,request_id,last_error',
+  });
   const threshold = Number(ltRequestId);
   const targetRows = rows.filter((row) => Number(row.request_id || 0) < threshold);
   if (targetRows.length === 0) return 0;
   const nowIso = new Date().toISOString();
-  let patched = 0;
+
+  // Bulk PATCH: rows are grouped by the per-row last_error they will receive
+  // (the note prefixes the row's previous error, so rows sharing a previous
+  // error collapse into one PATCH), then each group is patched in chunks via
+  // event_key=in.(...) instead of one PATCH per row.
+  const groups = new Map();
   for (const row of targetRows) {
-    const response = await supabaseRequest(
-      'morpheus_relayer_jobs',
-      'PATCH',
-      {
-        status: 'stale_quarantined',
-        next_retry_at: null,
-        completed_at: nowIso,
-        updated_at: nowIso,
-        last_error: `${note || `quarantined below request cursor floor ${threshold}`} :: ${trimString(row.last_error || 'legacy open relayer job')}`,
-      },
-      {
-        query: {
-          event_key: `eq.${row.event_key}`,
-          network: `eq.${network}`,
+    const lastError = `${note || `quarantined below request cursor floor ${threshold}`} :: ${trimString(row.last_error || 'legacy open relayer job')}`;
+    const group = groups.get(lastError);
+    if (group) group.push(row.event_key);
+    else groups.set(lastError, [row.event_key]);
+  }
+
+  let patched = 0;
+  for (const [lastError, eventKeys] of groups) {
+    for (let offset = 0; offset < eventKeys.length; offset += QUARANTINE_PATCH_CHUNK_SIZE) {
+      const chunk = eventKeys.slice(offset, offset + QUARANTINE_PATCH_CHUNK_SIZE);
+      const response = await supabaseRequest(
+        'morpheus_relayer_jobs',
+        'PATCH',
+        {
+          status: 'stale_quarantined',
+          next_retry_at: null,
+          completed_at: nowIso,
+          updated_at: nowIso,
+          last_error: lastError,
         },
-      }
-    );
-    if (response?.ok !== false) patched += 1;
+        {
+          query: {
+            event_key: `in.(${chunk.map(quotePostgrestInValue).join(',')})`,
+            network: `eq.${network}`,
+          },
+        }
+      );
+      if (response?.ok !== false) patched += chunk.length;
+    }
   }
   return patched;
 }
 
-export async function fetchRelayerJobsByStatuses(statuses, chain = null, limit = 100) {
+const RELAYER_JOB_FULL_SELECT =
+  'id,event_key,chain,request_id,request_type,tx_hash,block_number,route,status,attempts,last_error,next_retry_at,worker_status,worker_response,fulfill_tx,event,updated_at,completed_at,created_at';
+
+export async function fetchRelayerJobsByStatuses(
+  statuses,
+  chain = null,
+  limit = 100,
+  options = {}
+) {
   if (!Array.isArray(statuses) || statuses.length === 0) return [];
   const network = resolveSupabaseNetwork();
   const query = {
-    select:
-      'id,event_key,chain,request_id,request_type,tx_hash,block_number,route,status,attempts,last_error,next_retry_at,worker_status,worker_response,fulfill_tx,event,updated_at,completed_at,created_at',
+    select: trimString(options.select || '') || RELAYER_JOB_FULL_SELECT,
     network: `eq.${network}`,
     status: `in.(${statuses.join(',')})`,
     order: 'updated_at.asc',

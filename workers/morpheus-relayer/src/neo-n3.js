@@ -8,6 +8,14 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+// Identifier hygiene: event identifier fields must carry the on-chain bytes
+// VERBATIM (no trimming) so fulfillment digests reproduce exactly what the
+// kernel hashes and ingestion can detect whitespace-bearing identifiers. This
+// helper only coerces non-string decode artifacts to '' for emptiness gates.
+function asEventString(value) {
+  return typeof value === 'string' ? value : '';
+}
+
 function strip0x(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();
 }
@@ -247,7 +255,7 @@ export function buildNeoN3EventFromRequestRecord(decoded, requestId) {
       errorText,
     ] = decoded;
 
-    if (!trimString(operation)) return null;
+    if (!asEventString(operation)) return null;
 
     const alreadySettled = trimString(fulfilledAtMs) !== '' && trimString(fulfilledAtMs) !== '0';
     const hasOutcome = trimString(resultText) !== '' || trimString(errorText) !== '';
@@ -288,7 +296,7 @@ export function buildNeoN3EventFromRequestRecord(decoded, requestId) {
       errorText,
     ] = decoded;
 
-    if (!trimString(requestType)) return null;
+    if (!asEventString(requestType)) return null;
 
     const alreadySettled = trimString(fulfilledAtMs) !== '' && trimString(fulfilledAtMs) !== '0';
     const hasOutcome = trimString(resultText) !== '' || trimString(errorText) !== '';
@@ -335,7 +343,7 @@ function buildNeoN3EventFromNotificationState(eventName, decodedState, meta = {}
   const state = Array.isArray(decodedState) ? decodedState : [];
   if (eventName === 'MiniAppRequestQueued') {
     const [requestId, appId, moduleId, operation, requester, , payload] = state;
-    if (!trimString(operation)) return null;
+    if (!asEventString(operation)) return null;
     return {
       chain: 'neo_n3',
       requestId: String(requestId || '0'),
@@ -354,7 +362,7 @@ function buildNeoN3EventFromNotificationState(eventName, decodedState, meta = {}
   }
   if (eventName === 'OracleRequested') {
     const [requestId, requestType, requester, callbackContract, callbackMethod, payload] = state;
-    if (!trimString(requestType)) return null;
+    if (!asEventString(requestType)) return null;
     return {
       chain: 'neo_n3',
       requestId: String(requestId || '0'),
@@ -464,31 +472,73 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
         logIndex: Number(row?.notification_index || 0),
       });
     })
-    .filter((event) => event && trimString(event.requestType));
+    .filter((event) => event && asEventString(event.requestType));
+}
+
+// Bounded-concurrency map preserving input order. Mirrors the engine helper in
+// request-processor.js, plus a fail-fast flag: once any worker throws, idle
+// workers stop pulling new items so a faulted scan does not keep issuing RPC
+// calls for the rest of the id range (the rejection still aborts the tick).
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  let failed = false;
+
+  async function runWorker() {
+    while (!failed) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      try {
+        results[index] = await worker(items[index], index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  }
+
+  const width = Math.max(Math.min(limit, items.length), 1);
+  await Promise.all(Array.from({ length: width }, () => runWorker()));
+  return results;
+}
+
+function resolveScanConcurrency(config) {
+  const limit = Number(config?.concurrency);
+  return Number.isFinite(limit) && limit > 0 ? Math.min(limit, 8) : 4;
 }
 
 export async function scanNeoN3OracleRequestsById(config, fromRequestId, toRequestId) {
   if (fromRequestId > toRequestId) return [];
-  const out = [];
 
+  // Batch the per-id getRequest lookups under bounded concurrency. Results are
+  // index-ordered, so the returned events match the sequential scan exactly
+  // (ascending request id); any FAULT or transport error still rejects the whole
+  // scan so the request cursor never advances past an unscanned id.
+  const requestIds = [];
   for (let requestId = fromRequestId; requestId <= toRequestId; requestId += 1) {
-    const result = await neoRpcCall(config, 'invokefunction', [
-      config.neo_n3.oracleContract,
-      'getRequest',
-      [{ type: 'Integer', value: String(requestId) }],
-    ]);
-    if (String(result?.state || '').toUpperCase() === 'FAULT') {
-      throw new Error(result?.exception || `Neo N3 getRequest faulted for request ${requestId}`);
-    }
-
-    const event = buildNeoN3EventFromRequestRecord(
-      decodeNeoItem(result?.stack?.[0], 'base64'),
-      requestId
-    );
-    if (event) out.push(event);
+    requestIds.push(requestId);
   }
+  const events = await mapWithConcurrency(
+    requestIds,
+    resolveScanConcurrency(config),
+    async (requestId) => {
+      const result = await neoRpcCall(config, 'invokefunction', [
+        config.neo_n3.oracleContract,
+        'getRequest',
+        [{ type: 'Integer', value: String(requestId) }],
+      ]);
+      if (String(result?.state || '').toUpperCase() === 'FAULT') {
+        throw new Error(result?.exception || `Neo N3 getRequest faulted for request ${requestId}`);
+      }
+      return buildNeoN3EventFromRequestRecord(
+        decodeNeoItem(result?.stack?.[0], 'base64'),
+        requestId
+      );
+    }
+  );
 
-  return out;
+  return events.filter(Boolean);
 }
 
 export function encodeUtf8ByteArrayParamValue(value) {

@@ -147,7 +147,11 @@ function isConfidentialDecryptOperation(operation) {
 
 function buildNeoXEventFromRequest(record) {
   const requestId = record.id.toString();
-  const operation = trimString(record.operation || '');
+  // Identifier hygiene: carry the on-chain identifier bytes VERBATIM (no trim)
+  // so the fulfillment digest reproduces exactly what the kernel keccaks and so
+  // ingestion can detect (and reject) whitespace-bearing identifiers. A zeroed
+  // struct (missing id) still decodes to an empty operation and is skipped.
+  const operation = String(record.operation ?? '');
   if (!operation) return null;
   // Only surface still-pending requests; the engine + reconciliation dedupe the rest.
   if (Number(record.status) !== STATUS_PENDING) return null;
@@ -156,8 +160,8 @@ function buildNeoXEventFromRequest(record) {
     requestId,
     // requestType drives resolveKernelIntent (e.g. 'random' -> random.generate).
     requestType: operation,
-    appId: trimString(record.appId || ''),
-    moduleId: trimString(record.moduleId || ''),
+    appId: String(record.appId ?? ''),
+    moduleId: String(record.moduleId ?? ''),
     operation,
     payloadText: isConfidentialDecryptOperation(operation)
       ? decodeConfidentialEnvelope(record.payload)
@@ -175,30 +179,71 @@ function buildNeoXEventFromRequest(record) {
   };
 }
 
+// Bounded-concurrency map preserving input order (mirrors the Neo N3 adapter):
+// once any worker throws, idle workers stop pulling new ids so a transport
+// failure does not keep issuing RPC calls for the rest of the range.
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  let failed = false;
+
+  async function runWorker() {
+    while (!failed) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      try {
+        results[index] = await worker(items[index], index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  }
+
+  const width = Math.max(Math.min(limit, items.length), 1);
+  await Promise.all(Array.from({ length: width }, () => runWorker()));
+  return results;
+}
+
+function resolveScanConcurrency(config) {
+  const limit = Number(config?.concurrency);
+  return Number.isFinite(limit) && limit > 0 ? Math.min(limit, 8) : 4;
+}
+
 export async function scanNeoXOracleRequestsById(
   config,
   fromRequestId,
   toRequestId,
   contract = null
 ) {
+  if (fromRequestId > toRequestId) return [];
   const kernel = contract || readContract(config);
-  const events = [];
+  const requestIds = [];
   for (let id = fromRequestId; id <= toRequestId; id += 1) {
-    let record;
-    try {
-      record = await kernel.getRequest(id);
-    } catch (err) {
-      // The EVM kernel's getRequest never reverts (missing ids return a zeroed
-      // struct), so only a genuine CALL_EXCEPTION (decode failure) is safe to
-      // skip. Transport/RPC failures must abort the tick so the request cursor
-      // does not advance past an unscanned id (matches the Neo N3 adapter).
-      if (err?.code === 'CALL_EXCEPTION') continue;
-      throw err;
-    }
-    const event = buildNeoXEventFromRequest(record);
-    if (event) events.push(event);
+    requestIds.push(id);
   }
-  return events;
+  // Batch the per-id getRequest reads under bounded concurrency; results stay
+  // index-ordered so the event list matches the sequential scan exactly.
+  const events = await mapWithConcurrency(
+    requestIds,
+    resolveScanConcurrency(config),
+    async (id) => {
+      let record;
+      try {
+        record = await kernel.getRequest(id);
+      } catch (err) {
+        // The EVM kernel's getRequest never reverts (missing ids return a zeroed
+        // struct), so only a genuine CALL_EXCEPTION (decode failure) is safe to
+        // skip. Transport/RPC failures must abort the tick so the request cursor
+        // does not advance past an unscanned id (matches the Neo N3 adapter).
+        if (err?.code === 'CALL_EXCEPTION') return null;
+        throw err;
+      }
+      return buildNeoXEventFromRequest(record);
+    }
+  );
+  return events.filter(Boolean);
 }
 
 // Raw result bytes the EVM kernel stores + keccaks: the compact callback bytes
@@ -230,12 +275,16 @@ export function buildNeoXDigest(config, fulfillment, resultBytesHex) {
       BigInt(config.neox.chainId),
       ethers.getAddress(config.neox.oracleContract),
       BigInt(fulfillment.requestId),
-      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.appId || ''))),
-      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.moduleId || ''))),
-      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.operation || ''))),
+      // Identifier hygiene: hash identifier/error bytes VERBATIM. The deployed
+      // kernel keccaks the stored request strings exactly as written, so any
+      // trimming here would make a signature over a whitespace-bearing
+      // identifier unverifiable on-chain (ingestion rejects malformed ids).
+      ethers.keccak256(ethers.toUtf8Bytes(String(fulfillment.appId ?? ''))),
+      ethers.keccak256(ethers.toUtf8Bytes(String(fulfillment.moduleId ?? ''))),
+      ethers.keccak256(ethers.toUtf8Bytes(String(fulfillment.operation ?? ''))),
       Boolean(fulfillment.success),
       ethers.keccak256(resultBytesHex),
-      ethers.keccak256(ethers.toUtf8Bytes(trimString(fulfillment.error || ''))),
+      ethers.keccak256(ethers.toUtf8Bytes(String(fulfillment.error ?? ''))),
     ]
   );
   return ethers.keccak256(enc);

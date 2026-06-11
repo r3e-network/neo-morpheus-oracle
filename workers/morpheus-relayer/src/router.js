@@ -335,16 +335,21 @@ export function buildFulfillmentDigestBytes(
     deploymentSuffix.push(magicLe);
   }
 
+  // Identifier hygiene: hash the identifier/error inputs VERBATIM. The on-chain
+  // ComputeFulfillmentDigest hashes the stored request bytes exactly as written
+  // (no trimming), so any normalization here would make a signature over a
+  // whitespace-bearing identifier unverifiable on-chain. Malformed identifiers
+  // are rejected at ingestion (fulfillment.js findWhitespaceIdentifier) instead.
   if (chain === 'legacy') {
     return createHash('sha256')
       .update(
         Buffer.concat([
           FULFILLMENT_SIGNATURE_DOMAIN_LEGACY,
           encodeUint256Bytes(requestId),
-          sha256Buffer(trimString(requestType || '')),
+          sha256Buffer(String(requestType ?? '')),
           successByte,
           sha256Buffer(resultBytes),
-          sha256Buffer(trimString(error || '')),
+          sha256Buffer(String(error ?? '')),
         ])
       )
       .digest();
@@ -357,12 +362,12 @@ export function buildFulfillmentDigestBytes(
       Buffer.concat([
         FULFILLMENT_SIGNATURE_DOMAIN_N3,
         encodeUint256Bytes(requestId),
-        sha256Buffer(trimString(appId || '')),
-        sha256Buffer(trimString(moduleId || '')),
-        sha256Buffer(trimString(operation || '')),
+        sha256Buffer(String(appId ?? '')),
+        sha256Buffer(String(moduleId ?? '')),
+        sha256Buffer(String(operation ?? '')),
         successByte,
         sha256Buffer(resultBytes),
-        sha256Buffer(trimString(error || '')),
+        sha256Buffer(String(error ?? '')),
         ...deploymentSuffix,
       ])
     )
