@@ -1,8 +1,9 @@
 import { proxyToNitro } from '@/lib/nitro';
+import { getPublicWorkflowCatalog } from '@/lib/workflow-runtime';
 import {
   buildPublicRuntimeStatusSnapshot,
   type RuntimeProbeSnapshotInput,
-} from '@/lib/runtime-status';
+} from '@neo-morpheus-oracle/shared/public-runtime';
 
 function maybeParseJson(text: string): unknown {
   try {
@@ -39,7 +40,12 @@ export async function GET() {
     readRuntimeProbe('/health', 'health'),
     readRuntimeProbe('/info', 'info'),
   ]);
-  const snapshot = buildPublicRuntimeStatusSnapshot({ checkedAt, health, info });
+  const snapshot = buildPublicRuntimeStatusSnapshot({
+    catalog: getPublicWorkflowCatalog(),
+    checkedAt,
+    health,
+    info,
+  });
 
   return Response.json(snapshot, {
     status: snapshot.runtime.status === 'down' ? 503 : 200,

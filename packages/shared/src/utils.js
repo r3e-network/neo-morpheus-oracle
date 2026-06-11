@@ -58,19 +58,25 @@ export function timingSafeCompare(a, b) {
 /**
  * Deterministic JSON stringification shared across worker, relayer, and web
  * verification flows so digest calculations stay byte-for-byte aligned.
+ *
+ * This is the canonical implementation behind the nitro-worker's signed
+ * `output_hash` digests, pinned by the golden vectors in
+ * stable-stringify-vectors.mjs. Semantics (do NOT change without rotating the
+ * verification scheme — live signatures were produced from these bytes):
+ * - `null`/`undefined` serialize as `null` at the top level and inside
+ *   arrays; object entries whose value is `undefined` are dropped.
+ * - `bigint` serializes as its decimal string in quotes.
+ * - Object keys sort via `localeCompare` (NOT code-unit order); this matches
+ *   every digest the worker has ever signed.
+ * - Typed arrays get no special casing (plain-object numeric keys).
  */
 export function stableStringify(value) {
   if (value === null || value === undefined) return 'null';
-  if (typeof value === 'number') return Number.isFinite(value) ? JSON.stringify(value) : 'null';
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'string') return JSON.stringify(value);
+  if (typeof value === 'bigint') return JSON.stringify(value.toString());
+  if (typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
-  if (value instanceof Uint8Array) return JSON.stringify(Buffer.from(value).toString('base64'));
-  if (typeof value === 'object') {
-    const entries = Object.entries(value).sort(([left], [right]) => left.localeCompare(right));
-    return `{${entries
-      .map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(String(value));
+  const entries = Object.entries(value)
+    .filter(([, v]) => v !== undefined)
+    .sort(([a], [b]) => a.localeCompare(b));
+  return `{${entries.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`).join(',')}}`;
 }

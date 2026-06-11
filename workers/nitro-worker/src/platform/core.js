@@ -1,4 +1,10 @@
 import { createHash } from 'node:crypto';
+import { stableStringify } from '@neo-morpheus-oracle/shared/utils';
+
+// Canonical deterministic stringifier behind signed output_hash digests; the
+// single implementation lives in packages/shared and is pinned byte-for-byte
+// by stable-stringify-vectors.mjs (see stable-stringify-golden.test.mjs).
+export { stableStringify };
 
 // Chains the worker will fetch/compute for. The worker is chain-agnostic for the
 // HTTP/compute lanes (it returns the result; the relayer signs per chain — Neo N3
@@ -120,17 +126,6 @@ export function normalizeBoolean(value, fallback = false) {
 
 export function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export function stableStringify(value) {
-  if (value === null || value === undefined) return 'null';
-  if (typeof value === 'bigint') return JSON.stringify(value.toString());
-  if (typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
-  const entries = Object.entries(value)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => a.localeCompare(b));
-  return `{${entries.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`).join(',')}}`;
 }
 
 export function resolveMaxBytes(value, fallbackBytes = 0, minBytes = 1024) {

@@ -9,8 +9,13 @@
       "default": "./src/index.js"
     },
     "./utils": "./src/utils.js",
-    "./rate-limit": "./src/rate-limit.js"
+    "./rate-limit": "./src/rate-limit.js",
+    "./public-runtime": "./src/public-runtime.js",
+    "./node-runtime": "./src/node-runtime.js"
   },
   "main": "./src/index.js",
-  "types": "./src/index.ts"
+  "types": "./src/index.ts",
+  "scripts": {
+    "test": "node --test src/*.test.mjs"
+  }
 }

@@ -101,6 +101,13 @@ export function buildPublicRuntimeCatalogSummary(catalog) {
   };
 }
 
+// The /info metadata probe sits behind runtime auth on some deployments: a
+// 401/403 there only means the optional metadata is protected, not that the
+// runtime is unhealthy, so it must not degrade an otherwise-ok status.
+function isNonCriticalInfoAuthFailure(health, info) {
+  return health.state === 'ok' && (info.statusCode === 401 || info.statusCode === 403);
+}
+
 export function buildPublicRuntimeStatusSnapshot(input) {
   const health = summarizeRuntimeHealth(input?.health || {});
   const info = summarizeRuntimeInfo(input?.info || {});
@@ -108,7 +115,10 @@ export function buildPublicRuntimeStatusSnapshot(input) {
   let status = 'operational';
   if (health.state === 'down') {
     status = 'down';
-  } else if (health.state === 'degraded' || !info.ok) {
+  } else if (
+    health.state === 'degraded' ||
+    (!info.ok && !isNonCriticalInfoAuthFailure(health, info))
+  ) {
     status = 'degraded';
   }
 

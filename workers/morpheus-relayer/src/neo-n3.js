@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { relayNeoN3Invocation } from '../../nitro-worker/src/chain/index.js';
+import { relayNeoN3Invocation } from '@neo-morpheus-oracle/nitro-worker/src/chain/index.js';
 import { experimental, sc, tx, u, wallet as neonWallet } from '@cityofzion/neon-js';
 import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './nitro-signer.js';
 import { callNitro } from './nitro.js';
@@ -598,6 +598,93 @@ async function waitForNeoN3TransactionHalt(config, txHash, label) {
   );
 }
 
+// Fee shaping for locally-built Neo N3 transactions (raw GAS fractions,
+// 8 decimals): every fee gets a flat safety pad, and runtime-signed
+// transactions add 20% system-fee headroom on top of the simulated cost.
+const NEO_N3_TX_VALID_BLOCKS = 120;
+const NEO_N3_FEE_PADDING = 100000n; // 0.001 GAS pad on system and network fees
+const NEO_N3_SYSTEM_FEE_HEADROOM_DIVISOR = 5n; // +20% simulated-cost headroom
+
+/**
+ * Build, fee, sign, and broadcast a Neo N3 transaction for `script`.
+ *
+ * `signerAdapter` supplies the witness strategy:
+ * - `scriptHash`: the sender account (with or without 0x prefix).
+ * - `sign(transaction)`: attach witnesses. Called twice — once before
+ *   calculatenetworkfee so the fee covers witness size, and again after the
+ *   network fee lands on the transaction.
+ * - `verifyWitness(transaction)` (optional): post-sign assertion hook.
+ *
+ * Options:
+ * - `label`: prefix for the default test-invoke FAULT error message.
+ * - `buildTestInvokeFaultError(exception)`: site-specific FAULT message.
+ * - `systemFeeHeadroom`: add the 20% headroom used by runtime-signed paths.
+ * - `ensureFeeBalance(requiredFee)` (optional): awaited with the total fee
+ *   (system + network + padding) before the final signature.
+ *
+ * Resolves `{ txHash, signedBase64, transaction }` after sendrawtransaction
+ * accepts the broadcast; confirmation polling stays with the callers.
+ */
+export async function buildSignAndBroadcastNeoN3Tx(config, script, signerAdapter, options = {}) {
+  const label = trimString(options.label) || 'Neo N3 transaction';
+  const signerAccount = strip0x(signerAdapter.scriptHash);
+  const blockCount = Number(await neoRpcCall(config, 'getblockcount'));
+  const transaction = new tx.Transaction({
+    version: 0,
+    nonce: Math.floor(Math.random() * 2 ** 32),
+    script: u.HexString.fromHex(script),
+    validUntilBlock: blockCount + NEO_N3_TX_VALID_BLOCKS,
+    signers: [{ account: signerAccount, scopes: tx.WitnessScope.CalledByEntry }],
+    attributes: [],
+    witnesses: [],
+  });
+
+  const testInvoke = await neoRpcCall(config, 'invokescript', [
+    transaction.script.toBase64(),
+    [{ account: signerAccount, scopes: 'CalledByEntry' }],
+  ]);
+  if (String(testInvoke?.state || '').toUpperCase() === 'FAULT') {
+    const exception = testInvoke?.exception;
+    throw new Error(
+      typeof options.buildTestInvokeFaultError === 'function'
+        ? options.buildTestInvokeFaultError(exception)
+        : `${label} test invoke faulted: ${exception || 'unknown error'}`
+    );
+  }
+
+  const gasConsumed = BigInt(testInvoke?.gasconsumed || testInvoke?.gas_consumed || '0');
+  const systemFee = options.systemFeeHeadroom
+    ? gasConsumed + gasConsumed / NEO_N3_SYSTEM_FEE_HEADROOM_DIVISOR + NEO_N3_FEE_PADDING
+    : gasConsumed + NEO_N3_FEE_PADDING;
+  transaction.systemFee = u.BigInteger.fromDecimal(String(systemFee), 0);
+
+  await signerAdapter.sign(transaction);
+  const networkFeeResponse = await neoRpcCall(config, 'calculatenetworkfee', [
+    Buffer.from(transaction.serialize(true), 'hex').toString('base64'),
+  ]);
+  const networkFeeRaw =
+    typeof networkFeeResponse === 'string'
+      ? networkFeeResponse
+      : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
+  transaction.networkFee = u.BigInteger.fromDecimal(
+    String(BigInt(networkFeeRaw || '0') + NEO_N3_FEE_PADDING),
+    0
+  );
+  if (typeof options.ensureFeeBalance === 'function') {
+    await options.ensureFeeBalance(systemFee + BigInt(networkFeeRaw || '0') + NEO_N3_FEE_PADDING);
+  }
+
+  await signerAdapter.sign(transaction);
+  if (typeof signerAdapter.verifyWitness === 'function') {
+    signerAdapter.verifyWitness(transaction);
+  }
+
+  const txHash = `0x${transaction.hash()}`;
+  const signedBase64 = Buffer.from(transaction.serialize(true), 'hex').toString('base64');
+  await neoRpcCall(config, 'sendrawtransaction', [signedBase64]);
+  return { txHash, signedBase64, transaction };
+}
+
 async function sendNeoN3GasTransfer(config, funder, toScriptHash, amount) {
   const to = normalizeHash160(toScriptHash);
   const script = sc.createScript({
@@ -610,42 +697,15 @@ async function sendNeoN3GasTransfer(config, funder, toScriptHash, amount) {
       sc.ContractParam.any(null),
     ],
   });
-  const blockCount = Number(await neoRpcCall(config, 'getblockcount'));
-  const signers = [{ account: strip0x(funder.scriptHash), scopes: tx.WitnessScope.CalledByEntry }];
-  const transfer = new tx.Transaction({
-    version: 0,
-    nonce: Math.floor(Math.random() * 2 ** 32),
-    script: u.HexString.fromHex(script),
-    validUntilBlock: blockCount + 120,
-    signers,
-    attributes: [],
-    witnesses: [],
-  });
-  const testInvoke = await neoRpcCall(config, 'invokescript', [
-    transfer.script.toBase64(),
-    [{ account: strip0x(funder.scriptHash), scopes: 'CalledByEntry' }],
-  ]);
-  if (String(testInvoke?.state || '').toUpperCase() === 'FAULT') {
-    throw new Error(
-      `Neo N3 updater fee top-up test invoke faulted: ${testInvoke?.exception || 'unknown error'}`
-    );
-  }
-  const gasConsumed = BigInt(testInvoke?.gasconsumed || testInvoke?.gas_consumed || '0');
-  transfer.systemFee = u.BigInteger.fromDecimal(String(gasConsumed + 100000n), 0);
-  transfer.sign(funder, config.neo_n3.networkMagic);
-  const networkFeeResponse = await neoRpcCall(config, 'calculatenetworkfee', [
-    Buffer.from(transfer.serialize(true), 'hex').toString('base64'),
-  ]);
-  const networkFeeRaw =
-    typeof networkFeeResponse === 'string'
-      ? networkFeeResponse
-      : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
-  transfer.networkFee = u.BigInteger.fromDecimal(String(BigInt(networkFeeRaw || '0') + 100000n), 0);
-  transfer.sign(funder, config.neo_n3.networkMagic);
-  const txHash = `0x${transfer.hash()}`;
-  await neoRpcCall(config, 'sendrawtransaction', [
-    Buffer.from(transfer.serialize(true), 'hex').toString('base64'),
-  ]);
+  const { txHash } = await buildSignAndBroadcastNeoN3Tx(
+    config,
+    script,
+    {
+      scriptHash: funder.scriptHash,
+      sign: (transfer) => transfer.sign(funder, config.neo_n3.networkMagic),
+    },
+    { label: 'Neo N3 updater fee top-up' }
+  );
   await waitForNeoN3TransactionHalt(config, txHash, 'Neo N3 updater fee top-up');
   return txHash;
 }
@@ -767,6 +827,32 @@ async function signNeoN3TransactionWithRuntimeUpdater(config, messageHex, expect
   return { signature, publicKey };
 }
 
+// Witness strategy for transactions signed by the runtime-derived updater:
+// each sign pass requests a fresh enclave signature over the current message
+// (replacing any prior witness), and the final witness must hash back to the
+// updater account the transaction names as its signer.
+function buildRuntimeDerivedUpdaterSignerAdapter(config, updater) {
+  return {
+    scriptHash: updater.scriptHash,
+    sign: async (transaction) => {
+      const signature = await signNeoN3TransactionWithRuntimeUpdater(
+        config,
+        transaction.getMessageForSigning(config.neo_n3.networkMagic),
+        updater.publicKey
+      );
+      transaction.witnesses = [buildSignatureWitness(signature.signature, signature.publicKey)];
+    },
+    verifyWitness: (transaction) => {
+      const witnessHash = normalizeHash160(`0x${transaction.witnesses[0].scriptHash}`);
+      if (witnessHash !== updater.scriptHash) {
+        throw new Error(
+          `runtime derived updater witness mismatch: expected ${updater.scriptHash}, got ${witnessHash}`
+        );
+      }
+    },
+  };
+}
+
 async function fulfillNeoN3RequestWithRuntimeDerivedUpdater(
   config,
   requestId,
@@ -781,75 +867,19 @@ async function fulfillNeoN3RequestWithRuntimeDerivedUpdater(
     operation: 'fulfillRequest',
     args: buildFulfillRequestParams(requestId, success, resultHex, error, verificationSignature),
   });
-  const blockCount = Number(await neoRpcCall(config, 'getblockcount'));
-  const transaction = new tx.Transaction({
-    version: 0,
-    nonce: Math.floor(Math.random() * 2 ** 32),
-    script: u.HexString.fromHex(script),
-    validUntilBlock: blockCount + 120,
-    signers: [{ account: strip0x(updater.scriptHash), scopes: tx.WitnessScope.CalledByEntry }],
-    attributes: [],
-    witnesses: [],
-  });
-
-  const testInvoke = await neoRpcCall(config, 'invokescript', [
-    transaction.script.toBase64(),
-    [{ account: strip0x(updater.scriptHash), scopes: 'CalledByEntry' }],
-  ]);
-  if (String(testInvoke?.state || '').toUpperCase() === 'FAULT') {
-    throw new Error(
-      `Neo N3 fulfillRequest test invoke faulted for request ${requestId}: ${
-        testInvoke?.exception || 'unknown error'
-      }`
-    );
-  }
-  const gasConsumed = BigInt(testInvoke?.gasconsumed || testInvoke?.gas_consumed || '0');
-  transaction.systemFee = u.BigInteger.fromDecimal(
-    String(gasConsumed + gasConsumed / 5n + 100000n),
-    0
-  );
-
-  const feeSignature = await signNeoN3TransactionWithRuntimeUpdater(
+  const { txHash } = await buildSignAndBroadcastNeoN3Tx(
     config,
-    transaction.getMessageForSigning(config.neo_n3.networkMagic),
-    updater.publicKey
+    script,
+    buildRuntimeDerivedUpdaterSignerAdapter(config, updater),
+    {
+      systemFeeHeadroom: true,
+      ensureFeeBalance: (requiredFee) => ensureNeoN3FeeBalance(config, updater, requiredFee),
+      buildTestInvokeFaultError: (exception) =>
+        `Neo N3 fulfillRequest test invoke faulted for request ${requestId}: ${
+          exception || 'unknown error'
+        }`,
+    }
   );
-  transaction.witnesses = [buildSignatureWitness(feeSignature.signature, feeSignature.publicKey)];
-  const networkFeeResponse = await neoRpcCall(config, 'calculatenetworkfee', [
-    Buffer.from(transaction.serialize(true), 'hex').toString('base64'),
-  ]);
-  const networkFeeRaw =
-    typeof networkFeeResponse === 'string'
-      ? networkFeeResponse
-      : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
-  transaction.networkFee = u.BigInteger.fromDecimal(
-    String(BigInt(networkFeeRaw || '0') + 100000n),
-    0
-  );
-  await ensureNeoN3FeeBalance(
-    config,
-    updater,
-    gasConsumed + gasConsumed / 5n + 100000n + BigInt(networkFeeRaw || '0') + 100000n
-  );
-
-  const finalSignature = await signNeoN3TransactionWithRuntimeUpdater(
-    config,
-    transaction.getMessageForSigning(config.neo_n3.networkMagic),
-    updater.publicKey
-  );
-  transaction.witnesses = [
-    buildSignatureWitness(finalSignature.signature, finalSignature.publicKey),
-  ];
-  const witnessHash = normalizeHash160(`0x${transaction.witnesses[0].scriptHash}`);
-  if (witnessHash !== updater.scriptHash) {
-    throw new Error(
-      `runtime derived updater witness mismatch: expected ${updater.scriptHash}, got ${witnessHash}`
-    );
-  }
-
-  const txHash = `0x${transaction.hash()}`;
-  const signedBase64 = Buffer.from(transaction.serialize(true), 'hex').toString('base64');
-  await neoRpcCall(config, 'sendrawtransaction', [signedBase64]);
   return txHash;
 }
 
@@ -1006,73 +1036,17 @@ async function queueNeoN3AutomationRequestWithRuntimeDerivedUpdater(
       sc.ContractParam.string(callbackMethod),
     ],
   });
-  const blockCount = Number(await neoRpcCall(config, 'getblockcount'));
-  const transaction = new tx.Transaction({
-    version: 0,
-    nonce: Math.floor(Math.random() * 2 ** 32),
-    script: u.HexString.fromHex(script),
-    validUntilBlock: blockCount + 120,
-    signers: [{ account: strip0x(updater.scriptHash), scopes: tx.WitnessScope.CalledByEntry }],
-    attributes: [],
-    witnesses: [],
-  });
-
-  const testInvoke = await neoRpcCall(config, 'invokescript', [
-    transaction.script.toBase64(),
-    [{ account: strip0x(updater.scriptHash), scopes: 'CalledByEntry' }],
-  ]);
-  if (String(testInvoke?.state || '').toUpperCase() === 'FAULT') {
-    throw new Error(
-      testInvoke?.exception || `Neo N3 automation queue test invoke faulted for ${requester}`
-    );
-  }
-  const gasConsumed = BigInt(testInvoke?.gasconsumed || testInvoke?.gas_consumed || '0');
-  transaction.systemFee = u.BigInteger.fromDecimal(
-    String(gasConsumed + gasConsumed / 5n + 100000n),
-    0
-  );
-
-  const feeSignature = await signNeoN3TransactionWithRuntimeUpdater(
+  const { txHash } = await buildSignAndBroadcastNeoN3Tx(
     config,
-    transaction.getMessageForSigning(config.neo_n3.networkMagic),
-    updater.publicKey
+    script,
+    buildRuntimeDerivedUpdaterSignerAdapter(config, updater),
+    {
+      systemFeeHeadroom: true,
+      ensureFeeBalance: (requiredFee) => ensureNeoN3FeeBalance(config, updater, requiredFee),
+      buildTestInvokeFaultError: (exception) =>
+        exception || `Neo N3 automation queue test invoke faulted for ${requester}`,
+    }
   );
-  transaction.witnesses = [buildSignatureWitness(feeSignature.signature, feeSignature.publicKey)];
-  const networkFeeResponse = await neoRpcCall(config, 'calculatenetworkfee', [
-    Buffer.from(transaction.serialize(true), 'hex').toString('base64'),
-  ]);
-  const networkFeeRaw =
-    typeof networkFeeResponse === 'string'
-      ? networkFeeResponse
-      : networkFeeResponse?.networkfee || networkFeeResponse?.network_fee || '0';
-  transaction.networkFee = u.BigInteger.fromDecimal(
-    String(BigInt(networkFeeRaw || '0') + 100000n),
-    0
-  );
-  await ensureNeoN3FeeBalance(
-    config,
-    updater,
-    gasConsumed + gasConsumed / 5n + 100000n + BigInt(networkFeeRaw || '0') + 100000n
-  );
-
-  const finalSignature = await signNeoN3TransactionWithRuntimeUpdater(
-    config,
-    transaction.getMessageForSigning(config.neo_n3.networkMagic),
-    updater.publicKey
-  );
-  transaction.witnesses = [
-    buildSignatureWitness(finalSignature.signature, finalSignature.publicKey),
-  ];
-  const witnessHash = normalizeHash160(`0x${transaction.witnesses[0].scriptHash}`);
-  if (witnessHash !== updater.scriptHash) {
-    throw new Error(
-      `runtime derived updater witness mismatch: expected ${updater.scriptHash}, got ${witnessHash}`
-    );
-  }
-
-  const txHash = `0x${transaction.hash()}`;
-  const signedBase64 = Buffer.from(transaction.serialize(true), 'hex').toString('base64');
-  await neoRpcCall(config, 'sendrawtransaction', [signedBase64]);
   return {
     tx_hash: txHash,
     request_id: requestId,

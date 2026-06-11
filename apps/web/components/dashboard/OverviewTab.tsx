@@ -7,7 +7,7 @@ import { getDeprecatedFeedInfo, getFeedDescriptor } from '@/lib/feed-defaults';
 import { Card } from '@/components/ui/Card';
 import { SkeletonStats } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
-import type { PublicRuntimeStatusSnapshot } from '@/lib/runtime-status';
+import type { PublicRuntimeStatusSnapshot } from '@neo-morpheus-oracle/shared/public-runtime';
 
 import { OverviewStats } from './OverviewStats';
 import { OverviewNetwork } from './OverviewNetwork';

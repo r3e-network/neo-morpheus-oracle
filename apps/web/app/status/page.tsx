@@ -17,7 +17,7 @@ import { Card } from '@/components/ui/Card';
 import {
   getPublicRuntimeStatusNotes,
   type PublicRuntimeStatusSnapshot,
-} from '@/lib/runtime-status';
+} from '@neo-morpheus-oracle/shared/public-runtime';
 import { getServiceProblemDetail } from '@/lib/service-health';
 
 type ServiceStatus = {

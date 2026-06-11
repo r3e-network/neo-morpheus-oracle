@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { stableStringify } from './stable-json';
+import { stableStringify } from '@neo-morpheus-oracle/shared/utils';
 
 function sha256Hex(value: unknown) {
   const buffer = Buffer.isBuffer(value)

@@ -7,7 +7,8 @@
 // AWS Secrets Manager (read via the instance role), or from an env seed when one
 // is configured. Exported names/signatures are unchanged so neo-n3.js imports are
 // unaffected.
-import { env, sha256Hex, trimString } from '../../nitro-worker/src/platform/core.js';
+import { env, sha256Hex } from '@neo-morpheus-oracle/shared/node-runtime';
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 const derivedKeyCache = new Map();
 const secretCache = new Map(); // secretId -> Promise<Buffer>
