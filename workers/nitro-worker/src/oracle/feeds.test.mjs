@@ -8,19 +8,24 @@ import {
   __buildNeoN3RelaySigningPayloadForTests,
   __buildFeedSnapshotRowsForTests,
   __buildSyncPolicyForTests,
+  __fetchJsonRpcForTests,
+  __fetchLatestFeedSnapshotsForTests,
   __isMissingNeoN3BatchUpdateMethodForTests,
   __isRecoverableNeoN3BatchUpdateFailureForTests,
   __getRecoverableNeoN3BatchUpdateFailureReasonForTests,
   __loadFeedStateForTests,
+  __persistFeedSnapshotsForTests,
   __resolveFeedSubmissionWaitForTests,
   __resolveFeedSubmissionWaitTimeoutMsForTests,
   __resolvePairThresholdBpsForTests,
   __resetFeedStateForTests,
   __shouldSubmitFeedForTests,
   __shouldLoadOnchainFeedBaselineForTests,
+  handleFeedsPrice,
   handleOracleFeed,
   normalizePairSymbol,
 } from './feeds.js';
+import { __resetProviderRuntimeCachesForTests } from './providers.js';
 
 const originalFetch = global.fetch;
 const originalFeedStatePath = process.env.MORPHEUS_FEED_STATE_PATH;
@@ -679,4 +684,52 @@ test('handleOracleFeed does not block on Neo baseline when local feed state is w
   assert.equal(body.batch_submitted, false);
   assert.equal(body.sync_results[0].relay_status, 'skipped');
   assert.ok(calls.every((entry) => entry.includes('api.twelvedata.com')));
+});
+
+test('feed supabase and rpc fetches are bounded by abort signals', async () => {
+  process.env.SUPABASE_URL = 'https://mock-supabase.example.com';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role';
+
+  const captured = [];
+  global.fetch = async (url, init = {}) => {
+    captured.push({ url: String(url), init });
+    if (String(url).includes('morpheus_feed_snapshots')) {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { stack: [] } }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  await __fetchLatestFeedSnapshotsForTests(5, {});
+  await __persistFeedSnapshotsForTests([{ symbol: 'NEO-USD' }]);
+  await __fetchJsonRpcForTests('https://rpc.example.com', {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'getversion',
+    params: [],
+  });
+
+  assert.equal(captured.length, 3);
+  for (const call of captured) {
+    assert.ok(call.init.signal instanceof AbortSignal, `expected abort signal on ${call.url}`);
+  }
+});
+
+test('handleFeedsPrice sanitizes provider errors before returning them', async () => {
+  process.env.TWELVEDATA_API_KEY = 'test-key';
+  __resetProviderRuntimeCachesForTests();
+
+  global.fetch = async () => {
+    throw new Error('lookup failed reading /home/morpheus/.aws/credentials');
+  };
+
+  const response = await handleFeedsPrice('NEO-USD', { provider: 'twelvedata' });
+  assert.equal(response.status, 502);
+  const body = await response.json();
+  assert.equal(body.error, 'internal error');
 });

@@ -241,7 +241,10 @@ function buildLockKey(routeName, idempotencyKey) {
 }
 
 export async function applyRequestGuards({ request, path, payload }) {
-  const routeName = resolveRouteName(path);
+  // Resolve with the payload so action-routed requests (capabilities matched
+  // via payload.action on an unrecognized path) hit the same limiter as the
+  // capability the dispatcher will execute.
+  const routeName = resolveRouteName(path, payload);
   const requestPolicyDecision = resolveRequestPolicyDecision(payload);
   if (requestPolicyDecision && !requestPolicyDecision.allow) {
     return {
@@ -331,13 +334,24 @@ export async function applyRequestGuards({ request, path, payload }) {
   };
 }
 
+// Only successes and deterministic client rejections are safe to replay for an
+// idempotency key. The worker's top-level catch maps transient upstream
+// failures (RPC errors, oracle fetch timeouts) to 400, so other 4xx statuses
+// are never cached — replaying them would turn a momentary blip into a sticky
+// failure for the route's full idempotency TTL.
+const CACHEABLE_CLIENT_ERROR_STATUSES = new Set([403, 404, 405, 410, 413, 422]);
+
+function isCacheableGuardStatus(status) {
+  return (status >= 200 && status < 300) || CACHEABLE_CLIENT_ERROR_STATUSES.has(status);
+}
+
 export async function persistGuardResult(guard, response) {
   if (!guard?.idempotency || !response) return;
   try {
     const cloned = response.clone();
     const bodyText = await cloned.text();
     const body = bodyText ? JSON.parse(bodyText) : null;
-    if (response.status < 500) {
+    if (isCacheableGuardStatus(response.status)) {
       await upstashSetJson(
         guard.idempotency.responseCacheKey,
         {

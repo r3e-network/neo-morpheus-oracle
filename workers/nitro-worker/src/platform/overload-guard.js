@@ -58,8 +58,10 @@ export function snapshotOverloadState() {
   return Object.fromEntries([...inFlightByRoute.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
-export function acquireOverloadSlot(pathname = '') {
-  const routeName = normalizeRouteName(trimString(pathname));
+export function acquireOverloadSlot(pathname = '', payload = {}) {
+  // Resolve with the payload so action-routed requests share the in-flight cap
+  // of the capability the dispatcher will execute.
+  const routeName = normalizeRouteName(trimString(pathname), payload);
   const limit = resolveLimit(routeName);
   if (!routeName || limit <= 0) {
     return {

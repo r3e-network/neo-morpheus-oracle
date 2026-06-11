@@ -1,5 +1,5 @@
 import { getWorkflowDefinition } from '@neo-morpheus-oracle/shared';
-import { json } from './platform/core.js';
+import { json, jsonError } from './platform/core.js';
 import { getDerivedKeySummary } from './platform/nitro-signer.js';
 import {
   ensureOracleKeyMaterial,
@@ -70,7 +70,7 @@ async function handleOracleDecrypt({ payload }) {
     if (plaintext == null) return json(400, { error: 'decryption returned empty result' });
     return json(200, { plaintext });
   } catch (error) {
-    return json(400, { error: error instanceof Error ? error.message : 'decrypt failed' });
+    return jsonError(400, error);
   }
 }
 

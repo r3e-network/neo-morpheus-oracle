@@ -5,6 +5,7 @@ import {
   env,
   envForNetwork,
   json,
+  jsonError,
   normalizeMorpheusNetwork,
   parseDurationMs,
   resolvePayloadNetwork,
@@ -121,6 +122,7 @@ async function fetchLatestFeedSnapshots(limit = 250, scope = {}) {
       authorization: `Bearer ${restConfig.apiKey}`,
       accept: 'application/json',
     },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
     throw new Error(
@@ -136,6 +138,10 @@ async function fetchLatestFeedSnapshots(limit = 250, scope = {}) {
   }
 }
 
+export function __fetchLatestFeedSnapshotsForTests(limit, scope) {
+  return fetchLatestFeedSnapshots(limit, scope);
+}
+
 async function persistFeedSnapshots(rows) {
   const restConfig = getSupabaseRestConfig();
   if (!restConfig || !Array.isArray(rows) || rows.length === 0) return false;
@@ -148,6 +154,7 @@ async function persistFeedSnapshots(rows) {
       'content-type': 'application/json',
     },
     body: JSON.stringify(rows),
+    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
     throw new Error(
@@ -155,6 +162,10 @@ async function persistFeedSnapshots(rows) {
     );
   }
   return true;
+}
+
+export function __persistFeedSnapshotsForTests(rows) {
+  return persistFeedSnapshots(rows);
 }
 
 function applySnapshotRowsToFeedState(state, rows) {
@@ -739,6 +750,7 @@ async function fetchJsonRpc(url, body) {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000),
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
@@ -752,6 +764,10 @@ async function fetchJsonRpc(url, body) {
     throw new Error(payload.error.message);
   }
   return payload?.result;
+}
+
+export function __fetchJsonRpcForTests(url, body) {
+  return fetchJsonRpc(url, body);
 }
 
 async function fetchNeoN3FeedRecords(rpcUrl, contractHash) {
@@ -1014,7 +1030,7 @@ export async function handleFeedsPrice(symbol, options = {}) {
     const result = await fetchPriceQuotes(symbol, options);
     return json(200, result);
   } catch (error) {
-    return json(502, { error: error instanceof Error ? error.message : String(error) });
+    return jsonError(502, error);
   }
 }
 

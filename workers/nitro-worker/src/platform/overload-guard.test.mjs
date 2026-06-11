@@ -22,6 +22,22 @@ test('acquireOverloadSlot enforces per-route in-flight caps', () => {
   delete process.env.MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE;
 });
 
+test('acquireOverloadSlot caps action-routed requests that bypass the route path', () => {
+  process.env.MORPHEUS_MAX_INFLIGHT_RELAY_TRANSACTION = '1';
+
+  const first = acquireOverloadSlot('', { action: 'relay_transaction' });
+  const second = acquireOverloadSlot('', { action: 'relay_transaction' });
+
+  assert.equal(first.ok, true);
+  assert.equal(first.routeName, 'relay_transaction');
+  assert.equal(second.ok, false);
+  assert.equal(second.routeName, 'relay_transaction');
+  assert.equal(second.response.status, 503);
+
+  first.release();
+  delete process.env.MORPHEUS_MAX_INFLIGHT_RELAY_TRANSACTION;
+});
+
 test('acquireOverloadSlot release is idempotent', () => {
   process.env.MORPHEUS_MAX_INFLIGHT_ORACLE_QUERY = '1';
 

@@ -205,7 +205,7 @@ export async function relayNeoN3Invocation(payload) {
       status: 400,
       body: {
         request_id: requestId,
-        error: error instanceof Error ? error.message : String(error),
+        error: sanitizeErrorMessage(error),
       },
     };
   }

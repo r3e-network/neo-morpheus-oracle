@@ -197,6 +197,11 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   try {
     return await fetch(url, {
       ...init,
+      // The URL is caller-controlled: never follow redirects. The SSRF host
+      // checks only ever ran against the original URL, so a 30x Location
+      // pointing at a private/metadata address would otherwise be fetched
+      // with no re-validation.
+      redirect: 'error',
       signal: controller.signal,
     });
   } catch (error) {

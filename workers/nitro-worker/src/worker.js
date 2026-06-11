@@ -153,7 +153,7 @@ export default async function handler(request) {
 
     const guards = await applyRequestGuards({ request, path, payload });
     if (!guards.ok) return guards.response;
-    const overload = acquireOverloadSlot(path);
+    const overload = acquireOverloadSlot(path, payload);
     if (!overload.ok) return overload.response;
 
     try {

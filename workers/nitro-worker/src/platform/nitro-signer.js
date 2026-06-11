@@ -158,7 +158,10 @@ export async function getNitroInfo({ required = false } = {}) {
   // The Nitro signer (8787) holds the Neo signing keys; surface a light runtime marker.
   const endpoint = trimString(env('NITRO_SIGNER_ENDPOINT', 'MORPHEUS_NITRO_SIGNER_ENDPOINT')) || 'http://127.0.0.1:8787';
   try {
-    const res = await fetch(new URL('/health', endpoint).toString(), { method: 'GET' });
+    const res = await fetch(new URL('/health', endpoint).toString(), {
+      method: 'GET',
+      signal: AbortSignal.timeout(10_000),
+    });
     const body = await res.json().catch(() => ({}));
     return { runtime: body.runtime || 'aws-nitro-signer', network: body.network || null, client_kind: 'nitro' };
   } catch (error) {
@@ -214,6 +217,7 @@ export async function buildNitroAttestation(reportInput, { required = false } = 
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ report_data_hex: reportData.toString('hex') }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!res.ok) throw new Error(`attest status ${res.status}`);
     const body = await res.json();

@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { env, json } from '../platform/core.js';
+import { env, json, jsonError, sanitizeErrorMessage } from '../platform/core.js';
 import { decryptEncryptedToken } from './crypto.js';
 
 // Recipient-gated confidential reveal for Neo Message recipient-only messages
@@ -17,6 +17,7 @@ import { decryptEncryptedToken } from './crypto.js';
 
 const DEFAULT_NEOX_CHAIN_ID = 47763;
 const REVEAL_FRESHNESS_WINDOW_SECONDS = 600; // ±10 min tolerance for clock skew
+const MESSAGE_READ_TIMEOUT_MS = 10_000; // ethers defaults to 300s — far too long for a request lane
 
 const MESSAGE_ABI = [
   'function getMessage(uint256 id) view returns (tuple(address sender,address recipient,bytes envelope,uint64 unlockTime,uint64 sentAt,bool revealed,string plaintext))',
@@ -81,7 +82,31 @@ function parseIssuedAt(value) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
 }
 
-export async function handleMessageReveal(payload = {}, nowSeconds = Math.floor(Date.now() / 1000)) {
+function buildMessageRpcConnection(rpcUrl) {
+  const connection = new ethers.FetchRequest(rpcUrl);
+  connection.timeout = MESSAGE_READ_TIMEOUT_MS;
+  return connection;
+}
+
+export function __buildMessageRpcConnectionForTests(rpcUrl) {
+  return buildMessageRpcConnection(rpcUrl);
+}
+
+async function readMessageFromChain({ rpcUrl, chainId, contract, messageId }) {
+  const provider = new ethers.JsonRpcProvider(buildMessageRpcConnection(rpcUrl), chainId);
+  try {
+    const reader = new ethers.Contract(contract, MESSAGE_ABI, provider);
+    return await reader.getMessage(messageId);
+  } finally {
+    provider.destroy();
+  }
+}
+
+export async function handleMessageReveal(
+  payload = {},
+  nowSeconds = Math.floor(Date.now() / 1000),
+  { readMessage = readMessageFromChain } = {}
+) {
   const chain = String(payload.chain || payload.network || 'neox')
     .trim()
     .toLowerCase();
@@ -110,18 +135,24 @@ export async function handleMessageReveal(payload = {}, nowSeconds = Math.floor(
 
   let message;
   try {
-    const provider = new ethers.JsonRpcProvider(rpcUrl, chainId);
-    const reader = new ethers.Contract(contract, MESSAGE_ABI, provider);
-    message = await reader.getMessage(messageId);
+    message = await readMessage({ rpcUrl, chainId, contract, messageId });
   } catch (error) {
     return json(502, {
-      error: `failed to read message on-chain: ${error instanceof Error ? error.message : 'rpc error'}`,
+      error: `failed to read message on-chain: ${sanitizeErrorMessage(error)}`,
     });
   }
 
   const recipient = String(message.recipient || '');
   if (!recipient || recipient === ethers.ZeroAddress) {
     return json(400, { error: 'message has no designated recipient' });
+  }
+
+  // This lane serves recipient-only messages exclusively. A time-locked message
+  // (unlockTime > 0) must go through the contract-gated /oracle/decrypt lane
+  // after its unlock has passed — decrypting it here would hand the recipient
+  // the plaintext before the time-lock expires.
+  if (Number(message.unlockTime || 0) !== 0) {
+    return json(403, { error: 'time-locked messages must use the contract-gated reveal lane' });
   }
 
   const statement = buildRevealStatement(chainId, contract, messageId.toString(), issuedAt);
@@ -148,6 +179,6 @@ export async function handleMessageReveal(payload = {}, nowSeconds = Math.floor(
       unlockTime: Number(message.unlockTime || 0),
     });
   } catch (error) {
-    return json(400, { error: error instanceof Error ? error.message : 'decrypt failed' });
+    return jsonError(400, error);
   }
 }

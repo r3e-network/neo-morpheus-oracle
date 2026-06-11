@@ -295,6 +295,12 @@ export function sanitizeErrorMessage(error) {
   return msg.slice(0, 200);
 }
 
+// Shared error response: handler-level catches must route through this (or
+// sanitizeErrorMessage directly) so caller-facing error strings get the same
+// blacklist filtering as the worker's top-level catch.
+export const jsonError = (status, error, headers = {}) =>
+  json(status, { error: sanitizeErrorMessage(error) }, headers);
+
 export function assertUntrustedScriptsEnabled() {
   if (!normalizeBoolean(env('MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS'), false)) {
     throw new Error(

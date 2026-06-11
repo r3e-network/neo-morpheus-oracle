@@ -11,6 +11,7 @@ import {
   enforceSerializedSizeLimit,
   env,
   json,
+  jsonError,
   normalizeTargetChain,
   parseDurationMs,
   resolveMaxBytes,
@@ -728,7 +729,7 @@ export async function handleComputeExecute(payload) {
       verification: buildVerificationEnvelope(signed, teeAttestation),
     });
   } catch (error) {
-    return json(400, { error: error instanceof Error ? error.message : String(error) });
+    return jsonError(400, error);
   }
 }
 

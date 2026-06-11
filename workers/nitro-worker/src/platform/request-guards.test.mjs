@@ -339,6 +339,72 @@ test('oracle request idempotency differentiates encrypted params and scripts', a
   assert.notEqual(first.idempotency.lockKey, third.idempotency.lockKey);
 });
 
+test('applyRequestGuards rate limits action-routed requests that bypass the route path', async () => {
+  installUpstashMock();
+  process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+  process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
+  process.env.MORPHEUS_RATE_LIMIT_RELAY_TRANSACTION_MAX = '1';
+
+  const { applyRequestGuards } = await import('./request-guards.js');
+  // The dispatcher resolves this to relay_transaction via payload.action even
+  // though the path matches no capability — the guards must do the same.
+  const payload = { action: 'relay_transaction' };
+  const request = new Request('http://local/', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer test',
+      'cf-connecting-ip': '203.0.113.13',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const first = await applyRequestGuards({ request, path: '', payload });
+  const second = await applyRequestGuards({ request, path: '', payload });
+
+  assert.equal(first.ok, true);
+  assert.equal(first.routeName, 'relay_transaction');
+  assert.equal(second.ok, false);
+  assert.equal(second.response.status, 429);
+  assert.equal((await second.response.json()).route, 'relay_transaction');
+});
+
+test('persistGuardResult does not cache transient 4xx failures', async () => {
+  installUpstashMock();
+  process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+  process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
+
+  const { applyRequestGuards, persistGuardResult } = await import('./request-guards.js');
+  const payload = { operation_hash: '0xdeadbeef' };
+  const request = new Request('http://local/relay/transaction', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer test',
+      'cf-connecting-ip': '203.0.113.14',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const first = await applyRequestGuards({ request, path: '/relay/transaction', payload });
+  assert.equal(first.ok, true);
+  // The worker's top-level catch maps transient upstream failures to 400 —
+  // replaying that for the idempotency TTL would poison legitimate retries.
+  await persistGuardResult(
+    first,
+    new Response(JSON.stringify({ error: 'oracle fetch timed out after 8000ms' }), {
+      status: 400,
+      headers: { 'content-type': 'application/json' },
+    })
+  );
+
+  const second = await applyRequestGuards({ request, path: '/relay/transaction', payload });
+  assert.equal(second.ok, true);
+  assert.equal(second.cached, undefined);
+});
+
 test('applyRequestGuards denies requests that carry an explicit policy rejection', async () => {
   installUpstashMock();
   process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';

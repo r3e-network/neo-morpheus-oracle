@@ -313,6 +313,7 @@ async function loadEncryptedCiphertextByRef(ref, payload = {}) {
       authorization: `Bearer ${restConfig.apiKey}`,
       accept: 'application/json',
     },
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
@@ -433,6 +434,7 @@ async function claimEncryptedRef(row, payload = {}, restConfig, network) {
       },
       updated_at: new Date().toISOString(),
     }),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!claimResponse.ok) {
