@@ -6,10 +6,6 @@ import {
   resolvePinnedNeoN3VerifierPublicKey,
 } from './lib-neo-signers.mjs';
 
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
 async function main() {
   const requestedNetwork = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
   await loadDotEnv();

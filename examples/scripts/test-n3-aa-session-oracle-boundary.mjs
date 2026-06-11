@@ -622,7 +622,7 @@ async function main() {
       hash160Param(accountId),
       byteArrayParam(account.publicKey),
       hash160Param(consumer.hash),
-      stringParam('requestBuiltinProviderPriceSponsored'),
+      stringParam('requestBuiltinProviderPrice'),
       integerParam(validUntil),
       integerParam(0),
       stringParam('Morpheus testnet session oracle boundary'),
@@ -701,7 +701,7 @@ async function main() {
   const payloadStack = await invokeReadRaw(rpcClient, sessionVerifier.hash, 'getPayload', [
     hash160Param(accountId),
     hash160Param(consumer.hash),
-    stringParam('requestBuiltinProviderPriceSponsored'),
+    stringParam('requestBuiltinProviderPrice'),
     arrayParam([]),
     integerParam(nonce),
     integerParam(deadline),
@@ -724,7 +724,7 @@ async function main() {
               hash160Param(accountId),
               userOpParam({
                 targetContract: consumer.hash,
-                method: 'requestBuiltinProviderPriceSponsored',
+                method: 'requestBuiltinProviderPrice',
                 args: [],
                 nonce,
                 deadline,
@@ -748,7 +748,7 @@ async function main() {
           hash160Param(accountId),
           userOpParam({
             targetContract: consumer.hash,
-            method: 'requestBuiltinProviderPriceSponsored',
+            method: 'requestBuiltinProviderPrice',
             args: [],
             nonce,
             deadline,
@@ -881,7 +881,7 @@ async function main() {
     '',
     '## Conclusion',
     '',
-    "A session key scoped to the temporary consumer's `requestBuiltinProviderPriceSponsored` method can execute the intended downstream Morpheus Oracle call, but cannot be reused for a different target contract or a different method. This closes the core AA-session-key-to-Morpheus-Oracle boundary gap on testnet.",
+    "A session key scoped to the temporary consumer's `requestBuiltinProviderPrice` method can execute the intended downstream Morpheus Oracle call, but cannot be reused for a different target contract or a different method. This closes the core AA-session-key-to-Morpheus-Oracle boundary gap on testnet.",
     '',
   ].join('\n');
 

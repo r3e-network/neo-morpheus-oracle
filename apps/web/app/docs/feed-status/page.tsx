@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, AlertTriangle } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 type FeedStatusResponse = {
@@ -8,7 +8,6 @@ type FeedStatusResponse = {
   network: string;
   configured_pair_count: number;
   synced_configured_pair_count: number;
-  deprecated_chain_record_count: number;
   configured: Array<{
     pair: string;
     storage_pair: string;
@@ -35,16 +34,6 @@ type FeedStatusResponse = {
       | { error?: string }
       | null;
     delta_pct: number | null;
-  }>;
-  deprecated_chain_records: Array<{
-    storage_pair: string;
-    pair: string;
-    replacement: string;
-    reason: string;
-    chain: {
-      price_display: string;
-      timestamp_iso: string | null;
-    };
   }>;
 };
 
@@ -169,37 +158,6 @@ export default function FeedStatusPage() {
               </div>
             </div>
           </div>
-
-          {data.deprecated_chain_records.length > 0 && (
-            <div
-              className="card-industrial"
-              style={{ borderLeft: '4px solid var(--warning)', marginBottom: '2rem' }}
-            >
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                <AlertTriangle color="var(--warning)" size={20} style={{ flexShrink: 0 }} />
-                <div>
-                  <h3 style={{ marginTop: 0, marginBottom: '0.75rem' }}>
-                    Deprecated Chain Records Detected
-                  </h3>
-                  {data.deprecated_chain_records.map((item) => (
-                    <p
-                      key={item.storage_pair}
-                      style={{
-                        marginBottom: '0.75rem',
-                        color: 'var(--text-secondary)',
-                        lineHeight: 1.7,
-                      }}
-                    >
-                      <code>{item.storage_pair}</code> is deprecated. Use{' '}
-                      <code>{item.replacement}</code> instead.
-                      <br />
-                      <span style={{ color: 'var(--text-muted)' }}>{item.reason}</span>
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
 
           {Object.entries(grouped).map(([category, items]) => (
             <section key={category} style={{ marginBottom: '2rem' }}>

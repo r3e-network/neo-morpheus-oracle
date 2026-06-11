@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { wallet } from '@cityofzion/neon-js';
+import { parseDotEnv } from './lib-env.mjs';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultOracleRoot = path.resolve(moduleDir, '..');
@@ -11,28 +12,9 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function dequoteEnvValue(raw) {
-  let value = trimString(raw);
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    value = value.slice(1, -1);
-  }
-  return value;
-}
-
 function parseDotEnvFile(filePath) {
   try {
-    const text = fs.readFileSync(filePath, 'utf8');
-    const out = {};
-    for (const line of text.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-      const index = trimmed.indexOf('=');
-      out[trimmed.slice(0, index)] = dequoteEnvValue(trimmed.slice(index + 1));
-    }
-    return out;
+    return parseDotEnv(fs.readFileSync(filePath, 'utf8'));
   } catch {
     return {};
   }

@@ -69,15 +69,6 @@ async function post(path, body = {}) {
   );
 }
 
-async function get(path) {
-  return handler(
-    new Request(`http://local${path}`, {
-      method: 'GET',
-      headers: authHeaders(),
-    })
-  );
-}
-
 // ===========================================================================
 // WORKFLOW 1: Unauthenticated public endpoints
 // ===========================================================================

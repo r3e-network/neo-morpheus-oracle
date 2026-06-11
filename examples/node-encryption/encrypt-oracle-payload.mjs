@@ -10,11 +10,17 @@ async function fetchOracleKey(baseUrl, token) {
   return response.json();
 }
 
-const baseUrl = process.env.PHALA_API_URL || '';
-const token = process.env.PHALA_API_TOKEN || process.env.PHALA_SHARED_SECRET || '';
+// MORPHEUS_API_URL / MORPHEUS_API_TOKEN are the current names for the Nitro
+// runtime; the PHALA_* names are accepted as documented legacy fallbacks only.
+const baseUrl = process.env.MORPHEUS_API_URL || process.env.PHALA_API_URL || '';
+const token =
+  process.env.MORPHEUS_API_TOKEN ||
+  process.env.PHALA_API_TOKEN ||
+  process.env.PHALA_SHARED_SECRET ||
+  '';
 
 if (!baseUrl) {
-  throw new Error('PHALA_API_URL is required');
+  throw new Error('MORPHEUS_API_URL is required (legacy fallback: PHALA_API_URL)');
 }
 
 const oracleKey = await fetchOracleKey(baseUrl, token);

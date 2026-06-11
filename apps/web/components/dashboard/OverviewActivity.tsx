@@ -2,7 +2,7 @@
 
 import { Clock, Database, ExternalLink, RefreshCcw } from 'lucide-react';
 import { DEFAULT_PAIRS } from '@/lib/onchain-data';
-import { getFeedDescriptor, getFeedDisplaySymbol, getFeedUnitLabel } from '@/lib/feed-defaults';
+import { getFeedDescriptor, getFeedDisplaySymbol } from '@/lib/feed-defaults';
 import { SkeletonGrid } from '@/components/ui/Skeleton';
 import { getContractExplorerUrl } from './networkSelection';
 
@@ -120,7 +120,6 @@ export function OverviewActivity({
           {DEFAULT_PAIRS.map((pair) => {
             const record = recordsByPair.get(pair);
             const displayPair = getFeedDisplaySymbol(pair);
-            const unitLabel = getFeedUnitLabel(pair);
             const descriptor = getFeedDescriptor(pair);
             return (
               <div
@@ -228,19 +227,6 @@ export function OverviewActivity({
                     {record ? `$${record.price_display}` : '$--.------'}
                   </span>
                 </div>
-                {unitLabel && (
-                  <div
-                    style={{
-                      fontSize: '0.62rem',
-                      color: 'var(--text-muted)',
-                      fontFamily: 'var(--font-mono)',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
-                    Unit: {unitLabel}
-                  </div>
-                )}
-
                 <div
                   style={{
                     display: 'flex',

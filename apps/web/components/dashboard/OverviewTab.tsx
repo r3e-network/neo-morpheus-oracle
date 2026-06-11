@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ErrorArt } from '@/components/illustrations';
 import { DEFAULT_PAIRS } from '@/lib/onchain-data';
-import { getDeprecatedFeedInfo, getFeedDescriptor } from '@/lib/feed-defaults';
+import { getFeedDescriptor } from '@/lib/feed-defaults';
 import { Card } from '@/components/ui/Card';
 import { SkeletonStats } from '@/components/ui/Skeleton';
 import { useToast } from '@/components/ui/Toast';
@@ -153,24 +153,6 @@ export function OverviewTab({ setOutput }: any) {
     );
   }, [onchainState]);
 
-  const deprecatedRecords = useMemo(() => {
-    const records = Array.isArray(onchainState?.neo_n3?.datafeed?.records)
-      ? onchainState.neo_n3.datafeed.records
-      : [];
-    return records
-      .map((record: OnchainRecord) => {
-        const normalizedPair = String(record.pair || '')
-          .trim()
-          .toUpperCase();
-        const deprecated = getDeprecatedFeedInfo(normalizedPair);
-        return deprecated ? { record, deprecated } : null;
-      })
-      .filter(Boolean) as Array<{
-      record: OnchainRecord;
-      deprecated: ReturnType<typeof getDeprecatedFeedInfo>;
-    }>;
-  }, [onchainState]);
-
   const oracleState = onchainState?.neo_n3?.oracle || null;
   const dstack = runtimeStatus?.runtime?.info
     ? {
@@ -279,7 +261,6 @@ export function OverviewTab({ setOutput }: any) {
         liveQuote={liveQuote}
         liveQuoteLoading={liveQuoteLoading}
         liveDeltaPct={liveDeltaPct}
-        deprecatedRecords={deprecatedRecords}
       />
 
       <OverviewActivity

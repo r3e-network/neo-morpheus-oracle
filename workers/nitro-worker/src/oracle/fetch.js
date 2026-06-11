@@ -6,7 +6,6 @@ import {
   normalizeHeaders,
   normalizeTargetChain,
   parseBodyMaybe,
-  parseDurationMs,
   resolveMaxBytes,
   trimString,
   cappedDurationMs,

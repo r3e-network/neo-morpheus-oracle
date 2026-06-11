@@ -63,8 +63,16 @@ successful pass:
   signal before a new instance is dispatched
 - stale `processing` jobs and overdue `queued` jobs can be recovered with
   `POST /<network>/jobs/recover`
+- queue messages that exhaust `max_retries` are routed by Cloudflare to
+  per-queue dead-letter queues (`morpheus-oracle-request-dlq`,
+  `morpheus-feed-tick-dlq`) so the loss is inspectable instead of silent;
+  create both queues (`wrangler queues create <name>`) before deploying
+- a `*/5 * * * *` cron trigger runs the same recovery path as
+  `POST /<network>/jobs/recover` automatically across both networks, so stuck
+  Supabase rows are requeued without operator intervention
 
-This is primarily for post-outage recovery. A typical operator flow is:
+The `POST /<network>/jobs/recover` endpoint remains available for immediate
+post-outage recovery. A typical operator flow is:
 
 ```bash
 curl -X POST \

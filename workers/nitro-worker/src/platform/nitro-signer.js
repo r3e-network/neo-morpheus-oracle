@@ -187,17 +187,12 @@ export async function getNitroInfo({ required = false } = {}) {
       network: body.network || null,
       client_kind: 'nitro',
     };
-  } catch (error) {
+  } catch {
     if (required) throw new Error('Nitro signer health endpoint is unavailable');
     return { runtime: 'aws-nitro-signer', network: null, client_kind: 'nitro' };
   }
 }
 export const getDstackInfo = getNitroInfo;
-// dstack client concept does not exist on Nitro; return a marker (or null when required+absent).
-export async function getDstackClient({ required = false } = {}) {
-  const info = await getNitroInfo({ required: false });
-  return { client: null, kind: 'nitro', info };
-}
 
 export async function getDerivedKeySummary(role = 'worker') {
   const [neoN3PrivateKey, info] = await Promise.all([
@@ -251,7 +246,7 @@ export async function buildNitroAttestation(reportInput, { required = false } = 
       attestation_document: body.attestation_document || body.document || null,
       report_data: `0x${reportData.toString('hex')}`,
     };
-  } catch (error) {
+  } catch {
     if (required) throw new Error('Nitro attestation is unavailable');
     return null;
   }

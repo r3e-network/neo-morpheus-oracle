@@ -1,10 +1,5 @@
 import { appConfig } from '@/lib/config';
-import {
-  DEFAULT_FEED_SYMBOLS,
-  getDeprecatedFeedInfo,
-  getFeedDescriptor,
-  normalizeFeedSymbol,
-} from '@/lib/feed-defaults';
+import { DEFAULT_FEED_SYMBOLS, getFeedDescriptor, normalizeFeedSymbol } from '@/lib/feed-defaults';
 import { fetchOnchainState } from '@/lib/onchain-state';
 
 const LIVE_QUOTE_TIMEOUT_MS = 10_000;
@@ -16,9 +11,7 @@ export type FeedsStatusBody = {
   network: string;
   configured_pair_count: number;
   synced_configured_pair_count: number;
-  deprecated_chain_record_count: number;
   configured: Array<Record<string, unknown>>;
-  deprecated_chain_records: Array<Record<string, unknown>>;
 };
 
 export type FeedsStatusOptions = {
@@ -147,29 +140,12 @@ export async function buildFeedsStatusBody(
     configured.push(...entries);
   }
 
-  const deprecatedChainRecords = chainRecords
-    .map((entry) => {
-      const normalized = normalizeChainPair(entry.pair);
-      const deprecated = getDeprecatedFeedInfo(entry.pair);
-      if (!deprecated) return null;
-      return {
-        storage_pair: entry.pair,
-        pair: normalized,
-        replacement: deprecated.replacement,
-        reason: deprecated.reason,
-        chain: entry,
-      };
-    })
-    .filter(Boolean) as Array<Record<string, unknown>>;
-
   return {
     generated_at: new Date().toISOString(),
     network: onchain.network,
     configured_pair_count: DEFAULT_FEED_SYMBOLS.length,
     synced_configured_pair_count: configured.filter((entry) => entry.synced).length,
-    deprecated_chain_record_count: deprecatedChainRecords.length,
     configured,
-    deprecated_chain_records: deprecatedChainRecords,
   };
 }
 

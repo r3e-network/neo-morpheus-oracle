@@ -1,4 +1,4 @@
-import { normalizeBoolean, trimString } from './core.js';
+import { trimString } from './core.js';
 
 function hasValue(value) {
   if (value === undefined || value === null) return false;

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { parseDotEnv } from './lib-env.mjs';
 import {
   fetchPriceQuote,
   decimalToIntegerString,
@@ -52,24 +53,7 @@ function computeChangeBps(previousUnits, nextUnits) {
   return Math.abs((next - previous) / previous) * 10_000;
 }
 
-export function parseDotEnv(raw) {
-  const out = {};
-  for (const line of String(raw || '').split(/\r?\n/)) {
-    const trimmed = trimString(line);
-    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-    const separatorIndex = trimmed.indexOf('=');
-    const key = trimString(trimmed.slice(0, separatorIndex));
-    let value = trimmed.slice(separatorIndex + 1);
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    out[key] = value;
-  }
-  return out;
-}
+export { parseDotEnv };
 
 export async function loadRuntimeConfigFromEnvFile(filePath) {
   const env = parseDotEnv(await fs.readFile(filePath, 'utf8'));
@@ -256,7 +240,7 @@ function probeNeoInvokeViaCurl(rpcUrl, contractHash, operation, params = []) {
     if (response.error) return false;
     const result = response.result;
     return Boolean(result) && typeof result === 'object' && Array.isArray(result.stack);
-  } catch (error) {
+  } catch {
     return false;
   }
 }

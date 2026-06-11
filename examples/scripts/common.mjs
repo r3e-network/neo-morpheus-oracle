@@ -118,13 +118,14 @@ export async function loadExampleEnv() {
   process.env.NEXT_PUBLIC_MORPHEUS_NETWORK ||= requestedNetwork;
   await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
   const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || requestedNetwork);
-  const phalaEnvPath = path.resolve(
-    repoRoot,
-    'deploy',
-    'phala',
-    network === 'mainnet' ? 'morpheus.mainnet.env' : 'morpheus.testnet.env'
-  );
-  await loadDotEnv(phalaEnvPath, { override: true });
+  const envFileName = network === 'mainnet' ? 'morpheus.mainnet.env' : 'morpheus.testnet.env';
+  // Prefer the current Nitro deployment env file; the deploy/phala path is the
+  // legacy CVM location kept as a documented fallback for old checkouts.
+  const nitroEnvPath = path.resolve(repoRoot, 'deploy', 'nitro', envFileName);
+  const legacyPhalaEnvPath = path.resolve(repoRoot, 'deploy', 'phala', envFileName);
+  if (!(await loadDotEnv(nitroEnvPath, { override: true }))) {
+    await loadDotEnv(legacyPhalaEnvPath, { override: true });
+  }
 }
 
 export async function readDeploymentRegistry(network = 'testnet') {

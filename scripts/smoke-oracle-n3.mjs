@@ -1,5 +1,5 @@
 import { experimental, sc, rpc as neoRpc, wallet } from '@cityofzion/neon-js';
-import { loadDotEnv } from './lib-env.mjs';
+import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
 import { parseGasToRaw } from './lib-gas-units.mjs';
 import { resolveCallbackWithLocalFallback } from './lib-smoke-oracle-fallback.mjs';
 import {
@@ -102,23 +102,7 @@ async function loadJsonIfExists(filePath) {
 
 async function loadEnvSnapshot(filePath) {
   try {
-    const text = await fs.readFile(filePath, 'utf8');
-    const snapshot = {};
-    for (const line of text.split(/\r?\n/)) {
-      const trimmed = trimString(line);
-      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-      const separatorIndex = trimmed.indexOf('=');
-      const key = trimString(trimmed.slice(0, separatorIndex));
-      let value = trimmed.slice(separatorIndex + 1);
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1);
-      }
-      snapshot[key] = value;
-    }
-    return snapshot;
+    return parseDotEnv(await fs.readFile(filePath, 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') return {};
     throw error;

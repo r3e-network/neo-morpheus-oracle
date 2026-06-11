@@ -2,10 +2,6 @@ import { experimental, sc, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
 
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
 async function main() {
   const requestedNetwork = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
   await loadDotEnv();

@@ -271,7 +271,7 @@ async function main() {
         }
         break;
       }
-    } catch (e) {
+    } catch {
       // Not found yet
     }
     await new Promise((r) => setTimeout(r, 3000));

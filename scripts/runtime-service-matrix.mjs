@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, webcrypto } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { loadDotEnv } from './lib-env.mjs';
+import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ORACLE_ENVELOPE_ALGORITHM = 'X25519-HKDF-SHA256-AES-256-GCM';
@@ -749,29 +749,8 @@ function parseArgs(argv = []) {
 function loadLocalEnv(filePath) {
   return fs
     .readFile(filePath, 'utf8')
-    .then((raw) => {
-      const out = {};
-      for (const line of raw.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-        const index = trimmed.indexOf('=');
-        let value = trimmed.slice(index + 1).trim();
-        if (
-          (value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))
-        ) {
-          value = value.slice(1, -1);
-        }
-        out[trimmed.slice(0, index)] = value;
-      }
-      return out;
-    })
+    .then((raw) => parseDotEnv(raw))
     .catch(() => ({}));
-}
-
-async function resolveBaseUrl({ explicitBaseUrl, network }) {
-  const candidates = await resolveBaseUrlCandidates({ explicitBaseUrl, network });
-  return candidates[0];
 }
 
 async function resolveBaseUrlCandidates({ explicitBaseUrl, network, localEnvOverride } = {}) {

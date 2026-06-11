@@ -55,16 +55,6 @@ export type FeedDescriptor = {
   note?: string;
 };
 
-export type DeprecatedFeedInfo = {
-  pair: string;
-  replacement: string;
-  reason: string;
-};
-
-const FEED_SYMBOL_ALIASES: Record<string, string> = {};
-
-export const FEED_DISPLAY_META: Record<string, { displaySymbol?: string; unitLabel?: string }> = {};
-
 const BARE_FEED_DESCRIPTORS: Record<string, FeedDescriptor> = {
   'NEO-USD': {
     pair: 'NEO-USD',
@@ -359,37 +349,20 @@ export const FEED_DESCRIPTORS: Record<string, FeedDescriptor> = Object.fromEntri
   })
 );
 
-export const DEPRECATED_FEEDS: Record<string, DeprecatedFeedInfo> = {};
-
 export function normalizeFeedSymbol(symbol: string) {
-  const normalized = toCanonicalFeedSymbol(
+  return toCanonicalFeedSymbol(
     String(symbol || '')
       .trim()
       .toUpperCase()
   );
-  return FEED_SYMBOL_ALIASES[normalized] || normalized;
 }
 
 export function getFeedDisplaySymbol(symbol: string) {
-  return (
-    FEED_DISPLAY_META[normalizeFeedSymbol(symbol)]?.displaySymbol || normalizeFeedSymbol(symbol)
-  );
-}
-
-export function getFeedUnitLabel(symbol: string) {
-  return FEED_DISPLAY_META[normalizeFeedSymbol(symbol)]?.unitLabel || '';
+  return normalizeFeedSymbol(symbol);
 }
 
 export function getFeedDescriptor(symbol: string) {
   return FEED_DESCRIPTORS[normalizeFeedSymbol(symbol)] || null;
-}
-
-export function getDeprecatedFeedInfo(symbol: string) {
-  return DEPRECATED_FEEDS[normalizeFeedSymbol(symbol)] || null;
-}
-
-export function isDeprecatedFeedSymbol(symbol: string) {
-  return Boolean(getDeprecatedFeedInfo(symbol));
 }
 
 export function getAllFeedDescriptors() {

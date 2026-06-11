@@ -396,6 +396,263 @@ These exist for internal defaults or diagnostics.
 - `MORPHEUS_RELAYER_STATE_FILE`
 - `MORPHEUS_PHALA_TIMEOUT_MS`
 
+## Worker Runtime Reference / Worker 运行时变量参考
+
+Every variable below is read by the live workers (`workers/morpheus-relayer`,
+`workers/nitro-worker`) but was previously documented nowhere. Names are
+integration contracts with the systemd env files on the Nitro box — never
+rename them. Format: default + one-line semantics.
+
+下面的变量都被线上 worker（`workers/morpheus-relayer`、`workers/nitro-worker`）实际读取，
+但之前没有任何文档。变量名是 Nitro box systemd env 文件的集成契约——绝不能改名。
+格式：默认值 + 一句话语义。
+
+### Signer Pinning And Network-Scoped Keys / 签名 pinning 与分网络密钥
+
+- `MORPHEUS_ALLOW_UNPINNED_SIGNERS`
+  English: Security toggle (default unset = pinned-only). When true-like, signer roles may fall back to unpinned key material instead of failing closed.
+  中文：安全开关（默认不设置 = 只允许 pinned）。为 true 时 signer 角色可回退到未 pinned 的密钥材料，而不是直接失败。
+
+- `MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET` / `MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET` (and `..._PRIVATE_KEY_{MAINNET,TESTNET}`)
+  English: Network-scoped relayer signing material; takes precedence over the unscoped `MORPHEUS_RELAYER_NEO_N3_WIF` for that network.
+  中文：分网络 relayer 签名密钥；对应网络上优先于不带后缀的 `MORPHEUS_RELAYER_NEO_N3_WIF`。
+
+- `MORPHEUS_UPDATER_NEO_N3_WIF` / `MORPHEUS_UPDATER_NEO_N3_WIF_{MAINNET,TESTNET}` (and `..._PRIVATE_KEY` forms)
+  English: Dedicated feed-updater signing material; same network-scoped precedence rules as the relayer keys.
+  中文：feed updater 专用签名密钥；分网络优先级规则与 relayer 密钥相同。
+
+- `MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET` (and `_MAINNET`, `..._PRIVATE_KEY` forms)
+  English: Network-scoped async-fulfillment verifier signer; overrides the unscoped verifier names on that network.
+  中文：分网络异步 fulfill verifier signer；对应网络上覆盖不带后缀的 verifier 变量。
+
+- `PHALA_NEO_N3_WIF_{MAINNET,TESTNET}` / `PHALA_NEO_N3_PRIVATE_KEY_{MAINNET,TESTNET}`
+  English: Legacy network-scoped aliases for the worker Neo N3 key; still read for backward compatibility.
+  中文：worker Neo N3 密钥的旧版分网络别名；为兼容仍然会读取。
+
+- `NEO_TESTNET_WIF`
+  English: Legacy generic testnet operator WIF accepted as a low-priority fallback by scripts and signer resolution.
+  中文：旧的通用 testnet WIF，脚本与 signer 解析会作为低优先级回退接受。
+
+### RPC Endpoint Aliases / RPC 地址别名
+
+- `NEO_RPC_URL_MAINNET` / `NEO_RPC_URL_TESTNET`
+  English: Network-scoped Neo N3 RPC endpoints; preferred over the generic `NEO_RPC_URL` when the relayer pins a network.
+  中文：分网络 Neo N3 RPC 地址；relayer 固定网络时优先于通用 `NEO_RPC_URL`。
+
+- `NEO_RPC_URLS`, `NEO_RPC_URLS_MAINNET`, `NEO_RPC_URLS_TESTNET`, `NEO_MAINNET_RPC_URLS`, `MAINNET_RPC_URLS`, `NEO_MAINNET_RPC_URL`, `MAINNET_RPC_URL`, `NEO_RPC_MAINNET`
+  English: Comma-separated failover RPC lists plus accepted legacy single-URL aliases, merged in that order.
+  中文：逗号分隔的 RPC failover 列表以及兼容的旧单地址别名，按该顺序合并。
+
+- `ALLOW_GENERIC_NEO_RPC_URL`
+  English: Default false. When true, the generic `NEO_RPC_URL(S)` values are also merged into a network-pinned RPC pool.
+  中文：默认 false。为 true 时，通用 `NEO_RPC_URL(S)` 也会并入已固定网络的 RPC 池。
+
+### Relayer Operations / Relayer 运行参数
+
+- `MORPHEUS_RELAYER_MODE`
+  English: Lane selection: `requests_only` (oracle CVM), `feed_only` (datafeed CVM), or unset for both lanes.
+  中文：通道选择：`requests_only`（oracle CVM）、`feed_only`（datafeed CVM），不设置则两条通道都跑。
+
+- `MORPHEUS_RELAYER_MAX_CALLBACK_RETRIES`
+  English: Default `maxRetries * 2`. Retry ceiling for prepared-callback and finalize-only redelivery before the event is dead-lettered.
+  中文：默认 `maxRetries * 2`。prepared callback / finalize-only 重投的重试上限，超过即进入 dead letter。
+
+- `MORPHEUS_RELAYER_HEALTH_MAX_STALE_MS`
+  English: Default 120000. Healthcheck fails when the relayer heartbeat state is older than this.
+  中文：默认 120000。relayer 心跳状态超过该时长未更新时健康检查判定失败。
+
+- `MORPHEUS_RELAYER_STATE_PERSIST_MIN_INTERVAL_MS`
+  English: Default 250. Minimum interval between relayer state-file persists.
+  中文：默认 250。relayer 状态文件两次落盘之间的最短间隔。
+
+- `MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID`
+  English: Optional request-id cursor override used when no checkpoint exists for the request lane.
+  中文：request 通道没有 checkpoint 时使用的可选起始 request id。
+
+- `MORPHEUS_RELAYER_NEOX_CONFIRM_TIMEOUT_MS`
+  English: Default 45000. Confirmation wait budget for the NeoX EVM lane.
+  中文：默认 45000。NeoX EVM 通道等待交易确认的超时。
+
+- `MORPHEUS_RELAYER_LOG_LEVEL` / `MORPHEUS_RELAYER_LOG_FORMAT`
+  English: Relayer-specific overrides for `LOG_LEVEL` / `LOG_FORMAT`.
+  中文：relayer 专用的 `LOG_LEVEL` / `LOG_FORMAT` 覆盖项。
+
+- `MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED`
+  English: Defaults to the value of `MORPHEUS_DURABLE_QUEUE_ENABLED`. When true, durable-queue persistence failures block checkpoint advance instead of failing open.
+  中文：默认跟随 `MORPHEUS_DURABLE_QUEUE_ENABLED`。为 true 时，持久化队列写入失败会阻止 checkpoint 前进，而不是放行。
+
+- `MORPHEUS_SUPABASE_BACKOFF_MS` (legacy alias `SUPABASE_BACKOFF_MS`)
+  English: Default 300000. Cooldown before retrying Supabase persistence after repeated failures.
+  中文：默认 300000。Supabase 持久化连续失败后的重试冷却时间。
+
+- `MORPHEUS_HEARTBEAT_TIMEOUT_MS`
+  English: Default 3000 (minimum 250). HTTP timeout for BetterStack heartbeat pings.
+  中文：默认 3000（最小 250）。BetterStack 心跳请求的 HTTP 超时。
+
+### BetterStack Telemetry / BetterStack 遥测
+
+- `MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL` / `MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL` / `MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL`
+  English: Optional heartbeat URLs for the request lane, the feed lane, and explicit failure reporting; unset disables the ping.
+  中文：request 通道、feed 通道和失败上报的可选心跳地址；不设置则不发送。
+
+- `MORPHEUS_BETTERSTACK_LOG_SOURCE_TOKEN` / `MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST`
+  English: Log-shipping credentials; both must be set to enable the BetterStack log sink.
+  中文：日志上报凭据；两者都设置后才启用 BetterStack 日志通道。
+
+- `MORPHEUS_BETTERSTACK_LOG_BATCH_SIZE` (default 20) / `MORPHEUS_BETTERSTACK_LOG_FLUSH_INTERVAL_MS` (default 2000) / `MORPHEUS_BETTERSTACK_LOG_TIMEOUT_MS` (default 2000) / `MORPHEUS_BETTERSTACK_LOG_MAX_QUEUE` (default 500)
+  English: Batching, flush cadence, request timeout, and bounded-queue size for the log sink.
+  中文：日志通道的批量大小、刷新周期、请求超时和队列上限。
+
+### Worker Capacity And Providers / Worker 容量与数据源
+
+- `MORPHEUS_MAX_INFLIGHT_ORACLE_QUERY` (default 16), `MORPHEUS_MAX_INFLIGHT_COMPUTE_EXECUTE`, `MORPHEUS_MAX_INFLIGHT_RELAY_TRANSACTION` (default 6)
+  English: Per-route in-flight request ceilings in the worker overload guard; `0` disables the cap for that route. Other routes follow the same `MORPHEUS_MAX_INFLIGHT_<ROUTE>` pattern (vrf*random 4, paymaster_authorize 8, oracle_smart_fetch 12, txproxy_invoke 12).
+  中文：worker 过载保护的分路由并发上限；`0` 表示该路由不限。其他路由遵循同样的 `MORPHEUS_MAX_INFLIGHT*<ROUTE>` 命名（vrf_random 4、paymaster_authorize 8、oracle_smart_fetch 12、txproxy_invoke 12）。
+
+- `MORPHEUS_PROVIDER_FETCH_RETRIES`
+  English: Default 2. Retry count for upstream market-data provider fetches.
+  中文：默认 2。上游行情 provider 拉取的重试次数。
+
+- `MORPHEUS_PROVIDER_FAILURE_THRESHOLD` (default 3) / `MORPHEUS_PROVIDER_RESET_TIMEOUT_MS` (default 60000)
+  English: Circuit-breaker trip threshold and reset window for failing providers.
+  中文：provider 熔断的失败阈值与恢复窗口。
+
+- `MORPHEUS_PROVIDER_RESPONSE_CACHE_TTL_MS`
+  English: TTL for the short-lived provider response cache.
+  中文：provider 响应短缓存的 TTL。
+
+- `MORPHEUS_AGGREGATION_METHOD`
+  English: Default `median`. Aggregation method when multiple providers serve one pair.
+  中文：默认 `median`。多 provider 喂同一交易对时的聚合方法。
+
+- `MORPHEUS_FEED_STATE_PATH`
+  English: Default `/data/morpheus-feed-state.json`. Filesystem path for the persisted feed scheduler state.
+  中文：默认 `/data/morpheus-feed-state.json`。feed 调度器持久化状态的文件路径。
+
+- `MORPHEUS_FEED_SYNC_TIMEOUT_MS`
+  English: Default 10000 (minimum 1000). Per-pair timeout inside a feed sync pass.
+  中文：默认 10000（最小 1000）。一次 feed 同步里单个交易对的超时。
+
+- `MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED` / `MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED`
+  English: Toggles for bootstrapping feed state from Supabase and for writing feed snapshots back to Supabase.
+  中文：从 Supabase 引导 feed 状态、以及把 feed 快照写回 Supabase 的开关。
+
+- `MORPHEUS_MAX_REGISTERED_SCRIPT_BYTES`
+  English: Default 65536. Size cap for registered compute scripts.
+  中文：默认 65536。注册 compute 脚本的大小上限。
+
+- `COMPUTE_MAX_INPUT_BYTES` / `COMPUTE_MAX_ZKP_VERIFY_INPUT_BYTES` / `ORACLE_MAX_SCRIPT_INPUT_BYTES` / `ORACLE_MAX_UPSTREAM_BODY_BYTES`
+  English: Input/body size caps for compute payloads, ZKP verification inputs, oracle script inputs, and generic upstream responses.
+  中文：compute 入参、ZKP 校验入参、oracle 脚本入参和通用上游响应体的大小上限。
+
+- `MORPHEUS_ZKP_VERIFY_RUNTIME` / `MORPHEUS_ZKP_VERIFY_TIMEOUT_MS` / `MORPHEUS_SNARKJS_BIN`
+  English: ZKP verification runtime selection, timeout, and snarkjs binary override.
+  中文：ZKP 校验的运行时选择、超时和 snarkjs 可执行文件覆盖。
+
+- `ORACLE_HTTP_ALLOWLIST`
+  English: Comma-separated host allowlist for raw oracle HTTP fetches.
+  中文：oracle 原始 HTTP 拉取允许访问的主机列表，逗号分隔。
+
+### Nitro Signer And AWS Integration / Nitro 签名器与 AWS 集成
+
+- `NITRO_SIGNER_ENDPOINT` (alias `MORPHEUS_NITRO_SIGNER_ENDPOINT`)
+  English: Default `http://127.0.0.1:8787`. Enclave signer endpoint holding the Neo signing keys.
+  中文：默认 `http://127.0.0.1:8787`。持有 Neo 签名密钥的 enclave signer 地址。
+
+- `NITRO_ATTEST_ENDPOINT`
+  English: Defaults to `NITRO_SIGNER_ENDPOINT`. Endpoint used to fetch Nitro attestation documents.
+  中文：默认等于 `NITRO_SIGNER_ENDPOINT`。获取 Nitro attestation 文档的地址。
+
+- `NITRO_EMIT_ATTESTATION`
+  English: When true-like, worker responses can attach Nitro attestation metadata (Nitro-era replacement for `PHALA_EMIT_ATTESTATION`).
+  中文：为 true 时 worker 响应可以附带 Nitro attestation 元数据（替代旧的 `PHALA_EMIT_ATTESTATION`）。
+
+- `NITRO_USE_DERIVED_KEYS`
+  English: Nitro-era replacement for `PHALA_USE_DERIVED_KEYS`; enables derived role keys via the signer.
+  中文：替代 `PHALA_USE_DERIVED_KEYS`；通过 signer 启用派生角色密钥。
+
+- `NITRO_X25519_SECRET_ID` (default `morpheus/x25519-wrap`) / `NITRO_NEODID_SALT_SECRET_ID` (default `morpheus/neodid-salt`)
+  English: AWS Secrets Manager secret ids for the oracle transport wrapping key and the NeoDID salt.
+  中文：oracle 传输封装密钥与 NeoDID salt 在 AWS Secrets Manager 中的 secret id。
+
+- `AWS_REGION`
+  English: Default `us-east-1`. Region for the Secrets Manager lookups above.
+  中文：默认 `us-east-1`。上述 Secrets Manager 访问使用的区域。
+
+- `NITROCORE_PORT` / `PHALA_WORKER_PORT` / `PORT`
+  English: Worker HTTP listen port, checked in that order.
+  中文：worker HTTP 监听端口，按该顺序取值。
+
+### Oracle Key Material Overrides / Oracle 密钥材料覆盖
+
+- `MORPHEUS_ORACLE_KEY_MATERIAL_JSON` / `MORPHEUS_ORACLE_KEY_MATERIAL_BASE64` / `MORPHEUS_ORACLE_PRIVATE_KEY_PKCS8` / `MORPHEUS_ORACLE_PUBLIC_KEY_RAW` (legacy `PHALA_ORACLE_*` aliases)
+  English: Explicit oracle X25519 transport-key injection; takes precedence over sealed-keystore and derived-key paths.
+  中文：显式注入 oracle X25519 传输密钥；优先于封装 keystore 与派生密钥路径。
+
+- `MORPHEUS_ALLOW_EPHEMERAL_KEY`
+  English: Default false. Allows a process-lifetime ephemeral oracle key when no stable key source is available — decryptability ends with the process; never enable in production.
+  中文：默认 false。在没有稳定密钥来源时允许进程级临时 oracle 密钥——进程结束后密文不可解；生产环境不要开启。
+
+- `NEODID_SECRET_SALT` / `NEODID_NEO_N3_PRIVATE_KEY` / `PHALA_DSTACK_NEODID_SALT_PATH`
+  English: NeoDID commitment salt and dedicated signer overrides (the dstack path is the legacy derivation location).
+  中文：NeoDID 承诺 salt 与专用 signer 覆盖项（dstack path 是旧的派生位置）。
+
+### Chain Write Safety Toggles / 链上写入安全开关
+
+- `MORPHEUS_ALLOW_RAW_BROADCAST`
+  English: Default false. Required for the raw signed-transaction broadcast route.
+  中文：默认 false。开启后才允许广播原始已签名交易。
+
+- `MORPHEUS_ALLOW_GLOBAL_SCOPE`
+  English: Default false. Allows Global witness scope in sponsored transactions instead of CalledByEntry.
+  中文：默认 false。允许代付交易使用 Global witness scope，而不是 CalledByEntry。
+
+- `MORPHEUS_MAX_SPONSOR_FEE_GAS`
+  English: Default 10. Cap (in GAS) on the network fee the sponsor lane will pay per transaction.
+  中文：默认 10。代付通道单笔交易愿意承担的网络费上限（GAS）。
+
+### Paymaster (Testnet Lane) / Paymaster（testnet 通道）
+
+- `MORPHEUS_PAYMASTER_TESTNET_ENABLED` / `MORPHEUS_PAYMASTER_MAINNET_ENABLED`
+  English: Per-network paymaster enablement; mainnet defaults to disabled.
+  中文：分网络 paymaster 开关；mainnet 默认关闭。
+
+- `MORPHEUS_PAYMASTER_TESTNET_AA_CORE_HASH` / `_MULTI_HOOK_HASH` / `_WHITELIST_HOOK_HASH` / `_POLICY_ID` / `_NEO_RPC_URL` / `_MAX_GAS_UNITS`
+  English: Testnet paymaster wiring: AA core and hook contract hashes, policy id, RPC override, and per-op gas ceiling.
+  中文：testnet paymaster 接线：AA core 与 hook 合约地址、policy id、RPC 覆盖和单次操作 gas 上限。
+
+- `MORPHEUS_PAYMASTER_TESTNET_ALLOW_ACCOUNTS` / `_ALLOW_DAPPS` / `_ALLOW_TARGETS` / `_ALLOW_METHODS` / `_BLOCK_ACCOUNTS`
+  English: Comma-separated allow/deny lists evaluated before sponsoring a user operation.
+  中文：代付前检查的逗号分隔允许/拒绝清单。
+
+### NeoX Message Lane / NeoX 消息通道
+
+- `NEOX_MESSAGE_RPC` (aliases `NEOX_RPC`, `EVM_RPC_URL`) / `NEOX_MESSAGE_CONTRACT` / `NEOX_MESSAGE_CHAIN_ID` (alias `NEOX_CHAIN_ID`)
+  English: EVM RPC endpoint, message contract address, and chain id for the NeoX encrypted-message reveal lane.
+  中文：NeoX 加密消息 reveal 通道使用的 EVM RPC、消息合约地址和 chain id。
+
+### Misc Aliases / 其他别名
+
+- `SUPABASE_SERVICE_KEY`
+  English: Additional legacy alias for the Supabase server key, read after `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY`.
+  中文：Supabase 服务端 key 的另一个旧别名，排在 `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` 之后读取。
+
+- `MORPHEUS_RUNTIME_CONFIG_JSON`
+  English: JSON blob carrying runtime configuration injected by the deployment env files; individual env vars override its fields.
+  中文：部署 env 文件注入的运行时 JSON 配置；单独的环境变量优先于其中字段。
+
+- `CONTRACT_MORPHEUS_ORACLE_HASH_{MAINNET,TESTNET}` / `CONTRACT_MORPHEUS_DATAFEED_HASH_{MAINNET,TESTNET}`
+  English: Network-scoped contract-hash overrides preferred over the unscoped names when the network is pinned.
+  中文：分网络合约地址覆盖项；固定网络时优先于不带后缀的变量。
+
+- `CONTRACT_PRICEFEED_HASH`
+  English: Legacy alias still accepted for the datafeed contract hash.
+  中文：datafeed 合约地址仍然接受的旧别名。
+
+- `MORPHEUS_OPERATION_LOG_SAMPLE_RATE`
+  English: Default 20. Web app only: 1-in-N sampling rate for successful monitoring GET operation logs (`1` logs every probe).
+  中文：默认 20。仅 web 应用使用：成功的监控类 GET 操作日志按 1/N 采样（设为 `1` 则每次都记录）。
+
 ## Practical Advice / 实操建议
 
 If you are the operator of this stack, the shortest checklist is:

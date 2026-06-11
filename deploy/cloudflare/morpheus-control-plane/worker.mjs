@@ -20,6 +20,52 @@ import { CallbackBroadcastWorkflow, AutomationExecuteWorkflow } from './lib/work
 
 export { CallbackBroadcastWorkflow, AutomationExecuteWorkflow };
 
+const RECOVERABLE_NETWORKS = ['mainnet', 'testnet'];
+
+async function recoverNetworkJobs(env, network) {
+  const limit = resolveRequeueLimit(env);
+  const staleProcessingMs = resolveStaleProcessingMs(env);
+  const jobs = await listRecoverableJobs(env, network, limit, staleProcessingMs);
+  const requeued = [];
+  const skipped = [];
+  const failed = [];
+  for (const job of jobs) {
+    try {
+      const outcome = await requeueJob(env, job);
+      const entry = {
+        id: job.id,
+        route: job.route,
+        previous_status: job.status,
+        action: outcome?.action || 'queue_requeued',
+        workflow_instance_id: outcome?.workflow_instance_id || null,
+        workflow_status: outcome?.workflow_status || null,
+      };
+      if (entry.action === 'queue_requeued' || entry.action === 'workflow_redispatched') {
+        requeued.push(entry);
+      } else {
+        skipped.push(entry);
+      }
+    } catch (error) {
+      failed.push({
+        id: job.id,
+        route: job.route,
+        previous_status: job.status,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  return {
+    network,
+    scanned: jobs.length,
+    requeued_count: requeued.length,
+    skipped_count: skipped.length,
+    failed_count: failed.length,
+    requeued,
+    skipped,
+    failed,
+  };
+}
+
 export default {
   async fetch(request, env) {
     const requestId = request.headers.get('x-request-id') || crypto.randomUUID();
@@ -43,51 +89,7 @@ export default {
         return json(405, { error: 'method_not_allowed' }, rid);
       }
       try {
-        const limit = resolveRequeueLimit(env);
-        const staleProcessingMs = resolveStaleProcessingMs(env);
-        const jobs = await listRecoverableJobs(env, routing.network, limit, staleProcessingMs);
-        const requeued = [];
-        const skipped = [];
-        const failed = [];
-        for (const job of jobs) {
-          try {
-            const outcome = await requeueJob(env, job);
-            const entry = {
-              id: job.id,
-              route: job.route,
-              previous_status: job.status,
-              action: outcome?.action || 'queue_requeued',
-              workflow_instance_id: outcome?.workflow_instance_id || null,
-              workflow_status: outcome?.workflow_status || null,
-            };
-            if (entry.action === 'queue_requeued' || entry.action === 'workflow_redispatched') {
-              requeued.push(entry);
-            } else {
-              skipped.push(entry);
-            }
-          } catch (error) {
-            failed.push({
-              id: job.id,
-              route: job.route,
-              previous_status: job.status,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-        return json(
-          200,
-          {
-            network: routing.network,
-            scanned: jobs.length,
-            requeued_count: requeued.length,
-            skipped_count: skipped.length,
-            failed_count: failed.length,
-            requeued,
-            skipped,
-            failed,
-          },
-          rid
-        );
+        return json(200, await recoverNetworkJobs(env, routing.network), rid);
       } catch (error) {
         return json(500, { error: error instanceof Error ? error.message : String(error) }, rid);
       }
@@ -256,5 +258,30 @@ export default {
       }
       message.ack();
     }
+  },
+
+  // Cron safety net for the operator-driven POST /<network>/jobs/recover flow.
+  // Queue messages that exhaust max_retries are routed to the dead-letter
+  // queue by Cloudflare, but the corresponding Supabase rows would otherwise
+  // stay stuck in queued/processing until an operator notices; this trigger
+  // runs the same recovery path automatically.
+  async scheduled(_controller, env) {
+    const summaries = [];
+    for (const network of RECOVERABLE_NETWORKS) {
+      try {
+        const summary = await recoverNetworkJobs(env, network);
+        summaries.push(summary);
+        if (summary.scanned > 0) {
+          console.log(
+            `[control-plane] cron recovery ${network}: scanned=${summary.scanned} requeued=${summary.requeued_count} skipped=${summary.skipped_count} failed=${summary.failed_count}`
+          );
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        summaries.push({ network, error: message });
+        console.error(`[control-plane] cron recovery ${network} failed: ${message}`);
+      }
+    }
+    return summaries;
   },
 };

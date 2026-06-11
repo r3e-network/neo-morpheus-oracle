@@ -1,7 +1,6 @@
 'use client';
 
-import { Info } from 'lucide-react';
-import { getFeedDescriptor, getDeprecatedFeedInfo } from '@/lib/feed-defaults';
+import { getFeedDescriptor } from '@/lib/feed-defaults';
 
 type OnchainRecord = {
   pair: string;
@@ -18,10 +17,6 @@ interface OverviewNetworkProps {
   liveQuote: any;
   liveQuoteLoading: boolean;
   liveDeltaPct: number | null;
-  deprecatedRecords: Array<{
-    record: OnchainRecord;
-    deprecated: ReturnType<typeof getDeprecatedFeedInfo>;
-  }>;
 }
 
 export function OverviewNetwork({
@@ -31,48 +26,9 @@ export function OverviewNetwork({
   liveQuote,
   liveQuoteLoading,
   liveDeltaPct,
-  deprecatedRecords,
 }: OverviewNetworkProps) {
   return (
     <>
-      {deprecatedRecords.length > 0 && (
-        <section
-          className="card-industrial stagger-2"
-          style={{ padding: '1.5rem', borderLeft: '4px solid var(--warning)' }}
-        >
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-            <Info color="var(--warning)" size={22} style={{ flexShrink: 0 }} />
-            <div>
-              <h4
-                style={{
-                  marginTop: 0,
-                  marginBottom: '0.75rem',
-                  color: 'var(--text-primary)',
-                  fontSize: '1rem',
-                  fontWeight: 800,
-                }}
-              >
-                Deprecated On-Chain Feed Keys Detected
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {deprecatedRecords.map(({ record, deprecated }) => (
-                  <div
-                    key={record.pair}
-                    style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}
-                  >
-                    <code>{record.pair}</code> is deprecated. Use{' '}
-                    <code>{deprecated?.replacement}</code> instead.
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {deprecated?.reason}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
       <section className="card-industrial stagger-2" style={{ padding: '2rem' }}>
         <div
           style={{

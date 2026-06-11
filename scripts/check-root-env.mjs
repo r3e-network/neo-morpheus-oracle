@@ -1,74 +1,16 @@
 import path from 'node:path';
 import { readMergedDotEnvFiles } from './lib-env.mjs';
 import { reportPinnedNeoN3Roles, normalizeMorpheusNetwork } from './lib-neo-signers.mjs';
+import {
+  ROOT_ENV_REQUIRED_GROUPS,
+  ROOT_ENV_OPTIONAL_GROUPS,
+  evaluateRootEnvRequirements,
+  getGroupValue,
+} from './lib-root-env-requirements.mjs';
 
 const envPaths = [path.resolve(process.cwd(), '.env'), path.resolve(process.cwd(), '.env.local')];
 
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function getValue(env, keys) {
-  for (const key of keys) {
-    const value = trimString(env[key]);
-    if (value) return value;
-  }
-  return '';
-}
-
 const env = await readMergedDotEnvFiles(envPaths);
-
-const required = {
-  web_public: [
-    ['NEXT_PUBLIC_APP_NAME'],
-    ['NEXT_PUBLIC_APP_URL'],
-    [
-      'MORPHEUS_RUNTIME_URL',
-      'MORPHEUS_MAINNET_RUNTIME_URL',
-      'MORPHEUS_TESTNET_RUNTIME_URL',
-      'PHALA_API_URL',
-    ],
-    ['NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL'],
-    ['NEXT_PUBLIC_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_morpheus_SUPABASE_ANON_KEY'],
-  ],
-  web_server: [
-    [
-      'MORPHEUS_RUNTIME_URL',
-      'MORPHEUS_MAINNET_RUNTIME_URL',
-      'MORPHEUS_TESTNET_RUNTIME_URL',
-      'PHALA_API_URL',
-    ],
-    ['SUPABASE_URL', 'morpheus_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'],
-    [
-      'SUPABASE_SECRET_KEY',
-      'morpheus_SUPABASE_SECRET_KEY',
-      'SUPABASE_SERVICE_ROLE_KEY',
-      'morpheus_SUPABASE_SERVICE_ROLE_KEY',
-    ],
-    ['MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
-    ['MORPHEUS_NETWORK'],
-    ['NEO_RPC_URL'],
-    ['NEO_NETWORK_MAGIC'],
-    ['CONTRACT_MORPHEUS_ORACLE_HASH'],
-    ['CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH'],
-  ],
-  feed_ops: [
-    ['MORPHEUS_FEED_PROVIDER'],
-    ['MORPHEUS_FEED_PROJECT_SLUG'],
-    ['MORPHEUS_CRON_SECRET'],
-    ['MORPHEUS_FEED_SYMBOLS'],
-  ],
-  n3_scripts: [
-    [
-      'NEO_N3_WIF',
-      'NEO_TESTNET_WIF',
-      'PHALA_NEO_N3_WIF',
-      'PHALA_NEO_N3_PRIVATE_KEY',
-      'MORPHEUS_RELAYER_NEO_N3_WIF',
-      'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-    ],
-  ],
-};
 
 const report = {
   env_path: envPaths[0],
@@ -78,7 +20,10 @@ const report = {
   mode: {
     active_scope: 'neo_n3-only',
     neo_n3_enabled: Boolean(
-      getValue(env, ['CONTRACT_MORPHEUS_ORACLE_HASH', 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH'])
+      getGroupValue(env, [
+        'CONTRACT_MORPHEUS_ORACLE_HASH',
+        'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
+      ])
     ),
   },
 };
@@ -99,34 +44,8 @@ report.neo_n3_signers = reportPinnedNeoN3Roles(
   ok: entry.ok,
 }));
 
-for (const [section, groups] of Object.entries(required)) {
-  report.missing[section] = groups
-    .filter((keys) => !getValue(env, keys))
-    .map((keys) => keys.join(' | '));
-}
-
-report.optional_recommendations.admin_api = [
-  ['MORPHEUS_PROVIDER_CONFIG_API_KEY', 'ADMIN_CONSOLE_API_KEY'].join(' | '),
-].filter((key) => !getValue(env, key.split(' | ')));
-
-report.optional_recommendations.feed_sync = [
-  ['MORPHEUS_FEED_PROVIDERS'],
-  ['MORPHEUS_FEED_CHANGE_THRESHOLD_BPS'],
-  ['MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS'],
-]
-  .filter((keys) => !getValue(env, keys))
-  .map((keys) => keys.join(' | '));
-
-report.optional_recommendations.oracle_verifier = [
-  [
-    'MORPHEUS_ORACLE_VERIFIER_WIF',
-    'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-    'PHALA_ORACLE_VERIFIER_WIF',
-    'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
-  ],
-]
-  .filter((keys) => !getValue(env, keys))
-  .map((keys) => keys.join(' | '));
+report.missing = evaluateRootEnvRequirements(env, ROOT_ENV_REQUIRED_GROUPS);
+report.optional_recommendations = evaluateRootEnvRequirements(env, ROOT_ENV_OPTIONAL_GROUPS);
 
 report.ok =
   Object.values(report.missing).every((items) => items.length === 0) &&

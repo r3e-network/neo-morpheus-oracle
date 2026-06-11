@@ -1,11 +1,10 @@
 import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 
-import { loadDotEnv } from './lib-env.mjs';
+import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -28,18 +27,7 @@ function sanitizeEnvObject(input) {
 }
 
 async function readEnvFile(filePath) {
-  const raw = await fs.readFile(filePath, 'utf8');
-  const out = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const index = trimmed.indexOf('=');
-    if (index < 0) continue;
-    const key = trimmed.slice(0, index).trim();
-    const value = trimmed.slice(index + 1).trim();
-    out[key] = value;
-  }
-  return out;
+  return parseDotEnv(await fs.readFile(filePath, 'utf8'));
 }
 
 async function ensureBackupDir(baseDir) {

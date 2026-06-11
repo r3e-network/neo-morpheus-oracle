@@ -26,7 +26,6 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 const ORACLE_ENVELOPE_VERSION = 2;
 const ORACLE_ENVELOPE_ALGORITHM = 'X25519-HKDF-SHA256-AES-256-GCM';
 const ORACLE_ENVELOPE_INFO = 'morpheus-confidential-payload-v2';
-const AES_GCM_KEY_LENGTH_BYTES = 32;
 const AES_GCM_IV_LENGTH_BYTES = 12;
 const AES_GCM_TAG_LENGTH_BYTES = 16;
 
@@ -548,7 +547,7 @@ async function decryptX25519Envelope(envelope, keyMaterial) {
   return Buffer.from(plaintext).toString('utf8');
 }
 
-export async function ensureOracleKeyMaterial(payload = {}) {
+export async function ensureOracleKeyMaterial(_payload = {}) {
   if (!oracleKeyMaterialPromise) {
     oracleKeyMaterialPromise = (async () => {
       try {

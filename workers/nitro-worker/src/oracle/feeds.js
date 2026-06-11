@@ -9,7 +9,6 @@ import {
   normalizeMorpheusNetwork,
   parseDurationMs,
   resolvePayloadNetwork,
-  strip0x,
   trimString,
 } from '../platform/core.js';
 import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
@@ -60,7 +59,7 @@ function resolveFeedNetwork(input = {}) {
   );
 }
 
-function resolveFeedTargetChain(value = 'neo_n3') {
+function resolveFeedTargetChain(_value = 'neo_n3') {
   return 'neo_n3';
 }
 
@@ -72,10 +71,6 @@ function resolveFeedScope(input = {}, fallbackTargetChain = 'neo_n3') {
       source.target_chain ?? source.targetChain ?? fallbackTargetChain
     ),
   };
-}
-
-function resolveSupabaseNetwork(input = {}) {
-  return resolveFeedScope(input).network;
 }
 
 function getSupabaseRestConfig() {
@@ -348,7 +343,6 @@ export function multiplyDecimalString(value, multiplier = 1) {
   if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error(`invalid decimal value: ${value}`);
 
   const [wholePart, fractionPart = ''] = normalized.split('.');
-  const scale = 10n ** BigInt(fractionPart.length);
   const base = BigInt(`${wholePart}${fractionPart}` || '0');
   const scaled = base * BigInt(Math.trunc(factor));
   const digits = scaled.toString().padStart(fractionPart.length + 1, '0');
@@ -484,7 +478,7 @@ function extractUpstreamTimestamp(response) {
   return new Date().toISOString();
 }
 
-function resolvePairThresholdBps(storagePair, payload = {}, targetChain = 'neo_n3') {
+function resolvePairThresholdBps(storagePair, payload = {}, _targetChain = 'neo_n3') {
   const config = getFeedPairConfig(storagePair);
   const raw =
     config?.threshold_bps ??

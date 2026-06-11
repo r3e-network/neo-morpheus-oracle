@@ -1,11 +1,4 @@
-import {
-  json,
-  normalizeBoolean,
-  parseDurationMs,
-  sha256Hex,
-  stableStringify,
-  trimString,
-} from './core.js';
+import { json, normalizeBoolean, parseDurationMs, sha256Hex, trimString } from './core.js';
 import {
   claimIdempotencyLock,
   incrementFixedWindowCounter,

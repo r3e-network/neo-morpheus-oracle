@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { parseDotEnv } from './lib-env.mjs';
 import {
   NEO_N3_SIGNER_ENV_KEYS,
   resolvePinnedNeoN3Role,
@@ -33,26 +34,6 @@ const requestedOutput = trimString(cliArgs.output || process.env.PHALA_ENV_OUTPU
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function parseDotEnv(raw) {
-  const out = {};
-  for (const line of raw.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const index = trimmed.indexOf('=');
-    if (index < 0) continue;
-    const key = trimmed.slice(0, index).trim();
-    let value = trimmed.slice(index + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    out[key] = value;
-  }
-  return out;
 }
 
 async function readLocalEnv() {
@@ -98,22 +79,6 @@ function createResolver(localEnv, existingEnv) {
       if (processValue) return processValue;
       const existingValue = trimString(existingEnv[key]);
       if (existingValue) return existingValue;
-    }
-    return '';
-  };
-}
-
-function createExplicitResolver(localEnv, existingEnv) {
-  return (key) => {
-    if (Object.prototype.hasOwnProperty.call(localEnv, key)) {
-      return trimString(localEnv[key]);
-    }
-    const processValue = trimString(process.env[key]);
-    if (processValue || Object.prototype.hasOwnProperty.call(process.env, key)) {
-      return processValue;
-    }
-    if (Object.prototype.hasOwnProperty.call(existingEnv, key)) {
-      return trimString(existingEnv[key]);
     }
     return '';
   };
@@ -166,7 +131,6 @@ const outputPath = path.resolve(
 );
 const registry = await readNetworkRegistry(network);
 const get = createResolver(localEnv, existingEnv);
-const getExplicit = createExplicitResolver(localEnv, existingEnv);
 const getInputOnly = createInputOnlyResolver(localEnv);
 const explicitNetworkMode = Boolean(requestedNetwork);
 

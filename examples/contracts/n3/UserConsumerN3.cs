@@ -73,7 +73,11 @@ public class UserConsumerN3 : SmartContract
     public static BigInteger RequestBuiltinCompute(ByteString encryptedPayload)
     {
         UInt160 oracle = RequireOracle();
-        string payloadJson = "{\"encrypted_payload\":\"" + (string)encryptedPayload + "\"}";
+        // StdLib.JsonSerialize escapes the payload correctly; naive string
+        // concatenation would corrupt the JSON on any quote or backslash.
+        Map<string, object> payload = new Map<string, object>();
+        payload["encrypted_payload"] = encryptedPayload;
+        string payloadJson = StdLib.JsonSerialize(payload);
         return (BigInteger)Contract.Call(
             oracle,
             "request",
@@ -85,20 +89,10 @@ public class UserConsumerN3 : SmartContract
         );
     }
 
-    public static BigInteger RequestRawSponsored(string requestType, ByteString payload)
-    {
-        return RequestRaw(requestType, payload);
-    }
-
-    public static BigInteger RequestBuiltinProviderPriceSponsored()
-    {
-        return RequestBuiltinProviderPrice();
-    }
-
-    public static BigInteger RequestBuiltinComputeSponsored(ByteString encryptedPayload)
-    {
-        return RequestBuiltinCompute(encryptedPayload);
-    }
+    // NOTE: fee sponsorship is configured kernel-side (RegisterMiniApp feePayer
+    // plus fee credits), not via consumer-side method aliases. The former
+    // Request*Sponsored methods were identical aliases with no sponsorship
+    // semantics and were removed to avoid teaching a misleading pattern.
 
     public static void DepositOracleCredits(BigInteger amount)
     {

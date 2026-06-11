@@ -20,12 +20,14 @@
 
 ### Runtime env rendering
 
-- `npm run render:phala-env`
-- `npm run render:phala-env:mainnet`
-- `npm run render:phala-env:testnet`
-- `npm run render:phala-hub-env`
+- `npm run render:nitro-env`
+- `npm run render:nitro-compose-env`
+- `npm run render:nitro-compose-env:mainnet`
+- `npm run render:nitro-compose-env:testnet`
+- `npm run render:nitro-hub-env`
 - `npm run check:signers`
-- `npm run check:phala-env`
+- `npm run check:nitro-env`
+- `npm run check:nitro-prereqs`
 - `npm run check:control-plane`
 - `npm run check:control-plane:strict`
 

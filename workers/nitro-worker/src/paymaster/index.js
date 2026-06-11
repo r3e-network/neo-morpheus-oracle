@@ -34,10 +34,6 @@ function normalizeHexHash(value) {
   return `0x${raw}`;
 }
 
-function normalizeMethod(value) {
-  return trimString(value).toLowerCase();
-}
-
 function resolvePaymasterNetwork(payload = {}) {
   return resolvePayloadNetwork(
     payload,

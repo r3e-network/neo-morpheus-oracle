@@ -1,4 +1,4 @@
-import { experimental, sc, wallet } from '@cityofzion/neon-js';
+import { wallet } from '@cityofzion/neon-js';
 
 const CVM_URL =
   process.env.NITRO_RUNTIME_URL ||
@@ -13,11 +13,8 @@ const CVM_TOKEN =
   process.env.PHALA_SHARED_SECRET ||
   '';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
-const NETWORK_MAGIC = Number(process.env.NEO_NETWORK_MAGIC || 860833102);
 const ORACLE_HASH =
   process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '0x5b492098fc094c760402e01f7e0b631b939d2bea';
-const DATAFEED_HASH =
-  process.env.CONTRACT_MORPHEUS_DATAFEED_HASH || '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
 
 function trimString(v) {
   return typeof v === 'string' ? v.trim() : '';
@@ -32,21 +29,6 @@ async function cvmPost(path, body) {
   return res.json();
 }
 
-async function waitForTx(rpcClient, txid, timeoutMs = 120000) {
-  const normalized = String(txid).startsWith('0x') ? String(txid) : `0x${txid}`;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const log = await rpcClient.getApplicationLog(normalized);
-      const exec = log?.executions?.[0];
-      if (exec)
-        return { txid: normalized, vmstate: exec.vmstate, exception: exec.exception || null };
-    } catch {}
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-  throw new Error(`timed out waiting for ${normalized}`);
-}
-
 async function main() {
   const targetAdmin = trimString(process.env.TARGET_ADMIN_ADDRESS || '');
   const newUpdaterHash = trimString(process.env.NEW_UPDATER_HASH || '');
@@ -55,7 +37,6 @@ async function main() {
   // Step 1: Query CVM for the current admin key
   console.log('=== Step 1: Query CVM derived keys ===');
   const roles = ['worker', 'updater'];
-  let adminKey = null;
 
   for (const role of roles) {
     try {

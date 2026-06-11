@@ -1,7 +1,6 @@
 import { isAlreadyFulfilledError } from '../workers/morpheus-relayer/src/fulfillment.js';
 
 export async function resolveCallbackWithLocalFallback({
-  requestId,
   callbackTimeoutMs,
   waitForCallback,
   beforeLocalFallback,

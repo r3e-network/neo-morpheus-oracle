@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { buildFeedFreshnessReport } from './lib-feed-freshness.mjs';
 
 function trimString(value) {

@@ -36,6 +36,41 @@ const SENSITIVE_KEY_PATTERN =
   /(authorization|token|secret|password|private[_-]?key|wif|api[_-]?key)/i;
 const MAX_JSON_CHARS = 24000;
 
+// Monitoring read probes (status-page polling plus external uptime monitors)
+// hit these GET routes continuously; logging every probe grows
+// morpheus_operation_logs without bound — the same failure mode as the prior
+// Supabase quota outage. Successful monitoring GETs are sampled 1-in-N per
+// route; errors and all non-GET traffic are always logged.
+const MONITORING_READ_CATEGORIES = new Set<OperationCategory>([
+  'system',
+  'runtime',
+  'network',
+  'feed',
+]);
+const DEFAULT_MONITORING_SAMPLE_RATE = 20;
+const monitoringSampleCounters = new Map<string, number>();
+
+function resolveMonitoringSampleRate() {
+  const raw = Number(process.env.MORPHEUS_OPERATION_LOG_SAMPLE_RATE || '');
+  if (Number.isFinite(raw) && raw >= 1) return Math.floor(raw);
+  return DEFAULT_MONITORING_SAMPLE_RATE;
+}
+
+function shouldSampleOutMonitoringRead(input: OperationLogInput) {
+  if (input.method.toUpperCase() !== 'GET') return false;
+  if (!MONITORING_READ_CATEGORIES.has(input.category)) return false;
+  const failed =
+    Boolean(trimString(input.error || '')) ||
+    (typeof input.httpStatus === 'number' && input.httpStatus >= 400);
+  if (failed) return false;
+  const rate = resolveMonitoringSampleRate();
+  if (rate <= 1) return false;
+  const count = monitoringSampleCounters.get(input.route) || 0;
+  monitoringSampleCounters.set(input.route, count + 1);
+  // Log the first probe per process instance, then every Nth.
+  return count % rate !== 0;
+}
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -155,10 +190,18 @@ function resolveOperationNetwork(
 
 export async function recordOperationLog(input: OperationLogInput) {
   try {
+    if (shouldSampleOutMonitoringRead(input)) return;
+
     const supabase = getServerSupabaseClient();
     if (!supabase) return;
 
-    const metadata = isPlainObject(input.metadata) ? input.metadata : {};
+    const metadata = isPlainObject(input.metadata) ? { ...input.metadata } : {};
+    if (input.method.toUpperCase() === 'GET') {
+      // The upstream candidate list is identical for every GET probe and only
+      // inflates row size; keep it on mutating operations where the chosen
+      // upstream matters for forensics.
+      delete metadata.upstream_candidates;
+    }
     const requestObject = isPlainObject(input.requestPayload) ? input.requestPayload : {};
     const projectSlug = trimString(requestObject.project_slug || metadata.project_slug || '');
     const network = resolveOperationNetwork(input.requestPayload, metadata);

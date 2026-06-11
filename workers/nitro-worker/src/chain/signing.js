@@ -1,7 +1,6 @@
 import {
   REPLAY_WINDOW_MS,
   env,
-  envForNetwork,
   resolvePayloadNetwork,
   sha256Hex,
   stableStringify,
@@ -18,7 +17,6 @@ import {
   NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
   reportPinnedNeoN3Role,
-  resolvePinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
 
 function resolveKeySource(payload = {}) {

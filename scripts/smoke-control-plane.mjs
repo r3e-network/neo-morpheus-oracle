@@ -1,12 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { loadDotEnv } from './lib-env.mjs';
-import {
-  jsonPretty,
-  repoRoot,
-  reportDateStamp,
-  writeValidationArtifacts,
-} from '../examples/scripts/common.mjs';
+import { jsonPretty, repoRoot, writeValidationArtifacts } from '../examples/scripts/common.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -160,7 +155,7 @@ function resolveNetwork() {
     : 'testnet';
 }
 
-function resolveControlPlaneUrl(network) {
+function resolveControlPlaneUrl(_network) {
   const explicit = trimString(
     process.env.MORPHEUS_CONTROL_PLANE_URL ||
       process.env.NEXT_PUBLIC_MORPHEUS_CONTROL_PLANE_URL ||

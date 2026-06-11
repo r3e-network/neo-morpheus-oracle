@@ -1,12 +1,6 @@
 import { json, normalizeTargetChain, sha256Hex } from '../platform/core.js';
+import { resolveSigningBytes, maybeSignNeoN3Bytes } from './signing.js';
 import {
-  resolveSigningBytes,
-  buildSignedResultEnvelope,
-  buildVerificationEnvelope,
-  maybeSignNeoN3Bytes,
-} from './signing.js';
-import {
-  loadNeoN3Context,
   relayNeoN3Invocation,
   sponsorNeoN3Transaction,
   broadcastNeoN3RawTransaction,

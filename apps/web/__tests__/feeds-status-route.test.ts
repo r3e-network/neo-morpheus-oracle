@@ -6,9 +6,7 @@ const getFeedsStatusBody = vi.fn(async () => ({
     network: 'testnet',
     configured_pair_count: 0,
     synced_configured_pair_count: 0,
-    deprecated_chain_record_count: 0,
     configured: [],
-    deprecated_chain_records: [],
   },
   cache: 'miss' as const,
 }));

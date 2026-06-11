@@ -160,7 +160,7 @@ function verifyRSASignature(publicKeyPem, signatureHex, payloadString) {
     verify.update(payloadString);
     verify.end();
     return verify.verify(publicKeyPem, Buffer.from(signatureHex, 'hex'));
-  } catch (error) {
+  } catch {
     return false;
   }
 }

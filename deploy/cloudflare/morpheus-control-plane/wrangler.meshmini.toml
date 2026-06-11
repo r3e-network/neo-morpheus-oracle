@@ -22,17 +22,27 @@ queue = "morpheus-oracle-request"
 binding = "MORPHEUS_FEED_TICK_QUEUE"
 queue = "morpheus-feed-tick"
 
+# Dead-letter queues must exist before deploy:
+#   wrangler queues create morpheus-oracle-request-dlq
+#   wrangler queues create morpheus-feed-tick-dlq
 [[queues.consumers]]
 queue = "morpheus-oracle-request"
 max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 10
+dead_letter_queue = "morpheus-oracle-request-dlq"
 
 [[queues.consumers]]
 queue = "morpheus-feed-tick"
 max_batch_size = 10
 max_batch_timeout = 5
 max_retries = 10
+dead_letter_queue = "morpheus-feed-tick-dlq"
+
+# Cron safety net: requeues overdue queued jobs and stale processing/dispatched
+# jobs (same path as POST /<network>/jobs/recover).
+[triggers]
+crons = ["*/5 * * * *"]
 
 [[workflows]]
 name = "morpheus-callback-broadcast-workflow"

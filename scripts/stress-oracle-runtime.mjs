@@ -4,7 +4,7 @@ import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { loadDotEnv } from './lib-env.mjs';
+import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
 
 function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -65,22 +65,7 @@ function parseArgs(argv = []) {
 
 function loadLocalEnv(filePath) {
   try {
-    const raw = fsSync.readFileSync(filePath, 'utf8');
-    const result = {};
-    for (const line of raw.split(/\r?\n/)) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-      const idx = trimmed.indexOf('=');
-      let value = trimmed.slice(idx + 1).trim();
-      if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-      ) {
-        value = value.slice(1, -1);
-      }
-      result[trimmed.slice(0, idx)] = value;
-    }
-    return result;
+    return parseDotEnv(fsSync.readFileSync(filePath, 'utf8'));
   } catch {
     return {};
   }
@@ -98,7 +83,7 @@ function resolveBaseUrl(explicitTargetUrl, network) {
   return `https://oracle.meshmini.app/${network === 'testnet' ? 'testnet' : 'mainnet'}`;
 }
 
-function buildPresetFactory(name, network) {
+function buildPresetFactory(name, _network) {
   const requestId = () => `${name}:${Date.now()}:${Math.random().toString(16).slice(2)}`;
   const targetChain = 'neo_n3';
 

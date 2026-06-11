@@ -739,6 +739,103 @@ test('jobs/recover requeues stale queued and processing jobs', async () => {
   assert.equal(state.jobs.get('job-future')?.status, 'queued');
 });
 
+test('scheduled cron runs the recovery path across both networks', async () => {
+  const env = createEnv();
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-testnet-stale', {
+    id: 'job-testnet-stale',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' },
+    metadata: {},
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+    run_after: '2026-03-22T11:00:05.000Z',
+  });
+  state.jobs.set('job-mainnet-stale', {
+    id: 'job-mainnet-stale',
+    network: 'mainnet',
+    queue: 'feed_tick',
+    route: '/feeds/tick',
+    status: 'processing',
+    payload: { target_chain: 'neo_n3', symbols: ['TWELVEDATA:NEO-USD'] },
+    metadata: {},
+    created_at: '2026-03-22T11:01:00.000Z',
+    updated_at: '2026-03-22T11:01:00.000Z',
+    started_at: '2026-03-22T11:01:00.000Z',
+  });
+  state.jobs.set('job-future-queued', {
+    id: 'job-future-queued',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:GAS-USD', target_chain: 'neo_n3' },
+    metadata: {},
+    created_at: '2099-03-22T11:02:00.000Z',
+    updated_at: '2099-03-22T11:02:00.000Z',
+    run_after: '2099-03-22T11:12:00.000Z',
+  });
+
+  const summaries = await worker.scheduled({}, env);
+
+  assert.equal(summaries.length, 2);
+  const byNetwork = Object.fromEntries(summaries.map((summary) => [summary.network, summary]));
+  assert.equal(byNetwork.mainnet.requeued_count, 1);
+  assert.equal(byNetwork.testnet.requeued_count, 1);
+  assert.equal(byNetwork.mainnet.failed_count, 0);
+  assert.equal(byNetwork.testnet.failed_count, 0);
+  assert.equal(env.MORPHEUS_ORACLE_REQUEST_QUEUE.sent.length, 1);
+  assert.equal(env.MORPHEUS_FEED_TICK_QUEUE.sent.length, 1);
+  assert.equal(state.jobs.get('job-testnet-stale')?.status, 'dispatched');
+  assert.equal(state.jobs.get('job-mainnet-stale')?.status, 'dispatched');
+  assert.equal(state.jobs.get('job-future-queued')?.status, 'queued');
+  assert.equal(
+    state.jobs.get('job-testnet-stale')?.metadata?.requeue_source,
+    'control-plane-recover'
+  );
+});
+
+test('scheduled cron isolates per-network recovery failures', async () => {
+  const env = createEnv();
+  const state = createState();
+  const baseMock = createFetchMock(state);
+  global.fetch = async (url, init = {}) => {
+    const target = new URL(String(url));
+    if (
+      target.pathname === '/rest/v1/morpheus_control_plane_jobs' &&
+      (target.searchParams.get('network') || '').includes('mainnet') &&
+      (init.method || 'GET') === 'GET'
+    ) {
+      return new Response('mainnet supabase outage', { status: 500 });
+    }
+    return baseMock(url, init);
+  };
+
+  state.jobs.set('job-testnet-recoverable', {
+    id: 'job-testnet-recoverable',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' },
+    metadata: {},
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+  });
+
+  const summaries = await worker.scheduled({}, env);
+
+  const byNetwork = Object.fromEntries(summaries.map((summary) => [summary.network, summary]));
+  assert.match(String(byNetwork.mainnet.error || ''), /recoverable job list failed/);
+  assert.equal(byNetwork.testnet.requeued_count, 1);
+  assert.equal(state.jobs.get('job-testnet-recoverable')?.status, 'dispatched');
+});
+
 test('jobs/recover preserves active workflow instances instead of redispatching them', async () => {
   const callbackWorkflow = createWorkflowBinding({ status: 'running' });
   const env = createEnv({

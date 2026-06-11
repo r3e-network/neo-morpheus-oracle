@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
-import { loadDotEnv } from './lib-env.mjs';
+import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
 import {
   resolvePinnedNeoN3UpdaterHash,
   resolvePinnedNeoN3VerifierPublicKey,
@@ -113,29 +113,12 @@ async function loadDeploymentRegistry(network) {
 }
 
 async function loadEnvSnapshot(filePath) {
-  let text = '';
   try {
-    text = await fs.readFile(filePath, 'utf8');
+    return parseDotEnv(await fs.readFile(filePath, 'utf8'));
   } catch (error) {
     if (error?.code === 'ENOENT') return {};
     throw error;
   }
-  const snapshot = {};
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = trimString(line);
-    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
-    const separatorIndex = trimmed.indexOf('=');
-    const key = trimString(trimmed.slice(0, separatorIndex));
-    let value = trimmed.slice(separatorIndex + 1);
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    snapshot[key] = value;
-  }
-  return snapshot;
 }
 
 async function invokeRead(rpcClient, contractHash, method, params = []) {

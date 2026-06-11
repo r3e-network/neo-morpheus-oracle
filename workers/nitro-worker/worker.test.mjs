@@ -5,7 +5,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
 import { rpc as neoRpc, wallet as neoWallet } from '@cityofzion/neon-js';
-import { Interface, Transaction, Wallet as EvmWallet } from 'ethers';
 import { exportJWK, SignJWT } from 'jose';
 
 const originalFetch = global.fetch;

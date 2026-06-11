@@ -86,8 +86,8 @@ async function isStaleConsumerContract(rpcClient, hash) {
       ? state.manifest.abi.methods.map((item) => item?.name)
       : [];
     const required = [
-      'requestBuiltinProviderPriceSponsored',
-      'requestBuiltinComputeSponsored',
+      'requestBuiltinProviderPrice',
+      'requestBuiltinCompute',
       'depositOracleCredits',
       'contractGasBalance',
       'onNEP17Payment',
