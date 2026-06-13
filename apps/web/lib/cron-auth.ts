@@ -1,3 +1,4 @@
+import { timingSafeCompare } from '@neo-morpheus-oracle/shared/utils';
 import { isAuthorizedControlPlaneRequest } from './control-plane-auth';
 
 // Mirrors the /api/cron/feed guard so every cron route demands the same
@@ -12,7 +13,9 @@ export function isAuthorizedCronSecretRequest(request: Request) {
   const bearer = request.headers.get('authorization') || '';
   const headerSecret =
     request.headers.get('x-morpheus-cron') || request.headers.get('x-cron-token') || '';
-  return bearer === `Bearer ${configured}` || headerSecret === configured;
+  return (
+    timingSafeCompare(bearer, `Bearer ${configured}`) || timingSafeCompare(headerSecret, configured)
+  );
 }
 
 export function isVercelCronUserAgentRequest(request: Request) {

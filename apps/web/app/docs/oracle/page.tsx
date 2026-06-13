@@ -1,5 +1,3 @@
-'use client';
-
 import { Shield, Zap } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import { NETWORKS } from '@/lib/onchain-data';

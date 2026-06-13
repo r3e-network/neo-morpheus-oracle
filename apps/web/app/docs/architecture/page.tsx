@@ -1,5 +1,3 @@
-'use client';
-
 import { Layers, ArrowRight } from 'lucide-react';
 
 const layers = [

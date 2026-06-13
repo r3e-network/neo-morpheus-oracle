@@ -163,8 +163,21 @@ export default function StatusPage() {
 
   useEffect(() => {
     void checkServices();
-    const interval = setInterval(() => void checkServices(), 30000);
-    return () => clearInterval(interval);
+    // Skip the wall-clock poll while the tab is backgrounded so a hidden status
+    // page does not keep firing service probes; refresh once when it returns to
+    // the foreground so the readout is current the moment the user looks again.
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      void checkServices();
+    }, 30000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void checkServices();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [checkServices]);
 
   const overallStatus = services.some((s) => s.status === 'down')

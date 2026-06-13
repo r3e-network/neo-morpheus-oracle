@@ -1,5 +1,3 @@
-'use client';
-
 import { HelpCircle, AlertCircle } from 'lucide-react';
 
 export default function DocsFAQ() {

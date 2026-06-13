@@ -204,8 +204,7 @@ function deepMerge(base, override) {
   return output;
 }
 
-function parseRegistryOverride() {
-  const raw = trimString(env('MORPHEUS_FEED_PAIR_REGISTRY_JSON'));
+function parseRegistryOverride(raw) {
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw);
@@ -223,8 +222,27 @@ export function normalizeFeedPairSymbol(pair) {
   return FEED_PAIR_ALIASES[stripped] || stripped;
 }
 
+// Memoize the merged registry keyed on the raw MORPHEUS_FEED_PAIR_REGISTRY_JSON
+// override string. The merged result depends only on that string (DEFAULT_FEED_PAIRS
+// is static), so caching avoids re-running deepMerge + JSON.parse on every getter
+// call (a single feed run fans out to hundreds of these). Keying on the raw string
+// keeps the cache correct when the override changes at runtime (e.g. env-mutating
+// tests): a different override value is a different key and re-derives the merge.
+let cachedRegistryKey;
+let cachedRegistry;
+
 export function getFeedPairRegistry() {
-  return deepMerge(DEFAULT_FEED_PAIRS, parseRegistryOverride());
+  const raw = trimString(env('MORPHEUS_FEED_PAIR_REGISTRY_JSON'));
+  if (raw !== cachedRegistryKey || cachedRegistry === undefined) {
+    cachedRegistry = deepMerge(DEFAULT_FEED_PAIRS, parseRegistryOverride(raw));
+    cachedRegistryKey = raw;
+  }
+  return cachedRegistry;
+}
+
+export function __resetFeedRegistryCacheForTests() {
+  cachedRegistryKey = undefined;
+  cachedRegistry = undefined;
 }
 
 export function getFeedPairConfig(pair) {

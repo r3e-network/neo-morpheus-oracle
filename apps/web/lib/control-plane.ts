@@ -1,3 +1,4 @@
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import { appConfig } from './config';
 import { getWorkflowDispatchMetadata } from './workflow-runtime';
 import { recordOperationLog } from './operation-logs';
@@ -36,10 +37,6 @@ function maybeParseJson(text: string) {
   } catch {
     return text;
   }
-}
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function shouldFailOpen(status: number, text: string, contentType: string) {

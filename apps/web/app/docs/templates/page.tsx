@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { ClipboardList, ArrowRight, Shield, Cpu, Terminal } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';

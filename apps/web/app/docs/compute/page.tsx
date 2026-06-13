@@ -1,5 +1,3 @@
-'use client';
-
 import { Cpu, Terminal, FileCode, ShieldAlert } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 

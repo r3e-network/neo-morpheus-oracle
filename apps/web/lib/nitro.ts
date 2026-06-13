@@ -1,3 +1,4 @@
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import { appConfig } from './config';
 import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 import { recordOperationLog } from './operation-logs';
@@ -31,10 +32,6 @@ function isRetryableStatus(status: number) {
 }
 
 const RUNTIME_URL_ERROR = 'MORPHEUS_RUNTIME_URL is not configured';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function networkScopedEnv(baseKey: string, networkKey: string) {
   const upper = getSelectedNetworkKey(networkKey) === 'mainnet' ? 'MAINNET' : 'TESTNET';

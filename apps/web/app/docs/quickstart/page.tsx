@@ -1,5 +1,3 @@
-'use client';
-
 import { Zap, ArrowRight, Terminal } from 'lucide-react';
 import Link from 'next/link';
 import { CodeBlock } from '@/components/ui/CodeBlock';

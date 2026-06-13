@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { CheckCircle, ArrowRight } from 'lucide-react';
 import { Launchpad } from '@/components/launchpad/Launchpad';

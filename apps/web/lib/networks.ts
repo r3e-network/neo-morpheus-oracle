@@ -1,3 +1,4 @@
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import testnet from '../../../config/networks/testnet.json';
 import mainnet from '../../../config/networks/mainnet.json';
 
@@ -7,10 +8,6 @@ export const networkRegistry = {
 } as const;
 
 export type NetworkKey = keyof typeof networkRegistry;
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 export function normalizeNetworkKey(value?: string | null): NetworkKey | null {
   const normalized = trimString(value).toLowerCase();

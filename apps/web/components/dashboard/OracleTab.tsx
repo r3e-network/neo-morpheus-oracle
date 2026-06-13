@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
+import { copyText, encodeUtf8Base64, escapeForCSharp } from '@/lib/neo-snippets';
 
 import { OracleSettings } from './OracleSettings';
 import { OracleRequestForm } from './OracleRequestForm';
@@ -23,24 +24,6 @@ import {
 interface OracleTabProps {
   providers: any[];
   setOutput: (output: string) => void;
-}
-
-function escapeForCSharp(value: string) {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
-
-function encodeUtf8Base64(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-  return window.btoa(binary);
-}
-
-function copyText(value: string) {
-  return navigator.clipboard.writeText(value);
 }
 
 function getSelectedNetworkQueryPart(separator: '?' | '&' = '?') {

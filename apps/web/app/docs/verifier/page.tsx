@@ -1,5 +1,3 @@
-'use client';
-
 import { Check, CheckCircle, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { networkRegistry } from '@/lib/networks';

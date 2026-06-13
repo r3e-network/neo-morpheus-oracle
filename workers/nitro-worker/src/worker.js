@@ -8,7 +8,11 @@ import {
 import { requireAuth } from './platform/auth.js';
 import { buildDstackAttestation, getDstackInfo } from './platform/nitro-signer.js';
 import { acquireOverloadSlot, snapshotOverloadState } from './platform/overload-guard.js';
-import { applyRequestGuards, persistGuardResult } from './platform/request-guards.js';
+import {
+  applyRequestGuards,
+  persistGuardResult,
+  releaseGuardLock,
+} from './platform/request-guards.js';
 import { normalizeExecutionPlan } from './platform/execution-plan.js';
 import { buildResultEnvelope } from './platform/result-envelope.js';
 import { resolveCapability, listCapabilityFeatures } from './capabilities.js';
@@ -191,6 +195,7 @@ export default async function handler(request) {
       return response;
     } finally {
       overload.release();
+      await releaseGuardLock(guards);
     }
   } catch (error) {
     const message = sanitizeErrorMessage(error);

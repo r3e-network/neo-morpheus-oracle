@@ -1,8 +1,5 @@
+import { timingSafeCompare, trimString } from '@neo-morpheus-oracle/shared/utils';
 import { isAuthorizedAdminRequest } from './server-supabase';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 export function isAuthorizedControlPlaneRequest(request: Request) {
   if (
@@ -18,5 +15,5 @@ export function isAuthorizedControlPlaneRequest(request: Request) {
   if (!sharedToken) return false;
   const bearer = trimString(request.headers.get('authorization'));
   const admin = trimString(request.headers.get('x-admin-api-key'));
-  return bearer === `Bearer ${sharedToken}` || admin === sharedToken;
+  return timingSafeCompare(bearer, `Bearer ${sharedToken}`) || timingSafeCompare(admin, sharedToken);
 }

@@ -1,6 +1,4 @@
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 function parseHeartbeatTimeoutMs() {
   const configured = Number(process.env.MORPHEUS_HEARTBEAT_TIMEOUT_MS || '');

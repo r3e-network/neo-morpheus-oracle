@@ -1,5 +1,3 @@
-'use client';
-
 import { LineChart, Clock } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import {

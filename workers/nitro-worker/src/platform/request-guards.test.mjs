@@ -376,7 +376,9 @@ test('persistGuardResult does not cache transient 4xx failures', async () => {
   process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
   process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
 
-  const { applyRequestGuards, persistGuardResult } = await import('./request-guards.js');
+  const { applyRequestGuards, persistGuardResult, releaseGuardLock } = await import(
+    './request-guards.js'
+  );
   const payload = { operation_hash: '0xdeadbeef' };
   const request = new Request('http://local/relay/transaction', {
     method: 'POST',
@@ -399,10 +401,62 @@ test('persistGuardResult does not cache transient 4xx failures', async () => {
       headers: { 'content-type': 'application/json' },
     })
   );
+  // The dispatch finally always releases the idempotency lock (see worker.js), so
+  // the next request can re-claim it instead of being blocked until the lock TTL.
+  await releaseGuardLock(first);
 
   const second = await applyRequestGuards({ request, path: '/relay/transaction', payload });
   assert.equal(second.ok, true);
   assert.equal(second.cached, undefined);
+});
+
+test('releaseGuardLock frees the idempotency lock so a thrown handler does not block retries', async () => {
+  installUpstashMock();
+  process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+  process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
+
+  const { applyRequestGuards, releaseGuardLock } = await import('./request-guards.js');
+  const payload = { operation_hash: '0xcafef00d' };
+  const makeRequest = () =>
+    new Request('http://local/relay/transaction', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test',
+        'cf-connecting-ip': '203.0.113.20',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+  const first = await applyRequestGuards({
+    request: makeRequest(),
+    path: '/relay/transaction',
+    payload,
+  });
+  assert.equal(first.ok, true);
+  assert.ok(first.idempotency?.lockKey);
+
+  // Simulate a handler that threw: the lock was claimed but no response was cached.
+  // Until the lock is released the same idempotency key is blocked with a 409.
+  const whileLocked = await applyRequestGuards({
+    request: makeRequest(),
+    path: '/relay/transaction',
+    payload,
+  });
+  assert.equal(whileLocked.ok, false);
+  assert.equal(whileLocked.response.status, 409);
+
+  // The dispatch finally always releases the lock, even on the throw path.
+  await releaseGuardLock(first);
+
+  const afterRelease = await applyRequestGuards({
+    request: makeRequest(),
+    path: '/relay/transaction',
+    payload,
+  });
+  assert.equal(afterRelease.ok, true);
+  assert.equal(afterRelease.cached, undefined);
 });
 
 test('applyRequestGuards denies requests that carry an explicit policy rejection', async () => {

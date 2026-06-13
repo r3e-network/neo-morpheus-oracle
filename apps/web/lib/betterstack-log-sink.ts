@@ -1,8 +1,5 @@
 import { after } from 'next/server';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 function resolveConfig() {
   const ingestingHost = trimString(process.env.MORPHEUS_BETTERSTACK_LOG_INGESTING_HOST);

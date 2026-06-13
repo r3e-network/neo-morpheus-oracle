@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
+import { encodeUtf8Base64, escapeForCSharp } from '@/lib/neo-snippets';
 
 import { ComputeFunctions } from './ComputeFunctions';
 import { ComputeEditor } from './ComputeEditor';
@@ -17,20 +18,6 @@ import {
   type OracleState,
   type RuntimeStatus,
 } from './oracleReadiness';
-
-function encodeUtf8Base64(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-  return window.btoa(binary);
-}
-
-function escapeForCSharp(value: string) {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
 
 interface ComputeTabProps {
   computeFunctions?: unknown;

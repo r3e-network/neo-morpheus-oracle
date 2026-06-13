@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Boxes, ArrowRight, Copy } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
+import { copyText, encodeUtf8Base64, escapeForCSharp } from '@/lib/neo-snippets';
 import { getDashboardNetworkConfig } from '@/components/dashboard/networkSelection';
 import {
   ORACLE_KEY_LOADING_STATUS,
@@ -28,27 +29,6 @@ import { CallbackReadbackPanel } from './CallbackReadbackPanel';
 import { NeoLineManualEntryPanel } from './NeoLineManualEntryPanel';
 import { NeoN3CallArgumentsPanel } from './NeoN3CallArgumentsPanel';
 const neoGasHash = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
-
-function escapeForCSharp(value: string) {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
-
-function encodeUtf8Base64(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  if (typeof window === 'undefined') {
-    return Buffer.from(bytes).toString('base64');
-  }
-  let binary = '';
-  const chunkSize = 0x8000;
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
-  }
-  return window.btoa(binary);
-}
-
-function copyText(value: string) {
-  return navigator.clipboard.writeText(value);
-}
 
 function isHash160(value: string) {
   return /^0x[0-9a-fA-F]{40}$/.test(value.trim());

@@ -1,4 +1,4 @@
-import { getSelectedNetwork } from './networks';
+import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 
 type OnchainFeedRecord = {
   pair: string;
@@ -41,6 +41,20 @@ type ChainState = {
 const NEON3_GAS_DECIMALS = 8;
 const PRICE_SCALE = 1_000_000;
 const PRICE_DECIMALS = 6;
+
+// The dashboard polls /api/onchain/state on an interval and each call fans out
+// 7 Neo RPC reads; a short TTL collapses many concurrent clients onto a single
+// chain read per (network, limit) window without surfacing stale data. Mirrors
+// the server-side cache pattern in feeds-status.ts (getFeedsStatusBody).
+const ONCHAIN_STATE_CACHE_TTL_MS = 12_000;
+
+type OnchainStateBody = {
+  network: string;
+  generated_at: string;
+  neo_n3: ChainState;
+};
+
+const onchainStateCache = new Map<string, { body: OnchainStateBody; expiresAt: number }>();
 
 function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -267,9 +281,11 @@ async function fetchNeoN3State(
   }
 }
 
-export async function fetchOnchainState(limit = 12, networkOverride?: string | null) {
+async function buildOnchainState(
+  boundedLimit: number,
+  networkOverride?: string | null
+): Promise<OnchainStateBody> {
   const selected = getSelectedNetwork(networkOverride);
-  const boundedLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 200) : 12;
 
   const neoN3 = await fetchNeoN3State(
     trimString(selected.neo_n3.rpc_url),
@@ -284,4 +300,27 @@ export async function fetchOnchainState(limit = 12, networkOverride?: string | n
     generated_at: new Date().toISOString(),
     neo_n3: neoN3,
   };
+}
+
+export async function fetchOnchainState(limit = 12, networkOverride?: string | null) {
+  const boundedLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 200) : 12;
+  // Resolve the override (which may be null/empty) to its concrete network key
+  // so callers that differ only in how they spell the same network share a
+  // cache entry; the key includes both the network and the bounded limit.
+  const networkKey = getSelectedNetworkKey(networkOverride);
+  const cacheKey = `${networkKey}:${boundedLimit}`;
+
+  const now = Date.now();
+  const cached = onchainStateCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.body;
+  }
+
+  const body = await buildOnchainState(boundedLimit, networkOverride);
+  onchainStateCache.set(cacheKey, { body, expiresAt: now + ONCHAIN_STATE_CACHE_TTL_MS });
+  return body;
+}
+
+export function resetOnchainStateCache() {
+  onchainStateCache.clear();
 }

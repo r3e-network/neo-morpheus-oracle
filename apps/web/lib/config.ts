@@ -1,3 +1,4 @@
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 import { publicConfig } from './public-config';
 
@@ -17,10 +18,6 @@ const defaultNeoRpcUrl = selectedNetwork.neo_n3?.rpc_url || '';
 const defaultControlPlaneUrl =
   process.env.NODE_ENV === 'production' ? 'https://control.meshmini.app' : '';
 const defaultNitroApiUrl = selectedNetwork.nitro?.public_api_url || '';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function networkScopedEnv(baseKey: string) {
   const upper = selectedNetworkKey === 'mainnet' ? 'MAINNET' : 'TESTNET';

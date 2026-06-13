@@ -359,7 +359,15 @@ export async function persistGuardResult(guard, response) {
     }
   } catch {
     // Best-effort cache population only.
-  } finally {
-    await upstashDelete(guard.idempotency.lockKey).catch(() => {});
   }
+}
+
+// Releasing the idempotency lock must run in a finally that always executes —
+// including when the capability handler throws and the request short-circuits to
+// the worker's outer catch. Keeping this separate from persistGuardResult (which
+// only runs on the success path) prevents a thrown handler from holding the lock
+// until its TTL and blocking legitimate retries of the same idempotency key.
+export async function releaseGuardLock(guard) {
+  if (!guard?.idempotency?.lockKey) return;
+  await upstashDelete(guard.idempotency.lockKey).catch(() => {});
 }

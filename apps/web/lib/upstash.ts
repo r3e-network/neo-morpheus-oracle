@@ -1,6 +1,4 @@
-function trimString(value: string | null | undefined) {
-  return String(value || '').trim();
-}
+import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 function getUpstashConfig() {
   const baseUrl = trimString(process.env.UPSTASH_REDIS_REST_URL);

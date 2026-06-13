@@ -1,5 +1,3 @@
-'use client';
-
 import { Code2 } from 'lucide-react';
 import { BUILTIN_FUNCTIONS } from '@/lib/docs-data';
 import { NETWORKS } from '@/lib/onchain-data';
