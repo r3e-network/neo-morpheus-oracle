@@ -153,8 +153,6 @@ export type WorkflowDefinition = {
   };
 };
 
-export const RESULT_ENVELOPE_VERSION = '2026-04-tee-v1';
-
 export type ProviderConfig = {
   provider_id: BuiltinProviderId | string;
   enabled: boolean;
@@ -236,25 +234,6 @@ export type PublicRuntimeStatusSnapshot = {
     };
   };
 };
-
-export const PUBLIC_RUNTIME_DISCOVERY_LINKS: {
-  catalog: '/api/runtime/catalog';
-  workflows: '/api/workflows';
-  policies: '/api/policies';
-};
-
-export function buildPublicRuntimeCatalogSummary(
-  catalog: Record<string, unknown>
-): PublicRuntimeCatalogSummary;
-
-export function buildPublicRuntimeStatusSnapshot(input: {
-  catalog: Record<string, unknown>;
-  checkedAt?: string;
-  health: RuntimeProbeSnapshotInput;
-  info: RuntimeProbeSnapshotInput;
-}): PublicRuntimeStatusSnapshot;
-
-export function getPublicRuntimeStatusNotes(snapshot: PublicRuntimeStatusSnapshot): string[];
 
 export {
   PUBLIC_RUNTIME_DISCOVERY_LINKS,
