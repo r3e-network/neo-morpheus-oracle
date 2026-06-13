@@ -550,4 +550,61 @@ describe('processEvent delivery retry exhaustion', () => {
     assert.equal(state.neox.dead_letters[0].terminal_error, 'worker exploded upstream');
     assert.equal(state.neox.retry_queue.length, 0);
   });
+
+  it('re-enqueues a failure-finalize callback when the worker is exhausted and the finalize delivery itself fails (below the ceiling)', async () => {
+    const state = createEmptyRelayerState();
+    // Drive the primary-exhausted -> finalize -> finalize-fails -> re-enqueue arm:
+    //  1. A worker-route request (privacy_oracle) with no nitro config makes
+    //     prepareOracleFulfillment throw ("...is not configured") before any
+    //     prepared payload exists, so the catch falls through to scheduleRetry.
+    //  2. maxRetries:0 makes scheduleRetry exhaust immediately, forcing the
+    //     finalizeFailedRequest path.
+    //  3. The event is Neo X so signNeoXFulfillment signs the failure callback
+    //     offline; the only on-chain touch is fulfillNeoRequest, which we drive
+    //     through the config.hooks.fulfillNeoRequest seam to fail transiently.
+    //  4. An explicit maxCallbackRetries keeps the finalize re-enqueue below the
+    //     ceiling, so it schedules another attempt instead of dead-lettering.
+    const event = { chain: 'neox', requestId: '900', requestType: 'privacy_oracle', txHash: '' };
+    let deliveryCall = 0;
+    const config = {
+      ...baseRetryConfig,
+      maxRetries: 0,
+      maxCallbackRetries: 5,
+      nitro: { apiUrl: '' },
+      neox: {
+        chainId: 47763,
+        oracleContract: '0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2',
+        updaterPrivateKey: TEST_PK,
+      },
+      hooks: {
+        fulfillNeoRequest: async () => {
+          deliveryCall += 1;
+          throw new Error('socket hang up while delivering failure finalize');
+        },
+      },
+    };
+
+    const result = await processEvent(config, state, () => {}, silentLogger, event, {
+      attempts: 0,
+      durable_claimed: true,
+    });
+
+    // The failure-finalize delivery (and only that delivery) reached the hook.
+    assert.equal(deliveryCall, 1);
+    // Below the callback ceiling -> re-enqueued, NOT dead-lettered.
+    assert.equal(result.retry_status, 'scheduled');
+    assert.equal(result.attempts, 2);
+    assert.equal(state.neox.dead_letters.length, 0);
+    assert.equal(state.neox.retry_queue.length, 1);
+
+    const queued = state.neox.retry_queue[0];
+    assert.equal(queued.finalize_only, true);
+    assert.equal(queued.attempts, 2);
+    // last_error = the finalize-delivery failure; terminal_error = the original
+    // primary failure the failure callback is finalizing.
+    assert.equal(queued.last_error, 'socket hang up while delivering failure finalize');
+    assert.equal(queued.terminal_error, 'MORPHEUS_RUNTIME_URL or NITRO_API_URL is not configured');
+    assert.equal(state.metrics.retries_scheduled_total, 1);
+    assert.equal(state.metrics.retries_exhausted_total, 1);
+  });
 });

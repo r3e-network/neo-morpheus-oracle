@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { relayNeoN3Invocation } from '@neo-morpheus-oracle/nitro-worker/src/chain/index.js';
 import { experimental, sc, tx, u, wallet as neonWallet } from '@cityofzion/neon-js';
+import { mapWithConcurrency } from '@neo-morpheus-oracle/shared/utils';
 import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './nitro-signer.js';
 import { callNitro } from './nitro.js';
 
@@ -379,44 +380,64 @@ function buildNeoN3EventFromNotificationState(eventName, decodedState, meta = {}
   return null;
 }
 
-export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
-  if (fromBlock > toBlock) return [];
-  const out = [];
-  const targetContract = strip0x(config.neo_n3.oracleContract);
-
-  for (let height = fromBlock; height <= toBlock; height += 1) {
-    const block = await neoRpcCall(config, 'getblock', [height, 1]);
-    const transactions = Array.isArray(block?.tx) ? block.tx : [];
-    for (const transaction of transactions) {
-      const txHash = transaction.txid || transaction.hash;
-      if (!txHash) continue;
-      const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
-      const executions = Array.isArray(appLog?.executions) ? appLog.executions : [];
-      for (const execution of executions) {
-        const notifications = Array.isArray(execution?.notifications)
-          ? execution.notifications
-          : [];
-        let logIndex = 0;
-        for (const notification of notifications) {
-          const notificationIndex = logIndex;
-          logIndex += 1;
-          if (strip0x(notification.contract) !== targetContract) continue;
-          const eventName = trimString(notification.eventname);
-          if (!NEO_N3_REQUEST_EVENT_NAMES.has(eventName)) continue;
-          const state = Array.isArray(notification.state?.value) ? notification.state.value : [];
-          const decodedState = state.map((entry) => decodeNeoItem(entry, 'base64'));
-          const event = buildNeoN3EventFromNotificationState(eventName, decodedState, {
-            blockNumber: height,
-            txHash,
-            logIndex: notificationIndex,
-          });
-          if (event) out.push(event);
-        }
+// Scan a single block's transactions for oracle request notifications. Keeps
+// the per-tx getapplicationlog read (the only source of execution
+// notifications on Neo N3 — getblock verbose returns headers + tx bodies, not
+// notifications) and preserves the in-block ordering (tx order, then execution
+// order, then notification index) so the returned slice matches the sequential
+// scan exactly.
+async function scanNeoN3OracleRequestBlock(config, height, targetContract) {
+  const events = [];
+  const block = await neoRpcCall(config, 'getblock', [height, 1]);
+  const transactions = Array.isArray(block?.tx) ? block.tx : [];
+  for (const transaction of transactions) {
+    const txHash = transaction.txid || transaction.hash;
+    if (!txHash) continue;
+    const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
+    const executions = Array.isArray(appLog?.executions) ? appLog.executions : [];
+    for (const execution of executions) {
+      const notifications = Array.isArray(execution?.notifications) ? execution.notifications : [];
+      let logIndex = 0;
+      for (const notification of notifications) {
+        const notificationIndex = logIndex;
+        logIndex += 1;
+        if (strip0x(notification.contract) !== targetContract) continue;
+        const eventName = trimString(notification.eventname);
+        if (!NEO_N3_REQUEST_EVENT_NAMES.has(eventName)) continue;
+        const state = Array.isArray(notification.state?.value) ? notification.state.value : [];
+        const decodedState = state.map((entry) => decodeNeoItem(entry, 'base64'));
+        const event = buildNeoN3EventFromNotificationState(eventName, decodedState, {
+          blockNumber: height,
+          txHash,
+          logIndex: notificationIndex,
+        });
+        if (event) events.push(event);
       }
     }
   }
+  return events;
+}
 
-  return out;
+export async function scanNeoN3OracleRequests(config, fromBlock, toBlock) {
+  if (fromBlock > toBlock) return [];
+  const targetContract = strip0x(config.neo_n3.oracleContract);
+
+  // Batch the per-block scans under bounded concurrency. Results are
+  // index-ordered (ascending block height) and each block keeps its internal
+  // ordering, so flattening reproduces the sequential scan exactly. Any FAULT
+  // or transport error still rejects the whole scan (fail-fast) so the block
+  // cursor never advances past an unscanned height.
+  const heights = [];
+  for (let height = fromBlock; height <= toBlock; height += 1) {
+    heights.push(height);
+  }
+  const perBlockEvents = await mapWithConcurrency(
+    heights,
+    resolveScanConcurrency(config),
+    (height) => scanNeoN3OracleRequestBlock(config, height, targetContract)
+  );
+
+  return perBlockEvents.flat();
 }
 
 export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlock) {
@@ -473,34 +494,6 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
       });
     })
     .filter((event) => event && asEventString(event.requestType));
-}
-
-// Bounded-concurrency map preserving input order. Mirrors the engine helper in
-// request-processor.js, plus a fail-fast flag: once any worker throws, idle
-// workers stop pulling new items so a faulted scan does not keep issuing RPC
-// calls for the rest of the id range (the rejection still aborts the tick).
-async function mapWithConcurrency(items, limit, worker) {
-  const results = new Array(items.length);
-  let cursor = 0;
-  let failed = false;
-
-  async function runWorker() {
-    while (!failed) {
-      const index = cursor;
-      cursor += 1;
-      if (index >= items.length) return;
-      try {
-        results[index] = await worker(items[index], index);
-      } catch (error) {
-        failed = true;
-        throw error;
-      }
-    }
-  }
-
-  const width = Math.max(Math.min(limit, items.length), 1);
-  await Promise.all(Array.from({ length: width }, () => runWorker()));
-  return results;
 }
 
 function resolveScanConcurrency(config) {

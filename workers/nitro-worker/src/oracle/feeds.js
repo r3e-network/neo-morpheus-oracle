@@ -1,14 +1,10 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   env,
   envForNetwork,
   json,
   jsonError,
-  normalizeMorpheusNetwork,
   parseDurationMs,
-  resolvePayloadNetwork,
   trimString,
 } from '../platform/core.js';
 import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
@@ -19,7 +15,6 @@ import {
   isConfiguredHash160,
   loadNeoN3Context,
   normalizeNeoHash160,
-  relayNeoN3Invocation,
 } from '../chain/index.js';
 import {
   buildProviderRequest,
@@ -30,7 +25,6 @@ import {
 import {
   applyFeedProviderDefaults,
   getDefaultFeedSymbols,
-  getFeedPairConfig,
   getFeedDisplaySymbol,
   normalizeFeedPairSymbol,
   getFeedProvidersForPair,
@@ -40,238 +34,68 @@ import {
   getFeedUnitLabel,
   getSourceSetIdForProvider,
 } from './feed-registry.js';
-const DEFAULT_FEED_STATE_PATH = '/data/morpheus-feed-state.json';
-const MAINNET_FEED_CHANGE_THRESHOLD_BPS = 10;
-const MAINNET_FEED_MIN_UPDATE_INTERVAL_MS = 60_000;
-const MAINNET_FEED_STALE_AFTER_MS = 300_000;
-const DEFAULT_FEED_PROVIDER_TIMEOUT_MS = 8_000;
-const MAX_FEED_PROVIDER_TIMEOUT_MS = 10_000;
-const DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS = 8_000;
-const FEED_PRICE_DECIMALS = 6;
+import {
+  FEED_PRICE_DECIMALS,
+  DEFAULT_FEED_PROVIDER_TIMEOUT_MS,
+  MAX_FEED_PROVIDER_TIMEOUT_MS,
+  isEnabled,
+  normalizeBooleanLike,
+  hasOwnPayloadKey,
+  resolveFeedNetwork,
+  resolveFeedScope,
+} from './feeds/shared.js';
+import {
+  decimalToIntegerString,
+  integerToDecimalString,
+  multiplyDecimalString,
+  transformDecimalString,
+} from './feeds/decimal.js';
+import {
+  fetchLatestFeedSnapshots,
+  persistFeedSnapshots,
+  loadFeedState,
+  saveFeedState,
+  resetFeedStateCache,
+} from './feeds/feed-state.js';
+import { fetchJsonRpc, loadOnchainFeedRecords } from './feeds/neo-stack-decode.js';
+import {
+  buildSyncPolicy,
+  resolvePairThresholdBps,
+  resolveFeedSubmissionWait,
+  resolveFeedSubmissionWaitTimeoutMs,
+  resolveFeedSubmissionIssue,
+  shouldLoadOnchainFeedBaseline,
+  shouldSubmitFeed,
+} from './feeds/sync-policy.js';
+import {
+  buildNeoN3RelaySigningPayload,
+  isMissingNeoN3BatchUpdateMethod,
+  isRecoverableNeoN3BatchUpdateFailure,
+  getRecoverableNeoN3BatchUpdateFailureReason,
+  submitQuotesToN3WithFallback,
+} from './feeds/feed-submit.js';
 
-const feedStateCache = new Map();
+// Re-export the converters so consumers (oracle/index.js) and tests keep
+// importing them from this module path unchanged.
+export {
+  decimalToIntegerString,
+  integerToDecimalString,
+  multiplyDecimalString,
+  transformDecimalString,
+};
+
 const oracleFeedBackgroundTasks = new Set();
-
-function resolveFeedNetwork(input = {}) {
-  return resolvePayloadNetwork(
-    input,
-    normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
-  );
-}
-
-function resolveFeedTargetChain(_value = 'neo_n3') {
-  return 'neo_n3';
-}
-
-function resolveFeedScope(input = {}, fallbackTargetChain = 'neo_n3') {
-  const source = input && typeof input === 'object' ? input : {};
-  return {
-    network: resolveFeedNetwork(source),
-    targetChain: resolveFeedTargetChain(
-      source.target_chain ?? source.targetChain ?? fallbackTargetChain
-    ),
-  };
-}
-
-function getSupabaseRestConfig() {
-  const baseUrl = trimString(
-    env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL') || env('morpheus_SUPABASE_URL') || ''
-  );
-  const apiKey = trimString(
-    env('SUPABASE_SECRET_KEY') ||
-      env('morpheus_SUPABASE_SECRET_KEY') ||
-      env('SUPABASE_SERVICE_ROLE_KEY') ||
-      env('morpheus_SUPABASE_SERVICE_ROLE_KEY') ||
-      env('SUPABASE_SERVICE_KEY') ||
-      ''
-  );
-  if (!baseUrl || !apiKey) return null;
-  return {
-    restUrl: `${baseUrl.replace(/\/$/, '')}/rest/v1`,
-    apiKey,
-  };
-}
-
-function isEnabled(rawValue, fallback = true) {
-  const normalized = trimString(rawValue).toLowerCase();
-  if (!normalized) return fallback;
-  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
-}
-
-async function fetchLatestFeedSnapshots(limit = 250, scope = {}) {
-  const restConfig = getSupabaseRestConfig();
-  if (!restConfig) return [];
-  const resolvedScope = resolveFeedScope(scope);
-  const url = new URL(`${restConfig.restUrl}/morpheus_feed_snapshots`);
-  url.searchParams.set(
-    'select',
-    'symbol,target_chain,price,payload,attestation_hash,created_at,network'
-  );
-  url.searchParams.set('network', `eq.${resolvedScope.network}`);
-  url.searchParams.set('target_chain', `eq.${resolvedScope.targetChain}`);
-  url.searchParams.set('order', 'created_at.desc');
-  url.searchParams.set('limit', String(Math.max(limit, 1)));
-  const response = await fetch(url.toString(), {
-    headers: {
-      apikey: restConfig.apiKey,
-      authorization: `Bearer ${restConfig.apiKey}`,
-      accept: 'application/json',
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) {
-    throw new Error(
-      `supabase morpheus_feed_snapshots GET failed: ${response.status} ${await response.text()}`
-    );
-  }
-  const text = await response.text();
-  if (!text) return [];
-  try {
-    return JSON.parse(text);
-  } catch {
-    return [];
-  }
-}
 
 export function __fetchLatestFeedSnapshotsForTests(limit, scope) {
   return fetchLatestFeedSnapshots(limit, scope);
-}
-
-async function persistFeedSnapshots(rows) {
-  const restConfig = getSupabaseRestConfig();
-  if (!restConfig || !Array.isArray(rows) || rows.length === 0) return false;
-  const response = await fetch(`${restConfig.restUrl}/morpheus_feed_snapshots`, {
-    method: 'POST',
-    headers: {
-      apikey: restConfig.apiKey,
-      authorization: `Bearer ${restConfig.apiKey}`,
-      accept: 'application/json',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify(rows),
-    signal: AbortSignal.timeout(15_000),
-  });
-  if (!response.ok) {
-    throw new Error(
-      `supabase morpheus_feed_snapshots POST failed: ${response.status} ${await response.text()}`
-    );
-  }
-  return true;
 }
 
 export function __persistFeedSnapshotsForTests(rows) {
   return persistFeedSnapshots(rows);
 }
 
-function applySnapshotRowsToFeedState(state, rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return state;
-  const seenStoragePairs = new Set();
-  for (const row of rows) {
-    const payload = row?.payload && typeof row.payload === 'object' ? row.payload : {};
-    const storagePair = trimString(payload.storage_pair || row?.symbol || '');
-    if (!storagePair || seenStoragePairs.has(storagePair)) continue;
-    seenStoragePairs.add(storagePair);
-    state.records[storagePair] = {
-      ...(state.records[storagePair] || {}),
-      ...payload,
-      storage_pair: storagePair,
-      pair: trimString(payload.pair || row?.symbol || storagePair),
-      price:
-        payload.price !== undefined && payload.price !== null && trimString(payload.price) !== ''
-          ? payload.price
-          : (row?.price ?? null),
-      attestation_hash: trimString(payload.attestation_hash || row?.attestation_hash || ''),
-      snapshot_created_at: trimString(row?.created_at || ''),
-    };
-  }
-  return state;
-}
-
-function getFeedStatePathBase() {
-  return trimString(env('MORPHEUS_FEED_STATE_PATH')) || DEFAULT_FEED_STATE_PATH;
-}
-
-function buildScopedFeedStatePath(basePath, network, targetChain) {
-  const ext = path.extname(basePath);
-  if (!ext) return `${basePath}.${network}.${targetChain}`;
-  return `${basePath.slice(0, -ext.length)}.${network}.${targetChain}${ext}`;
-}
-
-function getFeedStatePath(scope = {}) {
-  const resolvedScope = resolveFeedScope(scope);
-  return buildScopedFeedStatePath(
-    getFeedStatePathBase(),
-    resolvedScope.network,
-    resolvedScope.targetChain
-  );
-}
-
-function normalizeFeedState(state) {
-  const normalized = state && typeof state === 'object' ? state : {};
-  if (!normalized.records || typeof normalized.records !== 'object') {
-    normalized.records = {};
-  }
-  return normalized;
-}
-
-async function readFeedStateFile(filePath) {
-  try {
-    const raw = await fs.readFile(filePath, 'utf8');
-    return normalizeFeedState(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
-async function loadFeedState(scope = {}) {
-  const resolvedScope = resolveFeedScope(scope);
-  const statePath = getFeedStatePath(resolvedScope);
-  if (feedStateCache.has(statePath)) return feedStateCache.get(statePath);
-
-  let state = await readFeedStateFile(statePath);
-  if (!state) {
-    const legacyPath = getFeedStatePathBase();
-    if (legacyPath != statePath) {
-      state = await readFeedStateFile(legacyPath);
-    }
-  }
-  state = normalizeFeedState(state);
-
-  if (
-    isEnabled(env('MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED'), true) &&
-    Object.keys(state.records).length === 0
-  ) {
-    try {
-      const rows = await fetchLatestFeedSnapshots(250, resolvedScope);
-      state = applySnapshotRowsToFeedState(state, rows);
-    } catch {
-      // keep pricefeed startup independent from Supabase health
-    }
-  }
-
-  feedStateCache.set(statePath, state);
-  return state;
-}
-
-async function saveFeedState(state, scope = {}) {
-  const resolvedScope = resolveFeedScope(scope);
-  const statePath = getFeedStatePath(resolvedScope);
-  feedStateCache.set(statePath, state);
-  try {
-    await fs.mkdir(path.dirname(statePath), { recursive: true });
-    await fs.writeFile(
-      statePath,
-      `${JSON.stringify(state, null, 2)}
-`,
-      'utf8'
-    );
-  } catch {
-    // best effort only; feed sync still works without persistence
-  }
-}
-
 export function __resetFeedStateForTests() {
-  feedStateCache.clear();
+  resetFeedStateCache();
 }
 
 export async function __loadFeedStateForTests(scope = {}) {
@@ -305,71 +129,6 @@ export function normalizePairSymbol(rawSymbol) {
   if (raw.endsWith('USDT')) return normalizeFeedPairSymbol(`${raw.slice(0, -4)}-USD`);
   if (raw.endsWith('USD')) return normalizeFeedPairSymbol(`${raw.slice(0, -3)}-USD`);
   return normalizeFeedPairSymbol(`${raw}-USD`);
-}
-
-export function decimalToIntegerString(value, decimals = FEED_PRICE_DECIMALS) {
-  const raw = trimString(value);
-  if (!raw) throw new Error('decimal value required');
-  const sign = raw.startsWith('-') ? -1n : 1n;
-  const normalized = raw.replace(/^[+-]/, '');
-  if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error(`invalid decimal value: ${value}`);
-  const [wholePart, fractionPart = ''] = normalized.split('.');
-  const whole = BigInt(wholePart || '0');
-  const fraction = (fractionPart + '0'.repeat(decimals)).slice(0, decimals);
-  const fractionValue = BigInt(fraction || '0');
-  const scale = 10n ** BigInt(decimals);
-  return (whole * scale + fractionValue) * sign + '';
-}
-
-export function integerToDecimalString(value, decimals = FEED_PRICE_DECIMALS) {
-  const raw = String(value ?? '0');
-  const negative = raw.startsWith('-');
-  const digits = raw.replace(/^[+-]/, '') || '0';
-  const padded = digits.padStart(decimals + 1, '0');
-  const whole = padded.slice(0, -decimals) || '0';
-  const fraction = padded.slice(-decimals);
-  return `${negative ? '-' : ''}${whole}.${fraction}`;
-}
-
-export function multiplyDecimalString(value, multiplier = 1) {
-  const raw = trimString(value);
-  const factor = Number(multiplier);
-  if (!raw) throw new Error('decimal value required');
-  if (!Number.isFinite(factor) || factor <= 0) throw new Error(`invalid multiplier: ${multiplier}`);
-  if (factor === 1) return raw;
-
-  const sign = raw.startsWith('-') ? '-' : '';
-  const normalized = raw.replace(/^[+-]/, '');
-  if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error(`invalid decimal value: ${value}`);
-
-  const [wholePart, fractionPart = ''] = normalized.split('.');
-  const base = BigInt(`${wholePart}${fractionPart}` || '0');
-  const scaled = base * BigInt(Math.trunc(factor));
-  const digits = scaled.toString().padStart(fractionPart.length + 1, '0');
-  const whole = fractionPart.length > 0 ? digits.slice(0, -fractionPart.length) : digits;
-  const fraction =
-    fractionPart.length > 0 ? digits.slice(-fractionPart.length).replace(/0+$/, '') : '';
-  return `${sign}${fraction ? `${whole}.${fraction}` : whole}`;
-}
-
-function normalizeDecimalNumberString(value, precision = 12) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) throw new Error(`invalid numeric value: ${value}`);
-  return numeric.toFixed(precision).replace(/\.?0+$/, '');
-}
-
-export function transformDecimalString(value, { transform = '', multiplier = 1 } = {}) {
-  let numeric = Number(trimString(value));
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    throw new Error(`invalid decimal value: ${value}`);
-  }
-  if (transform === 'inverse') {
-    numeric = 1 / numeric;
-  }
-  if (Number(multiplier) !== 1) {
-    numeric *= Number(multiplier);
-  }
-  return normalizeDecimalNumberString(numeric);
 }
 
 function buildFeedSnapshotRows(targetChain, syncResults, state, batchTx, scope = {}) {
@@ -478,63 +237,16 @@ function extractUpstreamTimestamp(response) {
   return new Date().toISOString();
 }
 
-function resolvePairThresholdBps(storagePair, payload = {}, _targetChain = 'neo_n3') {
-  const config = getFeedPairConfig(storagePair);
-  const raw =
-    config?.threshold_bps ??
-    config?.feed_change_threshold_bps ??
-    payload?.pair_feed_change_threshold_bps ??
-    payload?.feed_change_threshold_bps_by_pair?.[storagePair] ??
-    null;
-  if (raw === '' || raw === undefined || raw === null) return null;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed)) return null;
-  return Math.max(parsed, 0);
+export function __resolvePairThresholdBpsForTests(
+  storagePair,
+  payload = {},
+  targetChain = 'neo_n3'
+) {
+  return resolvePairThresholdBps(storagePair, payload, targetChain);
 }
 
-function buildSyncPolicy(targetChain, payload = {}) {
-  const network = resolveFeedScope(payload, targetChain).network;
-  const thresholdCandidate =
-    payload.feed_change_threshold_bps ??
-    envForNetwork(network, 'MORPHEUS_FEED_CHANGE_THRESHOLD_BPS');
-  const intervalCandidate =
-    payload.feed_min_update_interval_ms ??
-    envForNetwork(network, 'MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS');
-  const staleCandidate =
-    payload.feed_stale_after_ms ?? envForNetwork(network, 'MORPHEUS_FEED_STALE_AFTER_MS');
-  const thresholdSource =
-    thresholdCandidate === '' || thresholdCandidate === undefined || thresholdCandidate === null
-      ? `${MAINNET_FEED_CHANGE_THRESHOLD_BPS}`
-      : thresholdCandidate;
-  const intervalSource =
-    intervalCandidate === '' || intervalCandidate === undefined || intervalCandidate === null
-      ? `${MAINNET_FEED_MIN_UPDATE_INTERVAL_MS}ms`
-      : intervalCandidate;
-  const staleSource =
-    staleCandidate === '' || staleCandidate === undefined || staleCandidate === null
-      ? `${MAINNET_FEED_STALE_AFTER_MS}ms`
-      : staleCandidate;
-  const thresholdBps = Number(thresholdSource || 0);
-  const minUpdateIntervalMs = parseDurationMs(intervalSource, MAINNET_FEED_MIN_UPDATE_INTERVAL_MS);
-  const staleAfterMs = parseDurationMs(staleSource, MAINNET_FEED_STALE_AFTER_MS);
-  return {
-    thresholdBps: Math.max(Number.isFinite(thresholdBps) ? thresholdBps : 0, 0),
-    minUpdateIntervalMs: Math.max(minUpdateIntervalMs, 0),
-    staleAfterMs: Math.max(staleAfterMs, 0),
-  };
-}
-
-function normalizeBooleanLike(value, fallback = false) {
-  if (value === undefined || value === null || value === '') return fallback;
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value !== 0;
-  const normalized = trimString(value).toLowerCase();
-  if (!normalized) return fallback;
-  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
-}
-
-function hasOwnPayloadKey(payload = {}, key) {
-  return Object.prototype.hasOwnProperty.call(payload, key);
+export function __buildSyncPolicyForTests(targetChain, payload = {}) {
+  return buildSyncPolicy(targetChain, payload);
 }
 
 function shouldFastAckOracleFeed(payload = {}) {
@@ -594,303 +306,6 @@ function scheduleOracleFeedBackgroundTask(payload = {}) {
     });
   oracleFeedBackgroundTasks.add(task);
   return task;
-}
-
-function resolveFeedSubmissionWait(payload = {}) {
-  return normalizeBooleanLike(payload.wait, false);
-}
-
-function resolveFeedSubmissionWaitTimeoutMs(payload = {}) {
-  const network = resolveFeedNetwork(payload);
-  const source =
-    payload.timeout_ms ??
-    payload.timeoutMs ??
-    payload.feed_submission_wait_timeout_ms ??
-    payload.feedSubmissionWaitTimeoutMs ??
-    envForNetwork(network, 'MORPHEUS_FEED_SUBMISSION_WAIT_TIMEOUT_MS');
-  return Math.min(
-    parseDurationMs(source, DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS),
-    DEFAULT_FEED_SUBMISSION_WAIT_TIMEOUT_MS
-  );
-}
-
-function resolveFeedSubmissionIssue(
-  targetChain,
-  { hasNeoN3DataFeedTarget = false, neoContext = null } = {}
-) {
-  if (targetChain === 'neo_n3') {
-    if (!hasNeoN3DataFeedTarget) return 'Neo N3 datafeed contract hash is not configured';
-    if (!neoContext) return 'Neo N3 signing key is not configured';
-    if (!trimString(neoContext.rpcUrl)) return 'NEO_RPC_URL is required for Neo N3 feed submission';
-    return '';
-  }
-
-  return '';
-}
-
-function shouldLoadOnchainFeedBaseline(payload = {}, state = {}) {
-  const hasLocalRecords = Object.keys(state.records || {}).length > 0;
-  const explicitRefresh = payload.refresh_onchain_baseline ?? payload.refreshOnchainBaseline;
-  if (explicitRefresh !== undefined && explicitRefresh !== null && explicitRefresh !== '') {
-    return normalizeBooleanLike(explicitRefresh, false);
-  }
-  return Boolean(payload.force) || !hasLocalRecords;
-}
-
-export function __resolvePairThresholdBpsForTests(
-  storagePair,
-  payload = {},
-  targetChain = 'neo_n3'
-) {
-  return resolvePairThresholdBps(storagePair, payload, targetChain);
-}
-
-export function __buildSyncPolicyForTests(targetChain, payload = {}) {
-  return buildSyncPolicy(targetChain, payload);
-}
-
-function computeChangeBps(previousPrice, nextPrice) {
-  const previous = Number(previousPrice);
-  const next = Number(nextPrice);
-  if (!Number.isFinite(previous) || !Number.isFinite(next) || previous <= 0)
-    return Number.POSITIVE_INFINITY;
-  return Math.abs((next - previous) / previous) * 10_000;
-}
-
-function normalizeTimestampMs(value) {
-  if (value === undefined || value === null || value === '') return 0;
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value > 10_000_000_000 ? value : value * 1000;
-  }
-  const raw = trimString(value);
-  if (!raw) return 0;
-  const numeric = Number(raw);
-  if (Number.isFinite(numeric)) {
-    return numeric > 10_000_000_000 ? numeric : numeric * 1000;
-  }
-  const parsed = Date.parse(raw);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function resolvePreviousSubmittedAtMs(previousRecord = {}) {
-  const candidates = [
-    previousRecord.last_submitted_at_ms,
-    previousRecord.submitted_at_ms,
-    previousRecord.timestamp_ms,
-    previousRecord.timestamp,
-    previousRecord.submitted_at,
-  ];
-  for (const candidate of candidates) {
-    const timestampMs = normalizeTimestampMs(candidate);
-    if (timestampMs > 0) return timestampMs;
-  }
-  return 0;
-}
-
-function isPrintableAscii(value) {
-  return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(value);
-}
-
-function decodeNeoByteString(bytes) {
-  const text = bytes.toString('utf8');
-  const reversedText = Buffer.from(bytes).reverse().toString('utf8');
-  const knownPairPrefixes = ['TWELVEDATA:', 'BINANCE-SPOT:', 'COINBASE-SPOT:'];
-  if (
-    isPrintableAscii(reversedText) &&
-    knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))
-  ) {
-    return reversedText;
-  }
-  if (isPrintableAscii(text)) return text;
-  if (isPrintableAscii(reversedText) && /^[A-Z0-9:_-]+$/.test(reversedText)) {
-    return reversedText;
-  }
-  return `0x${bytes.toString('hex')}`;
-}
-
-function parseNeoStackItem(item) {
-  if (!item || typeof item !== 'object') return null;
-  const type = trimString(item.type).toLowerCase();
-  switch (type) {
-    case 'array':
-    case 'struct':
-      return Array.isArray(item.value) ? item.value.map((entry) => parseNeoStackItem(entry)) : [];
-    case 'string':
-    case 'hash160':
-    case 'hash256':
-      return String(item.value ?? '');
-    case 'integer':
-      return String(item.value ?? '0');
-    case 'boolean':
-      return Boolean(item.value);
-    case 'bytestring':
-    case 'bytearray': {
-      const raw = trimString(item.value);
-      if (!raw) return '';
-      const bytes = Buffer.from(raw, 'base64');
-      const decoded = decodeNeoByteString(bytes);
-      if (bytes.length === 20 && typeof decoded === 'string' && decoded.startsWith('0x')) {
-        return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
-      }
-      return decoded;
-    }
-    default:
-      return item.value ?? null;
-  }
-}
-
-async function fetchJsonRpc(url, body) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15_000),
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(
-      trimString(payload?.error?.message) ||
-        trimString(payload?.message) ||
-        `rpc request failed with status ${response.status}`
-    );
-  }
-  if (payload?.error?.message) {
-    throw new Error(payload.error.message);
-  }
-  return payload?.result;
-}
-
-export function __fetchJsonRpcForTests(url, body) {
-  return fetchJsonRpc(url, body);
-}
-
-async function fetchNeoN3FeedRecords(rpcUrl, contractHash) {
-  if (!trimString(rpcUrl) || !trimString(contractHash)) return {};
-  const result = await fetchJsonRpc(rpcUrl, {
-    jsonrpc: '2.0',
-    id: 1,
-    method: 'invokefunction',
-    params: [contractHash, 'getAllFeedRecords', []],
-  });
-  if (String(result?.state || '').toUpperCase() === 'FAULT') {
-    throw new Error(trimString(result?.exception) || 'getAllFeedRecords faulted');
-  }
-  const rawRecords = parseNeoStackItem(result?.stack?.[0]);
-  if (!Array.isArray(rawRecords)) return {};
-  return Object.fromEntries(
-    rawRecords
-      .filter((entry) => Array.isArray(entry) && entry.length >= 6)
-      .map((entry) => {
-        const storagePair = trimString(entry[0]);
-        const priceUnits = String(entry[2] ?? '0');
-        return [
-          storagePair,
-          {
-            storage_pair: storagePair,
-            pair: storagePair.includes(':')
-              ? storagePair.split(':').slice(1).join(':')
-              : storagePair,
-            round_id: String(entry[1] ?? '0'),
-            price_units: priceUnits,
-            price: integerToDecimalString(priceUnits, FEED_PRICE_DECIMALS),
-            timestamp: String(entry[3] ?? '0'),
-            attestation_hash: trimString(entry[4]),
-            source_set_id: String(entry[5] ?? '0'),
-            price_scale_decimals: FEED_PRICE_DECIMALS,
-          },
-        ];
-      })
-  );
-}
-
-async function loadOnchainFeedRecords(
-  targetChain,
-  { neoContext = null, dataFeedHash = null } = {}
-) {
-  try {
-    if (targetChain === 'neo_n3') {
-      return {
-        records: await fetchNeoN3FeedRecords(neoContext?.rpcUrl, dataFeedHash),
-        error: null,
-      };
-    }
-  } catch (error) {
-    return {
-      records: {},
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-  return { records: {}, error: null };
-}
-
-function shouldSubmitFeed(storageKey, quote, previousRecord, policy, force = false) {
-  if (force) return { allow: true, reason: 'forced' };
-  if (!previousRecord) return { allow: true, reason: 'first-observation' };
-
-  const now = Date.now();
-  const lastSubmittedAt = normalizeTimestampMs(previousRecord.last_submitted_at_ms);
-  if (
-    policy.minUpdateIntervalMs > 0 &&
-    lastSubmittedAt > 0 &&
-    now - lastSubmittedAt < policy.minUpdateIntervalMs
-  ) {
-    return { allow: false, reason: 'min-update-interval', storage_key: storageKey };
-  }
-
-  const previousPriceUnits = String(
-    previousRecord.price_units ??
-      previousRecord.price_cents ??
-      decimalToIntegerString(previousRecord.price ?? '0', quote.decimals)
-  );
-  const nextPriceUnits = decimalToIntegerString(quote.price, quote.decimals);
-  const changeBps = computeChangeBps(previousPriceUnits, nextPriceUnits);
-  const previousSubmittedAtMs = resolvePreviousSubmittedAtMs(previousRecord);
-  const staleAgeMs = previousSubmittedAtMs > 0 ? now - previousSubmittedAtMs : 0;
-  if (policy.staleAfterMs > 0 && staleAgeMs >= policy.staleAfterMs) {
-    return {
-      allow: true,
-      reason: 'stale-refresh',
-      stale_age_ms: staleAgeMs,
-      stale_after_ms: policy.staleAfterMs,
-      change_bps: changeBps,
-      comparison_basis: 'current-chain-price',
-      current_chain_price_units: previousPriceUnits,
-      candidate_price_units: nextPriceUnits,
-      storage_key: storageKey,
-    };
-  }
-
-  if (policy.thresholdBps > 0 && changeBps < policy.thresholdBps) {
-    return {
-      allow: false,
-      reason: 'price-change-below-threshold',
-      change_bps: changeBps,
-      comparison_basis: 'current-chain-price',
-      current_chain_price_units: previousPriceUnits,
-      candidate_price_units: nextPriceUnits,
-      storage_key: storageKey,
-    };
-  }
-
-  return {
-    allow: true,
-    reason: 'threshold-met',
-    change_bps: changeBps,
-    comparison_basis: 'current-chain-price',
-    current_chain_price_units: previousPriceUnits,
-    candidate_price_units: nextPriceUnits,
-    storage_key: storageKey,
-  };
-}
-
-export function __shouldSubmitFeedForTests(
-  storageKey,
-  quote,
-  previousRecord,
-  policy,
-  force = false
-) {
-  return shouldSubmitFeed(storageKey, quote, previousRecord, policy, force);
 }
 
 async function resolveQuoteForProvider(symbol, options, provider) {
@@ -1033,15 +448,6 @@ function buildRoundId(previousRecord) {
   return String(Number(previousRecord.round_id) + 1);
 }
 
-function buildNeoN3RelaySigningPayload(payload = {}) {
-  const signingKey = trimString(payload.private_key || payload.signing_key);
-  const wif = trimString(payload.wif);
-  return {
-    ...(signingKey ? { private_key: signingKey } : {}),
-    ...(wif ? { wif } : {}),
-  };
-}
-
 export function __buildNeoN3RelaySigningPayloadForTests(payload = {}) {
   return buildNeoN3RelaySigningPayload(payload);
 }
@@ -1064,127 +470,18 @@ export function __shouldLoadOnchainFeedBaselineForTests(payload = {}, state = {}
   return shouldLoadOnchainFeedBaseline(payload, state);
 }
 
-async function submitQuoteToN3(
-  dataFeedHash,
-  neoContext,
-  payload,
+export function __shouldSubmitFeedForTests(
+  storageKey,
   quote,
-  storagePair,
-  roundId,
-  sourceSetId
+  previousRecord,
+  policy,
+  force = false
 ) {
-  const invokeResult = await relayNeoN3Invocation({
-    request_id: trimString(payload.request_id) || `pricefeed:${storagePair}:${Date.now()}`,
-    network: payload.network,
-    contract_hash: dataFeedHash,
-    method: 'updateFeed',
-    params: [
-      { type: 'String', value: storagePair },
-      { type: 'Integer', value: roundId },
-      { type: 'Integer', value: decimalToIntegerString(quote.price, quote.decimals) },
-      // Use provider's observation timestamp, not local clock
-      {
-        type: 'Integer',
-        value: String(
-          (() => {
-            const parsed = Date.parse(quote.timestamp);
-            return Number.isFinite(parsed)
-              ? Math.floor(parsed / 1000)
-              : Math.floor(Date.now() / 1000);
-          })()
-        ),
-      },
-      { type: 'ByteArray', value: quote.attestation_hash },
-      { type: 'Integer', value: String(sourceSetId) },
-    ],
-    wait: resolveFeedSubmissionWait(payload),
-    timeout_ms: resolveFeedSubmissionWaitTimeoutMs(payload),
-    rpc_url: neoContext.rpcUrl,
-    network_magic: neoContext.networkMagic,
-    ...buildNeoN3RelaySigningPayload(payload),
-  });
-  if (invokeResult.status >= 400) {
-    throw new Error(invokeResult.body?.error || 'Neo N3 feed submit failed');
-  }
-  return invokeResult.body;
+  return shouldSubmitFeed(storageKey, quote, previousRecord, policy, force);
 }
 
-async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
-  const invokeResult = await relayNeoN3Invocation({
-    request_id: trimString(payload.request_id) || `pricefeed:batch:${Date.now()}`,
-    network: payload.network,
-    contract_hash: dataFeedHash,
-    method: 'updateFeeds',
-    params: [
-      {
-        type: 'Array',
-        value: updates.map((entry) => ({ type: 'String', value: entry.storagePair })),
-      },
-      { type: 'Array', value: updates.map((entry) => ({ type: 'Integer', value: entry.roundId })) },
-      {
-        type: 'Array',
-        value: updates.map((entry) => ({
-          type: 'Integer',
-          value: decimalToIntegerString(entry.quote.price, entry.quote.decimals),
-        })),
-      },
-      {
-        type: 'Array',
-        value: updates.map((entry) => ({ type: 'Integer', value: String(entry.timestampSec) })),
-      },
-      {
-        type: 'Array',
-        value: updates.map((entry) => ({ type: 'ByteArray', value: entry.quote.attestation_hash })),
-      },
-      {
-        type: 'Array',
-        value: updates.map((entry) => ({ type: 'Integer', value: String(entry.sourceSetId) })),
-      },
-    ],
-    wait: resolveFeedSubmissionWait(payload),
-    timeout_ms: resolveFeedSubmissionWaitTimeoutMs(payload),
-    rpc_url: neoContext.rpcUrl,
-    network_magic: neoContext.networkMagic,
-    ...buildNeoN3RelaySigningPayload(payload),
-  });
-  if (invokeResult.status >= 400) {
-    throw new Error(invokeResult.body?.error || 'Neo N3 batch feed submit failed');
-  }
-  return invokeResult.body;
-}
-
-function toNeoN3BatchUpdateFailureMessage(error) {
-  return trimString(error instanceof Error ? error.message : String(error)).toLowerCase();
-}
-
-function isMissingNeoN3BatchUpdateMethod(error) {
-  const message = toNeoN3BatchUpdateFailureMessage(error);
-  if (!message) return false;
-  return (
-    message.includes('method not found: updatefeeds/6') ||
-    /method\s+["']?updatefeeds["']?\s+with\s+6\s+parameter\(s\)\s+doesn['’]?t\s+exist/.test(
-      message
-    ) ||
-    /method\s+["']?updatefeeds["']?.*doesn['’]?t\s+exist/.test(message)
-  );
-}
-
-function isUnauthorizedNeoN3BatchUpdate(error) {
-  const message = toNeoN3BatchUpdateFailureMessage(error);
-  if (!message) return false;
-  return (
-    message.includes('abortmsg is executed. reason: unauthorized') || message === 'unauthorized'
-  );
-}
-
-function getRecoverableNeoN3BatchUpdateFailureReason(error) {
-  if (isMissingNeoN3BatchUpdateMethod(error)) return 'neo_n3_updatefeeds_missing';
-  if (isUnauthorizedNeoN3BatchUpdate(error)) return 'neo_n3_updatefeeds_unauthorized';
-  return null;
-}
-
-function isRecoverableNeoN3BatchUpdateFailure(error) {
-  return Boolean(getRecoverableNeoN3BatchUpdateFailureReason(error));
+export function __fetchJsonRpcForTests(url, body) {
+  return fetchJsonRpc(url, body);
 }
 
 export function __isMissingNeoN3BatchUpdateMethodForTests(error) {
@@ -1197,40 +494,6 @@ export function __isRecoverableNeoN3BatchUpdateFailureForTests(error) {
 
 export function __getRecoverableNeoN3BatchUpdateFailureReasonForTests(error) {
   return getRecoverableNeoN3BatchUpdateFailureReason(error);
-}
-
-async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, payload, updates) {
-  try {
-    return await submitQuotesToN3(dataFeedHash, neoContext, payload, updates);
-  } catch (error) {
-    const fallbackReason = getRecoverableNeoN3BatchUpdateFailureReason(error);
-    if (!fallbackReason) {
-      throw error;
-    }
-
-    const txs = [];
-    for (const entry of updates) {
-      const tx = await submitQuoteToN3(
-        dataFeedHash,
-        neoContext,
-        payload,
-        entry.quote,
-        entry.storagePair,
-        entry.roundId,
-        entry.sourceSetId
-      );
-      txs.push({
-        storage_pair: entry.storagePair,
-        tx,
-      });
-    }
-
-    return {
-      mode: 'single_fallback',
-      reason: fallbackReason,
-      txs,
-    };
-  }
 }
 
 function resolveRequestedSymbols(payload = {}) {

@@ -836,6 +836,164 @@ async function recordDeliveryExhaustion(
   };
 }
 
+/**
+ * Re-enqueue a callback-delivery / failure-finalize retry that bypasses
+ * scheduleRetry's maxRetries gate (the payload is already prepared; only the
+ * on-chain submission is being retried). The ceiling enforcement lives in the
+ * callers (resolveCallbackRetryCeiling / classifyError) which divert to
+ * recordDeliveryExhaustion; this helper owns the "below the ceiling, schedule
+ * another attempt" path that the three arms shared verbatim apart from the
+ * status string, worker_response shape, retry-item fields, and log copy.
+ */
+async function scheduleCallbackRetry(
+  config,
+  state,
+  persistState,
+  logger,
+  event,
+  kernelIntent,
+  {
+    nextAttempts,
+    firstFailedAt,
+    errorMessage,
+    extraRetryItemFields = {},
+    upsertStatus,
+    upsertExtras = {},
+    upsertWorkerResponse,
+    retryStatus,
+    logLevel,
+    logMessage,
+    logModuleId,
+    logOperation,
+  }
+) {
+  const eventKey = buildEventKey(event);
+  const retryItemNext = enqueueRetryItem(state, event.chain, event, {
+    attempts: nextAttempts,
+    next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
+    first_failed_at: firstFailedAt,
+    last_error: trimOnchainErrorMessage(errorMessage),
+    ...extraRetryItemFields,
+  });
+  incrementMetric(state, 'retries_scheduled_total');
+  persistState();
+
+  await maybeUpsertJob(logger, event, {
+    event_key: eventKey,
+    status: upsertStatus,
+    attempts: retryItemNext.attempts,
+    ...upsertExtras,
+    last_error: retryItemNext.last_error,
+    next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
+    worker_response: upsertWorkerResponse,
+  });
+
+  logger[logLevel](
+    {
+      chain: event.chain,
+      request_id: event.requestId,
+      request_type: event.requestType,
+      module_id: logModuleId ?? kernelIntent.moduleId,
+      operation: logOperation ?? kernelIntent.operation,
+      event_key: eventKey,
+      attempts: retryItemNext.attempts,
+      retry_at: retryItemNext.next_retry_at,
+      error: retryItemNext.last_error,
+    },
+    logMessage
+  );
+
+  return {
+    event,
+    error: retryItemNext.last_error,
+    retry_status: retryStatus,
+    event_key: eventKey,
+    attempts: retryItemNext.attempts,
+  };
+}
+
+/**
+ * Record a terminal (non-exhaustion) processing outcome — the 'settled'
+ * (already-fulfilled-on-chain) and terminal-configuration-error arms. Both
+ * record the processed event locally, clear the retry item, mirror the status
+ * to the durable queue, and emit a single log line; they differ only in the
+ * local/durable status strings, route, error text, optional metric, log level,
+ * log message, and any extra processed-record meta.
+ */
+async function recordTerminalOutcome(
+  config,
+  state,
+  persistState,
+  logger,
+  event,
+  kernelIntent,
+  {
+    attempts,
+    localStatus,
+    durableStatus,
+    route,
+    lastError,
+    metric = null,
+    logLevel,
+    logMessage,
+    extraMeta = {},
+    retryStatus,
+  }
+) {
+  const eventKey = buildEventKey(event);
+  if (metric) incrementMetric(state, metric);
+  recordProcessedEvent(
+    state,
+    event.chain,
+    event,
+    localStatus,
+    {
+      attempts,
+      route,
+      module_id: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
+      last_error: lastError,
+      ...extraMeta,
+    },
+    config
+  );
+  clearRetryItem(state, event.chain, eventKey);
+  persistState();
+
+  await maybeUpsertJob(logger, event, {
+    event_key: eventKey,
+    status: durableStatus,
+    attempts,
+    last_error: lastError,
+    completed_at: new Date().toISOString(),
+    next_retry_at: null,
+  });
+
+  logger[logLevel](
+    {
+      chain: event.chain,
+      request_id: event.requestId,
+      request_type: event.requestType,
+      module_id: kernelIntent.moduleId,
+      operation: kernelIntent.operation,
+      event_key: eventKey,
+      attempts,
+      ...(logLevel === 'error' ? { error: lastError } : {}),
+    },
+    logMessage
+  );
+
+  return {
+    event,
+    ...(retryStatus === 'settled'
+      ? { result: null }
+      : { error: lastError }),
+    retry_status: retryStatus,
+    event_key: eventKey,
+    attempts,
+  };
+}
+
 export async function processEvent(config, state, persistState, logger, event, retryItem = null) {
   const eventKey = buildEventKey(event);
   const kernelIntent = resolveKernelIntent(event.requestType);
@@ -989,96 +1147,31 @@ export async function processEvent(config, state, persistState, logger, event, r
   } catch (error) {
     const message = normalizeErrorMessage(error);
     if (isAlreadyFulfilledError(message)) {
-      recordProcessedEvent(
-        state,
-        event.chain,
-        event,
-        'settled',
-        {
-          attempts,
-          route: isFinalizeOnly ? 'failure-finalize:already-fulfilled' : 'already-fulfilled',
-          module_id: kernelIntent.moduleId,
-          operation: kernelIntent.operation,
-          last_error: trimOnchainErrorMessage(message),
-        },
-        config
-      );
-      clearRetryItem(state, event.chain, eventKey);
-      persistState();
-
-      await maybeUpsertJob(logger, event, {
-        event_key: eventKey,
-        status: 'settled',
+      return recordTerminalOutcome(config, state, persistState, logger, event, kernelIntent, {
         attempts,
-        last_error: trimOnchainErrorMessage(message),
-        completed_at: new Date().toISOString(),
-        next_retry_at: null,
+        localStatus: 'settled',
+        durableStatus: 'settled',
+        route: isFinalizeOnly ? 'failure-finalize:already-fulfilled' : 'already-fulfilled',
+        lastError: trimOnchainErrorMessage(message),
+        logLevel: 'info',
+        logMessage: 'Oracle request was already settled on-chain',
+        retryStatus: 'settled',
       });
-
-      logger.info(
-        {
-          chain: event.chain,
-          request_id: event.requestId,
-          request_type: event.requestType,
-          module_id: kernelIntent.moduleId,
-          operation: kernelIntent.operation,
-          event_key: eventKey,
-          attempts,
-        },
-        'Oracle request was already settled on-chain'
-      );
-      return { event, result: null, event_key: eventKey, attempts, retry_status: 'settled' };
     }
 
     if (isTerminalConfigurationError(message)) {
-      const terminalError = trimOnchainErrorMessage(message);
-      incrementMetric(state, 'retries_exhausted_total');
-      recordProcessedEvent(
-        state,
-        event.chain,
-        event,
-        'exhausted',
-        {
-          attempts,
-          route: isFinalizeOnly ? 'failure-finalize:config-error' : 'config-error',
-          module_id: kernelIntent.moduleId,
-          operation: kernelIntent.operation,
-          last_error: terminalError,
-        },
-        config
-      );
-      clearRetryItem(state, event.chain, eventKey);
-      persistState();
-
-      await maybeUpsertJob(logger, event, {
-        event_key: eventKey,
-        status: 'failed_config',
+      return recordTerminalOutcome(config, state, persistState, logger, event, kernelIntent, {
         attempts,
-        last_error: terminalError,
-        completed_at: new Date().toISOString(),
-        next_retry_at: null,
+        localStatus: 'exhausted',
+        durableStatus: 'failed_config',
+        route: isFinalizeOnly ? 'failure-finalize:config-error' : 'config-error',
+        lastError: trimOnchainErrorMessage(message),
+        metric: 'retries_exhausted_total',
+        logLevel: 'error',
+        logMessage:
+          'Relayer stopped retrying due to a terminal configuration or authorization error',
+        retryStatus: 'terminal',
       });
-
-      logger.error(
-        {
-          chain: event.chain,
-          request_id: event.requestId,
-          request_type: event.requestType,
-          module_id: kernelIntent.moduleId,
-          operation: kernelIntent.operation,
-          event_key: eventKey,
-          attempts,
-          error: terminalError,
-        },
-        'Relayer stopped retrying due to a terminal configuration or authorization error'
-      );
-      return {
-        event,
-        error: terminalError,
-        retry_status: 'terminal',
-        event_key: eventKey,
-        attempts,
-      };
     }
 
     if (preparedForRedelivery) {
@@ -1099,48 +1192,25 @@ export async function processEvent(config, state, persistState, logger, event, r
           errorClass: deliveryErrorClass,
         });
       }
-      const retryItemNext = enqueueRetryItem(state, event.chain, event, {
-        attempts: nextAttempts,
-        next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
-        first_failed_at: retryItem?.first_failed_at || new Date().toISOString(),
-        last_error: trimOnchainErrorMessage(message),
-        prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
-      });
-      incrementMetric(state, 'retries_scheduled_total');
-      persistState();
-
-      await maybeUpsertJob(logger, event, {
-        event_key: eventKey,
-        status: 'callback_retry_scheduled',
-        attempts: retryItemNext.attempts,
-        route: preparedForRedelivery.route,
-        worker_status: preparedForRedelivery.worker_status,
-        last_error: retryItemNext.last_error,
-        next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
-        worker_response: buildCallbackPendingWorkerResponse(preparedForRedelivery, kernelIntent),
-      });
-
-      logger.warn(
-        {
-          chain: event.chain,
-          request_id: event.requestId,
-          request_type: event.requestType,
-          module_id: preparedForRedelivery.module_id || kernelIntent.moduleId,
-          operation: preparedForRedelivery.operation || kernelIntent.operation,
-          event_key: eventKey,
-          attempts: retryItemNext.attempts,
-          retry_at: retryItemNext.next_retry_at,
-          error: retryItemNext.last_error,
+      return scheduleCallbackRetry(config, state, persistState, logger, event, kernelIntent, {
+        nextAttempts,
+        firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+        errorMessage: message,
+        extraRetryItemFields: {
+          prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
         },
-        'Retrying prepared Morpheus oracle callback delivery'
-      );
-      return {
-        event,
-        error: retryItemNext.last_error,
-        retry_status: 'callback_retry_scheduled',
-        event_key: eventKey,
-        attempts: retryItemNext.attempts,
-      };
+        upsertStatus: 'callback_retry_scheduled',
+        upsertExtras: {
+          route: preparedForRedelivery.route,
+          worker_status: preparedForRedelivery.worker_status,
+        },
+        upsertWorkerResponse: buildCallbackPendingWorkerResponse(preparedForRedelivery, kernelIntent),
+        retryStatus: 'callback_retry_scheduled',
+        logLevel: 'warn',
+        logMessage: 'Retrying prepared Morpheus oracle callback delivery',
+        logModuleId: preparedForRedelivery.module_id || kernelIntent.moduleId,
+        logOperation: preparedForRedelivery.operation || kernelIntent.operation,
+      });
     }
 
     if (isFinalizeOnly) {
@@ -1160,24 +1230,13 @@ export async function processEvent(config, state, persistState, logger, event, r
           terminalError,
         });
       }
-      const retryItemNext = enqueueRetryItem(state, event.chain, event, {
-        attempts: nextAttempts,
-        next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
-        first_failed_at: retryItem?.first_failed_at || new Date().toISOString(),
-        last_error: trimOnchainErrorMessage(message),
-        finalize_only: true,
-        terminal_error: terminalError,
-      });
-      incrementMetric(state, 'retries_scheduled_total');
-      persistState();
-
-      await maybeUpsertJob(logger, event, {
-        event_key: eventKey,
-        status: 'failure_callback_retry_scheduled',
-        attempts: retryItemNext.attempts,
-        last_error: retryItemNext.last_error,
-        next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
-        worker_response: {
+      return scheduleCallbackRetry(config, state, persistState, logger, event, kernelIntent, {
+        nextAttempts,
+        firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+        errorMessage: message,
+        extraRetryItemFields: { finalize_only: true, terminal_error: terminalError },
+        upsertStatus: 'failure_callback_retry_scheduled',
+        upsertWorkerResponse: {
           retry_meta: {
             finalize_only: true,
             terminal_error: terminalError,
@@ -1185,29 +1244,10 @@ export async function processEvent(config, state, persistState, logger, event, r
             operation: kernelIntent.operation,
           },
         },
+        retryStatus: 'scheduled',
+        logLevel: 'warn',
+        logMessage: 'Retrying terminal failure callback delivery',
       });
-
-      logger.warn(
-        {
-          chain: event.chain,
-          request_id: event.requestId,
-          request_type: event.requestType,
-          module_id: kernelIntent.moduleId,
-          operation: kernelIntent.operation,
-          event_key: eventKey,
-          attempts: retryItemNext.attempts,
-          retry_at: retryItemNext.next_retry_at,
-          error: retryItemNext.last_error,
-        },
-        'Retrying terminal failure callback delivery'
-      );
-      return {
-        event,
-        error: retryItemNext.last_error,
-        retry_status: 'scheduled',
-        event_key: eventKey,
-        attempts: retryItemNext.attempts,
-      };
     }
 
     const errorClass = classifyError(message);
@@ -1287,24 +1327,16 @@ export async function processEvent(config, state, persistState, logger, event, r
             }
           );
         }
-        const retryItemNext = enqueueRetryItem(state, event.chain, event, {
-          attempts: nextAttempts,
-          next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
-          first_failed_at: new Date().toISOString(),
-          last_error: trimOnchainErrorMessage(finalizeError),
-          finalize_only: true,
-          terminal_error: trimOnchainErrorMessage(message),
-        });
-        incrementMetric(state, 'retries_scheduled_total');
-        persistState();
-
-        await maybeUpsertJob(logger, event, {
-          event_key: eventKey,
-          status: 'failure_callback_retry_scheduled',
-          attempts: retryItemNext.attempts,
-          last_error: retryItemNext.last_error,
-          next_retry_at: new Date(retryItemNext.next_retry_at).toISOString(),
-          worker_response: {
+        return scheduleCallbackRetry(config, state, persistState, logger, event, kernelIntent, {
+          nextAttempts,
+          firstFailedAt: new Date().toISOString(),
+          errorMessage: finalizeError,
+          extraRetryItemFields: {
+            finalize_only: true,
+            terminal_error: trimOnchainErrorMessage(message),
+          },
+          upsertStatus: 'failure_callback_retry_scheduled',
+          upsertWorkerResponse: {
             retry_meta: {
               finalize_only: true,
               terminal_error: trimOnchainErrorMessage(message),
@@ -1312,28 +1344,10 @@ export async function processEvent(config, state, persistState, logger, event, r
               operation: kernelIntent.operation,
             },
           },
+          retryStatus: 'scheduled',
+          logLevel: 'error',
+          logMessage: 'Primary execution exhausted; retrying terminal failure callback',
         });
-
-        logger.error(
-          {
-            chain: event.chain,
-            request_id: event.requestId,
-            request_type: event.requestType,
-            module_id: kernelIntent.moduleId,
-            operation: kernelIntent.operation,
-            event_key: eventKey,
-            attempts: retryItemNext.attempts,
-            error: retryItemNext.last_error,
-          },
-          'Primary execution exhausted; retrying terminal failure callback'
-        );
-        return {
-          event,
-          error: retryItemNext.last_error,
-          retry_status: 'scheduled',
-          event_key: eventKey,
-          attempts: retryItemNext.attempts,
-        };
       }
     }
 

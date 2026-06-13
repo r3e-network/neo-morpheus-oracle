@@ -56,6 +56,46 @@ export function timingSafeCompare(a, b) {
 }
 
 /**
+ * Bounded-concurrency map preserving input order, with fail-fast abort.
+ *
+ * Runs `worker(item, index)` over `items` with at most `limit` concurrent
+ * invocations (clamped to `[1, items.length]`). Results are written back at
+ * their original index so the resolved array matches the sequential
+ * `items.map(worker)` ordering exactly.
+ *
+ * Fail-fast semantics: once any worker throws, the shared cursor is frozen so
+ * idle workers stop pulling new items (in-flight workers still settle), and the
+ * first thrown error rejects the returned promise. This is the abort-the-tick
+ * default the relayer's engine scans rely on — a faulted scan must not keep
+ * issuing RPC calls for the rest of the range, and the rejection must propagate
+ * so a partially-scanned cursor is never advanced. Callers that need every item
+ * attempted regardless of individual failures must NOT use this helper.
+ */
+export async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  let failed = false;
+
+  async function runWorker() {
+    while (!failed) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) return;
+      try {
+        results[index] = await worker(items[index], index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
+    }
+  }
+
+  const width = Math.max(Math.min(limit, items.length), 1);
+  await Promise.all(Array.from({ length: width }, () => runWorker()));
+  return results;
+}
+
+/**
  * Deterministic JSON stringification shared across worker, relayer, and web
  * verification flows so digest calculations stay byte-for-byte aligned.
  *

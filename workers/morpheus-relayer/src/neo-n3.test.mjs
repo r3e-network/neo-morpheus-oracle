@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
-import { buildSignAndBroadcastNeoN3Tx, scanNeoN3OracleRequestsById } from './neo-n3.js';
+import {
+  buildSignAndBroadcastNeoN3Tx,
+  scanNeoN3OracleRequests,
+  scanNeoN3OracleRequestsById,
+} from './neo-n3.js';
 
 // Deterministic throwaway test key (not used anywhere live).
 const TEST_PK = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
@@ -313,6 +317,154 @@ test('scanNeoN3OracleRequestsById still aborts the scan on a FAULTed getRequest'
   try {
     global.fetch = stubGetRequestRpc(recordsById, []);
     await assert.rejects(scanNeoN3OracleRequestsById(scanConfig(4), 1, 3), /boom for 2/);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+// ===================================================================
+// scanNeoN3OracleRequests — batched block-cursor-scan equivalence
+// ===================================================================
+
+const ORACLE_CONTRACT = '0xaabbccddeeff00112233445566778899aabbccdd';
+
+// MiniAppRequestQueued state layout:
+// [requestId, appId, moduleId, operation, requester, sponsor, payload].
+function queuedNotification(requestId) {
+  return {
+    contract: ORACLE_CONTRACT,
+    eventname: 'MiniAppRequestQueued',
+    state: {
+      type: 'Array',
+      value: [
+        integerItem(requestId),
+        byteString('miniapp-os'),
+        byteString('oracle.fetch'),
+        byteString('privacy_oracle'),
+        byteString('NScanner1111111111111111111111111'),
+        byteString(''),
+        byteString('{"url":"https://example.test"}'),
+      ],
+    },
+  };
+}
+
+// Notification emitted by an unrelated contract; the scan must ignore it.
+function unrelatedNotification() {
+  return {
+    contract: '0x1111111111111111111111111111111111111111',
+    eventname: 'Transfer',
+    state: { type: 'Array', value: [byteString('noise')] },
+  };
+}
+
+// Build the block fixture: blockByHeight maps a height to an array of txs, each
+// tx an array of notifications. appLogByTx maps a txHash to its execution
+// notifications. A notification array of 'TRANSPORT' signals getapplicationlog
+// should fail (transport error) for that tx.
+function buildBlockFixture(blockSpec) {
+  const blockByHeight = {};
+  const appLogByTx = {};
+  for (const [height, txs] of Object.entries(blockSpec)) {
+    blockByHeight[Number(height)] = {
+      tx: txs.map((_, index) => ({ txid: `0xtx${height}_${index}` })),
+    };
+    txs.forEach((notifications, index) => {
+      appLogByTx[`0xtx${height}_${index}`] = notifications;
+    });
+  }
+  return { blockByHeight, appLogByTx };
+}
+
+function stubBlockScanRpc(fixture, calls) {
+  return async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push({ method: body.method, params: body.params });
+    if (body.method === 'getblock') {
+      const height = Number(body.params?.[0]);
+      const result = fixture.blockByHeight[height] || { tx: [] };
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ jsonrpc: '2.0', id: 1, result }),
+      };
+    }
+    if (body.method === 'getapplicationlog') {
+      const txHash = body.params?.[0];
+      const notifications = fixture.appLogByTx[txHash];
+      if (notifications === 'TRANSPORT') {
+        throw new Error(`transport boom for ${txHash}`);
+      }
+      const result = { executions: [{ notifications: notifications || [] }] };
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ jsonrpc: '2.0', id: 1, result }),
+      };
+    }
+    throw new Error(`unexpected RPC method ${body.method}`);
+  };
+}
+
+const blockScanConfig = (concurrency) => ({
+  concurrency,
+  neo_n3: {
+    rpcUrl: 'https://neo-rpc.test',
+    oracleContract: ORACLE_CONTRACT,
+    networkMagic: 894710606,
+  },
+});
+
+test('scanNeoN3OracleRequests batched scan is equivalent to the sequential path', async () => {
+  // Equivalence gate for the batched block-cursor scan: the same stubbed RPC is
+  // scanned sequentially (concurrency 1) and concurrently; both must produce
+  // identical event lists in ascending block / tx / notification order, and
+  // ignore notifications from other contracts and non-request events.
+  const fixture = buildBlockFixture({
+    100: [[queuedNotification(1)], [unrelatedNotification(), queuedNotification(2)]],
+    101: [], // empty block
+    102: [[unrelatedNotification()]], // only noise → no events
+    103: [[queuedNotification(3), queuedNotification(4)]],
+  });
+  const originalFetch = global.fetch;
+  try {
+    const sequentialCalls = [];
+    global.fetch = stubBlockScanRpc(fixture, sequentialCalls);
+    const sequential = await scanNeoN3OracleRequests(blockScanConfig(1), 100, 103);
+
+    const batchedCalls = [];
+    global.fetch = stubBlockScanRpc(fixture, batchedCalls);
+    const batched = await scanNeoN3OracleRequests(blockScanConfig(4), 100, 103);
+
+    assert.deepEqual(batched, sequential);
+    assert.deepEqual(
+      batched.map((event) => `${event.blockNumber}:${event.requestId}`),
+      ['100:1', '100:2', '103:3', '103:4']
+    );
+    // Both paths issue one getblock per height (4) plus one getapplicationlog
+    // per tx (2 + 0 + 1 + 1 = 4) = 8 calls.
+    assert.equal(sequentialCalls.length, 8);
+    assert.equal(batchedCalls.length, 8);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('scanNeoN3OracleRequests aborts the scan on a transport error mid-range', async () => {
+  // A getapplicationlog transport failure on any block must reject the whole
+  // scan so the block cursor never advances past an unscanned height.
+  const fixture = buildBlockFixture({
+    100: [[queuedNotification(1)]],
+    101: ['TRANSPORT'],
+    102: [[queuedNotification(2)]],
+  });
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = stubBlockScanRpc(fixture, []);
+    await assert.rejects(
+      scanNeoN3OracleRequests(blockScanConfig(4), 100, 102),
+      /transport boom/
+    );
   } finally {
     global.fetch = originalFetch;
   }
