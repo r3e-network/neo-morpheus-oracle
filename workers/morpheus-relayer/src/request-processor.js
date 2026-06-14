@@ -1,5 +1,6 @@
 import {
   buildEventKey,
+  collectActiveRequestIds,
   getDueRetryItems,
   hasProcessedEvent,
   incrementMetric,
@@ -86,9 +87,18 @@ export async function reconcilePendingRequests(
 
   const toRequestId = Math.min(latestRequestId, fromRequestId + config.maxBlocksPerTick - 1);
   const scannedEvents = await options.scanByRequestId(config, fromRequestId, toRequestId);
-  const pendingOnly = scannedEvents.filter(
-    (event) => !excludedRequestIds.has(String(event.requestId || ''))
-  );
+  // Exclude requests already being tracked anywhere — the same-tick block-scan
+  // observations (excludedRequestIds) UNION every requestId currently queued for
+  // retry or already processed (collectActiveRequestIds). The two cursor lanes
+  // build different event keys for the same on-chain request, so the key-based
+  // filterNewEvents below cannot catch a cross-lane / cross-tick duplicate by
+  // itself; membership exclusion does. A genuinely-missed request (in neither
+  // set) is NOT excluded and is still reconciled.
+  const trackedRequestIds = collectActiveRequestIds(state, chain);
+  const pendingOnly = scannedEvents.filter((event) => {
+    const requestId = String(event.requestId || '');
+    return !excludedRequestIds.has(requestId) && !trackedRequestIds.has(requestId);
+  });
   incrementMetric(state, 'events_scanned_total', pendingOnly.length);
   const filtered = filterNewEvents(state, chain, pendingOnly);
   incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);

@@ -24,6 +24,7 @@ function feedUnavailableResponse(symbol: string, provider: string | null, upstre
       symbol,
       provider: provider || null,
       error: 'feed_quote_unavailable',
+      error_code: 'FEED_QUOTE_UNAVAILABLE',
       upstream_status: upstreamStatus,
     },
     {
@@ -53,7 +54,11 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
       httpStatus: 400,
       error: error instanceof Error ? error.message : String(error),
     });
-    return badRequest(error instanceof Error ? error.message : String(error));
+    return badRequest(
+      error instanceof Error ? error.message : String(error),
+      400,
+      'INVALID_PROVIDER_PARAMS'
+    );
   }
 
   const payload: Record<string, unknown> = {
@@ -97,6 +102,10 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
       httpStatus: 400,
       error: error instanceof Error ? error.message : String(error),
     });
-    return badRequest(error instanceof Error ? error.message : String(error));
+    return badRequest(
+      error instanceof Error ? error.message : String(error),
+      400,
+      'FEED_REQUEST_INVALID'
+    );
   }
 }

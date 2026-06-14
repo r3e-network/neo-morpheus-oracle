@@ -86,7 +86,7 @@ async function dispatchWorkflowInstance(env, job, jobConfig) {
   };
 }
 
-async function requeueWorkflowJob(env, job, jobConfig) {
+async function requeueWorkflowJob(env, job, jobConfig, options = {}) {
   const nowIso = new Date().toISOString();
   const existingWorkflowInstanceId = trimString(job?.metadata?.workflow_instance_id || '');
   if (existingWorkflowInstanceId) {
@@ -152,6 +152,31 @@ async function requeueWorkflowJob(env, job, jobConfig) {
         },
       };
     }
+  }
+
+  // Redispatch ceiling: the workflow is not active/complete and would be
+  // re-dispatched, but it has already been re-driven up to the limit. Finalize
+  // it terminal instead of starting another poison cycle. The active/complete
+  // syncs above already ran, so we only block a *fresh* dispatch here.
+  if (options.blockRedispatch) {
+    await patchJob(env, job.id, job.network, {
+      status: 'dead_lettered',
+      error:
+        trimString(job.error) ||
+        `dead-lettered after ${options.requeueAttempts || 0} recovery requeue attempts (poison workflow job)`,
+      run_after: null,
+      completed_at: nowIso,
+      metadata: {
+        ...(job.metadata || {}),
+        requeue_attempts: options.requeueAttempts || 0,
+        dead_letter_source: 'control-plane-recover-ceiling',
+        dead_lettered_at: nowIso,
+      },
+    });
+    return {
+      action: 'dead_lettered',
+      requeue_attempts: options.requeueAttempts || 0,
+    };
   }
 
   const workflow = await dispatchWorkflowInstance(env, job, jobConfig);

@@ -6,6 +6,8 @@ import path from 'node:path';
 
 import {
   createEmptyRelayerState,
+  enforceRetryQueueLimit,
+  enqueueRetryItem,
   loadRelayerState,
   saveRelayerState,
   scheduleRetry,
@@ -116,4 +118,64 @@ test('scheduleRetry desynchronizes two equal-attempt retries', () => {
   const a = scheduleRetry(createEmptyRelayerState(), 'neo_n3', event, 'boom', config, () => 0.2);
   const b = scheduleRetry(createEmptyRelayerState(), 'neo_n3', event, 'boom', config, () => 0.8);
   assert.notEqual(a.item.next_retry_at, b.item.next_retry_at);
+});
+
+test('enqueueRetryItem sheds the oldest overflow into dead-letters when the retry queue limit is set (B10)', () => {
+  const state = createEmptyRelayerState();
+  // Limit 3: the 4th and 5th distinct requests shed the two oldest.
+  for (const requestId of ['1', '2', '3', '4', '5']) {
+    enqueueRetryItem(
+      state,
+      'neo_n3',
+      { chain: 'neo_n3', requestId, requestType: 'privacy_oracle', txHash: `0x${requestId}` },
+      { attempts: 0, next_retry_at: Date.now(), retryQueueLimit: 3, deadLetterLimit: 100 }
+    );
+  }
+
+  // Queue capped at the limit, newest retained.
+  assert.equal(state.neo_n3.retry_queue.length, 3);
+  assert.deepEqual(
+    state.neo_n3.retry_queue.map((item) => item.event.requestId),
+    ['3', '4', '5']
+  );
+  // The two oldest (1, 2) were shed to dead-letters, not silently dropped.
+  assert.equal(state.neo_n3.dead_letters.length, 2);
+  assert.deepEqual(
+    state.neo_n3.dead_letters.map((entry) => entry.request_id),
+    ['1', '2']
+  );
+  assert.equal(state.neo_n3.dead_letters[0].shed_reason, 'retry_queue_overflow');
+  assert.equal(state.metrics.retry_queue_overflow_total, 2);
+});
+
+test('enqueueRetryItem is unbounded (live-box default) when no retry queue limit is configured (B10)', () => {
+  const state = createEmptyRelayerState();
+  for (let i = 0; i < 50; i += 1) {
+    enqueueRetryItem(
+      state,
+      'neo_n3',
+      { chain: 'neo_n3', requestId: String(i), requestType: 'privacy_oracle', txHash: `0x${i}` },
+      { attempts: 0, next_retry_at: Date.now() } // no retryQueueLimit
+    );
+  }
+  // Default behavior is preserved: no shedding, no dead-lettering.
+  assert.equal(state.neo_n3.retry_queue.length, 50);
+  assert.equal(state.neo_n3.dead_letters.length, 0);
+  assert.equal(state.metrics.retry_queue_overflow_total, 0);
+});
+
+test('enforceRetryQueueLimit is a no-op when the queue is within the limit (B10)', () => {
+  const state = createEmptyRelayerState();
+  for (const requestId of ['1', '2']) {
+    enqueueRetryItem(
+      state,
+      'neo_n3',
+      { chain: 'neo_n3', requestId, requestType: 'privacy_oracle', txHash: `0x${requestId}` },
+      { attempts: 0, next_retry_at: Date.now() }
+    );
+  }
+  const shed = enforceRetryQueueLimit(state, 'neo_n3', { retryQueueLimit: 5 });
+  assert.equal(shed, 0);
+  assert.equal(state.neo_n3.retry_queue.length, 2);
+  assert.equal(state.neo_n3.dead_letters.length, 0);
 });

@@ -1,7 +1,33 @@
 'use client';
 
 import * as Sentry from '@sentry/nextjs';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+async function copyText(text: string): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to legacy path
+    }
+  }
+  if (typeof document === 'undefined') return false;
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
 
 export default function GlobalError({
   error,
@@ -10,9 +36,20 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [digestCopied, setDigestCopied] = useState(false);
+
   useEffect(() => {
     Sentry.captureException(error);
   }, [error]);
+
+  const handleCopyDigest = async () => {
+    if (!error?.digest) return;
+    const ok = await copyText(error.digest);
+    if (ok) {
+      setDigestCopied(true);
+      setTimeout(() => setDigestCopied(false), 2000);
+    }
+  };
 
   return (
     <html lang="en">
@@ -84,16 +121,36 @@ export default function GlobalError({
             retry the current route without leaving the application.
           </p>
           {error?.digest && (
-            <p
+            <div
               style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
                 margin: '0 0 2rem',
                 fontSize: '0.75rem',
                 color: 'var(--text-muted, #8a92a6)',
                 fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               }}
             >
-              Digest: {error.digest}
-            </p>
+              <span>Digest: {error.digest}</span>
+              <button
+                type="button"
+                onClick={handleCopyDigest}
+                aria-label="Copy error digest for support"
+                style={{
+                  border: '1px solid var(--border-highlight, #d8dde6)',
+                  borderRadius: 'var(--ns-radius-xs, 6px)',
+                  background: 'var(--bg-card, #ffffff)',
+                  color: digestCopied ? 'var(--neo-green, #16a34a)' : 'var(--text-secondary, #5b6478)',
+                  cursor: 'pointer',
+                  padding: '2px 8px',
+                  fontSize: '0.7rem',
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                }}
+              >
+                {digestCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
           )}
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button

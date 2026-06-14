@@ -1,4 +1,5 @@
 import {
+  env,
   json,
   parseBodyMaybe,
   requestLog,
@@ -6,7 +7,11 @@ import {
   trimString,
 } from './platform/core.js';
 import { requireAuth } from './platform/auth.js';
-import { buildDstackAttestation, getDstackInfo } from './platform/nitro-signer.js';
+import {
+  buildDstackAttestation,
+  getDstackInfo,
+  getDerivedKeySummary,
+} from './platform/nitro-signer.js';
 import { acquireOverloadSlot, snapshotOverloadState } from './platform/overload-guard.js';
 import {
   applyRequestGuards,
@@ -16,8 +21,91 @@ import {
 import { normalizeExecutionPlan } from './platform/execution-plan.js';
 import { buildResultEnvelope } from './platform/result-envelope.js';
 import { resolveCapability, listCapabilityFeatures } from './capabilities.js';
+import { getFeedStalenessSummary, getFeedStateWriteFailureCount } from './oracle/index.js';
 
 const WORKER_SUPPORTED_CHAINS = ['neo_n3', 'neox'];
+
+// F4 — cache the readiness probe so /health stays cheap+unauth even under load.
+// The probe touches the enclave (key derivation + dstack health), so we never
+// run it more than once per cache window.
+const HEALTH_READINESS_CACHE_MS = 10_000;
+let cachedReadiness = null;
+
+function resolveFeedStaleAfterMs() {
+  const raw = Number(env('MORPHEUS_HEALTH_FEED_STALE_AFTER_MS'));
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 600_000; // 10 min default
+}
+
+function workerHealthStrict() {
+  const raw = trimString(env('MORPHEUS_WORKER_HEALTH_STRICT')).toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+async function probeSigningAndDstack() {
+  // getDerivedKeySummary derives the worker Neo N3 key (proving the signing
+  // material is reachable) AND pings the Nitro signer /health endpoint, covering
+  // both signing-key and dstack reachability in one call.
+  try {
+    const summary = await getDerivedKeySummary('worker');
+    return {
+      signing_key: Boolean(summary?.neo_n3?.public_key),
+      dstack: Boolean(summary?.runtime),
+      runtime: summary?.runtime || null,
+    };
+  } catch (error) {
+    return {
+      signing_key: false,
+      dstack: false,
+      runtime: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+export function __resetHealthReadinessCacheForTests() {
+  cachedReadiness = null;
+}
+
+async function buildReadiness() {
+  const now = Date.now();
+  if (cachedReadiness && now - cachedReadiness.checkedAtMs < HEALTH_READINESS_CACHE_MS) {
+    return cachedReadiness.value;
+  }
+
+  const signer = await probeSigningAndDstack();
+  const feedStaleness = getFeedStalenessSummary(now);
+  const staleAfterMs = resolveFeedStaleAfterMs();
+  const feedStale =
+    feedStaleness && Number.isFinite(feedStaleness.age_ms)
+      ? feedStaleness.age_ms > staleAfterMs
+      : false;
+  const writeFailures = getFeedStateWriteFailureCount();
+
+  const checks = {
+    signing_key: signer.signing_key,
+    dstack: signer.dstack,
+    // null = no feed state loaded (not a feed pusher) → not a readiness fault.
+    feed_fresh: feedStaleness === null ? null : !feedStale,
+  };
+
+  const value = {
+    ready: checks.signing_key && checks.dstack && checks.feed_fresh !== false,
+    checks,
+    runtime: signer.runtime,
+    feed:
+      feedStaleness === null
+        ? null
+        : {
+            ...feedStaleness,
+            stale_after_ms: staleAfterMs,
+            stale: feedStale,
+          },
+    feed_state_write_failures: writeFailures,
+    ...(signer.error ? { signer_error: signer.error } : {}),
+  };
+  cachedReadiness = { checkedAtMs: now, value };
+  return value;
+}
 
 function resolveActiveTargetChains() {
   const raw = String(process.env.MORPHEUS_ACTIVE_CHAINS || '').trim();
@@ -29,11 +117,19 @@ function resolveActiveTargetChains() {
   return chains.length > 0 ? chains : ['neo_n3'];
 }
 
-function handleHealth() {
+async function handleHealth() {
   const targetChains = resolveActiveTargetChains();
-  return json(200, {
-    status: 'ok',
+  const readiness = await buildReadiness();
+  // Backward-compatible by default: status stays 'ok'/200 (the existing health
+  // contract) and the new readiness object is purely additive. Operators can opt
+  // into hard readiness gating (503 when not ready) via MORPHEUS_WORKER_HEALTH_STRICT.
+  const strict = workerHealthStrict();
+  const httpStatus = strict && !readiness.ready ? 503 : 200;
+  return json(httpStatus, {
+    status: strict && !readiness.ready ? 'degraded' : 'ok',
+    ready: readiness.ready,
     runtime: 'nitro-worker',
+    readiness,
     oracle: {
       privacy_oracle: true,
       target_chains: targetChains,
@@ -133,7 +229,7 @@ export default async function handler(request) {
   let executionPlan = null;
 
   try {
-    if (path.endsWith('/health')) return handleHealth();
+    if (path.endsWith('/health')) return await handleHealth();
     if (path.endsWith('/info')) {
       return json(200, {
         dstack: await getDstackInfo({ required: false }),

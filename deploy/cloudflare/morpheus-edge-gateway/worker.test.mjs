@@ -222,11 +222,9 @@ function hangingFetch() {
           reject(signal.reason || new Error('aborted'));
           return;
         }
-        signal.addEventListener(
-          'abort',
-          () => reject(signal.reason || new Error('aborted')),
-          { once: true }
-        );
+        signal.addEventListener('abort', () => reject(signal.reason || new Error('aborted')), {
+          once: true,
+        });
       }
       // No resolve path: the origin "hangs".
     });
@@ -269,4 +267,155 @@ test('edge gateway runtime status reports "down" fast when origin probes hang (B
   const payload = await response.json();
   assert.equal(payload.runtime.status, 'down');
   assert.ok(elapsed < 5000, `expected fast fail, took ${elapsed}ms`);
+});
+
+// --- A4: rate-limit backend failure fails closed with 503 ---
+
+test('edge gateway fails closed with 503 when the Upstash rate-limit backend 5xxs (A4)', async () => {
+  let pipelineCalls = 0;
+  global.fetch = async (input, init = {}) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    const target = new URL(request.url);
+    // The shared rate-limit helper posts to <upstash>/pipeline; simulate an
+    // Upstash outage (5xx) which makes applyUpstashRateLimit throw.
+    if (target.pathname.endsWith('/pipeline')) {
+      pipelineCalls += 1;
+      return jsonResponse(503, { error: 'service unavailable' });
+    }
+    throw new Error(`origin fetch should not be reached on rate-limit backend failure: ${target}`);
+  };
+  global.caches = createCaches();
+
+  const response = await worker.fetch(
+    // /vrf/random maps to the rate-limited 'vrf' route, is not runtime-auth
+    // gated, and turnstile is disabled (no TURNSTILE_WORKER_SECRET).
+    new Request('https://oracle.meshmini.app/testnet/vrf/random', { method: 'POST' }),
+    createEnv({
+      UPSTASH_REDIS_REST_URL: 'https://upstash.test',
+      UPSTASH_REDIS_REST_TOKEN: 'upstash-token',
+    }),
+    createCtx()
+  );
+
+  assert.equal(response.status, 503);
+  const payload = await response.json();
+  assert.equal(payload.error, 'rate_limit_backend_unavailable');
+  assert.equal(payload.route, 'vrf');
+  assert.equal(pipelineCalls, 1);
+});
+
+// --- A3-edge: constant-time trusted-token compare ---
+
+test('edge gateway accepts a valid trusted token and rejects an equal-length mismatch (A3-edge)', async () => {
+  const calls = [];
+  global.fetch = async (input, init = {}) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    calls.push(new URL(request.url).pathname);
+    return jsonResponse(200, { derived: { app_id: 'app-123' } });
+  };
+  global.caches = createCaches();
+
+  // The configured token; a runtime-auth-gated route exercises the trusted
+  // token check (isTrustedAutomationRequest).
+  const token = 'edge-runtime-token-1234567890';
+  const env = createEnv({ MORPHEUS_EDGE_RUNTIME_TOKEN: token });
+
+  const ok = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/runtime/keys/derived', {
+      headers: { authorization: `Bearer ${token}` },
+    }),
+    env,
+    createCtx()
+  );
+  assert.equal(ok.status, 200);
+  assert.equal(calls.length, 1);
+
+  // Equal-length-but-different token must be rejected (constant-time compare
+  // does not early-accept on length match).
+  const wrong = token.slice(0, -1) + (token.endsWith('X') ? 'Y' : 'X');
+  assert.equal(wrong.length, token.length);
+  const denied = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/runtime/keys/derived', {
+      headers: { authorization: `Bearer ${wrong}` },
+    }),
+    env,
+    createCtx()
+  );
+  assert.equal(denied.status, 401);
+  assert.deepEqual(await denied.json(), { error: 'unauthorized' });
+  // No additional origin fetch happened for the rejected request.
+  assert.equal(calls.length, 1);
+});
+
+// --- F10-edge: x-morpheus-runtime discriminator + catalog-derived capabilities ---
+
+test('edge gateway runtime status surfaces the origin runtime discriminator and catalog capabilities (F10)', async () => {
+  global.fetch = async (input, init = {}) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    const target = new URL(request.url);
+    if (target.pathname === '/testnet/health') {
+      return new Response(JSON.stringify({ status: 'ok' }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'x-morpheus-runtime': 'tee-box-runtime',
+        },
+      });
+    }
+    if (target.pathname === '/testnet/info') {
+      return new Response(JSON.stringify({ version: '1.0.0', dstack: { app_id: 'app-123' } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'x-morpheus-runtime': 'tee-box-runtime',
+        },
+      });
+    }
+    return jsonResponse(404, { error: 'not found', path: target.pathname });
+  };
+  global.caches = createCaches();
+
+  const response = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/api/runtime/status'),
+    createEnv(),
+    createCtx()
+  );
+
+  assert.equal(response.status, 200);
+  // Discriminator header travels with the response.
+  assert.equal(response.headers.get('x-morpheus-runtime'), 'tee-box-runtime');
+  const payload = await response.json();
+  assert.equal(payload.runtime.origin, 'tee-box-runtime');
+  // Capabilities are derived from the shared catalog (single source of truth).
+  assert.equal(payload.runtime.capabilities.catalogVersion, '2026-04-tee-v1');
+  assert.equal(payload.runtime.capabilities.teeRequired, true);
+  assert.ok(payload.runtime.capabilities.workflowIds.includes('oracle.query'));
+  assert.ok(payload.runtime.capabilities.capabilityIds.includes('oracle_query'));
+  assert.deepEqual(payload.runtime.capabilities.automationTriggerKinds, ['interval', 'threshold']);
+});
+
+test('edge gateway runtime status reports an unknown discriminator when the origin omits the header (F10)', async () => {
+  global.fetch = async (input, init = {}) => {
+    const request = input instanceof Request ? input : new Request(String(input), init);
+    const target = new URL(request.url);
+    if (target.pathname === '/testnet/health') {
+      return jsonResponse(200, { status: 'ok' });
+    }
+    if (target.pathname === '/testnet/info') {
+      return jsonResponse(200, { version: '1.0.0', dstack: { app_id: 'app-123' } });
+    }
+    return jsonResponse(404, { error: 'not found' });
+  };
+  global.caches = createCaches();
+
+  const response = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/api/runtime/status'),
+    createEnv(),
+    createCtx()
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('x-morpheus-runtime'), 'unknown');
+  const payload = await response.json();
+  assert.equal(payload.runtime.origin, null);
 });

@@ -70,7 +70,7 @@ export function isRevealTimestampFresh(
   return Math.abs(nowSeconds - issuedAt) <= window;
 }
 
-function parseMessageId(value) {
+export function parseMessageId(value) {
   if (value === undefined || value === null) return null;
   try {
     const id = BigInt(value);
@@ -96,7 +96,7 @@ export function __buildMessageRpcConnectionForTests(rpcUrl) {
   return buildMessageRpcConnection(rpcUrl);
 }
 
-async function readMessageFromChain({ rpcUrl, chainId, contract, messageId }) {
+export async function readMessageFromChain({ rpcUrl, chainId, contract, messageId }) {
   const provider = new ethers.JsonRpcProvider(buildMessageRpcConnection(rpcUrl), chainId);
   try {
     const reader = new ethers.Contract(contract, MESSAGE_ABI, provider);
@@ -104,6 +104,21 @@ async function readMessageFromChain({ rpcUrl, chainId, contract, messageId }) {
   } finally {
     provider.destroy();
   }
+}
+
+export const NEOX_DECRYPT_CHAIN_ALIASES = NEOX_CHAIN_ALIASES;
+export const DEFAULT_NEOX_DECRYPT_CHAIN_ID = DEFAULT_NEOX_CHAIN_ID;
+
+// Trusted, worker-configured Neo X message contract context (the contract is
+// NEVER taken from the caller — a hostile contract could otherwise lie about
+// recipient/unlockTime). Shared by the recipient-reveal and the time-locked
+// /oracle/decrypt gating lanes.
+export function resolveNeoxMessageChainContext() {
+  return {
+    rpcUrl: env('NEOX_MESSAGE_RPC', 'NEOX_RPC', 'EVM_RPC_URL'),
+    contract: env('NEOX_MESSAGE_CONTRACT'),
+    chainId: Number(env('NEOX_MESSAGE_CHAIN_ID', 'NEOX_CHAIN_ID')) || DEFAULT_NEOX_CHAIN_ID,
+  };
 }
 
 export async function handleMessageReveal(

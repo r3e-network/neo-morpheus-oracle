@@ -254,6 +254,41 @@ function buildUpstreamErrorMessage(source, status, data, rawResponse) {
   return `${source} upstream returned HTTP ${status}${detail}`;
 }
 
+// D4 — typed error so the oracle.query / oracle.smart-fetch lanes can surface an
+// upstream data-source failure as a gateway error (502/504) with a stable,
+// machine-readable `kind`, instead of a misleading 400 (which tells the relayer
+// the *request* was bad and is non-retryable). A timeout becomes 504; a non-2xx
+// upstream / connectivity failure becomes 502.
+export class UpstreamFetchError extends Error {
+  constructor(message, { httpStatus = 502, kind = 'upstream_error', upstreamStatus = null } = {}) {
+    super(message);
+    this.name = 'UpstreamFetchError';
+    this.httpStatus = httpStatus;
+    this.kind = kind;
+    this.upstreamStatus = upstreamStatus;
+  }
+}
+
+function isTimeoutError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  return /timed out/i.test(message) || error?.name === 'TimeoutError' || error?.name === 'AbortError';
+}
+
+// Wrap a raw fetch/transport error (DNS, connection refused, reset, timeout,
+// SSRF rejection) into the typed gateway error. SSRF/validation rejections are
+// caller-fixable, so they keep 400 semantics; everything else is a gateway fault.
+function toUpstreamTransportError(error) {
+  if (error instanceof UpstreamFetchError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  if (/not allowed|must use http|not in ORACLE_HTTP_ALLOWLIST/i.test(message)) {
+    return error; // caller-supplied URL problem — leave as a 400-class error
+  }
+  if (isTimeoutError(error)) {
+    return new UpstreamFetchError(message, { httpStatus: 504, kind: 'upstream_timeout' });
+  }
+  return new UpstreamFetchError(message, { httpStatus: 502, kind: 'upstream_unreachable' });
+}
+
 export async function performOracleFetch(payload) {
   const { payload: resolvedPayload } = await resolveProviderPayload(payload, {
     fallbackProviderId: !payload.url && payload.symbol ? 'twelvedata' : undefined,
@@ -267,11 +302,21 @@ export async function performOracleFetch(payload) {
 
   const providerRequest = buildProviderRequest(resolvedPayload);
   if (providerRequest) {
-    const response = await fetchProviderJSON(providerRequest, timeoutMs);
+    let response;
+    try {
+      response = await fetchProviderJSON(providerRequest, timeoutMs);
+    } catch (error) {
+      throw toUpstreamTransportError(error);
+    }
     const data = response.data ?? response.text;
     if (!response.ok) {
-      throw new Error(
-        buildUpstreamErrorMessage(providerRequest.provider, response.status, data, response.text)
+      throw new UpstreamFetchError(
+        buildUpstreamErrorMessage(providerRequest.provider, response.status, data, response.text),
+        {
+          httpStatus: response.status === 504 ? 504 : 502,
+          kind: 'upstream_http_error',
+          upstreamStatus: response.status,
+        }
       );
     }
     const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
@@ -307,15 +352,20 @@ export async function performOracleFetch(payload) {
   // window between initial validation and the outbound request.
   await assertResolvedHostAllowed(new URL(url).hostname);
 
-  const response = await fetchWithTimeout(
-    url,
-    {
-      method: resolvedPayload.method || 'GET',
-      headers,
-      body: resolvedPayload.body,
-    },
-    timeoutMs
-  );
+  let response;
+  try {
+    response = await fetchWithTimeout(
+      url,
+      {
+        method: resolvedPayload.method || 'GET',
+        headers,
+        body: resolvedPayload.body,
+      },
+      timeoutMs
+    );
+  } catch (error) {
+    throw toUpstreamTransportError(error);
+  }
 
   const rawResponse = await readResponseTextWithLimit(
     response,
@@ -325,7 +375,11 @@ export async function performOracleFetch(payload) {
   const responseHeaders = Object.fromEntries(response.headers.entries());
   const data = parseBodyMaybe(rawResponse, response.headers.get('content-type')) ?? rawResponse;
   if (!response.ok) {
-    throw new Error(buildUpstreamErrorMessage(url, response.status, data, rawResponse));
+    throw new UpstreamFetchError(buildUpstreamErrorMessage(url, response.status, data, rawResponse), {
+      httpStatus: response.status === 504 ? 504 : 502,
+      kind: 'upstream_http_error',
+      upstreamStatus: response.status,
+    });
   }
   const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
 

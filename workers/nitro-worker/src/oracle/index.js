@@ -6,7 +6,12 @@ export {
   executeProgrammableOracle,
 } from './crypto.js';
 
-export { normalizeOracleUrl, performOracleFetch, buildOracleResponse } from './fetch.js';
+export {
+  normalizeOracleUrl,
+  performOracleFetch,
+  buildOracleResponse,
+  UpstreamFetchError,
+} from './fetch.js';
 
 export {
   normalizePairSymbol,
@@ -17,6 +22,8 @@ export {
   handleOracleFeed,
   handleOracleFeedRequest,
   listFeedSymbols,
+  getFeedStalenessSummary,
+  getFeedStateWriteFailureCount,
 } from './feeds.js';
 
 export { handleVrf } from './vrf.js';
@@ -27,4 +34,9 @@ export {
   recoverRevealSigner,
   addressesEqual,
   isRevealTimestampFresh,
+  readMessageFromChain,
+  resolveNeoxMessageChainContext,
+  parseMessageId,
+  addressesEqual as messageAddressesEqual,
+  NEOX_DECRYPT_CHAIN_ALIASES,
 } from './message-reveal.js';

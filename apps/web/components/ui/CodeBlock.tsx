@@ -25,12 +25,50 @@ export function CodeBlock({
   collapsible = false,
 }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const writeToClipboard = async (text: string): Promise<boolean> => {
+    // The async Clipboard API is only available in secure contexts (HTTPS or
+    // localhost). On http:// previews `navigator.clipboard` is undefined, so
+    // fall back to a hidden-textarea + execCommand copy before giving up.
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // fall through to the legacy path
+      }
+    }
+    if (typeof document === 'undefined') return false;
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      textarea.style.pointerEvents = 'none';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
+
+  const handleCopy = async () => {
+    const ok = await writeToClipboard(code);
+    if (ok) {
+      setCopyFailed(false);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      setCopied(false);
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2000);
+    }
   };
 
   const validLanguage = hljs.getLanguage(language) ? language : 'plaintext';
@@ -141,7 +179,11 @@ export function CodeBlock({
             style={{
               background: 'transparent',
               border: 'none',
-              color: copied ? 'var(--neo-green)' : 'var(--text-secondary)',
+              color: copied
+                ? 'var(--neo-green)'
+                : copyFailed
+                  ? 'var(--ns-danger, #d92d20)'
+                  : 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -152,15 +194,15 @@ export function CodeBlock({
               borderRadius: 'var(--ns-radius-xs)',
               transition: 'all 0.2s',
             }}
-            title="Copy code"
+            title={copyFailed ? 'Copy failed — select and copy manually' : 'Copy code'}
             onMouseEnter={(e) => {
-              if (!copied) {
+              if (!copied && !copyFailed) {
                 e.currentTarget.style.color = 'var(--text-primary)';
                 e.currentTarget.style.background = 'rgba(83, 58, 253, 0.07)';
               }
             }}
             onMouseLeave={(e) => {
-              if (!copied) {
+              if (!copied && !copyFailed) {
                 e.currentTarget.style.color = 'var(--text-secondary)';
                 e.currentTarget.style.background = 'transparent';
               }
@@ -169,6 +211,10 @@ export function CodeBlock({
             {copied ? (
               <>
                 <Check size={12} /> Copied
+              </>
+            ) : copyFailed ? (
+              <>
+                <Copy size={12} /> Copy failed
               </>
             ) : (
               <>

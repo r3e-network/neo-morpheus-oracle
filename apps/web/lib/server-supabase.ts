@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { timingSafeCompare } from '@neo-morpheus-oracle/shared/utils';
 
 export type ServerSupabaseClient = any;
 export type MorpheusNetwork = 'mainnet' | 'testnet';
@@ -144,7 +145,16 @@ export function isAuthorizedAdminRequest(
 
   const headerKey = (request.headers.get('x-admin-api-key') || '').trim();
   const bearer = (request.headers.get('authorization') || '').trim();
-  return configured.includes(headerKey) || configured.some((value) => bearer === `Bearer ${value}`);
+  // Constant-time comparison against every configured key to avoid leaking key
+  // material through a comparison-timing side-channel. `timingSafeCompare`
+  // short-circuits only on length mismatch (length is not secret here), and the
+  // loop deliberately checks all candidates without early-out on first match.
+  let authorized = false;
+  for (const value of configured) {
+    if (timingSafeCompare(headerKey, value)) authorized = true;
+    if (timingSafeCompare(bearer, `Bearer ${value}`)) authorized = true;
+  }
+  return authorized;
 }
 
 export function getServerSupabaseClient() {

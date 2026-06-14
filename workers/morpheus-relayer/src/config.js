@@ -321,6 +321,13 @@ export function createRelayerConfig() {
     ),
     processedCacheSize: Math.max(Number(env('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || 5000), 100),
     deadLetterLimit: Math.max(Number(env('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || 500), 10),
+    // Ceiling on the in-memory retry queue per chain. A sustained ingestion burst
+    // combined with a downstream failure can grow the retry queue unboundedly (and
+    // the whole array is re-serialized on every persist). When set, the oldest
+    // retry items beyond the limit are shed into the dead-letter lane (recoverable
+    // via manual replay) and counted. Defaults to 0 = no ceiling, so the live box
+    // behaves identically until the operator sets the variable.
+    retryQueueLimit: Math.max(Number(env('MORPHEUS_RELAYER_RETRY_QUEUE_LIMIT') || 0), 0),
     durableQueue: {
       enabled: durableQueueEnabled,
       failClosed: parseBoolean(env('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED'), durableQueueEnabled),
@@ -514,6 +521,24 @@ export function createRelayerConfig() {
         (network === 'mainnet'
           ? 'https://mainnet-1.rpc.banelabs.org'
           : 'https://neoxt4seed1.ngd.network'),
+      // Failover RPC list for READS (B4): a single dead Neo X RPC must not kill
+      // the whole neox lane (Neo N3 already rotates). The primary rpcUrl above is
+      // always first; the rest come from MORPHEUS_RELAYER_NEOX_RPC_URLS / registry
+      // plus per-net public defaults. De-duped, order preserved. The signer/submit
+      // path stays pinned to rpcUrl (a stable per-signer key) so failover never
+      // rotates the URL used for nonce management mid-flight.
+      rpcUrls: uniqueOrdered([
+        trimString(env('MORPHEUS_RELAYER_NEOX_RPC_URL', 'NEOX_RPC')) ||
+          trimString(registry.neox?.rpc_url || '') ||
+          (network === 'mainnet'
+            ? 'https://mainnet-1.rpc.banelabs.org'
+            : 'https://neoxt4seed1.ngd.network'),
+        ...parseUrlList(env('MORPHEUS_RELAYER_NEOX_RPC_URLS', 'NEOX_RPC_URLS')),
+        ...parseUrlList(registry.neox?.rpc_urls || []),
+        ...(network === 'mainnet'
+          ? ['https://mainnet-1.rpc.banelabs.org', 'https://mainnet-2.rpc.banelabs.org']
+          : ['https://neoxt4seed1.ngd.network', 'https://neoxt4seed2.ngd.network']),
+      ]),
       // Neo X chain ids: mainnet 47763 (0xba93), T4 testnet 12227332 (0xba9304).
       // Must be correct — it is bound into the fulfillment digest the kernel verifies.
       chainId: Number(
@@ -546,6 +571,12 @@ export function createRelayerConfig() {
       relayer: env('MORPHEUS_BETTERSTACK_RELAYER_HEARTBEAT_URL'),
       feedRelayer: env('MORPHEUS_BETTERSTACK_RELAYER_FEED_HEARTBEAT_URL'),
       failure: env('MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL'),
+      // Dead-letter (permanent callback loss) push alert (F1). Falls back to the
+      // generic failure URL when unset, so configuring only the failure URL keeps
+      // the existing single-channel behavior; set a dedicated URL to route the
+      // single most important incident — a permanently dropped oracle callback —
+      // to its own alert channel.
+      deadLetter: env('MORPHEUS_BETTERSTACK_RELAYER_DEADLETTER_URL'),
     },
   };
 }

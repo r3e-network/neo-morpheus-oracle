@@ -199,3 +199,23 @@ test('getPublicRuntimeStatusNotes builds the public status notes from catalog an
     'App ID: app-123',
   ]);
 });
+
+test('getPublicRuntimeStatusNotes tolerates a catalog without automation.triggerKinds', () => {
+  // A minimal/emergency catalog summarizes to automation:{} (no triggerKinds).
+  // The notes builder must not crash on the missing array.
+  const snapshot = buildPublicRuntimeStatusSnapshot({
+    catalog: {},
+    checkedAt: '2026-06-14T00:00:00.000Z',
+    health: { ok: true, status: 200, body: { status: 'ok' } },
+    info: { ok: true, status: 200, body: {} },
+  });
+
+  assert.deepEqual(snapshot.catalog.automation, {});
+
+  const notes = getPublicRuntimeStatusNotes(snapshot);
+  assert.deepEqual(notes, [
+    'Execution: undefined',
+    'Risk: undefined',
+    'Automation: ',
+  ]);
+});

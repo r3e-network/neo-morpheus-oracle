@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { processChainByRequestCursor } from './request-processor.js';
+import { processChainByRequestCursor, reconcilePendingRequests } from './request-processor.js';
 import { createEmptyRelayerState } from './state.js';
 
 const silentLogger = { debug() {}, info() {}, warn() {}, error() {} };
@@ -109,6 +109,70 @@ test('processChainByRequestCursor still drains due retries when discovery throws
   assert.equal(state.metrics.discovery_failures_total, 1);
   assert.deepEqual(fulfillCalls, ['7']);
   assert.equal(result.retries.length, 1);
+});
+
+test('reconcilePendingRequests skips requests already in retry_queue or processed (cross-tick dedupe) but still picks up genuinely-missed requests (B2)', async () => {
+  const state = createEmptyRelayerState();
+  state.neox.last_request_id = 0;
+
+  // K1: already queued for retry under a BLOCK-CURSOR event key (carries a
+  // txHash) — the request-cursor scan rebuilds the same request with a different
+  // key, so key-based filtering alone would NOT dedupe it.
+  state.neox.retry_queue.push({
+    key: 'neox:1:0xblockhash:0:5',
+    event: { chain: 'neox', requestId: '1', requestType: 'random', txHash: '0xblockhash' },
+    attempts: 0,
+    next_retry_at: Date.now() + 60_000,
+  });
+  // K2: already processed under a block-cursor key.
+  state.neox.processed_records['neox:2:0xblockhash2:0:5'] = {
+    key: 'neox:2:0xblockhash2:0:5',
+    status: 'fulfilled',
+    request_id: '2',
+  };
+
+  const fulfillCalls = [];
+  // `random` -> local VRF (no worker call); neox signs the fulfillment locally,
+  // so the only on-chain touch is the fulfillNeoRequest hook.
+  const TEST_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  const config = cursorConfig({
+    neox: {
+      chainId: 47763,
+      oracleContract: '0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2',
+      updaterPrivateKey: TEST_PK,
+    },
+    hooks: {
+      fulfillNeoRequest: async (call) => {
+        fulfillCalls.push(call.requestId);
+        return { tx_hash: '0xok', vm_state: 'HALT', target_chain: 'neox' };
+      },
+    },
+  });
+
+  // The request-cursor scan returns requests 1, 2 (already tracked) AND 3 (a
+  // genuinely-missed request the block-cursor lane never observed).
+  const result = await reconcilePendingRequests(
+    config,
+    state,
+    silentLogger,
+    'neox',
+    {
+      getLatestRequestId: async () => 3,
+      scanByRequestId: async () => [
+        { chain: 'neox', requestId: '1', requestType: 'random', txHash: '' },
+        { chain: 'neox', requestId: '2', requestType: 'random', txHash: '' },
+        { chain: 'neox', requestId: '3', requestType: 'random', txHash: '' },
+      ],
+    },
+    new Set()
+  );
+
+  // Only the genuinely-missed request (3) was reconciled; 1 (in retry) and 2
+  // (processed) were excluded by membership and NOT double-processed.
+  assert.deepEqual(fulfillCalls, ['3']);
+  assert.equal(result.events.length, 1);
+  // The cursor advanced across the full scanned range so 1/2/3 are not rescanned.
+  assert.equal(state.neox.last_request_id, 3);
 });
 
 test('quiet-chain early return still caps due retries and counts skipped items', async () => {

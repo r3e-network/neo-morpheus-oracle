@@ -26,7 +26,7 @@ const handlePost = createRateLimitedHandler(
         httpStatus: 400,
         error: 'invalid JSON body',
       });
-      return badRequest('invalid JSON body');
+      return badRequest('invalid JSON body', 400, 'INVALID_JSON_BODY');
     }
 
     try {
@@ -72,7 +72,11 @@ const handlePost = createRateLimitedHandler(
         httpStatus: 400,
         error: error instanceof Error ? error.message : String(error),
       });
-      return badRequest(error instanceof Error ? error.message : String(error));
+      return badRequest(
+        error instanceof Error ? error.message : String(error),
+        400,
+        'ORACLE_QUERY_INVALID'
+      );
     }
   },
   { scope: 'oracle_query', maxRequests: 30, windowMs: 60_000 }

@@ -88,7 +88,7 @@ for (const key of Object.keys(process.env)) {
 }
 const baselineEnv = { ...process.env };
 
-const { default: handler } = await import('./src/worker.js');
+const { default: handler, __resetHealthReadinessCacheForTests } = await import('./src/worker.js');
 const {
   __setDstackClientFactoryForTests,
   __resetDstackClientStateForTests,
@@ -401,6 +401,116 @@ test('neodid providers endpoint lists supported social providers', async () => {
   assert.ok(body.providers.some((item) => item.id === 'binance'));
   assert.ok(body.providers.some((item) => item.id === 'okx'));
   assert.ok(body.providers.some((item) => item.id === 'email'));
+});
+
+test('neodid providers report whether provider_uid is derived in the enclave (E3)', async () => {
+  const res = await handler(
+    new Request('http://local/neodid/providers', { headers: authHeaders() })
+  );
+  const body = await res.json();
+  const web3auth = body.providers.find((item) => item.id === 'web3auth');
+  const twitter = body.providers.find((item) => item.id === 'twitter');
+  assert.equal(web3auth.derives_provider_uid_in_tee, true);
+  assert.equal(twitter.derives_provider_uid_in_tee, false);
+});
+
+test('neodid runtime surfaces the provider_uid trust posture and flag state (E3)', async () => {
+  const res = await handler(
+    new Request('http://local/neodid/runtime', { method: 'POST', headers: authHeaders(), body: '{}' })
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(body.provider_uid_verification, 'runtime exposes provider_uid_verification');
+  assert.ok(body.provider_uid_verification.tee_verified_providers.includes('web3auth'));
+  assert.ok(!body.provider_uid_verification.tee_verified_providers.includes('twitter'));
+  // Default behavior: unverified provider_uid is allowed (no breaking change).
+  assert.equal(body.provider_uid_verification.unverified_provider_uid_allowed, true);
+});
+
+test('neodid bind allows an unverified provider_uid by default (E3, no breaking change)', async () => {
+  const previous = process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+  delete process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+  try {
+    const res = await handler(
+      new Request('http://local/neodid/bind', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+          provider: 'twitter',
+          provider_uid: 'twitter_uid_unverified',
+          claim_type: 'Twitter_Verified',
+        }),
+      })
+    );
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.mode, 'neodid_bind');
+    assert.match(body.master_nullifier, /^0x[0-9a-f]{64}$/);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+    else process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = previous;
+  }
+});
+
+test('neodid bind rejects an unverified provider_uid when default-deny is enabled (E3)', async () => {
+  const previous = process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+  process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = 'false';
+  try {
+    const res = await handler(
+      new Request('http://local/neodid/bind', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+          provider: 'twitter',
+          provider_uid: 'twitter_uid_unverified',
+          claim_type: 'Twitter_Verified',
+        }),
+      })
+    );
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /not verified in the enclave|unverified provider_uid is disabled/i);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+    else process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = previous;
+  }
+});
+
+test('neodid web3auth uid derivation is unaffected by default-deny (E3, TEE-verified)', async () => {
+  const previous = process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+  process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = 'false';
+  __resetNeoDidStateForTests();
+  const fixture = await buildWeb3AuthFixture({
+    claims: { verifier: 'google', verifierId: 'tee@example.com' },
+    clientId: 'worker-test-web3auth-tee',
+    jwksUrl: 'https://jwks.test/web3auth-tee.json',
+    kid: 'worker-test-web3auth-tee',
+  });
+  installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
+  try {
+    const res = await handler(
+      new Request('http://local/neodid/bind', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+          provider: 'web3auth',
+          id_token: fixture.token,
+          web3auth_client_id: fixture.clientId,
+          web3auth_jwks_url: fixture.jwksUrl,
+          claim_type: 'Web3Auth_PrimaryIdentity',
+        }),
+      })
+    );
+    // web3auth derives the uid in-TEE so default-deny does not block it.
+    assert.equal(res.status, 200);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+    else process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = previous;
+    __resetNeoDidStateForTests();
+  }
 });
 
 test('neodid bind returns deterministic master nullifier and ticket signature', async () => {
@@ -1495,7 +1605,7 @@ test('oracle query supports builtin provider mode', async () => {
   assert.match(body.body, /11\.11/);
 });
 
-test('oracle query fails on builtin provider upstream 429', async () => {
+test('oracle query surfaces a builtin provider upstream 429 as a retryable 502 (D4)', async () => {
   global.fetch = async (url) => {
     assert.match(String(url), /api\.twelvedata\.com\/price/);
     return new Response(JSON.stringify({ code: 429, message: 'rate limited', status: 'error' }), {
@@ -1511,9 +1621,35 @@ test('oracle query fails on builtin provider upstream 429', async () => {
       body: JSON.stringify({ provider: 'twelvedata', symbol: 'NEO-USD', target_chain: 'neo_n3' }),
     })
   );
-  assert.equal(res.status, 400);
+  // An upstream data-source failure is a gateway fault (retryable), not a 400
+  // "bad request" that the relayer would burn into a permanent failure callback.
+  assert.equal(res.status, 502);
   const body = await res.json();
   assert.match(body.error, /429/);
+  assert.equal(body.kind, 'upstream_http_error');
+  assert.equal(body.error_code, 'upstream_http_error');
+});
+
+test('oracle query surfaces a direct-URL upstream 503 as a retryable 502 (D4)', async () => {
+  global.fetch = async (url) => {
+    assert.equal(String(url), 'https://api.example.com/feed');
+    return new Response('service unavailable', {
+      status: 503,
+      headers: { 'content-type': 'text/plain' },
+    });
+  };
+
+  const res = await handler(
+    new Request('http://local/oracle/query', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ url: 'https://api.example.com/feed', target_chain: 'neo_n3' }),
+    })
+  );
+  assert.equal(res.status, 502);
+  const body = await res.json();
+  assert.equal(body.kind, 'upstream_http_error');
+  assert.equal(body.upstream_status, 503);
 });
 
 test('health endpoint works without auth', async () => {
@@ -1521,6 +1657,42 @@ test('health endpoint works without auth', async () => {
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.status, 'ok');
+});
+
+test('health endpoint exposes a readiness probe (F4)', async () => {
+  __resetHealthReadinessCacheForTests();
+  const res = await handler(new Request('http://local/health'));
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  // Backward-compatible additive fields.
+  assert.equal(body.status, 'ok');
+  assert.equal(body.runtime, 'nitro-worker');
+  assert.ok(body.readiness && typeof body.readiness === 'object', 'readiness object present');
+  assert.ok('ready' in body, 'top-level ready flag present');
+  assert.ok('signing_key' in body.readiness.checks);
+  assert.ok('dstack' in body.readiness.checks);
+  assert.ok('feed_fresh' in body.readiness.checks);
+  assert.equal(typeof body.readiness.feed_state_write_failures, 'number');
+});
+
+test('health endpoint returns 503 in strict mode when not ready (F4)', async () => {
+  const previous = process.env.MORPHEUS_WORKER_HEALTH_STRICT;
+  process.env.MORPHEUS_WORKER_HEALTH_STRICT = 'true';
+  __resetHealthReadinessCacheForTests();
+  try {
+    // No reachable dstack/signer in the test env → not ready → strict 503.
+    const res = await handler(new Request('http://local/health'));
+    assert.equal(res.status, 503);
+    const body = await res.json();
+    assert.equal(body.status, 'degraded');
+    assert.equal(body.ready, false);
+    // Even when degraded, the discoverable feature list is still served.
+    assert.ok(Array.isArray(body.features) && body.features.length >= 20);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_WORKER_HEALTH_STRICT;
+    else process.env.MORPHEUS_WORKER_HEALTH_STRICT = previous;
+    __resetHealthReadinessCacheForTests();
+  }
 });
 
 test('info endpoint works without auth', async () => {
@@ -2423,7 +2595,7 @@ test('oracle smart fetch supports wasm runtime', async () => {
   assert.equal(body.result, true);
 });
 
-test('oracle fetch enforces upstream timeout', async () => {
+test('oracle fetch enforces upstream timeout (surfaces as 504, D4)', async () => {
   global.fetch = async (_url, init) =>
     await new Promise((resolve, reject) => {
       init.signal.addEventListener('abort', () => reject(new Error('aborted')));
@@ -2440,9 +2612,11 @@ test('oracle fetch enforces upstream timeout', async () => {
       }),
     })
   );
-  assert.equal(res.status, 400);
+  // An upstream fetch timeout is a gateway timeout (retryable), not a 400.
+  assert.equal(res.status, 504);
   const body = await res.json();
   assert.match(body.error, /timed out/);
+  assert.equal(body.kind, 'upstream_timeout');
 });
 
 test('oracle smart fetch rejects oversized upstream responses', async () => {

@@ -1,4 +1,9 @@
-import { json, trimString, getClientIp } from '@neo-morpheus-oracle/shared/utils';
+import {
+  json,
+  trimString,
+  getClientIp,
+  timingSafeCompare,
+} from '@neo-morpheus-oracle/shared/utils';
 import { applyUpstashRateLimit } from '@neo-morpheus-oracle/shared/rate-limit';
 import { buildPublicRuntimeStatusSnapshot } from '../../../packages/shared/src/public-runtime.js';
 import runtimeCatalog from '../../../apps/web/public/morpheus-runtime-catalog.json' with { type: 'json' };
@@ -132,7 +137,16 @@ function isTrustedAutomationRequest(request, env) {
   ]
     .map(trimString)
     .filter(Boolean);
-  return trustedTokens.includes(token);
+  // Constant-time compare against every configured trusted token so a remote
+  // attacker cannot use response-timing to recover the secret byte-by-byte.
+  // Always walk the full list (no early `return true`) to keep the per-token
+  // cost uniform; timingSafeCompare itself short-circuits only on length
+  // mismatch, which leaks length but not content.
+  let matched = false;
+  for (const candidate of trustedTokens) {
+    if (timingSafeCompare(token, candidate)) matched = true;
+  }
+  return matched;
 }
 
 function resolveCacheRule(url, request) {
@@ -215,10 +229,24 @@ async function applyUpstashRateLimitImpl(request, env, routeKey) {
   if (!config) return null;
 
   const key = `morpheus:edge:ratelimit:${routeKey}:${getClientIp(request)}`;
-  const result = await applyUpstashRateLimit(env, key, {
-    max: config.limit,
-    windowMs: config.windowMs,
-  });
+  let result;
+  try {
+    result = await applyUpstashRateLimit(env, key, {
+      max: config.limit,
+      windowMs: config.windowMs,
+    });
+  } catch (error) {
+    // The Upstash backend is the rate-limit source of truth; if it is
+    // unreachable or 5xx we must fail closed rather than let the throw surface
+    // as an opaque 500 (which would also fail *open*, silently dropping the
+    // limit). Returning 503 keeps the protected lanes guarded during an
+    // Upstash outage and gives callers a retryable, machine-readable signal.
+    return json(503, {
+      error: 'rate_limit_backend_unavailable',
+      route: routeKey,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   if (!result) return null;
   if (result.allowed === false) {
@@ -228,7 +256,7 @@ async function applyUpstashRateLimitImpl(request, env, routeKey) {
       { 'retry-after': String(result.retryAfter) }
     );
   }
-  return json(503, { error: 'rate_limit_backend_unavailable' });
+  return json(503, { error: 'rate_limit_backend_unavailable', route: routeKey });
 }
 
 function buildOriginRequest(request, env) {
@@ -327,6 +355,10 @@ async function readOriginRuntimeProbe(request, routing, env, targetPath) {
     return {
       ok: response.ok,
       status: response.status,
+      // The runtime discriminator the origin self-reports (the box's real TEE
+      // runtime vs the emergency Vercel shim). Surfaced so the two public
+      // surfaces cannot silently disagree about which runtime answered.
+      runtime: trimString(response.headers.get('x-morpheus-runtime')) || null,
       body: maybeParseJson(text),
     };
   } catch (error) {
@@ -335,12 +367,33 @@ async function readOriginRuntimeProbe(request, routing, env, targetPath) {
     return {
       ok: false,
       status: 503,
+      runtime: null,
       body: {
         error: 'origin_unavailable',
         message: error instanceof Error ? error.message : String(error),
       },
     };
   }
+}
+
+// Capability fields derived from the shared runtime catalog (the single source
+// of truth both the box and the emergency Vercel shim must agree with). The edge
+// surfaces this canonical set on the runtime-status route so a consumer can
+// detect when the runtime that actually answered (x-morpheus-runtime) diverges
+// from the contracted capabilities — instead of the box and shim silently
+// disagreeing on what the platform supports.
+function deriveCatalogCapabilities(catalog) {
+  const workflows = Array.isArray(catalog?.workflows) ? catalog.workflows : [];
+  const automation =
+    catalog?.automation && typeof catalog.automation === 'object' ? catalog.automation : {};
+  return {
+    catalogVersion: trimString(catalog?.envelope?.version) || null,
+    executionPlane: trimString(catalog?.topology?.executionPlane) || null,
+    teeRequired: workflows.some((wf) => wf?.execution?.teeRequired === true),
+    workflowIds: workflows.map((wf) => trimString(wf?.id)).filter(Boolean),
+    capabilityIds: workflows.map((wf) => trimString(wf?.capabilityId)).filter(Boolean),
+    automationTriggerKinds: Array.isArray(automation.triggerKinds) ? automation.triggerKinds : [],
+  };
 }
 
 export default {
@@ -384,8 +437,15 @@ export default {
         health,
         info,
       });
+      // The runtime that actually answered (box TEE runtime vs emergency shim),
+      // plus the canonical capability set both surfaces must honor. Together
+      // these let a consumer detect a shim/box divergence instead of trusting
+      // whichever surface they happened to reach.
+      const originRuntime = health.runtime || info.runtime || null;
+      snapshot.runtime.origin = originRuntime;
+      snapshot.runtime.capabilities = deriveCatalogCapabilities(runtimeCatalog);
       const statusCode = snapshot.runtime.status === 'down' ? 503 : 200;
-      return decorateGatewayResponse(
+      const response = decorateGatewayResponse(
         Response.json(snapshot, {
           status: statusCode,
           headers: {
@@ -395,6 +455,10 @@ export default {
         routing,
         publicRuntimeRoute
       );
+      // Discriminator header so the runtime identity travels with the response
+      // (caches, proxies, and clients can branch on it without parsing the body).
+      response.headers.set('x-morpheus-runtime', originRuntime || 'unknown');
+      return response;
     }
 
     if (

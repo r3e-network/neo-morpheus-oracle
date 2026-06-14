@@ -11,9 +11,41 @@ import {
 import { CircuitBreaker } from '../platform/circuit-breaker.js';
 
 const PROVIDER_CONFIG_CACHE_TTL_MS = 30_000;
+// Bound the on-demand caches so a long-lived worker fielding many distinct
+// project/provider configs or oracle.fetch cache keys cannot grow unbounded.
+// Both are well above steady-state (a handful of configured pairs/providers).
+const PROVIDER_CACHE_MAX_ENTRIES = Math.max(
+  Number(env('MORPHEUS_PROVIDER_CACHE_MAX_ENTRIES')) || 500,
+  16
+);
 const providerConfigCache = new Map();
 const providerResponseCache = new Map();
 const providerResponseInFlight = new Map();
+
+// Insert into a Map with a hard size ceiling, evicting the oldest entries first
+// (Map preserves insertion order). Drop expired entries before evicting fresh
+// ones so a steady stream of short-TTL keys self-cleans instead of churning.
+function setCappedCacheEntry(cache, key, value, maxEntries = PROVIDER_CACHE_MAX_ENTRIES) {
+  // Re-inserting an existing key must refresh its recency/ordering.
+  if (cache.has(key)) cache.delete(key);
+  cache.set(key, value);
+  if (cache.size <= maxEntries) return;
+
+  const now = Date.now();
+  for (const [existingKey, existingValue] of cache) {
+    if (cache.size <= maxEntries) break;
+    if (existingKey === key) continue;
+    const expiresAt = Number(existingValue?.expiresAt);
+    if (Number.isFinite(expiresAt) && expiresAt <= now) {
+      cache.delete(existingKey);
+    }
+  }
+  while (cache.size > maxEntries) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey === undefined || oldestKey === key) break;
+    cache.delete(oldestKey);
+  }
+}
 
 // Per-provider circuit breakers
 const providerBreakers = new Map();
@@ -238,6 +270,25 @@ export function __resetProviderRuntimeCachesForTests() {
   providerResponseInFlight.clear();
 }
 
+export function __getProviderCacheSizesForTests() {
+  return {
+    config: providerConfigCache.size,
+    response: providerResponseCache.size,
+    inFlight: providerResponseInFlight.size,
+  };
+}
+
+export function __setCappedCacheEntryForTests(which, key, value, maxEntries) {
+  const cache = which === 'config' ? providerConfigCache : providerResponseCache;
+  setCappedCacheEntry(cache, key, value, maxEntries);
+  return cache.size;
+}
+
+export function __cacheHasKeyForTests(which, key) {
+  const cache = which === 'config' ? providerConfigCache : providerResponseCache;
+  return cache.has(key);
+}
+
 function resolveProviderResponseMaxBodyBytes() {
   return resolveMaxBytes(env('ORACLE_MAX_PROVIDER_BODY_BYTES'), 64 * 1024, 4096);
 }
@@ -300,7 +351,7 @@ async function loadProjectProviderConfig(
   });
   const projectId = Array.isArray(projects) ? projects[0]?.id : null;
   if (!projectId) {
-    providerConfigCache.set(cacheKey, {
+    setCappedCacheEntry(providerConfigCache, cacheKey, {
       expiresAt: Date.now() + PROVIDER_CONFIG_CACHE_TTL_MS,
       value: null,
     });
@@ -315,7 +366,7 @@ async function loadProjectProviderConfig(
     limit: 1,
   });
   const value = Array.isArray(configs) ? (configs[0] ?? null) : null;
-  providerConfigCache.set(cacheKey, {
+  setCappedCacheEntry(providerConfigCache, cacheKey, {
     expiresAt: Date.now() + PROVIDER_CONFIG_CACHE_TTL_MS,
     value,
   });
@@ -642,7 +693,7 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 8000) {
   try {
     const result = await promise;
     if (cacheKey && cacheTtlMs > 0 && result.ok) {
-      providerResponseCache.set(cacheKey, {
+      setCappedCacheEntry(providerResponseCache, cacheKey, {
         expiresAt: Date.now() + cacheTtlMs,
         value: cloneProviderResult(result),
       });

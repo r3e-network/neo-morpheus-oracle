@@ -184,7 +184,7 @@ export const AUTOMATION_PATTERNS = [
       trigger: {
         type: 'interval',
         interval_ms: 600000,
-        start_at: '2026-03-11T00:10:00Z',
+        start_at: '<future UTC timestamp, e.g. 2026-03-11T00:10:00Z>',
       },
       execution: {
         request_type: 'compute',

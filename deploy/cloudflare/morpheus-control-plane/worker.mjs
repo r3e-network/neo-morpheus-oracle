@@ -5,6 +5,7 @@ import {
   resolveJobMetadata,
   resolveRequeueLimit,
   resolveStaleProcessingMs,
+  resolveMaxBodyBytes,
 } from './lib/config.js';
 import { validateAuth, applyRateLimit } from './lib/auth.js';
 import { insertJob, loadJob, patchJob } from './lib/jobs.js';
@@ -14,7 +15,11 @@ import {
   isWorkflowRouteConfig,
   loadWorkflowInstanceDetails,
 } from './lib/workflows.js';
-import { processExecutionJob, processFeedTickJob } from './lib/queue-consumer.js';
+import {
+  processExecutionJob,
+  processFeedTickJob,
+  processDeadLetterJob,
+} from './lib/queue-consumer.js';
 import { buildWorkflowDispatchMetadata } from './lib/workflow-dispatch.js';
 import { CallbackBroadcastWorkflow, AutomationExecuteWorkflow } from './lib/workflows-impl.js';
 
@@ -29,6 +34,7 @@ async function recoverNetworkJobs(env, network) {
   const requeued = [];
   const skipped = [];
   const failed = [];
+  const deadLettered = [];
   for (const job of jobs) {
     try {
       const outcome = await requeueJob(env, job);
@@ -42,6 +48,8 @@ async function recoverNetworkJobs(env, network) {
       };
       if (entry.action === 'queue_requeued' || entry.action === 'workflow_redispatched') {
         requeued.push(entry);
+      } else if (entry.action === 'dead_lettered') {
+        deadLettered.push(entry);
       } else {
         skipped.push(entry);
       }
@@ -60,9 +68,11 @@ async function recoverNetworkJobs(env, network) {
     requeued_count: requeued.length,
     skipped_count: skipped.length,
     failed_count: failed.length,
+    dead_lettered_count: deadLettered.length,
     requeued,
     skipped,
     failed,
+    dead_lettered: deadLettered,
   };
 }
 
@@ -140,7 +150,22 @@ export default {
     const rateLimited = await applyRateLimit(request, env, jobConfig.queue);
     if (rateLimited) return rateLimited;
 
+    const maxBodyBytes = resolveMaxBodyBytes(env);
+    // Reject oversized bodies up front via the declared content-length so we
+    // never buffer + JSON.parse an arbitrarily large payload (memory/CPU DoS).
+    const declaredLength = Number(request.headers.get('content-length') || 0);
+    if (Number.isFinite(declaredLength) && declaredLength > maxBodyBytes) {
+      return json(413, { error: 'request_body_too_large', max_bytes: maxBodyBytes }, rid);
+    }
+
     const rawBody = await request.text();
+    // content-length can be absent or spoofed; enforce the cap on the actual
+    // received byte length too (UTF-8, matching how the body arrives over HTTP).
+    const actualLength =
+      typeof TextEncoder === 'function' ? new TextEncoder().encode(rawBody).length : rawBody.length;
+    if (actualLength > maxBodyBytes) {
+      return json(413, { error: 'request_body_too_large', max_bytes: maxBodyBytes }, rid);
+    }
     let payload = {};
     try {
       payload = rawBody ? JSON.parse(rawBody) : {};
@@ -254,6 +279,15 @@ export default {
       }
       if (batch.queue === 'morpheus-feed-tick') {
         await processFeedTickJob(message, env);
+        continue;
+      }
+      // Dead-letter queues: finalize the poison job's Supabase row terminal so
+      // the cron recovery path stops re-requeuing it.
+      if (
+        batch.queue === 'morpheus-oracle-request-dlq' ||
+        batch.queue === 'morpheus-feed-tick-dlq'
+      ) {
+        await processDeadLetterJob(message, env);
         continue;
       }
       message.ack();

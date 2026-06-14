@@ -884,6 +884,308 @@ test('jobs/recover preserves active workflow instances instead of redispatching 
   assert.equal(state.jobs.get('job-callback-active')?.status, 'processing');
 });
 
+// --- A4: rate-limit backend failure fails closed with 503 ---
+
+test('control plane fails closed with 503 when the Upstash rate-limit backend 5xxs (A4)', async () => {
+  const state = createState();
+  const baseMock = createFetchMock(state);
+  let pipelineCalls = 0;
+  global.fetch = async (url, init = {}) => {
+    const target = new URL(String(url));
+    if (target.pathname.endsWith('/pipeline')) {
+      pipelineCalls += 1;
+      return new Response(JSON.stringify({ error: 'upstash down' }), { status: 503 });
+    }
+    return baseMock(url, init);
+  };
+
+  const env = createEnv({
+    UPSTASH_REDIS_REST_URL: 'https://upstash.test',
+    UPSTASH_REDIS_REST_TOKEN: 'upstash-token',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/oracle/query', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' }),
+    }),
+    env
+  );
+
+  assert.equal(response.status, 503);
+  const body = await response.json();
+  assert.equal(body.error, 'rate_limit_backend_unavailable');
+  assert.equal(body.queue, 'oracle_request');
+  assert.equal(pipelineCalls, 1);
+  // No job was inserted because we failed closed before the parse/insert path.
+  assert.equal(state.jobs.size, 0);
+});
+
+// --- B13: oversized request body is rejected with 413 before JSON.parse ---
+
+test('control plane rejects an oversized request body with 413 before parsing (B13)', async () => {
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  // Build a body larger than the configured cap (set a small cap so the test
+  // body stays tiny while still exceeding it).
+  const env = createEnv({ MORPHEUS_CONTROL_PLANE_MAX_BODY_BYTES: '65536' });
+  const oversized = JSON.stringify({ blob: 'x'.repeat(70_000) });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/oracle/query', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+      },
+      body: oversized,
+    }),
+    env
+  );
+
+  assert.equal(response.status, 413);
+  const body = await response.json();
+  assert.equal(body.error, 'request_body_too_large');
+  assert.equal(body.max_bytes, 65536);
+  // Rejected before any Supabase insert.
+  assert.equal(state.jobs.size, 0);
+});
+
+test('control plane rejects an oversized declared content-length with 413 (B13)', async () => {
+  const state = createState();
+  global.fetch = createFetchMock(state);
+  const env = createEnv({ MORPHEUS_CONTROL_PLANE_MAX_BODY_BYTES: '65536' });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/oracle/query', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+        'content-length': '200000',
+      },
+      body: JSON.stringify({ symbol: 'TWELVEDATA:NEO-USD' }),
+    }),
+    env
+  );
+
+  assert.equal(response.status, 413);
+  const body = await response.json();
+  assert.equal(body.error, 'request_body_too_large');
+  assert.equal(state.jobs.size, 0);
+});
+
+test('control plane still accepts a normal-sized body under the cap (B13)', async () => {
+  const state = createState();
+  global.fetch = createFetchMock(state);
+  const env = createEnv();
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/oracle/query', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' }),
+    }),
+    env
+  );
+
+  assert.equal(response.status, 202);
+});
+
+// --- B5(a): DLQ consumer marks the poison job's row terminal so cron stops re-listing ---
+
+test('dlq consumer marks the poison job dead_lettered and the cron stops re-listing it (B5)', async () => {
+  const env = createEnv();
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-poison', {
+    id: 'job-poison',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' },
+    metadata: {},
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+  });
+
+  const message = createQueueMessage({
+    job_id: 'job-poison',
+    network: 'testnet',
+    queue: 'oracle_request',
+  });
+  await worker.queue({ queue: 'morpheus-oracle-request-dlq', messages: [message] }, env);
+
+  assert.equal(message.acked, true);
+  assert.equal(state.jobs.get('job-poison')?.status, 'dead_lettered');
+  assert.equal(state.jobs.get('job-poison')?.metadata?.dead_letter_source, 'queue-dlq-consumer');
+
+  // The cron recovery path must no longer list (and thus re-requeue) the row.
+  const summaries = await worker.scheduled({}, env);
+  const byNetwork = Object.fromEntries(summaries.map((summary) => [summary.network, summary]));
+  assert.equal(byNetwork.testnet.scanned, 0);
+  assert.equal(byNetwork.testnet.requeued_count, 0);
+  assert.equal(env.MORPHEUS_ORACLE_REQUEST_QUEUE.sent.length, 0);
+});
+
+test('dlq consumer leaves an already-terminal job untouched (B5)', async () => {
+  const env = createEnv();
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-done', {
+    id: 'job-done',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'succeeded',
+    payload: {},
+    metadata: { existing: true },
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+  });
+
+  const message = createQueueMessage({
+    job_id: 'job-done',
+    network: 'testnet',
+    queue: 'oracle_request',
+  });
+  await worker.queue({ queue: 'morpheus-oracle-request-dlq', messages: [message] }, env);
+
+  assert.equal(message.acked, true);
+  // Unchanged: a succeeded job must not be flipped to dead_lettered.
+  assert.equal(state.jobs.get('job-done')?.status, 'succeeded');
+});
+
+// --- B5(b): recovery requeue ceiling dead-letters poison jobs ---
+
+test('jobs/recover dead-letters a queue job after the requeue ceiling (B5)', async () => {
+  const env = createEnv({ MORPHEUS_CONTROL_PLANE_MAX_REQUEUE_ATTEMPTS: '3' });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-ceiling', {
+    id: 'job-ceiling',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' },
+    metadata: { requeue_attempts: 3 },
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/jobs/recover', {
+      method: 'POST',
+      headers: { authorization: 'Bearer control-plane-key' },
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.requeued_count, 0);
+  assert.equal(body.dead_lettered_count, 1);
+  assert.equal(state.jobs.get('job-ceiling')?.status, 'dead_lettered');
+  // It was NOT re-enqueued.
+  assert.equal(env.MORPHEUS_ORACLE_REQUEST_QUEUE.sent.length, 0);
+});
+
+test('jobs/recover still requeues a queue job below the ceiling and bumps the attempt counter (B5)', async () => {
+  const env = createEnv({ MORPHEUS_CONTROL_PLANE_MAX_REQUEUE_ATTEMPTS: '3' });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  state.jobs.set('job-under-ceiling', {
+    id: 'job-under-ceiling',
+    network: 'testnet',
+    queue: 'oracle_request',
+    route: '/oracle/query',
+    status: 'queued',
+    payload: { symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' },
+    metadata: { requeue_attempts: 1 },
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/jobs/recover', {
+      method: 'POST',
+      headers: { authorization: 'Bearer control-plane-key' },
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.requeued_count, 1);
+  assert.equal(body.dead_lettered_count, 0);
+  assert.equal(state.jobs.get('job-under-ceiling')?.status, 'dispatched');
+  assert.equal(state.jobs.get('job-under-ceiling')?.metadata?.requeue_attempts, 2);
+  assert.equal(env.MORPHEUS_ORACLE_REQUEST_QUEUE.sent.length, 1);
+});
+
+test('jobs/recover dead-letters a workflow job at the ceiling instead of redispatching (B5)', async () => {
+  // No workflow binding configured for this env, so a recover on a failed
+  // workflow job that has no live instance would normally re-dispatch. With the
+  // dispatch count already at the ceiling it must be dead-lettered instead.
+  const callbackWorkflow = createWorkflowBinding({ status: 'errored' });
+  const env = createEnv({
+    CALLBACK_BROADCAST_WORKFLOW: callbackWorkflow,
+    MORPHEUS_CONTROL_PLANE_MAX_REQUEUE_ATTEMPTS: '3',
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  const instanceId = 'callback_broadcast:testnet:job-wf-ceiling:4';
+  callbackWorkflow.setStatus(instanceId, { status: 'errored' });
+  state.jobs.set('job-wf-ceiling', {
+    id: 'job-wf-ceiling',
+    network: 'testnet',
+    queue: 'callback_broadcast',
+    route: '/callbacks/broadcast',
+    status: 'failed',
+    payload: { target_chain: 'neo_n3', request_id: '42', success: true },
+    metadata: {
+      workflow_name: 'callback_broadcast',
+      workflow_binding: 'CALLBACK_BROADCAST_WORKFLOW',
+      workflow_instance_id: instanceId,
+      // dispatch_count 4 => 3 prior recovery retries == the ceiling.
+      workflow_dispatch_count: 4,
+    },
+    created_at: '2026-03-22T11:00:00.000Z',
+    updated_at: '2026-03-22T11:00:00.000Z',
+  });
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/jobs/recover', {
+      method: 'POST',
+      headers: { authorization: 'Bearer control-plane-key' },
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.dead_lettered_count, 1);
+  assert.equal(body.requeued_count, 0);
+  assert.equal(state.jobs.get('job-wf-ceiling')?.status, 'dead_lettered');
+  // No fresh workflow instance was created.
+  assert.equal(callbackWorkflow.created.length, 0);
+});
+
 test('oracle_request consumer defers queued jobs until run_after', async () => {
   const env = createEnv();
   const state = createState();

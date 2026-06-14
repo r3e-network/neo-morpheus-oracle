@@ -1,6 +1,37 @@
 import { Code2 } from 'lucide-react';
 import { BUILTIN_FUNCTIONS } from '@/lib/docs-data';
 import { NETWORKS } from '@/lib/onchain-data';
+import { CodeBlock } from '@/components/ui/CodeBlock';
+
+// Public HTTP edge surface served by the Vercel app. Each row mirrors the
+// values declared in the matching route handler (scope / maxRequests / window)
+// so this table cannot silently drift from the enforced limits.
+const PUBLIC_HTTP_ROUTES = [
+  {
+    method: 'POST',
+    path: '/api/oracle/query',
+    rateLimit: '30 / minute / IP',
+    desc: 'Off-chain provider fetch + TEE-signed result preview (provider-aware payload resolution).',
+  },
+  {
+    method: 'POST',
+    path: '/api/oracle/smart-fetch',
+    rateLimit: '20 / minute / IP',
+    desc: 'Heuristic provider selection variant of /api/oracle/query.',
+  },
+  {
+    method: 'POST',
+    path: '/api/compute/execute',
+    rateLimit: '20 / minute / IP',
+    desc: 'Run a builtin or custom-JS compute function inside the enclave. Requires target_chain to be neo_n3 when supplied.',
+  },
+  {
+    method: 'GET',
+    path: '/api/feeds/[symbol]',
+    rateLimit: 'unmetered (read)',
+    desc: 'Latest price quote for a symbol. Accepts ?provider, ?project_slug, ?provider_params (URL-encoded JSON).',
+  },
+];
 
 export default function DocsApiReference() {
   const oracleDomain = NETWORKS.neo_n3.domains.oracle || 'unassigned';
@@ -98,7 +129,7 @@ Contract.Call(
         <code>{oracleDomain}</code>.
       </p>
 
-      <h2>2. Enclave SDK (Javascript)</h2>
+      <h2>2. NeoDID Resolution</h2>
       <p>
         NeoDID now also exposes a W3C DID resolution route for public service discovery and subject
         namespaces:
@@ -281,6 +312,85 @@ Accept: application/did+ld+json`}</code>
           </div>
         ))}
       </div>
+
+      <h2>4. Public HTTP API</h2>
+      <p>
+        The Vercel edge app exposes a small set of public JSON endpoints in front of the enclave.
+        All bodies are JSON. POST routes are IP rate-limited; on overflow they return{' '}
+        <code>429</code> with <code>{`{ error: "Too many requests", retryAfter }`}</code>. Every
+        rate-limited response carries <code>X-RateLimit-Limit</code>,{' '}
+        <code>X-RateLimit-Remaining</code>, <code>X-RateLimit-Reset</code> (ISO-8601), and{' '}
+        <code>Retry-After</code> (seconds) headers.
+      </p>
+
+      <div style={{ overflowX: 'auto', margin: '1.5rem 0' }}>
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '0.8rem',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
+          <thead>
+            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-dim)' }}>
+              <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>Method</th>
+              <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>Path</th>
+              <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>Rate limit</th>
+              <th style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)' }}>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PUBLIC_HTTP_ROUTES.map((route) => (
+              <tr
+                key={route.path}
+                style={{ borderBottom: '1px solid var(--border-dim)', verticalAlign: 'top' }}
+              >
+                <td style={{ padding: '0.5rem 0.75rem', color: 'var(--accent-purple)' }}>
+                  {route.method}
+                </td>
+                <td style={{ padding: '0.5rem 0.75rem', color: 'var(--neo-green)' }}>
+                  {route.path}
+                </td>
+                <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-secondary)' }}>
+                  {route.rateLimit}
+                </td>
+                <td
+                  style={{
+                    padding: '0.5rem 0.75rem',
+                    color: 'var(--text-secondary)',
+                    fontFamily: 'var(--font-sans)',
+                  }}
+                >
+                  {route.desc}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Degraded / fallback shapes</h3>
+      <p>
+        When an upstream provider is unavailable, <code>GET /api/feeds/[symbol]</code> responds with
+        HTTP <code>200</code> and a degraded envelope (so callers can distinguish &quot;no
+        quote&quot; from a request error). The upstream status is also surfaced in the{' '}
+        <code>x-morpheus-upstream-status</code> header. Invalid input returns HTTP <code>400</code>{' '}
+        with <code>{`{ error: "..." }`}</code>.
+      </p>
+
+      <CodeBlock
+        language="json"
+        title="GET /api/feeds/NEO-USD (degraded)"
+        code={`{
+  "status": "unavailable",
+  "degraded": true,
+  "symbol": "NEO-USD",
+  "provider": "twelvedata",
+  "error": "feed_quote_unavailable",
+  "upstream_status": 503
+}`}
+      />
     </div>
   );
 }

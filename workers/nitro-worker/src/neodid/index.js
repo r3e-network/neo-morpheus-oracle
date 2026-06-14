@@ -6,7 +6,14 @@ import {
   normalizeMorpheusNetwork,
   resolvePinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
-import { env, json, resolvePayloadNetwork, sha256Hex, trimString } from '../platform/core.js';
+import {
+  env,
+  json,
+  requestLog,
+  resolvePayloadNetwork,
+  sha256Hex,
+  trimString,
+} from '../platform/core.js';
 import { resolveConfidentialPayload } from '../oracle/crypto.js';
 import { buildVerificationEnvelope, buildSignedResultEnvelope } from '../chain/index.js';
 import {
@@ -30,6 +37,13 @@ function snapshotSignerEnv() {
   }
   return snapshot;
 }
+// `derives_provider_uid_in_tee` (E3): true means the worker derives the
+// nullifier-binding provider_uid from a cryptographically-verified credential
+// INSIDE the enclave (web3auth verifies a signed id_token), so the uid is not
+// forgeable by the caller. false means the provider_uid is currently taken from
+// the (untrusted) request body — a caller could forge a ticket bound to another
+// user's identity. Tightening these to TEE-verified is a coordinated rollout
+// (see MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID below).
 const SUPPORTED_PROVIDERS = [
   {
     id: 'web3auth',
@@ -37,6 +51,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: ['w3a'],
     auth_modes: ['aggregate_oauth', 'mfa'],
     claim_types: ['Web3Auth_PrimaryIdentity', 'Web3Auth_LinkedSocials', 'Web3Auth_VerifiedUser'],
+    derives_provider_uid_in_tee: true,
   },
   {
     id: 'twitter',
@@ -44,6 +59,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: [],
     auth_modes: ['oauth'],
     claim_types: ['Twitter_VIP', 'Twitter_Verified', 'Twitter_Followers'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'github',
@@ -51,6 +67,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: [],
     auth_modes: ['oauth'],
     claim_types: ['Github_Contributor', 'Github_OrgMember', 'Github_VerifiedUser'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'google',
@@ -58,6 +75,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: ['gmail'],
     auth_modes: ['oauth'],
     claim_types: ['Google_Identity', 'Google_Workspace', 'Google_VerifiedEmail'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'discord',
@@ -65,6 +83,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: [],
     auth_modes: ['oauth'],
     claim_types: ['Discord_Member'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'telegram',
@@ -72,6 +91,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: [],
     auth_modes: ['oauth'],
     claim_types: ['Telegram_Member'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'binance',
@@ -79,6 +99,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: [],
     auth_modes: ['api', 'oauth'],
     claim_types: ['Binance_KYC', 'Binance_VIP', 'Binance_AssetHolder'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'okx',
@@ -86,6 +107,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: ['okex'],
     auth_modes: ['api', 'oauth'],
     claim_types: ['OKX_KYC', 'OKX_VIP', 'OKX_AssetHolder'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'email',
@@ -93,6 +115,7 @@ const SUPPORTED_PROVIDERS = [
     aliases: ['mail'],
     auth_modes: ['otp', 'magic_link'],
     claim_types: ['Email_Verified'],
+    derives_provider_uid_in_tee: false,
   },
   {
     id: 'generic_oauth',
@@ -100,8 +123,25 @@ const SUPPORTED_PROVIDERS = [
     aliases: [],
     auth_modes: ['oauth'],
     claim_types: ['Generic_Claim'],
+    derives_provider_uid_in_tee: false,
   },
 ];
+
+const PROVIDERS_WITH_TEE_UID = new Set(
+  SUPPORTED_PROVIDERS.filter((provider) => provider.derives_provider_uid_in_tee).map(
+    (provider) => provider.id
+  )
+);
+
+// Default ALLOW so the 9 deployed+documented providers keep working. Setting
+// MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID=false makes the worker reject any ticket
+// whose provider_uid is not TEE-verified — a BREAKING, coordinated rollout that
+// the operator opts into deliberately.
+function allowUnverifiedProviderUid() {
+  const raw = trimString(env('MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID')).toLowerCase();
+  if (!raw) return true; // default: preserve current behavior
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
 
 const PROVIDER_ALIAS_MAP = Object.fromEntries(
   SUPPORTED_PROVIDERS.flatMap((provider) => [
@@ -180,7 +220,25 @@ function extractWeb3AuthIdToken(payload = {}) {
 
 async function resolveVerifiedProviderUid(provider, payload = {}) {
   if (provider !== 'web3auth') {
-    return resolveProviderUid(payload);
+    // E3: these providers take the provider_uid from the (untrusted) request
+    // body — it is not verified inside the enclave, so a ticket could be forged
+    // against another user's identity. Default-allow (current behavior); when
+    // MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID is disabled, reject hard. Either way,
+    // log loudly so the trust posture is visible in the audit trail.
+    if (!allowUnverifiedProviderUid()) {
+      throw new Error(
+        `provider ${provider} provider_uid is not verified in the enclave; ` +
+          'unverified provider_uid is disabled (MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID=false)'
+      );
+    }
+    const providerUid = resolveProviderUid(payload);
+    requestLog('warn', 'neodid_unverified_provider_uid', {
+      provider,
+      derives_provider_uid_in_tee: false,
+      provider_uid_hash: sha256Hex(`${provider}${providerUid}`).slice(0, 16),
+      note: 'provider_uid taken from untrusted request body (not TEE-verified)',
+    });
+    return providerUid;
   }
 
   const idToken = extractWeb3AuthIdToken(payload);
@@ -521,6 +579,12 @@ export async function handleNeoDidRuntime(payload = {}) {
       jwks_url: web3authJwksUrl || null,
       audience_configured: Boolean(web3authClientId),
       derives_provider_uid_in_tee: true,
+    },
+    // E3 — surface the provider_uid trust posture so consumers can tell which
+    // providers derive the nullifier-binding uid inside the enclave.
+    provider_uid_verification: {
+      tee_verified_providers: [...PROVIDERS_WITH_TEE_UID],
+      unverified_provider_uid_allowed: allowUnverifiedProviderUid(),
     },
     providers: SUPPORTED_PROVIDERS,
   });

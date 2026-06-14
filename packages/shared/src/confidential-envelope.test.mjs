@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   AES_GCM_IV_LENGTH_BYTES,
@@ -148,4 +151,43 @@ test('worker decryptor parity: nitro-worker decrypts canonical envelopes (read-o
   assert.equal(await worker.decryptEncryptedToken(freshEnvelope), freshPlaintext);
 
   await assert.rejects(worker.decryptEncryptedToken(tamperEnvelopeTag(GOLDEN.envelope)));
+});
+
+// The package is `"private": true`, so the canonical envelope cannot be shared
+// as an npm dependency with the browser-only / example consumers — they vendor
+// the wire format verbatim. This parity guard reads each in-repo vendored copy
+// as source text and asserts it still pins the four wire-format literals that
+// the golden vector above (CONFIDENTIAL_ENVELOPE_GOLDEN_VECTOR) and the deployed
+// worker decryptor depend on: a drift in any of these in a vendored copy would
+// silently produce envelopes that the oracle can no longer decrypt.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const VENDORED_ENVELOPE_COPIES = [
+  'apps/web/lib/browser-encryption.ts',
+  'examples/browser-encryption/encrypt-oracle-payload.js',
+  'examples/scripts/common.mjs',
+];
+
+test('vendored confidential-envelope copies stay byte-compatible with the golden wire format', async () => {
+  for (const relative of VENDORED_ENVELOPE_COPIES) {
+    const source = await readFile(path.join(REPO_ROOT, relative), 'utf8');
+
+    assert.ok(
+      source.includes(CONFIDENTIAL_ENVELOPE_ALGORITHM),
+      `${relative} must pin the canonical envelope algorithm`
+    );
+    assert.ok(
+      source.includes(CONFIDENTIAL_ENVELOPE_INFO),
+      `${relative} must pin the canonical HKDF info string`
+    );
+    assert.match(
+      source,
+      /(?:ENVELOPE_VERSION = 2|v:\s*2)\b/,
+      `${relative} must pin envelope version ${CONFIDENTIAL_ENVELOPE_VERSION}`
+    );
+    assert.match(
+      source,
+      /(?:TAG_LENGTH_BYTES = 16|\b16\b)/,
+      `${relative} must pin the ${AES_GCM_TAG_LENGTH_BYTES}-byte AES-GCM tag length`
+    );
+  }
 });

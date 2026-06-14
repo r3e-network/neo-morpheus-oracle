@@ -106,10 +106,24 @@ export async function mapWithConcurrency(items, limit, worker) {
  * - `null`/`undefined` serialize as `null` at the top level and inside
  *   arrays; object entries whose value is `undefined` are dropped.
  * - `bigint` serializes as its decimal string in quotes.
- * - Object keys sort via `localeCompare` (NOT code-unit order); this matches
- *   every digest the worker has ever signed.
+ * - Object keys sort via a locale-pinned collator (NOT code-unit order); this
+ *   matches every digest the worker has ever signed. The collation is pinned
+ *   to `Intl.Collator('en', { sensitivity: 'variant', caseFirst: 'false' })`
+ *   so the sort no longer depends on the host's default locale: a bare
+ *   `String.prototype.localeCompare()` resolves against the runtime's default
+ *   locale, which can differ per box/region and would silently reorder mixed
+ *   alphabet/case keys, producing a different digest for the same payload.
+ *   Pinning the locale removes that environment axis (verified byte-identical
+ *   to the prior `localeCompare` output across all golden vectors); it does
+ *   NOT remove the residual ICU-version dependency, which is consistent across
+ *   the deployed Node runtimes.
  * - Typed arrays get no special casing (plain-object numeric keys).
  */
+const STABLE_KEY_COLLATOR = new Intl.Collator('en', {
+  sensitivity: 'variant',
+  caseFirst: 'false',
+});
+
 export function stableStringify(value) {
   if (value === null || value === undefined) return 'null';
   if (typeof value === 'bigint') return JSON.stringify(value.toString());
@@ -117,6 +131,6 @@ export function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map((item) => stableStringify(item)).join(',')}]`;
   const entries = Object.entries(value)
     .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => a.localeCompare(b));
+    .sort(([a], [b]) => STABLE_KEY_COLLATOR.compare(a, b));
   return `{${entries.map(([key, val]) => `${JSON.stringify(key)}:${stableStringify(val)}`).join(',')}}`;
 }

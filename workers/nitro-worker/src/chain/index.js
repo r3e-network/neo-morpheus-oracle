@@ -6,7 +6,11 @@ import {
   broadcastNeoN3RawTransaction,
 } from './neo-n3.js';
 
-export { buildSignedResultEnvelope, buildVerificationEnvelope } from './signing.js';
+export {
+  buildSignedResultEnvelope,
+  buildVerificationEnvelope,
+  buildLaneSignedEnvelope,
+} from './signing.js';
 export {
   loadNeoN3Context,
   relayNeoN3Invocation,

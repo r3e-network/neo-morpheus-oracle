@@ -28,7 +28,10 @@ const handlePost = createRateLimitedHandler(
           )
         : '';
     if (targetChain && targetChain !== 'neo_n3') {
-      return Response.json({ error: 'target_chain must be neo_n3' }, { status: 400 });
+      return Response.json(
+        { error: 'target_chain must be neo_n3', error_code: 'INVALID_TARGET_CHAIN' },
+        { status: 400 }
+      );
     }
     if (shouldDispatchToControlPlane('/compute/execute')) {
       const controlPlaneResponse = await dispatchToControlPlane(

@@ -38,6 +38,21 @@ max_batch_timeout = 5
 max_retries = 10
 dead_letter_queue = "morpheus-feed-tick-dlq"
 
+# Dead-letter consumers: finalize the poison job's Supabase row to
+# 'dead_lettered' (terminal) so the cron recovery path stops re-requeuing it
+# forever. No further dead_letter_queue here — this is the terminal lane.
+[[queues.consumers]]
+queue = "morpheus-oracle-request-dlq"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 1
+
+[[queues.consumers]]
+queue = "morpheus-feed-tick-dlq"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 1
+
 # Cron safety net: requeues overdue queued jobs and stale processing/dispatched
 # jobs (same path as POST /<network>/jobs/recover).
 [triggers]

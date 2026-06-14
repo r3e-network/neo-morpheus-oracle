@@ -157,12 +157,25 @@ export function verifyAttestation(input: {
   const bindingOk = hasBindingEvidence && bindingFailed.length === 0;
   const hasQuote = Boolean(attestation?.quote);
   const hasEventLog = Object.prototype.hasOwnProperty.call(attestation || {}, 'event_log');
+  // IMPORTANT: `full_attestation_ok` does NOT mean the TDX/Nitro measurement
+  // chain was cryptographically verified. It means: the output/attestation
+  // hash binding holds, the declared metadata matches, AND a quote + event_log
+  // are *present* in the envelope. The quote bytes themselves are not validated
+  // against an Intel/AWS root of trust here — that requires a platform-specific
+  // verification pass outside this application-level verifier. Consumers must
+  // not treat `full_attestation_ok: true` as a proof of enclave measurements.
   const fullAttestationOk = bindingOk && hasQuote && hasEventLog && metadataFailed.length === 0;
 
   return {
     ok: bindingOk && metadataFailed.length === 0,
     binding_ok: bindingOk,
     full_attestation_ok: fullAttestationOk,
+    // Honest scope statement so API consumers do not over-trust the booleans
+    // above. The result envelope is signed by the enclave key and the quote is
+    // checked for *presence* only — not validated against a TDX/Nitro root of
+    // trust. Full measurement-chain verification is out of scope here.
+    attestation_scope: 'enclave-key-signed; quote presence-only (no measurement-chain verification)',
+    measurement_chain_verified: false,
     evidence: {
       has_verification: Boolean(verification),
       has_attestation: Boolean(attestation),
@@ -199,6 +212,6 @@ export function verifyAttestation(input: {
       instance_id: normalizeText(input.expectedInstanceId),
     },
     failed: [...bindingFailed, ...metadataFailed],
-    note: 'Morpheus attestation_hash currently mirrors output_hash. TDX report_data is 64 bytes; this verifier compares its first 32 bytes against output_hash/attestation_hash. Full Intel/TDX quote-chain validation is out of scope for this application-level verifier.',
+    note: 'Morpheus attestation_hash currently mirrors output_hash. TDX report_data is 64 bytes; this verifier compares its first 32 bytes against output_hash/attestation_hash. This verifier checks hash binding + metadata + quote/event_log presence only — it does NOT validate the TDX/Nitro quote against an Intel/AWS root of trust, so full_attestation_ok is presence-based, not a verified measurement chain. Full Intel/TDX quote-chain validation is out of scope for this application-level verifier.',
   };
 }

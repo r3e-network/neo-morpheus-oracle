@@ -19,9 +19,13 @@ export function apiSuccess<T extends Record<string, unknown>>(body: T, status = 
 
 /**
  * Minimal error response preserving the `{ error }` JSON shape used by the
- * relayer/oracle/control-plane route handlers. Kept separate from `apiError`
- * (which adds `error_code`) so the existing response bodies stay byte-identical.
+ * relayer/oracle/control-plane route handlers. When `code` is omitted the body
+ * stays byte-identical to the legacy `{ error }` shape; passing a `code`
+ * additively includes a machine-readable `error_code` alongside `error` so
+ * existing `{ error }` consumers keep working.
  */
-export function badRequest(message: string, status = 400) {
-  return Response.json({ error: message }, { status });
+export function badRequest(message: string, status = 400, code?: string) {
+  return Response.json(code ? { error: message, error_code: code } : { error: message }, {
+    status,
+  });
 }

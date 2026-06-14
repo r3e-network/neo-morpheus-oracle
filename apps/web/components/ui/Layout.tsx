@@ -76,6 +76,33 @@ export function Layout({
 
   return (
     <div className="min-h-screen flex flex-col relative">
+      {/* WCAG 2.4.1 bypass block: visually hidden until keyboard focus, then
+          revealed as the first tab stop so keyboard users skip the nav. */}
+      <a
+        href="#main-content"
+        style={{
+          position: 'absolute',
+          left: '8px',
+          top: '-48px',
+          zIndex: 1000,
+          padding: '0.5rem 1rem',
+          borderRadius: 'var(--ns-radius-sm)',
+          background: 'var(--text-primary)',
+          color: '#fff',
+          fontSize: '0.8rem',
+          fontWeight: 700,
+          textDecoration: 'none',
+          transition: 'top 0.2s',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.top = '8px';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.top = '-48px';
+        }}
+      >
+        Skip to content
+      </a>
       <div className="bg-grid" />
 
       {showNav && (
@@ -215,7 +242,9 @@ export function Layout({
         </div>
       )}
 
-      <main style={{ flex: 1, zIndex: 1 }}>{children}</main>
+      <main id="main-content" style={{ flex: 1, zIndex: 1 }}>
+        {children}
+      </main>
 
       {showFooter && (
         <footer

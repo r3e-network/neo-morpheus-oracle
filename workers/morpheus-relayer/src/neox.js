@@ -10,7 +10,7 @@
 // fulfillment.js BEFORE these run; this module only encodes/signs/submits the
 // result for the EVM MorpheusOracleEVM kernel.
 import { ethers } from 'ethers';
-import { trimString } from '@neo-morpheus-oracle/shared/utils';
+import { mapWithConcurrency, trimString } from '@neo-morpheus-oracle/shared/utils';
 
 // Minimal ABI for the MorpheusOracleEVM kernel (request_cursor scan + fulfil).
 const ORACLE_ABI = [
@@ -56,9 +56,7 @@ function runExclusive(key, fn) {
   return run;
 }
 
-function getProvider(config) {
-  const rpcUrl = trimString(config?.neox?.rpcUrl || '');
-  const chainId = Number(config?.neox?.chainId || 0) || undefined;
+function providerForUrl(rpcUrl, chainId) {
   const key = `${rpcUrl}|${chainId || ''}`;
   let provider = providerCache.get(key);
   if (!provider) {
@@ -66,6 +64,94 @@ function getProvider(config) {
     providerCache.set(key, provider);
   }
   return provider;
+}
+
+function getProvider(config) {
+  // Primary provider — also the one PINNED to the submit/signer path so failover
+  // never rotates the URL used for nonce management (signerKey stays stable).
+  const rpcUrl = trimString(config?.neox?.rpcUrl || '');
+  const chainId = Number(config?.neox?.chainId || 0) || undefined;
+  return providerForUrl(rpcUrl, chainId);
+}
+
+// Ordered READ RPC list for failover: the configured rpcUrls (de-duped) with the
+// primary rpcUrl guaranteed first. Falls back to the single rpcUrl when no list
+// is configured, so a config without rpcUrls behaves exactly as before.
+export function resolveNeoXReadRpcUrls(config) {
+  const primary = trimString(config?.neox?.rpcUrl || '');
+  const configured = Array.isArray(config?.neox?.rpcUrls)
+    ? config.neox.rpcUrls.map((entry) => trimString(entry)).filter(Boolean)
+    : [];
+  const ordered = [];
+  const seen = new Set();
+  for (const url of [primary, ...configured]) {
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      ordered.push(url);
+    }
+  }
+  return ordered.length > 0 ? ordered : [primary];
+}
+
+// A transport/connectivity error (vs a deterministic contract revert / decode
+// failure) is the only class that warrants trying the next RPC. A CALL_EXCEPTION
+// is per-id deterministic and must NOT fail over (it returns the same result on
+// every endpoint); the same applies to a decoded custom-error revert.
+function isNeoXTransportError(error) {
+  const code = trimString(error?.code || '');
+  if (code === 'CALL_EXCEPTION') return false;
+  if (error?.revert) return false;
+  // ethers transport/network/timeout/server error codes + generic connectivity.
+  if (
+    code === 'NETWORK_ERROR' ||
+    code === 'SERVER_ERROR' ||
+    code === 'TIMEOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'ECONNREFUSED'
+  ) {
+    return true;
+  }
+  const message = trimString(error?.shortMessage || error?.message || String(error)).toLowerCase();
+  return (
+    message.includes('failed to detect network') ||
+    message.includes('could not coalesce error') ||
+    message.includes('timeout') ||
+    message.includes('timed out') ||
+    message.includes('econnreset') ||
+    message.includes('econnrefused') ||
+    message.includes('fetch failed') ||
+    message.includes('network') ||
+    message.includes('502') ||
+    message.includes('503') ||
+    message.includes('504') ||
+    message.includes('bad gateway') ||
+    message.includes('service unavailable')
+  );
+}
+
+/**
+ * Run a read against each configured RPC in order, failing over to the next only
+ * on a transport error. A deterministic error (CALL_EXCEPTION / revert) is thrown
+ * immediately (no failover — the next endpoint would return the same). If every
+ * endpoint fails with a transport error the last transport error is thrown so the
+ * caller (cursor scan) aborts the tick instead of advancing past unscanned ids.
+ */
+export async function withNeoXReadFailover(config, run) {
+  const rpcUrls = resolveNeoXReadRpcUrls(config);
+  const chainId = Number(config?.neox?.chainId || 0) || undefined;
+  let lastTransportError = null;
+  for (const rpcUrl of rpcUrls) {
+    const provider = providerForUrl(rpcUrl, chainId);
+    const contract = new ethers.Contract(config.neox.oracleContract, ORACLE_ABI, provider);
+    try {
+      return await run(contract, provider);
+    } catch (error) {
+      if (!isNeoXTransportError(error)) throw error;
+      lastTransportError = error;
+      // try the next RPC
+    }
+  }
+  throw lastTransportError || new Error('neox read failed: no rpc endpoints configured');
 }
 
 function readContract(config) {
@@ -105,11 +191,11 @@ export function hasNeoXRelayerConfig(config) {
 }
 
 export async function getNeoXLatestBlock(config) {
-  return getProvider(config).getBlockNumber();
+  return withNeoXReadFailover(config, (_contract, provider) => provider.getBlockNumber());
 }
 
 export async function getNeoXLatestRequestId(config) {
-  const total = await readContract(config).totalRequests();
+  const total = await withNeoXReadFailover(config, (contract) => contract.totalRequests());
   return Number(total);
 }
 
@@ -179,32 +265,11 @@ function buildNeoXEventFromRequest(record) {
   };
 }
 
-// Bounded-concurrency map preserving input order (mirrors the Neo N3 adapter):
-// once any worker throws, idle workers stop pulling new ids so a transport
-// failure does not keep issuing RPC calls for the rest of the range.
-async function mapWithConcurrency(items, limit, worker) {
-  const results = new Array(items.length);
-  let cursor = 0;
-  let failed = false;
-
-  async function runWorker() {
-    while (!failed) {
-      const index = cursor;
-      cursor += 1;
-      if (index >= items.length) return;
-      try {
-        results[index] = await worker(items[index], index);
-      } catch (error) {
-        failed = true;
-        throw error;
-      }
-    }
-  }
-
-  const width = Math.max(Math.min(limit, items.length), 1);
-  await Promise.all(Array.from({ length: width }, () => runWorker()));
-  return results;
-}
+// Bounded-concurrency map preserving input order: re-uses the shared fail-fast
+// helper (@neo-morpheus-oracle/shared/utils mapWithConcurrency) — once any worker
+// throws, idle workers stop pulling new ids so a transport failure does not keep
+// issuing RPC calls for the rest of the range. The previous local copy was
+// byte-identical to the shared one (G4 consolidation).
 
 function resolveScanConcurrency(config) {
   const limit = Number(config?.concurrency);
@@ -218,11 +283,19 @@ export async function scanNeoXOracleRequestsById(
   contract = null
 ) {
   if (fromRequestId > toRequestId) return [];
-  const kernel = contract || readContract(config);
   const requestIds = [];
   for (let id = fromRequestId; id <= toRequestId; id += 1) {
     requestIds.push(id);
   }
+  // Per-id read: when an explicit contract is injected (tests) use it directly to
+  // preserve the existing stub interface; otherwise route through the RPC failover
+  // wrapper so a single dead Neo X RPC does not abort the whole scan. A genuine
+  // CALL_EXCEPTION (decode failure / zeroed missing id) is still skipped (deterministic
+  // per id, never failed over); a transport error that exhausts every RPC still
+  // aborts the tick so the cursor does not advance past an unscanned id.
+  const readRequest = contract
+    ? (id) => contract.getRequest(id)
+    : (id) => withNeoXReadFailover(config, (kernel) => kernel.getRequest(id));
   // Batch the per-id getRequest reads under bounded concurrency; results stay
   // index-ordered so the event list matches the sequential scan exactly.
   const events = await mapWithConcurrency(
@@ -231,12 +304,12 @@ export async function scanNeoXOracleRequestsById(
     async (id) => {
       let record;
       try {
-        record = await kernel.getRequest(id);
+        record = await readRequest(id);
       } catch (err) {
         // The EVM kernel's getRequest never reverts (missing ids return a zeroed
         // struct), so only a genuine CALL_EXCEPTION (decode failure) is safe to
-        // skip. Transport/RPC failures must abort the tick so the request cursor
-        // does not advance past an unscanned id (matches the Neo N3 adapter).
+        // skip. Transport/RPC failures (after failover is exhausted) must abort
+        // the tick so the request cursor does not advance past an unscanned id.
         if (err?.code === 'CALL_EXCEPTION') return null;
         throw err;
       }

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { env, trimString } from '../../platform/core.js';
+import { randomBytes } from 'node:crypto';
+import { env, requestLog, trimString } from '../../platform/core.js';
 import {
   DEFAULT_FEED_STATE_PATH,
   isEnabled,
@@ -8,6 +9,19 @@ import {
 } from './shared.js';
 
 const feedStateCache = new Map();
+
+// F9 — observability for the feed-state disk persistence. A silently-swallowed
+// write failure lets the in-memory cache and the on-disk baseline diverge, so a
+// restart re-reads a stale baseline and makes the wrong skip/submit decision.
+let feedStateWriteFailures = 0;
+
+export function getFeedStateWriteFailureCount() {
+  return feedStateWriteFailures;
+}
+
+export function __resetFeedStateWriteFailureCountForTests() {
+  feedStateWriteFailures = 0;
+}
 
 export function getSupabaseRestConfig() {
   const baseUrl = trimString(
@@ -179,19 +193,63 @@ export async function saveFeedState(state, scope = {}) {
   const resolvedScope = resolveFeedScope(scope);
   const statePath = getFeedStatePath(resolvedScope);
   feedStateCache.set(statePath, state);
+  // Write to a sibling temp file then atomically rename into place so a crash or
+  // a partial write never leaves a truncated/corrupt baseline on disk: readers
+  // see either the previous complete file or the new complete file, never a torn
+  // intermediate. The rename is atomic within the same directory/filesystem.
+  const tempPath = `${statePath}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`;
   try {
     await fs.mkdir(path.dirname(statePath), { recursive: true });
     await fs.writeFile(
-      statePath,
+      tempPath,
       `${JSON.stringify(state, null, 2)}
 `,
       'utf8'
     );
-  } catch {
-    // best effort only; feed sync still works without persistence
+    await fs.rename(tempPath, statePath);
+  } catch (error) {
+    // Persistence is best-effort (the in-memory cache still drives this process),
+    // but a swallowed failure desyncs memory from disk: surface it loudly with a
+    // counter so monitoring can catch a baseline that stops persisting.
+    feedStateWriteFailures += 1;
+    requestLog('error', 'feed_state_write_failed', {
+      state_path: statePath,
+      write_failures_total: feedStateWriteFailures,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    await fs.rm(tempPath, { force: true }).catch(() => {});
   }
 }
 
 export function resetFeedStateCache() {
   feedStateCache.clear();
+}
+
+// F4 — cheap, network-free feed-staleness signal for the /health readiness probe.
+// Reports the freshest in-memory feed observation/submission age across all
+// scoped feed states the worker has loaded this process. Returns null when no
+// feed state has been loaded yet (nothing to assert — the worker may not be a
+// feed pusher), so the probe degrades to "unknown", never a false negative.
+export function getFeedStalenessSummary(nowMs = Date.now()) {
+  let newestObservedAtMs = 0;
+  let recordCount = 0;
+  for (const state of feedStateCache.values()) {
+    const records = state?.records;
+    if (!records || typeof records !== 'object') continue;
+    for (const record of Object.values(records)) {
+      recordCount += 1;
+      const observed = Number(
+        record?.last_submitted_at_ms ?? record?.last_observed_at_ms ?? 0
+      );
+      if (Number.isFinite(observed) && observed > newestObservedAtMs) {
+        newestObservedAtMs = observed;
+      }
+    }
+  }
+  if (recordCount === 0 || newestObservedAtMs <= 0) return null;
+  return {
+    record_count: recordCount,
+    newest_observed_at_ms: newestObservedAtMs,
+    age_ms: Math.max(nowMs - newestObservedAtMs, 0),
+  };
 }

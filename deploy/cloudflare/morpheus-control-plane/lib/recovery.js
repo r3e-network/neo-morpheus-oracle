@@ -1,9 +1,45 @@
-import { parseTimestampMs } from '@neo-morpheus-oracle/shared/utils';
+import { parseTimestampMs, trimString } from '@neo-morpheus-oracle/shared/utils';
 import { supabaseFetch } from './supabase.js';
-import { normalizeJobStatus, REQUEUE_GRACE_MS } from './jobs.js';
-import { isStaleProcessing } from './config.js';
+import { normalizeJobStatus, REQUEUE_GRACE_MS, patchJob } from './jobs.js';
+import { isStaleProcessing, resolveMaxRequeueAttempts } from './config.js';
 import { JOB_ROUTE_CONFIG } from './health.js';
 import { isWorkflowRouteConfig, requeueWorkflowJob } from './workflows.js';
+
+// The number of times a job has already been re-driven by the recovery path.
+// We use the larger of the recovery-tracked `requeue_attempts` and the
+// workflow-tracked `workflow_dispatch_count` so workflow and queue jobs share
+// one ceiling. The initial (ingress) dispatch is dispatch_count 1, so a job
+// that was dispatched once and never re-driven reports 0 prior recovery
+// attempts here.
+function resolvePriorRequeueAttempts(job) {
+  const metadata = job?.metadata || {};
+  const requeueAttempts = Number(metadata.requeue_attempts || 0);
+  const dispatchCount = Number(metadata.workflow_dispatch_count || 0);
+  const priorDispatchRetries = dispatchCount > 1 ? dispatchCount - 1 : 0;
+  return Math.max(Number.isFinite(requeueAttempts) ? requeueAttempts : 0, priorDispatchRetries);
+}
+
+async function deadLetterJob(env, job, attempts) {
+  const nowIso = new Date().toISOString();
+  await patchJob(env, job.id, job.network, {
+    status: 'dead_lettered',
+    error:
+      trimString(job.error) ||
+      `dead-lettered after ${attempts} recovery requeue attempts (poison job)`,
+    run_after: null,
+    completed_at: nowIso,
+    metadata: {
+      ...(job.metadata || {}),
+      requeue_attempts: attempts,
+      dead_letter_source: 'control-plane-recover-ceiling',
+      dead_lettered_at: nowIso,
+    },
+  });
+  return {
+    action: 'dead_lettered',
+    requeue_attempts: attempts,
+  };
+}
 
 async function listRecoverableJobs(env, network, limit, staleProcessingMs) {
   const response = await supabaseFetch(
@@ -57,11 +93,26 @@ async function requeueJob(env, job) {
     throw new Error(`route ${job.route} is not configured`);
   }
   const nowIso = new Date().toISOString();
+  const maxAttempts = resolveMaxRequeueAttempts(env);
+  const priorAttempts = resolvePriorRequeueAttempts(job);
+
   if (isWorkflowRouteConfig(jobConfig)) {
-    return await requeueWorkflowJob(env, job, jobConfig);
+    // For workflow routes, let requeueWorkflowJob run its active/complete
+    // short-circuits first (a still-running workflow must NOT be dead-lettered).
+    // When it would otherwise start a *fresh* redispatch but the ceiling is hit,
+    // it finalizes the job dead_lettered instead (blockRedispatch).
+    return await requeueWorkflowJob(env, job, jobConfig, {
+      blockRedispatch: priorAttempts >= maxAttempts,
+      requeueAttempts: priorAttempts,
+    });
   }
 
-  const { patchJob } = await import('./jobs.js');
+  // Queue (non-workflow) routes: apply the ceiling before re-enqueuing.
+  if (priorAttempts >= maxAttempts) {
+    return await deadLetterJob(env, job, priorAttempts);
+  }
+
+  const nextAttempts = priorAttempts + 1;
   await patchJob(env, job.id, job.network, {
     status: 'dispatched',
     error: null,
@@ -72,6 +123,7 @@ async function requeueJob(env, job) {
       ...(job.metadata || {}),
       last_requeued_at: nowIso,
       requeue_source: 'control-plane-recover',
+      requeue_attempts: nextAttempts,
     },
   });
   await enqueueJob(env, jobConfig.binding, {

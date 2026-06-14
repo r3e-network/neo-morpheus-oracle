@@ -114,11 +114,21 @@ function cryptoRandomUnit() {
   return randomBytes(6).readUIntBE(0, 6) / 0x1000000000000;
 }
 
-function addLaplaceNoise(value, scale = 1.0) {
-  const u = cryptoRandomUnit() - 0.5;
-  const noise = -scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+// Inverse-CDF Laplace noise from a uniform draw. `rawUnit` is expected in [0, 1);
+// it is clamped to the open interval (0, 1) so the log term can never be log(0).
+function laplaceNoiseFromUnit(value, scale, rawUnit) {
+  const clamped = rawUnit <= 0 ? Number.EPSILON : rawUnit >= 1 ? 1 - Number.EPSILON : rawUnit;
+  const u = clamped - 0.5;
+  const noise = -Number(scale) * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
   return Number(value) + noise;
 }
+
+function addLaplaceNoise(value, scale = 1.0) {
+  return laplaceNoiseFromUnit(value, scale, cryptoRandomUnit());
+}
+
+export const __laplaceNoiseFromUnitForTests = laplaceNoiseFromUnit;
+export const __addLaplaceNoiseForTests = addLaplaceNoise;
 
 function merkleRoot(leaves) {
   if (!Array.isArray(leaves) || leaves.length === 0)
@@ -467,7 +477,8 @@ export const BUILTIN_COMPUTE_CATALOG = [
   {
     name: 'privacy.add_noise',
     category: 'privacy',
-    description: 'Adds simulated Laplace noise for differential privacy.',
+    description:
+      'Adds illustrative Laplace noise. Demonstration only — not a calibrated differential-privacy mechanism (no privacy budget / sensitivity accounting).',
   },
 ];
 

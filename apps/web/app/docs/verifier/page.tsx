@@ -29,9 +29,29 @@ export default function DocsVerifier() {
 
       <p>
         Remote Attestation is the cornerstone of Morpheus's trust model. It lets external observers
-        validate that the response metadata came from the expected Phala TEE deployment and that the
-        quote is bound to the reported output hash and on-chain <code>attestation_hash</code>.
+        validate that the response metadata came from the expected Morpheus enclave deployment (AWS
+        Nitro CVM) and that the quote is bound to the reported output hash and on-chain{' '}
+        <code>attestation_hash</code>.
       </p>
+      <div
+        style={{
+          margin: '1.5rem 0',
+          padding: '1.25rem',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-dim)',
+          borderLeft: '4px solid var(--accent-purple)',
+          borderRadius: '0 var(--ns-radius-md) var(--ns-radius-md) 0',
+        }}
+      >
+        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          <strong>Scope of trust:</strong> the built-in verifier confirms that the result is{' '}
+          <em>enclave-key-signed</em> and that the hash binding + declared metadata are consistent,
+          and that a quote and event log are <em>present</em>. It does <strong>not</strong> validate
+          the Nitro/TDX quote against an AWS/Intel root of trust, so a passing result is{' '}
+          <code>measurement_chain_verified: false</code>. Treat <code>full_attestation_ok</code> as
+          presence-based, not a verified measurement chain.
+        </p>
+      </div>
 
       <h2>The Evidence Layer</h2>
       <p>
@@ -71,7 +91,7 @@ export default function DocsVerifier() {
             </strong>
             <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
               Stable identifiers that let you confirm the response came from the expected Morpheus
-              Phala deployment and compose bundle.
+              enclave deployment and compose bundle.
             </span>
           </div>
         </li>
@@ -167,16 +187,19 @@ export default function DocsVerifier() {
           deployment metadata.
         </li>
         <li>
-          If you need full quote-chain validation, perform an additional platform-specific
-          verification pass outside the built-in web verifier.
+          The built-in verifier stops here: it confirms the enclave-key signature and hash binding
+          and that a quote is present, but it does not check the Nitro/TDX quote against a hardware
+          root of trust. For full measurement-chain validation, perform an additional
+          platform-specific verification pass (AWS Nitro / Intel TDX) outside the built-in web
+          verifier.
         </li>
       </ol>
 
       <h2>Published CVM Explorers</h2>
       <p>
-        Morpheus now runs with role-specialized Phala CVMs. The Oracle request/response runtime and
-        the DataFeed runtime have separate published explorer pages, and those pages are the
-        canonical public attestation anchors for both mainnet and testnet traffic.
+        Morpheus now runs with role-specialized enclaves (Nitro CVMs). The Oracle request/response
+        runtime and the DataFeed runtime have separate published explorer pages, and those pages are
+        the canonical public attestation anchors for both mainnet and testnet traffic.
       </p>
       <ul>
         <li>

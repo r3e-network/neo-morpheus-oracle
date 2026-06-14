@@ -48,6 +48,12 @@ host (`i-0c52851f134db20ee`) as a systemd timer.
   next step: a dedicated low-value funding key + a 6-hourly auto-topup timer (do NOT put the
   pool-controlling deployer WIF on the box).
 - **Monitor:** `systemctl is-failed morpheus-feed-monitor` / `cat /opt/morpheus/nitro/feed-status.json`.
+  The monitor checks the **full on-chain pair registry** (via `getAllFeedRecords`), not just NEO-USD;
+  `feed-status.json` carries a `pairs[]` array (per-pair `age_min`) alongside the back-compat `feed_age_min`.
+  TradFi pairs (forex/commodities in `TRADFI_PAIRS`) get a widened staleness window
+  (`TRADFI_WEEKEND_AGE_SEC`) over weekends/holidays so a closed market doesn't false-alarm.
+  Set `MONITOR_PROM_TEXTFILE` to a node_exporter textfile-collector path to export
+  `feed_age_seconds{pair,network}` + `feed_updater_gas{network}` (off by default).
 - **Health checks:** `tail /opt/morpheus/nitro/feed-pusher.log`, `journalctl -u morpheus-feed-pusher`.
 - **DB:** `morpheus-db-prune` keeps the relayer's Supabase tables bounded (the original 402 outage cause).
 

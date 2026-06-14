@@ -109,6 +109,8 @@ export async function deferEventsForBackpressure(
       attempts: 0,
       next_retry_at: nextRetryAt,
       last_error: 'backpressure_deferred',
+      retryQueueLimit: config.retryQueueLimit,
+      deadLetterLimit: config.deadLetterLimit,
     });
     await maybeUpsertJob(logger, event, {
       event_key: buildEventKey(event),
@@ -300,6 +302,14 @@ export async function persistFreshEventsToDurableQueue(config, logger, chain, ev
   }
 }
 
+// Claim outcomes. `granted` => safe to process; `conflict` => another instance
+// already claimed it (clear the local item, count a conflict); `backoff_skip` =>
+// the cross-instance claim is offline during a Supabase backoff and the
+// multi-instance opt-out declined a local claim — the item MUST be retained and
+// retried next tick, NOT cleared or counted as a conflict; `unavailable` =>
+// durable queue enabled but Supabase persistence is down and failClosed is off.
+export const CLAIM_GRANTED = Object.freeze({ granted: true, reason: 'granted' });
+
 export async function claimDurableJobForProcessing(
   config,
   logger,
@@ -307,8 +317,8 @@ export async function claimDurableJobForProcessing(
   retryItem = null,
   state = null
 ) {
-  if (!config.durableQueue?.enabled) return true;
-  if (retryItem?.durable_claimed) return true;
+  if (!config.durableQueue?.enabled) return CLAIM_GRANTED;
+  if (retryItem?.durable_claimed) return CLAIM_GRANTED;
   if (shouldSkipSupabasePersistence()) {
     // Supabase is in quota/outage backoff: the cross-instance claim is offline.
     // Surface that idempotency protection is temporarily off so an operator can
@@ -318,17 +328,23 @@ export async function claimDurableJobForProcessing(
     if (!allowLocalClaim) {
       logger.warn(
         { chain: event.chain, request_id: event.requestId, event_key: buildEventKey(event) },
-        'Durable cross-instance claim is offline (Supabase backoff); skipping processing this tick (allowLocalClaimDuringBackoff=false)'
+        'Durable cross-instance claim is offline (Supabase backoff); skipping processing this tick (allowLocalClaimDuringBackoff=false) — retry item retained'
       );
-      return false;
+      // NOT a conflict: the request is unprocessed, so its retry item must be
+      // retained (not cleared) and retried once Supabase recovers.
+      return { granted: false, reason: 'backoff_skip' };
     }
     logger.warn(
       { chain: event.chain, request_id: event.requestId, event_key: buildEventKey(event) },
       'Durable cross-instance claim is offline (Supabase backoff); granting local claim — idempotency protection is OFF until Supabase recovers'
     );
-    return true;
+    return CLAIM_GRANTED;
   }
-  if (!ensureDurableQueueAvailable(config, logger, `${event.chain}:durable-claim`)) return false;
+  if (!ensureDurableQueueAvailable(config, logger, `${event.chain}:durable-claim`)) {
+    // Durable queue enabled but Supabase persistence is unavailable (and not
+    // fail-closed): the request is unprocessed, retain its retry item.
+    return { granted: false, reason: 'unavailable' };
+  }
 
   const eventKey = buildEventKey(event);
   const staleBeforeIso = new Date(
@@ -379,7 +395,7 @@ export async function claimDurableJobForProcessing(
     );
     return { local_fallback: true };
   });
-  if (claim) return true;
+  if (claim) return CLAIM_GRANTED;
   logger.info(
     {
       chain: event.chain,
@@ -389,7 +405,7 @@ export async function claimDurableJobForProcessing(
     },
     'Skipped Morpheus oracle request because another relayer instance already claimed it'
   );
-  return false;
+  return { granted: false, reason: 'conflict' };
 }
 
 export async function hydrateDurableQueue(config, state, logger, chain, persistState) {

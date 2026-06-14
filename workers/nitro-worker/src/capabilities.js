@@ -1,5 +1,6 @@
+import { ethers } from 'ethers';
 import { getWorkflowDefinition } from '@neo-morpheus-oracle/shared';
-import { json, jsonError } from './platform/core.js';
+import { env, json, jsonError, sanitizeErrorMessage, trimString } from './platform/core.js';
 import { getDerivedKeySummary } from './platform/nitro-signer.js';
 import {
   ensureOracleKeyMaterial,
@@ -10,6 +11,11 @@ import {
   handleVrf,
   decryptEncryptedToken,
   handleMessageReveal,
+  UpstreamFetchError,
+  readMessageFromChain,
+  resolveNeoxMessageChainContext,
+  parseMessageId,
+  NEOX_DECRYPT_CHAIN_ALIASES,
 } from './oracle/index.js';
 import {
   handleComputeExecute,
@@ -55,16 +61,111 @@ async function handleOraclePublicKey({ payload }) {
 // callers (the relayer's time-locked reveal lane, or an auth proxy that has
 // already verified the recipient) reach this; it is never a public decryption
 // oracle. Used by Neo Message (recipient reveal + time-locked reveal).
-async function handleOracleDecrypt({ payload }) {
-  const ciphertext =
+//
+// E5 — per-request gating. Defended by the shared worker token alone, a token
+// leak would let an attacker decrypt ANY captured ciphertext, defeating the
+// time-lock. When binding fields (chain + messageId) are supplied, the worker
+// re-derives the trust DECISION inside the enclave like message-reveal: it reads
+// the message from a TRUSTED worker-configured contract (never the caller's), and
+// will only decrypt when the supplied envelope IS the on-chain stored envelope
+// for that messageId AND its time-lock has actually expired. The binding path is
+// opt-in for backward compatibility (the relayer currently posts only {envelope}
+// after the kernel/contract already gated unlock); operators can require it via
+// MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING=true once callers send the binding.
+function decryptBindingRequired() {
+  const raw = trimString(env('MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING')).toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+function extractDecryptCiphertext(payload) {
+  return (
     (typeof payload.envelope === 'string' && payload.envelope.trim()) ||
     (typeof payload.ciphertext === 'string' && payload.ciphertext.trim()) ||
     (typeof payload.sealed === 'string' && payload.sealed.trim()) ||
     (typeof payload.encrypted_payload === 'string' && payload.encrypted_payload.trim()) ||
-    '';
+    ''
+  );
+}
+
+function hasDecryptBindingFields(payload) {
+  return (
+    payload.messageId !== undefined ||
+    payload.message_id !== undefined ||
+    payload.id !== undefined
+  );
+}
+
+// Enforce the (chain, contract, messageId) binding + unlockTime re-assertion.
+// Returns null when the request passes the gate, or a Response describing the
+// rejection. `readMessage` is injectable for tests.
+async function assertDecryptBinding(payload, ciphertext, { readMessage = readMessageFromChain } = {}) {
+  const chain = trimString(payload.chain || payload.network || 'neox').toLowerCase();
+  if (!NEOX_DECRYPT_CHAIN_ALIASES.has(chain)) {
+    return json(400, { error: 'gated decrypt currently supports the neox chain only' });
+  }
+
+  const messageId = parseMessageId(payload.messageId ?? payload.message_id ?? payload.id);
+  if (messageId === null) return json(400, { error: 'valid messageId required for gated decrypt' });
+
+  const { rpcUrl, contract, chainId } = resolveNeoxMessageChainContext();
+  if (!rpcUrl || !contract) {
+    return json(503, { error: 'gated decrypt is not configured on this worker' });
+  }
+  // If the caller names a contract it MUST match the trusted worker contract;
+  // the read itself always uses the worker-configured address.
+  const requestedContract = trimString(payload.contract || payload.contract_address || '');
+  if (requestedContract && requestedContract.toLowerCase() !== contract.toLowerCase()) {
+    return json(403, { error: 'contract does not match the worker-configured message contract' });
+  }
+
+  let message;
+  try {
+    message = await readMessage({ rpcUrl, chainId, contract, messageId });
+  } catch (error) {
+    return json(502, { error: `failed to read message on-chain: ${sanitizeErrorMessage(error)}` });
+  }
+
+  // Bind the ciphertext to the on-chain stored envelope for this messageId so a
+  // captured/foreign ciphertext cannot be decrypted via a valid messageId.
+  let storedEnvelope;
+  try {
+    storedEnvelope = ethers.toUtf8String(message.envelope);
+  } catch {
+    return json(400, { error: 'stored envelope is not decodable' });
+  }
+  if (trimString(storedEnvelope) !== trimString(ciphertext)) {
+    return json(403, { error: 'envelope does not match the on-chain message for this messageId' });
+  }
+
+  // Re-assert the time-lock inside the enclave: this lane is for time-locked
+  // messages whose unlock has passed (recipient-only messages use message-reveal).
+  const unlockTime = Number(message.unlockTime || 0);
+  if (unlockTime <= 0) {
+    return json(403, { error: 'message is not time-locked; use the recipient reveal lane' });
+  }
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (nowSeconds < unlockTime) {
+    return json(403, { error: 'message time-lock has not expired yet' });
+  }
+
+  return null;
+}
+
+async function handleOracleDecrypt({ payload }, deps = {}) {
+  const ciphertext = extractDecryptCiphertext(payload);
   if (!ciphertext) {
     return json(400, { error: 'sealed envelope required (field: envelope)' });
   }
+
+  if (hasDecryptBindingFields(payload)) {
+    const rejection = await assertDecryptBinding(payload, ciphertext, deps);
+    if (rejection) return rejection;
+  } else if (decryptBindingRequired()) {
+    return json(400, {
+      error: 'gated decrypt requires (chain, contract, messageId) binding fields',
+    });
+  }
+
   try {
     const plaintext = await decryptEncryptedToken(ciphertext, payload);
     if (plaintext == null) return json(400, { error: 'decryption returned empty result' });
@@ -72,6 +173,11 @@ async function handleOracleDecrypt({ payload }) {
   } catch (error) {
     return jsonError(400, error);
   }
+}
+
+// Test hook: drive the gated decrypt lane with an injected on-chain reader.
+export function __handleOracleDecryptForTests(args, deps = {}) {
+  return handleOracleDecrypt(args, deps);
 }
 
 function handleFeedsCatalog() {
@@ -96,12 +202,35 @@ function handleComputeJobsById({ path }) {
   return handleComputeJobs(path.split('/').pop() || null);
 }
 
+// D4 — an upstream data-source failure (the *provider* is down/slow, not a bad
+// request) must surface as a gateway error (502/504) with a machine-readable
+// `kind`, so the relayer treats it as retryable rather than a permanent 400.
+// All other errors keep their existing 400 semantics via the worker catch.
+function buildUpstreamErrorResponse(error) {
+  return json(error.httpStatus || 502, {
+    error: sanitizeErrorMessage(error),
+    error_code: error.kind || 'upstream_error',
+    kind: error.kind || 'upstream_error',
+    ...(error.upstreamStatus != null ? { upstream_status: error.upstreamStatus } : {}),
+  });
+}
+
 async function handleOracleQuery({ payload }) {
-  return json(200, await buildOracleResponse(payload, 'query'));
+  try {
+    return json(200, await buildOracleResponse(payload, 'query'));
+  } catch (error) {
+    if (error instanceof UpstreamFetchError) return buildUpstreamErrorResponse(error);
+    throw error;
+  }
 }
 
 async function handleOracleSmartFetch({ payload }) {
-  return json(200, await buildOracleResponse(payload, 'smart-fetch'));
+  try {
+    return json(200, await buildOracleResponse(payload, 'smart-fetch'));
+  } catch (error) {
+    if (error instanceof UpstreamFetchError) return buildUpstreamErrorResponse(error);
+    throw error;
+  }
 }
 
 async function handleOracleHeartbeat() {

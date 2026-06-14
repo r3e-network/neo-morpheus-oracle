@@ -8,6 +8,7 @@ import {
   __buildNeoN3RelaySigningPayloadForTests,
   __buildFeedSnapshotRowsForTests,
   __buildSyncPolicyForTests,
+  __clampFeedTimestampSecForTests,
   __fetchJsonRpcForTests,
   __fetchLatestFeedSnapshotsForTests,
   __isMissingNeoN3BatchUpdateMethodForTests,
@@ -250,6 +251,96 @@ test('feed submission refreshes stale on-chain timestamps even below the price t
   assert.equal(decision.current_chain_price_units, '100000000');
   assert.equal(decision.candidate_price_units, '100050000');
   assert.equal(decision.storage_key, 'TWELVEDATA:USDT-USD');
+});
+
+test('clampFeedTimestampSec enforces strict monotonicity above the previous on-chain timestamp (B9)', () => {
+  const nowSec = 1_900_000_000;
+  // Upstream older than the previous on-chain timestamp must be bumped to prev+1.
+  const stale = __clampFeedTimestampSecForTests({
+    upstreamSec: nowSec - 10_000,
+    prevTs: nowSec - 5,
+    nowSec,
+  });
+  assert.equal(stale, nowSec - 5 + 1, 'stale upstream clamps to prevTs + 1');
+
+  // A normal in-window upstream passes through unchanged.
+  const normal = __clampFeedTimestampSecForTests({
+    upstreamSec: nowSec - 2,
+    prevTs: nowSec - 100,
+    nowSec,
+  });
+  assert.equal(normal, nowSec - 2);
+});
+
+test('clampFeedTimestampSec caps a mildly-future upstream to now + skew (B9)', () => {
+  const nowSec = 1_900_000_000;
+  const clamped = __clampFeedTimestampSecForTests({
+    upstreamSec: nowSec + 200, // within the 300s hard-reject window but beyond skew
+    prevTs: 0,
+    nowSec,
+    futureSkewSeconds: 60,
+    maxFutureSeconds: 300,
+  });
+  assert.equal(clamped, nowSec + 60, 'future upstream is capped to now + skew');
+});
+
+test('clampFeedTimestampSec rejects an upstream timestamp far in the future (B9)', () => {
+  const nowSec = 1_900_000_000;
+  assert.throws(
+    () =>
+      __clampFeedTimestampSecForTests({
+        upstreamSec: nowSec + 86_400, // 1 day ahead
+        prevTs: 0,
+        nowSec,
+        maxFutureSeconds: 300,
+      }),
+    /more than 300s in the future/
+  );
+});
+
+test('handleOracleFeed rejects a future-dated provider timestamp instead of anchoring it (B9)', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-future-ts-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+
+  // Provider reports an observation time 2 days in the future — a poisoned/bad
+  // upstream. TwelveData surfaces the source time via a `datetime` field.
+  const futureDate = new Date(Date.now() + 2 * 86_400 * 1000);
+  const futureDatetime = futureDate.toISOString().replace('T', ' ').slice(0, 19);
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (!value.includes('api.twelvedata.com')) {
+      throw new Error(`unexpected fetch ${value}`);
+    }
+    return new Response(JSON.stringify({ price: '2.900', datetime: futureDatetime }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['TWELVEDATA:NEO-USD'],
+    force: true,
+  });
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.batch_submitted, false);
+  assert.equal(body.batch_count, 0, 'future-dated quote must not enter the batch');
+  assert.equal(body.sync_results[0].relay_status, 'skipped');
+  assert.equal(body.sync_results[0].skip_reason, 'upstream_timestamp_rejected');
+  assert.ok(
+    body.errors.some((entry) => /in the future/.test(entry.error || '')),
+    'a timestamp-rejected error should be surfaced'
+  );
 });
 
 test('handleOracleFeed honors pair-specific threshold overrides for mainnet pairs', async () => {

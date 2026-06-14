@@ -2,12 +2,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildTransientWorkerError,
   classifyError,
   computeRetryDelayMs,
   enrichAutomationExecutionPayload,
   isAlreadyFulfilledError,
   isQueuedAutomationExecutionPayload,
   isTerminalConfigurationError,
+  isTransientWorkerStatus,
   processEvent,
   resolveCallbackRetryCeiling,
   resolveEventFulfillmentContext,
@@ -15,6 +17,10 @@ import {
   trimOnchainErrorMessage,
 } from './fulfillment.js';
 import { buildEventKey, createEmptyRelayerState } from './state.js';
+import {
+  markSupabasePersistenceUnavailable,
+  resetSupabasePersistenceBackoffForTests,
+} from './persistence.js';
 
 // ===================================================================
 // trimOnchainErrorMessage
@@ -212,6 +218,60 @@ describe('classifyError', () => {
     // "already fulfilled" contains no permanent keywords, but let's verify
     // that the order of checks matters: settled is checked first
     assert.equal(classifyError('request already fulfilled'), 'settled');
+  });
+
+  // --- B1: retryable worker HTTP statuses (429/408/425/500) classify transient ---
+  it('classifies retryable worker HTTP statuses (429/408/425/500) as transient', () => {
+    assert.equal(classifyError('worker request failed with status 429'), 'transient');
+    assert.equal(classifyError('worker request failed with status 408'), 'transient');
+    assert.equal(classifyError('worker request failed with status 425'), 'transient');
+    assert.equal(classifyError('worker request failed with status 500'), 'transient');
+  });
+
+  it('classifies a buildTransientWorkerError marker as transient regardless of status text', () => {
+    // The sentinel marker guarantees the retry path even if the status text alone
+    // would not match the transient keyword set.
+    assert.equal(classifyError(buildTransientWorkerError(429)), 'transient');
+    assert.equal(classifyError(buildTransientWorkerError(500, 'upstream overloaded')), 'transient');
+    assert.equal(classifyError(buildTransientWorkerError(0)), 'transient');
+  });
+
+  it('does NOT classify deterministic 4xx status codes as transient', () => {
+    // 400/401/403/404/409/422 are deterministic rejections — re-running reproduces
+    // them, so they must NOT route to the transient retry path here.
+    assert.equal(classifyError('worker request failed with status 400'), 'unknown');
+    assert.equal(classifyError('worker request failed with status 422'), 'unknown');
+    // (401/403/404 contain permanent keywords elsewhere, but a bare status string
+    // is at worst 'unknown' — never 'transient'.)
+    assert.notEqual(classifyError('worker request failed with status 409'), 'transient');
+  });
+});
+
+// ===================================================================
+// isTransientWorkerStatus (B1)
+// ===================================================================
+
+describe('isTransientWorkerStatus', () => {
+  it('treats 5xx, 429, 408/425 and 0 as transient', () => {
+    for (const status of [0, 408, 425, 429, 500, 502, 503, 504]) {
+      assert.equal(isTransientWorkerStatus(status), true, `status ${status} should be transient`);
+    }
+  });
+
+  it('treats deterministic 4xx and 2xx as non-transient', () => {
+    for (const status of [200, 400, 401, 403, 404, 409, 422]) {
+      assert.equal(
+        isTransientWorkerStatus(status),
+        false,
+        `status ${status} should not be transient`
+      );
+    }
+  });
+
+  it('treats non-numeric/missing status as non-transient', () => {
+    assert.equal(isTransientWorkerStatus(undefined), false);
+    assert.equal(isTransientWorkerStatus(null), false);
+    assert.equal(isTransientWorkerStatus('not-a-number'), false);
   });
 });
 
@@ -530,6 +590,81 @@ describe('processEvent delivery retry exhaustion', () => {
     assert.equal(state.metrics.retries_exhausted_total, 1);
   });
 
+  it('fires a dead-letter push alert (F1) to the dedicated channel when a callback is permanently dropped', async () => {
+    const originalFetch = global.fetch;
+    const heartbeats = [];
+    global.fetch = async (url, init = {}) => {
+      heartbeats.push({ url: String(url), body: init.body ? JSON.parse(init.body) : null });
+      return new Response('', { status: 200 });
+    };
+    try {
+      const state = createEmptyRelayerState();
+      const event = {
+        chain: 'neo_n3',
+        requestId: '350',
+        requestType: 'privacy_oracle',
+        txHash: '0x350',
+      };
+      const config = {
+        ...throwingDeliveryConfig('mempool rejected the transaction'),
+        heartbeats: {
+          deadLetter: 'https://betterstack.test/deadletter',
+          failure: 'https://betterstack.test/failure',
+        },
+      };
+      const result = await processEvent(config, state, () => {}, silentLogger, event, {
+        attempts: 6,
+        prepared_fulfillment: preparedFulfillment,
+        durable_claimed: true,
+      });
+
+      assert.equal(result.retry_status, 'exhausted');
+      // The dedicated dead-letter channel (not the generic failure URL) was alerted.
+      const alert = heartbeats.find((h) => h.url === 'https://betterstack.test/deadletter');
+      assert.ok(alert, 'expected a dead-letter heartbeat POST');
+      assert.equal(alert.body.event, 'relayer_dead_letter');
+      assert.equal(alert.body.request_id, '350');
+      assert.equal(alert.body.chain, 'neo_n3');
+      // The generic failure channel is NOT double-fired when deadLetter is set.
+      assert.ok(!heartbeats.some((h) => h.url === 'https://betterstack.test/failure'));
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('falls back to the generic failure channel for the dead-letter alert when no dedicated URL is set (F1)', async () => {
+    const originalFetch = global.fetch;
+    const heartbeats = [];
+    global.fetch = async (url, init = {}) => {
+      heartbeats.push({ url: String(url), body: init.body ? JSON.parse(init.body) : null });
+      return new Response('', { status: 200 });
+    };
+    try {
+      const state = createEmptyRelayerState();
+      const event = {
+        chain: 'neo_n3',
+        requestId: '351',
+        requestType: 'privacy_oracle',
+        txHash: '0x351',
+      };
+      const config = {
+        ...throwingDeliveryConfig('mempool rejected the transaction'),
+        heartbeats: { failure: 'https://betterstack.test/failure' },
+      };
+      await processEvent(config, state, () => {}, silentLogger, event, {
+        attempts: 6,
+        prepared_fulfillment: preparedFulfillment,
+        durable_claimed: true,
+      });
+
+      const alert = heartbeats.find((h) => h.url === 'https://betterstack.test/failure');
+      assert.ok(alert, 'expected the dead-letter alert to fall back to the failure URL');
+      assert.equal(alert.body.event, 'relayer_dead_letter');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   it('short-circuits a permanently FAULTing callback delivery to the dead-letter lane', async () => {
     const state = createEmptyRelayerState();
     const event = {
@@ -581,6 +716,100 @@ describe('processEvent delivery retry exhaustion', () => {
     assert.equal(state.neox.dead_letters.length, 1);
     assert.equal(state.neox.dead_letters[0].terminal_error, 'worker exploded upstream');
     assert.equal(state.neox.retry_queue.length, 0);
+  });
+
+  // --- B1: transient worker HTTP status retried, NOT burned as a failure callback ---
+  describe('transient worker HTTP status handling (B1)', () => {
+    const TEST_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+    const silentLogger = { info() {}, warn() {}, error() {} };
+
+    function workerStatusConfig(deliveryHook = null) {
+      return {
+        network: 'testnet',
+        maxRetries: 3,
+        maxCallbackRetries: 6,
+        retryBaseDelayMs: 10,
+        retryMaxDelayMs: 100,
+        processedCacheSize: 100,
+        deadLetterLimit: 10,
+        durableQueue: { enabled: false },
+        // Neo X event -> signNeoXFulfillment signs locally, so the only network
+        // call we must mock is the worker compute call (global.fetch below).
+        nitro: { apiUrl: 'https://worker.test', timeoutMs: 1000 },
+        neox: {
+          chainId: 47763,
+          oracleContract: '0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2',
+          updaterPrivateKey: TEST_PK,
+        },
+        ...(deliveryHook ? { hooks: { fulfillNeoRequest: deliveryHook } } : {}),
+      };
+    }
+
+    function mockWorkerFetch(status, body) {
+      return async () =>
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { 'content-type': 'application/json' },
+        });
+    }
+
+    async function runWithWorkerStatus(status, body, config, event) {
+      const originalFetch = global.fetch;
+      global.fetch = mockWorkerFetch(status, body);
+      try {
+        return await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+          attempts: 0,
+          durable_claimed: true,
+        });
+      } finally {
+        global.fetch = originalFetch;
+      }
+    }
+
+    for (const status of [503, 429, 500]) {
+      it(`retries a transient worker HTTP ${status} instead of finalizing a failure callback`, async () => {
+        let delivered = false;
+        const config = workerStatusConfig(async () => {
+          delivered = true;
+          return { tx_hash: '0xshould-not-happen', vm_state: 'HALT' };
+        });
+        const event = {
+          chain: 'neox',
+          requestId: '500',
+          requestType: 'privacy_oracle',
+          payloadText: '{"url":"https://prices.test/neo"}',
+          txHash: '',
+        };
+        const result = await runWithWorkerStatus(status, { error: 'upstream blip' }, config, event);
+
+        // Retried, NOT delivered as a permanent on-chain failure callback.
+        assert.equal(result.retry_status, 'scheduled', `status ${status} should be retried`);
+        assert.equal(result.error_class, 'transient');
+        assert.equal(delivered, false, 'no fulfillRequest should reach the chain on a transient blip');
+      });
+    }
+
+    it('finalizes a deterministic worker HTTP 400 as success:false (delivers the failure callback)', async () => {
+      const deliveries = [];
+      const config = workerStatusConfig(async (call) => {
+        deliveries.push({ requestId: call.requestId, success: call.fulfillment.success });
+        return { tx_hash: '0xfinalized', vm_state: 'HALT', target_chain: 'neox' };
+      });
+      const event = {
+        chain: 'neox',
+        requestId: '400',
+        requestType: 'privacy_oracle',
+        payloadText: '{"url":"https://prices.test/neo"}',
+        txHash: '',
+      };
+      const result = await runWithWorkerStatus(400, { error: 'bad request' }, config, event);
+
+      // Deterministic 4xx is encoded into an on-chain failure callback (success:false).
+      assert.ok(result.result, 'expected a delivered fulfillment result');
+      assert.equal(result.result.success, false);
+      assert.equal(deliveries.length, 1);
+      assert.equal(deliveries[0].success, false);
+    });
   });
 
   it('re-enqueues a failure-finalize callback when the worker is exhausted and the finalize delivery itself fails (below the ceiling)', async () => {
@@ -638,5 +867,181 @@ describe('processEvent delivery retry exhaustion', () => {
     assert.equal(queued.terminal_error, 'MORPHEUS_RUNTIME_URL or NITRO_API_URL is not configured');
     assert.equal(state.metrics.retries_scheduled_total, 1);
     assert.equal(state.metrics.retries_exhausted_total, 1);
+  });
+});
+
+// ===================================================================
+// processEvent durable-claim backoff retention (B3)
+// ===================================================================
+
+describe('processEvent durable-claim backoff retention (B3)', () => {
+  const silentLogger = { info() {}, warn() {}, error() {} };
+  const preparedFulfillment = {
+    success: true,
+    result: '{"answer":42}',
+    error: '',
+    result_bytes_base64: '',
+    route: '/oracle/fetch',
+    module_id: 'oracle.fetch',
+    operation: 'privacy_oracle',
+    worker_status: 200,
+    verification_signature: 'signed-result',
+  };
+
+  function multiInstanceBackoffConfig() {
+    return {
+      network: 'testnet',
+      maxRetries: 3,
+      retryBaseDelayMs: 10,
+      retryMaxDelayMs: 100,
+      processedCacheSize: 100,
+      deadLetterLimit: 10,
+      durableQueue: {
+        enabled: true,
+        failClosed: true,
+        // Multi-instance opt-out: a relayer must SKIP (not locally claim)
+        // processing during a Supabase backoff to avoid double-delivery.
+        allowLocalClaimDuringBackoff: false,
+      },
+      instanceId: 'relayer-a',
+    };
+  }
+
+  it('retains an existing retry item (no conflict, no clear, no attempt bump) on multi-instance backoff_skip', async () => {
+    resetSupabasePersistenceBackoffForTests();
+    markSupabasePersistenceUnavailable(
+      new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
+    );
+    const state = createEmptyRelayerState();
+    const event = {
+      chain: 'neo_n3',
+      requestId: '700',
+      requestType: 'privacy_oracle',
+      txHash: '0x700',
+    };
+    const eventKey = buildEventKey(event);
+    // Pre-seed the retry item (a prepared callback redelivery waiting to be drained).
+    state.neo_n3.retry_queue.push({
+      key: eventKey,
+      event,
+      attempts: 2,
+      next_retry_at: Date.now() - 1000,
+      prepared_fulfillment: preparedFulfillment,
+    });
+
+    let delivered = false;
+    const config = {
+      ...multiInstanceBackoffConfig(),
+      hooks: {
+        fulfillNeoRequest: async () => {
+          delivered = true;
+          return { tx_hash: '0xshould-not-deliver', vm_state: 'HALT' };
+        },
+      },
+    };
+
+    const result = await processEvent(config, state, () => {}, silentLogger, event, {
+      attempts: 2,
+      prepared_fulfillment: preparedFulfillment,
+      // NB: NOT durable_claimed — forces the backoff branch.
+    });
+
+    // Skipped this tick, but the work is RETAINED for the next tick.
+    assert.equal(result.skipped, true);
+    assert.equal(result.retry_status, 'backoff_skip');
+    assert.equal(delivered, false, 'must not deliver during a multi-instance backoff skip');
+    // The retry item is still present and UNCHANGED (no attempt bump).
+    assert.equal(state.neo_n3.retry_queue.length, 1);
+    assert.equal(state.neo_n3.retry_queue[0].attempts, 2);
+    // It was NOT counted as a conflict (that would imply another instance has it).
+    assert.equal(state.metrics.claim_conflicts_total, 0);
+    assert.equal(state.metrics.durable_claim_skipped_during_backoff_total, 1);
+    resetSupabasePersistenceBackoffForTests();
+  });
+
+  it('locally enqueues a fresh event (no retry item yet) on multi-instance backoff_skip so the block-scan path does not drop it', async () => {
+    resetSupabasePersistenceBackoffForTests();
+    markSupabasePersistenceUnavailable(
+      new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
+    );
+    const state = createEmptyRelayerState();
+    const event = {
+      chain: 'neo_n3',
+      requestId: '701',
+      requestType: 'privacy_oracle',
+      txHash: '0x701',
+    };
+
+    const result = await processEvent(
+      multiInstanceBackoffConfig(),
+      state,
+      () => {},
+      silentLogger,
+      event,
+      null // fresh event from the block scan, no retry item
+    );
+
+    assert.equal(result.skipped, true);
+    assert.equal(result.retry_status, 'backoff_skip');
+    // The fresh event was enqueued locally so it is retried next tick.
+    assert.equal(state.neo_n3.retry_queue.length, 1);
+    assert.equal(state.neo_n3.retry_queue[0].event.requestId, '701');
+    assert.equal(state.metrics.claim_conflicts_total, 0);
+    resetSupabasePersistenceBackoffForTests();
+  });
+
+  it('retains the item (no conflict) when the durable queue is enabled but Supabase is unavailable (not fail-closed)', async () => {
+    resetSupabasePersistenceBackoffForTests();
+    const state = createEmptyRelayerState();
+    const event = {
+      chain: 'neo_n3',
+      requestId: '702',
+      requestType: 'privacy_oracle',
+      txHash: '0x702',
+    };
+    const eventKey = buildEventKey(event);
+    state.neo_n3.retry_queue.push({
+      key: eventKey,
+      event,
+      attempts: 1,
+      next_retry_at: 0,
+      prepared_fulfillment: preparedFulfillment,
+    });
+
+    // durableQueue enabled but failClosed:false and no Supabase persistence
+    // configured -> ensureDurableQueueAvailable returns false -> claim reason
+    // 'unavailable'. The request is unprocessed, so the item must be retained and
+    // NOT counted as a cross-instance conflict.
+    let delivered = false;
+    const config = {
+      network: 'testnet',
+      maxRetries: 3,
+      retryBaseDelayMs: 10,
+      retryMaxDelayMs: 100,
+      processedCacheSize: 100,
+      deadLetterLimit: 10,
+      durableQueue: { enabled: true, failClosed: false },
+      instanceId: 'relayer-a',
+      hooks: {
+        fulfillNeoRequest: async () => {
+          delivered = true;
+          return { tx_hash: '0xnope', vm_state: 'HALT' };
+        },
+      },
+    };
+
+    const result = await processEvent(config, state, () => {}, silentLogger, event, {
+      attempts: 1,
+      prepared_fulfillment: preparedFulfillment,
+    });
+
+    assert.equal(result.skipped, true);
+    assert.equal(result.retry_status, 'unavailable');
+    assert.equal(delivered, false);
+    // Item retained, not cleared, no phantom conflict.
+    assert.equal(state.neo_n3.retry_queue.length, 1);
+    assert.equal(state.neo_n3.retry_queue[0].attempts, 1);
+    assert.equal(state.metrics.claim_conflicts_total, 0);
+    resetSupabasePersistenceBackoffForTests();
   });
 });

@@ -221,3 +221,20 @@ export function buildVerificationEnvelope(signed, teeAttestation = null) {
     tee_attestation: teeAttestation,
   };
 }
+
+// D5 — canonical signed-result envelope fields shared by every fulfillment lane
+// (oracle.query / smart-fetch / compute / vrf / neodid / feeds). Returns the
+// SAME keys each lane already emits so the on-chain verification surface is
+// uniform: output_hash + signature + public_key + attestation_hash +
+// verification (+ tee_attestation). Additive — callers spread their lane-specific
+// fields alongside this; existing keys are preserved.
+export function buildLaneSignedEnvelope(signed, teeAttestation = null) {
+  return {
+    output_hash: signed.output_hash,
+    signature: signed.signature || null,
+    public_key: signed.public_key || null,
+    attestation_hash: signed.attestation_hash,
+    tee_attestation: teeAttestation,
+    verification: buildVerificationEnvelope(signed, teeAttestation),
+  };
+}

@@ -77,6 +77,20 @@ function resolveSupabaseBackoffMs() {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 300000;
 }
 
+// Shorter backoff window for NON-quota connectivity/5xx/timeout Supabase outages
+// (B11). A quota (402) outage is sustained, so it warrants the long 5min window;
+// a connectivity blip recovers quickly, so a ~30s window keeps idempotency
+// protection coming back fast while still sparing every op the 15s request
+// timeout each tick during the outage.
+function resolveSupabaseTransientBackoffMs() {
+  const parsed = Number(
+    process.env.MORPHEUS_SUPABASE_TRANSIENT_BACKOFF_MS ||
+      process.env.SUPABASE_TRANSIENT_BACKOFF_MS ||
+      30000
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 30000;
+}
+
 export function isSupabaseQuotaRestrictedError(error) {
   const normalized = String(error?.message || error || '').toLowerCase();
   return (
@@ -88,14 +102,57 @@ export function isSupabaseQuotaRestrictedError(error) {
   );
 }
 
-export function markSupabasePersistenceUnavailable(error, nowMs = Date.now()) {
-  if (!isSupabaseQuotaRestrictedError(error)) return false;
-  supabasePersistenceBackoffUntilMs = Math.max(
-    supabasePersistenceBackoffUntilMs,
-    nowMs + resolveSupabaseBackoffMs()
+// Connectivity / 5xx / timeout Supabase errors that are NOT quota restrictions.
+// These warrant a short backoff (B11) so the relayer does not pay the 15s request
+// timeout on every operation during a transient Supabase outage.
+export function isSupabaseConnectivityError(error) {
+  if (isSupabaseQuotaRestrictedError(error)) return false;
+  const normalized = String(error?.message || error || '').toLowerCase();
+  return (
+    normalized.includes('pgrst002') ||
+    normalized.includes('schema cache') ||
+    normalized.includes('failed: 503') ||
+    normalized.includes('failed: 502') ||
+    normalized.includes('failed: 504') ||
+    normalized.includes(' 503 ') ||
+    normalized.includes(' 502 ') ||
+    normalized.includes(' 504 ') ||
+    normalized.includes('timed out') ||
+    normalized.includes('timeout') ||
+    normalized.includes('econnreset') ||
+    normalized.includes('econnrefused') ||
+    normalized.includes('eauthquery') ||
+    normalized.includes('connection to database not available') ||
+    normalized.includes('fetch failed') ||
+    normalized.includes('network') ||
+    normalized.includes('unavailable')
   );
-  supabasePersistenceBackoffReason = 'quota_restricted';
-  return true;
+}
+
+export function markSupabasePersistenceUnavailable(error, nowMs = Date.now()) {
+  if (isSupabaseQuotaRestrictedError(error)) {
+    supabasePersistenceBackoffUntilMs = Math.max(
+      supabasePersistenceBackoffUntilMs,
+      nowMs + resolveSupabaseBackoffMs()
+    );
+    supabasePersistenceBackoffReason = 'quota_restricted';
+    return true;
+  }
+  // B11: arm a shorter backoff for non-quota connectivity/5xx/timeout outages so
+  // the relayer stops paying the full request timeout on every op this window.
+  if (isSupabaseConnectivityError(error)) {
+    const nextUntil = nowMs + resolveSupabaseTransientBackoffMs();
+    // Never shorten an already-armed (possibly longer, quota) window.
+    if (nextUntil > supabasePersistenceBackoffUntilMs) {
+      supabasePersistenceBackoffUntilMs = nextUntil;
+      // Keep a quota reason sticky if it is still the active reason.
+      if (supabasePersistenceBackoffReason !== 'quota_restricted') {
+        supabasePersistenceBackoffReason = 'connectivity';
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
 export function getSupabasePersistenceBackoff(nowMs = Date.now()) {

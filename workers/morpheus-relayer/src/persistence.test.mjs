@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   getSupabasePersistenceBackoff,
   quarantineRelayerJobsBelowRequestId,
+  isSupabaseConnectivityError,
   isSupabaseQuotaRestrictedError,
   markSupabasePersistenceUnavailable,
   resetSupabasePersistenceBackoffForTests,
@@ -44,11 +45,59 @@ describe('Supabase persistence backoff', () => {
     assert.ok(backoff.remaining_ms > 0);
   });
 
-  it('does not enter backoff for ordinary errors', () => {
-    const marked = markSupabasePersistenceUnavailable(new Error('network unavailable'), Date.now());
+  it('does not enter backoff for deterministic (non-transient, non-quota) errors', () => {
+    // A constraint violation / 409 conflict is deterministic, not an outage, so it
+    // must not arm a persistence backoff.
+    const marked = markSupabasePersistenceUnavailable(
+      new Error('supabase morpheus_relayer_jobs POST failed: 409 duplicate key value'),
+      Date.now()
+    );
 
     assert.equal(marked, false);
     assert.equal(shouldSkipSupabasePersistence(), false);
+  });
+
+  // --- B11: non-quota connectivity/5xx/timeout outages arm a SHORT backoff ---
+  it('classifies connectivity/5xx/timeout (non-quota) Supabase errors', () => {
+    assert.equal(isSupabaseConnectivityError(new Error('fetch failed')), true);
+    assert.equal(
+      isSupabaseConnectivityError(
+        new Error('supabase morpheus_relayer_jobs GET failed: 503 service unavailable')
+      ),
+      true
+    );
+    assert.equal(isSupabaseConnectivityError(new Error('connection timed out')), true);
+    assert.equal(isSupabaseConnectivityError(new Error('ECONNRESET')), true);
+    // Quota is handled by its own (longer) window, not the connectivity path.
+    assert.equal(isSupabaseConnectivityError(new Error('402 exceed_db_size_quota')), false);
+    // Deterministic errors do not arm a connectivity backoff.
+    assert.equal(isSupabaseConnectivityError(new Error('409 duplicate key')), false);
+  });
+
+  it('arms a short backoff for a non-quota connectivity outage (B11)', () => {
+    const nowMs = Date.parse('2026-05-06T09:00:00.000Z');
+    assert.equal(shouldSkipSupabasePersistence(nowMs), false);
+
+    const marked = markSupabasePersistenceUnavailable(new Error('fetch failed'), nowMs);
+    assert.equal(marked, true);
+
+    const backoff = getSupabasePersistenceBackoff(nowMs + 1000);
+    assert.equal(backoff.active, true);
+    assert.equal(backoff.reason, 'connectivity');
+    // Short (~30s default) window: still active at 1s, cleared by 31s — much
+    // shorter than the 5min quota window so idempotency protection recovers fast.
+    assert.equal(shouldSkipSupabasePersistence(nowMs + 1000), true);
+    assert.equal(shouldSkipSupabasePersistence(nowMs + 31000), false);
+  });
+
+  it('never shortens an already-armed (longer quota) window when a connectivity error follows', () => {
+    const nowMs = Date.parse('2026-05-06T10:00:00.000Z');
+    markSupabasePersistenceUnavailable(new Error('402 exceed_db_size_quota'), nowMs);
+    // A connectivity blip during the quota outage must not shrink the window.
+    markSupabasePersistenceUnavailable(new Error('fetch failed'), nowMs);
+    assert.equal(shouldSkipSupabasePersistence(nowMs + 31000), true); // still in quota window
+    const backoff = getSupabasePersistenceBackoff(nowMs + 1000);
+    assert.equal(backoff.reason, 'quota_restricted');
   });
 });
 

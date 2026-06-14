@@ -1,10 +1,27 @@
 import { trimString } from '../../platform/core.js';
 import { relayNeoN3Invocation } from '../../chain/index.js';
 import { decimalToIntegerString } from './decimal.js';
+import { clampFeedTimestampSec } from './shared.js';
 import {
   resolveFeedSubmissionWait,
   resolveFeedSubmissionWaitTimeoutMs,
 } from './sync-policy.js';
+
+// Resolve the on-chain submission timestamp for a single-feed updateFeed call.
+// Prefer an already-clamped value (computed in the batch path against the
+// previous on-chain timestamp); otherwise clamp the quote's own timestamp so a
+// standalone caller is still protected from anchoring a future-dated value that
+// would permanently stall the strictly-monotonic MorpheusDataFeed (B9).
+function resolveSubmitTimestampSec(quote, explicitTimestampSec) {
+  if (explicitTimestampSec !== undefined && explicitTimestampSec !== null) {
+    const explicit = Number(explicitTimestampSec);
+    if (Number.isFinite(explicit)) return Math.floor(explicit);
+  }
+  const parsed = Date.parse(quote?.timestamp);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const upstreamSec = Number.isFinite(parsed) ? Math.floor(parsed / 1000) : nowSec;
+  return clampFeedTimestampSec({ upstreamSec, prevTs: 0, nowSec });
+}
 
 export function buildNeoN3RelaySigningPayload(payload = {}) {
   const signingKey = trimString(payload.private_key || payload.signing_key);
@@ -22,7 +39,8 @@ export async function submitQuoteToN3(
   quote,
   storagePair,
   roundId,
-  sourceSetId
+  sourceSetId,
+  timestampSec
 ) {
   const invokeResult = await relayNeoN3Invocation({
     request_id: trimString(payload.request_id) || `pricefeed:${storagePair}:${Date.now()}`,
@@ -33,17 +51,11 @@ export async function submitQuoteToN3(
       { type: 'String', value: storagePair },
       { type: 'Integer', value: roundId },
       { type: 'Integer', value: decimalToIntegerString(quote.price, quote.decimals) },
-      // Use provider's observation timestamp, not local clock
+      // Provider observation timestamp, clamped against the strictly-monotonic
+      // MorpheusDataFeed (B9) so a future-dated value cannot stall the feed.
       {
         type: 'Integer',
-        value: String(
-          (() => {
-            const parsed = Date.parse(quote.timestamp);
-            return Number.isFinite(parsed)
-              ? Math.floor(parsed / 1000)
-              : Math.floor(Date.now() / 1000);
-          })()
-        ),
+        value: String(resolveSubmitTimestampSec(quote, timestampSec)),
       },
       { type: 'ByteArray', value: quote.attestation_hash },
       { type: 'Integer', value: String(sourceSetId) },
@@ -156,7 +168,8 @@ export async function submitQuotesToN3WithFallback(dataFeedHash, neoContext, pay
         entry.quote,
         entry.storagePair,
         entry.roundId,
-        entry.sourceSetId
+        entry.sourceSetId,
+        entry.timestampSec
       );
       txs.push({
         storage_pair: entry.storagePair,

@@ -21,6 +21,7 @@ import {
   buildEventKey,
   clearRetryItem,
   enqueueRetryItem,
+  incrementLabeledFailure,
   incrementMetric,
   recordProcessedEvent,
   scheduleRetry,
@@ -33,6 +34,7 @@ import {
   upsertJobOrThrow,
 } from './queue.js';
 import { reportPinnedNeoN3Role, resolvePinnedNeoN3VerifierPublicKey } from './lib/neo-signers.js';
+import { sendHeartbeat } from './heartbeat.js';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
 import { normalizeErrorMessage } from './feed-sync.js';
@@ -72,6 +74,54 @@ export function isTerminalConfigurationError(message) {
   );
 }
 
+// Worker/upstream HTTP status codes that are retryable (transient infrastructure
+// failures), NOT deterministic request rejections. A worker HTTP 5xx/429/408/425
+// — or a 0 (no response / aborted) — is a momentary overload, an upstream rate
+// limit, or a connectivity blip; it must be retried, never burned into a
+// permanent on-chain failure callback. Deterministic 4xx (400/401/403/404/409/422)
+// stay on the deliver-as-failure path because re-running the same request would
+// produce the same rejection.
+const TRANSIENT_WORKER_HTTP_STATUSES = new Set([0, 408, 425, 429, 500, 502, 503, 504]);
+
+/**
+ * True when a worker HTTP status is a retryable infrastructure failure (5xx
+ * family, 429 rate-limit, 408/425 request-timeout, or 0 no-response). Used by
+ * the prepare lanes to short-circuit a transient worker failure into a retry
+ * BEFORE it is encoded into an on-chain failure callback. Deterministic 4xx
+ * (400/401/403/404/409/422) are NOT transient.
+ */
+export function isTransientWorkerStatus(status) {
+  // Only treat an actual numeric status as transient. null/undefined/non-numeric
+  // must NOT coerce to 0 (Number(null) === 0) and accidentally match.
+  if (typeof status !== 'number' && typeof status !== 'string') return false;
+  if (typeof status === 'string' && status.trim() === '') return false;
+  const numeric = Number(status);
+  if (!Number.isFinite(numeric)) return false;
+  return TRANSIENT_WORKER_HTTP_STATUSES.has(numeric);
+}
+
+// Sentinel marker appended to the message of a transient-worker-failure error so
+// the (already-thrown, then re-classified) error reliably routes through the
+// retry path even if the raw status text alone would not match classifyError's
+// transient keyword set.
+const TRANSIENT_WORKER_ERROR_MARKER = '[transient-worker-status]';
+
+/**
+ * Build a transient-classified error for a retryable worker/upstream HTTP status
+ * so the prepare lanes can throw instead of finalizing a permanent failure
+ * callback. The thrown error is caught by processEvent's catch block and
+ * re-classified via classifyError (which recognizes the status code), so the
+ * request is retried like any other transient failure.
+ */
+export function buildTransientWorkerError(status, detail = '') {
+  const numeric = Number(status);
+  const statusText = Number.isFinite(numeric) ? numeric : 'unknown';
+  const suffix = detail ? `: ${normalizeErrorMessage(detail)}` : '';
+  return new Error(
+    `worker request failed with transient status ${statusText}${suffix} ${TRANSIENT_WORKER_ERROR_MARKER}`
+  );
+}
+
 /**
  * Classify an error as transient (network/rate-limit), permanent (auth/not-found),
  * or unknown to guide retry decisions.  Transient errors are always retried;
@@ -82,14 +132,16 @@ export function classifyError(err) {
   if (isAlreadyFulfilledError(msg)) return 'settled';
   if (isTerminalConfigurationError(msg)) return 'permanent';
   if (
+    msg.includes(TRANSIENT_WORKER_ERROR_MARKER) ||
     msg.includes('etimedout') ||
     msg.includes('econnrefused') ||
     msg.includes('econnreset') ||
     msg.includes('rate limit') ||
     msg.includes('socket hang up') ||
-    msg.includes('503') ||
-    msg.includes('502') ||
-    msg.includes('504') ||
+    // Retryable upstream/worker HTTP statuses: 5xx family, 429 rate-limit,
+    // 408/425 request-timeout, plus 0 (no response). Matched as standalone
+    // tokens so a code embedded in unrelated text does not over-match.
+    /\b(429|408|425|500|502|503|504)\b/.test(msg) ||
     msg.includes('network') ||
     msg.includes('timed out') ||
     msg.includes('unavailable')
@@ -680,6 +732,15 @@ async function prepareOracleFulfillment(config, event, logger = null) {
   if (kernelIntent.moduleId === 'confidential.decrypt') {
     const envelope = trimString(event.payloadText || '');
     const decResponse = await callNitro(config, '/oracle/decrypt', { envelope });
+    // A transient decrypt-worker HTTP failure (5xx/429/408/425/0 — enclave
+    // overload, rate limit, connectivity blip) must be retried, never finalized
+    // as a permanent decrypt-failed callback that strands the time-locked reveal.
+    if (!decResponse.ok && isTransientWorkerStatus(decResponse.status)) {
+      throw buildTransientWorkerError(
+        decResponse.status,
+        typeof decResponse.body?.error === 'string' ? decResponse.body.error : 'confidential decrypt'
+      );
+    }
     const ok = decResponse.ok && typeof decResponse.body?.plaintext === 'string';
     const decryptFulfillment = ok
       ? {
@@ -727,6 +788,18 @@ async function prepareOracleFulfillment(config, event, logger = null) {
   const workerStartedAt = Date.now();
   const workerResponse = await callNitro(config, route, workerPayload);
   const workerDurationMs = Date.now() - workerStartedAt;
+  // A transient worker/upstream HTTP failure (5xx/429/408/425/0) is an
+  // infrastructure blip — momentary enclave overload, upstream rate limit, or a
+  // 502/503/504 — NOT a deterministic request rejection. Throw a transient error
+  // so processEvent retries the request instead of irreversibly finalizing it as
+  // a permanent on-chain failure callback. Deterministic 4xx falls through to the
+  // normal deliver-as-failure path (re-running would just reproduce the rejection).
+  if (!workerResponse.ok && isTransientWorkerStatus(workerResponse.status)) {
+    throw buildTransientWorkerError(
+      workerResponse.status,
+      typeof workerResponse.body?.error === 'string' ? workerResponse.body.error : ''
+    );
+  }
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
   const verificationStartedAt = Date.now();
   const verification = await signFulfillmentPayload(config, event.chain, {
@@ -792,6 +865,8 @@ async function recordDeliveryExhaustion(
   const eventKey = buildEventKey(event);
   const lastError = trimOnchainErrorMessage(errorMessage);
   incrementMetric(state, 'retries_exhausted_total');
+  // F5: labeled failure detail (flat retries_exhausted_total stays authoritative).
+  incrementLabeledFailure(state, event.chain, kernelIntent.moduleId, kernelIntent.operation);
   recordProcessedEvent(
     state,
     event.chain,
@@ -836,6 +911,25 @@ async function recordDeliveryExhaustion(
     },
     'Callback delivery retries exhausted; dead-lettered oracle request for manual replay'
   );
+  // F1: push an alert for the single most important incident — a permanently
+  // dropped oracle callback. Dedicated dead-letter channel, falling back to the
+  // generic failure channel so configuring only the failure URL still alerts.
+  // Fire-and-forget (the loop-level failure heartbeat uses the same pattern).
+  void sendHeartbeat(config?.heartbeats?.deadLetter || config?.heartbeats?.failure || '', {
+    event: 'relayer_dead_letter',
+    network: config?.network,
+    chain: event.chain,
+    request_id: String(event.requestId || ''),
+    request_type: String(event.requestType || ''),
+    module_id: kernelIntent.moduleId,
+    operation: kernelIntent.operation,
+    event_key: eventKey,
+    attempts,
+    route,
+    error_class: errorClass,
+    error: lastError,
+    terminal_error: terminalError,
+  });
   return {
     event,
     error: lastError,
@@ -882,6 +976,8 @@ async function scheduleCallbackRetry(
     next_retry_at: Date.now() + computeRetryDelayMs(config, nextAttempts),
     first_failed_at: firstFailedAt,
     last_error: trimOnchainErrorMessage(errorMessage),
+    retryQueueLimit: config.retryQueueLimit,
+    deadLetterLimit: config.deadLetterLimit,
     ...extraRetryItemFields,
   });
   incrementMetric(state, 'retries_scheduled_total');
@@ -1003,6 +1099,111 @@ async function recordTerminalOutcome(
   };
 }
 
+/**
+ * Collapse the four duplicated "delivery error: is it permanent / over the
+ * callback ceiling? -> dead-letter, else schedule another attempt" arms (G2).
+ * Computes the error class (unless one is supplied) and the ceiling decision once,
+ * then routes to recordDeliveryExhaustion or scheduleCallbackRetry. Behavior-
+ * preserving: each caller passes the exact exhaust route / terminalError and the
+ * exact scheduleCallbackRetry options the original inline arm used.
+ */
+async function resolveDeliveryRetryOrExhaust(
+  config,
+  state,
+  persistState,
+  logger,
+  event,
+  kernelIntent,
+  {
+    nextAttempts,
+    errorMessage,
+    errorClass = null,
+    exhaustRoute,
+    exhaustTerminalError = null,
+    retryOptions,
+  }
+) {
+  const deliveryErrorClass = errorClass || classifyError(errorMessage);
+  if (deliveryErrorClass === 'permanent' || nextAttempts > resolveCallbackRetryCeiling(config)) {
+    return recordDeliveryExhaustion(config, state, persistState, logger, event, kernelIntent, {
+      attempts: nextAttempts,
+      route: exhaustRoute,
+      errorMessage,
+      errorClass: deliveryErrorClass,
+      ...(exhaustTerminalError !== null ? { terminalError: exhaustTerminalError } : {}),
+    });
+  }
+  return scheduleCallbackRetry(config, state, persistState, logger, event, kernelIntent, {
+    nextAttempts,
+    errorMessage,
+    ...retryOptions,
+  });
+}
+
+/**
+ * Record a request finalized with an on-chain failure callback (the primary-
+ * exhausted -> finalizeFailedRequest success path). Extracted from processEvent's
+ * catch so the dispatcher stays small (G2). Behavior-preserving.
+ */
+async function recordFinalizedFailure(
+  config,
+  state,
+  persistState,
+  logger,
+  event,
+  kernelIntent,
+  eventKey,
+  attempts,
+  result
+) {
+  incrementMetric(state, 'events_processed_total');
+  incrementMetric(state, 'events_failed_total');
+  incrementMetric(state, 'fulfill_failure_total');
+  // F5: labeled failure detail for a request finalized with a failure callback.
+  incrementLabeledFailure(state, event.chain, kernelIntent.moduleId, kernelIntent.operation);
+  recordProcessedEvent(
+    state,
+    event.chain,
+    event,
+    'failed',
+    {
+      attempts,
+      route: result.route,
+      module_id: result.module_id || kernelIntent.moduleId,
+      operation: result.operation || kernelIntent.operation,
+      fulfill_tx: result.fulfill_tx,
+      worker_status: null,
+      last_error: result.error,
+    },
+    config
+  );
+  clearRetryItem(state, event.chain, eventKey);
+  persistState();
+
+  await maybeUpsertJob(logger, event, {
+    event_key: eventKey,
+    status: 'failed',
+    attempts,
+    last_error: result.error,
+    fulfill_tx: result.fulfill_tx,
+    completed_at: new Date().toISOString(),
+    next_retry_at: null,
+  });
+
+  logger.warn(
+    {
+      chain: event.chain,
+      request_id: event.requestId,
+      request_type: event.requestType,
+      event_key: eventKey,
+      attempts,
+      error: result.error,
+    },
+    'Finalized oracle request with an on-chain failure callback'
+  );
+  return { event, result, event_key: eventKey, attempts };
+}
+
 export async function processEvent(config, state, persistState, logger, event, retryItem = null) {
   const eventKey = buildEventKey(event);
   const kernelIntent = resolveKernelIntent(event.requestType);
@@ -1036,8 +1237,36 @@ export async function processEvent(config, state, persistState, logger, event, r
     'Processing Morpheus oracle request'
   );
 
-  const claimed = await claimDurableJobForProcessing(config, logger, event, retryItem, state);
-  if (!claimed) {
+  const claim = await claimDurableJobForProcessing(config, logger, event, retryItem, state);
+  if (!claim.granted) {
+    if (claim.reason === 'backoff_skip' || claim.reason === 'unavailable') {
+      // The cross-instance claim is offline (Supabase backoff / persistence
+      // unavailable) and we declined to process this tick. The request is
+      // UNPROCESSED, so its work must be RETAINED — never cleared, never counted
+      // as a conflict — and retried once Supabase recovers. A fresh event (no
+      // retryItem yet) is locally enqueued so the block-scan path does not drop
+      // it; an existing retry item is left in place untouched (no attempt bump).
+      if (!retryItem) {
+        enqueueRetryItem(state, event.chain, event, {
+          attempts,
+          next_retry_at: Date.now() + computeRetryDelayMs(config, attempts + 1),
+          first_failed_at: new Date().toISOString(),
+          last_error: `durable_claim_${claim.reason}`,
+          retryQueueLimit: config.retryQueueLimit,
+          deadLetterLimit: config.deadLetterLimit,
+        });
+        persistState();
+      }
+      return {
+        event,
+        skipped: true,
+        event_key: eventKey,
+        attempts,
+        retry_status: claim.reason,
+      };
+    }
+    // Genuine cross-instance conflict: another relayer claimed it. Drop the local
+    // retry item and count the conflict — re-processing would double-deliver.
     incrementMetric(state, 'claim_conflicts_total');
     clearRetryItem(state, event.chain, eventKey);
     persistState();
@@ -1076,6 +1305,8 @@ export async function processEvent(config, state, persistState, logger, event, r
         last_error: 'callback_pending',
         prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
         durable_claimed: retryItem?.durable_claimed,
+        retryQueueLimit: config.retryQueueLimit,
+        deadLetterLimit: config.deadLetterLimit,
       });
       persistState();
       await checkpointPreparedFulfillment(
@@ -1090,6 +1321,9 @@ export async function processEvent(config, state, persistState, logger, event, r
       incrementMetric(state, result.success ? 'fulfill_success_total' : 'fulfill_failure_total');
     }
     incrementMetric(state, 'events_processed_total');
+    // F2: record the latency of the most recently delivered callback so a "slow
+    // but recovering" lane is distinguishable from a "stuck" one.
+    state.metrics.last_fulfill_latency_ms = Date.now() - processingStartedAt;
 
     recordProcessedEvent(
       state,
@@ -1184,78 +1418,61 @@ export async function processEvent(config, state, persistState, logger, event, r
     }
 
     if (preparedForRedelivery) {
-      const nextAttempts = attempts + 1;
-      // Delivery errors never reach scheduleRetry, so enforce the callback
-      // ceiling here and short-circuit permanently failing callbacks (e.g. a
-      // consumer contract that FAULTs on every test invoke) to the dead-letter
-      // lane instead of redelivering the same prepared payload forever.
-      const deliveryErrorClass = classifyError(message);
-      if (
-        deliveryErrorClass === 'permanent' ||
-        nextAttempts > resolveCallbackRetryCeiling(config)
-      ) {
-        return recordDeliveryExhaustion(config, state, persistState, logger, event, kernelIntent, {
-          attempts: nextAttempts,
-          route: preparedForRedelivery.route || 'callback-delivery',
-          errorMessage: message,
-          errorClass: deliveryErrorClass,
-        });
-      }
-      return scheduleCallbackRetry(config, state, persistState, logger, event, kernelIntent, {
-        nextAttempts,
-        firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+      // Delivery errors never reach scheduleRetry, so the callback ceiling /
+      // permanent short-circuit is enforced in resolveDeliveryRetryOrExhaust:
+      // a permanently failing callback (e.g. a consumer that FAULTs on every test
+      // invoke) dead-letters instead of redelivering the same payload forever.
+      return resolveDeliveryRetryOrExhaust(config, state, persistState, logger, event, kernelIntent, {
+        nextAttempts: attempts + 1,
         errorMessage: message,
-        extraRetryItemFields: {
-          prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
+        exhaustRoute: preparedForRedelivery.route || 'callback-delivery',
+        retryOptions: {
+          firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+          extraRetryItemFields: {
+            prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
+          },
+          upsertStatus: 'callback_retry_scheduled',
+          upsertExtras: {
+            route: preparedForRedelivery.route,
+            worker_status: preparedForRedelivery.worker_status,
+          },
+          upsertWorkerResponse: buildCallbackPendingWorkerResponse(
+            preparedForRedelivery,
+            kernelIntent
+          ),
+          retryStatus: 'callback_retry_scheduled',
+          logLevel: 'warn',
+          logMessage: 'Retrying prepared Morpheus oracle callback delivery',
+          logModuleId: preparedForRedelivery.module_id || kernelIntent.moduleId,
+          logOperation: preparedForRedelivery.operation || kernelIntent.operation,
         },
-        upsertStatus: 'callback_retry_scheduled',
-        upsertExtras: {
-          route: preparedForRedelivery.route,
-          worker_status: preparedForRedelivery.worker_status,
-        },
-        upsertWorkerResponse: buildCallbackPendingWorkerResponse(preparedForRedelivery, kernelIntent),
-        retryStatus: 'callback_retry_scheduled',
-        logLevel: 'warn',
-        logMessage: 'Retrying prepared Morpheus oracle callback delivery',
-        logModuleId: preparedForRedelivery.module_id || kernelIntent.moduleId,
-        logOperation: preparedForRedelivery.operation || kernelIntent.operation,
       });
     }
 
     if (isFinalizeOnly) {
-      const nextAttempts = attempts + 1;
       // The failure-finalize lane re-enqueues without scheduleRetry too: cap it
       // and dead-letter a finalize callback that fails permanently.
-      const finalizeErrorClass = classifyError(message);
-      if (
-        finalizeErrorClass === 'permanent' ||
-        nextAttempts > resolveCallbackRetryCeiling(config)
-      ) {
-        return recordDeliveryExhaustion(config, state, persistState, logger, event, kernelIntent, {
-          attempts: nextAttempts,
-          route: 'failure-finalize',
-          errorMessage: message,
-          errorClass: finalizeErrorClass,
-          terminalError,
-        });
-      }
-      return scheduleCallbackRetry(config, state, persistState, logger, event, kernelIntent, {
-        nextAttempts,
-        firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+      return resolveDeliveryRetryOrExhaust(config, state, persistState, logger, event, kernelIntent, {
+        nextAttempts: attempts + 1,
         errorMessage: message,
-        extraRetryItemFields: { finalize_only: true, terminal_error: terminalError },
-        upsertStatus: 'failure_callback_retry_scheduled',
-        upsertWorkerResponse: {
-          retry_meta: {
-            finalize_only: true,
-            terminal_error: terminalError,
-            module_id: kernelIntent.moduleId,
-            operation: kernelIntent.operation,
+        exhaustRoute: 'failure-finalize',
+        exhaustTerminalError: terminalError,
+        retryOptions: {
+          firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+          extraRetryItemFields: { finalize_only: true, terminal_error: terminalError },
+          upsertStatus: 'failure_callback_retry_scheduled',
+          upsertWorkerResponse: {
+            retry_meta: {
+              finalize_only: true,
+              terminal_error: terminalError,
+              module_id: kernelIntent.moduleId,
+              operation: kernelIntent.operation,
+            },
           },
+          retryStatus: 'scheduled',
+          logLevel: 'warn',
+          logMessage: 'Retrying terminal failure callback delivery',
         },
-        retryStatus: 'scheduled',
-        logLevel: 'warn',
-        logMessage: 'Retrying terminal failure callback delivery',
       });
     }
 
@@ -1269,94 +1486,55 @@ export async function processEvent(config, state, persistState, logger, event, r
       incrementMetric(state, 'retries_exhausted_total');
       try {
         const result = await finalizeFailedRequest(config, event, message);
-        incrementMetric(state, 'events_processed_total');
-        incrementMetric(state, 'events_failed_total');
-        incrementMetric(state, 'fulfill_failure_total');
-        recordProcessedEvent(
+        return recordFinalizedFailure(
+          config,
           state,
-          event.chain,
+          persistState,
+          logger,
           event,
-          'failed',
-          {
-            attempts: retry.attempts,
-            route: result.route,
-            module_id: result.module_id || kernelIntent.moduleId,
-            operation: result.operation || kernelIntent.operation,
-            fulfill_tx: result.fulfill_tx,
-            worker_status: null,
-            last_error: result.error,
-          },
-          config
+          kernelIntent,
+          eventKey,
+          retry.attempts,
+          result
         );
-        clearRetryItem(state, event.chain, eventKey);
-        persistState();
-
-        await maybeUpsertJob(logger, event, {
-          event_key: eventKey,
-          status: 'failed',
-          attempts: retry.attempts,
-          last_error: result.error,
-          fulfill_tx: result.fulfill_tx,
-          completed_at: new Date().toISOString(),
-          next_retry_at: null,
-        });
-
-        logger.warn(
-          {
-            chain: event.chain,
-            request_id: event.requestId,
-            request_type: event.requestType,
-            event_key: eventKey,
-            attempts: retry.attempts,
-            error: result.error,
-          },
-          'Finalized oracle request with an on-chain failure callback'
-        );
-        return { event, result, event_key: eventKey, attempts: retry.attempts };
       } catch (finalizeError) {
-        const nextAttempts = retry.attempts + 1;
-        const finalizeErrorClass = classifyError(finalizeError);
-        if (
-          finalizeErrorClass === 'permanent' ||
-          nextAttempts > resolveCallbackRetryCeiling(config)
-        ) {
-          return recordDeliveryExhaustion(
-            config,
-            state,
-            persistState,
-            logger,
-            event,
-            kernelIntent,
-            {
-              attempts: nextAttempts,
-              route: 'failure-finalize',
-              errorMessage: finalizeError,
-              errorClass: finalizeErrorClass,
-              terminalError: trimOnchainErrorMessage(message),
-            }
-          );
-        }
-        return scheduleCallbackRetry(config, state, persistState, logger, event, kernelIntent, {
-          nextAttempts,
-          firstFailedAt: new Date().toISOString(),
-          errorMessage: finalizeError,
-          extraRetryItemFields: {
-            finalize_only: true,
-            terminal_error: trimOnchainErrorMessage(message),
-          },
-          upsertStatus: 'failure_callback_retry_scheduled',
-          upsertWorkerResponse: {
-            retry_meta: {
-              finalize_only: true,
-              terminal_error: trimOnchainErrorMessage(message),
-              module_id: kernelIntent.moduleId,
-              operation: kernelIntent.operation,
+        // The finalize callback delivery itself failed: cap + dead-letter it, or
+        // re-enqueue below the ceiling. terminal_error is the original primary
+        // failure the failure callback is finalizing.
+        const finalizeTerminalError = trimOnchainErrorMessage(message);
+        return resolveDeliveryRetryOrExhaust(
+          config,
+          state,
+          persistState,
+          logger,
+          event,
+          kernelIntent,
+          {
+            nextAttempts: retry.attempts + 1,
+            errorMessage: finalizeError,
+            exhaustRoute: 'failure-finalize',
+            exhaustTerminalError: finalizeTerminalError,
+            retryOptions: {
+              firstFailedAt: new Date().toISOString(),
+              extraRetryItemFields: {
+                finalize_only: true,
+                terminal_error: finalizeTerminalError,
+              },
+              upsertStatus: 'failure_callback_retry_scheduled',
+              upsertWorkerResponse: {
+                retry_meta: {
+                  finalize_only: true,
+                  terminal_error: finalizeTerminalError,
+                  module_id: kernelIntent.moduleId,
+                  operation: kernelIntent.operation,
+                },
+              },
+              retryStatus: 'scheduled',
+              logLevel: 'error',
+              logMessage: 'Primary execution exhausted; retrying terminal failure callback',
             },
-          },
-          retryStatus: 'scheduled',
-          logLevel: 'error',
-          logMessage: 'Primary execution exhausted; retrying terminal failure callback',
-        });
+          }
+        );
       }
     }
 

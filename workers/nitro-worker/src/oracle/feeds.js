@@ -43,6 +43,8 @@ import {
   hasOwnPayloadKey,
   resolveFeedNetwork,
   resolveFeedScope,
+  clampFeedTimestampSec,
+  FeedTimestampError,
 } from './feeds/shared.js';
 import {
   decimalToIntegerString,
@@ -56,7 +58,11 @@ import {
   loadFeedState,
   saveFeedState,
   resetFeedStateCache,
+  getFeedStalenessSummary,
+  getFeedStateWriteFailureCount,
 } from './feeds/feed-state.js';
+
+export { getFeedStalenessSummary, getFeedStateWriteFailureCount };
 import { fetchJsonRpc, loadOnchainFeedRecords } from './feeds/neo-stack-decode.js';
 import {
   buildSyncPolicy,
@@ -96,6 +102,10 @@ export function __persistFeedSnapshotsForTests(rows) {
 
 export function __resetFeedStateForTests() {
   resetFeedStateCache();
+}
+
+export function __clampFeedTimestampSecForTests(args) {
+  return clampFeedTimestampSec(args);
 }
 
 export async function __loadFeedStateForTests(scope = {}) {
@@ -605,9 +615,53 @@ export async function handleOracleFeed(payload) {
         scopedPayload.source_set_id ?? getSourceSetIdForProvider(quote.provider, 0)
       );
       const quoteTimestampMs = Date.parse(quote.timestamp);
-      const timestampSec = Number.isFinite(quoteTimestampMs)
+      const nowSec = Math.floor(Date.now() / 1000);
+      const upstreamSec = Number.isFinite(quoteTimestampMs)
         ? Math.floor(quoteTimestampMs / 1000)
-        : Math.floor(Date.now() / 1000);
+        : nowSec;
+      // Clamp the on-chain submission timestamp against the strictly-monotonic
+      // MorpheusDataFeed using the previous on-chain timestamp as the floor (B9).
+      const prevOnchainTs = Number(previousRecord?.timestamp) || 0;
+      let timestampSec;
+      try {
+        timestampSec = clampFeedTimestampSec({
+          upstreamSec,
+          prevTs: prevOnchainTs,
+          nowSec,
+        });
+      } catch (error) {
+        if (error instanceof FeedTimestampError) {
+          // A poisoned/far-future upstream timestamp must never be anchored — it
+          // would permanently stall this pair. Skip it (do not throw the batch).
+          state.records[storagePair] = {
+            ...(hasPreviousRecord ? previousRecord : {}),
+            provider: quote.provider,
+            pair: quote.pair,
+            storage_pair: storagePair,
+            last_observed_price: quote.price,
+            last_observed_price_units: decimalToIntegerString(quote.price, quote.decimals),
+            last_observed_at_ms: Number.isFinite(quoteTimestampMs) ? quoteTimestampMs : Date.now(),
+            price_scale_decimals: FEED_PRICE_DECIMALS,
+          };
+          syncResults.push({
+            provider: quote.provider,
+            pair: quote.pair,
+            storage_pair: storagePair,
+            relay_status: 'skipped',
+            skip_reason: 'upstream_timestamp_rejected',
+            change_bps: decision.change_bps ?? null,
+            comparison_basis: decision.comparison_basis ?? null,
+            quote,
+          });
+          errors.push({
+            symbol,
+            storage_pair: storagePair,
+            error: error.message,
+          });
+          continue;
+        }
+        throw error;
+      }
       const observedAtMs = Number.isFinite(quoteTimestampMs) ? quoteTimestampMs : Date.now();
 
       if (!decision.allow) {

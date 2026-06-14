@@ -280,4 +280,60 @@ async function processFeedTickJob(message, env) {
   }
 }
 
-export { processExecutionJob, processFeedTickJob, TERMINAL_JOB_STATUSES };
+/**
+ * Dead-letter consumer: a message lands here only after the primary consumer has
+ * exhausted `max_retries`, so the underlying Supabase job row is a poison job
+ * that must be finalized. Without this, the row stays in queued/processing and
+ * the cron recovery path (POST /jobs/recover + scheduled) re-requeues it
+ * forever. We mark it `dead_lettered` (already permitted by the 0010 CHECK
+ * constraint and already in TERMINAL_JOB_STATUSES) so recovery stops listing it.
+ *
+ * The DLQ message body carries the same {job_id, network} the primary consumer
+ * enqueued; we read those, load the row, and (unless it has since reached a
+ * terminal state) patch it terminal. We always ack so the message leaves the
+ * DLQ — there is no further retry lane beyond dead-letter.
+ */
+async function processDeadLetterJob(message, env) {
+  const body = message.body && typeof message.body === 'object' ? message.body : {};
+  const jobId = trimString(body.job_id);
+  const network = trimString(body.network) === 'mainnet' ? 'mainnet' : 'testnet';
+  if (!jobId) {
+    message.ack();
+    return;
+  }
+
+  try {
+    const job = await loadJob(env, jobId, network);
+    if (!job) {
+      message.ack();
+      return;
+    }
+    const jobStatus = normalizeJobStatus(job.status);
+    if (TERMINAL_JOB_STATUSES.has(jobStatus)) {
+      message.ack();
+      return;
+    }
+    await patchJob(env, jobId, network, {
+      status: 'dead_lettered',
+      error:
+        trimString(job.error) ||
+        `dead-lettered after exhausting queue retries (queue=${trimString(body.queue) || 'unknown'})`,
+      completed_at: new Date().toISOString(),
+      run_after: null,
+      metadata: {
+        ...(job.metadata || {}),
+        dead_letter_source: 'queue-dlq-consumer',
+        dead_lettered_at: new Date().toISOString(),
+        dead_letter_queue_message_id: message.id,
+      },
+    }).catch(() => null);
+  } catch {
+    // Even if the Supabase patch fails we ack: re-driving the DLQ message would
+    // not change the outcome (the cron path is the durable backstop), and a
+    // wedged DLQ is worse than a row the cron will mark on its next pass via the
+    // requeue ceiling in recovery.js.
+  }
+  message.ack();
+}
+
+export { processExecutionJob, processFeedTickJob, processDeadLetterJob, TERMINAL_JOB_STATUSES };

@@ -69,11 +69,10 @@ export default function DocsQuickstart() {
             color: 'var(--text-muted)',
             fontSize: '0.85rem',
             marginBottom: '1rem',
-            fontFamily: 'var(--font-mono)',
           }}
         >
-          Latest full-path relay tx:
-          0x057d4a581efbe815fad0148a3766284da2a33335e72fb50e54d476078d8f40d4
+          The paymaster guide links to the latest validated relay transactions on the explorer so
+          the reference never goes stale.
         </p>
         <Link
           href="/docs/r/PAYMASTER"
@@ -110,8 +109,14 @@ const secrets = {
 };
 
 // 3. Encrypt locally using X25519 + HKDF-SHA256 + AES-256-GCM
-const encryptedBlob = await encryptWithOracleX25519(JSON.stringify(secrets), public_key);`}
+//    (helper signature: encryptJsonWithOraclePublicKey(publicKey, plaintext))
+const encryptedBlob = await encryptJsonWithOraclePublicKey(public_key, JSON.stringify(secrets));`}
       />
+
+      <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+        For the full sealed-envelope wire format and the migration to HPKE, see the{' '}
+        <Link href="/docs/r/HPKE_X25519_MIGRATION">X25519 / HPKE sealing reference</Link>.
+      </p>
 
       <h2>Step 3: Submit On-Chain Request</h2>
       <p>
@@ -149,10 +154,41 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
 }`}
       />
 
+      <h2>Step 3b: Recover the requestId from the transaction</h2>
+      <p>
+        Wallet relays only return a <code>{`{ txid }`}</code> — the on-chain <code>requestId</code>{' '}
+        is <strong>not</strong> in the relay response. This is the most common integration mistake.
+        To correlate your request with its callback, poll{' '}
+        <code>getapplicationlog(txid)</code> and read the <code>requestId</code> out of the{' '}
+        <code>OracleRequested</code> (or <code>MiniAppRequestQueued</code>) notification emitted by
+        the Oracle contract.
+      </p>
+
+      <CodeBlock
+        language="javascript"
+        title="Extract requestId from the request transaction"
+        code={`// Poll the application log until the request notification appears.
+async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
+ const deadline = Date.now() + timeoutMs;
+ while (Date.now() < deadline) {
+  const log = await rpcClient.getApplicationLog(txid).catch(() => null);
+  const notification = (log?.executions?.[0]?.notifications || []).find((entry) =>
+   ['OracleRequested', 'MiniAppRequestQueued'].includes(entry.eventname)
+  );
+  // The requestId is the first item in the notification state array.
+  const requestId = notification?.state?.value?.[0]?.value ?? null;
+  if (requestId) return requestId;
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+ }
+ throw new Error('timed out waiting for the Oracle request notification');
+}`}
+      />
+
       <h2>Step 4: Await the Relayer Callback</h2>
       <p>
         Once the transaction is mined, the <strong>Morpheus Relayer</strong> detects the event,
-        forwards the encrypted payload to the Phala TEE, and then submits a callback transaction
+        forwards the encrypted payload to the enclave (AWS Nitro CVM), and then submits a callback
+        transaction
         back to the shared kernel containing the signed result envelope. The kernel persists the
         canonical inbox record first, and optional external callback adapters can mirror that result
         into custom contracts. If the upstream fetch or compute fails, the request should still

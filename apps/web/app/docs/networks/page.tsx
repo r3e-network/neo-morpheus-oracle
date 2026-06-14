@@ -290,7 +290,7 @@ export default function DocsNetworks() {
       >
         <p style={{ margin: 0, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
           Source of truth: <code>config/networks/mainnet.json</code> and{' '}
-          <code>config/networks/testnet.json</code>. The current role-split Phala launchers live in{' '}
+          <code>config/networks/testnet.json</code>. The current role-split Nitro launchers live in{' '}
           <code>nitro.request-hub.toml</code> and <code>nitro.feed-hub.toml</code>, while runtime
           selection happens through <code>/mainnet/*</code> and <code>/testnet/*</code>.
         </p>

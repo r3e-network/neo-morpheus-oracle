@@ -1,6 +1,4 @@
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './utils.js';
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -134,10 +132,16 @@ export function buildPublicRuntimeStatusSnapshot(input) {
 }
 
 export function getPublicRuntimeStatusNotes(snapshot) {
+  // automation.triggerKinds is sourced from the runtime catalog and is absent
+  // on minimal/emergency catalogs (or any catalog summarized from `{}`), so
+  // guard the join rather than crashing the public status notes.
+  const triggerKinds = Array.isArray(snapshot.catalog.automation.triggerKinds)
+    ? snapshot.catalog.automation.triggerKinds
+    : [];
   const notes = [
     `Execution: ${snapshot.catalog.topology.executionPlane}`,
     `Risk: ${snapshot.catalog.topology.riskPlane}`,
-    `Automation: ${snapshot.catalog.automation.triggerKinds.join(', ')}`,
+    `Automation: ${triggerKinds.join(', ')}`,
   ];
 
   if (snapshot.runtime.info.appId) {

@@ -67,6 +67,19 @@ successful pass:
   per-queue dead-letter queues (`morpheus-oracle-request-dlq`,
   `morpheus-feed-tick-dlq`) so the loss is inspectable instead of silent;
   create both queues (`wrangler queues create <name>`) before deploying
+- the worker now **consumes** those dead-letter queues and finalizes the
+  poison job's Supabase row to `dead_lettered` (terminal). Without this, the
+  row stayed in `queued`/`processing` and the cron recovery path re-requeued it
+  forever. The DLQ consumer bindings are in the wrangler toml; they activate on
+  the next `wrangler deploy` (no separate queue needs to be created — the DLQs
+  already exist). **Deploy step for the lead:** redeploy the worker so the new
+  `[[queues.consumers]]` entries for `morpheus-oracle-request-dlq` /
+  `morpheus-feed-tick-dlq` take effect.
+- the recovery/cron path also enforces a requeue ceiling
+  (`MORPHEUS_CONTROL_PLANE_MAX_REQUEUE_ATTEMPTS`, default 3): a job re-driven
+  past the ceiling is marked `dead_lettered` instead of being re-requeued, so a
+  job that never reaches the queue DLQ (e.g. it keeps failing on dispatch or its
+  workflow keeps re-failing) still terminates.
 - a `*/5 * * * *` cron trigger runs the same recovery path as
   `POST /<network>/jobs/recover` automatically across both networks, so stuck
   Supabase rows are requeued without operator intervention
@@ -80,8 +93,9 @@ curl -X POST \
   https://control.meshmini.app/testnet/jobs/recover
 ```
 
-The response includes `scanned`, `requeued_count`, `skipped_count`, and
-`failed_count`.
+The response includes `scanned`, `requeued_count`, `skipped_count`,
+`failed_count`, and `dead_lettered_count` (jobs finalized by the requeue
+ceiling).
 
 ## Required Bindings
 

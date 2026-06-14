@@ -63,6 +63,7 @@ import {
   AUTOMATION_PROCESSING_CLAIM_MARKER,
   claimAutomationJob,
   claimRelayerJob,
+  resetSupabasePersistenceBackoffForTests,
   sanitizeForPostgres,
 } from './src/persistence.js';
 import { createRelayerConfig } from './src/config.js';
@@ -2465,6 +2466,9 @@ test('processEvent uses local prepared fulfillment checkpoint when Supabase dura
     else process.env.SUPABASE_URL = previousSupabaseUrl;
     if (previousSupabaseKey === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     else process.env.SUPABASE_SERVICE_ROLE_KEY = previousSupabaseKey;
+    // The simulated Supabase 503/PGRST002 now arms a short connectivity backoff
+    // (B11); clear it so it does not leak into later tests.
+    resetSupabasePersistenceBackoffForTests();
   }
 });
 

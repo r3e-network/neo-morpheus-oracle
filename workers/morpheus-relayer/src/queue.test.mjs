@@ -175,7 +175,7 @@ describe('claimDurableJobForProcessing', () => {
       new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
     );
 
-    const claimed = await claimDurableJobForProcessing(
+    const claim = await claimDurableJobForProcessing(
       {
         durableQueue: { enabled: true, failClosed: true },
         instanceId: 'test-relayer',
@@ -184,7 +184,8 @@ describe('claimDurableJobForProcessing', () => {
       { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' }
     );
 
-    assert.equal(claimed, true);
+    assert.equal(claim.granted, true);
+    assert.equal(claim.reason, 'granted');
     resetSupabasePersistenceBackoffForTests();
   });
 
@@ -196,7 +197,7 @@ describe('claimDurableJobForProcessing', () => {
     const state = createEmptyRelayerState();
 
     // Single-instance default (allowLocalClaimDuringBackoff unset -> allow).
-    const claimed = await claimDurableJobForProcessing(
+    const claim = await claimDurableJobForProcessing(
       { durableQueue: { enabled: true, failClosed: true }, instanceId: 'test-relayer' },
       { warn() {}, info() {} },
       { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' },
@@ -204,20 +205,20 @@ describe('claimDurableJobForProcessing', () => {
       state
     );
 
-    assert.equal(claimed, true);
+    assert.equal(claim.granted, true);
     // Operator-visible signal that idempotency protection is off this window.
     assert.equal(state.metrics.durable_claim_skipped_during_backoff_total, 1);
     resetSupabasePersistenceBackoffForTests();
   });
 
-  it('skips the claim during backoff when allowLocalClaimDuringBackoff is false (multi-instance)', async () => {
+  it('returns reason backoff_skip (not conflict) during backoff when allowLocalClaimDuringBackoff is false (multi-instance)', async () => {
     resetSupabasePersistenceBackoffForTests();
     markSupabasePersistenceUnavailable(
       new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
     );
     const state = createEmptyRelayerState();
 
-    const claimed = await claimDurableJobForProcessing(
+    const claim = await claimDurableJobForProcessing(
       {
         durableQueue: { enabled: true, failClosed: true, allowLocalClaimDuringBackoff: false },
         instanceId: 'test-relayer',
@@ -228,10 +229,33 @@ describe('claimDurableJobForProcessing', () => {
       state
     );
 
-    // Conservative path: do not grant a local claim that could double-deliver.
-    assert.equal(claimed, false);
+    // Conservative path: do not grant a local claim that could double-deliver,
+    // but flag it as a recoverable backoff skip (NOT a permanent conflict) so the
+    // caller retains the retry item instead of dropping it.
+    assert.equal(claim.granted, false);
+    assert.equal(claim.reason, 'backoff_skip');
     assert.equal(state.metrics.durable_claim_skipped_during_backoff_total, 1);
     resetSupabasePersistenceBackoffForTests();
+  });
+
+  it('grants immediately for an already-durably-claimed retry item', async () => {
+    const claim = await claimDurableJobForProcessing(
+      { durableQueue: { enabled: true }, instanceId: 'test-relayer' },
+      { warn() {}, info() {} },
+      { chain: 'neo_n3', requestId: '1', requestType: 'oracle_fetch' },
+      { durable_claimed: true }
+    );
+    assert.equal(claim.granted, true);
+    assert.equal(claim.reason, 'granted');
+  });
+
+  it('grants when the durable queue is disabled (single-instance default)', async () => {
+    const claim = await claimDurableJobForProcessing(
+      { durableQueue: { enabled: false } },
+      { warn() {}, info() {} },
+      { chain: 'neo_n3', requestId: '1', requestType: 'oracle_fetch' }
+    );
+    assert.equal(claim.granted, true);
   });
 });
 

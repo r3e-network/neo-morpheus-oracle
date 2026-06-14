@@ -32,8 +32,15 @@ type OperationLogInput = {
   metadata?: Record<string, unknown>;
 };
 
+// Redact secret-bearing field names. `signing_key` is the active hole: it is
+// consumed by /sign/payload + /relay/transaction (workers/.../signing.js) and
+// without this match would be written cleartext to Supabase + BetterStack. The
+// pattern deliberately matches the seed/mnemonic family too. It must NOT match
+// public material (`public_key`, `oracle_public_key`) or `key_role`: the
+// `(?<!public_)(?<!oracle_public_)signing?[_-]?key` style is avoided in favor
+// of anchoring on `signing_key` explicitly so `public_key` never matches.
 const SENSITIVE_KEY_PATTERN =
-  /(authorization|token|secret|password|private[_-]?key|wif|api[_-]?key)/i;
+  /(authorization|token|secret|password|private[_-]?key|signing[_-]?key|mnemonic|seed|passphrase|credential|wif|api[_-]?key)/i;
 const MAX_JSON_CHARS = 24000;
 
 // Monitoring read probes (status-page polling plus external uptime monitors)

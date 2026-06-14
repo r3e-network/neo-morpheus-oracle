@@ -1,4 +1,5 @@
 import { Shield, Zap } from 'lucide-react';
+import Link from 'next/link';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import { NETWORKS } from '@/lib/onchain-data';
 
@@ -202,9 +203,15 @@ export default function DocsOracle() {
 const { public_key } = await fetch("/api/oracle/public-key").then(r => r.json());
 
 // 2. Encrypt the Confidential JSON
-const ciphertext = await encryptWithOracleX25519(JSON.stringify(secrets), public_key);
+//    (helper signature: encryptJsonWithOraclePublicKey(publicKey, plaintext))
+const ciphertext = await encryptJsonWithOraclePublicKey(public_key, JSON.stringify(secrets));
 // Returns a Base64 encoded encrypted blob: "vF9+kx..."`}
         />
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.85rem' }}>
+          See the{' '}
+          <Link href="/docs/r/HPKE_X25519_MIGRATION">X25519 / HPKE sealing reference</Link> for the
+          full sealed-envelope wire format.
+        </p>
       </div>
 
       <div

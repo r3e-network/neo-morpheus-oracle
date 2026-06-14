@@ -46,10 +46,24 @@ async function applyRateLimit(request, env, queueName) {
   if (!config) return null;
 
   const key = `morpheus:control-plane:${queueName}:${getClientIp(request)}`;
-  const result = await applyUpstashRateLimit(env, key, {
-    max: config.limit,
-    windowMs: config.windowMs,
-  });
+  let result;
+  try {
+    result = await applyUpstashRateLimit(env, key, {
+      max: config.limit,
+      windowMs: config.windowMs,
+    });
+  } catch (error) {
+    // Upstash is the rate-limit source of truth. A throw here (network error or
+    // 5xx from the pipeline call) must fail closed with a retryable 503 rather
+    // than surface as an opaque 500 — letting the exception escape would also
+    // bypass the limiter entirely (fail open), which is the worse outcome on a
+    // job-ingest control plane.
+    return json(503, {
+      error: 'rate_limit_backend_unavailable',
+      queue: queueName,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   if (!result) return null;
   if (result.allowed === false) {
@@ -59,7 +73,7 @@ async function applyRateLimit(request, env, queueName) {
       { 'retry-after': String(result.retryAfter) }
     );
   }
-  return json(503, { error: 'rate_limit_backend_unavailable' });
+  return json(503, { error: 'rate_limit_backend_unavailable', queue: queueName });
 }
 
 export { validateAuth, applyRateLimit };

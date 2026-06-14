@@ -7,6 +7,12 @@ const { sc, wallet, tx, u } = pkg;
 const TD_KEY = process.env.TD_KEY;
 const THRESHOLD_BPS = Number(process.env.THRESHOLD_BPS || 10);
 const MAX_STALE_SEC = Number(process.env.MAX_STALE_SEC || 1800);
+// Price-sanity guard: reject a candidate price that deviates from the existing
+// on-chain price by more than MAX_DEVIATION_BPS (default 5000 = 50%). A zero or
+// absurd source quote (TwelveData glitch, half-populated batch) would otherwise
+// be signed straight onto the feed every chain consumes. Set the admin-override
+// env to 0 to bypass for a genuine flash move (e.g. a real >50% candle).
+const MAX_DEVIATION_BPS = Number(process.env.MAX_DEVIATION_BPS || 5000);
 const LOG = process.env.PUSH_LOG || '/opt/morpheus/nitro/feed-pusher.log';
 const SYMBOLS = (process.env.SYMBOLS || 'NEO-USD,GAS-USD,BTC-USD,ETH-USD').split(',');
 // Consecutive-cycle missing-symbol alerting: each oneshot cycle persists the
@@ -32,8 +38,29 @@ export function planFeedUpdate(
   cur,
   newPrice,
   now,
-  { thresholdBps = THRESHOLD_BPS, maxStaleSec = MAX_STALE_SEC } = {}
+  {
+    thresholdBps = THRESHOLD_BPS,
+    maxStaleSec = MAX_STALE_SEC,
+    maxDeviationBps = MAX_DEVIATION_BPS,
+  } = {}
 ) {
+  // Price-sanity guard (centralized here so it covers BOTH the N3 and EVM push
+  // paths). A non-finite or non-positive candidate price is always rejected —
+  // signing it would poison the feed and burn the updater's gas on a bad write.
+  if (!Number.isFinite(newPrice) || newPrice <= 0) {
+    return { push: false, round: cur.round, ts: cur.ts, rejected: 'invalid_price' };
+  }
+  // Deviation spike guard: when a valid on-chain price already exists, reject a
+  // candidate that jumps more than maxDeviationBps from it. The bootstrap case
+  // (cur.price<=0, no usable reference) is exempt so the very first write — or a
+  // recovery after AdminResetFeed — still lands. maxDeviationBps<=0 is the admin
+  // override env for a genuine flash move.
+  if (cur.price > 0 && maxDeviationBps > 0) {
+    const deviationBps = (Math.abs(newPrice - cur.price) / cur.price) * 10000;
+    if (deviationBps > maxDeviationBps) {
+      return { push: false, round: cur.round, ts: cur.ts, rejected: 'deviation_spike' };
+    }
+  }
   const recent = cur.round > 0 && now - cur.round < maxStaleSec;
   const unchanged =
     cur.price > 0 && (Math.abs(newPrice - cur.price) / cur.price) * 10000 < thresholdBps;
@@ -138,7 +165,10 @@ async function td(syms) {
     const k = s.replace('-', '/');
     const e = t.length === 1 ? j : j[k];
     const v = e && e.price;
-    if (v && !isNaN(Number(v))) o[s] = Number(v);
+    const n = Number(v);
+    // Drop non-positive / non-finite source quotes here so a zero or negative
+    // TwelveData reading is treated as "missing" rather than a 0-priced push.
+    if (v != null && Number.isFinite(n) && n > 0) o[s] = n;
   }
   return o;
 }
@@ -248,6 +278,10 @@ async function pushNeoN3(prices, now) {
     const px = Math.round(prices[s] * 1e6);
     const plan = planFeedUpdate(c, prices[s], now);
     if (!plan.push) {
+      if (plan.rejected)
+        log(
+          `[neo-n3] ⚠️ rejected ${s} ${plan.rejected}: src=${prices[s]} on-chain=${c.price} (set MAX_DEVIATION_BPS=0 to override a real flash move)`
+        );
       skipped++;
       continue;
     }
@@ -373,12 +407,17 @@ async function pushNeoX(prices, now) {
     }
     const { s, cur } = read;
     // getLatest returns (price, timestamp, roundId, exists)
+    const onChainPrice = Number(cur[0]) / 1e6;
     const plan = planFeedUpdate(
-      { round: Number(cur[2]), price: Number(cur[0]) / 1e6, ts: Number(cur[1]) },
+      { round: Number(cur[2]), price: onChainPrice, ts: Number(cur[1]) },
       prices[s],
       now
     );
     if (!plan.push) {
+      if (plan.rejected)
+        log(
+          `[neox] ⚠️ rejected ${s} ${plan.rejected}: src=${prices[s]} on-chain=${onChainPrice} (set MAX_DEVIATION_BPS=0 to override a real flash move)`
+        );
       skipped++;
       continue;
     }

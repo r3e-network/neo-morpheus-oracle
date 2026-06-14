@@ -8,10 +8,22 @@
       "types": "./src/index.ts",
       "default": "./src/index.js"
     },
-    "./utils": "./src/utils.js",
-    "./rate-limit": "./src/rate-limit.js",
-    "./public-runtime": "./src/public-runtime.js",
-    "./node-runtime": "./src/node-runtime.js"
+    "./utils": {
+      "types": "./src/utils.d.ts",
+      "default": "./src/utils.js"
+    },
+    "./rate-limit": {
+      "types": "./src/rate-limit.d.ts",
+      "default": "./src/rate-limit.js"
+    },
+    "./public-runtime": {
+      "types": "./src/public-runtime.d.ts",
+      "default": "./src/public-runtime.js"
+    },
+    "./node-runtime": {
+      "types": "./src/node-runtime.d.ts",
+      "default": "./src/node-runtime.js"
+    }
   },
   "main": "./src/index.js",
   "types": "./src/index.ts",

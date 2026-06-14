@@ -25,8 +25,8 @@
  *                             ephemeralPublicRaw || recipientPublicRaw,
  *                        length=256 bits)
  *
- * Known downstream copies kept in sync via each repo's
- * sync_morpheus_registry drift guard:
+ * Known downstream copies that vendor this wire format and must stay
+ * byte-compatible with the golden vector in confidential-envelope.test.mjs:
  * - neo-miniapps-platform/apps/shared/utils/morpheus-confidential-envelope.ts
  * - neo-abstract-account/frontend/src/utils/morpheusEncryption.js
  * - apps/web/lib/browser-encryption.ts, examples/* in this repo

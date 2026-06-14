@@ -90,7 +90,7 @@ export function OverviewTab({ setOutput }: any) {
           `>> Runtime execution plane: ${executionPlane}`,
           `>> Runtime risk plane: ${riskPlane}`,
           `>> Automation triggers: ${triggerKinds}`,
-          `>> Phala app id: ${appId}`,
+          `>> Enclave app id: ${appId}`,
           `>> Oracle attestation: ${networkConfig.oracleAttestationExplorerUrl || 'unpublished'}`,
           `>> Datafeed attestation: ${
             networkConfig.datafeedAttestationExplorerUrl || 'unpublished'

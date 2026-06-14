@@ -190,50 +190,14 @@ export {
   listWorkflowDefinitions,
 } from './workflow-catalog.js';
 
-export type PublicRuntimeCatalogSummary = {
-  envelope: Record<string, unknown>;
-  topology: Record<string, unknown>;
-  risk: Record<string, unknown>;
-  automation: Record<string, unknown>;
-  workflows: {
-    count: number;
-    ids: string[];
-  };
-  links: {
-    catalog: '/api/runtime/catalog';
-    workflows: '/api/workflows';
-    policies: '/api/policies';
-  };
-};
-
-export type RuntimeProbeSnapshotInput = {
-  ok: boolean;
-  status: number;
-  body: unknown;
-};
-
-export type PublicRuntimeStatusSnapshot = {
-  checkedAt: string;
-  catalog: PublicRuntimeCatalogSummary;
-  runtime: {
-    status: 'operational' | 'degraded' | 'down';
-    health: {
-      ok: boolean;
-      statusCode: number;
-      state: 'ok' | 'degraded' | 'down';
-      detail: string | null;
-    };
-    info: {
-      ok: boolean;
-      statusCode: number;
-      appId: string | null;
-      composeHash: string | null;
-      clientKind: string | null;
-      version: string | null;
-      detail: string | null;
-    };
-  };
-};
+// Re-export the public-runtime types from their single source of truth
+// (public-runtime.d.ts) instead of redeclaring them here, so the public
+// surface cannot drift from the runtime module's contract.
+export type {
+  RuntimeProbeSnapshotInput,
+  PublicRuntimeCatalogSummary,
+  PublicRuntimeStatusSnapshot,
+} from './public-runtime.js';
 
 export {
   PUBLIC_RUNTIME_DISCOVERY_LINKS,

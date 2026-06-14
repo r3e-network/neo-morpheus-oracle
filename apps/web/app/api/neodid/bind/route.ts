@@ -4,8 +4,9 @@ import {
   shouldUseControlPlaneFallback,
 } from '@/lib/control-plane';
 import { proxyToNitro } from '@/lib/nitro';
+import { createRateLimitedHandler } from '@/lib/rate-limit';
 
-export async function POST(request: Request) {
+const handlePost = createRateLimitedHandler(async function POST(request: Request) {
   const body = await request.text();
   if (shouldDispatchToControlPlane('/neodid/bind')) {
     const controlPlaneResponse = await dispatchToControlPlane(
@@ -38,4 +39,8 @@ export async function POST(request: Request) {
       requestPayload: body,
     }
   );
+}, { scope: 'neodid_bind', maxRequests: 20, windowMs: 60_000 });
+
+export async function POST(request: Request) {
+  return handlePost(request);
 }
