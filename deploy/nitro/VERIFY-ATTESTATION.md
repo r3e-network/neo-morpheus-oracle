@@ -1,6 +1,7 @@
 # Verifying the Morpheus Oracle TEE enclave
 
-Release **`oracle-enclave-testnet-2026-06-14`**
+Release **`oracle-enclave-testnet-2026-06-14.1`** — the merged compute+sign
+enclave **deployed live on Neo N3 mainnet** (2026-06-14 cutover).
 
 This release is the **merged compute+sign Nitro Enclave** for the Morpheus
 Oracle: the worker compute (price feeds, HTTP/JSON oracle lanes, VRF) and the
@@ -10,6 +11,14 @@ sees or substitutes the data between compute and signature. Because we run a
 single node (not a decentralized quorum), the TEE *is* the trust root: the
 enclave attests to exactly which code is running, and consumers verify that
 attestation before trusting a signed result.
+
+The enclave reaches its price/RPC providers over an **allow-listed host egress
+proxy** (`deploy/nitro/vsock-proxy.allowlist.yaml`): it has no NIC, so all
+outbound traffic is end-to-end TLS to the real provider tunnelled over vsock; the
+host forwards opaque ciphertext and cannot MITM. Signing keys + network + the
+worker config are injected at runtime via `POST /provision` (the enclave boots
+with only the baked image ENV); the **same reproducible EIF serves testnet or
+mainnet** depending on the provisioned network, so its PCRs are network-agnostic.
 
 This document tells you how to independently verify, end to end, that the code
 running in the enclave is the code in this repository — with no need to trust
@@ -24,17 +33,18 @@ enclave image:
 
 | PCR  | Covers | Value (this release) |
 |------|--------|----------------------|
-| PCR0 | The whole enclave image (kernel + ramdisk + application) | `3e563972dd7de8837b8ee8fb1a2d498540f5d992a5c13c9332dd89bb11b09e8d82fec64b1271c735f752b204b07c5a11` |
+| PCR0 | The whole enclave image (kernel + ramdisk + application) | `4a76e94891b5a698b2eba9c03fbecbeb37e195eb7963d4841feef68070c1a56ad42c60fd558613c0b40292ee44777194` |
 | PCR1 | Linux kernel + boot ramdisk (stable across app changes) | `4b4d5b3661b3efc12920900c80e126e4ce783c522de6c02a2a5bf7af3a2b9327b86776f188e4be1c1c404a129dbda493` |
-| PCR2 | The application filesystem | `7613d5c589df3377dcc6cfd9cb365686c32278e4aa0ab8bac1b11c192f1ab076278deb05da217bc3a2fff329dab7ae25` |
+| PCR2 | The application filesystem | `224c4d8ac2cde303f919b7165efef6c0932b042f1e50d95b3053a5ed41f67eef2943333baa0bd6de9ed3f3eaba81e3df` |
 
 - **Hash algorithm:** SHA384 (48 bytes / 96 hex chars each)
-- **Source commit:** `c2196e4a28f3ca33e33f110af3b9b956be19553d`
-- **Docker image id:** `sha256:8b350e2338cd720f874026cc139bb1c653d16b3993e9d488ecf6fcee0724ced1`
+- **Source commit:** `9ee3e2d089da64b494d8fd5da666b50207edaf6c`
+- **Docker image id:** `sha256:cac832b964af48b92b4691265703e0101c8502feb74eb317d97f8ece8aae1f85`
 
 The authoritative copy of these values is committed at
-`deploy/nitro/measurements/oracle-enclave-testnet-2026-06-14.json` and served
-live at `GET /api/attestation/measurements`.
+`deploy/nitro/measurements/oracle-enclave-testnet-2026-06-14.1.json` and served
+live at `GET /api/attestation/measurements`. The **live mainnet enclave's
+attestation reports exactly this PCR0** (verified at cutover).
 
 > **Note on the `.eif` file hash.** `nitro-cli` stamps a build timestamp into the
 > EIF *file* metadata, so the **file sha256 is not stable** between builds even
@@ -59,7 +69,7 @@ package; the measurement step does not need the enclave to actually run).
 ```bash
 git clone https://github.com/r3e-network/neo-morpheus-oracle
 cd neo-morpheus-oracle
-git checkout c2196e4a28f3ca33e33f110af3b9b956be19553d   # or the release tag
+git checkout 9ee3e2d089da64b494d8fd5da666b50207edaf6c   # or the release tag
 
 # Build twice from scratch and assert identical PCRs (the built-in gate):
 bash deploy/nitro/build-enclave-eif.sh --verify-reproducible
@@ -68,8 +78,8 @@ bash deploy/nitro/build-enclave-eif.sh --verify-reproducible
 Expected output ends with:
 
 ```
-    build #1 PCRs: 3e563972…|4b4d5b36…|7613d5c5…
-    build #2 PCRs: 3e563972…|4b4d5b36…|7613d5c5…
+    build #1 PCRs: 4a76e948…|4b4d5b36…|224c4d8a…
+    build #2 PCRs: 4a76e948…|4b4d5b36…|224c4d8a…
     OK: identical PCR0/PCR1/PCR2 across two independent builds -> reproducible enclave
 ```
 
@@ -124,7 +134,7 @@ nitro-cli describe-eif --eif-path morpheus-oracle.eif
 ```
 
 Compare the `Measurements.PCR0/1/2` to §1. The attached
-`describe-eif.oracle-enclave-testnet-2026-06-14.json` is this operator's own
+`describe-eif.oracle-enclave-testnet-2026-06-14.1.json` is this operator's own
 `describe-eif` output for cross-reference (its `Metadata.BuildTime` is the
 non-measured field that makes the file hash vary — the PCRs are what match).
 
@@ -149,8 +159,8 @@ matches AWS's documented value before trusting it.
 
 | Asset | What it is |
 |-------|------------|
-| `oracle-enclave-testnet-2026-06-14.measurements.json` | The canonical PCR manifest (source of truth for §1). |
-| `describe-eif.oracle-enclave-testnet-2026-06-14.json` | `nitro-cli describe-eif` of the operator's build (§4). |
+| `oracle-enclave-testnet-2026-06-14.1.measurements.json` | The canonical PCR manifest (source of truth for §1). |
+| `describe-eif.oracle-enclave-testnet-2026-06-14.1.json` | `nitro-cli describe-eif` of the operator's build (§4). |
 | `aws-nitro-root-g1.pem` | AWS Nitro Enclaves Root G1 (§5). |
 | `nsm-attest-src/` | Source of the in-enclave NSM attestation helper (`main.go` + pinned `go.mod`/`go.sum`); reproduced inside the image. |
 | `SHA256SUMS` | sha256 of every asset above. |
@@ -168,9 +178,18 @@ same measurements) or request it from the operator.
 ## 7. Status
 
 - Reproducible build + measurements: **published and independently verifiable.**
+- **Deployed live on Neo N3 mainnet (2026-06-14):** the merged compute+sign
+  enclave replaced the signer-only enclave; the relayer computes+signs
+  fulfilments via the enclave (`MORPHEUS_RELAYER_ENCLAVE_FULFILL`) and the
+  feed-pusher computes+signs Neo N3 feed updates via the enclave
+  (`MORPHEUS_FEED_PUSHER_ENCLAVE_SIGN`). The live enclave's attestation reports
+  PCR0 `4a76e948…` (matches §1).
 - Enclave golden-vector tests (digest/envelope/signature byte-exactness):
-  `deploy/nitro/enclave-server.test.mjs`.
-- Network: **testnet** build (the image bakes `MORPHEUS_NETWORK=testnet`). The
-  mainnet enclave is a separate build with its own published manifest; the
-  mainnet cutover from the signer-only enclave to this merged compute+sign
-  enclave is performed in a maintenance window.
+  `deploy/nitro/enclave-server.test.mjs`; egress allow-list tests:
+  `deploy/nitro/host-egress-proxy.test.mjs`.
+- **Same EIF, both networks:** the image bakes `MORPHEUS_NETWORK=testnet` as a
+  default, but the runtime network + keys are injected via `/provision`, so this
+  one reproducible EIF (PCRs above) is what runs on mainnet too.
+- **Host-tier (not yet in-enclave):** the arbitrary-URL fetch lane (by design —
+  cannot be egress-allow-listed) and the Neo X (EVM) feed-pusher path (signs
+  locally with secp256k1). These remain on the host and are not enclave-attested.
