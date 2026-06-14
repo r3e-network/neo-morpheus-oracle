@@ -72,10 +72,14 @@ FROM node:22-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28
 # wall-clock timestamps IN THEIR CONTENT (not just mtime), so leaving them makes
 # the layer's diff_id — and therefore PCR0/PCR2 — vary on every build. mtimes are
 # normalized globally by the final SOURCE_DATE_EPOCH pass below.
+# iproute2: a Nitro enclave boots with the loopback interface DOWN, so the
+# entrypoint must `ip link set dev lo up` before anything uses 127.0.0.1 (the
+# node server + the localhost socat bridges). The slim base has no `ip`.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
        ca-certificates=20230311+deb12u1 \
        socat=1.7.4.4-2 \
+       iproute2=6.1.0-3 \
   && rm -rf /var/lib/apt/lists/* /var/log/* /var/cache/* /var/lib/dpkg/*-old
 
 WORKDIR /app

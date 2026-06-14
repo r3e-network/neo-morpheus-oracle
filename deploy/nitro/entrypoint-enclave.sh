@@ -17,6 +17,13 @@
 # not respawned per request.
 set -eu
 
+# A Nitro enclave boots with the loopback interface DOWN. The node server binds
+# 127.0.0.1 and the inbound/egress socat bridges all use 127.0.0.1, so bring lo UP
+# first or every localhost connection (incl. the readiness probe) fails even
+# though bind() succeeds. (The old stdio signer entrypoint never needed loopback.)
+echo "entrypoint: bringing up loopback"
+ip link set dev lo up || echo "entrypoint: WARN could not bring up lo" >&2
+
 # Public vsock port the host's socat TCP-LISTEN:8787 -> VSOCK-CONNECT bridges to.
 VSOCK_PORT="${NITRO_SIGNER_VSOCK_PORT:-8787}"
 # Internal localhost port the Node server binds to (never exposed over vsock).
@@ -55,6 +62,7 @@ trap shutdown TERM INT
 
 # Outbound bridge: the HTTPS_PROXY target (127.0.0.1:ENCLAVE_PROXY_PORT) -> the
 # parent's vsock egress port. fork+reuseaddr handles concurrent outbound conns.
+echo "entrypoint: starting egress bridge 127.0.0.1:${ENCLAVE_PROXY_PORT} -> vsock ${HOST_CID}:${EGRESS_VSOCK_PORT}"
 socat \
   "TCP-LISTEN:${ENCLAVE_PROXY_PORT},fork,reuseaddr,bind=127.0.0.1" \
   "VSOCK-CONNECT:${HOST_CID}:${EGRESS_VSOCK_PORT}" &
@@ -68,15 +76,19 @@ ENCLAVE_PORT="$INTERNAL_PORT" \
 node_pid=$!
 
 # Wait for the local server to accept connections before exposing it over vsock,
-# so the first inbound request never races the listener coming up.
+# so the first inbound request never races the listener coming up. The probe uses
+# socat (already running, tiny) — NOT `node -e`: the merged server's heap sits near
+# the enclave memory cap, so forking a second node for each probe iteration OOMs
+# and the readiness check never passes even though the server is up.
+echo "entrypoint: waiting for enclave-server on ${INTERNAL_HOST}:${INTERNAL_PORT}"
 ready=0
 i=0
-while [ "$i" -lt 60 ]; do
+while [ "$i" -lt 120 ]; do
   if [ ! -d "/proc/$node_pid" ]; then
     echo "enclave-server exited before becoming ready" >&2
     exit 1
   fi
-  if node -e "const s=require('node:net').connect({host:'$INTERNAL_HOST',port:$INTERNAL_PORT},()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1));s.setTimeout(800,()=>{s.destroy();process.exit(1)})" 2>/dev/null; then
+  if socat -T2 /dev/null "TCP:${INTERNAL_HOST}:${INTERNAL_PORT},connect-timeout=2" 2>/dev/null; then
     ready=1
     break
   fi
@@ -88,6 +100,7 @@ if [ "$ready" -ne 1 ]; then
   shutdown
   exit 1
 fi
+echo "entrypoint: enclave-server ready; exposing over vsock :${VSOCK_PORT}"
 
 # Bridge vsock -> the local Node server. fork+reuseaddr handles concurrent reqs.
 socat \
