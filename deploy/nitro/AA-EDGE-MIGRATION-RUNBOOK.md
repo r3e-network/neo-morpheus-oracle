@@ -1,7 +1,42 @@
 # AA / confidential execution-runtime edge migration — RUNBOOK
 
-**Status: deployable artifacts prepared, NOT deployed.** Nothing here is live until an
-operator with Cloudflare + DNS + TLS access runs the steps below.
+**Status: DEPLOYED LIVE (2026-06-15).** The confidential execution plane now runs in
+the AWS Nitro TEE. The steps below are kept as the canonical procedure + rollback
+reference. See "Deployment record" for what is actually live.
+
+## Deployment record (2026-06-15)
+
+- **Enclave:** exec EIF cut over on the live mainnet box (`i-0c52851f134db20ee`).
+  Running `PCR0 = 49a142254c73cd4a299b74d78db7f459f3857c6b589cc7c0f67df9657b0f763da76cf29f2d652035aa431608c5f4e281`
+  — matches `measurements/oracle-enclave-exec-2026-06-15.json` (reproducible build
+  confirmed). Signing identities preserved (oracle_verifier / updater).
+- **Gateway:** `https://runtime.meshmini.app` → Cloudflare (proxied) → box nginx
+  (`/etc/nginx/conf.d/morpheus-runtime.conf`, listens 80 **and** 443) → `127.0.0.1:8787`
+  → vsock → enclave. TLS to the origin is a **self-signed cert** at
+  `/etc/morpheus/tls/runtime.meshmini.app.{crt,key}`; the meshmini.app zone SSL mode is
+  **Full** (non-strict), which accepts it — no public CA / certbot needed. SG already
+  allows 443. DNS: `runtime.meshmini.app` A `32.199.39.216` proxied.
+- **Control plane:** `MORPHEUS_EXECUTION_TOKEN` secret set = the enclave's
+  `MORPHEUS_RUNTIME_TOKEN`; the two DLQ queues created
+  (`morpheus-oracle-request-dlq`, `morpheus-feed-tick-dlq`); `wrangler deploy` done
+  with the staged `MORPHEUS_{MAINNET,TESTNET}_EXECUTION_BASE_URL = runtime.meshmini.app/{net}`.
+- **Validated live:** `/mainnet/oracle/smart-fetch` → BTC/USD computed in-TEE;
+  Cloudflare-originated control-plane traffic confirmed in the box access log
+  (`POST /mainnet/oracle/query → 200`, real responses); no-token → 401.
+- **Attestation:** the web verifier (`app/api/attestation/verify`) takes
+  `expected_pcr*` from the request body (caller-supplied), so the cutover needs **no
+  web redeploy** — consumers that want measurement-pinning pass the exec PCRs above.
+
+**Still on the dead placeholder (separate, larger follow-up — NOT this migration):**
+`oracle.meshmini.app` / `edge.meshmini.app` (the `morpheus-edge-gateway` worker) is a
+**full public oracle/AA API proxy** (`/providers`, `/feeds/*`, `/oracle/public-key`,
+`/keys/derived`, `/paymaster/*`, `/relay/*`, `/vrf/*`, …) and still points its
+`MORPHEUS_ORIGIN_URL` at the Vercel `emergency-runtime`. Re-pointing it to the box is
+out of scope here: the box gateway deliberately serves only the 6 execution routes
+("do NOT widen without review"). Restoring it = a separate "full oracle API in-TEE"
+initiative (widen the passthrough + security review, or stand up a non-TEE API origin).
+`/neodid/*` reaches the enclave but returns 400 until `WEB3AUTH_CLIENT_ID` is
+provisioned; `/compute/execute` returns 400 until `MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS`.
 
 ## What this migrates (and what it does not)
 
