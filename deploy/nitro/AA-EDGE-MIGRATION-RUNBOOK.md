@@ -47,7 +47,7 @@ cd /opt/morpheus/neo-morpheus-oracle && git pull
 MORPHEUS_RELEASE=oracle-enclave-exec-<date> bash deploy/nitro/build-enclave-eif.sh --verify-reproducible
 ```
 Record PCR0/1/2 → commit a new `deploy/nitro/measurements/<release>.json` (the
-attestation verifier serves it). EXPECTED PCR0 (this commit): `__FILL_AFTER_BUILD__`.
+attestation verifier serves it). EXPECTED PCR0 (reproducible, this commit): `49a142254c73cd4a299b74d78db7f459f3857c6b589cc7c0f67df9657b0f763da76cf29f2d652035aa431608c5f4e281` (full manifest: deploy/nitro/measurements/oracle-enclave-exec-2026-06-15.json).
 
 Cut over (same staged pattern as the original cutover): point
 `MORPHEUS_NITRO_EIF` in `/opt/morpheus/nitro/morpheus-nitro.env` at the new EIF and
