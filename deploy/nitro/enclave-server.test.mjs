@@ -950,6 +950,26 @@ test('provision applies env keys at runtime and reports role health', async () =
   assert.equal(verifier.ok, true);
 });
 
+test('execution-plane passthrough forwards whitelisted routes to the worker (auth-gated)', async () => {
+  // No auth -> 401 before reaching the worker.
+  const noAuth = await dispatch('POST', '/mainnet/oracle/smart-fetch', {}, JSON.stringify({ symbol: 'BTC/USD' }));
+  assert.equal(noAuth.status, 401);
+
+  // Authed whitelisted route -> forwarded to the in-process worker handler.
+  const ok = await dispatch(
+    'POST',
+    '/mainnet/oracle/smart-fetch',
+    AUTH,
+    JSON.stringify({ symbol: 'BTC/USD' })
+  );
+  assert.equal(ok.status, 200);
+  assert.equal(ok.body.symbol, 'BTC/USD'); // FIXED_PRICE_BODY from the stubbed worker
+
+  // A non-whitelisted route is NOT passed through (stays 404, not forwarded).
+  const notWhitelisted = await dispatch('POST', '/mainnet/admin/wipe', AUTH, JSON.stringify({}));
+  assert.equal(notWhitelisted.status, 404);
+});
+
 test('cleanup: reset stubbed worker handler', () => {
   __resetWorkerHandlerForTests();
   delete process.env.TD_KEY;

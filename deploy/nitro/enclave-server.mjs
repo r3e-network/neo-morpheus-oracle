@@ -74,6 +74,20 @@ const { planFeedUpdate } = await import('../feed-pusher/feed-pusher.mjs');
 
 const DEFAULT_PORT = 8787;
 
+// The confidential execution-plane routes the Cloudflare control plane dispatches
+// to an execution runtime (deploy/cloudflare/morpheus-control-plane/lib/execution
+// -plane.js EXECUTION_PLANE_ROUTES). Serving exactly these from the in-TEE worker
+// handler lets the enclave be that runtime (AA edge migration). Kept in sync with
+// the control plane's set.
+const EXECUTION_PLANE_PASSTHROUGH = [
+  '/oracle/query',
+  '/oracle/smart-fetch',
+  '/compute/execute',
+  '/neodid/bind',
+  '/neodid/action-ticket',
+  '/neodid/recovery-ticket',
+];
+
 // ── Neo N3 feed contract constants — MIRRORED EXACTLY from feed-pusher.mjs ──────
 // These MUST stay identical to feed-pusher.mjs (pushNeoN3) or the signed
 // updateFeeds message diverges from what the deployed MorpheusDataFeed verifies.
@@ -1099,6 +1113,23 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
     if (httpMethod === 'POST' && path.endsWith('/keys/derived')) {
       assertAuthorized(headers);
       return { status: 200, body: handleKeysDerived(parseBody(body)) };
+    }
+
+    // Execution-plane passthrough (AA edge migration): the Cloudflare control
+    // plane routes oracle compute + neodid jobs to these specific worker routes.
+    // Serving them from the in-process worker handler makes the enclave a valid
+    // confidential execution runtime (compute happens in-TEE), replacing the dead
+    // Phala/placeholder runtimes. WHITELISTED — not a blanket catch-all — so the
+    // public surface is exactly the control plane's EXECUTION_PLANE_ROUTES, and
+    // auth-gated like every other sensitive route. (The arbitrary-URL fetch inside
+    // smart-fetch stays host-unattested by the worker's own lane handling.)
+    if (httpMethod === 'POST') {
+      const passthrough = EXECUTION_PLANE_PASSTHROUGH.find((route) => path.endsWith(route));
+      if (passthrough) {
+        assertAuthorized(headers);
+        const resp = await computeViaWorker(passthrough, parseBody(body));
+        return { status: resp.status, body: resp.body };
+      }
     }
 
     return { status: 404, body: { error: 'not found', path } };
