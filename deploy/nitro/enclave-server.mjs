@@ -26,7 +26,7 @@
 
 import http from 'node:http';
 import { execFileSync } from 'node:child_process';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 // Canonical compute reuse — the worker's default export `handler(Request)=>Response`.
 import workerHandler from '../../workers/nitro-worker/src/worker.js';
@@ -112,6 +112,176 @@ function resolveWorkerAuthToken() {
     if (value) return value;
   }
   return '';
+}
+
+// ---------------------------------------------------------------------------
+// Runtime provisioning + auth — folds in the signer surface so this merged
+// enclave is a strict SUPERSET of nitro-signer-server.mjs.
+// ---------------------------------------------------------------------------
+//
+// A Nitro enclave boots with only the baked image ENV (no host env, no keys), so
+// keys + network + the worker's runtime config arrive at runtime via POST
+// /provision (exactly as the signer does). We write the provisioned values into
+// process.env so the EXISTING reads (resolveNetwork(), reportPinnedNeoN3Role({env:
+// process.env}), resolveWorkerAuthToken(), and the in-process worker handler's own
+// config) all observe them with no further plumbing. Carrying /provision +
+// /sign/payload + /keys/derived means the host start script and the flag-OFF
+// relayer path (host-worker compute + a separate enclave /sign/payload) keep
+// working byte-for-byte on this EIF — so swapping the signer EIF for this one is
+// non-breaking, and flipping MORPHEUS_RELAYER_ENCLAVE_FULFILL later moves compute
+// into the measured boundary.
+
+const TOKEN_ENV_KEYS = [
+  'NITRO_SIGNER_TOKEN',
+  'MORPHEUS_RUNTIME_TOKEN',
+  'NITRO_API_TOKEN',
+  'PHALA_API_TOKEN',
+  'NITRO_SHARED_SECRET',
+  'PHALA_SHARED_SECRET',
+];
+
+// The set of accepted bearer tokens, derived live from process.env (so a
+// /provision that adds a token takes effect immediately). Empty == bootstrap-open
+// (matches the signer: the host's FIRST /provision is unauthenticated, then every
+// sensitive call requires the now-known token).
+function currentTrustedTokens() {
+  const set = new Set();
+  for (const key of TOKEN_ENV_KEYS) {
+    const value = trimString(process.env[key]);
+    if (value) set.add(value);
+  }
+  return set;
+}
+
+function timingSafeTokenMatch(candidate, trusted) {
+  const a = Buffer.from(String(candidate), 'utf8');
+  const b = Buffer.from(String(trusted), 'utf8');
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+// Throws 401 unless a trusted token is configured AND the request bears a match.
+// No-op while no token is provisioned yet (bootstrap), so the initial /provision
+// can land. headers is a lower-cased header map.
+function assertAuthorized(headers = {}) {
+  const trusted = currentTrustedTokens();
+  if (!trusted.size) return;
+  const authorization = trimString(headers.authorization || headers.Authorization || '');
+  const bearer = authorization.toLowerCase().startsWith('bearer ')
+    ? authorization.slice('bearer '.length).trim()
+    : '';
+  const token =
+    bearer ||
+    trimString(headers['x-nitro-token'] || headers['x-phala-token'] || headers['x-runtime-token']);
+  for (const trustedToken of trusted) {
+    if (timingSafeTokenMatch(token, trustedToken)) return;
+  }
+  throw httpError(401, 'unauthorized');
+}
+
+function normalizeSignerRole(value) {
+  const role = trimString(value).toLowerCase();
+  if (role === 'oracle_verifier' || role === 'verifier') return 'oracle_verifier';
+  if (role === 'updater') return 'updater';
+  if (role === 'relayer') return 'relayer';
+  if (role === 'worker') return 'worker';
+  return 'updater';
+}
+
+// Pinned-role health for the two signing roles the enclave holds (matches the
+// signer's signerHealth()). Used by /provision + folded into /health.
+function signerRolesHealth() {
+  const network = resolveNetwork();
+  return ['updater', 'oracle_verifier'].map((role) => {
+    const report = reportPinnedNeoN3Role(network, role, { env: process.env, allowMissing: false });
+    return {
+      role,
+      ok: report.ok && Boolean(report.materialized),
+      identity: report.selected_identity || report.pinned || null,
+      issues: report.issues,
+    };
+  });
+}
+
+// POST /provision — inject keys + network + worker config at runtime. Mirrors the
+// signer's handleProvision, but writes into process.env (the merged server reads
+// process.env everywhere) instead of a separate overlay.
+function handleProvision(payload) {
+  const env =
+    payload?.env && typeof payload.env === 'object' && !Array.isArray(payload.env) ? payload.env : {};
+  const applied = [];
+  for (const [key, value] of Object.entries(env)) {
+    if (!/^[A-Z0-9_]{1,96}$/.test(key)) continue;
+    const text = trimString(value);
+    if (text) {
+      process.env[key] = text;
+      applied.push(key);
+    }
+  }
+  const roles = signerRolesHealth();
+  return {
+    status: roles.every((entry) => entry.ok) ? 'ok' : 'degraded',
+    runtime: 'morpheus-enclave-server',
+    network: resolveNetwork(),
+    provisioned: true,
+    env_keys: applied.sort(),
+    roles,
+  };
+}
+
+// POST /sign/payload — sign caller-supplied data_hex with a pinned role key. This
+// is the signer's blind-sign endpoint, carried so the flag-OFF relayer path keeps
+// working during cutover. Once MORPHEUS_RELAYER_ENCLAVE_FULFILL is on the relayer
+// uses /oracle/fulfill (attested compute+sign) and this path goes unused.
+function handleSignPayload(payload) {
+  const role = normalizeSignerRole(payload.key_role || payload.dstack_key_role || payload.role);
+  const dataHex = normalizeHex(payload.data_hex || payload.message_hex || '');
+  if (!/^[0-9a-f]+$/.test(dataHex) || dataHex.length % 2 !== 0) {
+    throw httpError(400, 'data_hex is required');
+  }
+  const network = resolveNetwork();
+  const report = reportPinnedNeoN3Role(network, role, { env: process.env, allowMissing: false });
+  if (!report.ok || !report.materialized) {
+    throw httpError(503, `${role} signer is not configured or does not match pinned identity`);
+  }
+  const secret = report.materialized.private_key || report.materialized.wif;
+  const account = new neoWallet.Account(secret);
+  const signature = neoWallet.sign(dataHex, account.privateKey);
+  return {
+    status: 'ok',
+    network,
+    role,
+    signature,
+    signature_hex: signature,
+    public_key: account.publicKey,
+    address: account.address,
+    script_hash: `0x${account.scriptHash}`,
+    key_source: 'nitro_explicit_pinned',
+  };
+}
+
+// POST /keys/derived — report a pinned role's public Neo identity (no secret).
+function handleKeysDerived(payload) {
+  const role = normalizeSignerRole(payload.role || payload.key_role || payload.dstack_key_role);
+  const network = resolveNetwork();
+  const report = reportPinnedNeoN3Role(network, role, { env: process.env, allowMissing: false });
+  if (!report.ok || !report.materialized) {
+    throw httpError(503, `${role} signer is not configured or does not match pinned identity`);
+  }
+  const identity = report.selected_identity || report.pinned || {};
+  const neo = {
+    address: identity.address || null,
+    script_hash: identity.script_hash || null,
+    public_key: identity.public_key || report.public_key || null,
+  };
+  return {
+    status: 'ok',
+    network,
+    role,
+    derived: { neo_n3: neo },
+    neo_n3: neo,
+    key_source: 'nitro_explicit_pinned',
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -885,21 +1055,11 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
   const httpMethod = trimString(method || 'GET').toUpperCase();
 
   try {
+    // Open endpoints (no auth): liveness + attestation (the attestation is a
+    // signed measurement, not a secret operation; matches the signer).
     if (httpMethod === 'GET' && path.endsWith('/health')) {
       const health = handleHealth();
       return { status: health.ready ? 200 : 503, body: health };
-    }
-
-    if (httpMethod === 'POST' && path.endsWith('/oracle/fulfill')) {
-      const parsed = parseBody(body);
-      const result = await handleOracleFulfill(parsed);
-      return { status: 200, body: result };
-    }
-
-    if (httpMethod === 'POST' && path.endsWith('/feed/sign')) {
-      const parsed = parseBody(body);
-      const result = await handleFeedSign(parsed);
-      return { status: 200, body: result };
     }
 
     if ((httpMethod === 'GET' || httpMethod === 'POST') && path.endsWith('/attestation')) {
@@ -908,6 +1068,37 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
         httpMethod === 'GET' ? Object.fromEntries(url.searchParams) : parseBody(body);
       const result = handleAttestation(payload);
       return { status: 200, body: result };
+    }
+
+    // Provisioning: bootstrap-open (assertAuthorized is a no-op until the first
+    // token is provisioned), then token-gated like every sensitive call below.
+    if (httpMethod === 'POST' && path.endsWith('/provision')) {
+      assertAuthorized(headers);
+      const result = handleProvision(parseBody(body));
+      return { status: 200, body: result };
+    }
+
+    // Sensitive (signing) endpoints — require the provisioned bearer token.
+    if (httpMethod === 'POST' && path.endsWith('/oracle/fulfill')) {
+      assertAuthorized(headers);
+      const result = await handleOracleFulfill(parseBody(body));
+      return { status: 200, body: result };
+    }
+
+    if (httpMethod === 'POST' && path.endsWith('/feed/sign')) {
+      assertAuthorized(headers);
+      const result = await handleFeedSign(parseBody(body));
+      return { status: 200, body: result };
+    }
+
+    if (httpMethod === 'POST' && path.endsWith('/sign/payload')) {
+      assertAuthorized(headers);
+      return { status: 200, body: handleSignPayload(parseBody(body)) };
+    }
+
+    if (httpMethod === 'POST' && path.endsWith('/keys/derived')) {
+      assertAuthorized(headers);
+      return { status: 200, body: handleKeysDerived(parseBody(body)) };
     }
 
     return { status: 404, body: { error: 'not found', path } };

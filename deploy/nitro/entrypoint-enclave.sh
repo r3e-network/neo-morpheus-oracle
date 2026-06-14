@@ -23,14 +23,42 @@ VSOCK_PORT="${NITRO_SIGNER_VSOCK_PORT:-8787}"
 INTERNAL_PORT="${ENCLAVE_INTERNAL_PORT:-8081}"
 INTERNAL_HOST="127.0.0.1"
 
+# --- Outbound egress (in-enclave forward proxy over vsock) ------------------
+# The enclave has NO NIC. In-enclave COMPUTE (the worker's price/RPC fetches via
+# Node global fetch + neon-js's cross-fetch) reaches the internet through an
+# HTTPS_PROXY: a local socat forwards 127.0.0.1:ENCLAVE_PROXY_PORT to the PARENT
+# instance (vsock CID 3), where an allow-listed HTTP-CONNECT proxy dials out. The
+# enclave performs END-TO-END TLS to the real hostname through the tunnel, so the
+# host forwards opaque ciphertext and CANNOT MITM. NODE_USE_ENV_PROXY=1 makes Node
+# 22's global fetch (and neon-js via cross-fetch) honor HTTPS_PROXY. A signing-only
+# request makes no outbound call, so the flag-OFF cutover stage works even before
+# the host egress proxy is up; egress is exercised only once compute runs here.
+HOST_CID="${ENCLAVE_HOST_CID:-3}"
+EGRESS_VSOCK_PORT="${ENCLAVE_EGRESS_VSOCK_PORT:-8788}"
+ENCLAVE_PROXY_PORT="${ENCLAVE_PROXY_PORT:-3128}"
+PROXY_URL="http://127.0.0.1:${ENCLAVE_PROXY_PORT}"
+export NODE_USE_ENV_PROXY=1
+export HTTPS_PROXY="$PROXY_URL" HTTP_PROXY="$PROXY_URL"
+export https_proxy="$PROXY_URL" http_proxy="$PROXY_URL"
+export NO_PROXY="127.0.0.1,localhost,::1" no_proxy="127.0.0.1,localhost,::1"
+
 # Reap children on signals so the enclave shuts down cleanly.
 node_pid=""
 socat_pid=""
+egress_pid=""
 shutdown() {
   [ -n "$socat_pid" ] && kill "$socat_pid" 2>/dev/null || true
+  [ -n "$egress_pid" ] && kill "$egress_pid" 2>/dev/null || true
   [ -n "$node_pid" ] && kill "$node_pid" 2>/dev/null || true
 }
 trap shutdown TERM INT
+
+# Outbound bridge: the HTTPS_PROXY target (127.0.0.1:ENCLAVE_PROXY_PORT) -> the
+# parent's vsock egress port. fork+reuseaddr handles concurrent outbound conns.
+socat \
+  "TCP-LISTEN:${ENCLAVE_PROXY_PORT},fork,reuseaddr,bind=127.0.0.1" \
+  "VSOCK-CONNECT:${HOST_CID}:${EGRESS_VSOCK_PORT}" &
+egress_pid=$!
 
 # Start the merged compute+sign server (long-lived) bound to localhost only.
 ENCLAVE_HOST="$INTERNAL_HOST" \
@@ -67,12 +95,14 @@ socat \
   "TCP-CONNECT:${INTERNAL_HOST}:${INTERNAL_PORT}" &
 socat_pid=$!
 
-# Fail-stop: if either process dies, tear the whole enclave down. POSIX `sh`
-# (dash) has no `wait -n`, so poll both pids and exit when the first one drops.
-while [ -d "/proc/$node_pid" ] && [ -d "/proc/$socat_pid" ]; do
+# Fail-stop: if any of the three processes dies, tear the whole enclave down.
+# POSIX `sh` (dash) has no `wait -n`, so poll the pids and exit when one drops.
+# (The egress listener persists even with no traffic — socat TCP-LISTEN,fork keeps
+# the parent listener alive — so its death signals a real fault, not idleness.)
+while [ -d "/proc/$node_pid" ] && [ -d "/proc/$socat_pid" ] && [ -d "/proc/$egress_pid" ]; do
   sleep 1
 done
-echo "enclave-server or vsock bridge exited; shutting down" >&2
+echo "enclave-server, vsock bridge, or egress bridge exited; shutting down" >&2
 shutdown
 wait 2>/dev/null || true
 exit 1

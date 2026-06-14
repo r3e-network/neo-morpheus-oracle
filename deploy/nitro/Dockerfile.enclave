@@ -173,6 +173,12 @@ ENV MORPHEUS_NETWORK=testnet
 ENV NITRO_SIGNER_VSOCK_PORT=8787
 ENV ENCLAVE_INTERNAL_PORT=8081
 ENV NITRO_ATTEST_BIN=/app/bin/nsm-attest
+# Outbound egress (in-enclave HTTPS_PROXY -> parent vsock -> host allow-list
+# proxy). The entrypoint sets HTTPS_PROXY/NODE_USE_ENV_PROXY from these. CID 3 is
+# the Nitro parent instance. These are defaults; the entrypoint honors overrides.
+ENV ENCLAVE_HOST_CID=3
+ENV ENCLAVE_EGRESS_VSOCK_PORT=8788
+ENV ENCLAVE_PROXY_PORT=3128
 # enclave-server.mjs imports planFeedUpdate from feed-pusher.mjs only as a pure
 # function; this guard keeps the feed-pusher's live push cycle from running on
 # import (feed-pusher.mjs:460).

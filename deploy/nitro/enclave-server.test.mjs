@@ -69,6 +69,12 @@ process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY = NEOX_VERIFIER_PK;
 // check it, but the server attaches it — set it so a non-stubbed path would work too.
 process.env.NITRO_API_TOKEN = 'enclave-test-token';
 
+// The sensitive endpoints (/oracle/fulfill, /feed/sign, /sign/payload, /provision)
+// require the provisioned bearer token, exactly as the production relayer/feed
+// callers send it. NITRO_API_TOKEN above seeds the enclave's trusted-token set, so
+// dispatch calls to those routes carry AUTH; /health + /attestation stay open.
+const AUTH = { authorization: 'Bearer ' + process.env.NITRO_API_TOKEN };
+
 // Imported after env is set.
 const enclave = await import('./enclave-server.mjs');
 const {
@@ -195,7 +201,7 @@ test('neo_n3 (with appId): digest + envelope + signature byte-exact', async () =
     nonce: 'deadbeef',
   };
 
-  const { status, body } = await dispatch('POST', '/oracle/fulfill', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
   assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
   assert.equal(body.status, 'ok');
   assert.equal(body.trust_tier, 'enclave-attested');
@@ -277,7 +283,7 @@ test('legacy neo_n3 (no appId): legacy digest + signature byte-exact', async () 
     nonce: '',
   };
 
-  const { status, body } = await dispatch('POST', '/oracle/fulfill', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
   assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
   assert.equal(body.trust_tier, 'enclave-attested');
 
@@ -330,7 +336,7 @@ test('neo_n3 vrf (fixed randomness): compact callback digest + signature byte-ex
     },
   };
 
-  const { status, body } = await dispatch('POST', '/oracle/fulfill', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
   assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
 
   const workerResponse = expectedWorkerResponse(requestType);
@@ -395,7 +401,7 @@ test('neox: keccak digest + envelope + EIP-191 signature byte-exact', async () =
     },
   };
 
-  const { status, body } = await dispatch('POST', '/oracle/fulfill', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
   assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
   assert.equal(body.trust_tier, 'enclave-attested');
 
@@ -451,7 +457,7 @@ test('arbitrary-url smart-fetch is host-unattested (no in-enclave signature)', a
   // smart-fetch is the host-tier lane.
   assert.equal(resolveKernelIntent('privacy_oracle').workerRoute, '/oracle/smart-fetch');
 
-  const { status, body } = await dispatch('POST', '/oracle/fulfill', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
   assert.equal(status, 200);
   assert.equal(body.trust_tier, 'host-unattested');
   assert.equal(body.signature, null);
@@ -528,7 +534,7 @@ test('feed/sign: updateFeeds tx message byte-identical to feed-pusher + signatur
     nonce: 'cafe',
   };
 
-  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/feed/sign', AUTH, JSON.stringify(req));
   assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
   assert.equal(body.status, 'ok');
   assert.equal(body.trust_tier, 'enclave-attested');
@@ -618,7 +624,7 @@ test('feed/sign: no symbol clears the push decision → no-update (no signature)
     onchain_state: { 'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 } },
     now: FIXED_NOW,
   };
-  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/feed/sign', AUTH, JSON.stringify(req));
   assert.equal(status, 200);
   assert.equal(body.status, 'no-update');
   assert.equal(body.tx_message_hex, null);
@@ -645,7 +651,7 @@ test('feed/sign: tx params come from the provider seam when not supplied in the 
     now: FIXED_NOW,
     tx_nonce: 4242,
   };
-  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/feed/sign', AUTH, JSON.stringify(req));
   assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
   assert.equal(body.status, 'ok');
   assert.equal(body.valid_until_block, 9000000 + 500, 'valid_until_block must come from the provider');
@@ -686,7 +692,7 @@ test('feed/sign: missing tx params (no request params, default provider) surface
     onchain_state: { 'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 } },
     now: FIXED_NOW,
   };
-  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/feed/sign', AUTH, JSON.stringify(req));
   assert.equal(status, 503, `expected 503, got ${status}: ${JSON.stringify(body)}`);
   assert.match(body.error, /tx network params/);
   __resetPriceFetcherForTests();
@@ -705,7 +711,7 @@ test('feed/sign: a symbol missing from the price fetch is reported, not signed',
     now: FIXED_NOW,
     tx_params: { block_count: 100, system_fee: 1, network_fee: 1 },
   };
-  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  const { status, body } = await dispatch('POST', '/feed/sign', AUTH, JSON.stringify(req));
   assert.equal(status, 200);
   assert.equal(body.status, 'ok');
   assert.deepEqual(body.pairs, ['TWELVEDATA:NEO-USD']);
@@ -717,7 +723,7 @@ test('feed/sign: validation — symbols required, unsupported chain rejected', a
   const noSymbols = await dispatch(
     'POST',
     '/feed/sign',
-    {},
+    AUTH,
     JSON.stringify({ chain: 'neo_n3', symbols: [] })
   );
   assert.equal(noSymbols.status, 400);
@@ -726,7 +732,7 @@ test('feed/sign: validation — symbols required, unsupported chain rejected', a
   const badChain = await dispatch(
     'POST',
     '/feed/sign',
-    {},
+    AUTH,
     JSON.stringify({ chain: 'neox', symbols: ['NEO-USD'] })
   );
   assert.equal(badChain.status, 400);
@@ -855,7 +861,7 @@ test('missing request_type / request_id returns 400', async () => {
   const noType = await dispatch(
     'POST',
     '/oracle/fulfill',
-    {},
+    AUTH,
     JSON.stringify({ chain: 'neo_n3', request_id: '1' })
   );
   assert.equal(noType.status, 400);
@@ -864,7 +870,7 @@ test('missing request_type / request_id returns 400', async () => {
   const noId = await dispatch(
     'POST',
     '/oracle/fulfill',
-    {},
+    AUTH,
     JSON.stringify({ chain: 'neo_n3', request_type: 'oracle_query' })
   );
   assert.equal(noId.status, 400);
@@ -877,7 +883,75 @@ test('unknown route returns 404', async () => {
   assert.equal(body.error, 'not found');
 });
 
+// ---------------------------------------------------------------------------
+// Auth + provisioning + signer surface (the folded-in signer endpoints that make
+// this enclave a strict superset of nitro-signer-server.mjs).
+// ---------------------------------------------------------------------------
+
+test('sensitive routes require the bearer token; health + attestation stay open', async () => {
+  // No/incorrect auth on a signing route -> 401 (checked before any validation).
+  const noAuth = await dispatch('POST', '/oracle/fulfill', {}, JSON.stringify({}));
+  assert.equal(noAuth.status, 401);
+  const wrongAuth = await dispatch(
+    'POST',
+    '/feed/sign',
+    { authorization: 'Bearer wrong' },
+    JSON.stringify({ chain: 'neo_n3', symbols: ['BTC-USD'] })
+  );
+  assert.equal(wrongAuth.status, 401);
+  // Open endpoints don't require a token.
+  const health = await dispatch('GET', '/health', {}, '');
+  assert.ok(health.status === 200 || health.status === 503);
+});
+
+test('sign/payload signs data_hex with the pinned role key', async () => {
+  const dataHex = createHash('sha256').update('enclave-sign-payload-test').digest('hex');
+  const { status, body } = await dispatch(
+    'POST',
+    '/sign/payload',
+    AUTH,
+    JSON.stringify({ role: 'oracle_verifier', data_hex: dataHex })
+  );
+  assert.equal(status, 200);
+  assert.equal(body.role, 'oracle_verifier');
+  assert.equal(body.public_key, ORACLE_VERIFIER_ACCOUNT.publicKey);
+  // The signature must verify against the returned public key over the data.
+  assert.equal(neoWallet.verify(dataHex, body.signature, body.public_key), true);
+});
+
+test('keys/derived returns a pinned role identity (no secret)', async () => {
+  const { status, body } = await dispatch(
+    'POST',
+    '/keys/derived',
+    AUTH,
+    JSON.stringify({ role: 'updater' })
+  );
+  assert.equal(status, 200);
+  assert.equal(body.role, 'updater');
+  assert.equal(body.neo_n3.public_key, UPDATER_ACCOUNT.publicKey);
+});
+
+test('provision applies env keys at runtime and reports role health', async () => {
+  // Provision a benign extra key + re-affirm the network; the keys are already set
+  // at module load, so roles should report ok. (Bootstrap-open is not exercised
+  // here because NITRO_API_TOKEN already seeds a trusted token.)
+  const { status, body } = await dispatch(
+    'POST',
+    '/provision',
+    AUTH,
+    JSON.stringify({ env: { MORPHEUS_NETWORK: 'testnet', TD_KEY: 'provisioned-td-key' } })
+  );
+  assert.equal(status, 200);
+  assert.equal(body.provisioned, true);
+  assert.equal(body.network, 'testnet');
+  assert.ok(body.env_keys.includes('TD_KEY'));
+  assert.equal(process.env.TD_KEY, 'provisioned-td-key');
+  const verifier = body.roles.find((r) => r.role === 'oracle_verifier');
+  assert.equal(verifier.ok, true);
+});
+
 test('cleanup: reset stubbed worker handler', () => {
   __resetWorkerHandlerForTests();
+  delete process.env.TD_KEY;
   assert.ok(true);
 });
