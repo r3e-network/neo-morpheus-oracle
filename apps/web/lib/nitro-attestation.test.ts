@@ -34,6 +34,7 @@ import {
   AWS_NITRO_ROOT_FINGERPRINTS_SHA256,
   AWS_NITRO_ROOT_G1_PEM,
   __setPinnedRootsForTest,
+  __internals,
 } from './nitro-attestation';
 
 // ===========================================================================
@@ -874,5 +875,45 @@ describe('attestation route integration', () => {
       '641a0321a3e244efe456463195d606317ed7cdcc3c1756e09893f3c68f79bb5b'
     );
     expect(Array.isArray(json.measurements)).toBe(true);
+  });
+});
+
+describe('CBOR decoder — indefinite-length (real AWS NSM docs use it)', () => {
+  const { CborDecoder } = __internals;
+  const B = (...n: number[]) => Buffer.from(n);
+
+  it('decodes an indefinite-length map (0xbf … 0xff)', () => {
+    // { "a": 1, "b": [2, 3] } with the map AND the array indefinite-length
+    const buf = B(0xbf, 0x61, 0x61, 0x01, 0x61, 0x62, 0x9f, 0x02, 0x03, 0xff, 0xff);
+    const m = CborDecoder.decodeFirst(buf) as Map<unknown, unknown>;
+    expect(m.get('a')).toBe(1);
+    expect(m.get('b')).toEqual([2, 3]);
+  });
+
+  it('decodes an indefinite-length byte string (chunked, 0x5f … 0xff)', () => {
+    // 0x5f [42 0102] [43 030405] ff  -> bytes 01 02 03 04 05
+    const buf = B(0x5f, 0x42, 0x01, 0x02, 0x43, 0x03, 0x04, 0x05, 0xff);
+    const out = CborDecoder.decodeFirst(buf) as Buffer;
+    expect(Buffer.isBuffer(out)).toBe(true);
+    expect(out.equals(B(0x01, 0x02, 0x03, 0x04, 0x05))).toBe(true);
+  });
+
+  it('decodes the NSM doc shape: indefinite pcrs map of byte strings', () => {
+    // { 0: h'AA…(48)', 1: h'BB…(48)' } as an indefinite map of definite bstrs
+    const pcr0 = Buffer.alloc(48, 0xaa);
+    const pcr1 = Buffer.alloc(48, 0xbb);
+    const buf = Buffer.concat([
+      B(0xbf), B(0x00), B(0x58, 48), pcr0, B(0x01), B(0x58, 48), pcr1, B(0xff),
+    ]);
+    const m = CborDecoder.decodeFirst(buf) as Map<unknown, unknown>;
+    expect((m.get(0) as Buffer).equals(pcr0)).toBe(true);
+    expect((m.get(1) as Buffer).equals(pcr1)).toBe(true);
+  });
+
+  it('still decodes definite-length maps/arrays (no regression)', () => {
+    // {1: -35} definite (COSE protected header shape)
+    const m = CborDecoder.decodeFirst(B(0xa1, 0x01, 0x38, 0x22)) as Map<unknown, unknown>;
+    expect(m.get(1)).toBe(-35);
+    expect(CborDecoder.decodeFirst(B(0x83, 0x01, 0x02, 0x03))).toEqual([1, 2, 3]);
   });
 });

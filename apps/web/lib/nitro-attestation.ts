@@ -240,8 +240,27 @@ class CborDecoder {
       case 1: // negative int
         return -1 - this.readUint(info);
       case 2: {
-        // byte string
-        if (info === 31) throw new Error('indefinite-length byte strings are not supported');
+        // byte string. AWS NSM attestation documents are emitted with
+        // INDEFINITE-LENGTH encoding (RFC 8949 §3.2.3): the payload map, the
+        // `pcrs` map, and the `cabundle` array all use major-type+31 framing with
+        // a 0xff break. Indefinite byte/text strings are a concatenation of
+        // definite-length chunks until the break.
+        if (info === 31) {
+          const chunks: Buffer[] = [];
+          for (;;) {
+            this.require(1);
+            if (this.buf.readUInt8(this.pos) === 0xff) {
+              this.pos += 1;
+              break;
+            }
+            const chunk = this.readValue();
+            if (!Buffer.isBuffer(chunk)) {
+              throw new Error('indefinite byte string contains a non-byte-string chunk');
+            }
+            chunks.push(chunk);
+          }
+          return Buffer.concat(chunks);
+        }
         const len = this.readUint(info);
         this.require(len);
         const out = this.buf.subarray(this.pos, this.pos + len);
@@ -250,7 +269,22 @@ class CborDecoder {
       }
       case 3: {
         // text string
-        if (info === 31) throw new Error('indefinite-length text strings are not supported');
+        if (info === 31) {
+          const parts: string[] = [];
+          for (;;) {
+            this.require(1);
+            if (this.buf.readUInt8(this.pos) === 0xff) {
+              this.pos += 1;
+              break;
+            }
+            const chunk = this.readValue();
+            if (typeof chunk !== 'string') {
+              throw new Error('indefinite text string contains a non-text-string chunk');
+            }
+            parts.push(chunk);
+          }
+          return parts.join('');
+        }
         const len = this.readUint(info);
         this.require(len);
         const out = this.buf.toString('utf8', this.pos, this.pos + len);
@@ -258,16 +292,41 @@ class CborDecoder {
         return out;
       }
       case 4: {
-        // array
-        if (info === 31) throw new Error('indefinite-length arrays are not supported');
+        // array (definite or indefinite, terminated by the 0xff break)
+        if (info === 31) {
+          const arr: unknown[] = [];
+          for (;;) {
+            this.require(1);
+            if (this.buf.readUInt8(this.pos) === 0xff) {
+              this.pos += 1;
+              break;
+            }
+            arr.push(this.readValue());
+          }
+          return arr;
+        }
         const len = this.readUint(info);
         const arr: unknown[] = new Array(len);
         for (let i = 0; i < len; i += 1) arr[i] = this.readValue();
         return arr;
       }
       case 5: {
-        // map -> Map (keys may be ints, as in COSE headers)
-        if (info === 31) throw new Error('indefinite-length maps are not supported');
+        // map -> Map (keys may be ints, as in COSE headers; definite or
+        // indefinite, terminated by the 0xff break).
+        if (info === 31) {
+          const map = new Map<unknown, unknown>();
+          for (;;) {
+            this.require(1);
+            if (this.buf.readUInt8(this.pos) === 0xff) {
+              this.pos += 1;
+              break;
+            }
+            const key = this.readValue();
+            const value = this.readValue();
+            map.set(key, value);
+          }
+          return map;
+        }
         const len = this.readUint(info);
         const map = new Map<unknown, unknown>();
         for (let i = 0; i < len; i += 1) {
