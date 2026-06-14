@@ -18,6 +18,7 @@
 # It is idempotent: /provision merges keys into the running enclave's process.env.
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 host_port="${MORPHEUS_NITRO_HOST_PORT:-8787}"
 signer_env="${MORPHEUS_NITRO_SIGNER_ENV:-/opt/morpheus/nitro/morpheus-nitro-signer.env}"
 worker_env="${MORPHEUS_NITRO_WORKER_ENV:-/opt/morpheus/nitro/nitro-worker.env}"
@@ -39,11 +40,14 @@ fi
 
 MORPHEUS_NITRO_HOST_PORT="$host_port" \
 SIGNER_ENV="$signer_env" WORKER_ENV="$worker_env" FEED_ENV="$feed_env" \
+REPO_ROOT="$repo_root" \
 node --input-type=module - <<'NODE'
 import fs from 'node:fs';
 import cp from 'node:child_process';
+import { createDecipheriv } from 'node:crypto';
 
 const port = process.env.MORPHEUS_NITRO_HOST_PORT;
+const repoRoot = process.env.REPO_ROOT || '.';
 function parseEnv(p) {
   const o = {};
   try {
@@ -67,6 +71,46 @@ const feed = parseEnv(process.env.FEED_ENV);
 
 const env = { ...worker };
 if (feed.TD_KEY) env.TD_KEY = feed.TD_KEY; // /feed/sign price key (distinct from TWELVEDATA_API_KEY)
+
+// The confidential.decrypt + neodid lanes resolve their key material from AWS
+// Secrets Manager, but the AWS SDK uses node:https (NOT global fetch), so it does
+// NOT honor the enclave's HTTPS_PROXY — the in-enclave Secrets Manager call has no
+// route and fails. The decrypt key ALSO lives in a host keystore FILE the enclave
+// can't read. So we resolve BOTH on the host (which has IMDS + the keystore + the
+// SAME deriveKeyBytes) and provision the DIRECT values:
+//   - MORPHEUS_ORACLE_KEY_MATERIAL_BASE64: the unsealed X25519 oracle key (so
+//     confidential.decrypt works in-enclave without the keystore or Secrets Manager).
+//   - NEODID_SECRET_SALT: the nullifier salt (so neodid stops failing on the salt;
+//     web3auth verification additionally needs WEB3AUTH_CLIENT_ID, an operator config).
+// Best-effort: if these can't be resolved, the price/VRF/feed lanes are unaffected.
+try {
+  // deriveKeyBytes reads AWS_REGION + the secret IDs from process.env; seed them
+  // from the worker config (IMDS supplies the creds via the default chain).
+  for (const [k, v] of Object.entries(worker)) if (process.env[k] === undefined) process.env[k] = v;
+  const { deriveKeyBytes } = await import(`${repoRoot}/workers/nitro-worker/src/platform/nitro-signer.js`);
+  const ksPath = (worker.PHALA_ORACLE_KEYSTORE_PATH || worker.NITRO_ORACLE_KEYSTORE_PATH || '/data/morpheus/oracle-key.json').trim();
+  try {
+    const wrap = Buffer.from(await deriveKeyBytes('morpheus/oracle/encryption/wrap/v1', 'oracle-encryption-wrap')).subarray(0, 32);
+    const ks = JSON.parse(fs.readFileSync(ksPath, 'utf8'));
+    const s = ks.sealed_private_key;
+    const dec = createDecipheriv('aes-256-gcm', wrap, Buffer.from(s.iv, 'base64'));
+    dec.setAuthTag(Buffer.from(s.tag, 'base64'));
+    const pkcs8 = Buffer.concat([dec.update(Buffer.from(s.ciphertext, 'base64')), dec.final()]);
+    env.MORPHEUS_ORACLE_KEY_MATERIAL_BASE64 = Buffer.from(
+      JSON.stringify({ public_key_raw: ks.public_key_raw, private_key_pkcs8: pkcs8.toString('base64') })
+    ).toString('base64');
+  } catch (e) {
+    console.error('provision-enclave-compute: oracle decrypt key unseal failed (decrypt lane stays degraded):', e.message);
+  }
+  try {
+    const salt = Buffer.from(await deriveKeyBytes('morpheus/neodid/nullifier/v1', 'neodid-nullifier-salt'));
+    env.NEODID_SECRET_SALT = salt.toString('hex');
+  } catch (e) {
+    console.error('provision-enclave-compute: neodid salt derive failed (neodid lane stays degraded):', e.message);
+  }
+} catch (e) {
+  console.error('provision-enclave-compute: key-material resolution skipped:', e.message);
+}
 
 // Fresh instance-role credentials from IMDSv2 so the in-enclave decrypt/neodid
 // lanes can reach Secrets Manager through the allow-listed egress. Best-effort:
