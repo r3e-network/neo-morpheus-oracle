@@ -40,6 +40,9 @@ function getExecutionPlaneConfig(env, network, options = {}) {
       ]
     : [env[`MORPHEUS_${normalized}_EXECUTION_BASE_URL`], env.MORPHEUS_EXECUTION_BASE_URL];
   const baseUrl = trimString(baseUrlCandidates.find((candidate) => trimString(candidate)) || '');
+  // Phala is retired; PHALA_API_TOKEN / PHALA_SHARED_SECRET are intentionally NOT
+  // accepted as token fallbacks (they would silently send a stale secret as the
+  // Bearer on a config slip, and accept a leaked Phala token).
   const tokenCandidates = options.feed
     ? [
         env[`MORPHEUS_${normalized}_FEED_EXECUTION_TOKEN`],
@@ -48,15 +51,8 @@ function getExecutionPlaneConfig(env, network, options = {}) {
         env.MORPHEUS_DATAFEED_EXECUTION_TOKEN,
         env[`MORPHEUS_${normalized}_EXECUTION_TOKEN`],
         env.MORPHEUS_EXECUTION_TOKEN,
-        env.PHALA_API_TOKEN,
-        env.PHALA_SHARED_SECRET,
       ]
-    : [
-        env[`MORPHEUS_${normalized}_EXECUTION_TOKEN`],
-        env.MORPHEUS_EXECUTION_TOKEN,
-        env.PHALA_API_TOKEN,
-        env.PHALA_SHARED_SECRET,
-      ];
+    : [env[`MORPHEUS_${normalized}_EXECUTION_TOKEN`], env.MORPHEUS_EXECUTION_TOKEN];
   const token = trimString(tokenCandidates.find((candidate) => trimString(candidate)) || '');
   if (!baseUrl) {
     throw new Error(

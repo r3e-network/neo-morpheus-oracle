@@ -295,6 +295,32 @@ test('control plane enqueues oracle request jobs and persists dispatched status'
   assert.equal(state.jobs.get(body.id)?.status, 'dispatched');
 });
 
+test('feeds/tick is a retired no-op: returns 200 and never enqueues nor leaks the signer (CP-01)', async () => {
+  const env = createEnv();
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/feeds/tick', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ symbol: 'TWELVEDATA:NEO-USD', target_chain: 'neo_n3' }),
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.status, 'noop');
+  // The whole point: nothing is enqueued, so the consumer never POSTs the signer
+  // WIF + execution token to the retired feed runtime.
+  assert.equal(env.MORPHEUS_FEED_TICK_QUEUE.sent.length, 0);
+  assert.equal(state.executionCalls.length, 0);
+});
+
 test('legacy route dispatches through typed workflow metadata', async () => {
   const env = createEnv();
   const state = createState();

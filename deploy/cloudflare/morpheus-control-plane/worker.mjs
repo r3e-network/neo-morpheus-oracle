@@ -147,6 +147,18 @@ export default {
       return json(405, { error: 'method_not_allowed' }, rid);
     }
 
+    // Feeds are pushed on-chain in-TEE by the box feed-pusher; the control-plane
+    // feed lane is RETIRED. Short-circuit /feeds/tick to a no-op so it never
+    // enqueues a job nor POSTs the Neo N3 signer WIF + execution token to the
+    // (retired, externally-hosted) feed runtime. See AA-EDGE-MIGRATION-RUNBOOK.md.
+    if (routing.routePath === '/feeds/tick') {
+      return json(
+        200,
+        { ok: true, status: 'noop', reason: 'feed_lane_retired_feeds_pushed_in_tee' },
+        rid
+      );
+    }
+
     const rateLimited = await applyRateLimit(request, env, jobConfig.queue);
     if (rateLimited) return rateLimited;
 

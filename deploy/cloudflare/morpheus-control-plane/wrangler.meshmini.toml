@@ -15,8 +15,12 @@ UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
 # the box (the runbook gates the order). Comma-separate extra fallbacks if desired.
 MORPHEUS_MAINNET_EXECUTION_BASE_URL = "https://runtime.meshmini.app/mainnet"
 MORPHEUS_TESTNET_EXECUTION_BASE_URL = "https://runtime.meshmini.app/testnet"
-MORPHEUS_MAINNET_FEED_EXECUTION_BASE_URL = "https://ac5b6886a2832df36e479294206611652400178f-3000.dstack-pha-prod5.phala.network/mainnet"
-MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL = "https://ac5b6886a2832df36e479294206611652400178f-3000.dstack-pha-prod5.phala.network/testnet"
+# Feed lane RETIRED: /feeds/tick is a no-op at ingress (worker.mjs) because feeds
+# are pushed on-chain in-TEE by the box feed-pusher. The old
+# MORPHEUS_{MAINNET,TESTNET}_FEED_EXECUTION_BASE_URL pointed at the retired Phala
+# CVM and caused callExecutionFeedPlane to POST the signer WIF + execution token
+# there on every tick (a credential leak) — removed. Do NOT re-add a feed URL
+# without also re-enabling the lane and routing it at the in-TEE box.
 MORPHEUS_APP_BACKEND_URL = "https://neo-morpheus-oracle-web.vercel.app"
 MORPHEUS_CONTROL_PLANE_URL = "https://control.meshmini.app"
 
