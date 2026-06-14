@@ -47,6 +47,13 @@ done
 
 git_commit="$(git -C "$repo_root" rev-parse HEAD 2>/dev/null || echo unknown)"
 
+# Extract a Measurements field (PCR0/PCR1/PCR2/HashAlgorithm) from a captured
+# `nitro-cli build-enclave` JSON blob. node is present on the box (runs the
+# worker); use it for robust parsing rather than fragile grep.
+extract_measurement() { # $1=json blob  $2=field name
+  printf '%s' "$1" | FIELD="$2" node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write((j.Measurements&&j.Measurements[process.env.FIELD])||"")}catch(e){process.stdout.write("")}})'
+}
+
 echo "==> building enclave image $image from $dockerfile"
 # SOURCE_DATE_EPOCH is also set in the Dockerfile; pass it through for any
 # builder that honors it at the layer level.
@@ -57,19 +64,45 @@ image_id_1="$(docker image inspect --format '{{.Id}}' "$image")"
 echo "==> image id: $image_id_1"
 
 if [ "$verify_reproducible" -eq 1 ]; then
-  echo "==> reproducibility check: rebuilding to a second tag"
+  echo "==> reproducibility check: building a second, independent image"
   image2="${image%:*}:repro-check"
   DOCKER_BUILDKIT=1 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-1749859200}" \
     docker build -f "$dockerfile" -t "$image2" "$repo_root"
   image_id_2="$(docker image inspect --format '{{.Id}}' "$image2")"
-  echo "    build #1 id: $image_id_1"
-  echo "    build #2 id: $image_id_2"
-  if [ "$image_id_1" != "$image_id_2" ]; then
-    echo "ERROR: image is NOT reproducible (image IDs differ)" >&2
-    echo "       PCRs derived from a non-reproducible image are not independently verifiable." >&2
-    exit 1
+  echo "    build #1 image id: $image_id_1"
+  echo "    build #2 image id: $image_id_2"
+  if [ "$build_eif" -eq 1 ]; then
+    # AUTHORITATIVE GATE: compare the nitro-cli PCRs of the two independent
+    # builds. Docker IMAGE IDs are NOT a valid reproducibility signal — the image
+    # config carries a build-time `created`/`history` timestamp, so two identical
+    # rootfs builds can yield different image IDs. PCR0/1/2 are derived from the
+    # flattened filesystem only, so equal PCRs ⇔ reproducible enclave.
+    mkdir -p "$artifacts"
+    export NITRO_CLI_ARTIFACTS="$artifacts" NITRO_CLI_BLOBS="$blobs"
+    out_a="$(nitro-cli build-enclave --docker-uri "$image"  --output-file /tmp/.repro-a.eif)"
+    out_b="$(nitro-cli build-enclave --docker-uri "$image2" --output-file /tmp/.repro-b.eif)"
+    rm -f /tmp/.repro-a.eif /tmp/.repro-b.eif
+    pcrs_a="$(extract_measurement "$out_a" PCR0)|$(extract_measurement "$out_a" PCR1)|$(extract_measurement "$out_a" PCR2)"
+    pcrs_b="$(extract_measurement "$out_b" PCR0)|$(extract_measurement "$out_b" PCR1)|$(extract_measurement "$out_b" PCR2)"
+    echo "    build #1 PCRs: $pcrs_a"
+    echo "    build #2 PCRs: $pcrs_b"
+    if [ "$pcrs_a" != "$pcrs_b" ] || [ "$pcrs_a" = "||" ]; then
+      echo "ERROR: enclave is NOT reproducible — PCRs differ across two independent builds." >&2
+      echo "       A measurements manifest from a non-reproducible build cannot be independently verified." >&2
+      docker image rm "$image2" >/dev/null 2>&1 || true
+      exit 1
+    fi
+    echo "    OK: identical PCR0/PCR1/PCR2 across two independent builds -> reproducible enclave"
+  else
+    # --no-eif: nitro-cli is unavailable/skipped, so fall back to the weaker
+    # image-ID heuristic (which can false-negative on config timestamps).
+    if [ "$image_id_1" != "$image_id_2" ]; then
+      echo "WARN: image IDs differ; cannot confirm reproducibility without nitro-cli." >&2
+      echo "      Re-run without --no-eif to compare PCRs (the authoritative check)." >&2
+    else
+      echo "    OK: identical image IDs (re-run without --no-eif for the PCR-level check)"
+    fi
   fi
-  echo "    OK: identical image IDs -> reproducible docker build"
   docker image rm "$image2" >/dev/null 2>&1 || true
 fi
 
@@ -88,12 +121,12 @@ echo "==> nitro-cli build-enclave -> $output"
 build_output="$(nitro-cli build-enclave --docker-uri "$image" --output-file "$output")"
 echo "$build_output"
 
-# Extract PCRs from the build-enclave JSON. node is present on the box (it runs
-# the worker); use it for robust JSON parsing rather than fragile grep.
-pcr0="$(printf '%s' "$build_output" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write((j.Measurements&&j.Measurements.PCR0)||"")}catch(e){process.stdout.write("")}})')"
-pcr1="$(printf '%s' "$build_output" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write((j.Measurements&&j.Measurements.PCR1)||"")}catch(e){process.stdout.write("")}})')"
-pcr2="$(printf '%s' "$build_output" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write((j.Measurements&&j.Measurements.PCR2)||"")}catch(e){process.stdout.write("")}})')"
-hash_algo="$(printf '%s' "$build_output" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);process.stdout.write((j.Measurements&&j.Measurements.HashAlgorithm)||"SHA384")}catch(e){process.stdout.write("SHA384")}})')"
+# Extract PCRs from the build-enclave JSON (same helper as the repro gate above).
+pcr0="$(extract_measurement "$build_output" PCR0)"
+pcr1="$(extract_measurement "$build_output" PCR1)"
+pcr2="$(extract_measurement "$build_output" PCR2)"
+hash_algo="$(extract_measurement "$build_output" HashAlgorithm)"
+hash_algo="${hash_algo:-SHA384}"
 
 # FAIL if PCRs are empty (a manifest with empty PCRs is worse than none — it
 # would make the verifier accept anything or fail confusingly).

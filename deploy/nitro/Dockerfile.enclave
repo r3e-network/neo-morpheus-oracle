@@ -66,11 +66,17 @@ FROM node:22-bookworm-slim@sha256:e21fc383b50d5347dc7a9f1cae45b8f4e2f0d39f7ade28
 # when the build fails because a pinned version was superseded, look up the
 # current bookworm version (https://sources.debian.org/api/src/<pkg>/ or
 # `apt-cache policy <pkg>` inside the base image) and bump. Verified 2026-06-14.
+#
+# Reproducibility: besides pinning versions, we DELETE the apt/dpkg logs and
+# caches in the SAME layer. /var/log/dpkg.log + /var/log/apt/history.log embed
+# wall-clock timestamps IN THEIR CONTENT (not just mtime), so leaving them makes
+# the layer's diff_id — and therefore PCR0/PCR2 — vary on every build. mtimes are
+# normalized globally by the final SOURCE_DATE_EPOCH pass below.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
        ca-certificates=20230311+deb12u1 \
        socat=1.7.4.4-2 \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* /var/log/* /var/cache/* /var/lib/dpkg/*-old
 
 WORKDIR /app
 
@@ -95,11 +101,21 @@ COPY workers/morpheus-relayer/package.json ./workers/morpheus-relayer/package.js
 # supply-chain). --no-audit/--no-fund keep it offline-friendly and quiet.
 # NOTE: workers/phala-worker is in the lockfile as `extraneous` (removed from
 # disk); it is intentionally not copied/installed.
-RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
+# Two cleanups are REQUIRED for reproducibility, both done in this same layer:
+#  - rm -rf /root/.npm: `npm ci` fills the npm content cache (~/.npm/_cacache,
+#    whose index records embed per-insert timestamps) and writes
+#    ~/.npm/_logs/<ISO-timestamp>.log. Both flip this layer's diff_id every build.
+#  - NODE_DISABLE_COMPILE_CACHE=1 + rm of os.tmpdir()/node-compile-cache: npm 10
+#    self-enables Node 22's V8 module compile cache, writing non-deterministic
+#    bytecode blobs to /tmp/node-compile-cache. Disabling it for this invocation
+#    (and removing any residue) keeps the layer byte-stable.
+# node_modules under /app is itself content-stable from the lockfile.
+RUN NODE_DISABLE_COMPILE_CACHE=1 npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
       --workspace @neo-morpheus-oracle/shared \
       --workspace @neo-morpheus-oracle/nitro-worker \
       --workspace @neo-morpheus-oracle/morpheus-relayer \
-      --include-workspace-root
+      --include-workspace-root \
+  && rm -rf /root/.npm /tmp/node-compile-cache
 
 # --- Source: the post-ac75d1a worker tree + relayer digest libs + shared pkg. ---
 # Carrying ac75d1a = copying the current working tree; no cherry-pick.
@@ -132,13 +148,18 @@ COPY --from=nsmbuild /nsm-attest /app/bin/nsm-attest
 
 RUN chmod +x /app/deploy/nitro/entrypoint-enclave.sh /app/bin/nsm-attest
 
-# --- Reproducibility: strip build-time timestamps. ---
-# SOURCE_DATE_EPOCH = 2026-06-14T00:00:00Z (1749859200). Normalize the mtime of
-# every file we control to that fixed epoch so the image layers (and therefore
-# PCR0) do not vary with wall-clock build time. (node_modules from `npm ci` is
-# content-stable from the lockfile; we normalize its mtimes too.)
+# --- Reproducibility: strip build-time timestamps across the WHOLE rootfs. ---
+# SOURCE_DATE_EPOCH = 2026-06-14T00:00:00Z (1749859200). nitro-cli derives
+# PCR0/PCR2 from the FLATTENED image filesystem, so every file's final mtime must
+# be fixed — not just /app. The apt layer (ca-certificates/socat + dpkg metadata
+# under /usr,/etc,/var) otherwise carries build-time mtimes that flip PCR2 on each
+# rebuild. This final pass normalizes the entire root device (-xdev skips the
+# runtime-only /proc,/sys,/dev mounts) to the fixed epoch, so the flattened mtimes
+# are deterministic regardless of which layer wrote each file. The cost is a
+# whole-rootfs copy-up in this layer (build-host disk only); the EIF is unchanged.
+# --no-dereference touches symlinks themselves (e.g. /etc/ssl/certs/*.0).
 ENV SOURCE_DATE_EPOCH=1749859200
-RUN find /app -exec touch --no-dereference --date=@1749859200 {} + 2>/dev/null || true
+RUN find / -xdev -exec touch --no-dereference --date=@1749859200 {} + 2>/dev/null || true
 
 # Force the no-MITM posture inside the enclave (see vsock-proxy.allowlist.yaml /
 # design §3): never honor a host-supplied provider base-URL override. The full
