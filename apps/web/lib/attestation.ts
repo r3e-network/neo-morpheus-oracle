@@ -80,6 +80,16 @@ export function verifyAttestation(input: {
   expectedComposeHash?: string;
   expectedAppId?: string;
   expectedInstanceId?: string;
+  /**
+   * Result of the REAL Nitro measurement-chain verifier
+   * (`verifyNitroAttestationDocument` in `./nitro-attestation.ts`). This is the
+   * authoritative cryptographic check (COSE_Sign1 + pinned AWS Nitro root cert
+   * chain + PCR0/1/2 + result/nonce/signer binding). When omitted/false, the
+   * measurement chain is treated as NOT verified — `full_attestation_ok` and
+   * `measurement_chain_verified` REQUIRE it to be true. The legacy
+   * "quote/event_log present" heuristic is no longer sufficient on its own.
+   */
+  nitroMeasurementChainVerified?: boolean;
 }) {
   const record = unwrapRecord(input.envelope ?? input.verification ?? input.attestation);
   const verification = unwrapVerification(input.verification ?? record ?? input.attestation);
@@ -157,25 +167,32 @@ export function verifyAttestation(input: {
   const bindingOk = hasBindingEvidence && bindingFailed.length === 0;
   const hasQuote = Boolean(attestation?.quote);
   const hasEventLog = Object.prototype.hasOwnProperty.call(attestation || {}, 'event_log');
-  // IMPORTANT: `full_attestation_ok` does NOT mean the TDX/Nitro measurement
-  // chain was cryptographically verified. It means: the output/attestation
-  // hash binding holds, the declared metadata matches, AND a quote + event_log
-  // are *present* in the envelope. The quote bytes themselves are not validated
-  // against an Intel/AWS root of trust here — that requires a platform-specific
-  // verification pass outside this application-level verifier. Consumers must
-  // not treat `full_attestation_ok: true` as a proof of enclave measurements.
-  const fullAttestationOk = bindingOk && hasQuote && hasEventLog && metadataFailed.length === 0;
+
+  // REAL measurement-chain verification is now performed by
+  // `verifyNitroAttestationDocument` (./nitro-attestation.ts) and its boolean is
+  // passed in as `nitroMeasurementChainVerified`. The legacy "quote + event_log
+  // present" heuristic is retained as a presence signal only — it is NEVER
+  // sufficient by itself to claim a verified measurement chain.
+  const nitroMeasurementChainVerified = input.nitroMeasurementChainVerified === true;
+  const measurementChainVerified = nitroMeasurementChainVerified;
+  // `full_attestation_ok` now REQUIRES the cryptographic Nitro layer: the hash
+  // binding holds, metadata matches, AND the COSE/cert/PCR/binding chain
+  // verified. Quote/event_log presence alone no longer flips this true.
+  const fullAttestationOk =
+    bindingOk && metadataFailed.length === 0 && measurementChainVerified;
 
   return {
     ok: bindingOk && metadataFailed.length === 0,
     binding_ok: bindingOk,
     full_attestation_ok: fullAttestationOk,
     // Honest scope statement so API consumers do not over-trust the booleans
-    // above. The result envelope is signed by the enclave key and the quote is
-    // checked for *presence* only — not validated against a TDX/Nitro root of
-    // trust. Full measurement-chain verification is out of scope here.
-    attestation_scope: 'enclave-key-signed; quote presence-only (no measurement-chain verification)',
-    measurement_chain_verified: false,
+    // above. The hash binding is checked here; the AWS Nitro measurement chain
+    // (pinned root + PCR0/1/2 + result binding) is verified by the new Nitro
+    // layer and is reflected in `measurement_chain_verified`.
+    attestation_scope: measurementChainVerified
+      ? 'enclave-attested; AWS Nitro measurement chain verified (pinned root + PCR0/1/2 + result binding)'
+      : 'enclave-key-signed; measurement chain NOT verified (no/invalid Nitro attestation document)',
+    measurement_chain_verified: measurementChainVerified,
     evidence: {
       has_verification: Boolean(verification),
       has_attestation: Boolean(attestation),

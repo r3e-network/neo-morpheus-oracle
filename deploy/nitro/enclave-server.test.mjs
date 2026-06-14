@@ -21,9 +21,12 @@
 
 import { test, before, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
-import { wallet as neoWallet } from '@cityofzion/neon-js';
+import neonPkg, { wallet as neoWallet } from '@cityofzion/neon-js';
 import { ethers } from 'ethers';
+
+const { sc, tx, u } = neonPkg;
 
 import {
   buildFulfillmentDigestBytes,
@@ -45,6 +48,18 @@ process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = '1';
 const ORACLE_VERIFIER_ACCOUNT = new neoWallet.Account(neoWallet.generatePrivateKey());
 process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET = ORACLE_VERIFIER_ACCOUNT.privateKey;
 
+// Test-only updater key (the feed signer). Unpinned (allowed via the flag above).
+const UPDATER_ACCOUNT = new neoWallet.Account(neoWallet.generatePrivateKey());
+process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET = UPDATER_ACCOUNT.privateKey;
+
+// Pin the N3 magic the feed tx is signed under so the server + the independent
+// test recompute use the SAME magic (default 860833102; explicit for clarity).
+process.env.FEED_MAGIC = '860833102';
+
+// feed-pusher.mjs runs a live cycle on import unless this is set — pin it before
+// either the server OR this test imports it (both import planFeedUpdate from it).
+process.env.FEED_PUSHER_SKIP_MAIN = '1';
+
 // Deterministic test-only EVM verifier key.
 const NEOX_VERIFIER_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
 const NEOX_VERIFIER_WALLET = new ethers.Wallet(NEOX_VERIFIER_PK);
@@ -56,7 +71,29 @@ process.env.NITRO_API_TOKEN = 'enclave-test-token';
 
 // Imported after env is set.
 const enclave = await import('./enclave-server.mjs');
-const { dispatch, __setWorkerHandlerForTests, __resetWorkerHandlerForTests, handleHealth } = enclave;
+const {
+  dispatch,
+  __setWorkerHandlerForTests,
+  __resetWorkerHandlerForTests,
+  handleHealth,
+  __setPriceFetcherForTests,
+  __resetPriceFetcherForTests,
+  __setFeedTxParamsProviderForTests,
+  __resetFeedTxParamsProviderForTests,
+  __setAttestRunnerForTests,
+  __resetAttestRunnerForTests,
+} = enclave;
+
+// Import planFeedUpdate from the feed-pusher INDEPENDENTLY (the SAME decision the
+// server imports) so the /feed/sign golden vector recomputes the planned arrays
+// with the canonical function, not a copy.
+const { planFeedUpdate } = await import('../feed-pusher/feed-pusher.mjs');
+
+// Feed contract constants — MIRRORED from feed-pusher.mjs pushNeoN3 so the test's
+// independent tx build matches the server's. If feed-pusher.mjs changes these the
+// test (correctly) breaks alongside the server.
+const FEED_N3_CONTRACT = '03013f49c42a14546c8bbe58f9d434c3517fccab';
+const FEED_N3_MAGIC = Number(process.env.FEED_MAGIC);
 
 // ---------------------------------------------------------------------------
 // Deterministic worker-handler stub. Returns a fixed Response per route so the
@@ -419,6 +456,379 @@ test('arbitrary-url smart-fetch is host-unattested (no in-enclave signature)', a
   assert.equal(body.trust_tier, 'host-unattested');
   assert.equal(body.signature, null);
   assert.equal(body.fulfillment_digest_hex, null);
+});
+
+// ---------------------------------------------------------------------------
+// /feed/sign — golden vector: the signed updateFeeds message is byte-identical to
+// what feed-pusher.mjs pushNeoN3 signs today, and the signature verifies.
+// ---------------------------------------------------------------------------
+
+// Independently rebuild the EXACT updateFeeds tx feed-pusher.mjs pushNeoN3 builds
+// (sc.createScript + tx.Transaction + getMessageForSigning), using raw neon-js —
+// NOT the server's builder. Equality proves the server reproduced the on-chain
+// message byte-for-byte. This mirrors pushNeoN3 lines 300-336 precisely.
+// txParams must include the EXACT nonce the server used (tx.Transaction otherwise
+// assigns a random nonce, making getMessageForSigning non-deterministic). The
+// server returns its nonce as body.tx_nonce so the broadcaster — and this test —
+// rebuild the identical tx.
+function feedPusherTxMessage(planned, txParams, updaterPublicKey) {
+  const { P, R, PX, TS, AH, SS } = planned;
+  const script = sc.createScript({
+    scriptHash: FEED_N3_CONTRACT,
+    operation: 'updateFeeds',
+    args: [
+      sc.ContractParam.array(...P.map((x) => sc.ContractParam.string(x))),
+      sc.ContractParam.array(...R.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...PX.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...TS.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...AH.map((x) => sc.ContractParam.byteArray(x))),
+      sc.ContractParam.array(...SS.map((x) => sc.ContractParam.integer(x))),
+    ],
+  });
+  const updaterScriptHash = neoWallet.getScriptHashFromPublicKey(updaterPublicKey);
+  const txn = new tx.Transaction({
+    nonce: txParams.nonce,
+    signers: [{ account: updaterScriptHash, scopes: tx.WitnessScope.CalledByEntry }],
+    validUntilBlock: txParams.blockCount + 500,
+    script,
+  });
+  txn.systemFee = u.BigInteger.fromNumber(txParams.systemFee);
+  txn.networkFee = u.BigInteger.fromNumber(txParams.networkFee);
+  return txn.getMessageForSigning(FEED_N3_MAGIC);
+}
+
+test('feed/sign: updateFeeds tx message byte-identical to feed-pusher + signature verifies', async () => {
+  // Deterministic price set (the stubbed in-enclave fetch), fixed clock, and the
+  // on-chain state the relayer/feed-pusher would read on the host.
+  const FIXED_NOW = 1_780_000_000;
+  const SYMBOLS = ['NEO-USD', 'GAS-USD', 'BTC-USD'];
+  const STUB_PRICES = { 'NEO-USD': 5.25, 'GAS-USD': 2.1, 'BTC-USD': 65000.123456 };
+  const ONCHAIN_STATE = {
+    // NEO/BTC will push (price move / no prior record); GAS is unchanged+recent → skipped.
+    'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 },
+    'GAS-USD': { round: FIXED_NOW - 60, price: 2.1, timestamp: FIXED_NOW - 60 },
+    'BTC-USD': { round: 0, price: 0, timestamp: 0 },
+  };
+  // Pin the tx nonce so the message is deterministic (tx.Transaction otherwise
+  // randomizes it). The server echoes it back as body.tx_nonce.
+  const TX_PARAMS = { block_count: 1234567, system_fee: 1234567, network_fee: 234567, nonce: 777 };
+
+  __setPriceFetcherForTests(async (syms) => {
+    const out = {};
+    for (const s of syms) if (s in STUB_PRICES) out[s] = STUB_PRICES[s];
+    return out;
+  });
+
+  const req = {
+    chain: 'neo_n3',
+    symbols: SYMBOLS,
+    onchain_state: ONCHAIN_STATE,
+    now: FIXED_NOW,
+    tx_params: TX_PARAMS,
+    nonce: 'cafe',
+  };
+
+  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
+  assert.equal(body.status, 'ok');
+  assert.equal(body.trust_tier, 'enclave-attested');
+  assert.equal(body.nonce, 'cafe');
+
+  // Independently recompute the planned arrays using the IMPORTED planFeedUpdate +
+  // the SAME scaling/attestation-hash feed-pusher.mjs uses.
+  const planned = { P: [], R: [], PX: [], TS: [], AH: [], SS: [] };
+  for (const s of SYMBOLS) {
+    if (!(s in STUB_PRICES)) continue;
+    const cur = {
+      round: ONCHAIN_STATE[s].round,
+      price: ONCHAIN_STATE[s].price,
+      ts: ONCHAIN_STATE[s].timestamp,
+    };
+    const px = Math.round(STUB_PRICES[s] * 1e6);
+    const plan = planFeedUpdate(cur, STUB_PRICES[s], FIXED_NOW);
+    if (!plan.push) continue;
+    planned.P.push('TWELVEDATA:' + s);
+    planned.R.push(plan.round);
+    planned.PX.push(px);
+    planned.TS.push(plan.ts);
+    planned.AH.push(createHash('sha256').update(`${s}|${px}|${plan.ts}`).digest('hex').slice(0, 32));
+    planned.SS.push(0);
+  }
+
+  // GAS-USD is skipped (recent + unchanged); only NEO + BTC are signed.
+  assert.deepEqual(body.pairs, ['TWELVEDATA:NEO-USD', 'TWELVEDATA:BTC-USD']);
+  assert.deepEqual(body.prices_scaled, planned.PX);
+  assert.deepEqual(body.rounds, planned.R);
+  assert.deepEqual(body.timestamps, planned.TS);
+  assert.deepEqual(body.attestation_hashes, planned.AH);
+  assert.deepEqual(body.source_set_ids, planned.SS);
+  assert.ok(
+    body.skipped.some((e) => e.symbol === 'GAS-USD'),
+    'GAS-USD must be reported skipped (recent + unchanged)'
+  );
+
+  // The server returns the nonce it used; rebuilding with it must reproduce the
+  // signed message byte-for-byte. (Also assert the server honoured our pin.)
+  assert.equal(body.tx_nonce, TX_PARAMS.nonce, 'server must honour the supplied tx nonce');
+  assert.equal(body.valid_until_block, TX_PARAMS.block_count + 500);
+
+  // The load-bearing assertion: the server's signed message === the message
+  // feed-pusher.mjs would sign, recomputed independently from raw neon-js using
+  // the SAME nonce the server returned.
+  const expectedMessage = feedPusherTxMessage(planned, {
+    blockCount: TX_PARAMS.block_count,
+    systemFee: TX_PARAMS.system_fee,
+    networkFee: TX_PARAMS.network_fee,
+    nonce: body.tx_nonce,
+  }, UPDATER_ACCOUNT.publicKey);
+  assert.equal(
+    body.tx_message_hex,
+    expectedMessage,
+    'feed tx message must be byte-identical to feed-pusher.mjs'
+  );
+
+  // The signer is the updater, and the signature verifies over that message.
+  assert.equal(
+    body.public_key.toLowerCase(),
+    UPDATER_ACCOUNT.publicKey.toLowerCase(),
+    'feed signer must be the updater'
+  );
+  assert.equal(
+    neoWallet.verify(body.tx_message_hex, body.signature, body.public_key),
+    true,
+    'feed signature must verify over the tx message'
+  );
+
+  // Sanity: a Witness built from this signature is the witness feed-pusher.mjs
+  // attaches (tx.Witness.fromSignature(sig, pub)) — proves the signature is in the
+  // form the broadcast path consumes.
+  const witness = tx.Witness.fromSignature(body.signature, body.public_key);
+  assert.ok(witness.invocationScript.toString().length > 0);
+
+  __resetPriceFetcherForTests();
+});
+
+test('feed/sign: no symbol clears the push decision → no-update (no signature)', async () => {
+  const FIXED_NOW = 1_780_000_000;
+  __setPriceFetcherForTests(async () => ({ 'NEO-USD': 5.0 }));
+  const req = {
+    chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+    // recent + unchanged → planFeedUpdate returns push:false
+    onchain_state: { 'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 } },
+    now: FIXED_NOW,
+  };
+  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  assert.equal(status, 200);
+  assert.equal(body.status, 'no-update');
+  assert.equal(body.tx_message_hex, null);
+  assert.equal(body.signature, null);
+  assert.deepEqual(body.pairs, []);
+  __resetPriceFetcherForTests();
+});
+
+test('feed/sign: tx params come from the provider seam when not supplied in the request', async () => {
+  const FIXED_NOW = 1_780_000_000;
+  __setPriceFetcherForTests(async () => ({ 'NEO-USD': 7.0 }));
+  // No tx_params in the request → the server pulls them from the provider seam
+  // (in production: an RPC read via the egress lane). Pin a nonce so the rebuild
+  // is deterministic.
+  __setFeedTxParamsProviderForTests(async () => ({
+    blockCount: 9000000,
+    systemFee: 555,
+    networkFee: 666,
+  }));
+  const req = {
+    chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+    onchain_state: { 'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 } },
+    now: FIXED_NOW,
+    tx_nonce: 4242,
+  };
+  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
+  assert.equal(body.status, 'ok');
+  assert.equal(body.valid_until_block, 9000000 + 500, 'valid_until_block must come from the provider');
+  assert.equal(body.tx_nonce, 4242);
+
+  // Rebuild independently with the provider's params + returned nonce.
+  const px = Math.round(7.0 * 1e6);
+  const plan = planFeedUpdate({ round: FIXED_NOW - 60, price: 5.0, ts: FIXED_NOW - 60 }, 7.0, FIXED_NOW);
+  const planned = {
+    P: ['TWELVEDATA:NEO-USD'],
+    R: [plan.round],
+    PX: [px],
+    TS: [plan.ts],
+    AH: [createHash('sha256').update(`NEO-USD|${px}|${plan.ts}`).digest('hex').slice(0, 32)],
+    SS: [0],
+  };
+  const expectedMessage = feedPusherTxMessage(
+    planned,
+    { blockCount: 9000000, systemFee: 555, networkFee: 666, nonce: body.tx_nonce },
+    UPDATER_ACCOUNT.publicKey
+  );
+  assert.equal(body.tx_message_hex, expectedMessage, 'provider-param tx message must be byte-exact');
+  assert.equal(neoWallet.verify(body.tx_message_hex, body.signature, body.public_key), true);
+
+  __resetFeedTxParamsProviderForTests();
+  __resetPriceFetcherForTests();
+});
+
+test('feed/sign: missing tx params (no request params, default provider) surfaces 503', async () => {
+  const FIXED_NOW = 1_780_000_000;
+  // 5.0 -> 5.5 is a 10% move: past the bps threshold, well under the 50%
+  // deviation ceiling, so the symbol pushes and the provider IS reached.
+  __setPriceFetcherForTests(async () => ({ 'NEO-USD': 5.5 }));
+  __resetFeedTxParamsProviderForTests(); // default provider throws 503
+  const req = {
+    chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+    onchain_state: { 'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 } },
+    now: FIXED_NOW,
+  };
+  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  assert.equal(status, 503, `expected 503, got ${status}: ${JSON.stringify(body)}`);
+  assert.match(body.error, /tx network params/);
+  __resetPriceFetcherForTests();
+});
+
+test('feed/sign: a symbol missing from the price fetch is reported, not signed', async () => {
+  const FIXED_NOW = 1_780_000_000;
+  __setPriceFetcherForTests(async () => ({ 'NEO-USD': 6.0 })); // GAS-USD missing
+  const req = {
+    chain: 'neo_n3',
+    symbols: ['NEO-USD', 'GAS-USD'],
+    onchain_state: {
+      'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 },
+      'GAS-USD': { round: FIXED_NOW - 60, price: 2.0, timestamp: FIXED_NOW - 60 },
+    },
+    now: FIXED_NOW,
+    tx_params: { block_count: 100, system_fee: 1, network_fee: 1 },
+  };
+  const { status, body } = await dispatch('POST', '/feed/sign', {}, JSON.stringify(req));
+  assert.equal(status, 200);
+  assert.equal(body.status, 'ok');
+  assert.deepEqual(body.pairs, ['TWELVEDATA:NEO-USD']);
+  assert.deepEqual(body.missing, ['GAS-USD']);
+  __resetPriceFetcherForTests();
+});
+
+test('feed/sign: validation — symbols required, unsupported chain rejected', async () => {
+  const noSymbols = await dispatch(
+    'POST',
+    '/feed/sign',
+    {},
+    JSON.stringify({ chain: 'neo_n3', symbols: [] })
+  );
+  assert.equal(noSymbols.status, 400);
+  assert.match(noSymbols.body.error, /symbols/);
+
+  const badChain = await dispatch(
+    'POST',
+    '/feed/sign',
+    {},
+    JSON.stringify({ chain: 'neox', symbols: ['NEO-USD'] })
+  );
+  assert.equal(badChain.status, 400);
+  assert.match(badChain.body.error, /unsupported feed chain/);
+});
+
+// ---------------------------------------------------------------------------
+// /attestation — nsm-attest passthrough via the stubbed seam. Asserts user_data
+// binds sha256(fulfillment_digest) and the nonce is echoed.
+// ---------------------------------------------------------------------------
+
+test('attestation: user_data binds sha256(fulfillment_digest) + nonce echo (stubbed seam)', async () => {
+  const fulfillmentDigest = 'ab'.repeat(32); // 32-byte digest hex
+  const nonce = 'feed1234';
+  const expectedUserData = createHash('sha256')
+    .update(Buffer.from(fulfillmentDigest, 'hex'))
+    .digest('hex');
+
+  // Stub the attest runner: capture the args the server passes, return a fake doc.
+  let capturedArgs = null;
+  __setAttestRunnerForTests((args) => {
+    capturedArgs = args;
+    return { ok: true, attestation_b64: 'ZmFrZS1jb3NlLWRvYw==', document_len: 11 };
+  });
+
+  const req = { fulfillment_digest_hex: fulfillmentDigest, nonce };
+  const { status, body } = await dispatch('POST', '/attestation', {}, JSON.stringify(req));
+  assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
+  assert.equal(body.status, 'ok');
+  assert.equal(body.trust_tier, 'enclave-attested');
+
+  // user_data is the SINGLE 32-byte commit sha256(digest_bytes) — the §5 binding.
+  assert.equal(body.user_data_hex, expectedUserData);
+  assert.equal(body.user_data_hex.length, 64, 'user_data must be a single 32-byte commit');
+  assert.equal(body.nonce, nonce, 'nonce must be echoed');
+  assert.equal(body.attestation_document, 'ZmFrZS1jb3NlLWRvYw==');
+
+  // The binary actually received --user-data <sha256(digest)>, --nonce <nonce>,
+  // and --public-key <oracle_verifier pubkey>.
+  const argMap = {};
+  for (let i = 0; i < capturedArgs.length; i += 2) argMap[capturedArgs[i]] = capturedArgs[i + 1];
+  assert.equal(argMap['--user-data'], expectedUserData);
+  assert.equal(argMap['--nonce'], nonce);
+  assert.equal(
+    argMap['--public-key'].toLowerCase(),
+    ORACLE_VERIFIER_ACCOUNT.publicKey.toLowerCase(),
+    '--public-key must bind the oracle_verifier signer'
+  );
+
+  __resetAttestRunnerForTests();
+});
+
+test('attestation: GET liveness probe with no binding emits no user_data', async () => {
+  __setAttestRunnerForTests((args) => {
+    // No --user-data when no binding is supplied.
+    assert.equal(args.includes('--user-data'), false);
+    return { ok: true, attestation_b64: 'bGl2ZW5lc3M=', document_len: 8 };
+  });
+  const { status, body } = await dispatch('GET', '/attestation', {}, '');
+  assert.equal(status, 200);
+  assert.equal(body.user_data_hex, null);
+  assert.equal(body.attestation_document, 'bGl2ZW5lc3M=');
+  __resetAttestRunnerForTests();
+});
+
+test('attestation: a {ok:false} nsm helper surfaces a 503 with its error', async () => {
+  __setAttestRunnerForTests(() => ({ ok: false, error: 'open /dev/nsm: not in an enclave' }));
+  const { status, body } = await dispatch(
+    'POST',
+    '/attestation',
+    {},
+    JSON.stringify({ fulfillment_digest_hex: 'cc'.repeat(32) })
+  );
+  assert.equal(status, 503);
+  assert.match(body.error, /\/dev\/nsm/);
+  __resetAttestRunnerForTests();
+});
+
+test('attestation: a throwing nsm helper (spawn failure) surfaces a wrapped 503', async () => {
+  __setAttestRunnerForTests(() => {
+    throw new Error('spawn ENOENT');
+  });
+  const { status, body } = await dispatch(
+    'POST',
+    '/attestation',
+    {},
+    JSON.stringify({ fulfillment_digest_hex: 'dd'.repeat(32) })
+  );
+  assert.equal(status, 503);
+  assert.match(body.error, /nsm attestation helper failed/);
+  __resetAttestRunnerForTests();
+});
+
+test('attestation: a malformed (odd-length) binding hex is rejected with 400', async () => {
+  const { status, body } = await dispatch(
+    'POST',
+    '/attestation',
+    {},
+    JSON.stringify({ fulfillment_digest_hex: 'abc' }) // odd length
+  );
+  assert.equal(status, 400);
+  assert.match(body.error, /even-length hex/);
 });
 
 // ---------------------------------------------------------------------------

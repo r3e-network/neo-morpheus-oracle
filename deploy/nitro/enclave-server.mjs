@@ -1,4 +1,4 @@
-// Morpheus Oracle — compute-in-enclave server (Phase 0, LOCAL).
+// Morpheus Oracle — compute-in-enclave server (LOCAL).
 //
 // A single Node process that does the oracle COMPUTE and the on-chain SIGN
 // atomically: it computes the result IN-PROCESS by reusing the worker `handler`
@@ -14,10 +14,19 @@
 // the compute happens (in-process, inside the measured boundary) and that the
 // signer never sees a caller-supplied `data_hex` for the attested tier.
 //
-// Phase 0 scope: `POST /oracle/fulfill` (atomic compute+sign) + `GET /health`.
-// `/attestation`, `/feed/sign` and `/sign/payload` are out of scope here.
+// Scope:
+//   - `POST /oracle/fulfill` — atomic compute+sign (the attested fulfillment tier).
+//   - `POST /feed/sign`      — feed compute (price fetch + planFeedUpdate + scale)
+//                              + sign of the SAME updateFeeds tx the feed-pusher
+//                              signs today. Byte-identical to feed-pusher.mjs.
+//   - `GET|POST /attestation`— nsm-attest passthrough, binding
+//                              user_data = sha256(fulfillment_digest|tx_message),
+//                              --public-key (signer pubkey), --nonce.
+//   - `GET /health`          — compute + signer readiness.
 
 import http from 'node:http';
+import { execFileSync } from 'node:child_process';
+import { createHash, randomBytes } from 'node:crypto';
 
 // Canonical compute reuse — the worker's default export `handler(Request)=>Response`.
 import workerHandler from '../../workers/nitro-worker/src/worker.js';
@@ -46,9 +55,34 @@ import { buildNeoXDigest, signNeoXFulfillment, resolveResultBytesHex } from '../
 // neon-js wallet.sign (secp256r1). Those functions are not exported from the
 // signer server, so we reuse the shared resolver + sign inline with neon-js.
 import { reportPinnedNeoN3Role, normalizeMorpheusNetwork } from '../../scripts/lib-neo-signers.mjs';
-import { wallet as neoWallet } from '@cityofzion/neon-js';
+import neonPkg from '@cityofzion/neon-js';
+
+const { wallet: neoWallet, sc, tx, u } = neonPkg;
+
+// Canonical feed decision core — IMPORTED from the feed-pusher (the SAME function
+// the host feed-pusher uses today), never re-implemented. td()/the tx builder are
+// NOT exported by feed-pusher.mjs, so those are mirrored precisely below (the
+// updateFeeds tx must be byte-identical to feed-pusher.mjs `pushNeoN3`).
+//
+// feed-pusher.mjs runs a live push cycle on import unless FEED_PUSHER_SKIP_MAIN=1.
+// We pin it BEFORE the dynamic import so importing it here never touches a live
+// RPC/TwelveData (mirrors the feed-pusher.test.mjs import guard).
+if (process.env.FEED_PUSHER_SKIP_MAIN === undefined) {
+  process.env.FEED_PUSHER_SKIP_MAIN = '1';
+}
+const { planFeedUpdate } = await import('../feed-pusher/feed-pusher.mjs');
 
 const DEFAULT_PORT = 8787;
+
+// ── Neo N3 feed contract constants — MIRRORED EXACTLY from feed-pusher.mjs ──────
+// These MUST stay identical to feed-pusher.mjs (pushNeoN3) or the signed
+// updateFeeds message diverges from what the deployed MorpheusDataFeed verifies.
+const FEED_N3_MAGIC = Number(process.env.FEED_MAGIC || 860833102);
+const FEED_N3_CONTRACT = '03013f49c42a14546c8bbe58f9d434c3517fccab';
+const FEED_N3_PAIR_PREFIX = 'TWELVEDATA:';
+const FEED_PRICE_SCALE = 1e6; // px = Math.round(price * 1e6)  (feed-pusher.mjs:278/290)
+const FEED_VALID_UNTIL_OFFSET = 500; // count + 500  (feed-pusher.mjs:315)
+const FEED_TD_TIMEOUT_MS = Math.max(Number(process.env.FEED_TD_TIMEOUT_MS || 25000), 1000);
 const MAX_BODY_BYTES = Math.max(Number(process.env.ENCLAVE_MAX_BODY_BYTES || 262144), 1024);
 
 function trimString(value) {
@@ -362,6 +396,436 @@ export async function handleOracleFulfill(requestBody) {
 }
 
 // ---------------------------------------------------------------------------
+// /feed/sign — feed COMPUTE (fetch + plan + scale) + SIGN the updateFeeds tx
+// ---------------------------------------------------------------------------
+//
+// Moves the feed value+decision in-enclave. It MIRRORS feed-pusher.mjs precisely:
+//   1. td(symbols)           -> per-symbol TwelveData price (drop non-positive)
+//   2. planFeedUpdate(...)   -> IMPORTED from feed-pusher.mjs (the SAME decision)
+//   3. px = Math.round(price * 1e6); AH = sha256(`${s}|${px}|${ts}`).slice(0,32)
+//   4. build the SAME updateFeeds(P,R,PX,TS,AH,SS) tx and sign
+//      txn.getMessageForSigning(N3_MAGIC) with the `updater` role.
+// The signed message MUST be byte-identical to feed-pusher.mjs `pushNeoN3`.
+
+// Price fetch — MIRRORS feed-pusher.mjs td() exactly (URL, parse, non-positive
+// drop). Injectable seam (__setPriceFetcherForTests) so the route is unit-testable
+// WITHOUT a live TwelveData call (mirrors the worker-handler test seam above).
+async function defaultPriceFetcher(syms) {
+  const apiKey = trimString(process.env.TD_KEY);
+  const t = syms.map((s) => s.replace('-', '/'));
+  const response = await fetch(
+    `https://api.twelvedata.com/price?symbol=${encodeURIComponent(t.join(','))}&apikey=${apiKey}`,
+    { signal: AbortSignal.timeout(FEED_TD_TIMEOUT_MS) }
+  );
+  const text = await response.text();
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('TwelveData non-JSON (HTTP ' + response.status + ')');
+  }
+  const out = {};
+  for (const s of syms) {
+    const k = s.replace('-', '/');
+    const entry = t.length === 1 ? parsed : parsed[k];
+    const value = entry && entry.price;
+    const n = Number(value);
+    // Drop non-positive / non-finite quotes (a 0/negative reading is "missing").
+    if (value != null && Number.isFinite(n) && n > 0) out[s] = n;
+  }
+  return out;
+}
+
+let activePriceFetcher = defaultPriceFetcher;
+
+export function __setPriceFetcherForTests(fn) {
+  activePriceFetcher = typeof fn === 'function' ? fn : defaultPriceFetcher;
+}
+
+export function __resetPriceFetcherForTests() {
+  activePriceFetcher = defaultPriceFetcher;
+}
+
+// Network params that feed-pusher derives from live RPC (getblockcount,
+// invokescript, calculatenetworkfee). Injectable so the test reproduces the EXACT
+// tx; in production the enclave fills them via vsock-proxy RPC (Phase >=3).
+let activeFeedTxParamsProvider = defaultFeedTxParamsProvider;
+
+async function defaultFeedTxParamsProvider() {
+  throw httpError(
+    503,
+    'feed tx network params (block_count/system_fee/network_fee) unavailable: ' +
+      'supply tx_params in the request or configure an RPC provider'
+  );
+}
+
+export function __setFeedTxParamsProviderForTests(fn) {
+  activeFeedTxParamsProvider = typeof fn === 'function' ? fn : defaultFeedTxParamsProvider;
+}
+
+export function __resetFeedTxParamsProviderForTests() {
+  activeFeedTxParamsProvider = defaultFeedTxParamsProvider;
+}
+
+// Build the EXACT updateFeeds transaction feed-pusher.mjs pushNeoN3 builds, and
+// return its signing message. The construction mirrors pushNeoN3 (lines 300-336)
+// field-for-field.
+//
+// IMPORTANT (consensus correctness): tx.Transaction assigns a RANDOM `nonce` when
+// one is not supplied, which makes getMessageForSigning() non-deterministic. In
+// the host feed-pusher today that is fine because it builds+signs+broadcasts the
+// SAME tx instance. In the enclave model the enclave signs but the HOST
+// broadcasts, so the host must rebuild the identical tx (same nonce) to attach
+// the witness — therefore the nonce MUST be an explicit, returned input, not a
+// per-instance random. We require it here so the message is reproducible and the
+// broadcaster can reconstruct the exact tx (returned as `tx_nonce`).
+//
+// planned: { P:string[], R:number[], PX:number[], TS:number[], AH:string[], SS:number[] }
+// txParams: { blockCount, systemFee, networkFee, nonce }  (nonce REQUIRED, uint32)
+// updaterPublicKey: the updater's compressed pubkey hex (for the signer script hash)
+export function buildUpdateFeedsTxMessage(planned, txParams, updaterPublicKey) {
+  const { P, R, PX, TS, AH, SS } = planned;
+  if (!Number.isInteger(txParams.nonce)) {
+    throw httpError(500, 'updateFeeds tx nonce must be an integer (reproducibility invariant)');
+  }
+  const script = sc.createScript({
+    scriptHash: FEED_N3_CONTRACT,
+    operation: 'updateFeeds',
+    args: [
+      sc.ContractParam.array(...P.map((x) => sc.ContractParam.string(x))),
+      sc.ContractParam.array(...R.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...PX.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...TS.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...AH.map((x) => sc.ContractParam.byteArray(x))),
+      sc.ContractParam.array(...SS.map((x) => sc.ContractParam.integer(x))),
+    ],
+  });
+  const updaterScriptHash = neoWallet.getScriptHashFromPublicKey(updaterPublicKey);
+  const txn = new tx.Transaction({
+    nonce: txParams.nonce,
+    signers: [{ account: updaterScriptHash, scopes: tx.WitnessScope.CalledByEntry }],
+    validUntilBlock: txParams.blockCount + FEED_VALID_UNTIL_OFFSET,
+    script,
+  });
+  txn.systemFee = u.BigInteger.fromNumber(txParams.systemFee);
+  txn.networkFee = u.BigInteger.fromNumber(txParams.networkFee);
+  return { txn, script, message: txn.getMessageForSigning(FEED_N3_MAGIC) };
+}
+
+// Resolve + sign with the updater secp256r1 (Neo N3) key — SAME role/key
+// resolution + signing primitive the enclave signer uses for {role:'updater'}.
+function resolveUpdaterIdentity() {
+  const network = resolveNetwork();
+  const report = reportPinnedNeoN3Role(network, 'updater', { env: process.env, allowMissing: false });
+  if (!report.ok || !report.materialized) {
+    throw httpError(503, 'updater signer is not configured or does not match pinned identity');
+  }
+  const secret = report.materialized.private_key || report.materialized.wif;
+  const account = new neoWallet.Account(secret);
+  return { account };
+}
+
+function signUpdaterMessage(messageHex) {
+  const { account } = resolveUpdaterIdentity();
+  const dataHex = normalizeHex(messageHex);
+  const signature = neoWallet.sign(dataHex, account.privateKey);
+  return {
+    signature,
+    public_key: account.publicKey,
+    address: account.address,
+    script_hash: `0x${account.scriptHash}`,
+    source: 'enclave_updater',
+  };
+}
+
+function randomUint32() {
+  return randomBytes(4).readUInt32BE(0);
+}
+
+function normalizeOnchainState(rawState) {
+  const state = rawState && typeof rawState === 'object' && !Array.isArray(rawState) ? rawState : {};
+  const out = {};
+  for (const [sym, value] of Object.entries(state)) {
+    if (!value || typeof value !== 'object') continue;
+    out[sym] = {
+      round: Math.max(Number(value.round ?? 0) || 0, 0),
+      price: Number(value.price ?? 0) || 0,
+      ts: Math.max(Number(value.timestamp ?? value.ts ?? 0) || 0, 0),
+    };
+  }
+  return out;
+}
+
+export async function handleFeedSign(requestBody) {
+  const chain = normalizeChain(requestBody?.chain);
+  if (chain !== 'neo_n3' && chain !== 'legacy') {
+    // EVM feed signing is feed-pusher-local (ethers wallet) today; the enclave
+    // updater path signs the Neo N3 updateFeeds tx. Reject anything else loudly.
+    throw httpError(400, `unsupported feed chain: ${chain} (only neo_n3 is enclave-signed)`);
+  }
+
+  const symbols = Array.isArray(requestBody?.symbols)
+    ? requestBody.symbols.map((s) => trimString(s)).filter(Boolean)
+    : [];
+  if (!symbols.length) throw httpError(400, 'symbols[] is required');
+
+  const onchainState = normalizeOnchainState(requestBody?.onchain_state || requestBody?.onchainState);
+  const nonce = normalizeHex(requestBody?.nonce || '');
+  const now = Number.isFinite(Number(requestBody?.now))
+    ? Math.floor(Number(requestBody.now))
+    : Math.floor(Date.now() / 1000);
+
+  // (1) COMPUTE: fetch prices in-enclave (mirrors feed-pusher td()).
+  const prices = await activePriceFetcher(symbols);
+
+  // (2)+(3) PLAN + SCALE — identical arrays to feed-pusher.mjs pushNeoN3.
+  const planned = { P: [], R: [], PX: [], TS: [], AH: [], SS: [] };
+  const pairs = [];
+  const rounds = [];
+  const pricesScaled = [];
+  const timestamps = [];
+  const attestationHashes = [];
+  const sourceSetIds = [];
+  const skipped = [];
+  const missing = [];
+
+  for (const s of symbols) {
+    if (!(s in prices)) {
+      missing.push(s);
+      continue;
+    }
+    const cur = onchainState[s] || { round: 0, price: 0, ts: 0 };
+    const px = Math.round(prices[s] * FEED_PRICE_SCALE);
+    const plan = planFeedUpdate(cur, prices[s], now);
+    if (!plan.push) {
+      skipped.push({ symbol: s, reason: plan.rejected || 'unchanged_recent' });
+      continue;
+    }
+    const round = plan.round;
+    const ts = plan.ts;
+    const attestationHash = createHash('sha256')
+      .update(`${s}|${px}|${ts}`)
+      .digest('hex')
+      .slice(0, 32);
+    const pair = FEED_N3_PAIR_PREFIX + s;
+    planned.P.push(pair);
+    planned.R.push(round);
+    planned.PX.push(px);
+    planned.TS.push(ts);
+    planned.AH.push(attestationHash);
+    planned.SS.push(0);
+    pairs.push(pair);
+    rounds.push(round);
+    pricesScaled.push(px);
+    timestamps.push(ts);
+    attestationHashes.push(attestationHash);
+    sourceSetIds.push(0);
+  }
+
+  // No symbol cleared the push decision — nothing to sign (matches feed-pusher's
+  // "no updates" branch; not an error).
+  if (!planned.P.length) {
+    return {
+      status: 'no-update',
+      chain: 'neo_n3',
+      pairs: [],
+      rounds: [],
+      prices_scaled: [],
+      timestamps: [],
+      attestation_hashes: [],
+      source_set_ids: [],
+      tx_message_hex: null,
+      signature: null,
+      public_key: null,
+      trust_tier: 'enclave-attested',
+      skipped,
+      missing,
+      ...(nonce ? { nonce } : {}),
+    };
+  }
+
+  // The updater pubkey drives the tx signer's verification script; resolve it
+  // before building the tx so the message binds the SAME signer that signs it.
+  const updater = resolveUpdaterIdentity();
+  const updaterPublicKey = updater.account.publicKey;
+
+  // RPC-derived tx params (block count + fees). Caller may supply them directly
+  // (relayer/feed-pusher already read them on the host), else the configured
+  // provider fetches via the enclave egress lane.
+  const suppliedParams =
+    requestBody?.tx_params && typeof requestBody.tx_params === 'object'
+      ? requestBody.tx_params
+      : null;
+  let txParams;
+  if (
+    suppliedParams &&
+    Number.isFinite(Number(suppliedParams.block_count ?? suppliedParams.blockCount)) &&
+    Number.isFinite(Number(suppliedParams.system_fee ?? suppliedParams.systemFee)) &&
+    Number.isFinite(Number(suppliedParams.network_fee ?? suppliedParams.networkFee))
+  ) {
+    txParams = {
+      blockCount: Number(suppliedParams.block_count ?? suppliedParams.blockCount),
+      systemFee: Number(suppliedParams.system_fee ?? suppliedParams.systemFee),
+      networkFee: Number(suppliedParams.network_fee ?? suppliedParams.networkFee),
+    };
+  } else {
+    txParams = await activeFeedTxParamsProvider({ planned, script: null });
+  }
+
+  // The tx nonce is the reproducibility key (see buildUpdateFeedsTxMessage). Honour
+  // a caller-supplied nonce (so the host can pin one), else derive a deterministic
+  // uint32 from the freshness nonce when present, else a fresh random uint32. It is
+  // RETURNED so the broadcaster can rebuild the identical tx and attach the witness.
+  let txNonce = Number(
+    suppliedParams?.nonce ?? suppliedParams?.tx_nonce ?? requestBody?.tx_nonce ?? NaN
+  );
+  if (!Number.isInteger(txNonce) || txNonce < 0 || txNonce > 0xffffffff) {
+    if (nonce) {
+      // Deterministic uint32 from the freshness nonce: first 4 bytes of its sha256.
+      txNonce = createHash('sha256').update(Buffer.from(nonce, 'hex')).digest().readUInt32BE(0);
+    } else {
+      txNonce = randomUint32();
+    }
+  }
+  const fullTxParams = { ...txParams, nonce: txNonce };
+
+  // (4) BUILD the EXACT updateFeeds tx + SIGN its message with the updater key.
+  const { message } = buildUpdateFeedsTxMessage(planned, fullTxParams, updaterPublicKey);
+  const signed = signUpdaterMessage(message);
+
+  return {
+    status: 'ok',
+    chain: 'neo_n3',
+    pairs,
+    rounds,
+    prices_scaled: pricesScaled,
+    timestamps,
+    attestation_hashes: attestationHashes,
+    source_set_ids: sourceSetIds,
+    tx_message_hex: message,
+    tx_nonce: txNonce,
+    valid_until_block: fullTxParams.blockCount + FEED_VALID_UNTIL_OFFSET,
+    signature: signed.signature,
+    public_key: signed.public_key,
+    trust_tier: 'enclave-attested',
+    skipped,
+    missing,
+    ...(nonce ? { nonce } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// /attestation — nsm-attest passthrough (binds user_data + public-key + nonce)
+// ---------------------------------------------------------------------------
+//
+// Mirrors nitro-signer-server.mjs handleAttestation: spawn the nsm-attest binary
+// with --user-data/--nonce/--public-key and return the COSE_Sign1 doc. The key
+// difference (the §5 binding fix) is user_data: for fulfill/feed it commits to a
+// SINGLE 32-byte hash = sha256(fulfillment_digest | tx_message), not the signer's
+// pinned-role list. The binary is run via an INJECTABLE seam so the route is
+// unit-testable without a real enclave (mirrors the worker-handler test seam).
+
+const DEFAULT_ATTEST_BIN = trimString(process.env.NITRO_ATTEST_BIN) || '/app/bin/nsm-attest';
+
+// Runs the nsm-attest binary; returns its parsed JSON. Replaceable in tests.
+function defaultAttestRunner(args) {
+  const raw = execFileSync(DEFAULT_ATTEST_BIN, args, {
+    timeout: 8000,
+    maxBuffer: 4 * 1024 * 1024,
+  }).toString('utf8');
+  return JSON.parse(raw.trim().split('\n').filter(Boolean).pop());
+}
+
+let activeAttestRunner = defaultAttestRunner;
+
+export function __setAttestRunnerForTests(fn) {
+  activeAttestRunner = typeof fn === 'function' ? fn : defaultAttestRunner;
+}
+
+export function __resetAttestRunnerForTests() {
+  activeAttestRunner = defaultAttestRunner;
+}
+
+// Resolve the public key to bind into the document for the requested role
+// (default oracle_verifier — the fulfillment signer; updater for feed binding).
+function resolveAttestationPublicKey(role) {
+  const network = resolveNetwork();
+  const normalized = trimString(role).toLowerCase() === 'updater' ? 'updater' : 'oracle_verifier';
+  try {
+    const report = reportPinnedNeoN3Role(network, normalized, { env: process.env, allowMissing: false });
+    return { role: normalized, publicKeyHex: normalizeHex(report.public_key || '') };
+  } catch {
+    return { role: normalized, publicKeyHex: '' };
+  }
+}
+
+export function handleAttestation(payload = {}) {
+  // The binding commitment. Prefer an explicit digest/tx message; fall back to a
+  // caller-supplied user_data hex. Either way user_data = sha256(<binding bytes>),
+  // a single 32-byte commit (the §5 dead-binding fix).
+  const digestSource = normalizeHex(
+    payload.fulfillment_digest_hex ||
+      payload.fulfillment_digest ||
+      payload.tx_message_hex ||
+      payload.tx_message ||
+      payload.user_data ||
+      payload.user_data_hex ||
+      ''
+  );
+  const nonceHex = normalizeHex(payload.nonce || payload.report_data || payload.report_data_hex || '');
+  if (nonceHex && (!/^[0-9a-f]*$/.test(nonceHex) || nonceHex.length % 2 !== 0)) {
+    throw httpError(400, 'nonce must be even-length hex');
+  }
+  if (digestSource && (!/^[0-9a-f]*$/.test(digestSource) || digestSource.length % 2 !== 0)) {
+    throw httpError(400, 'binding (digest/tx_message/user_data) must be even-length hex');
+  }
+
+  // sha256 of the binding bytes -> 32-byte user_data commit. With no binding
+  // supplied (a liveness probe) user_data is empty (matches a bare /attestation).
+  const userDataHex = digestSource
+    ? createHash('sha256').update(Buffer.from(digestSource, 'hex')).digest('hex')
+    : '';
+
+  const { role, publicKeyHex } = resolveAttestationPublicKey(payload.role || payload.key_role);
+
+  const args = [];
+  if (userDataHex) args.push('--user-data', userDataHex);
+  if (nonceHex) args.push('--nonce', nonceHex);
+  if (publicKeyHex) args.push('--public-key', publicKeyHex);
+
+  let parsed;
+  try {
+    parsed = activeAttestRunner(args);
+  } catch (error) {
+    const detail =
+      error && error.stderr
+        ? error.stderr.toString().slice(0, 300)
+        : (error && error.message) || 'spawn failed';
+    throw httpError(503, `nsm attestation helper failed: ${detail}`);
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    throw httpError(503, 'nsm attestation helper returned invalid output');
+  }
+  if (!parsed.ok) {
+    throw httpError(503, parsed.error || 'nsm attestation failed');
+  }
+
+  return {
+    status: 'ok',
+    runtime: 'morpheus-enclave-server',
+    network: resolveNetwork(),
+    role,
+    format: 'cose-sign1-cbor-base64',
+    public_key: publicKeyHex || null,
+    nonce: nonceHex || null,
+    user_data_hex: userDataHex || null,
+    document_len: parsed.document_len || null,
+    attestation_document: parsed.attestation_b64 || parsed.attestation_document || null,
+    trust_tier: 'enclave-attested',
+  };
+}
+
+// ---------------------------------------------------------------------------
 // /health — compute + signer readiness
 // ---------------------------------------------------------------------------
 
@@ -429,6 +893,20 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
     if (httpMethod === 'POST' && path.endsWith('/oracle/fulfill')) {
       const parsed = parseBody(body);
       const result = await handleOracleFulfill(parsed);
+      return { status: 200, body: result };
+    }
+
+    if (httpMethod === 'POST' && path.endsWith('/feed/sign')) {
+      const parsed = parseBody(body);
+      const result = await handleFeedSign(parsed);
+      return { status: 200, body: result };
+    }
+
+    if ((httpMethod === 'GET' || httpMethod === 'POST') && path.endsWith('/attestation')) {
+      // GET binds via query params; POST via JSON body.
+      const payload =
+        httpMethod === 'GET' ? Object.fromEntries(url.searchParams) : parseBody(body);
+      const result = handleAttestation(payload);
       return { status: 200, body: result };
     }
 
