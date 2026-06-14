@@ -2,12 +2,15 @@ import crypto from 'node:crypto';
 import { callNitro } from './nitro.js';
 import {
   buildFulfillmentDigestBytes,
+  buildOnchainResultEnvelope,
   buildWorkerPayload,
   decodePayloadText,
   encodeFulfillmentResult,
   isOperatorOnlyRequestType,
   resolveKernelIntent,
   resolveWorkerRoute,
+  TRUST_TIER_ENCLAVE_ATTESTED,
+  TRUST_TIER_HOST_UNATTESTED,
 } from './router.js';
 import {
   guardQueuedAutomationExecution,
@@ -16,7 +19,12 @@ import {
 } from './automation.js';
 import { buildUpkeepDispatch } from './automation-supervisor.js';
 import { fulfillNeoN3Request } from './neo-n3.js';
-import { fulfillNeoXRequest, signNeoXFulfillment } from './neox.js';
+import {
+  buildNeoXDigest,
+  fulfillNeoXRequest,
+  resolveResultBytesHex,
+  signNeoXFulfillment,
+} from './neox.js';
 import {
   buildEventKey,
   clearRetryItem,
@@ -357,6 +365,167 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
   return response.body;
 }
 
+// ---------------------------------------------------------------------------
+// Compute-in-enclave fulfillment (POST /oracle/fulfill) — flag-gated (Phase 4)
+// ---------------------------------------------------------------------------
+//
+// When config.nitro.enclaveFulfill is TRUE the attested lanes call the enclave's
+// atomic compute+sign endpoint once instead of the two-step (host-worker compute
+// + a separate enclave /sign/payload). The relayer becomes pure delivery: it
+// carries {result, signature} only and INDEPENDENTLY recomputes the fulfillment
+// digest as a defense-in-depth cross-check (the on-chain consensus check is still
+// authoritative — this catches enclave/relayer drift before a bad submit).
+
+// The host-unattested arbitrary-URL fetch lane (oracle.fetch / smart-fetch with an
+// explicit payload.url) cannot be egress-allow-listed inside the enclave, so it
+// stays on the host worker regardless of the flag. Everything else routing through
+// the kernel intents below is an attested lane that the enclave can compute+sign.
+function isHostUnattestedFetchLane(kernelIntent, payload) {
+  if (kernelIntent.workerRoute !== '/oracle/smart-fetch') return false;
+  return Boolean(trimString(payload?.url || ''));
+}
+
+// Recompute the fulfillment digest LOCALLY from the result the enclave returned,
+// using the SAME canonical builders + the SAME deployment/network binding the
+// relayer's own signFulfillmentPayload uses. Returns the lowercase hex digest so
+// it can be compared byte-for-byte to the enclave's fulfillment_digest_hex.
+function recomputeFulfillmentDigestHex(config, chain, fulfillment) {
+  if (chain === 'neox') {
+    const resultBytesHex = resolveResultBytesHex(
+      fulfillment.result,
+      fulfillment.result_bytes_base64 || ''
+    );
+    // buildNeoXDigest returns a 0x-prefixed keccak hex; normalize for comparison.
+    return normalizePublicKey(buildNeoXDigest(config, fulfillment, resultBytesHex));
+  }
+  const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
+  if (chain === 'neo_n3') {
+    digestContext.contractScriptHash = config?.neo_n3?.oracleContract || '';
+    digestContext.networkMagic = config?.neo_n3?.networkMagic;
+  }
+  const digestBytes = buildFulfillmentDigestBytes(
+    fulfillment.requestId,
+    fulfillment.requestType,
+    fulfillment.success,
+    fulfillment.result,
+    fulfillment.error,
+    fulfillment.result_bytes_base64 || '',
+    digestContext
+  );
+  return digestBytes.toString('hex');
+}
+
+// Build the kernel-context object the enclave /oracle/fulfill endpoint needs to
+// rebuild the EXACT digest (so its signature verifies on-chain unchanged). Mirrors
+// the fields signFulfillmentPayload binds.
+function buildEnclaveFulfillmentContext(config, chain, event, fulfillmentContext) {
+  const base = {
+    app_id: fulfillmentContext.appId,
+    module_id: fulfillmentContext.moduleId,
+    operation: fulfillmentContext.operation,
+  };
+  if (chain === 'neox') {
+    return {
+      ...base,
+      chain_id: config?.neox?.chainId,
+      oracle_contract: config?.neox?.oracleContract || '',
+    };
+  }
+  return {
+    ...base,
+    contract_script_hash: config?.neo_n3?.oracleContract || '',
+    network_magic: config?.neo_n3?.networkMagic,
+  };
+}
+
+// Single atomic compute+sign call to the enclave for an attested lane. Consumes
+// {success, result, result_bytes_base64, error, signature, public_key,
+// fulfillment_digest_hex, trust_tier} and asserts the returned digest equals the
+// relayer's own recomputation before the caller submits.
+async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payload, kernelIntent) {
+  const enclavePayload = {
+    chain,
+    request_type: event.requestType,
+    request_id: String(event.requestId),
+    payload: {
+      ...payload,
+      requester: event.requester || payload.requester || '',
+      callback_contract: event.callbackContract || payload.callback_contract || '',
+      callback_method: event.callbackMethod || payload.callback_method || '',
+    },
+    // payload_text carries the raw confidential envelope for the decrypt lane
+    // (the enclave reads it the same way the host /oracle/decrypt branch does).
+    payload_text: event.payloadText || '',
+    fulfillment_context: buildEnclaveFulfillmentContext(config, chain, event, fulfillmentContext),
+    nonce: crypto.randomBytes(16).toString('hex'),
+  };
+
+  const response = await callNitro(config, '/oracle/fulfill', enclavePayload, {
+    baseUrl: config.nitro.enclaveFulfillUrl,
+  });
+
+  // A transient enclave HTTP failure (5xx/429/408/425/0) must be retried, never
+  // finalized as a permanent on-chain failure (mirrors the host worker lanes).
+  if (!response.ok && isTransientWorkerStatus(response.status)) {
+    throw buildTransientWorkerError(
+      response.status,
+      typeof response.body?.error === 'string' ? response.body.error : 'enclave fulfill'
+    );
+  }
+
+  const body = response.body && typeof response.body === 'object' ? response.body : {};
+  if (!response.ok) {
+    throw new Error(
+      typeof body.error === 'string' && body.error
+        ? body.error
+        : `enclave fulfill failed with status ${response.status}`
+    );
+  }
+  if (typeof body.signature !== 'string' || !body.signature) {
+    throw new Error(
+      typeof body.error === 'string' && body.error
+        ? body.error
+        : 'enclave fulfill returned no signature'
+    );
+  }
+
+  const fulfillment = {
+    requestId: String(event.requestId),
+    requestType: event.requestType,
+    appId: fulfillmentContext.appId,
+    moduleId: fulfillmentContext.moduleId,
+    operation: fulfillmentContext.operation,
+    success: Boolean(body.success),
+    result: typeof body.result === 'string' ? body.result : '',
+    result_bytes_base64:
+      typeof body.result_bytes_base64 === 'string' ? body.result_bytes_base64 : '',
+    error: typeof body.error === 'string' ? body.error : '',
+  };
+
+  // DIGEST CROSS-CHECK (defense in depth): independently recompute the digest from
+  // the enclave-returned result and assert it equals the enclave's returned
+  // fulfillment_digest_hex. A mismatch means the enclave and relayer disagree on
+  // the consensus-critical bytes — treat it as a HARD failure and do NOT submit.
+  const returnedDigest = normalizePublicKey(body.fulfillment_digest_hex || '');
+  const localDigest = normalizePublicKey(recomputeFulfillmentDigestHex(config, chain, fulfillment));
+  if (!returnedDigest || returnedDigest !== localDigest) {
+    throw new Error(
+      'invalid signature: enclave fulfillment digest mismatch ' +
+        `(enclave=${returnedDigest || 'missing'} relayer=${localDigest}) — refusing to submit`
+    );
+  }
+
+  return {
+    fulfillment,
+    signature: body.signature,
+    trust_tier:
+      typeof body.trust_tier === 'string' && body.trust_tier
+        ? body.trust_tier
+        : TRUST_TIER_ENCLAVE_ATTESTED,
+    worker_response: body.verification && typeof body.verification === 'object' ? body.verification : body,
+  };
+}
+
 async function fulfillNeoRequest(config, event, fulfillment, verification) {
   if (typeof config?.hooks?.fulfillNeoRequest === 'function') {
     return config.hooks.fulfillNeoRequest({
@@ -420,6 +589,15 @@ export function buildPreparedFulfillmentRetryMeta(prepared = {}) {
         : null,
     verification_signature:
       typeof prepared.verification_signature === 'string' ? prepared.verification_signature : '',
+    // Tiered-trust label carried alongside the prepared fulfillment. It is NOT part
+    // of the digested `result` (see buildOnchainResultEnvelope's digest-neutrality
+    // note) — purely an additive provenance label that lands in the on-chain result
+    // envelope / API response. Defaults to enclave-attested so the field is always
+    // present; the host-unattested arbitrary-URL lane overrides it.
+    trust_tier:
+      typeof prepared.trust_tier === 'string' && prepared.trust_tier
+        ? prepared.trust_tier
+        : TRUST_TIER_ENCLAVE_ATTESTED,
   };
 }
 
@@ -435,6 +613,7 @@ function buildPreparedFulfillment(fulfillment, details = {}) {
     worker_status: details.worker_status ?? null,
     worker_response: details.worker_response || null,
     verification_signature: details.verification_signature || '',
+    trust_tier: details.trust_tier || TRUST_TIER_ENCLAVE_ATTESTED,
   });
 }
 
@@ -699,6 +878,34 @@ async function prepareOracleFulfillment(config, event, logger = null) {
       }
     );
   }
+  // Compute-in-enclave attested path (flag-gated, Phase 4). When the flag is ON,
+  // the attested lanes (price/feed query, vrf, compute, confidential decrypt,
+  // neodid) call the enclave's atomic POST /oracle/fulfill ONCE instead of the
+  // two-step (host-worker compute + a separate enclave /sign/payload). The
+  // randomness for VRF now comes from the enclave (computed + attested), so the
+  // relayer-local crypto.randomBytes branch below is skipped while the flag is on.
+  // The arbitrary-URL fetch lane (oracle.fetch / smart-fetch with payload.url)
+  // stays on the host worker regardless and is tagged host-unattested. Flag OFF =
+  // exactly today's behavior (all branches below run unchanged).
+  if (config?.nitro?.enclaveFulfill && !isHostUnattestedFetchLane(kernelIntent, payload)) {
+    const enclaveResult = await callEnclaveFulfill(
+      config,
+      event.chain,
+      event,
+      fulfillmentContext,
+      payload,
+      kernelIntent
+    );
+    return buildPreparedFulfillment(enclaveResult.fulfillment, {
+      route: `enclave:${kernelIntent.moduleId}`,
+      module_id: fulfillmentContext.moduleId,
+      operation: fulfillmentContext.operation,
+      worker_response: enclaveResult.worker_response,
+      worker_status: 200,
+      verification_signature: enclaveResult.signature,
+      trust_tier: enclaveResult.trust_tier,
+    });
+  }
   // Local VRF handler: kernel random.generate needs no compute worker — verifiable
   // randomness is just 32 CSPRNG bytes signed by the oracle_verifier. Mirrors the
   // operator-only / automation local branches above (no callNitro). The on-chain
@@ -835,6 +1042,13 @@ async function prepareOracleFulfillment(config, event, logger = null) {
     worker_response: workerResponse.body,
     worker_status: workerResponse.status,
     verification_signature: verification.signature,
+    // Tiered-trust label: the arbitrary-URL fetch lane (computed on the untrusted
+    // host worker, no enclave attestation possible) is host-unattested. Every other
+    // host-worker lane keeps the default attested label (flag-off topology where
+    // the worker IS the enclave today). Purely a provenance label — not digested.
+    trust_tier: isHostUnattestedFetchLane(kernelIntent, payload)
+      ? TRUST_TIER_HOST_UNATTESTED
+      : TRUST_TIER_ENCLAVE_ATTESTED,
     durations_ms: {
       worker: workerDurationMs,
       verification: verificationDurationMs,

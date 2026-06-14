@@ -189,8 +189,19 @@ const N3_UPDATER_SH = '9fb28bdacfaa7fcc0a4d660d0dc990b0e7d46118';
 const SIGNER = process.env.SIGNER_URL || 'http://127.0.0.1:8787';
 const TOKEN = process.env.RUNTIME_TOKEN;
 const N3_GAS_WARN = Number(process.env.GAS_WARN || 8);
+// Compute-in-enclave feed signing flag (Phase 4). Default FALSE: today's behavior
+// — the host computes the plan via td()+planFeedUpdate and the enclave blind-signs
+// getMessageForSigning via /sign/payload {role:'updater'}. When TRUE the host POSTs
+// {chain,symbols,onchain_state,tx_params} to the enclave /feed/sign; the enclave
+// fetches+plans+scales+signs the updateFeeds tx IN the measured boundary and
+// returns the plan + tx_nonce + valid_until_block + signature. The host rebuilds
+// the IDENTICAL tx from the returned plan + tx_nonce, asserts its own
+// getMessageForSigning matches the returned tx_message_hex (so the host and enclave
+// agree on the signed bytes), attaches the witness, and broadcasts.
+const ENCLAVE_FEED_SIGN =
+  /^(1|true|yes|on)$/i.test(String(process.env.MORPHEUS_FEED_PUSHER_ENCLAVE_SIGN || '').trim());
 
-async function n3rpc(method, params) {
+async function defaultN3Rpc(method, params) {
   let lastErr;
   for (const url of N3_RPCS) {
     try {
@@ -215,6 +226,20 @@ async function n3rpc(method, params) {
   }
   throw lastErr;
 }
+
+// Injectable RPC seam so the flag-on pushNeoN3 cycle is unit-testable end-to-end
+// without live Neo RPC nodes (the test supplies deterministic responses). The
+// systemd entrypoint never touches the setter, so production behavior is unchanged.
+let n3rpcImpl = defaultN3Rpc;
+function n3rpc(method, params) {
+  return n3rpcImpl(method, params);
+}
+export function __setN3RpcForTests(fn) {
+  n3rpcImpl = typeof fn === 'function' ? fn : defaultN3Rpc;
+}
+export function __resetN3RpcForTests() {
+  n3rpcImpl = defaultN3Rpc;
+}
 async function n3cur(pair) {
   const j = await n3rpc('invokefunction', [
     `0x${N3_FEED}`,
@@ -234,6 +259,74 @@ async function nitroSign(msg) {
   if (j.status !== 'ok' || !j.signature) throw new Error('8787 sign failed');
   return j.signature;
 }
+
+// Compute-in-enclave feed sign (flag-on): the enclave fetches prices, plans,
+// scales, builds the updateFeeds tx from the supplied tx_params (block count +
+// fees + an explicit nonce so the result is reproducible) and signs its message
+// IN the measured boundary. Returns the authoritative plan + tx_nonce +
+// valid_until_block + signature so this host can rebuild the IDENTICAL tx and
+// attach the witness. Injectable so the flag-on path is unit-testable without a
+// live enclave (the test replaces it with a deterministic enclave response).
+let enclaveFeedSignImpl = defaultEnclaveFeedSign;
+
+async function defaultEnclaveFeedSign(requestBody) {
+  const r = await fetch(`${SIGNER}/feed/sign`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer ' + TOKEN },
+    body: JSON.stringify(requestBody),
+    signal: AbortSignal.timeout(20000),
+  });
+  const text = await r.text();
+  let j;
+  try {
+    j = JSON.parse(text);
+  } catch {
+    throw new Error('enclave /feed/sign non-JSON (HTTP ' + r.status + ')');
+  }
+  if (!r.ok) throw new Error('enclave /feed/sign failed (HTTP ' + r.status + '): ' + (j.error || ''));
+  return j;
+}
+
+// Test seam: override / restore the enclave /feed/sign caller.
+export function __setEnclaveFeedSignForTests(fn) {
+  enclaveFeedSignImpl = typeof fn === 'function' ? fn : defaultEnclaveFeedSign;
+}
+export function __resetEnclaveFeedSignForTests() {
+  enclaveFeedSignImpl = defaultEnclaveFeedSign;
+}
+
+// Rebuild the EXACT updateFeeds tx the enclave signed, from the enclave's
+// authoritative plan arrays + the pinned tx_nonce + the tx fee params, and return
+// {txn, message}. The construction mirrors pushNeoN3's tx build field-for-field so
+// the host's getMessageForSigning(N3_MAGIC) reproduces the enclave's
+// tx_message_hex. Exported for the flag-on unit test.
+export function rebuildUpdateFeedsTxFromEnclavePlan(plan, txParams) {
+  const { pairs, rounds, prices_scaled: PX, timestamps: TS, attestation_hashes: AH } = plan;
+  const SS = Array.isArray(plan.source_set_ids)
+    ? plan.source_set_ids
+    : pairs.map(() => 0);
+  const script = sc.createScript({
+    scriptHash: N3_FEED,
+    operation: 'updateFeeds',
+    args: [
+      sc.ContractParam.array(...pairs.map((x) => sc.ContractParam.string(x))),
+      sc.ContractParam.array(...rounds.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...PX.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...TS.map((x) => sc.ContractParam.integer(x))),
+      sc.ContractParam.array(...AH.map((x) => sc.ContractParam.byteArray(x))),
+      sc.ContractParam.array(...SS.map((x) => sc.ContractParam.integer(x))),
+    ],
+  });
+  const txn = new tx.Transaction({
+    nonce: txParams.nonce,
+    signers: [{ account: N3_UPDATER_SH, scopes: tx.WitnessScope.CalledByEntry }],
+    validUntilBlock: txParams.validUntilBlock,
+    script,
+  });
+  txn.systemFee = u.BigInteger.fromNumber(txParams.systemFee);
+  txn.networkFee = u.BigInteger.fromNumber(txParams.networkFee);
+  return { txn, script, message: txn.getMessageForSigning(N3_MAGIC) };
+}
 async function n3UpdaterGas() {
   try {
     const j = await n3rpc('invokefunction', [
@@ -247,7 +340,7 @@ async function n3UpdaterGas() {
   }
 }
 
-async function pushNeoN3(prices, now) {
+export async function pushNeoN3(prices, now) {
   const P = [],
     R = [],
     PX = [],
@@ -256,6 +349,10 @@ async function pushNeoN3(prices, now) {
     SS = [];
   let skipped = 0,
     missing = 0;
+  // On-chain state the enclave /feed/sign path needs to plan independently (the
+  // host fetches it once and forwards it so the enclave does not duplicate the RPC
+  // reads). Keyed by bare symbol (e.g. NEO-USD) -> {round, price, timestamp}.
+  const onchainState = {};
   // Batched current-state read: one getAllFeedRecords invoke per cycle instead
   // of one getLatest per symbol. Falls back to the per-pair reads when the
   // batched invoke fails (e.g. an RPC that rejects the larger response).
@@ -275,6 +372,7 @@ async function pushNeoN3(prices, now) {
     const c = recordMap
       ? recordMap.get('TWELVEDATA:' + s) || { round: 0, price: 0, ts: 0 }
       : await n3cur(s);
+    onchainState[s] = { round: c.round, price: c.price, timestamp: c.ts };
     const px = Math.round(prices[s] * 1e6);
     const plan = planFeedUpdate(c, prices[s], now);
     if (!plan.push) {
@@ -333,14 +431,79 @@ async function pushNeoN3(prices, now) {
     ]);
     txn.networkFee = u.BigInteger.fromNumber(nf.networkfee);
     txn.witnesses = [];
-    const sig = await nitroSign(txn.getMessageForSigning(N3_MAGIC));
-    txn.witnesses = [tx.Witness.fromSignature(sig, N3_UPDATER_PUB)];
-    const res = await n3rpc('sendrawtransaction', [
-      u.HexString.fromHex(txn.serialize(true)).toBase64(),
-    ]);
-    log(
-      `[neo-n3] pushed ${P.length} pairs (skipped ${skipped}, missing ${missing}), fee ${(Number(txn.systemFee.toString()) / 1e8 + Number(txn.networkFee.toString()) / 1e8).toFixed(5)} GAS, txid ${res && res.hash}`
-    );
+
+    if (ENCLAVE_FEED_SIGN) {
+      // Flag-on: the enclave computes the value+decision and signs the tx message
+      // inside the measured boundary. The host pins the tx nonce + fees (the
+      // reproducibility key — see enclave-server buildUpdateFeedsTxMessage) and
+      // forwards the on-chain state it already read so the enclave plans against
+      // the same baseline. The enclave returns the authoritative plan + the
+      // signed message; the host rebuilds the IDENTICAL tx from that plan + the
+      // pinned nonce/fees and ASSERTS its getMessageForSigning equals the returned
+      // tx_message_hex before attaching the witness (fails closed on any drift).
+      const txNonce = txn.nonce;
+      const txParams = {
+        nonce: txNonce,
+        validUntilBlock: count + 500,
+        systemFee: Number(txn.systemFee.toString()),
+        networkFee: Number(txn.networkFee.toString()),
+      };
+      const resp = await enclaveFeedSignImpl({
+        chain: 'neo_n3',
+        symbols: SYMBOLS.filter((s) => s in prices),
+        onchain_state: onchainState,
+        now,
+        tx_params: {
+          nonce: txNonce,
+          block_count: count,
+          system_fee: txParams.systemFee,
+          network_fee: txParams.networkFee,
+        },
+      });
+      if (resp.status === 'no-update' || !Array.isArray(resp.pairs) || !resp.pairs.length) {
+        log(`[neo-n3] enclave reported no updates (skipped ${skipped}, missing ${missing})`);
+      } else {
+        if (!resp.signature || typeof resp.signature !== 'string') {
+          throw new Error('enclave /feed/sign returned no signature');
+        }
+        const rebuilt = rebuildUpdateFeedsTxFromEnclavePlan(resp, txParams);
+        // Defense in depth: the host independently rebuilds the signed message and
+        // refuses to broadcast unless it matches the enclave's tx_message_hex (so a
+        // host/enclave plan or fee divergence can never attach a witness to a
+        // different tx than the one the enclave actually signed).
+        const returnedMsg = String(resp.tx_message_hex || '')
+          .replace(/^0x/i, '')
+          .toLowerCase();
+        const rebuiltMsg = String(rebuilt.message || '').toLowerCase();
+        if (!returnedMsg || returnedMsg !== rebuiltMsg) {
+          throw new Error(
+            '[neo-n3] enclave tx message mismatch — refusing to broadcast ' +
+              `(enclave=${returnedMsg.slice(0, 24)}… host=${rebuiltMsg.slice(0, 24)}…)`
+          );
+        }
+        if (Number.isInteger(resp.tx_nonce) && resp.tx_nonce !== txNonce) {
+          throw new Error(
+            `[neo-n3] enclave tx_nonce ${resp.tx_nonce} != pinned ${txNonce} — refusing to broadcast`
+          );
+        }
+        rebuilt.txn.witnesses = [tx.Witness.fromSignature(resp.signature, N3_UPDATER_PUB)];
+        const res = await n3rpc('sendrawtransaction', [
+          u.HexString.fromHex(rebuilt.txn.serialize(true)).toBase64(),
+        ]);
+        log(
+          `[neo-n3] (enclave) pushed ${resp.pairs.length} pairs (skipped ${skipped}, missing ${missing}), fee ${(txParams.systemFee / 1e8 + txParams.networkFee / 1e8).toFixed(5)} GAS, txid ${res && res.hash}`
+        );
+      }
+    } else {
+      const sig = await nitroSign(txn.getMessageForSigning(N3_MAGIC));
+      txn.witnesses = [tx.Witness.fromSignature(sig, N3_UPDATER_PUB)];
+      const res = await n3rpc('sendrawtransaction', [
+        u.HexString.fromHex(txn.serialize(true)).toBase64(),
+      ]);
+      log(
+        `[neo-n3] pushed ${P.length} pairs (skipped ${skipped}, missing ${missing}), fee ${(Number(txn.systemFee.toString()) / 1e8 + Number(txn.networkFee.toString()) / 1e8).toFixed(5)} GAS, txid ${res && res.hash}`
+      );
+    }
   }
   const g = await n3UpdaterGas();
   if (g >= 0 && g < N3_GAS_WARN)

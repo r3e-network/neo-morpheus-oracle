@@ -537,8 +537,31 @@ function compactEnvelope(requestType, workerResponse) {
   };
 }
 
-export function buildOnchainResultEnvelope(requestType, workerResponse) {
+// Trust tiers for the result envelope (tiered-trust labeling, design §6):
+//   - "enclave-attested": computed + signed inside the measured Nitro boundary
+//     (the attested lanes via /oracle/fulfill, or the enclave feed/sign path).
+//   - "host-unattested":  computed on the untrusted host worker (the arbitrary-URL
+//     oracle.fetch / smart-fetch lane, which cannot be egress-allow-listed).
+export const TRUST_TIER_ENCLAVE_ATTESTED = 'enclave-attested';
+export const TRUST_TIER_HOST_UNATTESTED = 'host-unattested';
+
+/**
+ * Build the compacted on-chain result envelope.
+ *
+ * CONSENSUS-CRITICAL DIGEST-NEUTRALITY NOTE:
+ * The returned envelope is JSON.stringified into the fulfillment `result` field by
+ * encodeFulfillmentResult, and that `result` string is hashed verbatim by
+ * buildFulfillmentDigestBytes (sha256(resultBytes), resultBytes = utf8(result)
+ * when no compact callback bytes are present). Adding ANY field to this object
+ * therefore changes the on-chain digest. So `trust_tier` is an OPTIONAL, default-
+ * OFF parameter: encodeFulfillmentResult (the digest path) calls this WITHOUT it,
+ * keeping the signed bytes byte-identical to today. Only non-digest consumers (the
+ * relayer's labeled-envelope/API metadata) pass a trustTier to surface the label.
+ * NEVER pass trustTier when producing the bytes that feed the digest.
+ */
+export function buildOnchainResultEnvelope(requestType, workerResponse, trustTier = null) {
   const envelope = compactEnvelope(requestType, workerResponse);
+  if (trustTier) envelope.trust_tier = trustTier;
   const attempts = [
     envelope,
     envelope.result && typeof envelope.result === 'object'

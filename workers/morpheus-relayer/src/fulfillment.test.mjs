@@ -21,6 +21,8 @@ import {
   markSupabasePersistenceUnavailable,
   resetSupabasePersistenceBackoffForTests,
 } from './persistence.js';
+import { buildFulfillmentDigestBytes, encodeFulfillmentResult } from './router.js';
+import { buildNeoXDigest, resolveResultBytesHex } from './neox.js';
 
 // ===================================================================
 // trimOnchainErrorMessage
@@ -1043,5 +1045,425 @@ describe('processEvent durable-claim backoff retention (B3)', () => {
     assert.equal(state.neo_n3.retry_queue[0].attempts, 1);
     assert.equal(state.metrics.claim_conflicts_total, 0);
     resetSupabasePersistenceBackoffForTests();
+  });
+});
+
+// ===================================================================
+// Compute-in-enclave fulfillment (POST /oracle/fulfill) — flag-gated (Phase 4)
+// ===================================================================
+
+describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)', () => {
+  const silentLogger = { info() {}, warn() {}, error() {} };
+  // Throwaway secp256k1 key (used only for the neox flag-OFF baseline, never live).
+  const TEST_EVM_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  const N3_ORACLE = '0x1212121212121212121212121212121212121212';
+  const N3_MAGIC = 894710606; // testnet
+  const NEOX_CHAIN_ID = 12227332;
+  const NEOX_ORACLE = '0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2';
+
+  function baseConfig(extra = {}) {
+    return {
+      network: 'testnet',
+      maxRetries: 3,
+      maxCallbackRetries: 6,
+      retryBaseDelayMs: 10,
+      retryMaxDelayMs: 100,
+      processedCacheSize: 100,
+      deadLetterLimit: 10,
+      durableQueue: { enabled: false },
+      nitro: {
+        apiUrl: 'https://worker.test',
+        signerUrl: 'https://signer.test',
+        enclaveFulfill: true,
+        enclaveFulfillUrl: 'https://enclave.test',
+        timeoutMs: 1000,
+      },
+      neo_n3: { oracleContract: N3_ORACLE, networkMagic: N3_MAGIC },
+      neox: { chainId: NEOX_CHAIN_ID, oracleContract: NEOX_ORACLE, updaterPrivateKey: TEST_EVM_PK },
+      ...extra,
+    };
+  }
+
+  // Build the EXACT digest hex the relayer will recompute for a given event +
+  // enclave-computed result, using the SAME canonical builders. The enclave returns
+  // this in fulfillment_digest_hex so the cross-check passes (or, when tampered,
+  // a different value so the cross-check fails).
+  function expectedDigestHex(chain, event, fulfillment) {
+    if (chain === 'neox') {
+      const resultBytesHex = resolveResultBytesHex(
+        fulfillment.result,
+        fulfillment.result_bytes_base64 || ''
+      );
+      return buildNeoXDigest(
+        { neox: { chainId: NEOX_CHAIN_ID, oracleContract: NEOX_ORACLE } },
+        {
+          requestId: String(event.requestId),
+          appId: event.appId || '',
+          moduleId: fulfillment.moduleId,
+          operation: fulfillment.operation,
+          success: fulfillment.success,
+          error: fulfillment.error || '',
+        },
+        resultBytesHex
+      )
+        .replace(/^0x/i, '')
+        .toLowerCase();
+    }
+    // neo_n3 with no appId downgrades to the legacy digest domain (matches
+    // resolveFulfillmentSigningContext); n3 also binds contract + magic. The
+    // 'legacy' loop value models a neo_n3 event with no appId, so it too uses the
+    // legacy domain.
+    const isLegacy = chain === 'legacy' || (chain === 'neo_n3' && !(event.appId || ''));
+    const digestContext = isLegacy
+      ? { chain: 'legacy', appId: '', moduleId: '', operation: '' }
+      : {
+          chain: 'neo_n3',
+          appId: event.appId || '',
+          moduleId: fulfillment.moduleId,
+          operation: fulfillment.operation,
+          contractScriptHash: N3_ORACLE,
+          networkMagic: N3_MAGIC,
+        };
+    return buildFulfillmentDigestBytes(
+      String(event.requestId),
+      event.requestType,
+      fulfillment.success,
+      fulfillment.result,
+      fulfillment.error || '',
+      fulfillment.result_bytes_base64 || '',
+      digestContext
+    ).toString('hex');
+  }
+
+  // A faithful enclave /oracle/fulfill response for the event: it COMPUTES the same
+  // result the relayer would (via encodeFulfillmentResult over a stub worker body),
+  // then returns the matching digest + a signature. `tamperDigest` corrupts the
+  // returned digest so the relayer's cross-check must reject it.
+  function enclaveResponseFor(chain, event, workerBody, { tamperDigest = false } = {}) {
+    const moduleId =
+      event.moduleId ||
+      (event.requestType.includes('random') || event.requestType === 'rng'
+        ? 'random.generate'
+        : 'oracle.fetch');
+    const operation = event.operation || event.requestType;
+    const encoded = encodeFulfillmentResult(event.requestType, {
+      ok: true,
+      status: 200,
+      body: workerBody,
+    });
+    const fulfillment = {
+      moduleId,
+      operation,
+      success: encoded.success,
+      result: encoded.result || '',
+      result_bytes_base64: encoded.result_bytes_base64 || '',
+      error: encoded.error || '',
+    };
+    let digestHex = expectedDigestHex(chain, event, fulfillment);
+    if (tamperDigest) {
+      // Flip the first hex nibble so the digest is structurally valid but wrong.
+      const first = digestHex[0];
+      const flipped = first === '0' ? '1' : '0';
+      digestHex = flipped + digestHex.slice(1);
+    }
+    const body = {
+      status: 'ok',
+      success: fulfillment.success,
+      result: fulfillment.result,
+      error: fulfillment.error,
+      signature: 'a'.repeat(128),
+      public_key: '02' + 'b'.repeat(64),
+      fulfillment_digest_hex: digestHex,
+      verification: { output_hash: 'enclave-output-hash' },
+      trust_tier: 'enclave-attested',
+    };
+    if (fulfillment.result_bytes_base64) body.result_bytes_base64 = fulfillment.result_bytes_base64;
+    return body;
+  }
+
+  // Mock fetch that records every call and routes /oracle/fulfill to the supplied
+  // enclave body. Any OTHER nitro endpoint (worker compute / /sign/payload) is a
+  // FAILURE in flag-on mode for the attested lane — the single /oracle/fulfill call
+  // must be the only nitro hit (proving the two-step path is replaced).
+  function installEnclaveFetch(enclaveBody) {
+    const calls = [];
+    const original = global.fetch;
+    global.fetch = async (url, init = {}) => {
+      const u = String(url);
+      calls.push({ url: u, body: init.body ? JSON.parse(init.body) : null });
+      if (u.endsWith('/oracle/fulfill')) {
+        return new Response(JSON.stringify(enclaveBody), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      // Any other endpoint is unexpected on the attested lane.
+      return new Response(JSON.stringify({ error: `unexpected endpoint ${u}` }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    return { calls, restore: () => (global.fetch = original) };
+  }
+
+  for (const chain of ['neo_n3', 'legacy', 'neox']) {
+    it(`flag-ON computes+signs via a SINGLE /oracle/fulfill call and the digest cross-check passes (${chain})`, async () => {
+      // 'legacy' is a neo_n3 event with no appId (the relayer downgrades the digest
+      // domain); model it as a neo_n3 chain event without appId.
+      const eventChain = chain === 'legacy' ? 'neo_n3' : chain;
+      const event = {
+        chain: eventChain,
+        requestId: '4242',
+        requestType: 'privacy_oracle',
+        payloadText: '{"symbol":"NEO-USD"}',
+        txHash: '0xabc',
+        ...(chain === 'legacy' ? {} : { appId: 'miniapp-os' }),
+      };
+      const workerBody = { result: { price: '5.25' }, extracted_value: '5.25' };
+      const enclaveBody = enclaveResponseFor(chain, event, workerBody);
+      const { calls, restore } = installEnclaveFetch(enclaveBody);
+      const submitted = [];
+      const config = baseConfig({
+        hooks: {
+          fulfillNeoRequest: async (call) => {
+            submitted.push(call);
+            return { tx_hash: '0xfeed', vm_state: 'HALT' };
+          },
+        },
+      });
+      try {
+        const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+          attempts: 0,
+          durable_claimed: true,
+        });
+
+        // EXACTLY one nitro endpoint hit, and it was /oracle/fulfill (not a worker
+        // compute call followed by a separate /sign/payload).
+        assert.equal(calls.length, 1, `expected a single nitro call, got ${calls.length}`);
+        assert.ok(calls[0].url.endsWith('/oracle/fulfill'));
+        assert.ok(calls[0].url.startsWith('https://enclave.test'));
+        // The enclave request carries the kernel context for the digest rebuild.
+        assert.equal(calls[0].body.request_id, '4242');
+        assert.equal(typeof calls[0].body.nonce, 'string');
+
+        // Delivered successfully, carrying the ENCLAVE's signature (consumed, not
+        // recomputed by the relayer).
+        assert.ok(result.result, 'expected a delivered fulfillment');
+        assert.equal(submitted.length, 1);
+        assert.equal(submitted[0].verification.signature, 'a'.repeat(128));
+        assert.equal(result.result.success, true);
+        assert.equal(result.result.route, 'enclave:oracle.fetch');
+      } finally {
+        restore();
+      }
+    });
+
+    it(`flag-ON REJECTS a tampered enclave digest (does NOT submit) (${chain})`, async () => {
+      const eventChain = chain === 'legacy' ? 'neo_n3' : chain;
+      const event = {
+        chain: eventChain,
+        requestId: '4243',
+        requestType: 'privacy_oracle',
+        payloadText: '{"symbol":"NEO-USD"}',
+        txHash: '0xdef',
+        ...(chain === 'legacy' ? {} : { appId: 'miniapp-os' }),
+      };
+      const workerBody = { result: { price: '5.25' }, extracted_value: '5.25' };
+      const enclaveBody = enclaveResponseFor(chain, event, workerBody, { tamperDigest: true });
+      const { restore } = installEnclaveFetch(enclaveBody);
+      let submitted = false;
+      const config = baseConfig({
+        hooks: {
+          fulfillNeoRequest: async () => {
+            submitted = true;
+            return { tx_hash: '0xshould-not-happen', vm_state: 'HALT' };
+          },
+        },
+      });
+      try {
+        const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+          attempts: 0,
+          durable_claimed: true,
+        });
+
+        // A digest mismatch classifies as a terminal configuration error
+        // (the message contains 'invalid signature') -> never submitted.
+        assert.equal(submitted, false, 'must NOT submit on a tampered enclave digest');
+        assert.notEqual(result.retry_status, undefined);
+        assert.ok(!result.result, 'no fulfillment should be delivered on a digest mismatch');
+      } finally {
+        restore();
+      }
+    });
+  }
+
+  it('flag-ON VRF uses the enclave (no relayer-local randomBytes; raw 32B from the enclave)', async () => {
+    const event = {
+      chain: 'neo_n3',
+      requestId: '777',
+      requestType: 'vrf_random',
+      appId: 'morpheus.platform.game',
+      moduleId: 'vrf_random',
+      operation: 'vrf_random',
+      payloadText: '{}',
+      txHash: '0x777',
+    };
+    // The enclave produced the randomness (compact 32B callback) — the relayer must
+    // carry it, not generate its own.
+    const enclaveRandomness = 'cd'.repeat(32);
+    const workerBody = { randomness: enclaveRandomness };
+    const enclaveBody = enclaveResponseFor('neo_n3', event, workerBody);
+    const { calls, restore } = installEnclaveFetch(enclaveBody);
+    const submitted = [];
+    const config = baseConfig({
+      hooks: {
+        fulfillNeoRequest: async (call) => {
+          submitted.push(call);
+          return { tx_hash: '0xvrf', vm_state: 'HALT' };
+        },
+      },
+    });
+    try {
+      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+
+      // Single /oracle/fulfill call — the relayer-local crypto.randomBytes VRF
+      // branch is skipped while the flag is on.
+      assert.equal(calls.length, 1);
+      assert.ok(calls[0].url.endsWith('/oracle/fulfill'));
+      assert.equal(submitted.length, 1);
+      // The on-chain result bytes are the ENCLAVE randomness (compact 32B), not a
+      // relayer-generated value.
+      assert.equal(
+        Buffer.from(submitted[0].fulfillment.result_bytes_base64, 'base64').toString('hex'),
+        enclaveRandomness
+      );
+      assert.equal(result.result.route, 'enclave:random.generate');
+    } finally {
+      restore();
+    }
+  });
+
+  it('flag-ON keeps the arbitrary-URL fetch lane on the HOST worker (host-unattested, not /oracle/fulfill)', async () => {
+    const event = {
+      chain: 'neo_n3',
+      requestId: '888',
+      requestType: 'privacy_oracle',
+      appId: 'miniapp-os',
+      payloadText: '{"url":"https://prices.example/neo"}',
+      txHash: '0x888',
+    };
+    const original = global.fetch;
+    const calls = [];
+    global.fetch = async (url, init = {}) => {
+      const u = String(url);
+      calls.push({ url: u });
+      // The host worker compute call (NOT /oracle/fulfill).
+      if (u.startsWith('https://worker.test')) {
+        return new Response(JSON.stringify({ result: { value: 1 } }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      // The host /sign/payload call (no relayer-local verifier configured).
+      if (u.endsWith('/sign/payload')) {
+        return new Response(JSON.stringify({ status: 'ok', signature: 'd'.repeat(128), public_key: '02ff' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
+    };
+    const submitted = [];
+    const config = baseConfig({
+      hooks: {
+        fulfillNeoRequest: async (call) => {
+          submitted.push(call);
+          return { tx_hash: '0xhost', vm_state: 'HALT' };
+        },
+      },
+    });
+    try {
+      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+
+      // The arbitrary-URL lane never hits /oracle/fulfill.
+      assert.ok(!calls.some((c) => c.url.endsWith('/oracle/fulfill')), 'must not call the enclave');
+      // It used the host worker compute + the host /sign/payload (two-step).
+      assert.ok(calls.some((c) => c.url.startsWith('https://worker.test')));
+      assert.ok(calls.some((c) => c.url.endsWith('/sign/payload')));
+      assert.equal(submitted.length, 1);
+      assert.equal(result.result.success, true);
+      // Tagged host-unattested.
+      assert.equal(result.result.trust_tier, 'host-unattested');
+    } finally {
+      global.fetch = original;
+    }
+  });
+
+  it('flag-OFF (default) keeps the two-step host path: worker compute + /sign/payload, NO /oracle/fulfill', async () => {
+    const event = {
+      chain: 'neo_n3',
+      requestId: '999',
+      requestType: 'privacy_oracle',
+      appId: 'miniapp-os',
+      payloadText: '{"symbol":"NEO-USD"}',
+      txHash: '0x999',
+    };
+    const original = global.fetch;
+    const calls = [];
+    global.fetch = async (url, init = {}) => {
+      const u = String(url);
+      calls.push({ url: u });
+      if (u.startsWith('https://worker.test')) {
+        return new Response(JSON.stringify({ result: { price: '5.25' }, extracted_value: '5.25' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (u.endsWith('/sign/payload')) {
+        return new Response(JSON.stringify({ status: 'ok', signature: 'e'.repeat(128), public_key: '02ff' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
+    };
+    const submitted = [];
+    const config = baseConfig({
+      nitro: {
+        apiUrl: 'https://worker.test',
+        signerUrl: 'https://signer.test',
+        enclaveFulfill: false, // explicit flag-OFF
+        enclaveFulfillUrl: 'https://enclave.test',
+        timeoutMs: 1000,
+      },
+      hooks: {
+        fulfillNeoRequest: async (call) => {
+          submitted.push(call);
+          return { tx_hash: '0xtwostep', vm_state: 'HALT' };
+        },
+      },
+    });
+    try {
+      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+
+      // Flag-off = the historical split path. /oracle/fulfill is NEVER called.
+      assert.ok(!calls.some((c) => c.url.endsWith('/oracle/fulfill')), 'flag-off must not call the enclave fulfill endpoint');
+      assert.ok(calls.some((c) => c.url.startsWith('https://worker.test')), 'flag-off uses the host worker compute');
+      assert.ok(calls.some((c) => c.url.endsWith('/sign/payload')), 'flag-off uses the separate enclave /sign/payload');
+      assert.equal(submitted.length, 1);
+      assert.equal(submitted[0].verification.signature, 'e'.repeat(128));
+      assert.equal(result.result.success, true);
+    } finally {
+      global.fetch = original;
+    }
   });
 });

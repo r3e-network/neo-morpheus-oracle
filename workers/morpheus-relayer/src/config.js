@@ -428,6 +428,21 @@ export function createRelayerConfig() {
       signerUrl:
         trimString(env('NITRO_SIGNER_URL', 'MORPHEUS_SIGNER_URL')) ||
         resolveNitroApiUrls(network, registry),
+      // Compute-in-enclave cutover flag (Phase 4). Default FALSE: the relayer keeps
+      // today's split path (host-worker compute via callNitro, then a separate
+      // enclave /sign/payload). When TRUE the attested lanes (price/feed query,
+      // vrf, compute, confidential decrypt, neodid) call the enclave's atomic
+      // POST /oracle/fulfill once (compute + sign in one measured boundary). The
+      // arbitrary-URL fetch lane stays on the host worker regardless. The live box
+      // runs flag-off, so its behavior is unchanged byte-for-byte until cutover.
+      enclaveFulfill: parseBoolean(env('MORPHEUS_RELAYER_ENCLAVE_FULFILL'), false),
+      // Base URL of the enclave /oracle/fulfill endpoint. Defaults to the signer
+      // URL (the enclave already holds the keys), so a merged single-endpoint
+      // enclave needs no extra configuration.
+      enclaveFulfillUrl:
+        trimString(env('MORPHEUS_RELAYER_ENCLAVE_FULFILL_URL')) ||
+        trimString(env('NITRO_SIGNER_URL', 'MORPHEUS_SIGNER_URL')) ||
+        resolveNitroApiUrls(network, registry),
       token: env(
         'MORPHEUS_RUNTIME_TOKEN',
         'NITRO_API_TOKEN',

@@ -4,10 +4,29 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import os from 'node:os';
+import { createHash } from 'node:crypto';
+import pkg from '@cityofzion/neon-js';
+const { wallet, tx } = pkg;
 
 process.env.FEED_PUSHER_SKIP_MAIN = '1';
-const { planFeedUpdate, parseGetLatestStack, parseGetAllFeedRecordsStack, trackMissingSymbols } =
-  await import('./feed-pusher.mjs');
+// Drive the in-process integration test through the flag-ON code path. Read at
+// module load by feed-pusher.mjs; the pure-function tests are unaffected and the
+// spawn-based entrypoint tests run in their own child processes (own env).
+process.env.MORPHEUS_FEED_PUSHER_ENCLAVE_SIGN = '1';
+// Pin a deterministic, single-symbol feed so the integration test is exact.
+process.env.SYMBOLS = 'NEO-USD';
+const {
+  planFeedUpdate,
+  parseGetLatestStack,
+  parseGetAllFeedRecordsStack,
+  trackMissingSymbols,
+  rebuildUpdateFeedsTxFromEnclavePlan,
+  pushNeoN3,
+  __setEnclaveFeedSignForTests,
+  __resetEnclaveFeedSignForTests,
+  __setN3RpcForTests,
+  __resetN3RpcForTests,
+} = await import('./feed-pusher.mjs');
 
 const PUSHER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'feed-pusher.mjs');
 const OPTS = { thresholdBps: 10, maxStaleSec: 1800 };
@@ -264,4 +283,277 @@ test('trackMissingSymbols leaves counters of symbols this run did not request un
     3
   );
   assert.deepEqual(counts, { 'WTI-USD': 2, 'EUR-USD': 1 });
+});
+
+// ── Compute-in-enclave feed signing (flag-on /feed/sign) ─────────────────────
+// The enclave-server constants the host must reproduce byte-for-byte. These MUST
+// stay identical to feed-pusher.mjs pushNeoN3 / the enclave-server.
+const N3_UPDATER_PUB = '02f63e3f618d8f6995eb85279a03361beb715d25d3b97407c73c351d26ba849744';
+const N3_MAGIC = 860833102;
+const FEED_PRICE_SCALE = 1e6;
+
+// Build the deterministic enclave /feed/sign response for a planned update, signed
+// by `signerAccount` (a test key — the production updater key is never in tests).
+// Mirrors enclave-server handleFeedSign: it returns the plan arrays + tx_nonce +
+// valid_until_block + the signature over the SAME message the host rebuilds.
+function buildEnclaveFeedSignResponse({ symbol, price, round, ts }, txParams, signerAccount) {
+  const px = Math.round(price * FEED_PRICE_SCALE);
+  const pair = 'TWELVEDATA:' + symbol;
+  const attestationHash = createHash('sha256')
+    .update(`${symbol}|${px}|${ts}`)
+    .digest('hex')
+    .slice(0, 32);
+  const plan = {
+    pairs: [pair],
+    rounds: [round],
+    prices_scaled: [px],
+    timestamps: [ts],
+    attestation_hashes: [attestationHash],
+    source_set_ids: [0],
+  };
+  // The enclave builds the EXACT tx the host will rebuild and signs its message.
+  const { message } = rebuildUpdateFeedsTxFromEnclavePlan(plan, txParams);
+  const signature = wallet.sign(message, signerAccount.privateKey);
+  return {
+    status: 'ok',
+    chain: 'neo_n3',
+    ...plan,
+    tx_message_hex: message,
+    tx_nonce: txParams.nonce,
+    valid_until_block: txParams.validUntilBlock,
+    signature,
+    public_key: signerAccount.publicKey,
+    trust_tier: 'enclave-attested',
+  };
+}
+
+test('rebuildUpdateFeedsTxFromEnclavePlan reproduces the enclave-signed tx (nonce + message) and the witness corresponds', () => {
+  const signer = new wallet.Account(); // throwaway test updater key
+  const txParams = {
+    nonce: 0x1a2b3c4d,
+    validUntilBlock: 5_000_500,
+    systemFee: 1_234_567,
+    networkFee: 234_567,
+  };
+  const enclave = buildEnclaveFeedSignResponse(
+    { symbol: 'NEO-USD', price: 5.25, round: 1_780_000_000, ts: 1_780_000_000 },
+    txParams,
+    signer
+  );
+
+  // The host rebuilds the IDENTICAL tx from the enclave's authoritative plan +
+  // the pinned tx_nonce + the same fees.
+  const rebuilt = rebuildUpdateFeedsTxFromEnclavePlan(enclave, txParams);
+
+  // (1) tx_nonce reproducibility: the rebuilt tx carries the pinned nonce.
+  assert.equal(rebuilt.txn.nonce, txParams.nonce);
+  assert.equal(enclave.tx_nonce, txParams.nonce);
+
+  // (2) The host's message equals the enclave's tx_message_hex (so the witness is
+  // attached to the SAME tx the enclave signed — the flag-on broadcast guard).
+  assert.equal(rebuilt.message.toLowerCase(), String(enclave.tx_message_hex).toLowerCase());
+
+  // (3) The witness corresponds: the enclave signature verifies over the rebuilt
+  // message against the signer pubkey, and the witness verification script is the
+  // signer's verification script.
+  assert.equal(wallet.verify(rebuilt.message, enclave.signature, signer.publicKey), true);
+  rebuilt.txn.witnesses = [tx.Witness.fromSignature(enclave.signature, signer.publicKey)];
+  assert.equal(
+    rebuilt.txn.witnesses[0].verificationScript.toBigEndian(),
+    wallet.getVerificationScriptFromPublicKey(signer.publicKey)
+  );
+  // The invocation script embeds the 64-byte signature (0c40 push prefix + sig).
+  assert.match(rebuilt.txn.witnesses[0].invocationScript.toBigEndian(), /^0c40[0-9a-f]{128}$/);
+});
+
+test('rebuildUpdateFeedsTxFromEnclavePlan signs against the production updater verification script when given its pubkey', () => {
+  // The production tx pins N3_UPDATER_PUB as the signer; the rebuild must use that
+  // pubkey's script hash so the signer matches the deployed feed updater. (We can't
+  // sign with the production key, so this asserts only the signer-script binding.)
+  const txParams = {
+    nonce: 7,
+    validUntilBlock: 100500,
+    systemFee: 100,
+    networkFee: 50,
+  };
+  const px = Math.round(2.1 * FEED_PRICE_SCALE);
+  const plan = {
+    pairs: ['TWELVEDATA:GAS-USD'],
+    rounds: [42],
+    prices_scaled: [px],
+    timestamps: [1_780_000_000],
+    attestation_hashes: [createHash('sha256').update('GAS-USD|' + px + '|1780000000').digest('hex').slice(0, 32)],
+    source_set_ids: [0],
+  };
+  const rebuilt = rebuildUpdateFeedsTxFromEnclavePlan(plan, txParams);
+  const expectedSignerScriptHash = wallet.getScriptHashFromPublicKey(N3_UPDATER_PUB);
+  assert.equal(rebuilt.txn.signers[0].account.toBigEndian(), expectedSignerScriptHash);
+  // getMessageForSigning is deterministic for the pinned nonce (reproducible).
+  const again = rebuildUpdateFeedsTxFromEnclavePlan(plan, txParams);
+  assert.equal(rebuilt.message, again.message);
+});
+
+test('flag-ON pushNeoN3 delegates compute+sign to the enclave /feed/sign and broadcasts the enclave-signed tx', async () => {
+  const signer = new wallet.Account(); // throwaway test updater key
+  const blockCount = 5_000_000;
+  const gasConsumed = '1234567';
+  const networkFee = '234567';
+  const now = 1_780_000_000;
+
+  // Mock the Neo RPC layer the flag-on pushNeoN3 touches, in the order it calls.
+  const broadcast = [];
+  __setN3RpcForTests(async (method, params) => {
+    switch (method) {
+      case 'invokefunction':
+        // getAllFeedRecords (state read) -> empty registry (bootstrap write).
+        if (params[1] === 'getAllFeedRecords') {
+          return { state: 'HALT', stack: [{ type: 'Array', value: [] }] };
+        }
+        // balanceOf (n3UpdaterGas) -> healthy balance.
+        if (params[1] === 'balanceOf') {
+          return { state: 'HALT', stack: [{ type: 'Integer', value: String(20 * 1e8) }] };
+        }
+        throw new Error('unexpected invokefunction ' + params[1]);
+      case 'getblockcount':
+        return blockCount;
+      case 'invokescript':
+        return { state: 'HALT', gasconsumed: gasConsumed };
+      case 'calculatenetworkfee':
+        return { networkfee: networkFee };
+      case 'sendrawtransaction':
+        broadcast.push(params[0]);
+        return { hash: '0xbroadcasted' };
+      default:
+        throw new Error('unexpected rpc ' + method);
+    }
+  });
+
+  // Mock the enclave: echo the pinned tx_params, plan the single symbol, and sign
+  // the SAME message the host will rebuild (using rebuildUpdateFeedsTxFromEnclavePlan
+  // with the host-supplied nonce/fees). This is the byte-exact reproduction contract.
+  let enclaveRequest = null;
+  let enclaveSignature = null;
+  __setEnclaveFeedSignForTests(async (requestBody) => {
+    enclaveRequest = requestBody;
+    const p = requestBody.tx_params;
+    const txParams = {
+      nonce: p.nonce,
+      validUntilBlock: p.block_count + 500,
+      systemFee: p.system_fee,
+      networkFee: p.network_fee,
+    };
+    // Bootstrap: empty on-chain state -> round/ts = now (planFeedUpdate bootstrap).
+    // The enclave signs the rebuilt message with a test key (the production updater
+    // key is never available in tests); the host attaches it under the pinned
+    // N3_UPDATER_PUB, so the integration assertion checks the host attached the
+    // ENCLAVE'S EXACT signature under the pinned updater pubkey. (The cryptographic
+    // verify-against-the-signing-key check lives in the rebuild unit test above,
+    // where both keys are controlled.)
+    const resp = buildEnclaveFeedSignResponse(
+      { symbol: 'NEO-USD', price: 5.25, round: now, ts: now },
+      txParams,
+      signer
+    );
+    enclaveSignature = resp.signature;
+    return resp;
+  });
+
+  try {
+    await pushNeoN3({ 'NEO-USD': 5.25 }, now);
+
+    // The enclave was asked to compute+sign, carrying the on-chain state + pinned
+    // tx_params (the reproducibility key) the host read.
+    assert.ok(enclaveRequest, 'enclave /feed/sign must be called in flag-on mode');
+    assert.equal(enclaveRequest.chain, 'neo_n3');
+    assert.deepEqual(enclaveRequest.symbols, ['NEO-USD']);
+    assert.equal(Number.isInteger(enclaveRequest.tx_params.nonce), true);
+    assert.equal(enclaveRequest.tx_params.block_count, blockCount);
+    assert.equal(enclaveRequest.tx_params.system_fee, Number(gasConsumed));
+    assert.equal(enclaveRequest.tx_params.network_fee, Number(networkFee));
+
+    // Exactly one tx was broadcast (the enclave-signed one), and it deserializes
+    // to a tx with the pinned tx_nonce.
+    assert.equal(broadcast.length, 1, 'expected exactly one enclave-signed broadcast');
+    const raw = Buffer.from(broadcast[0], 'base64').toString('hex');
+    const broadcastTx = tx.Transaction.deserialize(raw);
+    assert.equal(broadcastTx.nonce, enclaveRequest.tx_params.nonce, 'broadcast nonce == enclave tx_nonce');
+    assert.equal(broadcastTx.witnesses.length, 1, 'broadcast tx carries the enclave witness');
+
+    // The witness corresponds: the host attached the ENCLAVE'S returned signature
+    // (invocation script = 0c40 push + the exact enclave signature) under the
+    // pinned updater verification script (the contract-recognized updater key).
+    const invocation = broadcastTx.witnesses[0].invocationScript.toBigEndian();
+    assert.equal(invocation, '0c40' + enclaveSignature.toLowerCase());
+    assert.equal(
+      broadcastTx.witnesses[0].verificationScript.toBigEndian(),
+      wallet.getVerificationScriptFromPublicKey(N3_UPDATER_PUB),
+      'witness uses the pinned updater verification script'
+    );
+
+    // And the message the enclave signed equals the broadcast tx's signing message
+    // (the host rebuilt the IDENTICAL tx the enclave signed before broadcasting).
+    const broadcastMessage = broadcastTx.getMessageForSigning(N3_MAGIC);
+    assert.equal(wallet.verify(broadcastMessage, enclaveSignature, signer.publicKey), true,
+      'enclave signature verifies over the broadcast tx signing message');
+  } finally {
+    __resetEnclaveFeedSignForTests();
+    __resetN3RpcForTests();
+  }
+});
+
+test('flag-ON pushNeoN3 refuses to broadcast when the enclave tx message diverges from the host rebuild', async () => {
+  const signer = new wallet.Account();
+  const blockCount = 5_000_000;
+  const now = 1_780_000_000;
+  const broadcast = [];
+  __setN3RpcForTests(async (method, params) => {
+    switch (method) {
+      case 'invokefunction':
+        if (params[1] === 'getAllFeedRecords') return { state: 'HALT', stack: [{ type: 'Array', value: [] }] };
+        if (params[1] === 'balanceOf') return { state: 'HALT', stack: [{ type: 'Integer', value: String(20 * 1e8) }] };
+        throw new Error('unexpected invokefunction ' + params[1]);
+      case 'getblockcount':
+        return blockCount;
+      case 'invokescript':
+        return { state: 'HALT', gasconsumed: '1000000' };
+      case 'calculatenetworkfee':
+        return { networkfee: '200000' };
+      case 'sendrawtransaction':
+        broadcast.push(params[0]);
+        return { hash: '0xnope' };
+      default:
+        throw new Error('unexpected rpc ' + method);
+    }
+  });
+  // Enclave returns a VALID-looking response but signs a tx with a DIFFERENT price
+  // (round mismatch) than the host rebuild expects from the returned plan — actually
+  // return a tx_message_hex that does not match the rebuilt message.
+  __setEnclaveFeedSignForTests(async (requestBody) => {
+    const p = requestBody.tx_params;
+    const txParams = {
+      nonce: p.nonce,
+      validUntilBlock: p.block_count + 500,
+      systemFee: p.system_fee,
+      networkFee: p.network_fee,
+    };
+    const resp = buildEnclaveFeedSignResponse(
+      { symbol: 'NEO-USD', price: 5.25, round: now, ts: now },
+      txParams,
+      signer
+    );
+    // Tamper: corrupt the returned message so the host's rebuild can't match it.
+    resp.tx_message_hex = 'deadbeef' + String(resp.tx_message_hex).slice(8);
+    return resp;
+  });
+
+  try {
+    await assert.rejects(
+      () => pushNeoN3({ 'NEO-USD': 5.25 }, now),
+      /enclave tx message mismatch/
+    );
+    assert.equal(broadcast.length, 0, 'must NOT broadcast on a message mismatch (fails closed)');
+  } finally {
+    __resetEnclaveFeedSignForTests();
+    __resetN3RpcForTests();
+  }
 });
