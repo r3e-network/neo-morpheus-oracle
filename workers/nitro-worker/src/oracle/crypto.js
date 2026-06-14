@@ -549,7 +549,7 @@ async function decryptX25519Envelope(envelope, keyMaterial) {
 
 export async function ensureOracleKeyMaterial(_payload = {}) {
   if (!oracleKeyMaterialPromise) {
-    oracleKeyMaterialPromise = (async () => {
+    const pending = (async () => {
       try {
         const configured = parseConfiguredOracleKeyMaterial();
         if (configured) return configured;
@@ -576,6 +576,16 @@ export async function ensureOracleKeyMaterial(_payload = {}) {
         source: 'ephemeral-memory',
       });
     })();
+    // Do NOT cache a REJECTED resolution. The enclave answers /health (and the
+    // public gateway starts routing) before provision-enclave-compute.sh injects
+    // MORPHEUS_ORACLE_KEY_MATERIAL_BASE64; an encrypted request in that boot
+    // window would otherwise permanently poison the decrypt lane (a cached
+    // rejection) until the next enclave restart. Clear the singleton on failure
+    // so the next call retries once provisioning has landed.
+    pending.catch(() => {
+      if (oracleKeyMaterialPromise === pending) oracleKeyMaterialPromise = undefined;
+    });
+    oracleKeyMaterialPromise = pending;
   }
 
   return oracleKeyMaterialPromise;

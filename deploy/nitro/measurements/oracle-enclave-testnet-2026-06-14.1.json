@@ -1,5 +1,6 @@
 {
   "release": "oracle-enclave-testnet-2026-06-14.1",
+  "superseded_by": "oracle-enclave-exec-2026-06-15",
   "app_id": "morpheus-oracle",
   "network": "testnet",
   "git_commit": "9ee3e2d089da64b494d8fd5da666b50207edaf6c",

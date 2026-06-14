@@ -1121,8 +1121,11 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
     // confidential execution runtime (compute happens in-TEE), replacing the dead
     // Phala/placeholder runtimes. WHITELISTED — not a blanket catch-all — so the
     // public surface is exactly the control plane's EXECUTION_PLANE_ROUTES, and
-    // auth-gated like every other sensitive route. (The arbitrary-URL fetch inside
-    // smart-fetch stays host-unattested by the worker's own lane handling.)
+    // auth-gated like every other sensitive route. NOTE (EGRESS-1): an
+    // arbitrary-URL smart-fetch (payload.url) DOES reach the in-TEE worker via
+    // this passthrough — it is NOT excluded here. Its outbound host is gated ONLY
+    // by the egress allow-list (fail-closed); set ORACLE_HTTP_ALLOWLIST for an
+    // app-layer defense-in-depth match.
     if (httpMethod === 'POST') {
       const passthrough = EXECUTION_PLANE_PASSTHROUGH.find((route) => path.endsWith(route));
       if (passthrough) {

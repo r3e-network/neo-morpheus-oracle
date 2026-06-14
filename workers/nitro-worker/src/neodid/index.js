@@ -286,7 +286,13 @@ async function resolveNeoDidSalt(payload = {}) {
   try {
     const configuredPath = trimString(env('PHALA_DSTACK_NEODID_SALT_PATH') || '');
     const keyPath = configuredPath || 'morpheus/neodid/nullifier/v1';
-    return await deriveKeyBytes(keyPath, 'neodid-nullifier-salt');
+    const derived = await deriveKeyBytes(keyPath, 'neodid-nullifier-salt');
+    // Match the explicit-env path EXACTLY to avoid silent nullifier drift:
+    // NEODID_SECRET_SALT is provisioned as deriveKeyBytes(...).toString('hex'),
+    // and the explicit branch above returns sha256(that hex text). Hash the
+    // derived bytes' hex here too, so both paths yield the SAME nullifier for
+    // the same master key (the env path stays authoritative and unchanged).
+    return Buffer.from(sha256Hex(Buffer.from(derived).toString('hex')), 'hex');
   } catch {
     throw new Error(
       'NeoDID salt unavailable: set NEODID_SECRET_SALT env var or ensure dstack is available'

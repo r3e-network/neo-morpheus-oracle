@@ -1,7 +1,17 @@
 # Verifying the Morpheus Oracle TEE enclave
 
-Release **`oracle-enclave-testnet-2026-06-14.1`** — the merged compute+sign
-enclave **deployed live on Neo N3 mainnet** (2026-06-14 cutover).
+> **⚠️ SUPERSEDED (2026-06-15).** The live mainnet enclave now runs the
+> **exec release `oracle-enclave-exec-2026-06-15`** with
+> **PCR0 `49a142254c73cd4a299b74d78db7f459f3857c6b589cc7c0f67df9657b0f763da76cf29f2d652035aa431608c5f4e281`**
+> (commit `99822f5dba51eae2eabcd486da7ad22d77a9c202`,
+> `deploy/nitro/measurements/oracle-enclave-exec-2026-06-15.json`). It is a strict
+> superset of the release below (adds the confidential execution-plane passthrough;
+> PCR1 unchanged). **Pin the exec PCR0**, not the `4a76e948…` value documented
+> below. The procedure (reproducible build, COSE/cert-chain/PCR verification) is
+> identical — substitute the exec release's commit + measurements.
+
+Release **`oracle-enclave-testnet-2026-06-14.1`** — the prior merged compute+sign
+enclave (signer cutover 2026-06-14, now superseded by the exec release above).
 
 This release is the **merged compute+sign Nitro Enclave** for the Morpheus
 Oracle: the worker compute (price feeds, HTTP/JSON oracle lanes, VRF) and the
@@ -43,8 +53,10 @@ enclave image:
 
 The authoritative copy of these values is committed at
 `deploy/nitro/measurements/oracle-enclave-testnet-2026-06-14.1.json` and served
-live at `GET /api/attestation/measurements`. The **live mainnet enclave's
-attestation reports exactly this PCR0** (verified at cutover).
+live at `GET /api/attestation/measurements`. NOTE (2026-06-15): the **live mainnet
+enclave now reports the EXEC PCR0 `49a14225…`** (see the superseded banner at the
+top); the `4a76e948…` value in this table is the prior signer release and is kept
+for historical verification of that build only.
 
 > **Note on the `.eif` file hash.** `nitro-cli` stamps a build timestamp into the
 > EIF *file* metadata, so the **file sha256 is not stable** between builds even

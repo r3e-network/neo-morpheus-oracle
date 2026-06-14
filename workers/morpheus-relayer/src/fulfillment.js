@@ -76,6 +76,10 @@ export function isTerminalConfigurationError(message) {
     normalized.includes('invalid signature') ||
     normalized.includes('verifier rejected signature') ||
     normalized.includes('oracle verifier') ||
+    // The enclave signer surfaces the role with an underscore ("oracle_verifier
+    // signing key not configured"); match both so a real verifier-misprovision
+    // fast-fails as terminal instead of burning the full retry budget.
+    normalized.includes('oracle_verifier') ||
     normalized.includes('updater not set') ||
     normalized.includes('callback not allowed') ||
     (normalized.includes('called contract') && normalized.includes('not found'))

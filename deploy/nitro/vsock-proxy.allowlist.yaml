@@ -22,8 +22,10 @@
 #   - MORPHEUS_ALLOW_UNSAFE_PROVIDER_BASE_URL_OVERRIDE is hard-disabled in the
 #     image (Dockerfile.enclave) so a host cannot redirect a provider off-list.
 #   - The arbitrary-URL lane (oracle.fetch / oracle.smart_fetch with payload.url)
-#     CANNOT be allow-listed and stays HOST-SIDE (un-attested tier). It is
-#     excluded by construction.
+#     DOES reach the in-TEE worker via the execution-plane passthrough; its
+#     outbound host is gated ONLY by THIS allow-list (fail-closed). It is NOT
+#     "excluded by construction" — keep this list tight (and consider also setting
+#     ORACLE_HTTP_ALLOWLIST in the image for an app-layer match). See EGRESS-1.
 
 allowlist:
   # --- Price / feed providers (workers/nitro-worker/src/oracle/providers.js) ---
