@@ -137,59 +137,84 @@ export async function processChain(config, state, logger, chain, options) {
     );
   }
 
-  const latestBlock = await options.getLatestBlock(config);
-  const confirmedTip = latestBlock - Math.max(config.confirmations[chain], 0);
-
+  // Discovery (getLatestBlock + scan) is decoupled from due-retry draining: a
+  // transient discovery-RPC failure must not starve already-prepared callback
+  // redeliveries that need no fresh chain-tip read. On a discovery throw, log
+  // and fall through to runDueRetries WITHOUT advancing last_block (the cursor
+  // only advances on a successful scan below).
   let scannedBlocks = null;
   let eventResults = [];
   const observedRequestIds = new Set();
 
-  if (confirmedTip >= 0) {
-    const fromBlock = resolveChainFromBlock(config, state, chain, confirmedTip, logger);
-    if (fromBlock <= confirmedTip) {
-      const toBlock = Math.min(confirmedTip, fromBlock + config.maxBlocksPerTick - 1);
-      const scannedEvents = await options.scan(config, fromBlock, toBlock);
-      incrementMetric(state, 'events_scanned_total', scannedEvents.length);
-      const filtered = filterNewEvents(state, chain, scannedEvents);
-      incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
-      await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
-      const deferred = await deferEventsForBackpressure(
-        config,
-        state,
-        logger,
-        chain,
-        filtered.events,
-        persistState
-      );
-      eventResults = deferred.processable.length
-        ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
-            processEvent(config, state, persistState, logger, event)
-          )
-        : [];
-      for (const event of deferred.processable) {
-        observedRequestIds.add(String(event.requestId || ''));
+  try {
+    const latestBlock = await options.getLatestBlock(config);
+    const confirmedTip = latestBlock - Math.max(config.confirmations[chain], 0);
+
+    if (confirmedTip >= 0) {
+      const fromBlock = resolveChainFromBlock(config, state, chain, confirmedTip, logger);
+      if (fromBlock <= confirmedTip) {
+        const toBlock = Math.min(confirmedTip, fromBlock + config.maxBlocksPerTick - 1);
+        const scannedEvents = await options.scan(config, fromBlock, toBlock);
+        incrementMetric(state, 'events_scanned_total', scannedEvents.length);
+        const filtered = filterNewEvents(state, chain, scannedEvents);
+        incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
+        await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
+        const deferred = await deferEventsForBackpressure(
+          config,
+          state,
+          logger,
+          chain,
+          filtered.events,
+          persistState
+        );
+        eventResults = deferred.processable.length
+          ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
+              processEvent(config, state, persistState, logger, event)
+            )
+          : [];
+        for (const event of deferred.processable) {
+          observedRequestIds.add(String(event.requestId || ''));
+        }
+        state[chain].last_block = toBlock;
+        persistState();
+        scannedBlocks = {
+          from: fromBlock,
+          to: toBlock,
+          latest: latestBlock,
+          confirmed_tip: confirmedTip,
+        };
       }
-      state[chain].last_block = toBlock;
-      persistState();
-      scannedBlocks = {
-        from: fromBlock,
-        to: toBlock,
-        latest: latestBlock,
-        confirmed_tip: confirmedTip,
-      };
     }
+  } catch (error) {
+    incrementMetric(state, 'discovery_failures_total');
+    logger.warn(
+      { chain, err: error?.message || String(error) },
+      'Block-cursor discovery failed; draining due retries without advancing cursor'
+    );
   }
 
   const retryResults = await runDueRetries(config, state, logger, chain, persistState);
 
-  const requestReconciliation = await reconcilePendingRequests(
-    config,
-    state,
-    logger,
-    chain,
-    options,
-    observedRequestIds
-  );
+  // Reconciliation also issues discovery-class RPC; isolate it so a failure
+  // here cannot retroactively crash the tick after retries have already run.
+  let requestReconciliation = null;
+  try {
+    requestReconciliation = await reconcilePendingRequests(
+      config,
+      state,
+      logger,
+      chain,
+      options,
+      observedRequestIds
+    );
+  } catch (error) {
+    incrementMetric(state, 'reconciliation_failures_total');
+    logger.warn(
+      { chain, err: error?.message || String(error) },
+      'Pending-request reconciliation failed; due retries already drained this tick'
+    );
+  }
+
   return {
     scanned_blocks: scannedBlocks,
     retries: retryResults,
@@ -221,39 +246,56 @@ export async function processChainByRequestCursor(config, state, logger, chain, 
     );
   }
 
-  const latestRequestId = await options.getLatestRequestId(config);
-  const fromRequestId = resolveRequestCursor(config, state, chain, latestRequestId, logger);
-  if (fromRequestId > latestRequestId) {
-    const retryResults = await runDueRetries(config, state, logger, chain, persistState);
-    return { scanned_requests: null, retries: retryResults, events: [] };
-  }
+  // Discovery (getLatestRequestId + scan) is decoupled from due-retry draining:
+  // a transient discovery-RPC failure must not starve already-prepared callback
+  // redeliveries that need no fresh chain-tip read. On a discovery throw, log
+  // and fall through to runDueRetries WITHOUT advancing last_request_id (the
+  // cursor only advances on a successful scan below).
+  let scannedRequests = null;
+  let eventResults = [];
+  try {
+    const latestRequestId = await options.getLatestRequestId(config);
+    const fromRequestId = resolveRequestCursor(config, state, chain, latestRequestId, logger);
+    if (fromRequestId > latestRequestId) {
+      const retryResults = await runDueRetries(config, state, logger, chain, persistState);
+      return { scanned_requests: null, retries: retryResults, events: [] };
+    }
 
-  const toRequestId = Math.min(latestRequestId, fromRequestId + config.maxBlocksPerTick - 1);
-  const scannedEvents = await options.scan(config, fromRequestId, toRequestId);
-  incrementMetric(state, 'events_scanned_total', scannedEvents.length);
-  const filtered = filterNewEvents(state, chain, scannedEvents);
-  incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
-  await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
-  const deferred = await deferEventsForBackpressure(
-    config,
-    state,
-    logger,
-    chain,
-    filtered.events,
-    persistState
-  );
-  const eventResults = deferred.processable.length
-    ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
-        processEvent(config, state, persistState, logger, event)
-      )
-    : [];
+    const toRequestId = Math.min(latestRequestId, fromRequestId + config.maxBlocksPerTick - 1);
+    const scannedEvents = await options.scan(config, fromRequestId, toRequestId);
+    incrementMetric(state, 'events_scanned_total', scannedEvents.length);
+    const filtered = filterNewEvents(state, chain, scannedEvents);
+    incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
+    await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
+    const deferred = await deferEventsForBackpressure(
+      config,
+      state,
+      logger,
+      chain,
+      filtered.events,
+      persistState
+    );
+    eventResults = deferred.processable.length
+      ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
+          processEvent(config, state, persistState, logger, event)
+        )
+      : [];
+
+    state[chain].last_request_id = toRequestId;
+    persistState();
+    scannedRequests = { from: fromRequestId, to: toRequestId, latest_request_id: latestRequestId };
+  } catch (error) {
+    incrementMetric(state, 'discovery_failures_total');
+    logger.warn(
+      { chain, err: error?.message || String(error) },
+      'Request-cursor discovery failed; draining due retries without advancing cursor'
+    );
+  }
 
   const retryResults = await runDueRetries(config, state, logger, chain, persistState);
 
-  state[chain].last_request_id = toRequestId;
-  persistState();
   return {
-    scanned_requests: { from: fromRequestId, to: toRequestId, latest_request_id: latestRequestId },
+    scanned_requests: scannedRequests,
     retries: retryResults,
     events: eventResults,
   };

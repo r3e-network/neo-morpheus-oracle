@@ -324,6 +324,15 @@ export function createRelayerConfig() {
     durableQueue: {
       enabled: durableQueueEnabled,
       failClosed: parseBoolean(env('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED'), durableQueueEnabled),
+      // When Supabase persistence is in quota/outage backoff the cross-instance
+      // claim cannot run. Default true: grant the local claim (single-instance
+      // deploys, the current topology, are unaffected). Set false for
+      // multi-instance deploys so a relayer SKIPS processing during backoff
+      // rather than risk two instances double-broadcasting the same fulfillment.
+      allowLocalClaimDuringBackoff: parseBoolean(
+        env('MORPHEUS_DURABLE_QUEUE_ALLOW_LOCAL_CLAIM_DURING_BACKOFF'),
+        true
+      ),
       syncLimit: Math.max(Number(env('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT') || 200), 1),
       staleProcessingMs: Math.max(
         Number(env('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS') || 45000),
@@ -435,6 +444,20 @@ export function createRelayerConfig() {
       scanMode:
         trimString(env('MORPHEUS_RELAYER_NEO_N3_SCAN_MODE')) ||
         (network === 'testnet' ? 'n3index_notifications' : 'block_cursor'),
+      // How long to poll a broadcast fulfillRequest's application log for a
+      // concrete VM state before treating it as a confirmation timeout. 0/unset
+      // falls back to the in-module default (45s).
+      fulfillConfirmTimeoutMs: env('MORPHEUS_RELAYER_NEO_N3_FULFILL_CONFIRM_TIMEOUT_MS')
+        ? Number(env('MORPHEUS_RELAYER_NEO_N3_FULFILL_CONFIRM_TIMEOUT_MS'))
+        : null,
+      // When true (default), a fulfillRequest whose application log never appears
+      // before the timeout is treated as transient and re-broadcast on a later
+      // tick (idempotent) instead of silently recorded as fulfilled. Set false
+      // to restore the prior best-effort UNKNOWN behavior.
+      fulfillConfirmThrowOnTimeout: parseBoolean(
+        env('MORPHEUS_RELAYER_NEO_N3_FULFILL_CONFIRM_THROW_ON_TIMEOUT'),
+        true
+      ),
       indexerUrl:
         trimString(env('MORPHEUS_RELAYER_NEO_N3_INDEXER_URL')) || 'https://api.n3index.dev/rest/v1',
       startRequestId: env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID')

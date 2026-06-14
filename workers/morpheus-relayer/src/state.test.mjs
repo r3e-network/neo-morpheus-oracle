@@ -4,7 +4,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { createEmptyRelayerState, loadRelayerState, saveRelayerState } from './state.js';
+import {
+  createEmptyRelayerState,
+  loadRelayerState,
+  saveRelayerState,
+  scheduleRetry,
+} from './state.js';
 
 function tempStateFile() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'morpheus-relayer-state-'));
@@ -82,4 +87,33 @@ test('loadRelayerState keeps accepting the current persisted state shape', () =>
   assert.equal(loaded.neo_n3.retry_queue.length, 1);
   assert.equal(loaded.neo_n3.retry_queue[0].attempts, 2);
   assert.equal(loaded.neox.dead_letters.length, 1);
+});
+
+test('scheduleRetry applies bounded jitter to next_retry_at (no synchronized storms)', () => {
+  const config = { maxRetries: 5, retryBaseDelayMs: 1000, retryMaxDelayMs: 30000 };
+  const event = { chain: 'neo_n3', requestId: '1', requestType: 'privacy_oracle' };
+
+  // First attempt: deterministic ceiling 1000ms. rng=()=>1 -> factor 1.0 (full),
+  // rng=()=>0 -> factor 0.5 (half). next_retry_at = now + delay.
+  const before = Date.now();
+  const full = scheduleRetry(createEmptyRelayerState(), 'neo_n3', event, 'boom', config, () => 1);
+  const half = scheduleRetry(createEmptyRelayerState(), 'neo_n3', event, 'boom', config, () => 0);
+  const after = Date.now();
+
+  const fullDelay = full.item.next_retry_at - before;
+  const halfDelay = half.item.next_retry_at - after;
+  // Full-jitter draw schedules ~1000ms out; half-jitter draw ~500ms out.
+  assert.ok(fullDelay >= 1000 - 50 && fullDelay <= 1000 + 50, `full ~1000ms, got ${fullDelay}`);
+  assert.ok(halfDelay >= 500 - 50 && halfDelay <= 500 + 50, `half ~500ms, got ${halfDelay}`);
+});
+
+test('scheduleRetry desynchronizes two equal-attempt retries', () => {
+  const config = { maxRetries: 5, retryBaseDelayMs: 1000, retryMaxDelayMs: 30000 };
+  const event = { chain: 'neo_n3', requestId: '1', requestType: 'privacy_oracle' };
+
+  // Same attempt count, different rng draws -> different next_retry_at, so a
+  // batch of retries does not bucket into the same tick after an outage.
+  const a = scheduleRetry(createEmptyRelayerState(), 'neo_n3', event, 'boom', config, () => 0.2);
+  const b = scheduleRetry(createEmptyRelayerState(), 'neo_n3', event, 'boom', config, () => 0.8);
+  assert.notEqual(a.item.next_retry_at, b.item.next_retry_at);
 });

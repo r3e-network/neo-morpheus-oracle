@@ -4,9 +4,11 @@ import { wallet as neonWallet } from '@cityofzion/neon-js';
 
 import {
   buildSignAndBroadcastNeoN3Tx,
+  confirmNeoN3FulfillExecution,
   scanNeoN3OracleRequests,
   scanNeoN3OracleRequestsById,
 } from './neo-n3.js';
+import { classifyError } from './fulfillment.js';
 
 // Deterministic throwaway test key (not used anywhere live).
 const TEST_PK = '59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
@@ -464,6 +466,101 @@ test('scanNeoN3OracleRequests aborts the scan on a transport error mid-range', a
     await assert.rejects(
       scanNeoN3OracleRequests(blockScanConfig(4), 100, 102),
       /transport boom/
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+// ===================================================================
+// confirmNeoN3FulfillExecution timeout handling (B6)
+// ===================================================================
+
+// getapplicationlog stub that always returns an execution with no vmstate yet
+// (the broadcast race / dropped-tx case). A small real delay lets the confirm
+// loop's deadline elapse on the first iteration without the 1s inter-poll sleep.
+function stubPendingAppLogRpc() {
+  return async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (body.method !== 'getapplicationlog') {
+      throw new Error(`unexpected RPC method ${body.method}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({ jsonrpc: '2.0', id: 1, result: { executions: [{}] } }),
+    };
+  };
+}
+
+const confirmConfig = (overrides = {}) => ({
+  neo_n3: {
+    rpcUrl: 'https://neo-rpc.test',
+    networkMagic: 894710606,
+    fulfillConfirmTimeoutMs: 1,
+    ...overrides,
+  },
+});
+
+test('confirmNeoN3FulfillExecution throws a transient timeout when the app log never confirms', async () => {
+  // A dropped/unmined fulfillRequest must NOT be silently recorded as fulfilled:
+  // the confirm must throw a "timed out" error so it re-broadcasts next tick.
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = stubPendingAppLogRpc();
+    await assert.rejects(
+      confirmNeoN3FulfillExecution(confirmConfig(), '42', '0xdeadbeef'),
+      (error) => {
+        assert.match(error.message, /confirmation timed out/);
+        // classifyError must route this to the transient retry lane, not permanent.
+        assert.equal(classifyError(error.message), 'transient');
+        return true;
+      }
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('confirmNeoN3FulfillExecution honors the opt-out flag and degrades to UNKNOWN', async () => {
+  // Operators can restore the prior best-effort behavior via the flag.
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = stubPendingAppLogRpc();
+    const outcome = await confirmNeoN3FulfillExecution(
+      confirmConfig({ fulfillConfirmThrowOnTimeout: false }),
+      '42',
+      '0xdeadbeef'
+    );
+    assert.equal(outcome.vm_state, 'UNKNOWN');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('confirmNeoN3FulfillExecution still throws (never resolves) on a confirmed FAULT', async () => {
+  // A real FAULT must always throw regardless of the timeout flag — never masked.
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = async (url, init) => {
+      const body = JSON.parse(init.body);
+      assert.equal(body.method, 'getapplicationlog');
+      return {
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { executions: [{ vmstate: 'FAULT', exception: 'ASSERT failed' }] },
+          }),
+      };
+    };
+    await assert.rejects(
+      confirmNeoN3FulfillExecution(confirmConfig(), '42', '0xdeadbeef'),
+      /faulted/
     );
   } finally {
     global.fetch = originalFetch;

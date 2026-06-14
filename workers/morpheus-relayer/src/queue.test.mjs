@@ -187,6 +187,52 @@ describe('claimDurableJobForProcessing', () => {
     assert.equal(claimed, true);
     resetSupabasePersistenceBackoffForTests();
   });
+
+  it('emits a backoff metric when granting a local claim during Supabase backoff', async () => {
+    resetSupabasePersistenceBackoffForTests();
+    markSupabasePersistenceUnavailable(
+      new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
+    );
+    const state = createEmptyRelayerState();
+
+    // Single-instance default (allowLocalClaimDuringBackoff unset -> allow).
+    const claimed = await claimDurableJobForProcessing(
+      { durableQueue: { enabled: true, failClosed: true }, instanceId: 'test-relayer' },
+      { warn() {}, info() {} },
+      { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' },
+      null,
+      state
+    );
+
+    assert.equal(claimed, true);
+    // Operator-visible signal that idempotency protection is off this window.
+    assert.equal(state.metrics.durable_claim_skipped_during_backoff_total, 1);
+    resetSupabasePersistenceBackoffForTests();
+  });
+
+  it('skips the claim during backoff when allowLocalClaimDuringBackoff is false (multi-instance)', async () => {
+    resetSupabasePersistenceBackoffForTests();
+    markSupabasePersistenceUnavailable(
+      new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
+    );
+    const state = createEmptyRelayerState();
+
+    const claimed = await claimDurableJobForProcessing(
+      {
+        durableQueue: { enabled: true, failClosed: true, allowLocalClaimDuringBackoff: false },
+        instanceId: 'test-relayer',
+      },
+      { warn() {}, info() {} },
+      { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' },
+      null,
+      state
+    );
+
+    // Conservative path: do not grant a local claim that could double-deliver.
+    assert.equal(claimed, false);
+    assert.equal(state.metrics.durable_claim_skipped_during_backoff_total, 1);
+    resetSupabasePersistenceBackoffForTests();
+  });
 });
 
 // ===================================================================

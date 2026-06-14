@@ -300,10 +300,32 @@ export async function persistFreshEventsToDurableQueue(config, logger, chain, ev
   }
 }
 
-export async function claimDurableJobForProcessing(config, logger, event, retryItem = null) {
+export async function claimDurableJobForProcessing(
+  config,
+  logger,
+  event,
+  retryItem = null,
+  state = null
+) {
   if (!config.durableQueue?.enabled) return true;
   if (retryItem?.durable_claimed) return true;
   if (shouldSkipSupabasePersistence()) {
+    // Supabase is in quota/outage backoff: the cross-instance claim is offline.
+    // Surface that idempotency protection is temporarily off so an operator can
+    // see it, and honor the multi-instance opt-out instead of silently granting.
+    if (state) incrementMetric(state, 'durable_claim_skipped_during_backoff_total');
+    const allowLocalClaim = config.durableQueue?.allowLocalClaimDuringBackoff !== false;
+    if (!allowLocalClaim) {
+      logger.warn(
+        { chain: event.chain, request_id: event.requestId, event_key: buildEventKey(event) },
+        'Durable cross-instance claim is offline (Supabase backoff); skipping processing this tick (allowLocalClaimDuringBackoff=false)'
+      );
+      return false;
+    }
+    logger.warn(
+      { chain: event.chain, request_id: event.requestId, event_key: buildEventKey(event) },
+      'Durable cross-instance claim is offline (Supabase backoff); granting local claim — idempotency protection is OFF until Supabase recovers'
+    );
     return true;
   }
   if (!ensureDurableQueueAvailable(config, logger, `${event.chain}:durable-claim`)) return false;

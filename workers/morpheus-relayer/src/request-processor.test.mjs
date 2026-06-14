@@ -36,20 +36,79 @@ test('processChainByRequestCursor does not advance the cursor when the scan thro
   const state = createEmptyRelayerState();
   state.neox.last_request_id = 4;
 
-  await assert.rejects(
-    processChainByRequestCursor(cursorConfig(), state, silentLogger, 'neox', {
-      hasConfig: () => true,
-      getLatestRequestId: async () => 10,
-      scan: async () => {
-        throw new Error('ECONNRESET');
-      },
-    }),
-    /ECONNRESET/
-  );
+  // Discovery is decoupled from retry draining (A2): a scan/discovery throw is
+  // logged and swallowed so due retries still run this tick, but the cursor must
+  // NOT advance — the failed range (5..10) must be rescanned next tick, else
+  // paid requests are orphaned behind the cursor forever.
+  const result = await processChainByRequestCursor(cursorConfig(), state, silentLogger, 'neox', {
+    hasConfig: () => true,
+    getLatestRequestId: async () => 10,
+    scan: async () => {
+      throw new Error('ECONNRESET');
+    },
+  });
 
-  // The failed range (5..10) must be rescanned next tick — a swallowed transport
-  // error here would orphan paid requests behind the cursor forever.
   assert.equal(state.neox.last_request_id, 4);
+  assert.equal(result.scanned_requests, null);
+  assert.deepEqual(result.events, []);
+  assert.equal(state.metrics.discovery_failures_total, 1);
+});
+
+test('processChainByRequestCursor still drains due retries when discovery throws', async () => {
+  const state = createEmptyRelayerState();
+  state.neox.last_request_id = 4;
+
+  // A prepared, already-due callback redelivery that needs no fresh chain-tip
+  // read. A transient getLatestRequestId failure must not starve it.
+  const preparedFulfillment = {
+    success: true,
+    result: '{"ok":true}',
+    error: '',
+    result_bytes_base64: '',
+    route: '/oracle/fetch',
+    module_id: 'oracle.fetch',
+    operation: 'privacy_oracle',
+    worker_status: 200,
+    verification_signature: 'sig',
+  };
+  state.neox.retry_queue.push({
+    key: 'neox:7:::',
+    event: { chain: 'neox', requestId: '7', requestType: 'privacy_oracle', txHash: '' },
+    attempts: 0,
+    next_retry_at: Date.now() - 1000,
+    prepared_fulfillment: preparedFulfillment,
+    durable_claimed: true,
+  });
+
+  const fulfillCalls = [];
+  const config = cursorConfig({
+    hooks: {
+      fulfillNeoRequest: async (call) => {
+        fulfillCalls.push(call.requestId);
+        return {
+          request_id: `neox:fulfill:${call.requestId}`,
+          tx_hash: '0xfulfilled',
+          vm_state: 'HALT',
+          target_chain: 'neox',
+        };
+      },
+    },
+  });
+
+  const result = await processChainByRequestCursor(config, state, silentLogger, 'neox', {
+    hasConfig: () => true,
+    getLatestRequestId: async () => {
+      throw new Error('RPC tip read failed');
+    },
+    scan: async () => [],
+  });
+
+  // Discovery failed (cursor unchanged) but the due retry was still delivered.
+  assert.equal(state.neox.last_request_id, 4);
+  assert.equal(result.scanned_requests, null);
+  assert.equal(state.metrics.discovery_failures_total, 1);
+  assert.deepEqual(fulfillCalls, ['7']);
+  assert.equal(result.retries.length, 1);
 });
 
 test('quiet-chain early return still caps due retries and counts skipped items', async () => {

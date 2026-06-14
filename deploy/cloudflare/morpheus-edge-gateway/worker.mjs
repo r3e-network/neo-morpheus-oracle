@@ -272,6 +272,20 @@ function maybeParseJson(text) {
   }
 }
 
+// Cloudflare workers have a wall-clock budget (~30s); a hung origin must fail
+// fast to the existing 503 origin_unavailable path instead of stalling the
+// worker to that limit. Both timeouts are env-tunable and clamped below the CF
+// cap. Proxy default 10s (>= the longest legit origin op), probe default 5s.
+const DEFAULT_PROXY_TIMEOUT_MS = 10_000;
+const DEFAULT_PROBE_TIMEOUT_MS = 5_000;
+const MAX_ORIGIN_TIMEOUT_MS = 25_000;
+
+function resolveOriginTimeoutMs(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(Math.max(Math.round(parsed), 1000), MAX_ORIGIN_TIMEOUT_MS);
+}
+
 function decorateGatewayResponse(response, routing, routeKey) {
   response.headers.set('x-morpheus-edge', 'cloudflare');
   response.headers.set('x-morpheus-route', routeKey);
@@ -301,8 +315,14 @@ function buildOriginProbeRequest(request, routing, env, targetPath) {
 }
 
 async function readOriginRuntimeProbe(request, routing, env, targetPath) {
+  const timeoutMs = resolveOriginTimeoutMs(
+    env.MORPHEUS_EDGE_PROBE_TIMEOUT_MS,
+    DEFAULT_PROBE_TIMEOUT_MS
+  );
   try {
-    const response = await fetch(buildOriginProbeRequest(request, routing, env, targetPath));
+    const response = await fetch(buildOriginProbeRequest(request, routing, env, targetPath), {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     const text = await response.text();
     return {
       ok: response.ok,
@@ -310,6 +330,8 @@ async function readOriginRuntimeProbe(request, routing, env, targetPath) {
       body: maybeParseJson(text),
     };
   } catch (error) {
+    // A hung /health or /info now aborts at timeoutMs and resolves to down,
+    // instead of stalling Promise.all to the Cloudflare wall-clock limit.
     return {
       ok: false,
       status: 503,
@@ -423,9 +445,17 @@ export default {
     }
 
     const originRequest = buildOriginRequest(request, env);
+    const originTimeoutMs = resolveOriginTimeoutMs(
+      env.MORPHEUS_EDGE_ORIGIN_TIMEOUT_MS,
+      DEFAULT_PROXY_TIMEOUT_MS
+    );
     let originResponse;
     try {
-      originResponse = await fetch(originRequest);
+      // A hung origin aborts at originTimeoutMs and falls through to the 503
+      // origin_unavailable path below, instead of stalling to the CF wall clock.
+      originResponse = await fetch(originRequest, {
+        signal: AbortSignal.timeout(originTimeoutMs),
+      });
     } catch (error) {
       return json(
         503,

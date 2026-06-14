@@ -209,3 +209,64 @@ test('edge gateway routes oracle feed publication to the dedicated DataFeed orig
   );
   assert.equal(calls[0].headers['x-morpheus-network'], 'testnet');
 });
+
+// A fetch stub that hangs forever unless its AbortSignal fires (the hung-origin
+// failure mode). It resolves to a rejection only when aborted, so the worker's
+// AbortSignal.timeout is what frees it — never the stub itself.
+function hangingFetch() {
+  return (input, init = {}) =>
+    new Promise((_resolve, reject) => {
+      const signal = init.signal;
+      if (signal) {
+        if (signal.aborted) {
+          reject(signal.reason || new Error('aborted'));
+          return;
+        }
+        signal.addEventListener(
+          'abort',
+          () => reject(signal.reason || new Error('aborted')),
+          { once: true }
+        );
+      }
+      // No resolve path: the origin "hangs".
+    });
+}
+
+test('edge gateway fails fast to 503 when a proxied origin hangs (B7)', async () => {
+  global.fetch = hangingFetch();
+  global.caches = createCaches();
+
+  const startedAt = Date.now();
+  const response = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/prices'),
+    // 1s timeout (clamped floor) keeps the test fast but proves the abort path.
+    createEnv({ MORPHEUS_EDGE_ORIGIN_TIMEOUT_MS: '1000' }),
+    createCtx()
+  );
+  const elapsed = Date.now() - startedAt;
+
+  assert.equal(response.status, 503);
+  const payload = await response.json();
+  assert.equal(payload.error, 'origin_unavailable');
+  // Resolved via the timeout, well under Cloudflare's ~30s wall clock.
+  assert.ok(elapsed < 5000, `expected fast fail, took ${elapsed}ms`);
+});
+
+test('edge gateway runtime status reports "down" fast when origin probes hang (B7)', async () => {
+  global.fetch = hangingFetch();
+  global.caches = createCaches();
+
+  const startedAt = Date.now();
+  const response = await worker.fetch(
+    new Request('https://oracle.meshmini.app/testnet/api/runtime/status'),
+    createEnv({ MORPHEUS_EDGE_PROBE_TIMEOUT_MS: '1000' }),
+    createCtx()
+  );
+  const elapsed = Date.now() - startedAt;
+
+  // Both probes time out -> snapshot resolves to down (503) instead of stalling.
+  assert.equal(response.status, 503);
+  const payload = await response.json();
+  assert.equal(payload.runtime.status, 'down');
+  assert.ok(elapsed < 5000, `expected fast fail, took ${elapsed}ms`);
+});

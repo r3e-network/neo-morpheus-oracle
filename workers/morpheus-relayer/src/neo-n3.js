@@ -948,6 +948,19 @@ function getNeoN3FulfillConfirmTimeoutMs(config) {
   return DEFAULT_FULFILL_CONFIRM_TIMEOUT_MS;
 }
 
+// Whether a fulfillRequest whose application log never appears before the
+// confirm timeout should be treated as a transient failure (re-broadcast on a
+// later tick) instead of a benign terminal UNKNOWN. Defaults to true: a tx that
+// was broadcast but never mined (dropped from the mempool) would otherwise be
+// recorded as fulfilled, permanently losing the callback, because processEvent
+// never inspects vm_state. Re-broadcast is idempotent — a landed-but-unindexed
+// tx FAULTs "already fulfilled" on retry and settles. Reversible via
+// MORPHEUS_RELAYER_NEO_N3_FULFILL_CONFIRM_THROW_ON_TIMEOUT=false.
+function shouldThrowOnNeoN3FulfillConfirmTimeout(config) {
+  const value = config?.neo_n3?.fulfillConfirmThrowOnTimeout;
+  return value === undefined || value === null ? true : Boolean(value);
+}
+
 /**
  * Confirm a broadcast fulfillRequest transaction by polling its application log
  * until the VM result is available. `contract.invoke` and `sendrawtransaction`
@@ -957,11 +970,17 @@ function getNeoN3FulfillConfirmTimeoutMs(config) {
  * concrete vmstate is observed:
  *   - HALT  -> resolve with vm_state HALT
  *   - FAULT -> throw (never record a faulted tx as fulfilled)
- * If the log never becomes available before the timeout we degrade to UNKNOWN
- * (best-effort) rather than throwing, preserving prior behavior for genuinely
- * un-indexable broadcasts while never masking a confirmed FAULT.
+ * If the log never becomes available before the timeout we throw a TRANSIENT
+ * error (message contains "timed out" so classifyError routes it to a callback
+ * retry / re-broadcast on a later tick) instead of degrading to a benign
+ * UNKNOWN. A broadcast-but-never-mined fulfillRequest (dropped from the mempool)
+ * would otherwise be recorded as fulfilled and the user request lost forever,
+ * because processEvent never inspects vm_state. Re-broadcast is idempotent: a
+ * landed-but-unindexed tx FAULTs "already fulfilled" on retry and settles.
+ * Operators can restore the prior best-effort behavior with
+ * MORPHEUS_RELAYER_NEO_N3_FULFILL_CONFIRM_THROW_ON_TIMEOUT=false.
  */
-async function confirmNeoN3FulfillExecution(config, requestId, txHash) {
+export async function confirmNeoN3FulfillExecution(config, requestId, txHash) {
   const deadline = Date.now() + getNeoN3FulfillConfirmTimeoutMs(config);
   let lastError = null;
   for (;;) {
@@ -981,10 +1000,17 @@ async function confirmNeoN3FulfillExecution(config, requestId, txHash) {
       lastError = error instanceof Error ? error : new Error(String(error));
     }
     if (Date.now() >= deadline) {
+      const detail =
+        lastError?.message || 'fulfillRequest application log unavailable before timeout';
+      if (shouldThrowOnNeoN3FulfillConfirmTimeout(config)) {
+        // Transient: re-broadcast on a later tick (idempotent via already-fulfilled).
+        throw new Error(
+          `Neo N3 fulfillRequest confirmation timed out for request ${requestId} (${txHash}): ${detail}`
+        );
+      }
       return {
         vm_state: 'UNKNOWN',
-        exception:
-          lastError?.message || 'fulfillRequest application log unavailable before timeout',
+        exception: detail,
       };
     }
     await new Promise((resolve) => setTimeout(resolve, 1000));

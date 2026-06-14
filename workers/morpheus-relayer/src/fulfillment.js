@@ -106,8 +106,17 @@ export function classifyError(err) {
   return 'unknown';
 }
 
-export function computeRetryDelayMs(config, attempts) {
-  return Math.min(config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0), config.retryMaxDelayMs);
+export function computeRetryDelayMs(config, attempts, rng = Math.random) {
+  const ceiling = Math.min(
+    config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0),
+    config.retryMaxDelayMs
+  );
+  // Full/equal jitter: spread the delay across [0.5, 1.0] * ceiling so a shared
+  // dependency outage (RPC, Nitro signer, Supabase 402) does not bucket every
+  // queued retry into the same next_retry_at and re-stampede the recovering
+  // dependency on one tick. Math.round keeps integer-millisecond timestamps.
+  const jitterFactor = 0.5 + 0.5 * rng();
+  return Math.round(ceiling * jitterFactor);
 }
 
 /**
@@ -1027,7 +1036,7 @@ export async function processEvent(config, state, persistState, logger, event, r
     'Processing Morpheus oracle request'
   );
 
-  const claimed = await claimDurableJobForProcessing(config, logger, event, retryItem);
+  const claimed = await claimDurableJobForProcessing(config, logger, event, retryItem, state);
   if (!claimed) {
     incrementMetric(state, 'claim_conflicts_total');
     clearRetryItem(state, event.chain, eventKey);

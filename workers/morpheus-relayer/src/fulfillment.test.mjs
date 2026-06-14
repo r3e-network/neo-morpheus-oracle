@@ -224,37 +224,69 @@ describe('computeRetryDelayMs', () => {
     retryBaseDelayMs: 1000,
     retryMaxDelayMs: 30000,
   };
+  // Pin jitter to its upper bound (factor 1.0) to assert the deterministic
+  // exponential-backoff ceiling. rng=()=>1 -> 0.5 + 0.5*1 = 1.0.
+  const fullDelay = (attempts) => computeRetryDelayMs(config, attempts, () => 1);
 
   it('returns base delay for first attempt', () => {
-    assert.equal(computeRetryDelayMs(config, 1), 1000);
+    assert.equal(fullDelay(1), 1000);
   });
 
   it('doubles delay with each attempt (exponential backoff)', () => {
-    assert.equal(computeRetryDelayMs(config, 1), 1000);
-    assert.equal(computeRetryDelayMs(config, 2), 2000);
-    assert.equal(computeRetryDelayMs(config, 3), 4000);
-    assert.equal(computeRetryDelayMs(config, 4), 8000);
+    assert.equal(fullDelay(1), 1000);
+    assert.equal(fullDelay(2), 2000);
+    assert.equal(fullDelay(3), 4000);
+    assert.equal(fullDelay(4), 8000);
   });
 
   it('caps at retryMaxDelayMs', () => {
-    assert.equal(computeRetryDelayMs(config, 10), 30000);
-    assert.equal(computeRetryDelayMs(config, 20), 30000);
+    assert.equal(fullDelay(10), 30000);
+    assert.equal(fullDelay(20), 30000);
   });
 
   it('handles zero attempts (uses base delay)', () => {
-    assert.equal(computeRetryDelayMs(config, 0), 1000);
+    assert.equal(fullDelay(0), 1000);
   });
 
   it('handles negative attempts (uses base delay)', () => {
-    assert.equal(computeRetryDelayMs(config, -1), 1000);
+    assert.equal(fullDelay(-1), 1000);
   });
 
   it('works with different config values', () => {
     const custom = { retryBaseDelayMs: 500, retryMaxDelayMs: 5000 };
-    assert.equal(computeRetryDelayMs(custom, 1), 500);
-    assert.equal(computeRetryDelayMs(custom, 2), 1000);
-    assert.equal(computeRetryDelayMs(custom, 4), 4000);
-    assert.equal(computeRetryDelayMs(custom, 5), 5000); // capped
+    assert.equal(computeRetryDelayMs(custom, 1, () => 1), 500);
+    assert.equal(computeRetryDelayMs(custom, 2, () => 1), 1000);
+    assert.equal(computeRetryDelayMs(custom, 4, () => 1), 4000);
+    assert.equal(computeRetryDelayMs(custom, 5, () => 1), 5000); // capped
+  });
+
+  it('applies full jitter within [0.5, 1.0] * ceiling (lower bound)', () => {
+    // rng=()=>0 -> factor 0.5 -> half the deterministic ceiling.
+    assert.equal(computeRetryDelayMs(config, 1, () => 0), 500);
+    assert.equal(computeRetryDelayMs(config, 3, () => 0), 2000);
+    // Capped attempt still halves: 30000 * 0.5 = 15000.
+    assert.equal(computeRetryDelayMs(config, 20, () => 0), 15000);
+  });
+
+  it('jitters two equal-attempt delays to different values', () => {
+    // Same attempt, different rng draws -> different scheduled delays so a
+    // shared-dependency outage does not synchronize retries into one bucket.
+    const a = computeRetryDelayMs(config, 3, () => 0.2);
+    const b = computeRetryDelayMs(config, 3, () => 0.8);
+    assert.notEqual(a, b);
+    // Both stay within the jitter band [0.5, 1.0] * ceiling (ceiling=4000).
+    for (const value of [a, b]) {
+      assert.ok(value >= 2000, `${value} >= 2000`);
+      assert.ok(value <= 4000, `${value} <= 4000`);
+    }
+  });
+
+  it('defaults to Math.random and stays within the jitter band', () => {
+    // No rng argument exercises the production default path.
+    for (let i = 0; i < 50; i += 1) {
+      const value = computeRetryDelayMs(config, 4); // ceiling 8000
+      assert.ok(value >= 4000 && value <= 8000, `${value} in [4000, 8000]`);
+    }
   });
 });
 

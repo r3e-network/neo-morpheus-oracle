@@ -278,7 +278,7 @@ export function recordProcessedEvent(state, chain, event, status, meta = {}, lim
   return chainState.processed_records[key];
 }
 
-export function scheduleRetry(state, chain, event, errorMessage, config) {
+export function scheduleRetry(state, chain, event, errorMessage, config, rng = Math.random) {
   const chainState = state[chain];
   const key = buildEventKey(event);
   const existing = chainState.retry_queue.find((item) => item.key === key);
@@ -294,10 +294,15 @@ export function scheduleRetry(state, chain, event, errorMessage, config) {
     };
   }
 
-  const delayMs = Math.min(
+  const ceiling = Math.min(
     config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0),
     config.retryMaxDelayMs
   );
+  // Full/equal jitter (mirror fulfillment.js computeRetryDelayMs): spread the
+  // delay across [0.5, 1.0] * ceiling so a shared-dependency outage does not
+  // bucket every queued retry into the same next_retry_at and re-stampede the
+  // recovering dependency on one tick.
+  const delayMs = Math.round(ceiling * (0.5 + 0.5 * rng()));
   const item = {
     key,
     event,
