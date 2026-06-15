@@ -591,7 +591,7 @@ test('oracle_request consumer falls back when the first runtime wraps a retryabl
   assert.equal(state.jobs.get('job-oracle-fallback-wrapped')?.status, 'succeeded');
 });
 
-test('control plane dispatches callback_broadcast through workflows and persists instance metadata', async () => {
+test('callbacks/broadcast is a redundant no-op: returns 200 and never enqueues a duplicate host-signed broadcast', async () => {
   const callbackWorkflow = createWorkflowBinding({ status: 'queued' });
   const env = createEnv({
     CALLBACK_BROADCAST_WORKFLOW: callbackWorkflow,
@@ -617,12 +617,42 @@ test('control plane dispatches callback_broadcast through workflows and persists
     env
   );
 
-  assert.equal(response.status, 202);
+  assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(callbackWorkflow.created.length, 1);
-  assert.equal(body.status, 'dispatched');
-  assert.equal(body.metadata.workflow_name, 'callback_broadcast');
-  assert.match(String(body.metadata.workflow_instance_id || ''), /^callback_broadcast:testnet:/);
+  assert.equal(body.status, 'noop');
+  assert.equal(body.reason, 'callback_lane_redundant_relayer_authoritative');
+  // The box relayer's own fulfillment delivers the callback in-TEE; the edge lane
+  // must not dispatch a duplicate host-signed broadcast.
+  assert.equal(callbackWorkflow.created.length, 0);
+});
+
+test('automation/execute is a redundant no-op: returns 200 and never invokes the host-side signer', async () => {
+  const automationWorkflow = createWorkflowBinding({ status: 'queued' });
+  const env = createEnv({
+    AUTOMATION_EXECUTE_WORKFLOW: automationWorkflow,
+  });
+  const state = createState();
+  global.fetch = createFetchMock(state);
+
+  const response = await worker.fetch(
+    new Request('https://control-plane.test/testnet/automation/execute', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer control-plane-key',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ automation_id: 'automation:neo_n3:test' }),
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.status, 'noop');
+  assert.equal(body.reason, 'automation_executed_by_relayer');
+  // The box relayer executes automations in-TEE; the edge lane must not enqueue a
+  // host-signed queueAutomationRequest.
+  assert.equal(automationWorkflow.created.length, 0);
 });
 
 test('callback_broadcast workflow executes app backend callback route', async () => {

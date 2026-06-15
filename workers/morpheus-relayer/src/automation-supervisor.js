@@ -33,11 +33,17 @@ export function buildUpkeepDispatch(job = {}) {
     execution_count: executionCount,
     next_execution_count: nextExecutionCount,
     execution_id: executionId,
+    // The on-chain request_id is the CROSS-LANE dedup key, so it must derive only
+    // from (automation_id, execution_count) — never from execution_id. The box
+    // relayer dispatches with no execution_id (count-based id); the control-plane
+    // edge path carries a random per-request execution_id. If request_id followed
+    // execution_id, the two lanes would mint DIFFERENT ids for the same logical
+    // execution and the oracle kernel's "request_id already used" guard could not
+    // dedup them → a genuine double queueAutomationRequest + double callback. Keep
+    // execution_id free-form for workflow/observability tracking only.
     request_id:
       trimString(job.request_id || job.requestId || '') ||
-      (explicitExecutionId
-        ? `automation:${chain}:${explicitExecutionId}`
-        : `automation:${chain}:${automationId}:${nextExecutionCount}`),
+      `automation:${chain}:${automationId}:${nextExecutionCount}`,
     idempotency_key:
       trimString(job.idempotency_key || job.idempotencyKey || '') ||
       `${workflowId}:${automationId}:${nextExecutionCount}`,

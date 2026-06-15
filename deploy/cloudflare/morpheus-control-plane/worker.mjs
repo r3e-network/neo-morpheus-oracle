@@ -159,6 +159,38 @@ export default {
       );
     }
 
+    // The on-chain callback IS the relayer's fulfillRequest broadcast (the box
+    // relayer is a complete reconciler: it scans pending requests by id, signs
+    // IN-TEE, and has its own retry + dead-letter). The control-plane
+    // callbacks/broadcast lane only RE-broadcasts an already-signed fulfillment
+    // host-side and has no in-repo producer of that signed input — it is redundant,
+    // and the kernel's "request already fulfilled" assert makes any duplicate
+    // harmless. Short-circuit it so no duplicate host-signed broadcast is enqueued.
+    // (The internal /api/internal/control-plane/callback-broadcast primitive stays
+    // intact for a manual operator re-broadcast if ever needed.)
+    if (routing.routePath === '/callbacks/broadcast') {
+      return json(
+        200,
+        { ok: true, status: 'noop', reason: 'callback_lane_redundant_relayer_authoritative' },
+        rid
+      );
+    }
+
+    // Automations are executed by the box relayer (processAutomationJobs polls the
+    // same Supabase jobs every tick, gates on due-ness, signs IN-TEE). The
+    // control-plane automation/execute lane reads the SAME Supabase rows, gates on
+    // the same due-ness (it cannot even force an early run), and signs host-side with
+    // neon-js — a strict subset of the relayer with no in-repo scheduler driving it.
+    // Short-circuit it so the host-side signer is never invoked. automation_register
+    // / automation_cancel are different routes (Supabase-only) and are unaffected.
+    if (routing.routePath === '/automation/execute') {
+      return json(
+        200,
+        { ok: true, status: 'noop', reason: 'automation_executed_by_relayer' },
+        rid
+      );
+    }
+
     const rateLimited = await applyRateLimit(request, env, jobConfig.queue);
     if (rateLimited) return rateLimited;
 
