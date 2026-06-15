@@ -660,7 +660,10 @@ test('callback_broadcast workflow executes app backend callback route', async ()
   assert.equal(result.ok, true);
   assert.equal(state.backendCalls.length, 1);
   assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/callback-broadcast');
-  assert.equal(state.backendCalls[0].body.wif, 'testnet-updater-wif');
+  // CP-01: the control plane must NOT resolve or forward a signing WIF from the edge;
+  // the app backend resolves the updater signer from its own env.
+  assert.equal(state.backendCalls[0].body.wif, undefined);
+  assert.equal(state.backendCalls[0].body.private_key, undefined);
   assert.equal(state.jobs.get('job-callback')?.status, 'succeeded');
 });
 
@@ -695,7 +698,10 @@ test('automation_execute workflow executes app backend automation route', async 
   assert.equal(result.ok, true);
   assert.equal(state.backendCalls.length, 1);
   assert.equal(state.backendCalls[0].path, '/api/internal/control-plane/automation-execute');
-  assert.equal(state.backendCalls[0].body.wif, 'testnet-updater-wif');
+  // CP-01: the control plane must NOT resolve or forward a signing WIF from the edge;
+  // the app backend resolves the updater signer from its own env.
+  assert.equal(state.backendCalls[0].body.wif, undefined);
+  assert.equal(state.backendCalls[0].body.private_key, undefined);
   assert.equal(state.jobs.get('job-automation')?.status, 'succeeded');
 });
 
