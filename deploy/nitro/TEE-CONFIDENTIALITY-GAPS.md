@@ -66,11 +66,24 @@ derived-keys path derives the Neo N3 key in host memory on the primary path.
 - **Phase B — finish CP-01:** make `callback-broadcast` + `automation-execute` sign in-TEE (call the
   enclave `/sign/payload`), delete `resolveNeoN3*Signer` + the `...signer` spreads, remove the WIF
   from the control-plane + Vercel envs. Rotate that WIF (see RC3).
-- **Phase C — enclave-self-sufficient key sealing (the structural fix for RC2):** make the enclave
-  unseal/derive the X25519 + Neo N3 keys ITSELF — route the AWS SDK through the vsock egress proxy
-  OR use AWS KMS attestation-gated decrypt (`kms:RecipientAttestation` bound to PCR0/1/2). Remove all
-  host key injection/unsealing; scope the EC2 instance role so the host cannot read the masters;
-  keys born+sealed in-TEE. Rotate every key that was host-exposed.
+- **Phase C — enclave-self-sufficient key sealing (the structural fix for RC2):**
+  - **DONE + committed (enclave-side foundation):** the enclave AWS SDK now egresses via the vsock
+    proxy (`a90122b`), and `loadStableOracleKeyMaterial` unseals a ciphertext keystore from env
+    (`b0a0cf5`, round-trip tested) — so the enclave can derive its own wrap key and unseal in-TEE.
+  - **Remaining deployment (staged, each reversible):** (A) rebuild EIF with the above + cutover,
+    keeping the host plaintext injection, and validate in-enclave that the SDK actually reaches
+    Secrets Manager through the proxy (e.g. `/keys/derived`); (B) change `provision-enclave-compute.sh`
+    to inject only the ciphertext keystore (+ stop deriving the neodid salt on host — the enclave
+    now derives it), cutover, validate decrypt via in-TEE self-unseal; rollback = revert provision to
+    plaintext (the new EIF still accepts it).
+  - **⚠️ DECISION — partial vs complete.** The vsock-proxy approach removes the *routine* host
+    plaintext handling, but the host instance role + the on-disk keystore mean a host-root attacker
+    can still re-derive the key. The COMPLETE "no key on host" guarantee needs **AWS KMS
+    attestation-gated decrypt** (`kms:RecipientAttestation` bound to PCR0/1/2) so only the attested
+    enclave can unwrap, plus scoping the EC2 instance role off the masters. That needs an AWS KMS key
+    + IAM change (infra access + design decision).
+  - **Rotate** the X25519 key after the switch (it was host-exposed) — with old-key retention for
+    payloads already encrypted to the old pubkey.
 - **Phase D — in-TEE EVM signing (RC1):** add a secp256k1 signing role to the enclave; generate+seal
   the EVM verifier key in-TEE; route all Neo X feed + fulfillment signing through the enclave; keep
   only a low-privilege gas/submission key on the host (or move it in-TEE too).
