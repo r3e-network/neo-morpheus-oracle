@@ -89,6 +89,7 @@ const {
   __setAttestRunnerForTests,
   __resetAttestRunnerForTests,
   materializeOracleKeyFromKms,
+  materializeNeoXVerifierKeyFromKms,
 } = enclave;
 
 // Import planFeedUpdate from the feed-pusher INDEPENDENTLY (the SAME decision the
@@ -1015,6 +1016,68 @@ test('materializeOracleKeyFromKms recovers the oracle key in-TEE from a KMS ciph
       ['MORPHEUS_ORACLE_KEY_MATERIAL_JSON', saved.json],
       ['MORPHEUS_ORACLE_KEY_MATERIAL_BASE64', saved.b64],
       ['MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64', saved.ct],
+    ]) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});
+
+test('materializeNeoXVerifierKeyFromKms recovers the EVM verifier key in-TEE from a KMS ciphertext (Phase D)', () => {
+  // a deterministic secp256k1 test key; its address is derived via ethers below.
+  const PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  const expectedAddress = new ethers.Wallet(PK).address;
+  const saved = {
+    pk: process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY,
+    key: process.env.MORPHEUS_NEOX_VERIFIER_KEY,
+    npk: process.env.NEOX_VERIFIER_PK,
+    ct: process.env.MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64,
+  };
+  delete process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY;
+  delete process.env.MORPHEUS_NEOX_VERIFIER_KEY;
+  delete process.env.NEOX_VERIFIER_PK;
+  let calledWith = null;
+  let plaintext = PK; // raw-hex form by default
+  __setAttestRunnerForTests((args) => {
+    calledWith = args;
+    return { ok: true, plaintext_b64: Buffer.from(plaintext, 'utf8').toString('base64') };
+  });
+  try {
+    // no-op when no ciphertext is provisioned
+    delete process.env.MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64;
+    materializeNeoXVerifierKeyFromKms();
+    assert.equal(calledWith, null);
+    assert.equal(process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY, undefined);
+
+    // materializes a RAW-HEX key from the ciphertext via attested kms-decrypt
+    process.env.MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64 = 'Y2lwaGVydGV4dA==';
+    materializeNeoXVerifierKeyFromKms();
+    assert.equal(calledWith[0], 'kms-decrypt');
+    assert.ok(calledWith.includes('--ciphertext'));
+    assert.equal(process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY, PK);
+    // the recovered key is a usable secp256k1 key (recovers to the expected address)
+    assert.equal(
+      new ethers.Wallet(process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY).address,
+      expectedAddress
+    );
+
+    // idempotent: already materialized -> does not re-run kms-decrypt
+    calledWith = null;
+    materializeNeoXVerifierKeyFromKms();
+    assert.equal(calledWith, null);
+
+    // a JSON-envelope plaintext ({neox_verifier_private_key}) is also accepted
+    delete process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY;
+    plaintext = JSON.stringify({ neox_verifier_private_key: PK });
+    materializeNeoXVerifierKeyFromKms();
+    assert.equal(process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY, PK);
+  } finally {
+    __resetAttestRunnerForTests();
+    for (const [k, v] of [
+      ['MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY', saved.pk],
+      ['MORPHEUS_NEOX_VERIFIER_KEY', saved.key],
+      ['NEOX_VERIFIER_PK', saved.npk],
+      ['MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64', saved.ct],
     ]) {
       if (v === undefined) delete process.env[k];
       else process.env[k] = v;

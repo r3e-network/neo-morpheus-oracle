@@ -117,6 +117,18 @@ try {
       console.error('provision-enclave-compute: oracle decrypt key unseal failed (decrypt lane stays degraded):', e.message);
     }
   }
+  // Phase D: same KMS-attested ciphertext path for the Neo X (EVM) verifier key.
+  // Inject ONLY the ciphertext when present; the enclave kms-decrypts it in-TEE
+  // (materializeNeoXVerifierKeyFromKms). Never inject the plaintext EVM key. No-op
+  // when EVM signing is not enabled on this host.
+  const neoxKmsCtPath = (worker.MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_PATH || '/var/lib/morpheus/neox-verifier-kms.b64').trim();
+  if (fs.existsSync(neoxKmsCtPath)) {
+    try {
+      env.MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64 = fs.readFileSync(neoxKmsCtPath, 'utf8').trim();
+    } catch (e) {
+      console.error('provision-enclave-compute: NeoX verifier KMS ciphertext read failed (EVM fulfill lane stays degraded):', e.message);
+    }
+  }
   try {
     const salt = Buffer.from(await deriveKeyBytes('morpheus/neodid/nullifier/v1', 'neodid-nullifier-salt'));
     env.NEODID_SECRET_SALT = salt.toString('hex');

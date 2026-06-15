@@ -236,6 +236,10 @@ function handleProvision(payload) {
   // material in-TEE now (before any decrypt request needs it) so the host never
   // injects plaintext. No-op when not configured or already materialized.
   materializeOracleKeyFromKms();
+  // Same KMS-attestation path for the Neo X (EVM) verifier key, so EVM oracle
+  // fulfillments are signed in-TEE with no host-resident secp256k1 key. No-op when
+  // not configured (e.g. EVM not yet enabled on this host).
+  materializeNeoXVerifierKeyFromKms();
   const roles = signerRolesHealth();
   return {
     status: roles.every((entry) => entry.ok) ? 'ok' : 'degraded',
@@ -979,6 +983,67 @@ export function materializeOracleKeyFromKms() {
   } else {
     console.error(JSON.stringify({ level: 'error', event: 'kms_oracle_key_materialize_bad_output' }));
   }
+}
+
+// Phase D (RC1/RC2): recover the Neo X (EVM, secp256k1) oracle-fulfillment VERIFIER
+// key IN-TEE via the same attestation-gated `nsm-attest kms-decrypt` used for the
+// X25519 oracle key. When MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64 is provisioned
+// the host only ever holds the ciphertext (useless without the enclave's attestation);
+// the plaintext secp256k1 key exists only inside the enclave and is exposed on the
+// env var resolveNeoXConfig() already reads, so EVM fulfillments are signed in-TEE
+// with NO host-resident verifier key. The plaintext may be a raw 0x-hex key or a JSON
+// envelope {neox_verifier_private_key}. No-op when not configured or already set.
+export function materializeNeoXVerifierKeyFromKms() {
+  const ciphertext = trimString(process.env.MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64);
+  if (!ciphertext) return;
+  // Already materialized / directly provisioned — don't re-decrypt (transition-safe).
+  if (
+    trimString(process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY) ||
+    trimString(process.env.MORPHEUS_NEOX_VERIFIER_KEY) ||
+    trimString(process.env.NEOX_VERIFIER_PK)
+  ) {
+    return;
+  }
+  const region =
+    trimString(process.env.AWS_REGION) || trimString(process.env.NITRO_AWS_REGION) || 'us-east-1';
+  let parsed;
+  try {
+    parsed = activeAttestRunner(['kms-decrypt', '--region', region, '--ciphertext', ciphertext]);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'kms_neox_verifier_key_materialize_failed',
+        error: String((error && error.message) || error),
+      })
+    );
+    return;
+  }
+  if (!(parsed && parsed.ok && parsed.plaintext_b64)) {
+    console.error(
+      JSON.stringify({ level: 'error', event: 'kms_neox_verifier_key_materialize_bad_output' })
+    );
+    return;
+  }
+  const plaintext = Buffer.from(parsed.plaintext_b64, 'base64').toString('utf8').trim();
+  let privateKey = plaintext;
+  if (plaintext.startsWith('{')) {
+    try {
+      const obj = JSON.parse(plaintext);
+      privateKey = trimString(
+        obj.neox_verifier_private_key || obj.neoxVerifierPrivateKey || obj.private_key || ''
+      );
+    } catch {
+      privateKey = '';
+    }
+  }
+  if (!privateKey) {
+    console.error(
+      JSON.stringify({ level: 'error', event: 'kms_neox_verifier_key_materialize_empty' })
+    );
+    return;
+  }
+  process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY = privateKey;
 }
 
 // Resolve the public key to bind into the document for the requested role
