@@ -42,7 +42,7 @@ ENV GOTOOLCHAIN=local
 ENV CGO_ENABLED=0
 COPY deploy/nitro/nsm-attest/go.mod deploy/nitro/nsm-attest/go.sum ./
 RUN go mod download
-COPY deploy/nitro/nsm-attest/main.go ./main.go
+COPY deploy/nitro/nsm-attest/main.go deploy/nitro/nsm-attest/cms.go ./
 # -trimpath strips absolute build paths; -buildvcs=false keeps the binary free of
 # VCS stamps; -ldflags "-s -w" drops the symbol/debug tables. Together these make
 # the binary independent of where/when it was built.
