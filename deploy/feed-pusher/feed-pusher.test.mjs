@@ -7,6 +7,7 @@ import os from 'node:os';
 import { createHash } from 'node:crypto';
 import pkg from '@cityofzion/neon-js';
 const { wallet, tx } = pkg;
+import { ethers } from 'ethers';
 
 process.env.FEED_PUSHER_SKIP_MAIN = '1';
 // Drive the in-process integration test through the flag-ON code path. Read at
@@ -22,6 +23,8 @@ const {
   trackMissingSymbols,
   rebuildUpdateFeedsTxFromEnclavePlan,
   pushNeoN3,
+  rebuildNeoXUpdateFeedsData,
+  assertEnclaveNeoXTxMatches,
   __setEnclaveFeedSignForTests,
   __resetEnclaveFeedSignForTests,
   __setN3RpcForTests,
@@ -556,4 +559,117 @@ test('flag-ON pushNeoN3 refuses to broadcast when the enclave tx message diverge
     __resetEnclaveFeedSignForTests();
     __resetN3RpcForTests();
   }
+});
+
+// ── Phase D: in-TEE EVM (Neo X) feed-sign host-side assert helpers ──────────────
+test('neox enclave feed-sign: host re-encodes the calldata + accepts a matching signed tx', async () => {
+  const FEED_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  const from = new ethers.Wallet(FEED_PK).address;
+  const TO = '0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB';
+  const plan = {
+    status: 'ok',
+    symbols: ['TWELVEDATA:NEO-USD', 'TWELVEDATA:BTC-USD'],
+    prices_scaled: ['5250000', '65000123456'],
+    timestamps: ['1780000000', '1780000000'],
+    round_ids: ['1', '1'],
+  };
+  const data = rebuildNeoXUpdateFeedsData(ethers, plan);
+  const signed_tx = await new ethers.Wallet(FEED_PK).signTransaction({
+    type: 2,
+    chainId: 47763,
+    nonce: 7,
+    to: TO,
+    value: 0n,
+    data,
+    gasLimit: 2_000_000n,
+    maxFeePerGas: 50_000_000_000n,
+    maxPriorityFeePerGas: 1_000_000_000n,
+  });
+  const resp = { ...plan, signed_tx };
+
+  // The enclave-side encode equals the host-side re-encode (cross-check).
+  const iface = new ethers.Interface([
+    'function updateFeeds(string[] symbols, uint256[] prices, uint256[] timestamps, uint256[] roundIds) external',
+  ]);
+  assert.equal(
+    data,
+    iface.encodeFunctionData('updateFeeds', [
+      plan.symbols,
+      plan.prices_scaled.map((x) => BigInt(x)),
+      plan.timestamps.map((x) => BigInt(x)),
+      plan.round_ids.map((x) => BigInt(x)),
+    ])
+  );
+
+  // A matching signed tx is accepted; the parsed tx is returned.
+  const parsed = assertEnclaveNeoXTxMatches(ethers, resp, { to: TO, chainId: 47763, nonce: 7, from });
+  assert.equal(parsed.nonce, 7);
+  assert.equal(parsed.from.toLowerCase(), from.toLowerCase());
+  assert.equal(parsed.data, data);
+});
+
+test('neox enclave feed-sign: host refuses to broadcast on any tx drift (fails closed)', async () => {
+  const FEED_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  const from = new ethers.Wallet(FEED_PK).address;
+  const TO = '0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB';
+  const plan = {
+    status: 'ok',
+    symbols: ['TWELVEDATA:NEO-USD'],
+    prices_scaled: ['5250000'],
+    timestamps: ['1780000000'],
+    round_ids: ['1'],
+  };
+  const data = rebuildNeoXUpdateFeedsData(ethers, plan);
+  const signed_tx = await new ethers.Wallet(FEED_PK).signTransaction({
+    type: 2,
+    chainId: 47763,
+    nonce: 7,
+    to: TO,
+    value: 0n,
+    data,
+    gasLimit: 2_000_000n,
+    maxFeePerGas: 50_000_000_000n,
+    maxPriorityFeePerGas: 1_000_000_000n,
+  });
+  const resp = { ...plan, signed_tx };
+
+  assert.throws(
+    () => assertEnclaveNeoXTxMatches(ethers, resp, { to: TO, chainId: 47763, nonce: 8, from }),
+    /nonce/
+  );
+  assert.throws(
+    () =>
+      assertEnclaveNeoXTxMatches(ethers, resp, {
+        to: TO,
+        chainId: 47763,
+        nonce: 7,
+        from: '0x0000000000000000000000000000000000000001',
+      }),
+    /from/
+  );
+  assert.throws(
+    () =>
+      assertEnclaveNeoXTxMatches(ethers, resp, {
+        to: '0x0000000000000000000000000000000000000002',
+        chainId: 47763,
+        nonce: 7,
+        from,
+      }),
+    /to/
+  );
+  // Tampered plan (price) → the re-encoded calldata no longer matches the signed tx.
+  assert.throws(
+    () =>
+      assertEnclaveNeoXTxMatches(
+        ethers,
+        { ...resp, prices_scaled: ['9999999'] },
+        { to: TO, chainId: 47763, nonce: 7, from }
+      ),
+    /calldata/
+  );
+  // Missing signed_tx.
+  assert.throws(
+    () => assertEnclaveNeoXTxMatches(ethers, { ...plan }, { to: TO, chainId: 47763, nonce: 7, from }),
+    /signed_tx/
+  );
 });

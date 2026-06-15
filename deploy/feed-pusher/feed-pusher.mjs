@@ -535,15 +535,61 @@ const NEOX_ABI = [
   'function getLatest(string symbol) view returns (uint256 price, uint256 timestamp, uint256 roundId, bool exists)',
 ];
 
+// Phase D: the feed-updater EOA address (public) for the in-enclave EVM feed-sign
+// path. The host needs it to read the nonce + gas balance and to assert the enclave
+// signed with the expected key. Unset => the enclave neox feed-sign path is OFF and
+// the host-key path is used, so this is the explicit opt-in for moving the EVM feed
+// key into the enclave (alongside MORPHEUS_FEED_PUSHER_ENCLAVE_SIGN).
+const NEOX_FEED_FROM = process.env.NEOX_FEED_FROM;
+const NEOX_FEED_GAS_LIMIT = Number(process.env.NEOX_FEED_GAS_LIMIT || 3_000_000);
+
+// Provider seam so the flag-on pushNeoX cycle is unit-testable without a live EVM RPC.
+let neoxProviderImpl = null;
+function neoxProvider(ethers) {
+  return neoxProviderImpl || new ethers.JsonRpcProvider(NEOX_RPC, NEOX_CHAIN_ID);
+}
+export function __setNeoXProviderForTests(p) {
+  neoxProviderImpl = p;
+}
+export function __resetNeoXProviderForTests() {
+  neoxProviderImpl = null;
+}
+
+// Re-encode the updateFeeds calldata from the enclave's authoritative plan arrays so
+// the host can assert the enclave-signed tx carries EXACTLY the prices it expects
+// before broadcasting (the EVM analogue of pushNeoN3's tx_message_hex assert).
+export function rebuildNeoXUpdateFeedsData(ethers, plan) {
+  const iface = new ethers.Interface(NEOX_ABI);
+  return iface.encodeFunctionData('updateFeeds', [
+    plan.symbols,
+    (plan.prices_scaled || []).map((x) => BigInt(x)),
+    (plan.timestamps || []).map((x) => BigInt(x)),
+    (plan.round_ids || []).map((x) => BigInt(x)),
+  ]);
+}
+
+// Parse the enclave-signed updateFeeds tx and refuse it unless every host-pinned field
+// (to/chainId/nonce/from) and the independently re-encoded calldata match. Returns the
+// parsed tx; throws (fails closed) on any drift.
+export function assertEnclaveNeoXTxMatches(ethers, resp, expected) {
+  if (!resp || !resp.signed_tx) throw new Error('[neox] enclave /feed/sign returned no signed_tx');
+  const parsed = ethers.Transaction.from(resp.signed_tx);
+  const rebuiltData = rebuildNeoXUpdateFeedsData(ethers, resp);
+  const need = (cond, msg) => {
+    if (!cond) throw new Error(`[neox] enclave tx mismatch — refusing to broadcast (${msg})`);
+  };
+  need((parsed.to || '').toLowerCase() === String(expected.to).toLowerCase(), 'to');
+  need(Number(parsed.chainId) === Number(expected.chainId), 'chainId');
+  need(parsed.nonce === Number(expected.nonce), `nonce ${parsed.nonce}!=${expected.nonce}`);
+  need((parsed.from || '').toLowerCase() === String(expected.from).toLowerCase(), `from ${parsed.from}`);
+  need(parsed.data === rebuiltData, 'calldata');
+  return parsed;
+}
+
 async function pushNeoX(prices, now) {
   const { ethers } = await import('ethers'); // lazy: only when NeoX enabled
-  const provider = new ethers.JsonRpcProvider(NEOX_RPC, NEOX_CHAIN_ID);
-  const wallet2 = new ethers.Wallet(NEOX_PK, provider);
-  const c = new ethers.Contract(NEOX_FEED, NEOX_ABI, wallet2);
-  const syms = [],
-    px = [],
-    ts = [],
-    rounds = [];
+  const provider = neoxProvider(ethers);
+  const c = new ethers.Contract(NEOX_FEED, NEOX_ABI, provider);
   let skipped = 0,
     missing = 0;
   // Batched current-state reads: the per-symbol getLatest calls are independent
@@ -563,23 +609,79 @@ async function pushNeoX(prices, now) {
       return { s, cur };
     })
   );
+  // On-chain state in planFeedUpdate's shape, in symbol order (shared by both paths).
+  const onchainState = {};
   for (const read of reads) {
     if (read.missing) {
       missing++;
       continue;
     }
-    const { s, cur } = read;
     // getLatest returns (price, timestamp, roundId, exists)
-    const onChainPrice = Number(cur[0]) / 1e6;
-    const plan = planFeedUpdate(
-      { round: Number(cur[2]), price: onChainPrice, ts: Number(cur[1]) },
-      prices[s],
-      now
-    );
+    onchainState[read.s] = {
+      round: Number(read.cur[2]),
+      price: Number(read.cur[0]) / 1e6,
+      ts: Number(read.cur[1]),
+    };
+  }
+
+  if (ENCLAVE_FEED_SIGN && NEOX_FEED_FROM) {
+    // Flag-on: the enclave fetches+plans+scales+signs the updateFeeds tx inside the
+    // measured boundary with its KMS-materialized feed key. The host pins the nonce +
+    // fees + gas (the tx the enclave signs), forwards the on-chain state it read so
+    // the enclave plans against the same baseline, then independently re-encodes the
+    // calldata + asserts the signed tx matches (to/chainId/nonce/from/data) before
+    // broadcasting. The feed key never touches the host.
+    const feeData = await provider.getFeeData();
+    const nonce = await provider.getTransactionCount(NEOX_FEED_FROM, 'pending');
+    const resp = await enclaveFeedSignImpl({
+      chain: 'neox',
+      symbols: NEOX_SYMBOLS.filter((s) => s in onchainState),
+      onchain_state: onchainState,
+      now,
+      tx_params: {
+        to: NEOX_FEED,
+        chain_id: NEOX_CHAIN_ID,
+        nonce,
+        gas_limit: String(NEOX_FEED_GAS_LIMIT),
+        max_fee_per_gas: String(feeData.maxFeePerGas ?? feeData.gasPrice ?? 0n),
+        max_priority_fee_per_gas: String(feeData.maxPriorityFeePerGas ?? 0n),
+      },
+    });
+    if (resp.status === 'no-update' || !Array.isArray(resp.symbols) || !resp.symbols.length) {
+      log(`[neox] (enclave) no updates (missing ${missing})`);
+    } else {
+      assertEnclaveNeoXTxMatches(ethers, resp, {
+        to: NEOX_FEED,
+        chainId: NEOX_CHAIN_ID,
+        nonce,
+        from: NEOX_FEED_FROM,
+      });
+      const sent = await provider.broadcastTransaction(resp.signed_tx);
+      const rc = await sent.wait();
+      log(
+        `[neox] (enclave) pushed ${resp.symbols.length} pairs (missing ${missing}), gasUsed ${rc.gasUsed.toString()}, tx ${sent.hash}`
+      );
+    }
+    const bal = Number(ethers.formatEther(await provider.getBalance(NEOX_FEED_FROM)));
+    if (bal < NEOX_GAS_WARN)
+      log(`[neox] ⚠️ LOW GAS: updater ${NEOX_FEED_FROM} ${bal.toFixed(3)} < ${NEOX_GAS_WARN} — fund it`);
+    return;
+  }
+
+  // Host-key path (unchanged): plan inline + sign+submit with NEOX_PK.
+  const wallet2 = new ethers.Wallet(NEOX_PK, provider);
+  const cw = new ethers.Contract(NEOX_FEED, NEOX_ABI, wallet2);
+  const syms = [],
+    px = [],
+    ts = [],
+    rounds = [];
+  for (const s of NEOX_SYMBOLS) {
+    if (!(s in onchainState)) continue; // missing from the price fetch (already counted)
+    const plan = planFeedUpdate(onchainState[s], prices[s], now);
     if (!plan.push) {
       if (plan.rejected)
         log(
-          `[neox] ⚠️ rejected ${s} ${plan.rejected}: src=${prices[s]} on-chain=${onChainPrice} (set MAX_DEVIATION_BPS=0 to override a real flash move)`
+          `[neox] ⚠️ rejected ${s} ${plan.rejected}: src=${prices[s]} on-chain=${onchainState[s].price} (set MAX_DEVIATION_BPS=0 to override a real flash move)`
         );
       skipped++;
       continue;
@@ -592,7 +694,7 @@ async function pushNeoX(prices, now) {
   if (!syms.length) {
     log(`[neox] no updates (skipped ${skipped}, missing ${missing})`);
   } else {
-    const tx2 = await c.updateFeeds(syms, px, ts, rounds);
+    const tx2 = await cw.updateFeeds(syms, px, ts, rounds);
     const rc = await tx2.wait();
     log(
       `[neox] pushed ${syms.length} pairs (skipped ${skipped}, missing ${missing}), gasUsed ${rc.gasUsed.toString()}, tx ${tx2.hash}`

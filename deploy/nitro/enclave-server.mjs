@@ -236,10 +236,11 @@ function handleProvision(payload) {
   // material in-TEE now (before any decrypt request needs it) so the host never
   // injects plaintext. No-op when not configured or already materialized.
   materializeOracleKeyFromKms();
-  // Same KMS-attestation path for the Neo X (EVM) verifier key, so EVM oracle
-  // fulfillments are signed in-TEE with no host-resident secp256k1 key. No-op when
-  // not configured (e.g. EVM not yet enabled on this host).
+  // Same KMS-attestation path for the Neo X (EVM) verifier + feed keys, so EVM
+  // oracle fulfillments and feed-update txs are signed in-TEE with no host-resident
+  // secp256k1 key. No-op when not configured (e.g. EVM not yet enabled on this host).
   materializeNeoXVerifierKeyFromKms();
+  materializeNeoXFeedKeyFromKms();
   const roles = signerRolesHealth();
   return {
     status: roles.every((entry) => entry.ok) ? 'ok' : 'degraded',
@@ -748,12 +749,150 @@ function normalizeOnchainState(rawState) {
   return out;
 }
 
+// Phase D — in-TEE EVM (Neo X) feed signing. `updateFeeds` is authorized by msg.sender
+// (an EOA tx, no separable verifier signature), so the enclave fetches+plans+scales the
+// SAME way feed-pusher pushNeoX does and signs the raw EIP-1559 updateFeeds tx with the
+// KMS-materialized feed key. It returns the SIGNED serialized tx + the plan + the exact
+// tx fields so the host can independently re-encode the calldata, assert the signed tx
+// matches (to/nonce/chainId/from/data), and broadcast it. The feed key never leaves the
+// enclave.
+const NEOX_FEED_PAIR_PREFIX = 'TWELVEDATA:';
+const NEOX_FEED_PRICE_SCALE = 1e6; // MorpheusPriceFeed stores 6-dp fixed-point prices
+const NEOX_UPDATE_FEEDS_ABI =
+  'function updateFeeds(string[] symbols, uint256[] prices, uint256[] timestamps, uint256[] roundIds) external';
+
+async function handleNeoXFeedSign(requestBody) {
+  const symbols = Array.isArray(requestBody?.symbols)
+    ? requestBody.symbols.map((s) => trimString(s)).filter(Boolean)
+    : [];
+  if (!symbols.length) throw httpError(400, 'symbols[] is required');
+
+  const feedKey = trimString(
+    process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY ||
+      process.env.NEOX_FEED_PK ||
+      process.env.NEOX_FEED_PRIVATE_KEY ||
+      ''
+  );
+  if (!feedKey) throw httpError(503, 'neox feed key is not configured');
+
+  const txp =
+    requestBody?.tx_params && typeof requestBody.tx_params === 'object' ? requestBody.tx_params : {};
+  const to = trimString(txp.to || txp.contract || requestBody?.contract || '');
+  const chainId = Number(txp.chain_id ?? txp.chainId);
+  const nonce = Number(txp.nonce);
+  const gasLimit = txp.gas_limit ?? txp.gasLimit;
+  const maxFeePerGas = txp.max_fee_per_gas ?? txp.maxFeePerGas;
+  const maxPriorityFeePerGas = txp.max_priority_fee_per_gas ?? txp.maxPriorityFeePerGas;
+  if (!to) throw httpError(400, 'neox tx_params.to (feed contract) is required');
+  if (!Number.isFinite(chainId) || chainId <= 0)
+    throw httpError(400, 'neox tx_params.chain_id is required');
+  if (!Number.isInteger(nonce) || nonce < 0) throw httpError(400, 'neox tx_params.nonce is required');
+  if (gasLimit == null || maxFeePerGas == null || maxPriorityFeePerGas == null) {
+    throw httpError(
+      400,
+      'neox tx_params.{gas_limit,max_fee_per_gas,max_priority_fee_per_gas} are required'
+    );
+  }
+
+  const now = Number.isFinite(Number(requestBody?.now))
+    ? Math.floor(Number(requestBody.now))
+    : Math.floor(Date.now() / 1000);
+  const onchainState = normalizeOnchainState(requestBody?.onchain_state || requestBody?.onchainState);
+
+  // (1) COMPUTE prices in-enclave (mirrors feed-pusher td()).
+  const prices = await activePriceFetcher(symbols);
+
+  // (2)+(3) PLAN + SCALE — identical arrays to feed-pusher.mjs pushNeoX.
+  const syms = [];
+  const px = [];
+  const ts = [];
+  const rounds = [];
+  const skipped = [];
+  const missing = [];
+  for (const s of symbols) {
+    if (!(s in prices)) {
+      missing.push(s);
+      continue;
+    }
+    const cur = onchainState[s] || { round: 0, price: 0, ts: 0 };
+    const plan = planFeedUpdate(cur, prices[s], now);
+    if (!plan.push) {
+      skipped.push({ symbol: s, reason: plan.rejected || 'unchanged_recent' });
+      continue;
+    }
+    syms.push(NEOX_FEED_PAIR_PREFIX + s);
+    px.push(BigInt(Math.round(prices[s] * NEOX_FEED_PRICE_SCALE)).toString());
+    ts.push(BigInt(plan.ts).toString());
+    rounds.push(BigInt(plan.round).toString());
+  }
+
+  if (!syms.length) {
+    return {
+      status: 'no-update',
+      chain: 'neox',
+      symbols: [],
+      prices_scaled: [],
+      timestamps: [],
+      round_ids: [],
+      signed_tx: null,
+      from: null,
+      trust_tier: 'enclave-attested',
+      skipped,
+      missing,
+    };
+  }
+
+  // (4) BUILD the EXACT updateFeeds tx + SIGN it with the feed key (in-TEE).
+  const { ethers } = await import('ethers');
+  const iface = new ethers.Interface([NEOX_UPDATE_FEEDS_ABI]);
+  const data = iface.encodeFunctionData('updateFeeds', [
+    syms,
+    px.map((x) => BigInt(x)),
+    ts.map((x) => BigInt(x)),
+    rounds.map((x) => BigInt(x)),
+  ]);
+  const wallet = new ethers.Wallet(feedKey);
+  const signedTx = await wallet.signTransaction({
+    type: 2,
+    chainId,
+    nonce,
+    to,
+    value: 0n,
+    data,
+    gasLimit: BigInt(gasLimit),
+    maxFeePerGas: BigInt(maxFeePerGas),
+    maxPriorityFeePerGas: BigInt(maxPriorityFeePerGas),
+  });
+
+  return {
+    status: 'ok',
+    chain: 'neox',
+    signed_tx: signedTx,
+    from: wallet.address,
+    to,
+    nonce,
+    chain_id: chainId,
+    data,
+    symbols: syms,
+    prices_scaled: px,
+    timestamps: ts,
+    round_ids: rounds,
+    gas_limit: String(BigInt(gasLimit)),
+    max_fee_per_gas: String(BigInt(maxFeePerGas)),
+    max_priority_fee_per_gas: String(BigInt(maxPriorityFeePerGas)),
+    trust_tier: 'enclave-attested',
+    skipped,
+    missing,
+  };
+}
+
 export async function handleFeedSign(requestBody) {
   const chain = normalizeChain(requestBody?.chain);
+  if (chain === 'neox') {
+    return handleNeoXFeedSign(requestBody);
+  }
   if (chain !== 'neo_n3' && chain !== 'legacy') {
-    // EVM feed signing is feed-pusher-local (ethers wallet) today; the enclave
-    // updater path signs the Neo N3 updateFeeds tx. Reject anything else loudly.
-    throw httpError(400, `unsupported feed chain: ${chain} (only neo_n3 is enclave-signed)`);
+    throw httpError(400, `unsupported feed chain: ${chain} (only neo_n3 and neox are enclave-signed)`);
   }
 
   const symbols = Array.isArray(requestBody?.symbols)
@@ -985,25 +1124,23 @@ export function materializeOracleKeyFromKms() {
   }
 }
 
-// Phase D (RC1/RC2): recover the Neo X (EVM, secp256k1) oracle-fulfillment VERIFIER
-// key IN-TEE via the same attestation-gated `nsm-attest kms-decrypt` used for the
-// X25519 oracle key. When MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64 is provisioned
-// the host only ever holds the ciphertext (useless without the enclave's attestation);
-// the plaintext secp256k1 key exists only inside the enclave and is exposed on the
-// env var resolveNeoXConfig() already reads, so EVM fulfillments are signed in-TEE
-// with NO host-resident verifier key. The plaintext may be a raw 0x-hex key or a JSON
-// envelope {neox_verifier_private_key}. No-op when not configured or already set.
-export function materializeNeoXVerifierKeyFromKms() {
-  const ciphertext = trimString(process.env.MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64);
+// Phase D (RC1/RC2): recover a Neo X (EVM, secp256k1) key IN-TEE via the same
+// attestation-gated `nsm-attest kms-decrypt` used for the X25519 oracle key. When the
+// ciphertext env var is provisioned the host only ever holds the ciphertext (useless
+// without the enclave's attestation); the plaintext key exists only inside the enclave
+// and is exposed on the env var the EVM signer reads. The plaintext may be a raw
+// 0x-hex key or a JSON envelope. No-op when not configured or the key is already set.
+function materializeNeoXSecpKeyFromKms({
+  ciphertextEnvVar,
+  alreadySetEnvVars,
+  targetEnvVar,
+  jsonFields,
+  event,
+}) {
+  const ciphertext = trimString(process.env[ciphertextEnvVar]);
   if (!ciphertext) return;
   // Already materialized / directly provisioned — don't re-decrypt (transition-safe).
-  if (
-    trimString(process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY) ||
-    trimString(process.env.MORPHEUS_NEOX_VERIFIER_KEY) ||
-    trimString(process.env.NEOX_VERIFIER_PK)
-  ) {
-    return;
-  }
+  if (alreadySetEnvVars.some((k) => trimString(process.env[k]))) return;
   const region =
     trimString(process.env.AWS_REGION) || trimString(process.env.NITRO_AWS_REGION) || 'us-east-1';
   let parsed;
@@ -1011,18 +1148,12 @@ export function materializeNeoXVerifierKeyFromKms() {
     parsed = activeAttestRunner(['kms-decrypt', '--region', region, '--ciphertext', ciphertext]);
   } catch (error) {
     console.error(
-      JSON.stringify({
-        level: 'error',
-        event: 'kms_neox_verifier_key_materialize_failed',
-        error: String((error && error.message) || error),
-      })
+      JSON.stringify({ level: 'error', event: `${event}_failed`, error: String((error && error.message) || error) })
     );
     return;
   }
   if (!(parsed && parsed.ok && parsed.plaintext_b64)) {
-    console.error(
-      JSON.stringify({ level: 'error', event: 'kms_neox_verifier_key_materialize_bad_output' })
-    );
+    console.error(JSON.stringify({ level: 'error', event: `${event}_bad_output` }));
     return;
   }
   const plaintext = Buffer.from(parsed.plaintext_b64, 'base64').toString('utf8').trim();
@@ -1030,20 +1161,52 @@ export function materializeNeoXVerifierKeyFromKms() {
   if (plaintext.startsWith('{')) {
     try {
       const obj = JSON.parse(plaintext);
-      privateKey = trimString(
-        obj.neox_verifier_private_key || obj.neoxVerifierPrivateKey || obj.private_key || ''
-      );
+      privateKey = '';
+      for (const f of jsonFields) {
+        const v = trimString(obj[f]);
+        if (v) {
+          privateKey = v;
+          break;
+        }
+      }
     } catch {
       privateKey = '';
     }
   }
   if (!privateKey) {
-    console.error(
-      JSON.stringify({ level: 'error', event: 'kms_neox_verifier_key_materialize_empty' })
-    );
+    console.error(JSON.stringify({ level: 'error', event: `${event}_empty` }));
     return;
   }
-  process.env.MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY = privateKey;
+  process.env[targetEnvVar] = privateKey;
+}
+
+// EVM oracle-fulfillment VERIFIER key (signs the attestation over oracle results) —
+// exposed on the env var resolveNeoXConfig() reads, so EVM fulfillments are signed
+// in-TEE with NO host-resident verifier key.
+export function materializeNeoXVerifierKeyFromKms() {
+  materializeNeoXSecpKeyFromKms({
+    ciphertextEnvVar: 'MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64',
+    alreadySetEnvVars: [
+      'MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY',
+      'MORPHEUS_NEOX_VERIFIER_KEY',
+      'NEOX_VERIFIER_PK',
+    ],
+    targetEnvVar: 'MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY',
+    jsonFields: ['neox_verifier_private_key', 'neoxVerifierPrivateKey', 'private_key'],
+    event: 'kms_neox_verifier_key_materialize',
+  });
+}
+
+// EVM FEED-updater key (signs the updateFeeds price-push tx; lower privilege than the
+// verifier) — exposed on the env var handleNeoXFeedSign() reads.
+export function materializeNeoXFeedKeyFromKms() {
+  materializeNeoXSecpKeyFromKms({
+    ciphertextEnvVar: 'MORPHEUS_NEOX_FEED_KMS_CIPHERTEXT_BASE64',
+    alreadySetEnvVars: ['MORPHEUS_NEOX_FEED_PRIVATE_KEY', 'NEOX_FEED_PK', 'NEOX_FEED_PRIVATE_KEY'],
+    targetEnvVar: 'MORPHEUS_NEOX_FEED_PRIVATE_KEY',
+    jsonFields: ['neox_feed_private_key', 'neoxFeedPrivateKey', 'private_key'],
+    event: 'kms_neox_feed_key_materialize',
+  });
 }
 
 // Resolve the public key to bind into the document for the requested role

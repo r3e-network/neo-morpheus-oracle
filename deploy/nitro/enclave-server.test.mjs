@@ -90,6 +90,7 @@ const {
   __resetAttestRunnerForTests,
   materializeOracleKeyFromKms,
   materializeNeoXVerifierKeyFromKms,
+  materializeNeoXFeedKeyFromKms,
 } = enclave;
 
 // Import planFeedUpdate from the feed-pusher INDEPENDENTLY (the SAME decision the
@@ -721,7 +722,7 @@ test('feed/sign: a symbol missing from the price fetch is reported, not signed',
   __resetPriceFetcherForTests();
 });
 
-test('feed/sign: validation — symbols required, unsupported chain rejected', async () => {
+test('feed/sign: validation — symbols required; neox needs pinned tx_params', async () => {
   const noSymbols = await dispatch(
     'POST',
     '/feed/sign',
@@ -731,14 +732,103 @@ test('feed/sign: validation — symbols required, unsupported chain rejected', a
   assert.equal(noSymbols.status, 400);
   assert.match(noSymbols.body.error, /symbols/);
 
-  const badChain = await dispatch(
-    'POST',
-    '/feed/sign',
-    AUTH,
-    JSON.stringify({ chain: 'neox', symbols: ['NEO-USD'] })
-  );
-  assert.equal(badChain.status, 400);
-  assert.match(badChain.body.error, /unsupported feed chain/);
+  // neox with a feed key but no tx_params → 400: the host must pin to/chain_id/nonce/fees.
+  const saved = process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY;
+  process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY =
+    '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  try {
+    const noTxParams = await dispatch(
+      'POST',
+      '/feed/sign',
+      AUTH,
+      JSON.stringify({ chain: 'neox', symbols: ['NEO-USD'] })
+    );
+    assert.equal(noTxParams.status, 400);
+    assert.match(noTxParams.body.error, /tx_params|required/);
+  } finally {
+    if (saved === undefined) delete process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY;
+    else process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY = saved;
+  }
+});
+
+test('feed/sign neox: signs the EIP-1559 updateFeeds tx in-TEE; recovers to the feed key + binds the plan (Phase D)', async () => {
+  const FIXED_NOW = 1_780_000_000;
+  const FEED_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+  const expectedFrom = new ethers.Wallet(FEED_PK).address;
+  const SYMBOLS = ['NEO-USD', 'GAS-USD', 'BTC-USD'];
+  const STUB_PRICES = { 'NEO-USD': 5.25, 'GAS-USD': 2.1, 'BTC-USD': 65000.123456 };
+  const ONCHAIN_STATE = {
+    'NEO-USD': { round: FIXED_NOW - 60, price: 5.0, timestamp: FIXED_NOW - 60 }, // moved → push
+    'GAS-USD': { round: FIXED_NOW - 60, price: 2.1, timestamp: FIXED_NOW - 60 }, // unchanged+recent → skip
+    'BTC-USD': { round: 0, price: 0, timestamp: 0 }, // no prior → push
+  };
+  const TO = '0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB';
+  const TX_PARAMS = {
+    to: TO,
+    chain_id: 47763,
+    nonce: 7,
+    gas_limit: '2000000',
+    max_fee_per_gas: '50000000000',
+    max_priority_fee_per_gas: '1000000000',
+  };
+  const saved = process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY;
+  process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY = FEED_PK;
+  __setPriceFetcherForTests(async (syms) => {
+    const out = {};
+    for (const s of syms) if (s in STUB_PRICES) out[s] = STUB_PRICES[s];
+    return out;
+  });
+  try {
+    const { status, body } = await dispatch(
+      'POST',
+      '/feed/sign',
+      AUTH,
+      JSON.stringify({
+        chain: 'neox',
+        symbols: SYMBOLS,
+        onchain_state: ONCHAIN_STATE,
+        now: FIXED_NOW,
+        tx_params: TX_PARAMS,
+      })
+    );
+    assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.chain, 'neox');
+    assert.equal(body.trust_tier, 'enclave-attested');
+    assert.equal(body.from.toLowerCase(), expectedFrom.toLowerCase());
+    // GAS unchanged+recent → skipped; NEO (moved) + BTC (no prior) pushed, in order.
+    assert.deepEqual(body.symbols, ['TWELVEDATA:NEO-USD', 'TWELVEDATA:BTC-USD']);
+    assert.deepEqual(body.prices_scaled, [
+      String(Math.round(5.25 * 1e6)),
+      String(Math.round(65000.123456 * 1e6)),
+    ]);
+
+    // The signed tx recovers to the feed key and binds the exact pinned tx fields.
+    const parsed = ethers.Transaction.from(body.signed_tx);
+    assert.equal(parsed.from.toLowerCase(), expectedFrom.toLowerCase());
+    assert.equal(parsed.to.toLowerCase(), TO.toLowerCase());
+    assert.equal(parsed.nonce, 7);
+    assert.equal(Number(parsed.chainId), 47763);
+    assert.equal(parsed.type, 2);
+
+    // The signed calldata equals an INDEPENDENT re-encode of the returned plan — this
+    // is exactly the assert the host runs before broadcasting.
+    const iface = new ethers.Interface([
+      'function updateFeeds(string[] symbols, uint256[] prices, uint256[] timestamps, uint256[] roundIds) external',
+    ]);
+    const rebuilt = iface.encodeFunctionData('updateFeeds', [
+      body.symbols,
+      body.prices_scaled.map((x) => BigInt(x)),
+      body.timestamps.map((x) => BigInt(x)),
+      body.round_ids.map((x) => BigInt(x)),
+    ]);
+    assert.equal(parsed.data, rebuilt);
+    assert.equal(body.data, rebuilt);
+  } finally {
+    __resetPriceFetcherForTests();
+    if (saved === undefined) delete process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY;
+    else process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY = saved;
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -1078,6 +1168,58 @@ test('materializeNeoXVerifierKeyFromKms recovers the EVM verifier key in-TEE fro
       ['MORPHEUS_NEOX_VERIFIER_KEY', saved.key],
       ['NEOX_VERIFIER_PK', saved.npk],
       ['MORPHEUS_NEOX_VERIFIER_KMS_CIPHERTEXT_BASE64', saved.ct],
+    ]) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});
+
+test('materializeNeoXFeedKeyFromKms recovers the EVM feed key in-TEE from a KMS ciphertext (Phase D)', () => {
+  const PK = '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a';
+  const expectedAddress = new ethers.Wallet(PK).address;
+  const saved = {
+    pk: process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY,
+    npk: process.env.NEOX_FEED_PK,
+    fpk: process.env.NEOX_FEED_PRIVATE_KEY,
+    ct: process.env.MORPHEUS_NEOX_FEED_KMS_CIPHERTEXT_BASE64,
+  };
+  delete process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY;
+  delete process.env.NEOX_FEED_PK;
+  delete process.env.NEOX_FEED_PRIVATE_KEY;
+  let calledWith = null;
+  __setAttestRunnerForTests((args) => {
+    calledWith = args;
+    return { ok: true, plaintext_b64: Buffer.from(PK, 'utf8').toString('base64') };
+  });
+  try {
+    // no-op when no ciphertext is provisioned
+    delete process.env.MORPHEUS_NEOX_FEED_KMS_CIPHERTEXT_BASE64;
+    materializeNeoXFeedKeyFromKms();
+    assert.equal(calledWith, null);
+    assert.equal(process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY, undefined);
+
+    // materializes from the ciphertext via attested kms-decrypt
+    process.env.MORPHEUS_NEOX_FEED_KMS_CIPHERTEXT_BASE64 = 'Y2lwaGVydGV4dA==';
+    materializeNeoXFeedKeyFromKms();
+    assert.equal(calledWith[0], 'kms-decrypt');
+    assert.equal(process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY, PK);
+    assert.equal(
+      new ethers.Wallet(process.env.MORPHEUS_NEOX_FEED_PRIVATE_KEY).address,
+      expectedAddress
+    );
+
+    // idempotent: already materialized -> does not re-run kms-decrypt
+    calledWith = null;
+    materializeNeoXFeedKeyFromKms();
+    assert.equal(calledWith, null);
+  } finally {
+    __resetAttestRunnerForTests();
+    for (const [k, v] of [
+      ['MORPHEUS_NEOX_FEED_PRIVATE_KEY', saved.pk],
+      ['NEOX_FEED_PK', saved.npk],
+      ['NEOX_FEED_PRIVATE_KEY', saved.fpk],
+      ['MORPHEUS_NEOX_FEED_KMS_CIPHERTEXT_BASE64', saved.ct],
     ]) {
       if (v === undefined) delete process.env[k];
       else process.env[k] = v;

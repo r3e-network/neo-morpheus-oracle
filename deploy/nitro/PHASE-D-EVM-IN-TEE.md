@@ -59,26 +59,45 @@ not KMS-attested like the X25519 key. Fixed by reusing the Phase C pattern verba
 4. After validation: **rotate** the EVM verifier key (historically host-exposed),
    delete any host plaintext copy.
 
-## GAP 3 — in-TEE EVM FEED signing (REMAINING)
+## GAP 3 — in-TEE EVM FEED signing (CODE DONE + UNIT-TESTED)
 
 `MorpheusPriceFeed.updateFeeds` is authorized by `msg.sender` (an EOA tx), so unlike a
-fulfillment there is no separable verifier signature — the enclave must sign the **raw
-EIP-1559 transaction**. Currently `handleFeedSign` rejects non-`neo_n3` chains and
-`feed-pusher.mjs` `pushNeoX` signs+submits `updateFeeds` with `NEOX_FEED_PK` host-side
-(`ENCLAVE_FEED_SIGN` only covers `pushNeoN3`). To close it (mirrors the Neo N3
-reproducibility contract):
+fulfillment there is no separable verifier signature — the enclave signs the **raw
+EIP-1559 transaction**. Implemented (mirrors the Neo N3 reproducibility contract):
 
-1. `enclave-server.mjs` `handleFeedSign` — add a `chain==='neox'` branch: host pins
-   nonce/gas/chainId, the enclave fetches+plans+scales prices (`planFeedUpdate`,
-   already imported) and signs the raw EIP-1559 `updateFeeds` tx with the EVM feed key;
-   return the serialized signed tx.
-2. `feed-pusher.mjs` `pushNeoX` — add an `ENCLAVE_FEED_SIGN` branch mirroring
-   `pushNeoN3` (POST `{chain:'neox', symbols, onchain_state, tx_params}` to `/feed/sign`,
-   assert the rebuilt tx hash matches, then `provider.broadcastTransaction`).
-3. The feed EVM key (`NEOX_FEED_PK`) also moves to KMS attestation — reuse the verifier
-   ciphertext path or add `MORPHEUS_NEOX_FEED_KMS_CIPHERTEXT_BASE64` with its own
-   `materialize*` call. Decide whether the feed-updater and fulfill-verifier are the
-   same EOA (simpler) or distinct (least-privilege).
+1. `enclave-server.mjs` `handleNeoXFeedSign()` (dispatched from `handleFeedSign` on
+   `chain==='neox'`): fetches prices in-enclave, plans+scales the SAME way `pushNeoX`
+   does (`planFeedUpdate`, 1e6 scale), builds the EIP-1559 `updateFeeds` tx from the
+   host-pinned `tx_params` (to/chain_id/nonce/gas_limit/max[priority]_fee_per_gas), and
+   signs it with the KMS-materialized feed key (`MORPHEUS_NEOX_FEED_PRIVATE_KEY`).
+   Returns the **signed serialized tx** + the plan arrays + the exact tx fields.
+2. `feed-pusher.mjs` `pushNeoX` — added an enclave branch gated on
+   `MORPHEUS_FEED_PUSHER_ENCLAVE_SIGN` **and** the new `NEOX_FEED_FROM` opt-in (the
+   public feed EOA address; unset ⇒ the host-key path is used unchanged, so the box is
+   unaffected until explicitly configured). It pins nonce (`getTransactionCount`) +
+   fees (`getFeeData`) + `NEOX_FEED_GAS_LIMIT`, POSTs to the enclave `/feed/sign`, then
+   `assertEnclaveNeoXTxMatches` parses the signed tx and **refuses to broadcast** unless
+   to/chainId/nonce/from and the independently re-encoded calldata
+   (`rebuildNeoXUpdateFeedsData`) all match (the EVM analogue of the Neo N3
+   `tx_message_hex` assert), then `provider.broadcastTransaction`.
+3. The feed EVM key moves to KMS attestation via `materializeNeoXFeedKeyFromKms()`
+   (`MORPHEUS_NEOX_FEED_KMS_CIPHERTEXT_BASE64` → `MORPHEUS_NEOX_FEED_PRIVATE_KEY`), a
+   distinct CMK ciphertext from the verifier key (least-privilege: feed-updater EOA ≠
+   fulfill-verifier EOA), provisioned ciphertext-only by `provision-enclave-compute.sh`.
+
+Tests: `enclave-server.test.mjs` (signed EIP-1559 tx recovers to the feed key + binds
+the plan; neox tx_params validation) and `feed-pusher.test.mjs` (host re-encode +
+fail-closed assert on to/chainId/nonce/from/calldata drift) — all green.
+
+### Remaining for GAP 3 (latent — no EVM feed traffic on this box)
+
+- **[admin, AWS]** KMS-encrypt the EVM **feed** key under the CMK → provision
+  `/var/lib/morpheus/neox-feed-kms.b64` (add the feed-ciphertext injection block to
+  `provision-enclave-compute.sh`, mirroring the verifier block — currently only the
+  verifier ciphertext block exists).
+- Set `NEOX_FEED_FROM` (the feed EOA address) on the host + drop the host `NEOX_FEED_PK`
+  so the enclave path takes over and no EVM feed key remains on the host.
+- EIF rebuild/cutover + on-chain `updateFeeds` validation.
 
 ## Also remaining
 
@@ -87,6 +106,7 @@ reproducibility contract):
   neox, or give it the same KMS treatment — otherwise it re-introduces the host-key
   exposure this phase closes.
 
-> Status: GAP 1 code + unit tests landed and green; GAP 2 flag already on; GAP 3 +
-> the AWS encrypt + EIF cutover + on-chain validation are latent (no EVM key/traffic on
-> this box today) and are the remaining work to make EVM signing fully in-TEE.
+> Status: GAP 1 (verifier key KMS) + GAP 3 (in-TEE EVM feed-sign) code + unit tests
+> landed and green; GAP 2 flag already on. The remaining work is all latent (no EVM
+> key/traffic on this box today): KMS-encrypt the verifier + feed keys, set
+> `NEOX_FEED_FROM` + drop the host keys, EIF rebuild/cutover, and on-chain validation.
