@@ -6,11 +6,25 @@ instance role + IMDS creds + the on-disk keystore — **cannot**. This is the tr
 "no private key on the host" guarantee (the vsock-proxy step alone leaves the host able
 to re-derive; KMS attestation closes that).
 
-## ⛔ Blocker (needs an AWS admin on account 736326664265)
+## AWS infra — PROVISIONED (2026-06-15)
 
-The box role `MorpheusNitroRelayerInstanceRole` has **no KMS permissions**
-(`kms:ListKeys`, `kms:CreateKey` → AccessDenied). The AWS-infra steps below **must be
-run by an account admin** (or grant me admin KMS+IAM creds). The code steps I can do now.
+Admin creds (`iam user codex-morpheus-deploy`, acct 736326664265, IAMFullAccess + KMS
+PowerUser) were supplied and used to provision:
+- **CMK created:** `arn:aws:kms:us-east-1:736326664265:key/5d9b6835-6976-4fd9-92ba-5db5176d7c3a`,
+  alias `alias/morpheus-enclave-master` (symmetric ENCRYPT_DECRYPT).
+- **Key policy set:** root full (mgmt); `codex-morpheus-deploy` Encrypt/ReEncrypt/Describe/
+  Get+PutKeyPolicy/GenerateDataKey; **`MorpheusNitroRelayerInstanceRole` kms:Decrypt
+  conditioned on `kms:RecipientAttestation:ImageSha384`** — currently a **PLACEHOLDER
+  all-zero PCR0** (nothing can decrypt yet). Encrypt verified working.
+- An inline IAM policy `morpheus-kms-attestation-admin` was added to the deploy user for
+  kms:Encrypt/PutKeyPolicy + iam:PutRolePolicy (remove after the work).
+
+**Remaining AWS steps (after the KMS-capable EIF exists):** replace the placeholder PCR0
+in the key policy `EnclaveAttestedDecrypt` statement with the real EIF PCR0; encrypt the
+X25519 key material under the CMK; (after cutover) remove the instance role's
+Secrets-Manager master access.
+
+> 🔴 The supplied access key is in chat history — **deactivate/rotate it** after this work.
 
 ## Approach
 
