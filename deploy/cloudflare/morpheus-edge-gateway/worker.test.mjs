@@ -150,14 +150,11 @@ test('edge gateway blocks raw sensitive runtime-origin routes without trusted cr
   assert.equal(fetchCalls, 0);
 });
 
-test('edge gateway still allows trusted automation to reach raw runtime-origin routes', async () => {
+test('edge gateway returns 503 for retired raw runtime routes even with a trusted token', async () => {
   const calls = [];
   global.fetch = async (input, init = {}) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
-    calls.push({
-      path: new URL(request.url).pathname,
-      headers: Object.fromEntries(request.headers.entries()),
-    });
+    calls.push(new URL(request.url).pathname);
     return jsonResponse(200, { derived: { app_id: 'app-123' } });
   };
   global.caches = createCaches();
@@ -170,24 +167,19 @@ test('edge gateway still allows trusted automation to reach raw runtime-origin r
     createCtx()
   );
 
-  assert.equal(response.status, 200);
-  assert.deepEqual(
-    calls.map((call) => call.path),
-    ['/testnet/runtime/keys/derived']
-  );
-  assert.equal(calls[0].headers.authorization, 'Bearer edge-runtime-token');
+  // The trusted token passes the auth gate, but raw runtime routes (keys/derived,
+  // compute, AA) require the retired runtime and are not mapped to the apps/web API
+  // -> clean 503, never proxied.
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, 'runtime_route_unavailable');
+  assert.equal(calls.length, 0);
 });
 
-test('edge gateway routes oracle feed publication to the dedicated DataFeed origin', async () => {
+test('edge gateway returns 503 for the retired oracle feed-publication lane', async () => {
   const calls = [];
   global.fetch = async (input, init = {}) => {
     const request = input instanceof Request ? input : new Request(String(input), init);
-    const target = new URL(request.url);
-    calls.push({
-      origin: target.origin,
-      path: target.pathname,
-      headers: Object.fromEntries(request.headers.entries()),
-    });
+    calls.push(new URL(request.url).pathname);
     return jsonResponse(200, { mode: 'pricefeed' });
   };
   global.caches = createCaches();
@@ -201,13 +193,11 @@ test('edge gateway routes oracle feed publication to the dedicated DataFeed orig
     createCtx()
   );
 
-  assert.equal(response.status, 200);
-  assert.equal(response.headers.get('x-morpheus-route'), 'oracle-feed');
-  assert.deepEqual(
-    calls.map((call) => `${call.origin}${call.path}`),
-    ['https://feed-origin.test/testnet/oracle/feed']
-  );
-  assert.equal(calls[0].headers['x-morpheus-network'], 'testnet');
+  // /oracle/feed was the Phala feed-write lane; feeds are now pushed on-chain by the
+  // box, so the edge no longer proxies it.
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).error, 'runtime_route_unavailable');
+  assert.equal(calls.length, 0);
 });
 
 // A fetch stub that hangs forever unless its AbortSignal fires (the hung-origin
@@ -236,7 +226,8 @@ test('edge gateway fails fast to 503 when a proxied origin hangs (B7)', async ()
 
   const startedAt = Date.now();
   const response = await worker.fetch(
-    new Request('https://oracle.meshmini.app/testnet/prices'),
+    // A mapped public route (proxied to apps/web) exercises the proxy/hang path.
+    new Request('https://oracle.meshmini.app/testnet/oracle/public-key'),
     // 1s timeout (clamped floor) keeps the test fast but proves the abort path.
     createEnv({ MORPHEUS_EDGE_ORIGIN_TIMEOUT_MS: '1000' }),
     createCtx()
@@ -327,11 +318,15 @@ test('edge gateway accepts a valid trusted token and rejects an equal-length mis
     env,
     createCtx()
   );
-  assert.equal(ok.status, 200);
-  assert.equal(calls.length, 1);
+  // Valid token PASSES the constant-time auth gate; the raw runtime route itself is
+  // retired, so it resolves to 503 (not 401) — proving auth accepted the token.
+  assert.equal(ok.status, 503);
+  assert.equal((await ok.json()).error, 'runtime_route_unavailable');
+  assert.equal(calls.length, 0);
 
-  // Equal-length-but-different token must be rejected (constant-time compare
-  // does not early-accept on length match).
+  // Equal-length-but-different token must be REJECTED at auth (401), distinct from
+  // the accepted-token 503 above — constant-time compare does not early-accept on a
+  // length match.
   const wrong = token.slice(0, -1) + (token.endsWith('X') ? 'Y' : 'X');
   assert.equal(wrong.length, token.length);
   const denied = await worker.fetch(
@@ -343,8 +338,7 @@ test('edge gateway accepts a valid trusted token and rejects an equal-length mis
   );
   assert.equal(denied.status, 401);
   assert.deepEqual(await denied.json(), { error: 'unauthorized' });
-  // No additional origin fetch happened for the rejected request.
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 0);
 });
 
 // --- F10-edge: x-morpheus-runtime discriminator + catalog-derived capabilities ---

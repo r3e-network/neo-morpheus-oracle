@@ -5,11 +5,14 @@ account_id = "bf0d7e814f69945157f30505e9fba9fe"
 workers_dev = true
 
 [vars]
-MORPHEUS_ORIGIN_URL = "https://www.morpheus-matrix.dev/api/emergency-runtime"
-MORPHEUS_MAINNET_ORIGIN_URL = "https://www.morpheus-matrix.dev/api/emergency-runtime/mainnet"
-MORPHEUS_TESTNET_ORIGIN_URL = "https://www.morpheus-matrix.dev/api/emergency-runtime/testnet"
-MORPHEUS_MAINNET_FEED_ORIGIN_URL = "https://ac5b6886a2832df36e479294206611652400178f-3000.dstack-pha-prod5.phala.network/mainnet"
-MORPHEUS_TESTNET_FEED_ORIGIN_URL = "https://ac5b6886a2832df36e479294206611652400178f-3000.dstack-pha-prod5.phala.network/testnet"
+# Origin is the apps/web public API; the worker's mapToAppBackendPath() rewrites the
+# legacy /<net>/<path> shape onto /api/... routes (which serve trustlessly from
+# on-chain + the attested box). No path suffix here.
+MORPHEUS_ORIGIN_URL = "https://www.morpheus-matrix.dev"
+MORPHEUS_MAINNET_ORIGIN_URL = "https://www.morpheus-matrix.dev"
+MORPHEUS_TESTNET_ORIGIN_URL = "https://www.morpheus-matrix.dev"
+MORPHEUS_MAINNET_FEED_ORIGIN_URL = "https://www.morpheus-matrix.dev"
+MORPHEUS_TESTNET_FEED_ORIGIN_URL = "https://www.morpheus-matrix.dev"
 UPSTASH_REDIS_REST_URL = "https://major-sawfish-77541.upstash.io"
 
 [[routes]]

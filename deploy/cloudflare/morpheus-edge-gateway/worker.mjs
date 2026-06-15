@@ -106,6 +106,29 @@ function resolveOriginBaseUrl(env, network, forwardedPath) {
     : trimString(env.MORPHEUS_TESTNET_ORIGIN_URL || env.MORPHEUS_ORIGIN_URL).replace(/\/$/, '');
 }
 
+// Map the legacy runtime path shape (what external callers hit:
+// oracle.meshmini.app/<net>/<path>) onto the apps/web public API routes that now
+// serve these trustlessly (on-chain reads + the attested box health). Returns the
+// apps/web path (+ ?network) for the supported public routes, or null for routes
+// that still require the full runtime (compute / AA / signing) — those get a clean
+// 503 instead of proxying the retired Phala origin.
+function mapToAppBackendPath(forwardedPath, network) {
+  const p = String(forwardedPath || '/').replace(/\/+$/, '') || '/';
+  const net = network === 'mainnet' ? 'mainnet' : 'testnet';
+  const q = `?network=${net}`;
+  if (p === '/' || p === '/health') return '/api/runtime/health';
+  if (p === '/info') return '/api/runtime/info';
+  if (p === '/v1/status' || p === '/status') return '/api/runtime/status';
+  if (p === '/oracle/public-key') return `/api/oracle/public-key${q}`;
+  if (p === '/providers') return `/api/providers${q}`;
+  if (p === '/neodid/providers') return '/api/neodid/providers';
+  if (p === '/feeds/catalog') return '/api/feeds/catalog';
+  if (p === '/feeds/status') return '/api/feeds/status';
+  const feed = p.match(/^\/(?:feeds\/price|prices)\/(.+)$/);
+  if (feed) return `/api/feeds/${feed[1]}${q}`;
+  return null;
+}
+
 function shouldProtectWithTurnstile(pathname) {
   return TURNSTILE_PROTECTED_PATHS.some((path) => pathname.endsWith(path));
 }
@@ -259,7 +282,7 @@ async function applyUpstashRateLimitImpl(request, env, routeKey) {
   return json(503, { error: 'rate_limit_backend_unavailable', route: routeKey });
 }
 
-function buildOriginRequest(request, env) {
+function buildOriginRequest(request, env, appPath) {
   const incomingUrl = new URL(request.url);
   const routing = resolveNetworkRoute(incomingUrl, env);
   const originBaseUrl = routing.originBaseUrl;
@@ -267,7 +290,13 @@ function buildOriginRequest(request, env) {
     throw new Error(`origin URL is required for network ${routing.network}`);
   }
 
-  const targetUrl = `${originBaseUrl}${routing.forwardedPath}${incomingUrl.search}`;
+  // appPath is the apps/web route the edge path maps to (carries ?network); merge
+  // any other incoming query params onto it.
+  const target = new URL(`${originBaseUrl}${appPath}`);
+  for (const [k, v] of incomingUrl.searchParams) {
+    if (!target.searchParams.has(k)) target.searchParams.set(k, v);
+  }
+  const targetUrl = target.toString();
   const headers = new Headers(request.headers);
   headers.delete('host');
   if (!headers.has('authorization') && trimString(env.MORPHEUS_ORIGIN_TOKEN)) {
@@ -508,7 +537,29 @@ export default {
       if (cached) return cached;
     }
 
-    const originRequest = buildOriginRequest(request, env);
+    // Map the legacy runtime path onto the apps/web public API. Routes that still
+    // need the full runtime (compute/AA/signing) are not mapped -> clean 503 rather
+    // than proxying the retired Phala origin.
+    const appPath = mapToAppBackendPath(routing.forwardedPath, routing.network);
+    if (appPath === null) {
+      return decorateGatewayResponse(
+        json(
+          503,
+          {
+            error: 'runtime_route_unavailable',
+            network: routing.network,
+            route: routing.forwardedPath,
+            message:
+              'This oracle route requires the full runtime (restoration in progress). Public routes available: /health, /v1/status, /oracle/public-key, /providers, /feeds/catalog, /feeds/price/<symbol>.',
+          },
+          { 'cache-control': 'no-store' }
+        ),
+        routing,
+        'runtime-route-unavailable'
+      );
+    }
+
+    const originRequest = buildOriginRequest(request, env, appPath);
     const originTimeoutMs = resolveOriginTimeoutMs(
       env.MORPHEUS_EDGE_ORIGIN_TIMEOUT_MS,
       DEFAULT_PROXY_TIMEOUT_MS
