@@ -147,8 +147,31 @@ function writeMissingState(counts) {
   } catch {}
 }
 
+// TwelveData serves equities/ETFs (and a few commodity ETFs like CORN) under the
+// BARE ticker (AAPL, GLD, SPY, CORN); crypto / forex / metals use the X/USD pair form.
+// A blanket dash→slash rewrite produces invalid stock symbols like 'AAPL/USD' which
+// TwelveData 404s — that is exactly why the equity/commodity lane went stale (~2026-06)
+// while crypto/forex kept working. Map the bare-ticker assets correctly.
+export const TD_BARE_SYMBOLS = new Set([
+  'AAPL',
+  'GOOGL',
+  'MSFT',
+  'AMZN',
+  'TSLA',
+  'META',
+  'NVDA',
+  'SPY',
+  'QQQ',
+  'GLD',
+  'CORN',
+]);
+export function toTwelveDataSymbol(symbol) {
+  const ticker = String(symbol).split('-')[0];
+  return TD_BARE_SYMBOLS.has(ticker) ? ticker : String(symbol).replace('-', '/');
+}
+
 async function td(syms) {
-  const t = syms.map((s) => s.replace('-', '/'));
+  const t = syms.map((s) => toTwelveDataSymbol(s));
   const r = await fetch(
     `https://api.twelvedata.com/price?symbol=${encodeURIComponent(t.join(','))}&apikey=${TD_KEY}`,
     { signal: AbortSignal.timeout(25000) }
@@ -162,7 +185,7 @@ async function td(syms) {
   }
   const o = {};
   for (const s of syms) {
-    const k = s.replace('-', '/');
+    const k = toTwelveDataSymbol(s);
     const e = t.length === 1 ? j : j[k];
     const v = e && e.price;
     const n = Number(v);

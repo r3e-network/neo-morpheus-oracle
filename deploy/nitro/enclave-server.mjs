@@ -70,7 +70,7 @@ const { wallet: neoWallet, sc, tx, u } = neonPkg;
 if (process.env.FEED_PUSHER_SKIP_MAIN === undefined) {
   process.env.FEED_PUSHER_SKIP_MAIN = '1';
 }
-const { planFeedUpdate } = await import('../feed-pusher/feed-pusher.mjs');
+const { planFeedUpdate, toTwelveDataSymbol } = await import('../feed-pusher/feed-pusher.mjs');
 
 const DEFAULT_PORT = 8787;
 
@@ -605,7 +605,7 @@ export async function handleOracleFulfill(requestBody) {
 // WITHOUT a live TwelveData call (mirrors the worker-handler test seam above).
 async function defaultPriceFetcher(syms) {
   const apiKey = trimString(process.env.TD_KEY);
-  const t = syms.map((s) => s.replace('-', '/'));
+  const t = syms.map((s) => toTwelveDataSymbol(s));
   const response = await fetch(
     `https://api.twelvedata.com/price?symbol=${encodeURIComponent(t.join(','))}&apikey=${apiKey}`,
     { signal: AbortSignal.timeout(FEED_TD_TIMEOUT_MS) }
@@ -619,7 +619,7 @@ async function defaultPriceFetcher(syms) {
   }
   const out = {};
   for (const s of syms) {
-    const k = s.replace('-', '/');
+    const k = toTwelveDataSymbol(s);
     const entry = t.length === 1 ? parsed : parsed[k];
     const value = entry && entry.price;
     const n = Number(value);

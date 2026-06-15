@@ -25,6 +25,7 @@ const {
   pushNeoN3,
   rebuildNeoXUpdateFeedsData,
   assertEnclaveNeoXTxMatches,
+  toTwelveDataSymbol,
   __setEnclaveFeedSignForTests,
   __resetEnclaveFeedSignForTests,
   __setN3RpcForTests,
@@ -33,6 +34,19 @@ const {
 
 const PUSHER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'feed-pusher.mjs');
 const OPTS = { thresholdBps: 10, maxStaleSec: 1800 };
+
+test('toTwelveDataSymbol maps equities/ETFs to bare tickers, crypto/forex to X/USD', () => {
+  // Equities + ETFs + CORN must be the bare ticker (TwelveData 404s 'AAPL/USD').
+  for (const s of ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'SPY', 'QQQ', 'GLD', 'CORN']) {
+    assert.equal(toTwelveDataSymbol(`${s}-USD`), s);
+  }
+  // Crypto / forex / metals stay in the X/USD pair form.
+  assert.equal(toTwelveDataSymbol('BTC-USD'), 'BTC/USD');
+  assert.equal(toTwelveDataSymbol('NEO-USD'), 'NEO/USD');
+  assert.equal(toTwelveDataSymbol('EUR-USD'), 'EUR/USD');
+  assert.equal(toTwelveDataSymbol('WTI-USD'), 'WTI/USD');
+  assert.equal(toTwelveDataSymbol('PAXG-USD'), 'PAXG/USD');
+});
 
 test('planFeedUpdate skips a recent round with an unchanged price', () => {
   const now = 1_780_000_000;
