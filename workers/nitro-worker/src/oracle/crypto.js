@@ -111,6 +111,41 @@ function parseConfiguredOracleKeyMaterial() {
   });
 }
 
+// A SEALED keystore (ciphertext) injected via env. The host passes only this
+// ciphertext (never the plaintext key); the enclave unseals it in-TEE with the
+// wrap key it derives ITSELF from Secrets Manager (reachable now that the SDK
+// egresses via the vsock proxy). This is the no-host-unseal path for RC2.
+function parseSealedKeystoreFromEnv() {
+  const rawJson = trimString(
+    env('PHALA_ORACLE_SEALED_KEYSTORE_JSON') || env('MORPHEUS_ORACLE_SEALED_KEYSTORE_JSON') || ''
+  );
+  const rawBase64 = trimString(
+    env('PHALA_ORACLE_SEALED_KEYSTORE_BASE64') || env('MORPHEUS_ORACLE_SEALED_KEYSTORE_BASE64') || ''
+  );
+  let parsed = null;
+  if (rawJson) {
+    try {
+      parsed = JSON.parse(rawJson);
+    } catch {
+      throw new Error('MORPHEUS_ORACLE_SEALED_KEYSTORE_JSON is not valid JSON');
+    }
+  } else if (rawBase64) {
+    try {
+      parsed = JSON.parse(Buffer.from(rawBase64, 'base64').toString('utf8'));
+    } catch {
+      throw new Error('MORPHEUS_ORACLE_SEALED_KEYSTORE_BASE64 is not valid base64 JSON');
+    }
+  } else {
+    return null;
+  }
+  const publicKeyRaw = trimString(parsed?.public_key_raw || parsed?.publicKeyRaw || '');
+  const sealedPrivateKey = parsed?.sealed_private_key || parsed?.sealedPrivateKey || null;
+  if (!publicKeyRaw || !sealedPrivateKey) {
+    throw new Error('sealed oracle keystore requires public_key_raw and sealed_private_key');
+  }
+  return { public_key_raw: publicKeyRaw, sealed_private_key: sealedPrivateKey };
+}
+
 export function __resetOracleKeyMaterialForTests() {
   oracleKeyMaterialPromise = undefined;
 }
@@ -180,9 +215,24 @@ function decryptPrivateKey(sealed, wrapKey) {
 }
 
 async function loadStableOracleKeyMaterial() {
-  const keystorePath = resolveAbsoluteKeystorePath(getOracleKeyStorePath());
   const wrapKey = await deriveOracleWrapKey();
 
+  // Preferred (RC2): a sealed keystore injected via env. The enclave unseals the
+  // ciphertext in-TEE with the wrap key it derives itself — the host never holds
+  // the plaintext key. No host file needed (the enclave has no access to host
+  // files anyway).
+  const sealedFromEnv = parseSealedKeystoreFromEnv();
+  if (sealedFromEnv) {
+    const publicKeyRawBytes = Buffer.from(sealedFromEnv.public_key_raw, 'base64');
+    const privateKeyPkcs8Bytes = decryptPrivateKey(sealedFromEnv.sealed_private_key, wrapKey);
+    return formatKeyMaterial({
+      publicKeyRawBytes,
+      privateKeyPkcs8Bytes,
+      source: 'nitro-sealed-env',
+    });
+  }
+
+  const keystorePath = resolveAbsoluteKeystorePath(getOracleKeyStorePath());
   try {
     const raw = await fsReadFile(keystorePath, 'utf8');
     const parsed = JSON.parse(raw);
