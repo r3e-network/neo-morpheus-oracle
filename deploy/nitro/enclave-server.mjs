@@ -241,6 +241,9 @@ function handleProvision(payload) {
   // secp256k1 key. No-op when not configured (e.g. EVM not yet enabled on this host).
   materializeNeoXVerifierKeyFromKms();
   materializeNeoXFeedKeyFromKms();
+  // Non-destructive probe of the attestation-gated KMS path (no-op unless a diag
+  // ciphertext is provisioned); result surfaced via /health for diagnostics.
+  runKmsDiag();
   const roles = signerRolesHealth();
   return {
     status: roles.every((entry) => entry.ok) ? 'ok' : 'degraded',
@@ -1063,11 +1066,23 @@ function defaultAttestRunner(args) {
   // kms-decrypt makes a network round-trip to KMS through the egress proxy; give
   // it more headroom than the local /dev/nsm attestation calls.
   const timeoutMs = Array.isArray(args) && args[0] === 'kms-decrypt' ? 25000 : 8000;
-  const raw = execFileSync(DEFAULT_ATTEST_BIN, args, {
-    timeout: timeoutMs,
-    maxBuffer: 4 * 1024 * 1024,
-  }).toString('utf8');
-  return JSON.parse(raw.trim().split('\n').filter(Boolean).pop());
+  try {
+    const raw = execFileSync(DEFAULT_ATTEST_BIN, args, {
+      timeout: timeoutMs,
+      maxBuffer: 4 * 1024 * 1024,
+      // Capture stderr so a kms-decrypt failure (AccessDenied, egress, attestation
+      // mismatch) is recoverable for diagnostics instead of vanishing to the
+      // (host-invisible) enclave console.
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).toString('utf8');
+    return JSON.parse(raw.trim().split('\n').filter(Boolean).pop());
+  } catch (error) {
+    if (error && error.stderr && !error.__stderrAttached) {
+      error.message = `${error.message} :: stderr=${error.stderr.toString().slice(0, 800)}`;
+      error.__stderrAttached = true;
+    }
+    throw error;
+  }
 }
 
 let activeAttestRunner = defaultAttestRunner;
@@ -1086,6 +1101,29 @@ export function __resetAttestRunnerForTests() {
 // the plaintext key material IN-TEE via the attestation-gated `nsm-attest
 // kms-decrypt` and expose it on the worker's configured-env JSON path. The
 // plaintext key exists only inside the enclave process; the host never sees it.
+// Non-destructive in-TEE KMS-path probe. kms-decrypts a DIAGNOSTIC ciphertext
+// (MORPHEUS_ORACLE_KMS_DIAG_CIPHERTEXT) and records only the OUTCOME — never the
+// plaintext — so ops can verify attestation-gated decrypt works without touching the
+// live oracle key. Surfaces the exact failure (AccessDenied / egress / attestation
+// mismatch) that otherwise vanishes to the host-invisible enclave console.
+export let lastKmsDiag = { state: 'not_run' };
+export function runKmsDiag() {
+  const ct = trimString(process.env.MORPHEUS_ORACLE_KMS_DIAG_CIPHERTEXT);
+  if (!ct) {
+    lastKmsDiag = { state: 'no_diag_ciphertext' };
+    return;
+  }
+  const region =
+    trimString(process.env.AWS_REGION) || trimString(process.env.NITRO_AWS_REGION) || 'us-east-1';
+  try {
+    const parsed = activeAttestRunner(['kms-decrypt', '--region', region, '--ciphertext', ct]);
+    lastKmsDiag =
+      parsed && parsed.ok && parsed.plaintext_b64 ? { state: 'ok' } : { state: 'bad_output' };
+  } catch (error) {
+    lastKmsDiag = { state: 'error', message: String((error && error.message) || error).slice(0, 700) };
+  }
+}
+
 export function materializeOracleKeyFromKms() {
   const ciphertext = trimString(process.env.MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64);
   if (!ciphertext) return;
@@ -1320,6 +1358,9 @@ export function handleHealth() {
       signer: signerOk,
       ...(verifierPublicKey ? { oracle_verifier_public_key: verifierPublicKey } : {}),
     },
+    // Outcome of the in-TEE KMS-path probe (no secrets) — lets ops confirm
+    // attestation-gated decrypt works (the prerequisite for TEE-exclusive keys).
+    kms_diag: lastKmsDiag,
     ...(signerError ? { signer_error: signerError } : {}),
   };
 }
