@@ -89,18 +89,33 @@ try {
   for (const [k, v] of Object.entries(worker)) if (process.env[k] === undefined) process.env[k] = v;
   const { deriveKeyBytes } = await import(`${repoRoot}/workers/nitro-worker/src/platform/nitro-signer.js`);
   const ksPath = (worker.PHALA_ORACLE_KEYSTORE_PATH || worker.NITRO_ORACLE_KEYSTORE_PATH || '/data/morpheus/oracle-key.json').trim();
-  try {
-    const wrap = Buffer.from(await deriveKeyBytes('morpheus/oracle/encryption/wrap/v1', 'oracle-encryption-wrap')).subarray(0, 32);
-    const ks = JSON.parse(fs.readFileSync(ksPath, 'utf8'));
-    const s = ks.sealed_private_key;
-    const dec = createDecipheriv('aes-256-gcm', wrap, Buffer.from(s.iv, 'base64'));
-    dec.setAuthTag(Buffer.from(s.tag, 'base64'));
-    const pkcs8 = Buffer.concat([dec.update(Buffer.from(s.ciphertext, 'base64')), dec.final()]);
-    env.MORPHEUS_ORACLE_KEY_MATERIAL_BASE64 = Buffer.from(
-      JSON.stringify({ public_key_raw: ks.public_key_raw, private_key_pkcs8: pkcs8.toString('base64') })
-    ).toString('base64');
-  } catch (e) {
-    console.error('provision-enclave-compute: oracle decrypt key unseal failed (decrypt lane stays degraded):', e.message);
+  // RC2 (KMS attestation): if the CMK ciphertext file is present, inject ONLY the
+  // ciphertext — it is useless without the enclave's attestation, so the host
+  // never holds the plaintext key. The enclave kms-decrypts it in-TEE via
+  // nsm-attest kms-decrypt (materializeOracleKeyFromKms). Otherwise fall back to
+  // the legacy host unseal+inject of the plaintext key. The switch is REVERSIBLE:
+  // remove the ciphertext file to return to the plaintext path (rollback).
+  const kmsCtPath = (worker.MORPHEUS_ORACLE_KMS_CIPHERTEXT_PATH || '/var/lib/morpheus/oracle-key-kms.b64').trim();
+  if (fs.existsSync(kmsCtPath)) {
+    try {
+      env.MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64 = fs.readFileSync(kmsCtPath, 'utf8').trim();
+    } catch (e) {
+      console.error('provision-enclave-compute: KMS ciphertext read failed (decrypt lane stays degraded):', e.message);
+    }
+  } else {
+    try {
+      const wrap = Buffer.from(await deriveKeyBytes('morpheus/oracle/encryption/wrap/v1', 'oracle-encryption-wrap')).subarray(0, 32);
+      const ks = JSON.parse(fs.readFileSync(ksPath, 'utf8'));
+      const s = ks.sealed_private_key;
+      const dec = createDecipheriv('aes-256-gcm', wrap, Buffer.from(s.iv, 'base64'));
+      dec.setAuthTag(Buffer.from(s.tag, 'base64'));
+      const pkcs8 = Buffer.concat([dec.update(Buffer.from(s.ciphertext, 'base64')), dec.final()]);
+      env.MORPHEUS_ORACLE_KEY_MATERIAL_BASE64 = Buffer.from(
+        JSON.stringify({ public_key_raw: ks.public_key_raw, private_key_pkcs8: pkcs8.toString('base64') })
+      ).toString('base64');
+    } catch (e) {
+      console.error('provision-enclave-compute: oracle decrypt key unseal failed (decrypt lane stays degraded):', e.message);
+    }
   }
   try {
     const salt = Buffer.from(await deriveKeyBytes('morpheus/neodid/nullifier/v1', 'neodid-nullifier-salt'));
