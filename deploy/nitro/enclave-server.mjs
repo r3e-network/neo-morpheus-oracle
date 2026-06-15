@@ -232,6 +232,10 @@ function handleProvision(payload) {
       applied.push(key);
     }
   }
+  // If a KMS-attested oracle-key ciphertext was provisioned, recover the key
+  // material in-TEE now (before any decrypt request needs it) so the host never
+  // injects plaintext. No-op when not configured or already materialized.
+  materializeOracleKeyFromKms();
   const roles = signerRolesHealth();
   return {
     status: roles.every((entry) => entry.ok) ? 'ok' : 'degraded',
@@ -913,8 +917,11 @@ const DEFAULT_ATTEST_BIN = trimString(process.env.NITRO_ATTEST_BIN) || '/app/bin
 
 // Runs the nsm-attest binary; returns its parsed JSON. Replaceable in tests.
 function defaultAttestRunner(args) {
+  // kms-decrypt makes a network round-trip to KMS through the egress proxy; give
+  // it more headroom than the local /dev/nsm attestation calls.
+  const timeoutMs = Array.isArray(args) && args[0] === 'kms-decrypt' ? 25000 : 8000;
   const raw = execFileSync(DEFAULT_ATTEST_BIN, args, {
-    timeout: 8000,
+    timeout: timeoutMs,
     maxBuffer: 4 * 1024 * 1024,
   }).toString('utf8');
   return JSON.parse(raw.trim().split('\n').filter(Boolean).pop());
@@ -928,6 +935,50 @@ export function __setAttestRunnerForTests(fn) {
 
 export function __resetAttestRunnerForTests() {
   activeAttestRunner = defaultAttestRunner;
+}
+
+// Phase C (RC2): when a KMS-attested ciphertext of the oracle key material is
+// provisioned (MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64 — the host only ever holds
+// this ciphertext, which is useless without the enclave's attestation), recover
+// the plaintext key material IN-TEE via the attestation-gated `nsm-attest
+// kms-decrypt` and expose it on the worker's configured-env JSON path. The
+// plaintext key exists only inside the enclave process; the host never sees it.
+export function materializeOracleKeyFromKms() {
+  const ciphertext = trimString(process.env.MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64);
+  if (!ciphertext) return;
+  // Already materialized — don't re-decrypt (and don't override a directly
+  // provisioned key during a transition).
+  if (
+    trimString(process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON) ||
+    trimString(process.env.MORPHEUS_ORACLE_KEY_MATERIAL_BASE64)
+  ) {
+    return;
+  }
+  const region =
+    trimString(process.env.AWS_REGION) || trimString(process.env.NITRO_AWS_REGION) || 'us-east-1';
+  let parsed;
+  try {
+    parsed = activeAttestRunner(['kms-decrypt', '--region', region, '--ciphertext', ciphertext]);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        level: 'error',
+        event: 'kms_oracle_key_materialize_failed',
+        error: String((error && error.message) || error),
+      })
+    );
+    return;
+  }
+  if (parsed && parsed.ok && parsed.plaintext_b64) {
+    // The KMS plaintext is the oracle key-material JSON ({public_key_raw,
+    // private_key_pkcs8}); expose it via the worker's configured-env JSON path.
+    process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON = Buffer.from(
+      parsed.plaintext_b64,
+      'base64'
+    ).toString('utf8');
+  } else {
+    console.error(JSON.stringify({ level: 'error', event: 'kms_oracle_key_materialize_bad_output' }));
+  }
 }
 
 // Resolve the public key to bind into the document for the requested role

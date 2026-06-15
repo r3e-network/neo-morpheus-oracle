@@ -88,6 +88,7 @@ const {
   __resetFeedTxParamsProviderForTests,
   __setAttestRunnerForTests,
   __resetAttestRunnerForTests,
+  materializeOracleKeyFromKms,
 } = enclave;
 
 // Import planFeedUpdate from the feed-pusher INDEPENDENTLY (the SAME decision the
@@ -974,4 +975,49 @@ test('cleanup: reset stubbed worker handler', () => {
   __resetWorkerHandlerForTests();
   delete process.env.TD_KEY;
   assert.ok(true);
+});
+
+test('materializeOracleKeyFromKms recovers the oracle key in-TEE from a KMS ciphertext (RC2)', () => {
+  const KEYJSON = JSON.stringify({ public_key_raw: 'cHVi', private_key_pkcs8: 'cHJpdg==' });
+  const saved = {
+    json: process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON,
+    b64: process.env.MORPHEUS_ORACLE_KEY_MATERIAL_BASE64,
+    ct: process.env.MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64,
+  };
+  delete process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON;
+  delete process.env.MORPHEUS_ORACLE_KEY_MATERIAL_BASE64;
+  let calledWith = null;
+  __setAttestRunnerForTests((args) => {
+    calledWith = args;
+    return { ok: true, plaintext_b64: Buffer.from(KEYJSON, 'utf8').toString('base64') };
+  });
+  try {
+    // no-op when no ciphertext is provisioned
+    delete process.env.MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64;
+    materializeOracleKeyFromKms();
+    assert.equal(calledWith, null);
+    assert.equal(process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON, undefined);
+
+    // materializes from the ciphertext via attested kms-decrypt
+    process.env.MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64 = 'Y2lwaGVydGV4dA==';
+    materializeOracleKeyFromKms();
+    assert.equal(calledWith[0], 'kms-decrypt');
+    assert.ok(calledWith.includes('--ciphertext'));
+    assert.equal(process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON, KEYJSON);
+
+    // idempotent: already materialized -> does not re-run kms-decrypt
+    calledWith = null;
+    materializeOracleKeyFromKms();
+    assert.equal(calledWith, null);
+  } finally {
+    __resetAttestRunnerForTests();
+    for (const [k, v] of [
+      ['MORPHEUS_ORACLE_KEY_MATERIAL_JSON', saved.json],
+      ['MORPHEUS_ORACLE_KEY_MATERIAL_BASE64', saved.b64],
+      ['MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64', saved.ct],
+    ]) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
 });
