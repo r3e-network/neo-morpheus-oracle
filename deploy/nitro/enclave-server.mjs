@@ -83,6 +83,13 @@ const EXECUTION_PLANE_PASSTHROUGH = [
   '/oracle/query',
   '/oracle/smart-fetch',
   '/compute/execute',
+  // Confidential decrypt + Neo Message recipient/time-locked reveal: served by the
+  // in-TEE worker (capabilities.js `oracle_decrypt` / `oracle_message_reveal`), which
+  // re-derives the access decision IN the enclave. Forwarding them here lets the public
+  // confidential apps complete the encrypt→reveal round-trip via the edge (the decrypt
+  // uses the KMS-materialized X25519 key) instead of getting a 503.
+  '/oracle/decrypt',
+  '/oracle/message-reveal',
   '/neodid/bind',
   '/neodid/action-ticket',
   '/neodid/recovery-ticket',
@@ -241,6 +248,10 @@ function handleProvision(payload) {
   // secp256k1 key. No-op when not configured (e.g. EVM not yet enabled on this host).
   materializeNeoXVerifierKeyFromKms();
   materializeNeoXFeedKeyFromKms();
+  // Neo N3 signer keys (oracle_verifier + updater) recovered in-TEE from KMS when sealed;
+  // no-op until their ciphertexts are provisioned (plaintext WIF still works meanwhile).
+  materializeNeoN3OracleVerifierKeyFromKms();
+  materializeNeoN3UpdaterKeyFromKms();
   // Non-destructive probe of the attestation-gated KMS path (no-op unless a diag
   // ciphertext is provisioned); result surfaced via /health for diagnostics.
   runKmsDiag();
@@ -1252,6 +1263,40 @@ export function materializeNeoXFeedKeyFromKms() {
     targetEnvVar: 'MORPHEUS_NEOX_FEED_PRIVATE_KEY',
     jsonFields: ['neox_feed_private_key', 'neoxFeedPrivateKey', 'private_key'],
     event: 'kms_neox_feed_key_materialize',
+  });
+}
+
+// Neo N3 (secp256r1) signer keys — the oracle_verifier (signs fulfillments) and the
+// updater (signs feed-update + on-chain admin txs). Same attestation-gated path as the
+// EVM keys: when the KMS ciphertext is provisioned the host holds only the ciphertext,
+// the plaintext WIF exists only inside the enclave on the env var the Neo N3 signer reads
+// (`lib-neo-signers.mjs` resolves `MORPHEUS_*_WIF_MAINNET`). No-op until the ciphertext is
+// provisioned or a plaintext WIF is already set (transition-safe).
+export function materializeNeoN3OracleVerifierKeyFromKms() {
+  materializeNeoXSecpKeyFromKms({
+    ciphertextEnvVar: 'MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64',
+    alreadySetEnvVars: [
+      'MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET',
+      'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET',
+      'MORPHEUS_ORACLE_VERIFIER_WIF',
+    ],
+    targetEnvVar: 'MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET',
+    jsonFields: ['wif', 'oracle_verifier_wif', 'private_key'],
+    event: 'kms_n3_oracle_verifier_key_materialize',
+  });
+}
+
+export function materializeNeoN3UpdaterKeyFromKms() {
+  materializeNeoXSecpKeyFromKms({
+    ciphertextEnvVar: 'MORPHEUS_UPDATER_NEO_N3_KMS_CIPHERTEXT_BASE64',
+    alreadySetEnvVars: [
+      'MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET',
+      'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET',
+      'MORPHEUS_UPDATER_NEO_N3_WIF',
+    ],
+    targetEnvVar: 'MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET',
+    jsonFields: ['wif', 'updater_wif', 'private_key'],
+    event: 'kms_n3_updater_key_materialize',
   });
 }
 
