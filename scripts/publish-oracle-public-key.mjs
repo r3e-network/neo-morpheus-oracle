@@ -32,12 +32,18 @@ async function main() {
     process.env.NEO_NETWORK_MAGIC || (network === 'mainnet' ? 860833102 : 894710606)
   );
   const oracleHash = process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '';
-  const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
-  const wif = signer.materialized?.wif || signer.materialized?.private_key || '';
+  // setOracleEncryptionKey -> SetRuntimeEncryptionKey is gated by ValidateAdmin(), so it
+  // MUST be signed by the kernel ADMIN witness, not the updater. Prefer an explicit admin
+  // WIF; fall back to the pinned updater role only for deployments where updater == admin.
+  let wif = (process.env.MORPHEUS_ORACLE_ADMIN_WIF || process.env.NEO_N3_ADMIN_WIF || '').trim();
+  if (!wif) {
+    const signer = resolvePinnedNeoN3Role(network, 'updater', { env: process.env });
+    wif = signer.materialized?.wif || signer.materialized?.private_key || '';
+  }
 
   if (!nitroUrl || !oracleHash || !wif) {
     throw new Error(
-      'MORPHEUS_RUNTIME_URL or PHALA_API_URL, CONTRACT_MORPHEUS_ORACLE_HASH, and NEO_N3_WIF are required'
+      'MORPHEUS_RUNTIME_URL (or PHALA_API_URL), CONTRACT_MORPHEUS_ORACLE_HASH, and the kernel admin key (MORPHEUS_ORACLE_ADMIN_WIF) are required'
     );
   }
 
