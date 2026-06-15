@@ -86,6 +86,29 @@ test('prune exits 1 when any DELETE returns a non-2xx so systemd surfaces the fa
   }
 });
 
+test('prune skips absent tables (404) without failing the run', async () => {
+  const { server } = await startMockPostgrest((table) =>
+    table === 'morpheus_policy_decisions' || table === 'morpheus_risk_events' ? 404 : 204
+  );
+  const { port } = server.address();
+  try {
+    const result = await runPrune(writeEnvFile(`http://127.0.0.1:${port}`));
+    assert.equal(
+      result.code,
+      0,
+      `expected success, got ${result.code}: ${result.stdout}${result.stderr}`
+    );
+    assert.match(result.stdout, /prune complete/);
+    assert.match(
+      result.stdout,
+      /skipped absent tables: morpheus_policy_decisions, morpheus_risk_events/
+    );
+    assert.doesNotMatch(result.stdout, /FATAL/);
+  } finally {
+    server.close();
+  }
+});
+
 test('prune exits 1 when every DELETE fails at the network layer', async () => {
   // point at a closed port: each fetch throws, nothing is pruned
   const { server } = await startMockPostgrest(() => 204);

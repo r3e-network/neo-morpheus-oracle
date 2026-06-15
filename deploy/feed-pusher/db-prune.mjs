@@ -34,6 +34,7 @@ const tables = [
 ];
 let total = 0;
 const failures = [];
+const skipped = [];
 for (const t of tables) {
   try {
     const r = await fetch(`${URL}/rest/v1/${t}?created_at=lt.${encodeURIComponent(cutoff)}`, {
@@ -44,6 +45,9 @@ for (const t of tables) {
     const cr = r.headers.get('content-range') || '';
     const n = cr.includes('/') ? cr.split('/')[0].split('-').pop() : '?';
     if (r.ok) total += Number(n) || 0;
+    // A 404 means the table is absent from this database's schema — there is
+    // nothing to prune and no re-bloat risk, so skip it without failing the run.
+    else if (r.status === 404) skipped.push(t);
     else failures.push(`${t}: HTTP ${r.status}`);
     log(`${t}: HTTP ${r.status} range=${cr || '-'}`);
   } catch (e) {
@@ -51,7 +55,10 @@ for (const t of tables) {
     log(`${t}: ERROR ${e.message}`);
   }
 }
-log(`prune complete (retain ${RETAIN_DAYS}d, cutoff ${cutoff}); ~${total} rows removed`);
+log(
+  `prune complete (retain ${RETAIN_DAYS}d, cutoff ${cutoff}); ~${total} rows removed` +
+    (skipped.length ? `; skipped absent tables: ${skipped.join(', ')}` : '')
+);
 // Fail visibly (systemd is-failed) when any DELETE did not land: a silently
 // broken prune lets the table re-bloat past the Supabase quota again.
 if (failures.length) {
