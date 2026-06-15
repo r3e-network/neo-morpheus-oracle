@@ -321,13 +321,27 @@ async function buildOnchainState(
 ): Promise<OnchainStateBody> {
   const selected = getSelectedNetwork(networkOverride);
 
-  const neoN3 = await fetchNeoN3State(
-    trimString(selected.neo_n3.rpc_url),
+  // Iterate the RPC candidate list: a node outage (e.g. the primary api.n3index.dev
+  // returning HTTP 521) fails over to the next instead of false-reporting the chain
+  // as down. fetchNeoN3State catches per-node errors and returns {error}.
+  const rpcs = resolveNeoN3Rpcs(networkOverride);
+  const candidates = rpcs.length ? rpcs : [trimString(selected.neo_n3.rpc_url)];
+  let neoN3 = await fetchNeoN3State(
+    candidates[0],
     trimString(selected.neo_n3.contracts.morpheus_oracle),
     trimString(selected.neo_n3.contracts.morpheus_datafeed),
     boundedLimit,
     selected.neo_n3.domains || {}
   );
+  for (let i = 1; i < candidates.length && neoN3.error; i += 1) {
+    neoN3 = await fetchNeoN3State(
+      candidates[i],
+      trimString(selected.neo_n3.contracts.morpheus_oracle),
+      trimString(selected.neo_n3.contracts.morpheus_datafeed),
+      boundedLimit,
+      selected.neo_n3.domains || {}
+    );
+  }
 
   return {
     network: trimString(selected.network) || 'testnet',

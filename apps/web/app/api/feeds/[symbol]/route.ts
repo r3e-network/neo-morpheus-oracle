@@ -1,21 +1,15 @@
-import { parseJsonObjectParam, resolveProviderAwarePayload } from '@/lib/provider-configs';
 import { appConfig } from '@/lib/config';
-import { recordOperationLog } from '@/lib/operation-logs';
-import { proxyToNitro } from '@/lib/nitro';
 import { badRequest } from '@/lib/api-helpers';
+import { isKnownNetworkKey } from '@/lib/networks';
+import { parseJsonObjectParam } from '@/lib/provider-configs';
+import { fetchOnchainState } from '@/lib/onchain-state';
+import { toCanonicalFeedSymbol } from '@/lib/feed-defaults';
 
-function shouldServeFeedFallback(status: number) {
-  return (
-    status === 401 ||
-    status === 403 ||
-    status === 408 ||
-    status === 409 ||
-    status === 425 ||
-    status === 429 ||
-    status >= 500
-  );
-}
-
+// Re-homed (2026-06): the live price comes from the on-chain MorpheusDataFeed (the
+// same contract the box updates), read trustlessly via the shared multi-RPC reader,
+// instead of proxying the retired runtime. The degraded envelope + the
+// x-morpheus-upstream-status header are preserved so existing consumers keep working;
+// ?provider / ?provider_params are still accepted (no-ops for an on-chain read).
 function feedUnavailableResponse(symbol: string, provider: string | null, upstreamStatus: number) {
   return Response.json(
     {
@@ -41,19 +35,15 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
   const { symbol } = await context.params;
   const url = new URL(request.url);
 
-  let providerParams: Record<string, unknown> | undefined;
+  const network = url.searchParams.get('network');
+  if (network && !isKnownNetworkKey(network)) {
+    return badRequest(`unknown network "${network}"; expected "mainnet" or "testnet"`);
+  }
+
+  // Preserve the provider_params validation contract (400 INVALID_PROVIDER_PARAMS).
   try {
-    providerParams = parseJsonObjectParam(url.searchParams.get('provider_params'));
+    parseJsonObjectParam(url.searchParams.get('provider_params'));
   } catch (error) {
-    await recordOperationLog({
-      route: `/api/feeds/${symbol}`,
-      method: 'GET',
-      category: 'feed',
-      requestPayload: Object.fromEntries(url.searchParams.entries()),
-      responsePayload: { error: error instanceof Error ? error.message : String(error) },
-      httpStatus: 400,
-      error: error instanceof Error ? error.message : String(error),
-    });
     return badRequest(
       error instanceof Error ? error.message : String(error),
       400,
@@ -61,51 +51,42 @@ export async function GET(request: Request, context: { params: Promise<{ symbol:
     );
   }
 
-  const payload: Record<string, unknown> = {
-    ...Object.fromEntries(url.searchParams.entries()),
-    symbol,
-  };
-  if (providerParams) payload.provider_params = providerParams;
+  const provider = url.searchParams.get('provider') || appConfig.feedProvider || null;
+  const canonical = toCanonicalFeedSymbol(symbol).toUpperCase();
 
   try {
-    const provider = url.searchParams.get('provider') || appConfig.feedProvider;
-    const projectSlug =
-      url.searchParams.get('project_slug') || appConfig.feedProjectSlug || undefined;
-    const resolved = await resolveProviderAwarePayload(payload, {
-      projectSlug,
-      fallbackProviderId: provider ? String(provider) : undefined,
-    });
-
-    const response = await proxyToNitro(
-      '/feeds/price',
-      {
-        method: 'POST',
-        body: JSON.stringify(resolved.payload),
-      },
-      {
-        route: `/api/feeds/${symbol}`,
-        category: 'feed',
-        requestPayload: resolved.payload,
-      }
-    );
-    if (!response.ok && shouldServeFeedFallback(response.status)) {
-      return feedUnavailableResponse(symbol, provider, response.status);
+    const state = await fetchOnchainState(200, network);
+    if (state?.neo_n3?.error || !state?.neo_n3?.datafeed) {
+      return feedUnavailableResponse(symbol, provider, 503);
     }
-    return response;
-  } catch (error) {
-    await recordOperationLog({
-      route: `/api/feeds/${symbol}`,
-      method: 'GET',
-      category: 'feed',
-      requestPayload: payload,
-      responsePayload: { error: error instanceof Error ? error.message : String(error) },
-      httpStatus: 400,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return badRequest(
-      error instanceof Error ? error.message : String(error),
-      400,
-      'FEED_REQUEST_INVALID'
+    const records = state.neo_n3.datafeed.records || [];
+    const record = records.find((entry) => trimUpper(entry.pair) === canonical);
+    if (!record || Number(record.price_display) <= 0) {
+      return feedUnavailableResponse(symbol, provider, 404);
+    }
+    return Response.json(
+      {
+        status: 'ok',
+        symbol,
+        provider,
+        source: 'onchain',
+        chain: 'neo_n3',
+        contract: state.neo_n3.datafeed.contract,
+        price: Number(record.price_display),
+        price_units: record.price_units,
+        price_display: record.price_display,
+        price_scale_decimals: record.price_scale_decimals,
+        round_id: record.round_id,
+        timestamp: Number(record.timestamp),
+        timestamp_iso: record.timestamp_iso,
+      },
+      { headers: { 'cache-control': 'public, max-age=15' } }
     );
+  } catch {
+    return feedUnavailableResponse(symbol, provider, 503);
   }
+}
+
+function trimUpper(value: unknown) {
+  return (typeof value === 'string' ? value.trim() : '').toUpperCase();
 }
