@@ -92,9 +92,8 @@ fail-closed assert on to/chainId/nonce/from/calldata drift) — all green.
 ### Remaining for GAP 3 (latent — no EVM feed traffic on this box)
 
 - **[admin, AWS]** KMS-encrypt the EVM **feed** key under the CMK → provision
-  `/var/lib/morpheus/neox-feed-kms.b64` (add the feed-ciphertext injection block to
-  `provision-enclave-compute.sh`, mirroring the verifier block — currently only the
-  verifier ciphertext block exists).
+  `/var/lib/morpheus/neox-feed-kms.b64` (the ciphertext-injection block already exists
+  in `provision-enclave-compute.sh`; it is a no-op until the file is present).
 - Set `NEOX_FEED_FROM` (the feed EOA address) on the host + drop the host `NEOX_FEED_PK`
   so the enclave path takes over and no EVM feed key remains on the host.
 - EIF rebuild/cutover + on-chain `updateFeeds` validation.
