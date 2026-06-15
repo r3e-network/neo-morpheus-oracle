@@ -1414,6 +1414,17 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
       }
     }
 
+    // Public X25519 oracle encryption key. NOT secret: clients encrypt confidential
+    // payloads to it and the publish-oracle-public-key flow reads it to mirror it
+    // on-chain. Served from the in-TEE worker (capabilities.js -> ensureOracleKeyMaterial)
+    // so it reflects this enclave's ACTUAL materialized keypair — closing the gap where
+    // a key sealed in-TEE had no published public half, leaving confidential decrypt
+    // unusable. Ungated: it is a public key; the private half never leaves the enclave.
+    if ((httpMethod === 'GET' || httpMethod === 'POST') && path.endsWith('/oracle/public-key')) {
+      const resp = await computeViaWorker('/oracle/public-key', httpMethod === 'POST' ? parseBody(body) : {});
+      return { status: resp.status, body: resp.body };
+    }
+
     return { status: 404, body: { error: 'not found', path } };
   } catch (error) {
     const status = Number(error?.status) || 500;

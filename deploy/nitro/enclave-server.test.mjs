@@ -153,6 +153,12 @@ function installDeterministicWorker() {
     if (path.endsWith('/oracle/query') || path.endsWith('/oracle/feed')) {
       return jsonResponse(200, { ...FIXED_PRICE_BODY });
     }
+    if (path.endsWith('/oracle/public-key')) {
+      return jsonResponse(200, {
+        algorithm: 'X25519-HKDF-SHA256-AES-256-GCM',
+        public_key: 'TEST_PUBLIC_KEY_BASE64',
+      });
+    }
     // default: echo a generic oracle body
     return jsonResponse(200, { ...FIXED_PRICE_BODY });
   });
@@ -1060,6 +1066,20 @@ test('execution-plane passthrough forwards whitelisted routes to the worker (aut
   // A non-whitelisted route is NOT passed through (stays 404, not forwarded).
   const notWhitelisted = await dispatch('POST', '/mainnet/admin/wipe', AUTH, JSON.stringify({}));
   assert.equal(notWhitelisted.status, 404);
+});
+
+test('/oracle/public-key is served (ungated) from the in-TEE worker key material', async () => {
+  // GET, NO auth: a public key is not secret. It must reach the worker, which returns
+  // the enclave's ACTUAL materialized X25519 public key (ensureOracleKeyMaterial).
+  const got = await dispatch('GET', '/mainnet/oracle/public-key', {}, '');
+  assert.equal(got.status, 200);
+  assert.equal(got.body.public_key, 'TEST_PUBLIC_KEY_BASE64');
+  assert.equal(got.body.algorithm, 'X25519-HKDF-SHA256-AES-256-GCM');
+
+  // POST is accepted too (the publish flow may send a payload).
+  const posted = await dispatch('POST', '/testnet/oracle/public-key', {}, JSON.stringify({}));
+  assert.equal(posted.status, 200);
+  assert.equal(posted.body.public_key, 'TEST_PUBLIC_KEY_BASE64');
 });
 
 test('cleanup: reset stubbed worker handler', () => {
