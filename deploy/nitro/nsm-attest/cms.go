@@ -92,6 +92,137 @@ type encryptedContentInfo struct {
 	EncryptedContent           asn1.RawValue `asn1:"optional,tag:0"`
 }
 
+// berToDER transcodes a BER-encoded structure into DER. AWS KMS returns the
+// Nitro CiphertextForRecipient CMS EnvelopedData using indefinite-length BER
+// (constructed elements with a 0x80 length octet, terminated by an
+// end-of-contents 0x00 0x00), which Go's encoding/asn1 rejects ("indefinite
+// length found (not DER)"). This walks the TLV tree, recomputing definite
+// lengths for constructed elements; primitive elements and already-definite
+// lengths are preserved byte-for-byte. Stdlib only (the security-critical path
+// keeps no extra dependencies).
+func berToDER(ber []byte) ([]byte, error) {
+	var out bytes.Buffer
+	rest, err := convertTLV(ber, &out)
+	if err != nil {
+		return nil, err
+	}
+	for _, b := range rest { // tolerate only trailing end-of-contents padding
+		if b != 0x00 {
+			return nil, errors.New("ber: unexpected trailing data after top-level element")
+		}
+	}
+	return out.Bytes(), nil
+}
+
+// convertTLV consumes exactly one TLV from in, writes its DER form to out, and
+// returns the unconsumed remainder.
+func convertTLV(in []byte, out *bytes.Buffer) ([]byte, error) {
+	if len(in) < 2 {
+		return nil, errors.New("ber: truncated TLV")
+	}
+	idByte := in[0]
+	constructed := idByte&0x20 != 0
+	i := 1
+	if idByte&0x1f == 0x1f { // high-tag-number form: octets until MSB clear
+		for {
+			if i >= len(in) {
+				return nil, errors.New("ber: truncated identifier")
+			}
+			c := in[i]
+			i++
+			if c&0x80 == 0 {
+				break
+			}
+		}
+	}
+	tag := in[:i]
+	if i >= len(in) {
+		return nil, errors.New("ber: missing length")
+	}
+	lb := in[i]
+	i++
+
+	if lb == 0x80 { // indefinite length — constructed only, ends at 0x00 0x00
+		if !constructed {
+			return nil, errors.New("ber: indefinite length on a primitive element")
+		}
+		rest := in[i:]
+		var children bytes.Buffer
+		for {
+			if len(rest) < 2 {
+				return nil, errors.New("ber: missing end-of-contents")
+			}
+			if rest[0] == 0x00 && rest[1] == 0x00 {
+				rest = rest[2:]
+				break
+			}
+			var err error
+			rest, err = convertTLV(rest, &children)
+			if err != nil {
+				return nil, err
+			}
+		}
+		writeTagLen(out, tag, children.Len())
+		out.Write(children.Bytes())
+		return rest, nil
+	}
+
+	var length int
+	if lb&0x80 == 0 {
+		length = int(lb) // short form
+	} else {
+		n := int(lb & 0x7f) // long form
+		if n == 0 || n > 4 {
+			return nil, fmt.Errorf("ber: unsupported length-of-length %d", n)
+		}
+		if i+n > len(in) {
+			return nil, errors.New("ber: truncated long-form length")
+		}
+		for k := 0; k < n; k++ {
+			length = length<<8 | int(in[i+k])
+		}
+		i += n
+	}
+	if length < 0 || i+length > len(in) {
+		return nil, errors.New("ber: content length exceeds buffer")
+	}
+	content := in[i : i+length]
+	rest := in[i+length:]
+
+	if !constructed {
+		writeTagLen(out, tag, len(content))
+		out.Write(content)
+		return rest, nil
+	}
+	var children bytes.Buffer
+	cr := content
+	for len(cr) > 0 {
+		var err error
+		cr, err = convertTLV(cr, &children)
+		if err != nil {
+			return nil, err
+		}
+	}
+	writeTagLen(out, tag, children.Len())
+	out.Write(children.Bytes())
+	return rest, nil
+}
+
+// writeTagLen emits the identifier octets followed by a DER definite length.
+func writeTagLen(out *bytes.Buffer, tag []byte, length int) {
+	out.Write(tag)
+	if length < 0x80 {
+		out.WriteByte(byte(length))
+		return
+	}
+	var lenBytes []byte
+	for l := length; l > 0; l >>= 8 {
+		lenBytes = append([]byte{byte(l)}, lenBytes...)
+	}
+	out.WriteByte(byte(0x80 | len(lenBytes)))
+	out.Write(lenBytes)
+}
+
 // decryptCMSEnvelopedData parses a CMS EnvelopedData (DER, optionally wrapped in
 // the ContentInfo SEQUENCE) and decrypts it with the supplied RSA private key,
 // returning the recovered plaintext. The wrapping key is unwrapped with
@@ -104,6 +235,14 @@ func decryptCMSEnvelopedData(der []byte, priv *rsa.PrivateKey) ([]byte, error) {
 	}
 	if len(der) == 0 {
 		return nil, errors.New("cms: empty input")
+	}
+
+	// KMS returns the CiphertextForRecipient as indefinite-length BER, which
+	// encoding/asn1 cannot parse. Normalize to DER first (no-op if already DER).
+	if normalized, err := berToDER(der); err != nil {
+		return nil, fmt.Errorf("cms: normalize BER->DER: %w", err)
+	} else {
+		der = normalized
 	}
 
 	// The input may be either the bare EnvelopedData SEQUENCE or the full

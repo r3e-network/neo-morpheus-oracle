@@ -288,3 +288,41 @@ func TestPKCS7Unpad(t *testing.T) {
 		}
 	})
 }
+
+// TestBERToDER verifies the indefinite-length BER -> DER transcoder that lets
+// encoding/asn1 parse the KMS CiphertextForRecipient (which uses indefinite
+// lengths and otherwise fails with "indefinite length found (not DER)").
+func TestBERToDER(t *testing.T) {
+	// DER: SEQUENCE { INTEGER 1, OCTET STRING "hello" }
+	der := []byte{0x30, 0x0b, 0x02, 0x01, 0x01, 0x04, 0x05, 'h', 'e', 'l', 'l', 'o'}
+	// Same value, indefinite-length BER (0x80 length, 0x00 0x00 end-of-contents).
+	ber := []byte{0x30, 0x80, 0x02, 0x01, 0x01, 0x04, 0x05, 'h', 'e', 'l', 'l', 'o', 0x00, 0x00}
+	got, err := berToDER(ber)
+	if err != nil {
+		t.Fatalf("berToDER(ber): %v", err)
+	}
+	if !bytes.Equal(got, der) {
+		t.Fatalf("berToDER mismatch:\n got %x\nwant %x", got, der)
+	}
+	// Already-DER input must pass through byte-for-byte.
+	if got2, err := berToDER(der); err != nil || !bytes.Equal(got2, der) {
+		t.Fatalf("DER passthrough: got %x err %v", got2, err)
+	}
+	// Nested indefinite: SEQUENCE { SEQUENCE { INTEGER 1 } }.
+	nestedBER := []byte{0x30, 0x80, 0x30, 0x80, 0x02, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00}
+	nestedDER := []byte{0x30, 0x05, 0x30, 0x03, 0x02, 0x01, 0x01}
+	if got3, err := berToDER(nestedBER); err != nil || !bytes.Equal(got3, nestedDER) {
+		t.Fatalf("nested: got %x want %x err %v", got3, nestedDER, err)
+	}
+	// The converted DER must parse with encoding/asn1.
+	var v struct {
+		N int
+		S []byte
+	}
+	if _, err := asn1.Unmarshal(got, &v); err != nil {
+		t.Fatalf("asn1.Unmarshal(converted): %v", err)
+	}
+	if v.N != 1 || string(v.S) != "hello" {
+		t.Fatalf("parsed values wrong: %+v", v)
+	}
+}
