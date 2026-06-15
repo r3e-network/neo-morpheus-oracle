@@ -1,5 +1,28 @@
 # Phase C (complete) — KMS attestation-gated key release
 
+> **✅ DEPLOYED + VALIDATED (2026-06-15).** The X25519 oracle decryption key is now
+> released ONLY to the attested enclave via KMS. Live: EIF `oracle-enclave-exec-2026-06-15.3`
+> (PCR0 `f945d083…`) cut over; CMK `alias/morpheus-enclave-master` policy gates `kms:Decrypt`
+> on `kms:RecipientAttestation:ImageSha384 = f945d083…`; the host provisions only the CMK
+> CIPHERTEXT (`/var/lib/morpheus/oracle-key-kms.b64`), and the enclave kms-decrypts it in-TEE
+> (`nsm-attest kms-decrypt` → `materializeOracleKeyFromKms`). VALIDATED: a `/oracle/fulfill`
+> decrypt probe reached the X25519 key (envelope-format error, NOT "key material unavailable")
+> and returned a valid oracle_verifier signature. The host instance role CANNOT decrypt the
+> ciphertext (no matching attestation).
+>
+> **Remaining for FULL "no key on host" closure** (the old host-accessible copy still exists):
+> 1. **Rotate** the X25519 key (the current key was historically host-exposed) — generate a
+>    fresh key, KMS-encrypt under the CMK, provision the new ciphertext, **retain the old key**
+>    for payloads already sealed to the old pubkey.
+> 2. **Delete the host keystore** `/data/morpheus/oracle-key.json` (kept for now as the
+>    rollback fallback: `rm /var/lib/morpheus/oracle-key-kms.b64` + restart → plaintext path).
+> 3. **Scope the EC2 instance role off** the Secrets-Manager wrap-key/neodid masters — coupled
+>    to moving the **neodid salt** to the same KMS-attested path (it's still SM-derived).
+> 4. Security: **rotate the supplied AWS access key**; remove inline IAM policy
+>    `morpheus-kms-attestation-admin` from `codex-morpheus-deploy`.
+
+
+
 **Goal:** only the *attested* enclave can unwrap the confidential keys (X25519 oracle
 decryption key, neodid salt master, Neo N3 wrap key). The host — even with the EC2
 instance role + IMDS creds + the on-disk keystore — **cannot**. This is the true
