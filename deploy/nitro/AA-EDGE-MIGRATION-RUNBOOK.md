@@ -27,6 +27,20 @@ reference. See "Deployment record" for what is actually live.
   `expected_pcr*` from the request body (caller-supplied), so the cutover needs **no
   web redeploy** — consumers that want measurement-pinning pass the exec PCRs above.
 
+### Hardened EIF built, cutover PENDING (2026-06-15)
+
+A follow-up hardened EIF **`oracle-enclave-exec-2026-06-15.2`** (commit `1b435fc`) is
+built + verified reproducible on the box (`/opt/morpheus/nitro/morpheus-oracle.eif`),
+carrying the decrypt cache-poison fix + neodid salt-drift fix. Expected
+**PCR0 `387a69cd1f6e9a69fb616bd326cab9f85f928439972ea1bfd88e1aefb767f3d6a3277272a1ffe4f43bb46d998384f0e2`**
+(PCR1 kernel unchanged; manifest: `measurements/oracle-enclave-exec-2026-06-15.2.json`).
+**NOT cut over** — the live enclave stays `49a14225`. To deploy: copy that EIF to the
+cutover path, point `MORPHEUS_NITRO_EIF` at it, `systemctl restart
+morpheus-nitro-signer`, then re-validate (the rotated runtime token is already live;
+provision re-runs on restart). NET-1 / EXP-1 / EGRESS-1 hardening is deferred to a
+later EIF (needs caller-path verification of the relayer/feed-pusher `/oracle/fulfill`
++ `/feed/sign` calls before tightening the in-enclave route match).
+
 **Still on the dead placeholder (separate, larger follow-up — NOT this migration):**
 `oracle.meshmini.app` / `edge.meshmini.app` (the `morpheus-edge-gateway` worker) is a
 **full public oracle/AA API proxy** (`/providers`, `/feeds/*`, `/oracle/public-key`,
