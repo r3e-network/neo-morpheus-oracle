@@ -1,14 +1,28 @@
 # Phase C (complete) — KMS attestation-gated key release
 
-> **✅ DEPLOYED + VALIDATED (2026-06-15).** The X25519 oracle decryption key is now
-> released ONLY to the attested enclave via KMS. Live: EIF `oracle-enclave-exec-2026-06-15.3`
-> (PCR0 `f945d083…`) cut over; CMK `alias/morpheus-enclave-master` policy gates `kms:Decrypt`
-> on `kms:RecipientAttestation:ImageSha384 = f945d083…`; the host provisions only the CMK
-> CIPHERTEXT (`/var/lib/morpheus/oracle-key-kms.b64`), and the enclave kms-decrypts it in-TEE
-> (`nsm-attest kms-decrypt` → `materializeOracleKeyFromKms`). VALIDATED: a `/oracle/fulfill`
-> decrypt probe reached the X25519 key (envelope-format error, NOT "key material unavailable")
-> and returned a valid oracle_verifier signature. The host instance role CANNOT decrypt the
+> **✅ DEPLOYED + END-TO-END VALIDATED (2026-06-15).** The X25519 oracle decryption key is
+> released ONLY to the attested enclave via KMS. Live: EIF `oracle-enclave-exec-2026-06-15.9`
+> (PCR0 `842f4f53…`); CMK `alias/morpheus-enclave-master` gates `kms:Decrypt` on
+> `kms:RecipientAttestation:ImageSha384 = 842f4f53…` (trimmed to this single PCR0); the host
+> provisions only the CMK CIPHERTEXT (`/var/lib/morpheus/oracle-key-kms.b64`), and the enclave
+> kms-decrypts it in-TEE (`nsm-attest kms-decrypt` → `materializeOracleKeyFromKms`).
+>
+> ⚠️ **An earlier note here claimed "validated" off a `/oracle/fulfill` envelope-format error —
+> that was a FALSE POSITIVE.** The attested `kms-decrypt` was in fact failing (see the CMS-BER
+> gotcha below) and the key was silently falling back to a host keystore, so it was NOT in-TEE.
+> GENUINE validation now: the key materializes in-TEE (`key_source` from the KMS ciphertext,
+> durable across reboots), is published on the mainnet kernel, and a full client round-trip
+> (fetch on-chain key → encrypt → submit → `success:true module_id confidential.decrypt`)
+> passes. Both host-resident keystores were shredded; the host instance role CANNOT decrypt the
 > ciphertext (no matching attestation).
+>
+> 🐞 **CMS-BER gotcha (the real Phase-C blocker, fixed 2026-06-15).** AWS KMS returns the Nitro
+> `CiphertextForRecipient` CMS EnvelopedData as **indefinite-length BER** with a **segmented
+> `[0]` OCTET STRING** `encryptedContent`. Go's `encoding/asn1` is DER-only and rejected it
+> ("indefinite length found (not DER)"), so `nsm-attest`'s CMS parse failed and every
+> attestation-gated decrypt fell back to a host key. Fixed in `deploy/nitro/nsm-attest/cms.go`:
+> `berToDER()` transcodes BER→DER and `concatOctetSegments()` joins the segmented OCTET STRING
+> (stdlib only; unit-tested). This applies to ANY KMS-sealed key the enclave materializes.
 >
 > **Remaining for FULL "no key on host" closure** (the old host-accessible copy still exists):
 > 1. **Rotate** the X25519 key (the current key was historically host-exposed) — generate a

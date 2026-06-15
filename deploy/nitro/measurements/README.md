@@ -6,6 +6,12 @@ verifier compares against an enclave's live attestation document. If the live
 document's PCRs do not match the committed manifest, the verifier rejects it —
 that is what proves an enclave runs the genuine, reviewed oracle code.
 
+> **Current live mainnet release: `oracle-enclave-exec-2026-06-15.9.json`** — PCR0
+> `842f4f53…` (commit `e38c9d6`). Adds the public `GET /oracle/public-key` route and the
+> `nsm-attest` CMS BER→DER fix that makes attestation-gated `kms-decrypt` work in-TEE, so the
+> oracle X25519 key is KMS-materialized in-enclave (no host-resident plaintext). The CMK
+> `EnclaveAttestedDecrypt` policy is pinned to this single PCR0.
+
 ## How a manifest is produced
 
 `deploy/nitro/build-enclave-eif.sh` (run on the Nitro box) builds the merged

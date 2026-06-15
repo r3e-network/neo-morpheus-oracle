@@ -12,7 +12,9 @@ whole *EVM path* and two control-plane lanes are not.
 - X25519 decrypt **logic**, neodid nullifiers/tickets — run in the enclave.
 - Encrypted-ref ciphertext fetch from Supabase — in-enclave over the egress proxy.
 - Neo N3 signing — happens in-TEE in the recommended derived-keys topology.
-- An in-enclave X25519 generate+seal path EXISTS (`crypto.js` `nitro-sealed`) — but is not used in prod.
+- **Oracle X25519 key is KMS-attested in-TEE (2026-06-15).** Materialized in-enclave from a KMS
+  ciphertext via `nsm-attest kms-decrypt` (fixed CMS BER parse, exec-9); host keystores shredded,
+  zero host-resident confidential plaintext. See RC2.
 
 ## ✗ Gaps, by root cause
 
@@ -25,15 +27,27 @@ flag-gated in-enclave `/oracle/fulfill` EVM path exists but is OFF in prod and s
 from host env (not sealed). The on-chain *verifier* signature (forgeable oracle results) is the
 confidential part and it signs on the host.
 
-### RC2 — Keys are host-injected / host-unsealed, not enclave-born (CRITICAL/HIGH)
-The enclave's AWS SDK uses `node:https` which ignores the enclave `HTTPS_PROXY`, so the enclave
-can't reach Secrets Manager/KMS itself. Consequence: `provision-enclave-compute.sh` runs **on the
-host**, derives the wrap key (host IMDS + Secrets Manager), reads the host keystore, and **unseals
-the X25519 oracle decryption private key to PLAINTEXT in host memory**, then injects it via
-`/provision` (every boot + 4h rotation). The host can also re-derive it offline. The Neo N3
-oracle_verifier/updater keys are generated off-box and stored plaintext in a host file
-(`morpheus-nitro-signer.env`) before `/provision`. The neodid salt + the SM masters are likewise
-host-derivable. So the highest-sensitivity decryption key + the signing keys all touch the host.
+### RC2 — Keys are host-injected / host-unsealed, not enclave-born (PARTIALLY RESOLVED 2026-06-15)
+**✅ Oracle X25519 decryption key — RESOLVED (KMS-attested, in-TEE, no host plaintext).** The
+earlier hypothesis here — "the enclave's AWS SDK ignores `HTTPS_PROXY` so it can't reach KMS" — was
+**WRONG**: the enclave reaches KMS fine over the egress proxy (verified: `egress_allowed
+kms.us-east-1.amazonaws.com`), and KMS Decrypt + the attestation + the CMK policy all succeed. The
+real blocker was that `nsm-attest` parsed the KMS `CiphertextForRecipient` CMS with Go
+`encoding/asn1` (DER-only) while KMS returns **indefinite-length BER + a segmented `[0]` OCTET
+STRING**, so every attestation-gated `kms-decrypt` died at the CMS parse and the key silently fell
+back to a host keystore. Fixed in `deploy/nitro/nsm-attest/cms.go` (`berToDER` +
+`concatOctetSegments`; exec-9, PCR0 `842f4f53…`). The oracle X25519 key is now KMS-materialized
+**in-TEE** (`materializeOracleKeyFromKms` from `/var/lib/morpheus/oracle-key-kms.b64`, an
+enclave-decrypt-only ciphertext); both host keystores were **shredded** — no host-resident
+confidential plaintext remains. Published on-chain + round-trip validated.
+
+**✗ Neo N3 signer keys — STILL host-injected (the remaining RC2 gap).** `oracle_verifier` +
+`updater` are still plaintext in `morpheus-nitro-signer.env`
+(`MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET`/`_PRIVATE_KEY`, `MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET`/
+`_PRIVATE_KEY`) and injected via `/provision`. Now that in-TEE KMS decrypt works, seal them the same
+way: add a generic `materializeNeoN3RoleKeyFromKms` (decrypt ciphertext → set the role WIF env the
+signer reads), KMS-seal each WIF, provision the ciphertext instead of plaintext, drop the plaintext
+env. The neodid salt + SM masters remain host-derivable.
 
 ### RC3 — CP-01 only partially fixed (CRITICAL)
 The feed-lane leak was retired, but `callback-broadcast` + `automation-execute` workflow lanes

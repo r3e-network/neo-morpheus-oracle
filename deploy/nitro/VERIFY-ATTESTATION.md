@@ -1,14 +1,26 @@
 # Verifying the Morpheus Oracle TEE enclave
 
 > **⚠️ SUPERSEDED (2026-06-15).** The live mainnet enclave now runs the
-> **exec release `oracle-enclave-exec-2026-06-15`** with
-> **PCR0 `49a142254c73cd4a299b74d78db7f459f3857c6b589cc7c0f67df9657b0f763da76cf29f2d652035aa431608c5f4e281`**
-> (commit `99822f5dba51eae2eabcd486da7ad22d77a9c202`,
-> `deploy/nitro/measurements/oracle-enclave-exec-2026-06-15.json`). It is a strict
-> superset of the release below (adds the confidential execution-plane passthrough;
-> PCR1 unchanged). **Pin the exec PCR0**, not the `4a76e948…` value documented
-> below. The procedure (reproducible build, COSE/cert-chain/PCR verification) is
-> identical — substitute the exec release's commit + measurements.
+> **exec release `oracle-enclave-exec-2026-06-15.9`** with
+> **PCR0 `842f4f531d2f62d588556ed2b1823a328d33d6059cc1bc97ae6e6ed7d0194cbfd6cbcd8569f7ebdcc1ea7840cbbb3d78`**
+> (commit `e38c9d6`,
+> `deploy/nitro/measurements/oracle-enclave-exec-2026-06-15.9.json`). It is a strict
+> superset of the original exec release (adds the public `GET /oracle/public-key`
+> route + the fix that makes attestation-gated `nsm-attest kms-decrypt` actually
+> succeed in-TEE — see "KMS in-TEE" below; PCR1 unchanged). **Pin this PCR0.** The
+> CMK key policy (`alias/morpheus-enclave-master`) `EnclaveAttestedDecrypt`
+> condition is trimmed to this single PCR0. The procedure (reproducible build,
+> COSE/cert-chain/PCR verification) is identical — substitute the exec release's
+> commit + measurements.
+>
+> **KMS in-TEE (2026-06-15).** The attestation-gated KMS decrypt that materializes
+> the oracle X25519 key in-TEE was silently failing: `nsm-attest` parsed the KMS
+> `CiphertextForRecipient` CMS EnvelopedData with Go `encoding/asn1` (DER-only),
+> but AWS KMS returns it as **indefinite-length BER** with a **segmented `[0]`
+> OCTET STRING** body. Fixed in `deploy/nitro/nsm-attest/cms.go` (`berToDER` +
+> `concatOctetSegments`). The oracle confidential key is now KMS-materialized
+> in-TEE — no host-resident plaintext; the host holds only the enclave-decrypt-only
+> ciphertext at `/var/lib/morpheus/oracle-key-kms.b64`.
 
 Release **`oracle-enclave-testnet-2026-06-14.1`** — the prior merged compute+sign
 enclave (signer cutover 2026-06-14, now superseded by the exec release above).
