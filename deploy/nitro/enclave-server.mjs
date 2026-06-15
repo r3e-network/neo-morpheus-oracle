@@ -1077,9 +1077,17 @@ function defaultAttestRunner(args) {
     }).toString('utf8');
     return JSON.parse(raw.trim().split('\n').filter(Boolean).pop());
   } catch (error) {
-    if (error && error.stderr && !error.__stderrAttached) {
-      error.message = `${error.message} :: stderr=${error.stderr.toString().slice(0, 800)}`;
-      error.__stderrAttached = true;
+    // nsm-attest writes its {ok:false,error} JSON to STDOUT (emit/fail) and exits
+    // non-zero; a timeout shows up as signal=SIGTERM with no output. Surface all of
+    // it so the actual KMS failure (AccessDenied / attestation / hang) is recoverable.
+    if (error && !error.__diagAttached) {
+      const parts = [];
+      if (error.signal) parts.push(`signal=${error.signal}`);
+      if (error.status != null) parts.push(`status=${error.status}`);
+      if (error.stdout) parts.push(`stdout=${error.stdout.toString().slice(0, 500)}`);
+      if (error.stderr) parts.push(`stderr=${error.stderr.toString().slice(0, 300)}`);
+      if (parts.length) error.message = `${error.message} :: ${parts.join(' ')}`;
+      error.__diagAttached = true;
     }
     throw error;
   }
