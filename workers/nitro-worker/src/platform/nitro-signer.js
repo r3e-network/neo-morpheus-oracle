@@ -86,7 +86,24 @@ async function getSecretsClient() {
       const region = trimString(env('AWS_REGION', 'NITRO_AWS_REGION')) || 'us-east-1';
       // Lazy import so HTTP/compute lanes (which need no key material) don't require the SDK.
       const mod = await import('@aws-sdk/client-secrets-manager');
-      const client = new mod.SecretsManagerClient({ region });
+      const clientConfig = { region };
+      // In the Nitro enclave there is NO NIC: egress is HTTPS_PROXY -> vsock -> the
+      // host allow-list proxy. The AWS SDK's default node:https transport ignores
+      // HTTPS_PROXY, so Secrets Manager would be unreachable in-enclave (which is why
+      // the X25519 key was historically unsealed on the HOST and injected). When a
+      // proxy is configured, use the fetch-based handler — Node 22's global fetch
+      // honors NODE_USE_ENV_PROXY/HTTPS_PROXY, so the call routes through the egress.
+      // This lets the enclave read the key masters ITSELF (no host-side unseal).
+      if (trimString(env('HTTPS_PROXY', 'https_proxy'))) {
+        try {
+          const { FetchHttpHandler } = await import('@smithy/fetch-http-handler');
+          clientConfig.requestHandler = new FetchHttpHandler();
+        } catch {
+          // Fall back to the default node:https handler if the fetch handler is
+          // unavailable (host-tier callers have a NIC and need no proxy anyway).
+        }
+      }
+      const client = new mod.SecretsManagerClient(clientConfig);
       return {
         async getSecret(secretId) {
           const out = await client.send(new mod.GetSecretValueCommand({ SecretId: secretId }));
