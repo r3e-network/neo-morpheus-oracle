@@ -102,6 +102,8 @@ export function buildPublicRuntimeCatalogSummary(catalog) {
 // The /info metadata probe sits behind runtime auth on some deployments: a
 // 401/403 there only means the optional metadata is protected, not that the
 // runtime is unhealthy, so it must not degrade an otherwise-ok status.
+// (The in-TEE status route does not rely on this: it supplies info from static
+// config with ok:true, so an unavailable box /info never reaches this path.)
 function isNonCriticalInfoAuthFailure(health, info) {
   return health.state === 'ok' && (info.statusCode === 401 || info.statusCode === 403);
 }

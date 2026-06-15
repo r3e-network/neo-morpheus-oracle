@@ -1,9 +1,6 @@
-import { appConfig } from '@/lib/config';
 import { DEFAULT_FEED_SYMBOLS, getFeedDescriptor, normalizeFeedSymbol } from '@/lib/feed-defaults';
 import { fetchOnchainState } from '@/lib/onchain-state';
 
-const LIVE_QUOTE_TIMEOUT_MS = 10_000;
-const LIVE_QUOTE_BATCH_SIZE = 5;
 const STATUS_CACHE_TTL_MS = 30_000;
 
 export type FeedsStatusBody = {
@@ -20,125 +17,48 @@ export type FeedsStatusOptions = {
 
 let cachedStatus: { body: FeedsStatusBody; expiresAt: number } | null = null;
 
-function maybeParseJson(text: string) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
 function normalizeChainPair(value: string) {
   return normalizeFeedSymbol(value);
 }
 
-function isRetryableStatus(status: number) {
-  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
-}
-
-function resolveQuoteCandidates() {
-  if (Array.isArray(appConfig.nitroApiUrls) && appConfig.nitroApiUrls.length > 0) {
-    return appConfig.nitroApiUrls;
-  }
-  return appConfig.nitroApiUrl ? [appConfig.nitroApiUrl] : [];
-}
-
-async function fetchLiveQuote(pair: string, quoteTimeoutMs: number) {
-  const candidates = resolveQuoteCandidates();
-  if (candidates.length === 0) {
-    return { error: 'MORPHEUS_RUNTIME_URL is not configured' };
-  }
-
-  const headers = new Headers({ accept: 'application/json' });
-  if (appConfig.nitroToken) {
-    headers.set('authorization', `Bearer ${appConfig.nitroToken}`);
-    // Emit both header names for backward-compat with the legacy Phala runtime.
-    headers.set('x-nitro-token', appConfig.nitroToken);
-    headers.set('x-phala-token', appConfig.nitroToken);
-  }
-
-  // One shared deadline across all failover candidates so a stalled runtime
-  // endpoint cannot hang the route; once aborted, remaining candidates fail
-  // immediately instead of compounding the timeout.
-  const signal = AbortSignal.timeout(quoteTimeoutMs);
-  let lastError: string | null = null;
-
-  for (const baseUrl of candidates) {
-    try {
-      const quoteUrl = new URL(
-        `${baseUrl.replace(/\/$/, '')}/feeds/price/${encodeURIComponent(pair)}`
-      );
-      if (appConfig.feedProjectSlug) {
-        quoteUrl.searchParams.set('project_slug', appConfig.feedProjectSlug);
-      }
-
-      const response = await fetch(quoteUrl.toString(), {
-        method: 'GET',
-        headers,
-        cache: 'no-store',
-        signal,
-      });
-
-      const text = await response.text();
-      const body = maybeParseJson(text);
-      if (response.ok) {
-        return body || { raw: text };
-      }
-      lastError = body?.error || text || `HTTP ${response.status}`;
-      if (!isRetryableStatus(response.status)) {
-        break;
-      }
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-      if (signal.aborted) {
-        break;
-      }
-    }
-  }
-
-  return { error: lastError || 'upstream unavailable' };
-}
-
+// Re-homed (2026-06): the per-pair status is derived entirely from the on-chain
+// MorpheusDataFeed (the trustless source the box updates) instead of a live quote
+// fetched from the retired runtime. The `live` overlay now reflects the on-chain
+// record; delta_pct is 0 for a synced pair (chain IS the source of record) and null
+// when the pair is not yet on-chain. The FeedsStatusBody shape is preserved.
 export async function buildFeedsStatusBody(
-  options: FeedsStatusOptions = {}
+  _options: FeedsStatusOptions = {}
 ): Promise<FeedsStatusBody> {
-  const quoteTimeoutMs = options.quoteTimeoutMs ?? LIVE_QUOTE_TIMEOUT_MS;
   const onchain = await fetchOnchainState(200);
   const chainRecords = Array.isArray(onchain.neo_n3?.datafeed?.records)
     ? onchain.neo_n3.datafeed.records
     : [];
 
-  // Batch the live-quote fan-out so one anonymous request cannot amplify into
-  // dozens of simultaneous upstream calls.
-  const configured: Array<Record<string, unknown>> = [];
-  for (let index = 0; index < DEFAULT_FEED_SYMBOLS.length; index += LIVE_QUOTE_BATCH_SIZE) {
-    const batch = DEFAULT_FEED_SYMBOLS.slice(index, index + LIVE_QUOTE_BATCH_SIZE);
-    const entries = await Promise.all(
-      batch.map(async (pair) => {
-        const descriptor = getFeedDescriptor(pair);
-        const chainRecord =
-          chainRecords.find((entry) => normalizeChainPair(entry.pair) === pair) || null;
-        const live = await fetchLiveQuote(pair, quoteTimeoutMs);
-        const chainValue = chainRecord?.price_display ? Number(chainRecord.price_display) : null;
-        const liveValue = live?.price ? Number(live.price) : null;
-        const deltaPct =
-          chainValue !== null && liveValue !== null && Number.isFinite(liveValue) && chainValue > 0
-            ? ((liveValue - chainValue) / chainValue) * 100
-            : null;
+  const configured = DEFAULT_FEED_SYMBOLS.map((pair) => {
+    const descriptor = getFeedDescriptor(pair);
+    const chainRecord =
+      chainRecords.find((entry) => normalizeChainPair(entry.pair) === pair) || null;
+    const live = chainRecord
+      ? {
+          price: Number(chainRecord.price_display),
+          price_display: chainRecord.price_display,
+          timestamp: Number(chainRecord.timestamp),
+          timestamp_iso: chainRecord.timestamp_iso,
+          round_id: chainRecord.round_id,
+          source: 'onchain',
+        }
+      : { error: 'not_synced', source: 'onchain' };
 
-        return {
-          pair,
-          storage_pair: pair,
-          synced: Boolean(chainRecord),
-          descriptor,
-          chain: chainRecord,
-          live,
-          delta_pct: deltaPct,
-        };
-      })
-    );
-    configured.push(...entries);
-  }
+    return {
+      pair,
+      storage_pair: pair,
+      synced: Boolean(chainRecord),
+      descriptor,
+      chain: chainRecord,
+      live,
+      delta_pct: chainRecord ? 0 : null,
+    };
+  });
 
   return {
     generated_at: new Date().toISOString(),

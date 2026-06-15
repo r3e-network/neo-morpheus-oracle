@@ -1,23 +1,33 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_FEED_SYMBOLS } from '../lib/feed-defaults';
 
+const SAMPLE = DEFAULT_FEED_SYMBOLS[0];
+
 const fetchOnchainState = vi.fn(async () => ({
   network: 'testnet',
   generated_at: '2026-06-11T00:00:00.000Z',
-  neo_n3: { oracle: null, datafeed: { records: [] }, error: null },
-}));
-
-vi.mock('@/lib/onchain-state', () => ({ fetchOnchainState }));
-vi.mock('@/lib/config', () => ({
-  appConfig: {
-    nitroApiUrl: 'https://runtime-a.example',
-    nitroApiUrls: ['https://runtime-a.example', 'https://runtime-b.example'],
-    nitroToken: '',
-    feedProjectSlug: 'morpheus',
+  neo_n3: {
+    oracle: null,
+    datafeed: {
+      records: [
+        {
+          pair: SAMPLE,
+          round_id: '7',
+          price_units: '2287000',
+          price_display: '2.287000',
+          price_scale_decimals: 6,
+          timestamp: '1781523281',
+          timestamp_iso: '2026-06-15T11:34:41.000Z',
+        },
+      ],
+    },
+    error: null,
   },
 }));
 
-describe('feeds status builder', () => {
+vi.mock('@/lib/onchain-state', () => ({ fetchOnchainState }));
+
+describe('feeds status builder (on-chain re-home)', () => {
   beforeEach(async () => {
     const { resetFeedsStatusCache } = await import('../lib/feeds-status');
     resetFeedsStatusCache();
@@ -28,74 +38,42 @@ describe('feeds status builder', () => {
     vi.unstubAllGlobals();
   });
 
-  it('bounds a stalled upstream with the quote timeout instead of hanging', async () => {
-    const fetchMock = vi.fn(
-      (_input: RequestInfo | URL, init?: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          const signal = init?.signal;
-          if (!signal) return;
-          if (signal.aborted) {
-            reject(signal.reason);
-            return;
-          }
-          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
-        })
-    );
+  it('derives the live overlay from on-chain records with no per-pair upstream calls', async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     const { buildFeedsStatusBody } = await import('../lib/feeds-status');
-    const body = await buildFeedsStatusBody({ quoteTimeoutMs: 25 });
+    const body = await buildFeedsStatusBody();
 
     expect(body.configured).toHaveLength(DEFAULT_FEED_SYMBOLS.length);
-    for (const entry of body.configured) {
-      expect((entry.live as { error?: string }).error).toBeTruthy();
-    }
-    // The shared per-pair deadline means the second candidate is not retried
-    // with a fresh timeout after the first one stalls out.
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(DEFAULT_FEED_SYMBOLS.length * 2);
-  });
+    // No per-pair runtime quote fan-out — everything comes from one on-chain read.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchOnchainState).toHaveBeenCalledTimes(1);
 
-  it('fans out live quotes in batches of at most 5 concurrent upstream calls', async () => {
-    let inFlight = 0;
-    let maxInFlight = 0;
-    const fetchMock = vi.fn(async () => {
-      inFlight += 1;
-      maxInFlight = Math.max(maxInFlight, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      inFlight -= 1;
-      return new Response(JSON.stringify({ price: '1.23' }), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      });
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    const synced = body.configured.find((entry) => entry.pair === SAMPLE) as Record<string, any>;
+    expect(synced.synced).toBe(true);
+    expect(synced.live.source).toBe('onchain');
+    expect(synced.live.price).toBe(2.287);
+    expect(synced.delta_pct).toBe(0);
 
-    const { buildFeedsStatusBody } = await import('../lib/feeds-status');
-    const body = await buildFeedsStatusBody({ quoteTimeoutMs: 1000 });
+    const notSynced = body.configured.find((entry) => entry.pair !== SAMPLE) as Record<string, any>;
+    expect(notSynced.synced).toBe(false);
+    expect(notSynced.live.error).toBe('not_synced');
+    expect(notSynced.delta_pct).toBeNull();
 
-    expect(body.configured).toHaveLength(DEFAULT_FEED_SYMBOLS.length);
-    expect(fetchMock).toHaveBeenCalledTimes(DEFAULT_FEED_SYMBOLS.length);
-    expect(maxInFlight).toBeLessThanOrEqual(5);
+    expect(body.synced_configured_pair_count).toBe(1);
   });
 
   it('serves repeat callers from the short server-side cache', async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ price: '1.23' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-    );
-    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('fetch', vi.fn());
 
     const { getFeedsStatusBody } = await import('../lib/feeds-status');
-    const first = await getFeedsStatusBody({ quoteTimeoutMs: 1000 });
-    const second = await getFeedsStatusBody({ quoteTimeoutMs: 1000 });
+    const first = await getFeedsStatusBody();
+    const second = await getFeedsStatusBody();
 
     expect(first.cache).toBe('miss');
     expect(second.cache).toBe('hit');
     expect(second.body).toBe(first.body);
-    expect(fetchMock).toHaveBeenCalledTimes(DEFAULT_FEED_SYMBOLS.length);
     expect(fetchOnchainState).toHaveBeenCalledTimes(1);
   });
 });
