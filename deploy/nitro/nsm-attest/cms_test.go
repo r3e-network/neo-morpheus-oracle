@@ -293,8 +293,8 @@ func TestPKCS7Unpad(t *testing.T) {
 // encoding/asn1 parse the KMS CiphertextForRecipient (which uses indefinite
 // lengths and otherwise fails with "indefinite length found (not DER)").
 func TestBERToDER(t *testing.T) {
-	// DER: SEQUENCE { INTEGER 1, OCTET STRING "hello" }
-	der := []byte{0x30, 0x0b, 0x02, 0x01, 0x01, 0x04, 0x05, 'h', 'e', 'l', 'l', 'o'}
+	// DER: SEQUENCE { INTEGER 1, OCTET STRING "hello" } — content is 10 bytes.
+	der := []byte{0x30, 0x0a, 0x02, 0x01, 0x01, 0x04, 0x05, 'h', 'e', 'l', 'l', 'o'}
 	// Same value, indefinite-length BER (0x80 length, 0x00 0x00 end-of-contents).
 	ber := []byte{0x30, 0x80, 0x02, 0x01, 0x01, 0x04, 0x05, 'h', 'e', 'l', 'l', 'o', 0x00, 0x00}
 	got, err := berToDER(ber)
