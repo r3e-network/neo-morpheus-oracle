@@ -326,3 +326,22 @@ func TestBERToDER(t *testing.T) {
 		t.Fatalf("parsed values wrong: %+v", v)
 	}
 }
+
+// TestConcatOctetSegments verifies the segmented-OCTET-STRING joiner used for the
+// KMS encryptedContent emitted as a constructed [0] OCTET STRING under BER.
+func TestConcatOctetSegments(t *testing.T) {
+	// Two short-form primitive OCTET STRING segments.
+	in := []byte{0x04, 0x03, 'a', 'b', 'c', 0x04, 0x02, 'd', 'e'}
+	if got, err := concatOctetSegments(in); err != nil || string(got) != "abcde" {
+		t.Fatalf("two-segment: got %q err %v", got, err)
+	}
+	// Single long-form segment.
+	in2 := []byte{0x04, 0x81, 0x03, 'x', 'y', 'z'}
+	if got, err := concatOctetSegments(in2); err != nil || string(got) != "xyz" {
+		t.Fatalf("long-form: got %q err %v", got, err)
+	}
+	// A non-OCTET-STRING segment is rejected.
+	if _, err := concatOctetSegments([]byte{0x30, 0x01, 0x00}); err == nil {
+		t.Fatalf("expected rejection of non-OCTET-STRING segment")
+	}
+}

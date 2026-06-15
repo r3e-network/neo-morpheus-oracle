@@ -223,6 +223,47 @@ func writeTagLen(out *bytes.Buffer, tag []byte, length int) {
 	out.Write(lenBytes)
 }
 
+// concatOctetSegments concatenates the contents of a run of primitive OCTET
+// STRING segments — the body of a constructed (segmented) OCTET STRING, which
+// the indefinite-length BER CMS from KMS uses for the encryptedContent. After
+// berToDER the segments are definite-length primitive OCTET STRINGs; this joins
+// their octets back into the original ciphertext.
+func concatOctetSegments(in []byte) ([]byte, error) {
+	var out []byte
+	rest := in
+	for len(rest) > 0 {
+		if len(rest) < 2 {
+			return nil, errors.New("cms: truncated OCTET STRING segment")
+		}
+		tag := rest[0]
+		i := 1
+		lb := rest[i]
+		i++
+		var length int
+		if lb&0x80 == 0 {
+			length = int(lb)
+		} else {
+			n := int(lb & 0x7f)
+			if n == 0 || n > 4 || i+n > len(rest) {
+				return nil, errors.New("cms: bad OCTET STRING segment length")
+			}
+			for k := 0; k < n; k++ {
+				length = length<<8 | int(rest[i+k])
+			}
+			i += n
+		}
+		if i+length > len(rest) {
+			return nil, errors.New("cms: OCTET STRING segment exceeds buffer")
+		}
+		if tag != 0x04 {
+			return nil, fmt.Errorf("cms: unexpected encryptedContent segment tag 0x%02x (want OCTET STRING)", tag)
+		}
+		out = append(out, rest[i:i+length]...)
+		rest = rest[i+length:]
+	}
+	return out, nil
+}
+
 // decryptCMSEnvelopedData parses a CMS EnvelopedData (DER, optionally wrapped in
 // the ContentInfo SEQUENCE) and decrypts it with the supplied RSA private key,
 // returning the recovered plaintext. The wrapping key is unwrapped with
@@ -295,9 +336,19 @@ func decryptCMSEnvelopedData(der []byte, priv *rsa.PrivateKey) ([]byte, error) {
 		return nil, fmt.Errorf("cms: unexpected encrypted content type %v (want id-data)", eci.ContentType)
 	}
 
-	// The encryptedContent is [0] IMPLICIT OCTET STRING. encoding/asn1 hands us
-	// the inner content octets directly in .Bytes for an IMPLICIT OCTET STRING.
+	// The encryptedContent is [0] IMPLICIT OCTET STRING. KMS emits it either as a
+	// PRIMITIVE [0] (octets directly in .Bytes) or — under indefinite-length BER —
+	// as a CONSTRUCTED [0] wrapping segmented OCTET STRINGs, in which case .Bytes
+	// still carries the inner segment headers; concatenate them to recover the
+	// ciphertext.
 	ct := eci.EncryptedContent.Bytes
+	if eci.EncryptedContent.IsCompound {
+		joined, err := concatOctetSegments(ct)
+		if err != nil {
+			return nil, fmt.Errorf("cms: join segmented encryptedContent: %w", err)
+		}
+		ct = joined
+	}
 	if len(ct) == 0 {
 		return nil, errors.New("cms: empty encryptedContent")
 	}
