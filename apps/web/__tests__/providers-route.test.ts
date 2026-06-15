@@ -13,28 +13,23 @@ describe('providers route', () => {
     vi.unstubAllEnvs();
   });
 
-  it('forwards request network selection to the runtime proxy', async () => {
-    const fetchMock = vi.fn(
-      async (_input: RequestInfo | URL, _init?: RequestInit) =>
-        new Response(JSON.stringify({ providers: [] }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        })
-    );
+  it('serves the static built-in provider catalog without proxying the runtime', async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     const { GET } = await import('../app/api/providers/route');
     const response = await GET(new Request('https://example.test/api/providers?network=testnet'));
 
     expect(response.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledWith(
-      'https://testnet-runtime.example/providers',
-      expect.objectContaining({
-        headers: expect.any(Headers),
-      })
-    );
-    const headers = fetchMock.mock.calls[0]?.[1]?.headers as Headers;
-    expect(headers.get('x-morpheus-network')).toBe('testnet');
+    // Re-homed: no runtime proxy — the list is served statically.
+    expect(fetchMock).not.toHaveBeenCalled();
+    const body = await response.json();
+    expect(Array.isArray(body.providers)).toBe(true);
+    expect(body.providers.map((p: { id: string }) => p.id)).toEqual([
+      'twelvedata',
+      'binance-spot',
+      'coinbase-spot',
+    ]);
   });
 
   it('rejects unknown network query params with 400 before proxying upstream', async () => {

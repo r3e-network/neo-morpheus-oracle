@@ -128,7 +128,7 @@ function normalizeFeedRecord(record: {
   };
 }
 
-function parseNeoStackItem(item: any): unknown {
+export function parseNeoStackItem(item: any): unknown {
   if (!item || typeof item !== 'object') return null;
   const type = trimString(item.type).toLowerCase();
 
@@ -186,7 +186,7 @@ async function fetchJsonRpc(url: string, body: Record<string, unknown>) {
   return payload?.result;
 }
 
-async function invokeNeoN3Read(
+export async function invokeNeoN3Read(
   rpcUrl: string,
   contractHash: string,
   method: string,
@@ -202,6 +202,40 @@ async function invokeNeoN3Read(
     throw new Error(trimString(result?.exception) || `${method} faulted`);
   }
   return parseNeoStackItem(result?.stack?.[0]);
+}
+
+// The configured Neo N3 RPC candidates for a network, primary first, de-duped.
+// config/networks/*.json carries an rpc_urls[] fallback list that the single-URL
+// readers historically ignored — a public read path must iterate it because the
+// primary (api.n3index.dev) is intermittently down (HTTP 521).
+export function resolveNeoN3Rpcs(networkOverride?: string | null): string[] {
+  const selected = getSelectedNetwork(networkOverride);
+  const list = Array.isArray(selected.neo_n3?.rpc_urls) ? selected.neo_n3.rpc_urls : [];
+  return [
+    ...new Set([...list, selected.neo_n3?.rpc_url].map((u) => trimString(u)).filter(Boolean)),
+  ];
+}
+
+// Read-only contract call over the RPC candidate list: a NETWORK error on one node
+// fails over to the next; a contract HALT (incl. a HALT returning a null/Any value)
+// or a deterministic FAULT returns/propagates from the first node that answered.
+export async function readNeoN3Contract(
+  networkOverride: string | null | undefined,
+  contractHash: string,
+  method: string,
+  params: unknown[] = []
+): Promise<unknown> {
+  const rpcs = resolveNeoN3Rpcs(networkOverride);
+  if (!rpcs.length) throw new Error('no Neo N3 RPC configured for the selected network');
+  let lastError: unknown = null;
+  for (const rpc of rpcs) {
+    try {
+      return await invokeNeoN3Read(rpc, contractHash, method, params);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError ?? 'rpc read failed'));
 }
 
 async function fetchNeoN3State(
