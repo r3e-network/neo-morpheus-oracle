@@ -129,6 +129,45 @@ function mapToAppBackendPath(forwardedPath, network) {
   return null;
 }
 
+// Confidential routes that the in-TEE worker SELF-GATES (recipient EIP-191
+// signature for /oracle/message-reveal; time-lock re-assertion for /oracle/decrypt),
+// so the edge can expose them to public clients by proxying to the attested box
+// with the box runtime token — public callers never hold the token, and the box
+// enforces per-message access IN-TEE. These are NOT in RUNTIME_AUTH_REQUIRED_PATHS
+// (the edge does not require a client token; the box does the gating).
+const RUNTIME_BOX_PASSTHROUGH = ['/oracle/decrypt', '/oracle/message-reveal'];
+
+function isRuntimeBoxPassthrough(forwardedPath) {
+  const p = String(forwardedPath || '/').replace(/\/+$/, '') || '/';
+  return RUNTIME_BOX_PASSTHROUGH.includes(p);
+}
+
+function buildRuntimeBoxRequest(request, env, network, forwardedPath, search) {
+  const base = trimString(env.MORPHEUS_RUNTIME_BOX_URL);
+  if (!base) return null;
+  const token =
+    trimString(env.MORPHEUS_RUNTIME_BOX_TOKEN) ||
+    trimString(env.MORPHEUS_RUNTIME_TOKEN) ||
+    trimString(env.MORPHEUS_ORIGIN_TOKEN);
+  const net = network === 'mainnet' ? 'mainnet' : 'testnet';
+  const target = `${base.replace(/\/+$/, '')}/${net}${forwardedPath}${search || ''}`;
+  const headers = new Headers(request.headers);
+  headers.delete('host');
+  if (token) {
+    headers.set('authorization', `Bearer ${token}`);
+    headers.set('x-morpheus-runtime-token', token);
+  }
+  headers.set('x-forwarded-proto', 'https');
+  headers.set('x-morpheus-network', net);
+  return new Request(target, {
+    method: request.method,
+    headers,
+    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : request.body,
+    duplex: request.method === 'GET' || request.method === 'HEAD' ? undefined : 'half',
+    redirect: 'manual',
+  });
+}
+
 function shouldProtectWithTurnstile(pathname) {
   return TURNSTILE_PROTECTED_PATHS.some((path) => pathname.endsWith(path));
 }
@@ -535,6 +574,43 @@ export default {
     if (cacheRule) {
       const cached = await cache.match(request);
       if (cached) return cached;
+    }
+
+    // Confidential reveal/decrypt: proxy to the attested box (the in-TEE worker
+    // self-gates recipient/time-lock access), supplying the box runtime token.
+    if (isRuntimeBoxPassthrough(routing.forwardedPath)) {
+      const boxRequest = buildRuntimeBoxRequest(
+        request,
+        env,
+        routing.network,
+        routing.forwardedPath,
+        url.search
+      );
+      if (!boxRequest) {
+        return decorateGatewayResponse(
+          json(503, { error: 'runtime_box_unconfigured', route: routing.forwardedPath }, { 'cache-control': 'no-store' }),
+          routing,
+          'runtime-box-unconfigured'
+        );
+      }
+      const boxTimeoutMs = resolveOriginTimeoutMs(
+        env.MORPHEUS_EDGE_ORIGIN_TIMEOUT_MS,
+        DEFAULT_PROXY_TIMEOUT_MS
+      );
+      try {
+        const boxResponse = await fetch(boxRequest, { signal: AbortSignal.timeout(boxTimeoutMs) });
+        return decorateGatewayResponse(new Response(boxResponse.body, boxResponse), routing, 'runtime-box');
+      } catch (error) {
+        return decorateGatewayResponse(
+          json(
+            503,
+            { error: 'runtime_box_unavailable', route: routing.forwardedPath, message: 'confidential runtime temporarily unavailable' },
+            { 'cache-control': 'no-store' }
+          ),
+          routing,
+          'runtime-box-unavailable'
+        );
+      }
     }
 
     // Map the legacy runtime path onto the apps/web public API. Routes that still
