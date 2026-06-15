@@ -1,7 +1,7 @@
 import { WorkflowEntrypoint } from '../workflow-runtime.mjs';
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import { patchJob, loadJob } from './jobs.js';
-import { resolveNeoN3BackendSigner, callAppBackend } from './execution-plane.js';
+import { callAppBackend } from './execution-plane.js';
 
 function normalizeWorkflowVersion(value) {
   const numeric = Number(value);
@@ -57,7 +57,10 @@ export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
     );
 
     try {
-      const signer = resolveNeoN3BackendSigner(this.env, network);
+      // CP-01: do NOT resolve or forward the Neo N3 signing WIF from the edge. The
+      // app backend resolves the updater signer from its OWN env (neo-control-plane.ts
+      // createNeoN3Account), so the control plane holds no signing key — keeping it off
+      // the Cloudflare edge. (Full in-TEE signing is a separate follow-up.)
       const result = await step.do(
         'execute callback broadcast',
         {
@@ -71,7 +74,6 @@ export class CallbackBroadcastWorkflow extends WorkflowEntrypoint {
             workflow_version: workflow.workflowVersion,
             execution_id: workflow.executionId,
             legacy_route: workflow.legacyRoute,
-            ...signer,
           })
       );
 
@@ -173,7 +175,8 @@ export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
       if (!automationId) {
         throw new Error('automation_id is required');
       }
-      const signer = resolveNeoN3BackendSigner(this.env, network);
+      // CP-01: no edge-held signing key — the app backend resolves the updater signer
+      // from its own env. Do not forward a WIF from the control plane.
       const result = await step.do(
         'execute automation queueing',
         {
@@ -187,7 +190,6 @@ export class AutomationExecuteWorkflow extends WorkflowEntrypoint {
             workflow_version: workflow.workflowVersion,
             execution_id: workflow.executionId,
             legacy_route: workflow.legacyRoute,
-            ...signer,
           })
       );
 
