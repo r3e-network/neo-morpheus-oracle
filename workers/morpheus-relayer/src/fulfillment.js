@@ -2,7 +2,6 @@ import crypto from 'node:crypto';
 import { callNitro } from './nitro.js';
 import {
   buildFulfillmentDigestBytes,
-  buildOnchainResultEnvelope,
   buildWorkerPayload,
   decodePayloadText,
   encodeFulfillmentResult,
@@ -446,7 +445,7 @@ function buildEnclaveFulfillmentContext(config, chain, event, fulfillmentContext
 // {success, result, result_bytes_base64, error, signature, public_key,
 // fulfillment_digest_hex, trust_tier} and asserts the returned digest equals the
 // relayer's own recomputation before the caller submits.
-async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payload, kernelIntent) {
+async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payload, _kernelIntent) {
   const enclavePayload = {
     chain,
     request_type: event.requestType,

@@ -1357,7 +1357,7 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
     };
     const original = global.fetch;
     const calls = [];
-    global.fetch = async (url, init = {}) => {
+    global.fetch = async (url) => {
       const u = String(url);
       calls.push({ url: u });
       // The host worker compute call (NOT /oracle/fulfill).
@@ -1416,7 +1416,7 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
     };
     const original = global.fetch;
     const calls = [];
-    global.fetch = async (url, init = {}) => {
+    global.fetch = async (url) => {
       const u = String(url);
       calls.push({ url: u });
       if (u.startsWith('https://worker.test')) {

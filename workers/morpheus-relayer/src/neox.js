@@ -154,10 +154,6 @@ export async function withNeoXReadFailover(config, run) {
   throw lastTransportError || new Error('neox read failed: no rpc endpoints configured');
 }
 
-function readContract(config) {
-  return new ethers.Contract(config.neox.oracleContract, ORACLE_ABI, getProvider(config));
-}
-
 // Cached NonceManager-wrapped updater so concurrent fulfilments (the engine
 // processes events with config.concurrency) get sequential nonces instead of
 // colliding on the same pending nonce.

@@ -600,7 +600,7 @@ export default {
       try {
         const boxResponse = await fetch(boxRequest, { signal: AbortSignal.timeout(boxTimeoutMs) });
         return decorateGatewayResponse(new Response(boxResponse.body, boxResponse), routing, 'runtime-box');
-      } catch (error) {
+      } catch {
         return decorateGatewayResponse(
           json(
             503,
