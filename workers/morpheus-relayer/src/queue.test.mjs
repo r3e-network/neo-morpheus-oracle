@@ -169,7 +169,7 @@ describe('isTransientDurableQueueError', () => {
 });
 
 describe('claimDurableJobForProcessing', () => {
-  it('uses local fallback while Supabase persistence is in quota backoff', async () => {
+  it('skips processing (fail-closed) while Supabase persistence is in quota backoff by default', async () => {
     resetSupabasePersistenceBackoffForTests();
     markSupabasePersistenceUnavailable(
       new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
@@ -184,21 +184,50 @@ describe('claimDurableJobForProcessing', () => {
       { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' }
     );
 
-    assert.equal(claim.granted, true);
-    assert.equal(claim.reason, 'granted');
+    // Fail closed by default: do not grant a local claim that could double-deliver
+    // when the shared idempotency store is unreachable.
+    assert.equal(claim.granted, false);
+    assert.equal(claim.reason, 'backoff_skip');
     resetSupabasePersistenceBackoffForTests();
   });
 
-  it('emits a backoff metric when granting a local claim during Supabase backoff', async () => {
+  it('fails closed (backoff_skip) and emits a backoff metric when allowLocalClaimDuringBackoff is unset', async () => {
     resetSupabasePersistenceBackoffForTests();
     markSupabasePersistenceUnavailable(
       new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
     );
     const state = createEmptyRelayerState();
 
-    // Single-instance default (allowLocalClaimDuringBackoff unset -> allow).
+    // Default (allowLocalClaimDuringBackoff unset) now fails closed: the shared
+    // idempotency store is unreachable, so do NOT grant a local claim that could
+    // let a second instance double-deliver. Caller retains the retry item.
     const claim = await claimDurableJobForProcessing(
       { durableQueue: { enabled: true, failClosed: true }, instanceId: 'test-relayer' },
+      { warn() {}, info() {} },
+      { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' },
+      null,
+      state
+    );
+
+    assert.equal(claim.granted, false);
+    assert.equal(claim.reason, 'backoff_skip');
+    // Operator-visible signal that the cross-instance claim was skipped this window.
+    assert.equal(state.metrics.durable_claim_skipped_during_backoff_total, 1);
+    resetSupabasePersistenceBackoffForTests();
+  });
+
+  it('grants a local claim during Supabase backoff only when allowLocalClaimDuringBackoff is explicitly true (opt-in)', async () => {
+    resetSupabasePersistenceBackoffForTests();
+    markSupabasePersistenceUnavailable(
+      new Error('supabase morpheus_relayer_jobs PATCH failed: 402 exceed_db_size_quota')
+    );
+    const state = createEmptyRelayerState();
+
+    const claim = await claimDurableJobForProcessing(
+      {
+        durableQueue: { enabled: true, failClosed: true, allowLocalClaimDuringBackoff: true },
+        instanceId: 'test-relayer',
+      },
       { warn() {}, info() {} },
       { chain: 'neo_n3', requestId: '99', requestType: 'oracle_fetch' },
       null,

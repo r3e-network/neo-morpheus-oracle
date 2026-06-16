@@ -158,12 +158,22 @@ export function classifyError(err) {
     msg.includes('unavailable')
   )
     return 'transient';
+  // Permanent (deterministic) request rejections. Tightened (classifyError LOW):
+  // anchor each keyword to a LEADING word boundary (\b<word>) so an ambiguous
+  // message that merely contains the substring MID-WORD (e.g. "default" -> not
+  // "fault", "revalidate" -> not "invalid") is NOT force-finalized as permanent,
+  // while the genuine stem forms ("fault"/"faulted"/"faulting",
+  // "invalid"/"invalidated") still match. An ambiguous error that matches neither
+  // the transient block above nor a leading-boundary permanent keyword here falls
+  // through to 'unknown', which the retry path RETRIES (not force-dead) —
+  // finalizing a recoverable failure as a permanent on-chain failure is the worse
+  // outcome, so we bias ambiguity toward retry.
   if (
-    msg.includes('not found') ||
-    msg.includes('fault') ||
-    msg.includes('unauthorized') ||
-    msg.includes('forbidden') ||
-    msg.includes('invalid')
+    /\bnot found\b/.test(msg) ||
+    /\bfault/.test(msg) ||
+    /\bunauthori[sz]ed/.test(msg) ||
+    /\bforbidden/.test(msg) ||
+    /\binvalid/.test(msg)
   )
     return 'permanent';
   return 'unknown';
@@ -267,6 +277,238 @@ function assertEventIdentifiersClean(event) {
 
 function normalizePublicKey(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();
+}
+
+// ---------------------------------------------------------------------------
+// Minimal CBOR / COSE_Sign1 decoder (no external deps) — mirrors the encoder/
+// decoder in deploy/nitro/enclave-server.mjs. A Nitro NSM attestation document is
+// a COSE_Sign1 (CBOR array [protected, unprotected, payload(bstr), signature]),
+// possibly wrapped in CBOR tag 18; the payload is a CBOR map with the measured
+// `pcrs`, `user_data`, `public_key`, `nonce`. We decode just enough to read those
+// committed fields so the relayer can VERIFY (C1) the document binds the digest +
+// matches the pinned PCR0 — without bundling a CBOR/COSE library.
+// ---------------------------------------------------------------------------
+function cborRead(buf, offset) {
+  if (offset >= buf.length) throw new Error('cbor: truncated');
+  const initial = buf[offset];
+  const major = initial >> 5;
+  const minor = initial & 0x1f;
+  let pos = offset + 1;
+  const readUint = (n) => {
+    let value = 0n;
+    for (let i = 0; i < n; i += 1) {
+      if (pos >= buf.length) throw new Error('cbor: truncated uint');
+      value = (value << 8n) | BigInt(buf[pos]);
+      pos += 1;
+    }
+    return value;
+  };
+  let length;
+  if (minor < 24) length = BigInt(minor);
+  else if (minor === 24) length = readUint(1);
+  else if (minor === 25) length = readUint(2);
+  else if (minor === 26) length = readUint(4);
+  else if (minor === 27) length = readUint(8);
+  else throw new Error(`cbor: unsupported minor ${minor}`);
+
+  switch (major) {
+    case 0:
+      return { value: Number(length), pos };
+    case 1:
+      return { value: -1 - Number(length), pos };
+    case 2:
+    case 3: {
+      const len = Number(length);
+      const slice = buf.subarray(pos, pos + len);
+      pos += len;
+      return { value: major === 2 ? Buffer.from(slice) : slice.toString('utf8'), pos };
+    }
+    case 4: {
+      const arr = [];
+      const len = Number(length);
+      for (let i = 0; i < len; i += 1) {
+        const item = cborRead(buf, pos);
+        arr.push(item.value);
+        pos = item.pos;
+      }
+      return { value: arr, pos };
+    }
+    case 5: {
+      const map = {};
+      const len = Number(length);
+      for (let i = 0; i < len; i += 1) {
+        const key = cborRead(buf, pos);
+        pos = key.pos;
+        const val = cborRead(buf, pos);
+        pos = val.pos;
+        const keyName = Buffer.isBuffer(key.value) ? key.value.toString('hex') : String(key.value);
+        map[keyName] = val.value;
+      }
+      return { value: map, pos };
+    }
+    case 6: {
+      const inner = cborRead(buf, pos);
+      return { value: inner.value, pos: inner.pos };
+    }
+    case 7: {
+      if (minor === 20) return { value: false, pos };
+      if (minor === 21) return { value: true, pos };
+      if (minor === 22) return { value: null, pos };
+      return { value: null, pos };
+    }
+    default:
+      throw new Error(`cbor: unsupported major ${major}`);
+  }
+}
+
+function decodeCoseSign1Payload(coseBuffer) {
+  const { value: cose } = cborRead(coseBuffer, 0);
+  if (!Array.isArray(cose) || cose.length !== 4) {
+    throw new Error('cose: not a 4-element COSE_Sign1');
+  }
+  const payloadBytes = cose[2];
+  if (!Buffer.isBuffer(payloadBytes)) throw new Error('cose: payload is not a byte string');
+  const { value: payload } = cborRead(payloadBytes, 0);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('cose: payload is not a map');
+  }
+  return payload;
+}
+
+// The PCR0 the live enclave is pinned to. Sourced from MORPHEUS_EXPECTED_PCR0 (or
+// config.nitro.expectedPcr0). When unset, PCR0 cannot be asserted — the relayer
+// still verifies the digest binding but cannot claim the document came from the
+// expected measured image, so trust is downgraded. Lowercase hex, no 0x.
+export function resolveExpectedPcr0(config) {
+  return normalizePublicKey(
+    trimString(config?.nitro?.expectedPcr0 || '') ||
+      trimString(process.env.MORPHEUS_EXPECTED_PCR0 || '')
+  );
+}
+
+// Whether the enclave signature cross-check (digest-sig) is enabled. Opt-in via
+// config.nitro.verifyEnclaveSignature OR MORPHEUS_RELAYER_VERIFY_ENCLAVE_SIGNATURE
+// (read directly so it is operable without a config.js change). Default OFF so the
+// current deployment (which has not pinned strict verification) keeps fulfilling.
+export function enclaveSignatureVerificationEnabled(config) {
+  if (config?.nitro?.verifyEnclaveSignature) return true;
+  const raw = trimString(process.env.MORPHEUS_RELAYER_VERIFY_ENCLAVE_SIGNATURE || '').toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+/**
+ * Verify the enclave attestation document (C1) against the relayer's INDEPENDENTLY
+ * recomputed fulfillment digest. Returns { attested, reason, pcr0 }:
+ *   - attested true  => the document proves the result was produced inside the
+ *     measured enclave (user_data == sha256(localDigest) AND, when a PCR0 is
+ *     pinned, the document's PCR0 matches it).
+ *   - attested false => attestation absent or unprovable; the caller MUST NOT label
+ *     the result enclave-attested (it downgrades trust_tier). `reason` explains why.
+ *
+ * Backward-compatible: when no attestation doc is present (today's enclave images
+ * pre-cutover) this returns attested:false WITHOUT throwing, so the lane keeps
+ * fulfilling. A doc that IS present but binds the WRONG digest (or wrong PCR0 when
+ * one is pinned) is a HARD failure — the caller treats it like a digest mismatch
+ * and refuses to submit.
+ */
+export function verifyEnclaveAttestation(config, body, localDigestHex) {
+  const docBase64 = trimString(body?.attestation_doc_base64 || '');
+  if (!docBase64) {
+    return { attested: false, reason: 'no attestation document', pcr0: '' };
+  }
+  let payload;
+  try {
+    payload = decodeCoseSign1Payload(Buffer.from(docBase64, 'base64'));
+  } catch (error) {
+    return {
+      attested: false,
+      reason: `attestation parse failed: ${normalizeErrorMessage(error)}`,
+      pcr0: '',
+    };
+  }
+  // user_data MUST commit to sha256(the relayer-recomputed digest bytes). A doc that
+  // commits to a DIFFERENT digest is an active attempt to attest a result the relayer
+  // did not compute — treat it as a hard failure (throw), not a downgrade.
+  const userData = Buffer.isBuffer(payload.user_data)
+    ? payload.user_data.toString('hex')
+    : normalizePublicKey(payload.user_data || '');
+  const expectedUserData = crypto
+    .createHash('sha256')
+    .update(Buffer.from(localDigestHex, 'hex'))
+    .digest('hex');
+  if (userData && userData !== expectedUserData) {
+    throw new Error(
+      'invalid signature: enclave attestation user_data does not bind the fulfillment digest ' +
+        `(doc=${userData} expected=${expectedUserData}) — refusing to submit`
+    );
+  }
+  if (!userData) {
+    return { attested: false, reason: 'attestation document has no user_data binding', pcr0: '' };
+  }
+
+  // PCR0 binding: the document must come from the pinned measured image. When a
+  // PCR0 is configured we ASSERT it (a mismatch is a hard failure — wrong/forged
+  // image). When none is configured we cannot prove the image, so we do not claim
+  // enclave-attested (downgrade) but keep submitting.
+  const pcrs = payload.pcrs && typeof payload.pcrs === 'object' ? payload.pcrs : {};
+  const docPcr0 = Buffer.isBuffer(pcrs['0'])
+    ? pcrs['0'].toString('hex')
+    : normalizePublicKey(pcrs['0'] || pcrs.pcr0 || '');
+  const expectedPcr0 = resolveExpectedPcr0(config);
+  if (expectedPcr0) {
+    if (!docPcr0 || docPcr0 !== expectedPcr0) {
+      throw new Error(
+        'invalid signature: enclave attestation PCR0 does not match the pinned measurement ' +
+          `(doc=${docPcr0 || 'missing'} expected=${expectedPcr0}) — refusing to submit`
+      );
+    }
+    return { attested: true, reason: 'attested (digest + PCR0 verified)', pcr0: docPcr0 };
+  }
+  // Digest binding verified, but PCR0 not pinned -> cannot prove the measured image.
+  return {
+    attested: false,
+    reason: 'attestation digest verified but no MORPHEUS_EXPECTED_PCR0 pinned',
+    pcr0: docPcr0,
+  };
+}
+
+// Verify the enclave's secp256r1 signature over the relayer-recomputed digest using
+// the on-chain-pinned oracle_verifier public key (the digest-sig cross-check). Only
+// runs for neo_n3/legacy when a pinned verifier pubkey is configured; otherwise it
+// is a no-op (returns {checked:false}) so deployments that have not pinned a verifier
+// key keep fulfilling. A returned public_key that differs from the pinned key, or a
+// signature that does NOT verify against the pinned key, is a HARD failure (throws).
+export function verifyEnclaveSignatureAgainstPinnedVerifier(config, chain, body, localDigestHex) {
+  if (chain !== 'neo_n3' && chain !== 'legacy') return { verified: false, checked: false };
+  let pinned;
+  try {
+    pinned = normalizePublicKey(resolvePinnedNeoN3VerifierPublicKey(config.network, process.env));
+  } catch {
+    pinned = '';
+  }
+  if (!pinned) return { verified: false, checked: false };
+  const returnedKey = normalizePublicKey(body?.public_key || '');
+  // The enclave must sign with the pinned verifier key (the only key the on-chain
+  // contract accepts). A different key would be rejected on-chain anyway; flag it.
+  if (returnedKey && returnedKey !== pinned) {
+    throw new Error(
+      `verifier rejected signature: enclave public_key ${returnedKey} != pinned oracle_verifier ${pinned}`
+    );
+  }
+  const signature = trimString(body?.signature || '');
+  let ok = false;
+  try {
+    ok = neonWallet.verify(localDigestHex, signature, pinned);
+  } catch {
+    ok = false;
+  }
+  if (!ok) {
+    throw new Error(
+      'invalid signature: enclave signature does not verify against the pinned oracle_verifier ' +
+        'public key over the recomputed digest — refusing to submit'
+    );
+  }
+  return { verified: true, checked: true };
 }
 
 function buildLocalNeoN3Account(keyMaterial = '') {
@@ -518,13 +760,32 @@ async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payl
     );
   }
 
+  // SIGNATURE CROSS-CHECK (digest-sig): verify the enclave's signature against the
+  // on-chain-pinned oracle_verifier public key over the recomputed digest BEFORE
+  // submit. A wrong key or a non-verifying signature throws (terminal). Opt-in via
+  // config.nitro.verifyEnclaveSignature (MORPHEUS_RELAYER_VERIFY_ENCLAVE_SIGNATURE)
+  // so an operator enables strict verification at the cutover point — un-configured
+  // deployments keep fulfilling (the on-chain contract is still authoritative and
+  // rejects a bad signature there too).
+  if (enclaveSignatureVerificationEnabled(config)) {
+    verifyEnclaveSignatureAgainstPinnedVerifier(config, chain, body, localDigest);
+  }
+
+  // ATTESTATION VERIFICATION (C1): make attestation ENFORCING. Derive trust_tier
+  // from the VERIFIED document rather than trusting the response's trust_tier
+  // string. A present-but-wrong document (binds a different digest, or wrong PCR0
+  // when one is pinned) throws (terminal — not submitted). When attestation is
+  // absent or cannot be proven (no doc / no pinned PCR0 yet), the result is treated
+  // as NOT enclave-attested: trust_tier is downgraded but the lane still submits so
+  // the current deployment keeps fulfilling.
+  const attestation = verifyEnclaveAttestation(config, body, localDigest);
+  const trustTier = attestation.attested ? TRUST_TIER_ENCLAVE_ATTESTED : TRUST_TIER_HOST_UNATTESTED;
+
   return {
     fulfillment,
     signature: body.signature,
-    trust_tier:
-      typeof body.trust_tier === 'string' && body.trust_tier
-        ? body.trust_tier
-        : TRUST_TIER_ENCLAVE_ATTESTED,
+    trust_tier: trustTier,
+    attestation,
     worker_response: body.verification && typeof body.verification === 'object' ? body.verification : body,
   };
 }
@@ -787,6 +1048,42 @@ export function isQueuedAutomationExecutionPayload(payload) {
   );
 }
 
+// C3 — build the /oracle/decrypt request body for the confidential.decrypt lane,
+// including the binding fields the worker's gated decrypt expects (chain,
+// message_id, contract). The message_id is sourced from the event / decoded payload
+// (the on-chain MiniAppMessage reveal carries it); the chain defaults to the event
+// chain (the worker's binding gate is neox-only — it rejects a non-neox chain with a
+// clear error, which classifies as permanent). The contract is sourced from config
+// when available so the worker can match it against its trusted message contract.
+// When no message_id is derivable the body carries ONLY { envelope } (today's
+// behavior) so legacy events keep working and the worker's binding gate stays inert.
+export function buildDecryptBindingRequest(config, event = {}, payload = {}, envelope = '') {
+  const request = { envelope };
+  const messageId =
+    payload?.message_id ??
+    payload?.messageId ??
+    payload?.id ??
+    event?.messageId ??
+    event?.message_id ??
+    null;
+  const normalizedMessageId =
+    messageId === null || messageId === undefined || trimString(String(messageId)) === ''
+      ? null
+      : trimString(String(messageId));
+  if (normalizedMessageId === null) return request;
+
+  request.message_id = normalizedMessageId;
+  // The worker's gated decrypt is neox-only (the EVM confidential-message lane), so
+  // the binding chain is always neox; a non-neox chain would be rejected by the
+  // worker with a clear error.
+  request.chain = 'neox';
+  const contract =
+    trimString(payload?.contract || payload?.contract_address || '') ||
+    trimString(config?.neox?.messageContract || config?.neox?.oracleContract || '');
+  if (contract) request.contract = contract;
+  return request;
+}
+
 async function prepareOracleFulfillment(config, event, logger = null) {
   // Ingestion gate: reject whitespace-bearing identifiers before any routing or
   // worker call (classified permanent -> on-chain failure finalize).
@@ -941,7 +1238,19 @@ async function prepareOracleFulfillment(config, event, logger = null) {
   // unlock time, so this is a trusted, relayer-mediated decrypt.
   if (kernelIntent.moduleId === 'confidential.decrypt') {
     const envelope = trimString(event.payloadText || '');
-    const decResponse = await callNitro(config, '/oracle/decrypt', { envelope });
+    // C3 — coordinate decrypt-binding. Send the (chain, message_id, contract)
+    // binding the worker's gated decrypt expects so it can re-derive the access
+    // decision IN the enclave (read the on-chain message for message_id from a
+    // TRUSTED worker-configured contract, confirm the supplied envelope IS that
+    // stored envelope, and re-assert the time-lock) instead of trusting a bare
+    // ciphertext. Fields are derived from the event/decoded payload; when a
+    // message_id is genuinely unavailable (legacy events) only the envelope is
+    // sent, and the worker's binding gate stays inert for that request.
+    const decResponse = await callNitro(
+      config,
+      '/oracle/decrypt',
+      buildDecryptBindingRequest(config, event, payload, envelope)
+    );
     // A transient decrypt-worker HTTP failure (5xx/429/408/425/0 — enclave
     // overload, rate limit, connectivity blip) must be retried, never finalized
     // as a permanent decrypt-failed callback that strands the time-locked reveal.

@@ -110,6 +110,117 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+// ---------------------------------------------------------------------------
+// Minimal CBOR / COSE_Sign1 decoder (no external deps).
+//
+// A Nitro NSM attestation document is a COSE_Sign1 structure — a CBOR array
+// [protected_header(bstr), unprotected_header(map), payload(bstr), signature(bstr)]
+// (often inside a CBOR tag 18). The payload is itself a CBOR map containing the
+// measured `pcrs` (map of index -> bstr), `user_data` (bstr), `public_key` (bstr),
+// `nonce` (bstr), etc. We decode JUST enough CBOR to pull out that payload map so
+// the verifier can read user_data + pcrs WITHOUT bundling a CBOR/COSE library.
+// This is parsing only — the document's cryptographic chain is what the verifier
+// ultimately trusts; here we only need to read the committed fields.
+// ---------------------------------------------------------------------------
+
+function cborRead(buf, offset) {
+  if (offset >= buf.length) throw new Error('cbor: truncated');
+  const initial = buf[offset];
+  const major = initial >> 5;
+  const minor = initial & 0x1f;
+  let pos = offset + 1;
+  const readUint = (n) => {
+    let value = 0n;
+    for (let i = 0; i < n; i += 1) {
+      if (pos >= buf.length) throw new Error('cbor: truncated uint');
+      value = (value << 8n) | BigInt(buf[pos]);
+      pos += 1;
+    }
+    return value;
+  };
+  let length;
+  if (minor < 24) length = BigInt(minor);
+  else if (minor === 24) length = readUint(1);
+  else if (minor === 25) length = readUint(2);
+  else if (minor === 26) length = readUint(4);
+  else if (minor === 27) length = readUint(8);
+  else if (minor === 31) length = -1n; // indefinite
+  else throw new Error(`cbor: unsupported minor ${minor}`);
+
+  switch (major) {
+    case 0: // unsigned int
+      return { value: Number(length), pos };
+    case 1: // negative int
+      return { value: -1 - Number(length), pos };
+    case 2: // byte string
+    case 3: {
+      // text string
+      const len = Number(length);
+      const slice = buf.subarray(pos, pos + len);
+      pos += len;
+      return { value: major === 2 ? Buffer.from(slice) : slice.toString('utf8'), pos };
+    }
+    case 4: {
+      // array
+      const arr = [];
+      const len = Number(length);
+      for (let i = 0; i < len; i += 1) {
+        const item = cborRead(buf, pos);
+        arr.push(item.value);
+        pos = item.pos;
+      }
+      return { value: arr, pos };
+    }
+    case 5: {
+      // map
+      const map = {};
+      const len = Number(length);
+      for (let i = 0; i < len; i += 1) {
+        const key = cborRead(buf, pos);
+        pos = key.pos;
+        const val = cborRead(buf, pos);
+        pos = val.pos;
+        const keyName = Buffer.isBuffer(key.value) ? key.value.toString('hex') : String(key.value);
+        map[keyName] = val.value;
+      }
+      return { value: map, pos };
+    }
+    case 6: {
+      // tag — decode + return the tagged value (we ignore the tag number).
+      const inner = cborRead(buf, pos);
+      return { value: inner.value, pos: inner.pos };
+    }
+    case 7: {
+      // simple/float — true/false/null/undefined or float; not needed for our fields.
+      if (minor === 20) return { value: false, pos };
+      if (minor === 21) return { value: true, pos };
+      if (minor === 22) return { value: null, pos };
+      if (minor === 23) return { value: undefined, pos };
+      // floats (25/26/27) — skip the bytes, return null (unused by our reader).
+      return { value: null, pos };
+    }
+    default:
+      throw new Error(`cbor: unsupported major ${major}`);
+  }
+}
+
+// Decode a COSE_Sign1 (CBOR) buffer and return its payload map (the attestation
+// document fields: pcrs, user_data, public_key, nonce, ...). Throws on a structure
+// that is not a 4-element COSE_Sign1 with a decodable CBOR payload.
+function decodeCoseSign1Payload(coseBuffer) {
+  const { value: cose } = cborRead(coseBuffer, 0);
+  if (!Array.isArray(cose) || cose.length !== 4) {
+    throw new Error('cose: not a 4-element COSE_Sign1');
+  }
+  const payloadBytes = cose[2];
+  if (!Buffer.isBuffer(payloadBytes)) throw new Error('cose: payload is not a byte string');
+  const { value: payload } = cborRead(payloadBytes, 0);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('cose: payload is not a map');
+  }
+  return payload;
+}
+
 function normalizeHex(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();
 }
@@ -703,7 +814,59 @@ export async function handleOracleFulfill(requestBody) {
   };
   if (resultBytesBase64) response.result_bytes_base64 = resultBytesBase64;
   if (nonce) response.nonce = nonce;
+
+  // (g) ENFORCING ATTESTATION (C1): in addition to the signature, bind a fresh NSM
+  // attestation document to THIS result by committing user_data = sha256(the EXACT
+  // fulfillment_digest bytes) and the oracle_verifier public key. The relayer
+  // verifies the COSE_Sign1 (user_data == sha256(its own recomputed digest), PCR0
+  // matches the pinned measurement) before submitting, turning the previously-
+  // advisory trust_tier into an enclave-proven one. The signed digest bytes are NOT
+  // changed — this is additive provenance. Best-effort: if the NSM binary is
+  // unavailable (e.g. this lane runs outside a real enclave, or pre-cutover), the
+  // signature path still returns; the relayer downgrades trust_tier when it cannot
+  // prove attestation, so the lane keeps fulfilling. The freshness nonce (when
+  // supplied) is echoed into the document's report_data.
+  try {
+    const attestation = handleAttestation({
+      fulfillment_digest_hex: digestHex,
+      ...(nonce ? { nonce } : {}),
+      role: 'oracle_verifier',
+    });
+    if (attestation && attestation.attestation_document) {
+      response.attestation_doc_base64 = attestation.attestation_document;
+      response.attestation_user_data_hex = attestation.user_data_hex || null;
+      if (attestation.public_key) response.attestation_public_key = attestation.public_key;
+      const pcrs = attestation.pcrs || extractAttestationPcrs(attestation.attestation_document);
+      if (pcrs && Object.keys(pcrs).length) response.attestation_pcrs = pcrs;
+    }
+  } catch (error) {
+    // Attestation is best-effort here (the relayer enforces): record why it was
+    // unavailable so ops can see the enforcing path is not yet active, without
+    // failing the (already-signed) fulfillment.
+    response.attestation_error = String((error && error.message) || error).slice(0, 300);
+  }
+
   return response;
+}
+
+// Best-effort extraction of the PCR map from a base64 COSE_Sign1 attestation
+// document so the enclave can surface the measured PCRs alongside the doc (the
+// relayer also re-extracts + verifies them independently). Returns {} on any parse
+// failure — the document itself remains the authoritative source for the verifier.
+function extractAttestationPcrs(docBase64) {
+  try {
+    const payload = decodeCoseSign1Payload(Buffer.from(String(docBase64 || ''), 'base64'));
+    const map = payload && payload.pcrs;
+    if (!map || typeof map !== 'object') return {};
+    const out = {};
+    for (const [index, value] of Object.entries(map)) {
+      const hex = Buffer.isBuffer(value) ? value.toString('hex') : normalizeHex(value);
+      if (hex) out[`pcr${index}`] = hex;
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1468,6 +1631,11 @@ export function handleAttestation(payload = {}) {
     throw httpError(503, parsed.error || 'nsm attestation failed');
   }
 
+  const attestationDocument = parsed.attestation_b64 || parsed.attestation_document || null;
+  // Surface the measured PCRs (parsed from the COSE_Sign1) so callers that pin a
+  // PCR0 can compare without re-parsing. Best-effort — the document stays
+  // authoritative; an unparseable doc just omits the field.
+  const pcrs = attestationDocument ? extractAttestationPcrs(attestationDocument) : {};
   return {
     status: 'ok',
     runtime: 'morpheus-enclave-server',
@@ -1478,7 +1646,8 @@ export function handleAttestation(payload = {}) {
     nonce: nonceHex || null,
     user_data_hex: userDataHex || null,
     document_len: parsed.document_len || null,
-    attestation_document: parsed.attestation_b64 || parsed.attestation_document || null,
+    attestation_document: attestationDocument,
+    ...(pcrs && Object.keys(pcrs).length ? { pcrs } : {}),
     trust_tier: 'enclave-attested',
   };
 }

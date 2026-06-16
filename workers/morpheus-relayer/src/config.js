@@ -336,9 +336,12 @@ export function createRelayerConfig() {
       // deploys, the current topology, are unaffected). Set false for
       // multi-instance deploys so a relayer SKIPS processing during backoff
       // rather than risk two instances double-broadcasting the same fulfillment.
+      // Fail closed by default: when the shared idempotency store is unreachable, do NOT
+      // locally claim/deliver (a multi-instance double-delivery window). Single-instance/
+      // local-dev can opt back in via MORPHEUS_DURABLE_QUEUE_ALLOW_LOCAL_CLAIM_DURING_BACKOFF=true.
       allowLocalClaimDuringBackoff: parseBoolean(
         env('MORPHEUS_DURABLE_QUEUE_ALLOW_LOCAL_CLAIM_DURING_BACKOFF'),
-        true
+        false
       ),
       syncLimit: Math.max(Number(env('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT') || 200), 1),
       staleProcessingMs: Math.max(
@@ -436,6 +439,14 @@ export function createRelayerConfig() {
       // arbitrary-URL fetch lane stays on the host worker regardless. The live box
       // runs flag-off, so its behavior is unchanged byte-for-byte until cutover.
       enclaveFulfill: parseBoolean(env('MORPHEUS_RELAYER_ENCLAVE_FULFILL'), false),
+      // Expected enclave PCR0 (hex). When set, the relayer enforces that an enclave
+      // attestation document binds to this measurement before treating a fulfillment as
+      // enclave-attested (else trust_tier is downgraded). Unset = no PCR0 pinning yet.
+      expectedPcr0: trimString(env('MORPHEUS_EXPECTED_PCR0')),
+      // When true, the relayer verifies the enclave's returned signature against the
+      // on-chain-pinned oracle_verifier public key before submitting. Default off for
+      // backward compatibility with existing fixtures / pre-cutover deployments.
+      verifyEnclaveSignature: parseBoolean(env('MORPHEUS_RELAYER_VERIFY_ENCLAVE_SIGNATURE'), false),
       // Base URL of the enclave /oracle/fulfill endpoint. Defaults to the signer
       // URL (the enclave already holds the keys), so a merged single-endpoint
       // enclave needs no extra configuration.

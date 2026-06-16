@@ -1,7 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { createHash } from 'node:crypto';
+
 import {
+  buildDecryptBindingRequest,
   buildTransientWorkerError,
   classifyError,
   computeRetryDelayMs,
@@ -13,8 +16,11 @@ import {
   processEvent,
   resolveCallbackRetryCeiling,
   resolveEventFulfillmentContext,
+  resolveExpectedPcr0,
   resolveFulfillmentSigningContext,
   trimOnchainErrorMessage,
+  verifyEnclaveAttestation,
+  verifyEnclaveSignatureAgainstPinnedVerifier,
 } from './fulfillment.js';
 import { buildEventKey, createEmptyRelayerState } from './state.js';
 import {
@@ -1464,6 +1470,295 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       assert.equal(result.result.success, true);
     } finally {
       global.fetch = original;
+    }
+  });
+
+  it('flag-ON downgrades trust_tier to host-unattested when the enclave returns NO attestation doc (C1)', async () => {
+    // Today's enclave images return a signature but (pre-cutover) may not carry an
+    // attestation document. The relayer must NOT blindly trust the response's
+    // trust_tier string — with no provable attestation it labels the result
+    // host-unattested while still submitting (the on-chain check is authoritative).
+    const event = {
+      chain: 'neo_n3',
+      requestId: '6001',
+      requestType: 'privacy_oracle',
+      appId: 'miniapp-os',
+      payloadText: '{"symbol":"NEO-USD"}',
+      txHash: '0x6001',
+    };
+    const workerBody = { result: { price: '5.25' }, extracted_value: '5.25' };
+    // enclaveResponseFor returns trust_tier:'enclave-attested' but NO attestation doc.
+    const enclaveBody = enclaveResponseFor('neo_n3', event, workerBody);
+    const { restore } = installEnclaveFetch(enclaveBody);
+    const submitted = [];
+    const config = baseConfig({
+      hooks: {
+        fulfillNeoRequest: async (call) => {
+          submitted.push(call);
+          return { tx_hash: '0xfeed', vm_state: 'HALT' };
+        },
+      },
+    });
+    try {
+      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+      assert.equal(submitted.length, 1, 'still submits (lane keeps fulfilling)');
+      assert.equal(
+        result.result.trust_tier,
+        'host-unattested',
+        'unprovable attestation must NOT be labeled enclave-attested'
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it('flag-ON labels enclave-attested when a valid attestation doc + pinned PCR0 verify (C1)', async () => {
+    const event = {
+      chain: 'neo_n3',
+      requestId: '6002',
+      requestType: 'privacy_oracle',
+      appId: 'miniapp-os',
+      payloadText: '{"symbol":"NEO-USD"}',
+      txHash: '0x6002',
+    };
+    const workerBody = { result: { price: '5.25' }, extracted_value: '5.25' };
+    const enclaveBody = enclaveResponseFor('neo_n3', event, workerBody);
+    const PCR0 = 'ab'.repeat(48);
+    // Bind a real COSE doc to sha256(the enclave's returned digest) + the pinned PCR0.
+    const userData = createHash('sha256')
+      .update(Buffer.from(enclaveBody.fulfillment_digest_hex, 'hex'))
+      .digest('hex');
+    enclaveBody.attestation_doc_base64 = buildAttestationDoc({ userDataHex: userData, pcr0Hex: PCR0 });
+    const { restore } = installEnclaveFetch(enclaveBody);
+    const submitted = [];
+    const config = baseConfig({
+      nitro: {
+        apiUrl: 'https://worker.test',
+        signerUrl: 'https://signer.test',
+        enclaveFulfill: true,
+        enclaveFulfillUrl: 'https://enclave.test',
+        timeoutMs: 1000,
+        expectedPcr0: PCR0,
+      },
+      hooks: {
+        fulfillNeoRequest: async (call) => {
+          submitted.push(call);
+          return { tx_hash: '0xfeed', vm_state: 'HALT' };
+        },
+      },
+    });
+    try {
+      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+      assert.equal(submitted.length, 1);
+      assert.equal(result.result.trust_tier, 'enclave-attested');
+    } finally {
+      restore();
+    }
+  });
+});
+
+// ===================================================================
+// C1 — enforcing enclave attestation verification (verifyEnclaveAttestation)
+// ===================================================================
+
+// Minimal CBOR encoder for the test (mirrors the enclave's), used to build a real
+// COSE_Sign1 attestation document the relayer's verifier parses.
+function cborEncodeForTest(value) {
+  const head = (major, n) => {
+    const big = BigInt(n);
+    if (big < 24n) return Buffer.from([(major << 5) | Number(big)]);
+    if (big < 256n) return Buffer.from([(major << 5) | 24, Number(big)]);
+    if (big < 65536n)
+      return Buffer.from([(major << 5) | 25, Number(big >> 8n) & 0xff, Number(big) & 0xff]);
+    const b = Buffer.alloc(5);
+    b[0] = (major << 5) | 26;
+    b.writeUInt32BE(Number(big), 1);
+    return b;
+  };
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return head(0, value);
+  if (Buffer.isBuffer(value)) return Buffer.concat([head(2, value.length), value]);
+  if (typeof value === 'string') {
+    const b = Buffer.from(value, 'utf8');
+    return Buffer.concat([head(3, b.length), b]);
+  }
+  if (Array.isArray(value)) return Buffer.concat([head(4, value.length), ...value.map(cborEncodeForTest)]);
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value);
+    const parts = [head(5, entries.length)];
+    for (const [k, v] of entries) {
+      parts.push(/^\d+$/.test(k) ? cborEncodeForTest(Number(k)) : cborEncodeForTest(k));
+      parts.push(cborEncodeForTest(v));
+    }
+    return Buffer.concat(parts);
+  }
+  throw new Error(`cborEncodeForTest: unsupported ${typeof value}`);
+}
+
+function buildAttestationDoc({ userDataHex, pcr0Hex }) {
+  const payload = {
+    pcrs: { 0: Buffer.from(pcr0Hex, 'hex'), 1: Buffer.alloc(48, 1) },
+    user_data: Buffer.from(userDataHex, 'hex'),
+  };
+  const cose = [Buffer.from([0xa0]), {}, cborEncodeForTest(payload), Buffer.alloc(96, 7)];
+  return cborEncodeForTest(cose).toString('base64');
+}
+
+describe('verifyEnclaveAttestation (C1)', () => {
+  const DIGEST = 'ab'.repeat(32);
+  const userDataFor = (digestHex) =>
+    createHash('sha256').update(Buffer.from(digestHex, 'hex')).digest('hex');
+  const PCR0 = 'cd'.repeat(48);
+
+  it('absent attestation => not attested, no throw (backward compatible)', () => {
+    const res = verifyEnclaveAttestation({}, { signature: 'a'.repeat(128) }, DIGEST);
+    assert.equal(res.attested, false);
+    assert.match(res.reason, /no attestation document/);
+  });
+
+  it('digest binding verified but no pinned PCR0 => downgrade (not attested)', () => {
+    const doc = buildAttestationDoc({ userDataHex: userDataFor(DIGEST), pcr0Hex: PCR0 });
+    const res = verifyEnclaveAttestation({}, { attestation_doc_base64: doc }, DIGEST);
+    assert.equal(res.attested, false);
+    assert.match(res.reason, /no MORPHEUS_EXPECTED_PCR0 pinned/);
+    assert.equal(res.pcr0, PCR0);
+  });
+
+  it('digest + pinned PCR0 match => attested', () => {
+    const doc = buildAttestationDoc({ userDataHex: userDataFor(DIGEST), pcr0Hex: PCR0 });
+    const config = { nitro: { expectedPcr0: PCR0 } };
+    const res = verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST);
+    assert.equal(res.attested, true);
+    assert.equal(res.pcr0, PCR0);
+  });
+
+  it('a document binding the WRONG digest is a hard failure (throws)', () => {
+    const doc = buildAttestationDoc({ userDataHex: userDataFor('11'.repeat(32)), pcr0Hex: PCR0 });
+    assert.throws(
+      () => verifyEnclaveAttestation({}, { attestation_doc_base64: doc }, DIGEST),
+      /does not bind the fulfillment digest/
+    );
+  });
+
+  it('a wrong PCR0 (when one is pinned) is a hard failure (throws)', () => {
+    const doc = buildAttestationDoc({ userDataHex: userDataFor(DIGEST), pcr0Hex: 'ee'.repeat(48) });
+    const config = { nitro: { expectedPcr0: PCR0 } };
+    assert.throws(
+      () => verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST),
+      /PCR0 does not match the pinned measurement/
+    );
+  });
+
+  it('resolveExpectedPcr0 reads config then env (lowercased, no 0x)', () => {
+    assert.equal(resolveExpectedPcr0({ nitro: { expectedPcr0: '0xABcd' } }), 'abcd');
+    const saved = process.env.MORPHEUS_EXPECTED_PCR0;
+    process.env.MORPHEUS_EXPECTED_PCR0 = '0xFEED';
+    try {
+      assert.equal(resolveExpectedPcr0({}), 'feed');
+    } finally {
+      if (saved === undefined) delete process.env.MORPHEUS_EXPECTED_PCR0;
+      else process.env.MORPHEUS_EXPECTED_PCR0 = saved;
+    }
+  });
+});
+
+// ===================================================================
+// C3 — confidential decrypt binding request (buildDecryptBindingRequest)
+// ===================================================================
+
+describe('buildDecryptBindingRequest (C3)', () => {
+  it('sends only the envelope when no message_id is derivable (legacy)', () => {
+    const req = buildDecryptBindingRequest({}, { chain: 'neox' }, { raw_payload: 'env' }, 'the-env');
+    assert.deepEqual(req, { envelope: 'the-env' });
+  });
+
+  it('includes chain + message_id + contract when a message id is present', () => {
+    const config = { neox: { messageContract: '0xCAFE' } };
+    const req = buildDecryptBindingRequest(config, { chain: 'neox' }, { message_id: '7' }, 'env7');
+    assert.equal(req.envelope, 'env7');
+    assert.equal(req.message_id, '7');
+    assert.equal(req.chain, 'neox');
+    assert.equal(req.contract, '0xCAFE');
+  });
+
+  it('prefers a payload-supplied contract over config', () => {
+    const config = { neox: { messageContract: '0xCAFE' } };
+    const req = buildDecryptBindingRequest(
+      config,
+      {},
+      { messageId: 9, contract: '0xBEEF' },
+      'env9'
+    );
+    assert.equal(req.message_id, '9');
+    assert.equal(req.contract, '0xBEEF');
+  });
+});
+
+// ===================================================================
+// digest-sig LOW — enclave signature cross-check against the pinned verifier
+// ===================================================================
+
+describe('verifyEnclaveSignatureAgainstPinnedVerifier (digest-sig)', () => {
+  const DIGEST = 'ab'.repeat(32);
+
+  it('is a no-op (checked:false) for non-neo chains', () => {
+    const res = verifyEnclaveSignatureAgainstPinnedVerifier({}, 'neox', {}, DIGEST);
+    assert.equal(res.checked, false);
+  });
+
+  it('verifies a real signature against an env-pinned verifier and accepts it', async () => {
+    const neon = await import('@cityofzion/neon-js');
+    const account = new neon.wallet.Account(neon.wallet.generatePrivateKey());
+    const saved = {
+      allow: process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS,
+      key: process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET,
+    };
+    process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = '1';
+    process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET = account.privateKey;
+    try {
+      const goodSig = neon.wallet.sign(DIGEST, account.privateKey);
+      const ok = verifyEnclaveSignatureAgainstPinnedVerifier(
+        { network: 'testnet' },
+        'neo_n3',
+        { signature: goodSig, public_key: account.publicKey },
+        DIGEST
+      );
+      assert.equal(ok.verified, true);
+
+      // A different signer's public_key is rejected (key mismatch -> throws).
+      const other = new neon.wallet.Account(neon.wallet.generatePrivateKey());
+      assert.throws(
+        () =>
+          verifyEnclaveSignatureAgainstPinnedVerifier(
+            { network: 'testnet' },
+            'neo_n3',
+            { signature: goodSig, public_key: other.publicKey },
+            DIGEST
+          ),
+        /!= pinned oracle_verifier/
+      );
+
+      // A non-verifying signature over the digest is rejected (throws).
+      assert.throws(
+        () =>
+          verifyEnclaveSignatureAgainstPinnedVerifier(
+            { network: 'testnet' },
+            'neo_n3',
+            { signature: 'a'.repeat(128), public_key: account.publicKey },
+            DIGEST
+          ),
+        /does not verify against the pinned oracle_verifier/
+      );
+    } finally {
+      if (saved.allow === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+      else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = saved.allow;
+      if (saved.key === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET;
+      else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET = saved.key;
     }
   });
 });

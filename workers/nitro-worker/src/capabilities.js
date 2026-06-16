@@ -71,10 +71,18 @@ async function handleOraclePublicKey({ payload }) {
 // for that messageId AND its time-lock has actually expired. The binding path is
 // opt-in for backward compatibility (the relayer currently posts only {envelope}
 // after the kernel/contract already gated unlock); operators can require it via
-// MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING=true once callers send the binding.
+// MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING controls the gate. C3 — now that the
+// relayer's confidential.decrypt lane sends the (chain, message_id, contract)
+// binding, this DEFAULTS TO TRUE (require binding): a bare ciphertext with no
+// binding fields is rejected so a worker-token leak cannot decrypt arbitrary
+// captured ciphertext. An operator can explicitly opt OUT (set the flag to
+// 0/false/no/off) for a transition window where a caller cannot yet send binding;
+// when fields ARE present the gate always verifies regardless of the flag.
 function decryptBindingRequired() {
   const raw = trimString(env('MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING')).toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+  // Default (unset) and any truthy value require binding.
+  return true;
 }
 
 function extractDecryptCiphertext(payload) {

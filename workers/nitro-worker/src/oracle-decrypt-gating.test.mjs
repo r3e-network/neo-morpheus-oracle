@@ -38,15 +38,26 @@ function makeReader(message) {
 
 const CONTRACT = '0x1111111111111111111111111111111111111111';
 
-test('legacy bare-envelope decrypt is unaffected when binding is not required (E5)', async () => {
-  delete process.env.MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING;
-  // No binding fields → no on-chain read; decryption of a bogus envelope fails
-  // at the crypto layer (400), NOT at a binding gate. The point: the gate did
-  // not change the legacy path's reachability.
+test('opt-out (flag=false) keeps the legacy bare-envelope path reachable (E5/C3)', async () => {
+  // C3 flipped the default to require binding; an operator opts OUT for a transition
+  // window via the explicit false flag. Then a bare envelope (no binding fields)
+  // reaches the crypto layer and fails there (400), NOT at the binding gate — the
+  // gate did not change the opted-out legacy path's reachability.
+  process.env.MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING = 'false';
   const res = await __handleOracleDecryptForTests({ payload: { envelope: 'not-a-real-envelope' } });
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.doesNotMatch(body.error || '', /binding|messageId|time-lock|on-chain/i);
+});
+
+test('binding is REQUIRED BY DEFAULT now: a bare envelope is rejected when the flag is unset (C3)', async () => {
+  // The new default (flag unset) requires binding, so a bare ciphertext with no
+  // (chain, message_id, contract) fields is rejected before any decryption.
+  delete process.env.MORPHEUS_ORACLE_DECRYPT_REQUIRE_BINDING;
+  const res = await __handleOracleDecryptForTests({ payload: { envelope: 'x'.repeat(40) } });
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /binding fields/i);
 });
 
 test('require-binding flag rejects a bare envelope with no binding fields (E5)', async () => {

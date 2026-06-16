@@ -936,6 +936,136 @@ test('attestation: a malformed (odd-length) binding hex is rejected with 400', a
 });
 
 // ---------------------------------------------------------------------------
+// /oracle/fulfill ENFORCING attestation (C1): the response binds an NSM
+// attestation document committing user_data = sha256(fulfillment_digest) and
+// surfaces the measured PCRs the relayer verifies. Best-effort: a missing NSM
+// binary does NOT break the (signed) fulfillment.
+// ---------------------------------------------------------------------------
+
+// Encode a minimal CBOR value (just the subset the NSM attestation doc uses:
+// unsigned ints, byte strings, text strings, arrays, maps). Mirrors the decoder
+// in enclave-server.mjs so the test can build a real COSE_Sign1 document.
+function cborEncode(value) {
+  const head = (major, n) => {
+    const big = BigInt(n);
+    if (big < 24n) return Buffer.from([(major << 5) | Number(big)]);
+    if (big < 256n) return Buffer.from([(major << 5) | 24, Number(big)]);
+    if (big < 65536n) return Buffer.from([(major << 5) | 25, Number(big >> 8n) & 0xff, Number(big) & 0xff]);
+    const b = Buffer.alloc(5);
+    b[0] = (major << 5) | 26;
+    b.writeUInt32BE(Number(big), 1);
+    return b;
+  };
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return head(0, value);
+  if (Buffer.isBuffer(value)) return Buffer.concat([head(2, value.length), value]);
+  if (typeof value === 'string') {
+    const b = Buffer.from(value, 'utf8');
+    return Buffer.concat([head(3, b.length), b]);
+  }
+  if (Array.isArray(value)) {
+    return Buffer.concat([head(4, value.length), ...value.map(cborEncode)]);
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value);
+    const parts = [head(5, entries.length)];
+    for (const [k, v] of entries) {
+      // map keys: numeric string -> uint key (matches PCR index keys), else text.
+      parts.push(/^\d+$/.test(k) ? cborEncode(Number(k)) : cborEncode(k));
+      parts.push(cborEncode(v));
+    }
+    return Buffer.concat(parts);
+  }
+  throw new Error(`cborEncode: unsupported ${typeof value}`);
+}
+
+function buildFakeAttestationDoc({ userDataHex, pcr0Hex }) {
+  const payload = {
+    module_id: 'i-fake-enclave',
+    pcrs: { 0: Buffer.from(pcr0Hex, 'hex'), 1: Buffer.alloc(48, 1), 2: Buffer.alloc(48, 2) },
+    user_data: Buffer.from(userDataHex, 'hex'),
+    public_key: Buffer.from('02' + 'ab'.repeat(32), 'hex'),
+  };
+  const cose = [
+    Buffer.from([0xa0]), // empty protected header (bstr-wrapped map)
+    {}, // unprotected header
+    cborEncode(payload), // payload bstr
+    Buffer.alloc(96, 7), // signature bstr
+  ];
+  return cborEncode(cose).toString('base64');
+}
+
+test('oracle/fulfill binds an attestation document committing sha256(fulfillment_digest) (C1)', async () => {
+  const requestType = 'oracle_query';
+  const requestId = '5150';
+  const contractScriptHash = '0x' + '3a'.repeat(20);
+  const networkMagic = 894710606;
+  const appId = 'attest.app';
+  const moduleId = resolveKernelIntent(requestType).moduleId;
+  const operation = resolveKernelIntent(requestType).operation;
+  const PCR0 = 'aa'.repeat(48);
+
+  // Stub the attest runner so it returns a REAL COSE_Sign1 whose user_data is the
+  // commitment the server passes (--user-data sha256(digest)) and a known PCR0.
+  __setAttestRunnerForTests((args) => {
+    const argMap = {};
+    for (let i = 0; i < args.length; i += 2) argMap[args[i]] = args[i + 1];
+    const doc = buildFakeAttestationDoc({ userDataHex: argMap['--user-data'], pcr0Hex: PCR0 });
+    return { ok: true, attestation_b64: doc, document_len: doc.length };
+  });
+
+  const req = {
+    chain: 'neo_n3',
+    request_type: requestType,
+    request_id: requestId,
+    payload: { symbol: 'BTC/USD' },
+    fulfillment_context: {
+      app_id: appId,
+      module_id: moduleId,
+      operation,
+      contract_script_hash: contractScriptHash,
+      network_magic: networkMagic,
+    },
+    nonce: 'cafebabe',
+  };
+  const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
+  assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
+  assert.equal(body.trust_tier, 'enclave-attested');
+  assert.ok(body.attestation_doc_base64, 'fulfill must carry the attestation document');
+
+  // user_data committed in the response equals sha256(the returned digest bytes).
+  const expectedUserData = createHash('sha256')
+    .update(Buffer.from(body.fulfillment_digest_hex, 'hex'))
+    .digest('hex');
+  assert.equal(body.attestation_user_data_hex, expectedUserData);
+  // The PCR0 the relayer pins is surfaced from the parsed document.
+  assert.equal(body.attestation_pcrs.pcr0, PCR0);
+  assert.equal(body.nonce, 'cafebabe');
+  __resetAttestRunnerForTests();
+});
+
+test('oracle/fulfill still signs when attestation is unavailable (best-effort C1)', async () => {
+  // A throwing/absent NSM binary must NOT break the signed fulfillment — the
+  // relayer enforces and downgrades trust_tier when it cannot prove attestation.
+  __setAttestRunnerForTests(() => {
+    throw new Error('spawn ENOENT (no nsm binary outside an enclave)');
+  });
+  const requestType = 'oracle_query';
+  const req = {
+    chain: 'neo_n3',
+    request_type: requestType,
+    request_id: '5151',
+    payload: { symbol: 'BTC/USD' },
+    fulfillment_context: { app_id: 'a', module_id: resolveKernelIntent(requestType).moduleId, operation: resolveKernelIntent(requestType).operation },
+  };
+  const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
+  assert.equal(status, 200);
+  assert.ok(body.signature, 'signature must still be produced');
+  assert.equal(body.attestation_doc_base64, undefined, 'no doc when the binary is unavailable');
+  assert.ok(body.attestation_error, 'the attestation failure is surfaced for ops');
+  __resetAttestRunnerForTests();
+});
+
+// ---------------------------------------------------------------------------
 // /health
 // ---------------------------------------------------------------------------
 

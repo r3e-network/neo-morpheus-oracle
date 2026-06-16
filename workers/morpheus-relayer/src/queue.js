@@ -324,11 +324,16 @@ export async function claimDurableJobForProcessing(
     // Surface that idempotency protection is temporarily off so an operator can
     // see it, and honor the multi-instance opt-out instead of silently granting.
     if (state) incrementMetric(state, 'durable_claim_skipped_during_backoff_total');
-    const allowLocalClaim = config.durableQueue?.allowLocalClaimDuringBackoff !== false;
+    // Fail closed by default: when the shared idempotency store is unreachable we
+    // do NOT locally claim/deliver, because two instances could both grant a local
+    // claim and double-broadcast the same fulfillment. Local claiming is only
+    // honored when explicitly opted in (allowLocalClaimDuringBackoff === true),
+    // which single-instance / local-dev deploys can set.
+    const allowLocalClaim = config.durableQueue?.allowLocalClaimDuringBackoff === true;
     if (!allowLocalClaim) {
       logger.warn(
         { chain: event.chain, request_id: event.requestId, event_key: buildEventKey(event) },
-        'Durable cross-instance claim is offline (Supabase backoff); skipping processing this tick (allowLocalClaimDuringBackoff=false) — retry item retained'
+        'Durable cross-instance claim is offline (Supabase backoff); skipping processing this tick (fail-closed; set allowLocalClaimDuringBackoff=true to opt in) — retry item retained'
       );
       // NOT a conflict: the request is unprocessed, so its retry item must be
       // retained (not cleared) and retried once Supabase recovers.

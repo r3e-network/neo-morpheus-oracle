@@ -222,6 +222,20 @@ export function decodeConfidentialEnvelope(payloadHex) {
   return decodePayload(payloadHex);
 }
 
+// Recover the messageId from the abi.encode(uint256 messageId, bytes envelope) decrypt
+// payload so the relayer can bind the /oracle/decrypt request (chain + message_id +
+// contract) to the on-chain message. The in-TEE worker now requires this binding by
+// default, so the live neox decrypt lane must carry the messageId (it was previously
+// decoded and discarded).
+export function decodeConfidentialMessageId(payloadHex) {
+  try {
+    const [messageId] = ethers.AbiCoder.defaultAbiCoder().decode(['uint256', 'bytes'], payloadHex);
+    return messageId !== null && messageId !== undefined ? messageId.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
 function isConfidentialDecryptOperation(operation) {
   const normalized = operation.toLowerCase();
   return normalized === 'decrypt' || normalized.includes('decrypt');
@@ -248,6 +262,11 @@ function buildNeoXEventFromRequest(record) {
     payloadText: isConfidentialDecryptOperation(operation)
       ? decodeConfidentialEnvelope(record.payload)
       : decodePayload(record.payload),
+    // Preserve the on-chain messageId for the decrypt lane so the relayer can bind the
+    // /oracle/decrypt request to the stored message (the worker requires binding by default).
+    messageId: isConfidentialDecryptOperation(operation)
+      ? decodeConfidentialMessageId(record.payload)
+      : '',
     requester: trimString(record.requester || ''),
     callbackContract:
       record.callbackContract && record.callbackContract !== ethers.ZeroAddress
