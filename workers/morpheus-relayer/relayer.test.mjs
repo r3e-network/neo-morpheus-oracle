@@ -1731,7 +1731,7 @@ test('buildFeedSyncPayload does not forward target-chain signer material to the 
       provider: 'twelvedata',
     },
     neo_n3: {
-      updaterWif: '***REMOVED***',
+      updaterWif: 'TEST_PLACEHOLDER_NOT_A_REAL_WIF',
       updaterPrivateKey: '',
     },
   };
