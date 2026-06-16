@@ -11,15 +11,25 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+// Scrub URLs (and any credentials embedded in authenticated RPC/DB URLs) from text that
+// egresses to the external log sink (BetterStack). The on-chain error path is already
+// scrubbed by fulfillment.js trimOnchainErrorMessage; the structured-log lane had no
+// equivalent, so a credentialed RPC/Supabase URL inside an error could leak in cleartext.
+function redactSecrets(text) {
+  return typeof text === 'string'
+    ? text.replace(/https?:\/\/[^\s\]]+/gi, '[redacted-url]')
+    : text;
+}
+
 function serializeError(value) {
   if (value instanceof Error) {
     return {
       name: value.name,
-      message: value.message,
-      stack: value.stack,
+      message: redactSecrets(value.message),
+      stack: redactSecrets(value.stack),
     };
   }
-  return value;
+  return redactSecrets(value);
 }
 
 function shouldLog(configuredLevel, currentLevel) {
