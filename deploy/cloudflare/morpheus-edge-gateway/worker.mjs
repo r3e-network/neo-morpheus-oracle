@@ -194,8 +194,9 @@ function isTrustedAutomationRequest(request, env) {
     env.MORPHEUS_RUNTIME_TOKEN,
     env.MORPHEUS_EDGE_RUNTIME_TOKEN,
     env.MORPHEUS_ORIGIN_TOKEN,
-    env.PHALA_API_TOKEN,
-    env.PHALA_SHARED_SECRET,
+    // PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally removed: the control plane
+    // migrated off Phala and revoked those credentials. Continuing to accept them at
+    // the edge re-granted a privilege the control plane had explicitly retired.
   ]
     .map(trimString)
     .filter(Boolean);
