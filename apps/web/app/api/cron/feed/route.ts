@@ -1,5 +1,7 @@
+import { timingSafeCompare } from '@neo-morpheus-oracle/shared/utils';
+
 import { appConfig } from '@/lib/config';
-import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
+import { isAuthorizedCronRequest } from '@/lib/cron-auth';
 import {
   dispatchToControlPlane,
   shouldDispatchToControlPlane,
@@ -19,27 +21,6 @@ function jsonNoStore(body: unknown, init?: ResponseInit) {
   return Response.json(body, { ...init, headers });
 }
 
-function isAuthorized(request: Request) {
-  const runtimeEnv = process.env as Record<string, string | undefined>;
-  const configured = runtimeEnv['MORPHEUS_CRON_SECRET'] || runtimeEnv['CRON_SECRET'] || '';
-  if (!configured) return false;
-  const bearer = request.headers.get('authorization') || '';
-  const headerSecret =
-    request.headers.get('x-morpheus-cron') || request.headers.get('x-cron-token') || '';
-  return bearer === `Bearer ${configured}` || headerSecret === configured;
-}
-
-function isVercelCronRequest(request: Request) {
-  // The `vercel-cron` User-Agent is trivially spoofable, so it is only an
-  // acceptable fallback in non-production environments. In production a real
-  // shared secret (MORPHEUS_CRON_SECRET/CRON_SECRET) or an authorized
-  // control-plane request is required.
-  if (process.env.NODE_ENV === 'production') return false;
-  const routeUrl = new URL(request.url);
-  const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
-  return userAgent.includes('vercel-cron') && Array.from(routeUrl.searchParams.keys()).length === 0;
-}
-
 function getSafeAuthDiagnostics(request: Request) {
   const runtimeEnv = process.env as Record<string, string | undefined>;
   const configured = runtimeEnv['MORPHEUS_CRON_SECRET'] || runtimeEnv['CRON_SECRET'] || '';
@@ -52,8 +33,8 @@ function getSafeAuthDiagnostics(request: Request) {
     hasAuthorizationHeader: Boolean(request.headers.get('authorization')),
     hasCronHeaderSecret: Boolean(headerSecret),
     hasVercelSecureComputeHeaders: Boolean(request.headers.get('x-vercel-sc-headers')),
-    authMatchesConfigured: Boolean(configured && bearer === `Bearer ${configured}`),
-    cronHeaderMatchesConfigured: Boolean(configured && headerSecret === configured),
+    authMatchesConfigured: Boolean(configured) && timingSafeCompare(bearer, `Bearer ${configured}`),
+    cronHeaderMatchesConfigured: Boolean(configured) && timingSafeCompare(headerSecret, configured),
     configuredSecretLength: configured.length,
     authHeaderLength: bearer.length,
     cronHeaderSecretLength: headerSecret.length,
@@ -83,11 +64,7 @@ function shouldFallbackFromFeedControlPlane(response: Response) {
 }
 
 export async function GET(request: Request) {
-  if (
-    !isAuthorized(request) &&
-    !isAuthorizedControlPlaneRequest(request) &&
-    !isVercelCronRequest(request)
-  ) {
+  if (!isAuthorizedCronRequest(request)) {
     const runtimeEnv = process.env as Record<string, string | undefined>;
     const routeUrl = new URL(request.url);
     console.warn('[morpheus-cron-feed] unauthorized request', {

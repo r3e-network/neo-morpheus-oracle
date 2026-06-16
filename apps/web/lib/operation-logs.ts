@@ -41,6 +41,13 @@ type OperationLogInput = {
 // of anchoring on `signing_key` explicitly so `public_key` never matches.
 const SENSITIVE_KEY_PATTERN =
   /(authorization|token|secret|password|private[_-]?key|signing[_-]?key|mnemonic|seed|passphrase|credential|wif|api[_-]?key)/i;
+// Raw/opaque payload fields are not structured JSON we can field-redact, so any
+// string carried under them may smuggle secrets (a WIF, a bearer token, a
+// serialized signed tx). Treat the whole value as opaque and hash it rather
+// than persisting cleartext to Supabase + BetterStack.
+const RAW_PAYLOAD_KEY_PATTERN = /^(raw_?string|raw_?body|raw_?payload|raw_?input)$/i;
+// Credentials embedded in a URL userinfo segment (scheme://user:pass@host).
+const URL_CREDENTIAL_PATTERN = /\b([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+(?::[^/\s@]+)?@/gi;
 const MAX_JSON_CHARS = 24000;
 
 // Monitoring read probes (status-page polling plus external uptime monitors)
@@ -102,6 +109,16 @@ function shouldPreserveCiphertext(path: string[]) {
   return path.some((segment) => segment === 'encrypted_inputs' || segment.startsWith('encrypted_'));
 }
 
+function redactOpaque(value: string) {
+  // Persist a stable fingerprint instead of cleartext so forensics can still
+  // correlate identical payloads without leaking the contents.
+  return `[REDACTED-RAW sha256:${sha256Hex(value).slice(0, 16)}]`;
+}
+
+function scrubUrlCredentials(value: string) {
+  return value.replace(URL_CREDENTIAL_PATTERN, '$1[REDACTED]@');
+}
+
 function sanitizeValue(value: unknown, path: string[] = []): unknown {
   if (value === null || value === undefined) return value;
   if (Array.isArray(value))
@@ -115,7 +132,10 @@ function sanitizeValue(value: unknown, path: string[] = []): unknown {
     const currentKey = path[path.length - 1] || '';
     if (shouldPreserveCiphertext(path)) return value;
     if (SENSITIVE_KEY_PATTERN.test(currentKey)) return '[REDACTED]';
-    return value;
+    // Value-shape redaction: raw/opaque payload strings can smuggle secrets the
+    // key-name pass cannot see, so treat the whole value as opaque.
+    if (RAW_PAYLOAD_KEY_PATTERN.test(currentKey)) return redactOpaque(value);
+    return scrubUrlCredentials(value);
   }
   return value;
 }

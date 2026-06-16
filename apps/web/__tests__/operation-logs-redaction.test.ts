@@ -91,6 +91,49 @@ describe('operation log secret redaction', () => {
     expect(row.request_payload.credential).toBe('[REDACTED]');
   });
 
+  it('redacts raw-string payloads by value shape (raw_body/raw_payload/raw_string)', async () => {
+    const { recordOperationLog } = await importModule();
+    await recordOperationLog({
+      route: '/api/relay/transaction',
+      method: 'POST',
+      category: 'relay',
+      requestPayload: {
+        raw_body: 'KxSECRETwifsmuggledInAnOpaqueBlob1111111111111111111111111',
+        raw_payload: '{"wif":"KySECRETnestedInRawJson2222222222222222222222222"}',
+        rawString: 'another opaque secret blob',
+        request_id: 'req-123',
+      },
+      httpStatus: 200,
+    });
+
+    const row = insertedRows[0];
+    expect(row.request_payload.raw_body).toMatch(/^\[REDACTED-RAW sha256:[0-9a-f]{16}\]$/);
+    expect(row.request_payload.raw_payload).toMatch(/^\[REDACTED-RAW sha256:[0-9a-f]{16}\]$/);
+    expect(row.request_payload.rawString).toMatch(/^\[REDACTED-RAW sha256:[0-9a-f]{16}\]$/);
+    // Non-secret structured fields are preserved.
+    expect(row.request_payload.request_id).toBe('req-123');
+    // The same opaque value hashes identically (stable fingerprint).
+    expect(betterstackPayloads[0].request_payload.raw_body).toBe(row.request_payload.raw_body);
+  });
+
+  it('scrubs credentials embedded in URL userinfo for any string value', async () => {
+    const { recordOperationLog } = await importModule();
+    await recordOperationLog({
+      route: '/api/feeds/tick',
+      method: 'POST',
+      category: 'feed',
+      requestPayload: {
+        upstream: 'https://user:s3cr3tpass@provider.example.com/v1/prices',
+        note: 'no credentials here',
+      },
+      httpStatus: 200,
+    });
+
+    const row = insertedRows[0];
+    expect(row.request_payload.upstream).toBe('https://[REDACTED]@provider.example.com/v1/prices');
+    expect(row.request_payload.note).toBe('no credentials here');
+  });
+
   it('does not over-redact public key material', async () => {
     const { recordOperationLog } = await importModule();
     await recordOperationLog({

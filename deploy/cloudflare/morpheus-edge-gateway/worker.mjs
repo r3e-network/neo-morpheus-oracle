@@ -48,6 +48,10 @@ const UPSTASH_ROUTE_LIMITS = {
   compute: { limit: 10, windowMs: 60_000 },
   vrf: { limit: 15, windowMs: 60_000 },
   'oracle-query': { limit: 30, windowMs: 60_000 },
+  // Confidential decrypt/reveal passthrough lanes. The box self-gates access
+  // in-TEE, but the lane is still public, so it carries its own edge rate limit
+  // rather than being silently uncapped.
+  confidential: { limit: 15, windowMs: 60_000 },
 };
 
 function stripLeadingSlash(value) {
@@ -125,7 +129,16 @@ function mapToAppBackendPath(forwardedPath, network) {
   if (p === '/feeds/catalog') return '/api/feeds/catalog';
   if (p === '/feeds/status') return '/api/feeds/status';
   const feed = p.match(/^\/(?:feeds\/price|prices)\/(.+)$/);
-  if (feed) return `/api/feeds/${feed[1]}${q}`;
+  if (feed) {
+    // The symbol segment is interpolated into the origin path, so restrict it to
+    // a safe charset (alphanumeric plus - _ . and the provider-prefix colon,
+    // e.g. TWELVEDATA:NEO-USD). Rejecting '/' (and any other character) prevents
+    // path traversal / origin-path injection; an out-of-charset symbol is treated
+    // as an unsupported route (clean 503 rather than a forged origin request).
+    const symbol = feed[1];
+    if (!/^[A-Za-z0-9._:-]+$/.test(symbol)) return null;
+    return `/api/feeds/${symbol}${q}`;
+  }
   return null;
 }
 
@@ -286,10 +299,30 @@ function routeLimitConfig(routeKey, env) {
   };
 }
 
+function upstashConfigured(env) {
+  return Boolean(
+    trimString(env.UPSTASH_REDIS_REST_URL) && trimString(env.UPSTASH_REDIS_REST_TOKEN)
+  );
+}
+
 async function applyUpstashRateLimitImpl(request, env, routeKey) {
   if (isTrustedAutomationRequest(request, env)) return null;
   const config = routeLimitConfig(routeKey, env);
+  // A null config means the route has NO limit intended -> allow. This is the
+  // only legitimate fail-open case.
   if (!config) return null;
+
+  // The route HAS a configured limit. If no limiter backend is available at all
+  // (neither the native binding — checked by the caller — nor Upstash), we must
+  // FAIL CLOSED: a configured limit with no enforcement backend would otherwise
+  // silently allow unbounded traffic on a protected lane.
+  if (!upstashConfigured(env)) {
+    return json(
+      503,
+      { error: 'rate_limit_backend_unavailable', route: routeKey },
+      { 'cache-control': 'no-store' }
+    );
+  }
 
   const key = `morpheus:edge:ratelimit:${routeKey}:${getClientIp(request)}`;
   let result;
@@ -311,6 +344,8 @@ async function applyUpstashRateLimitImpl(request, env, routeKey) {
     });
   }
 
+  // result === null here means Upstash is configured AND the request is within
+  // the limit (allowed) -> proceed.
   if (!result) return null;
   if (result.allowed === false) {
     return json(
@@ -548,24 +583,26 @@ export default {
     const turnstileFailure = await verifyTurnstile(turnstileRequest, env);
     if (turnstileFailure) return turnstileFailure;
 
-    const routeKey = routing.forwardedPath.endsWith('/paymaster/authorize')
-      ? 'paymaster'
-      : routing.forwardedPath.endsWith('/relay/transaction')
-        ? 'relay'
-        : routing.forwardedPath.endsWith('/compute/execute')
-          ? 'compute'
-          : routing.forwardedPath.endsWith('/vrf/random')
-            ? 'vrf'
-            : routing.forwardedPath.endsWith('/oracle/feed')
-              ? 'oracle-feed'
-              : routing.forwardedPath.endsWith('/oracle/query')
-                ? 'oracle-query'
-                : routing.forwardedPath.endsWith('/oracle/smart-fetch')
+    const routeKey = isRuntimeBoxPassthrough(routing.forwardedPath)
+      ? 'confidential'
+      : routing.forwardedPath.endsWith('/paymaster/authorize')
+        ? 'paymaster'
+        : routing.forwardedPath.endsWith('/relay/transaction')
+          ? 'relay'
+          : routing.forwardedPath.endsWith('/compute/execute')
+            ? 'compute'
+            : routing.forwardedPath.endsWith('/vrf/random')
+              ? 'vrf'
+              : routing.forwardedPath.endsWith('/oracle/feed')
+                ? 'oracle-feed'
+                : routing.forwardedPath.endsWith('/oracle/query')
                   ? 'oracle-query'
-                  : routing.forwardedPath.endsWith('/feeds/price') ||
-                      /\/feeds\/price\//.test(routing.forwardedPath)
-                    ? 'feeds-price'
-                    : 'origin';
+                  : routing.forwardedPath.endsWith('/oracle/smart-fetch')
+                    ? 'oracle-query'
+                    : routing.forwardedPath.endsWith('/feeds/price') ||
+                        /\/feeds\/price\//.test(routing.forwardedPath)
+                      ? 'feeds-price'
+                      : 'origin';
 
     const rateLimited = await applyNativeRateLimit(request, env, routeKey);
     if (rateLimited) return rateLimited;
@@ -649,13 +686,20 @@ export default {
         signal: AbortSignal.timeout(originTimeoutMs),
       });
     } catch (error) {
+      // Keep the internal failure detail (which can include the origin hostname)
+      // in server logs only; clients get a generic, route-scoped message.
+      console.error('origin_unavailable', {
+        route: routeKey,
+        network: routing.network,
+        detail: error instanceof Error ? error.message : String(error),
+      });
       return json(
         503,
         {
           error: 'origin_unavailable',
           network: routing.network,
           route: routeKey,
-          message: error instanceof Error ? error.message : String(error),
+          message: 'upstream origin temporarily unavailable',
         },
         { 'cache-control': 'no-store' }
       );

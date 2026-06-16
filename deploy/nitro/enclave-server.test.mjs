@@ -1048,6 +1048,169 @@ test('provision applies env keys at runtime and reports role health', async () =
   assert.equal(verifier.ok, true);
 });
 
+test('provision rejects plaintext signing-key env vars unless the opt-in flag is set', async () => {
+  // Default (flag OFF): a plaintext WIF is rejected with 403, and is NOT applied.
+  const savedFlag = process.env.MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION;
+  delete process.env.MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION;
+  try {
+    const rejected = await dispatch(
+      'POST',
+      '/provision',
+      AUTH,
+      JSON.stringify({ env: { MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET: 'L1plaintextwifvalue' } })
+    );
+    assert.equal(rejected.status, 403);
+    assert.match(rejected.body.error, /plaintext signing-key provisioning is disabled/);
+    assert.match(rejected.body.error, /MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET/);
+    assert.equal(process.env.MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET, undefined);
+
+    // The KMS-ciphertext variant is always accepted (the attested path). Stub the
+    // attest runner so handleProvision's in-TEE materialize is deterministic (no
+    // real nsm-attest binary) and the WIF lands via the attested recovery path.
+    const savedCt = process.env.MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64;
+    const savedWif = process.env.MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET;
+    delete process.env.MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64;
+    delete process.env.MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET;
+    __setAttestRunnerForTests(() => ({
+      ok: true,
+      plaintext_b64: Buffer.from('L1someRecoveredWifValue', 'utf8').toString('base64'),
+    }));
+    const accepted = await dispatch(
+      'POST',
+      '/provision',
+      AUTH,
+      JSON.stringify({ env: { MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64: 'Y2lwaGVydGV4dA==' } })
+    );
+    assert.equal(accepted.status, 200);
+    assert.ok(accepted.body.env_keys.includes('MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64'));
+    __resetAttestRunnerForTests();
+    delete process.env.MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET;
+    if (savedWif !== undefined) process.env.MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET = savedWif;
+    if (savedCt === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64;
+    else process.env.MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64 = savedCt;
+
+    // Flag ON: an explicit opt-in lets the plaintext key through (escape hatch).
+    process.env.MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION = '1';
+    const allowed = await dispatch(
+      'POST',
+      '/provision',
+      AUTH,
+      JSON.stringify({ env: { NEOX_FEED_PK: '0xfeedfeedfeed' } })
+    );
+    assert.equal(allowed.status, 200);
+    assert.ok(allowed.body.env_keys.includes('NEOX_FEED_PK'));
+    delete process.env.NEOX_FEED_PK;
+  } finally {
+    delete process.env.MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET;
+    if (savedFlag === undefined) delete process.env.MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION;
+    else process.env.MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION = savedFlag;
+  }
+});
+
+test('health surfaces key_source per role (host_plaintext when no KMS ciphertext)', async () => {
+  const { body } = await dispatch('GET', '/health', {}, '');
+  // The test keys were provisioned directly as plaintext env vars (no KMS
+  // ciphertext), so both roles report host_plaintext — detectable by ops.
+  assert.equal(body.key_source.oracle_verifier, 'host_plaintext');
+  assert.equal(body.key_source.updater, 'host_plaintext');
+  assert.equal(body.plaintext_key_provision_allowed, false);
+});
+
+test('provision bootstrap requires the image-pinned bootstrap token when no runtime token yet', async () => {
+  // Simulate the pre-provision bootstrap window: clear all runtime tokens so the
+  // trusted-token set is empty, and pin an image bootstrap token.
+  const savedTokens = {};
+  for (const k of [
+    'NITRO_SIGNER_TOKEN',
+    'MORPHEUS_RUNTIME_TOKEN',
+    'NITRO_API_TOKEN',
+    'PHALA_API_TOKEN',
+    'NITRO_SHARED_SECRET',
+    'PHALA_SHARED_SECRET',
+  ]) {
+    savedTokens[k] = process.env[k];
+    delete process.env[k];
+  }
+  const savedBootstrap = process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
+  process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN = 'image-pinned-bootstrap';
+  try {
+    // No/incorrect bootstrap token -> 401.
+    const noToken = await dispatch('POST', '/provision', {}, JSON.stringify({ env: {} }));
+    assert.equal(noToken.status, 401);
+    const wrong = await dispatch(
+      'POST',
+      '/provision',
+      { authorization: 'Bearer nope' },
+      JSON.stringify({ env: {} })
+    );
+    assert.equal(wrong.status, 401);
+
+    // Correct bootstrap token -> the first /provision lands.
+    const ok = await dispatch(
+      'POST',
+      '/provision',
+      { authorization: 'Bearer image-pinned-bootstrap' },
+      JSON.stringify({ env: { MORPHEUS_NETWORK: 'testnet' } })
+    );
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.provisioned, true);
+  } finally {
+    if (savedBootstrap === undefined) delete process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
+    else process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN = savedBootstrap;
+    for (const [k, v] of Object.entries(savedTokens)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});
+
+test('provision bootstrap stays fully open when no bootstrap token is pinned', async () => {
+  // Empty trusted-token set + NO bootstrap token => open bootstrap (prior behaviour).
+  const savedTokens = {};
+  for (const k of [
+    'NITRO_SIGNER_TOKEN',
+    'MORPHEUS_RUNTIME_TOKEN',
+    'NITRO_API_TOKEN',
+    'PHALA_API_TOKEN',
+    'NITRO_SHARED_SECRET',
+    'PHALA_SHARED_SECRET',
+  ]) {
+    savedTokens[k] = process.env[k];
+    delete process.env[k];
+  }
+  const savedBootstrap = process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
+  delete process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
+  try {
+    const ok = await dispatch(
+      'POST',
+      '/provision',
+      {},
+      JSON.stringify({ env: { MORPHEUS_NETWORK: 'testnet' } })
+    );
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.provisioned, true);
+  } finally {
+    if (savedBootstrap === undefined) delete process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
+    else process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN = savedBootstrap;
+    for (const [k, v] of Object.entries(savedTokens)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});
+
+test('route matching: a non-prefix path that merely ends with a route is not matched', async () => {
+  // path.endsWith('/health') would have matched '/evil/path/health'; matchesRoute
+  // requires a single-segment network prefix, so this is a 404 (GET) and the
+  // multi-segment-prefixed sensitive route is not reachable.
+  const bogusHealth = await dispatch('GET', '/evil/path/health', {}, '');
+  assert.equal(bogusHealth.status, 404);
+
+  // A single-segment network prefix on a public route still works.
+  const okHealth = await dispatch('GET', '/testnet/health', {}, '');
+  assert.ok(okHealth.status === 200 || okHealth.status === 503);
+});
+
 test('execution-plane passthrough forwards whitelisted routes to the worker (auth-gated)', async () => {
   // No auth -> 401 before reaching the worker.
   const noAuth = await dispatch('POST', '/mainnet/oracle/smart-fetch', {}, JSON.stringify({ symbol: 'BTC/USD' }));

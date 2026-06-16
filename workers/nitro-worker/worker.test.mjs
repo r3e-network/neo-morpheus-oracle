@@ -416,7 +416,11 @@ test('neodid providers report whether provider_uid is derived in the enclave (E3
 
 test('neodid runtime surfaces the provider_uid trust posture and flag state (E3)', async () => {
   const res = await handler(
-    new Request('http://local/neodid/runtime', { method: 'POST', headers: authHeaders(), body: '{}' })
+    new Request('http://local/neodid/runtime', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: '{}',
+    })
   );
   assert.equal(res.status, 200);
   const body = await res.json();
@@ -715,7 +719,7 @@ test('neodid action-ticket accepts okex alias and normalizes to okx', async () =
   assert.ok(body.signature);
 });
 
-test('neodid recovery-ticket supports confidential provider payloads and binds AA recovery context', async () => {
+test('neodid recovery-ticket rejects an unverified provider_uid by default (E3 fail-closed)', async () => {
   const keyRes = await handler(
     new Request('http://local/oracle/public-key', { headers: authHeaders() })
   );
@@ -723,11 +727,8 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
   const keyMeta = await keyRes.json();
   const encryptedParams = await encryptForOracle(
     keyMeta.public_key,
-    JSON.stringify({
-      provider_uid: 'github_uid_777',
-    })
+    JSON.stringify({ provider_uid: 'github_uid_777' })
   );
-
   const res = await handler(
     new Request('http://local/neodid/recovery-ticket', {
       method: 'POST',
@@ -735,8 +736,6 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
       body: JSON.stringify({
         provider: 'github',
         aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
-        verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
-        account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
         account_id: 'aa-social-recovery-demo',
         new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
         recovery_nonce: '7',
@@ -745,56 +744,101 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
       }),
     })
   );
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 400);
   const body = await res.json();
-  assert.equal(body.mode, 'neodid_recovery_ticket');
-  assert.equal(body.provider, 'github');
-  assert.equal(body.account_id, 'aa-social-recovery-demo');
-  assert.equal(body.recovery_nonce, '7');
-  assert.equal(body.expires_at, '1735689600');
-  assert.match(body.master_nullifier, /^0x[0-9a-f]{64}$/);
-  assert.match(body.action_nullifier, /^0x[0-9a-f]{64}$/);
-  assert.match(body.digest, /^0x[0-9a-f]{64}$/);
-  assert.ok(body.signature);
-  assert.ok(body.public_key);
-  const expectedRecoveryDigest = createHash('sha256')
-    .update(
-      Buffer.concat([
-        NEODID_RECOVERY_DOMAIN,
-        encodeLengthPrefixedAscii('neo_n3'),
-        Buffer.from('0x5b492098fc094c760402e01f7e0b631b939d2bea'.replace(/^0x/, ''), 'hex'),
-        Buffer.from('0x03013f49c42a14546c8bbe58f9d434c3517fccab'.replace(/^0x/, ''), 'hex'),
-        Buffer.from('0x6d0656f6dd91469db1c90cc1e574380613f43738'.replace(/^0x/, ''), 'hex'),
-        encodeLengthPrefixedAscii('aa-social-recovery-demo'),
-        Buffer.from('0x89b05cac00804648c666b47ecb1c57bc185821b7'.replace(/^0x/, ''), 'hex'),
-        encodeLengthPrefixedAscii('7'),
-        encodeLengthPrefixedAscii('1735689600'),
-        encodeLengthPrefixedAscii(body.action_id),
-        Buffer.from(body.master_nullifier.replace(/^0x/, ''), 'hex'),
-        Buffer.from(body.action_nullifier.replace(/^0x/, ''), 'hex'),
-      ])
-    )
-    .digest('hex');
-  assert.equal(body.digest, `0x${expectedRecoveryDigest}`);
+  assert.match(body.error, /requires a TEE-verified provider_uid/i);
+});
 
-  const secondRes = await handler(
-    new Request('http://local/neodid/recovery-ticket', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        provider: 'github',
-        aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
-        account_id: 'aa-social-recovery-demo',
-        new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
-        recovery_nonce: '8',
-        expires_at: '1735689600',
-        encrypted_params: encryptedParams,
-      }),
-    })
-  );
-  assert.equal(secondRes.status, 200);
-  const second = await secondRes.json();
-  assert.notEqual(body.action_nullifier, second.action_nullifier);
+test('neodid recovery-ticket supports confidential provider payloads and binds AA recovery context', async () => {
+  const previousAllowlist = process.env.MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS;
+  process.env.MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS = 'github';
+  try {
+    const keyRes = await handler(
+      new Request('http://local/oracle/public-key', { headers: authHeaders() })
+    );
+    assert.equal(keyRes.status, 200);
+    const keyMeta = await keyRes.json();
+    const encryptedParams = await encryptForOracle(
+      keyMeta.public_key,
+      JSON.stringify({
+        provider_uid: 'github_uid_777',
+      })
+    );
+
+    const res = await handler(
+      new Request('http://local/neodid/recovery-ticket', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          provider: 'github',
+          aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+          verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
+          account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+          account_id: 'aa-social-recovery-demo',
+          new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+          recovery_nonce: '7',
+          expires_at: '1735689600',
+          encrypted_params: encryptedParams,
+        }),
+      })
+    );
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.mode, 'neodid_recovery_ticket');
+    assert.equal(body.provider, 'github');
+    assert.equal(body.account_id, 'aa-social-recovery-demo');
+    assert.equal(body.recovery_nonce, '7');
+    assert.equal(body.expires_at, '1735689600');
+    assert.match(body.master_nullifier, /^0x[0-9a-f]{64}$/);
+    assert.match(body.action_nullifier, /^0x[0-9a-f]{64}$/);
+    assert.match(body.digest, /^0x[0-9a-f]{64}$/);
+    assert.ok(body.signature);
+    assert.ok(body.public_key);
+    const expectedRecoveryDigest = createHash('sha256')
+      .update(
+        Buffer.concat([
+          NEODID_RECOVERY_DOMAIN,
+          encodeLengthPrefixedAscii('neo_n3'),
+          Buffer.from('0x5b492098fc094c760402e01f7e0b631b939d2bea'.replace(/^0x/, ''), 'hex'),
+          Buffer.from('0x03013f49c42a14546c8bbe58f9d434c3517fccab'.replace(/^0x/, ''), 'hex'),
+          Buffer.from('0x6d0656f6dd91469db1c90cc1e574380613f43738'.replace(/^0x/, ''), 'hex'),
+          encodeLengthPrefixedAscii('aa-social-recovery-demo'),
+          Buffer.from('0x89b05cac00804648c666b47ecb1c57bc185821b7'.replace(/^0x/, ''), 'hex'),
+          encodeLengthPrefixedAscii('7'),
+          encodeLengthPrefixedAscii('1735689600'),
+          encodeLengthPrefixedAscii(body.action_id),
+          Buffer.from(body.master_nullifier.replace(/^0x/, ''), 'hex'),
+          Buffer.from(body.action_nullifier.replace(/^0x/, ''), 'hex'),
+        ])
+      )
+      .digest('hex');
+    assert.equal(body.digest, `0x${expectedRecoveryDigest}`);
+
+    const secondRes = await handler(
+      new Request('http://local/neodid/recovery-ticket', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          provider: 'github',
+          aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+          account_id: 'aa-social-recovery-demo',
+          new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
+          recovery_nonce: '8',
+          expires_at: '1735689600',
+          encrypted_params: encryptedParams,
+        }),
+      })
+    );
+    assert.equal(secondRes.status, 200);
+    const second = await secondRes.json();
+    assert.notEqual(body.action_nullifier, second.action_nullifier);
+  } finally {
+    if (previousAllowlist === undefined) {
+      delete process.env.MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS;
+    } else {
+      process.env.MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS = previousAllowlist;
+    }
+  }
 });
 
 test('neodid recovery-ticket accepts confidential web3auth id_token payloads', async () => {

@@ -19,12 +19,35 @@ import {
   reportPinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
 
+function hasCallerSuppliedKeyMaterial(payload = {}) {
+  return Boolean(
+    trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif)
+  );
+}
+
+// The enclave-resident signing lanes (sign/payload + signed-result envelopes)
+// must sign with the worker's own key, never with raw key material a caller put
+// in the request body. Accepting caller-supplied keys here is a key-confusion
+// hazard (a caller could substitute an arbitrary key for the enclave's, or probe
+// the signing path with attacker-controlled material). Reject by default; an
+// operator can deliberately re-open the legacy behavior with
+// MORPHEUS_ALLOW_CALLER_SIGNING_KEY=true.
+function allowCallerSuppliedSigningKey() {
+  const raw = trimString(env('MORPHEUS_ALLOW_CALLER_SIGNING_KEY')).toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+function rejectCallerSuppliedSigningKey(payload = {}) {
+  if (hasCallerSuppliedKeyMaterial(payload) && !allowCallerSuppliedSigningKey()) {
+    throw new Error(
+      'caller-supplied signing key material (private_key/signing_key/wif) is not accepted ' +
+        'on this signing lane; the enclave-resident key is used instead'
+    );
+  }
+}
+
 function resolveKeySource(payload = {}) {
-  if (
-    trimString(payload.private_key) ||
-    trimString(payload.signing_key) ||
-    trimString(payload.wif)
-  ) {
+  if (hasCallerSuppliedKeyMaterial(payload)) {
     return 'caller';
   }
   return 'worker';
@@ -126,6 +149,7 @@ export function resolveSigningBytes(payload) {
 }
 
 export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
+  rejectCallerSuppliedSigningKey(payload);
   const keySource = resolveKeySource(payload);
   const useOracleVerifierRole = resolveOracleVerifierRole(payload);
   const requestScopedKey =
@@ -190,10 +214,12 @@ async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
 }
 
 export async function buildSignedResultEnvelope(result, payload = {}) {
-  const keySource =
-    trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif)
-      ? 'caller'
-      : 'worker';
+  // This lane always signs with the enclave-resident worker key
+  // (maybeSignWorkerNeoN3Bytes ignores any caller-supplied key). Reject
+  // caller-supplied key material so the request can't masquerade as a
+  // caller-keyed signature or attempt key confusion.
+  rejectCallerSuppliedSigningKey(payload);
+  const keySource = hasCallerSuppliedKeyMaterial(payload) ? 'caller' : 'worker';
   const payloadBytes = Buffer.from(stableStringify(result), 'utf8');
   const outputHash = sha256Hex(payloadBytes);
   const signature = await maybeSignWorkerNeoN3Bytes(payloadBytes, payload);

@@ -149,12 +149,12 @@ test('applyRequestGuards rate limits repeated paymaster requests via Upstash', a
   assert.equal(second.response.status, 429);
 });
 
-test('applyRequestGuards bypasses fixed-window rate limiting for trusted service tokens', async () => {
+test('applyRequestGuards bypasses fixed-window rate limiting for the dedicated bypass token', async () => {
   installUpstashMock();
   process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
   process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
   process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
-  process.env.PHALA_API_TOKEN = 'trusted-internal-token';
+  process.env.MORPHEUS_RATE_LIMIT_BYPASS_TOKEN = 'dedicated-bypass-token';
   process.env.MORPHEUS_RATE_LIMIT_PAYMASTER_AUTHORIZE_MAX = '1';
 
   const { applyRequestGuards } = await import('./request-guards.js');
@@ -162,8 +162,7 @@ test('applyRequestGuards bypasses fixed-window rate limiting for trusted service
     new Request('http://local/paymaster/authorize', {
       method: 'POST',
       headers: {
-        authorization: 'Bearer trusted-internal-token',
-        'x-phala-token': 'trusted-internal-token',
+        authorization: 'Bearer dedicated-bypass-token',
         'cf-connecting-ip': '203.0.113.9',
       },
       body: JSON.stringify({
@@ -186,6 +185,48 @@ test('applyRequestGuards bypasses fixed-window rate limiting for trusted service
 
   assert.equal(first.ok, true);
   assert.equal(second.ok, true);
+});
+
+test('applyRequestGuards does NOT bypass rate limiting for a signing/auth token', async () => {
+  installUpstashMock();
+  process.env.UPSTASH_REDIS_REST_URL = 'https://mock-upstash.example.com';
+  process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
+  process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
+  // A leaked signing/auth token must NOT also remove the abuse ceiling.
+  process.env.PHALA_API_TOKEN = 'signing-token';
+  delete process.env.MORPHEUS_RATE_LIMIT_BYPASS_TOKEN;
+  process.env.MORPHEUS_RATE_LIMIT_PAYMASTER_AUTHORIZE_MAX = '1';
+
+  const { applyRequestGuards } = await import('./request-guards.js');
+  const makeRequest = (operationHash) =>
+    new Request('http://local/paymaster/authorize', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer signing-token',
+        'x-phala-token': 'signing-token',
+        'cf-connecting-ip': '203.0.113.9',
+      },
+      body: JSON.stringify({
+        account_id: '0x1234',
+        dapp_id: 'demo',
+        operation_hash: operationHash,
+      }),
+    });
+
+  const first = await applyRequestGuards({
+    request: makeRequest('0xaaa'),
+    path: '/paymaster/authorize',
+    payload: { account_id: '0x1234', dapp_id: 'demo', operation_hash: '0xaaa' },
+  });
+  const second = await applyRequestGuards({
+    request: makeRequest('0xbbb'),
+    path: '/paymaster/authorize',
+    payload: { account_id: '0x1234', dapp_id: 'demo', operation_hash: '0xbbb' },
+  });
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, false);
+  assert.equal(second.response.status, 429);
 });
 
 test('persistGuardResult caches idempotent responses for repeated relay requests', async () => {
@@ -376,9 +417,8 @@ test('persistGuardResult does not cache transient 4xx failures', async () => {
   process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
   process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
 
-  const { applyRequestGuards, persistGuardResult, releaseGuardLock } = await import(
-    './request-guards.js'
-  );
+  const { applyRequestGuards, persistGuardResult, releaseGuardLock } =
+    await import('./request-guards.js');
   const payload = { operation_hash: '0xdeadbeef' };
   const request = new Request('http://local/relay/transaction', {
     method: 'POST',

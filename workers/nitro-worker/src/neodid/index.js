@@ -136,11 +136,37 @@ const PROVIDERS_WITH_TEE_UID = new Set(
 // Default ALLOW so the 9 deployed+documented providers keep working. Setting
 // MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID=false makes the worker reject any ticket
 // whose provider_uid is not TEE-verified — a BREAKING, coordinated rollout that
-// the operator opts into deliberately.
+// the operator opts into deliberately. This governs the low-assurance lanes
+// (bind / action-ticket) only; the high-assurance recovery / zklogin lanes
+// fail closed regardless (see isHighAssuranceUnverifiedProviderAllowed).
 function allowUnverifiedProviderUid() {
   const raw = trimString(env('MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID')).toLowerCase();
   if (!raw) return true; // default: preserve current behavior
   return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
+// Lanes that mint account-control tickets (social recovery, zklogin AA actions)
+// MUST bind to a provider_uid the enclave actually verified — otherwise a caller
+// can forge a ticket against an arbitrary uid and seize/act on another user's
+// account. These lanes therefore DEFAULT-DENY any provider that does not derive
+// its provider_uid inside the TEE (fail closed). An operator can re-enable a
+// specific provider for these lanes only via an explicit comma-separated
+// allowlist (MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS), e.g. while a
+// dedicated credential verifier for that provider is being rolled out.
+const HIGH_ASSURANCE_CONTEXTS = new Set(['recovery', 'zklogin']);
+
+function highAssuranceUnverifiedProviderAllowlist() {
+  return new Set(
+    trimString(env('MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS'))
+      .toLowerCase()
+      .split(',')
+      .map((entry) => normalizeNeoDidProviderId(entry))
+      .filter(Boolean)
+  );
+}
+
+function isHighAssuranceUnverifiedProviderAllowed(provider) {
+  return highAssuranceUnverifiedProviderAllowlist().has(provider);
 }
 
 const PROVIDER_ALIAS_MAP = Object.fromEntries(
@@ -218,14 +244,27 @@ function extractWeb3AuthIdToken(payload = {}) {
   );
 }
 
-async function resolveVerifiedProviderUid(provider, payload = {}) {
+async function resolveVerifiedProviderUid(provider, payload = {}, context = 'bind') {
   if (provider !== 'web3auth') {
+    const highAssurance = HIGH_ASSURANCE_CONTEXTS.has(context);
+    if (highAssurance && !isHighAssuranceUnverifiedProviderAllowed(provider)) {
+      // Account-control lanes (recovery / zklogin) fail closed: a forgeable
+      // provider_uid here lets a caller mint a ticket against an arbitrary uid
+      // and seize/act on another user's account. Only an explicit per-provider
+      // allowlist (MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS) re-enables
+      // an unverified provider for these lanes.
+      throw new Error(
+        `provider ${provider} provider_uid is not verified in the enclave; ` +
+          `${context}-ticket requires a TEE-verified provider_uid ` +
+          '(enable per-provider via MORPHEUS_NEODID_RECOVERY_ALLOW_UNVERIFIED_PROVIDERS)'
+      );
+    }
     // E3: these providers take the provider_uid from the (untrusted) request
     // body — it is not verified inside the enclave, so a ticket could be forged
     // against another user's identity. Default-allow (current behavior); when
     // MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID is disabled, reject hard. Either way,
     // log loudly so the trust posture is visible in the audit trail.
-    if (!allowUnverifiedProviderUid()) {
+    if (!highAssurance && !allowUnverifiedProviderUid()) {
       throw new Error(
         `provider ${provider} provider_uid is not verified in the enclave; ` +
           'unverified provider_uid is disabled (MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID=false)'
@@ -234,6 +273,8 @@ async function resolveVerifiedProviderUid(provider, payload = {}) {
     const providerUid = resolveProviderUid(payload);
     requestLog('warn', 'neodid_unverified_provider_uid', {
       provider,
+      context,
+      high_assurance: highAssurance,
       derives_provider_uid_in_tee: false,
       provider_uid_hash: sha256Hex(`${provider}${providerUid}`).slice(0, 16),
       note: 'provider_uid taken from untrusted request body (not TEE-verified)',
@@ -660,7 +701,7 @@ export async function handleNeoDidRecoveryTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
   const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
-  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
+  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload, 'recovery');
   const network = resolveRequiredText(
     resolvedPayload.network || resolvedPayload.target_chain || 'neo_n3',
     'network'
@@ -747,7 +788,7 @@ export async function handleNeoDidZkLoginTicket(payload = {}) {
   if (provider !== 'web3auth') {
     throw new Error('zklogin-ticket currently requires provider=web3auth');
   }
-  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
+  const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload, 'zklogin');
   const verifierContract = resolveHash160(
     resolvedPayload.verifier_contract || resolvedPayload.verifier || resolvedPayload.verifier_hash,
     'verifier_contract'

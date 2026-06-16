@@ -161,6 +161,44 @@ const TOKEN_ENV_KEYS = [
   'PHALA_SHARED_SECRET',
 ];
 
+// Plaintext signing-key env vars a host could otherwise inject via /provision to
+// bypass the KMS-attested path (the materialize*FromKms() helpers no-op when one
+// of these is already set, so a provisioned plaintext key would still be labelled
+// 'enclave-attested'). The signer keys are KMS-sealed in-TEE, so plaintext
+// provisioning is no longer needed; /provision REJECTS these unless the explicit
+// opt-in MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION flag is set. The *_KMS_CIPHERTEXT
+// _BASE64 variants are always accepted (the host only ever holds the ciphertext).
+const PLAINTEXT_KEY_ENV_KEYS = [
+  // Neo N3 (secp256r1) WIFs / raw keys.
+  'MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET',
+  'MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET',
+  'MORPHEUS_ORACLE_VERIFIER_WIF',
+  'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET',
+  'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET',
+  'MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET',
+  'MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET',
+  'MORPHEUS_UPDATER_NEO_N3_WIF',
+  'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_MAINNET',
+  'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET',
+  // Neo X (EVM, secp256k1) keys.
+  'MORPHEUS_NEOX_VERIFIER_PRIVATE_KEY',
+  'MORPHEUS_NEOX_VERIFIER_KEY',
+  'NEOX_VERIFIER_PK',
+  'MORPHEUS_NEOX_UPDATER_PRIVATE_KEY',
+  'NEOX_UPDATER_PK',
+  'MORPHEUS_NEOX_FEED_PRIVATE_KEY',
+  'NEOX_FEED_PK',
+  'NEOX_FEED_PRIVATE_KEY',
+  // X25519 oracle confidential-decrypt key material.
+  'MORPHEUS_ORACLE_KEY_MATERIAL_JSON',
+  'MORPHEUS_ORACLE_KEY_MATERIAL_BASE64',
+];
+
+function plaintextKeyProvisionAllowed() {
+  const flag = trimString(process.env.MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION).toLowerCase();
+  return flag === '1' || flag === 'true' || flag === 'yes' || flag === 'on';
+}
+
 // The set of accepted bearer tokens, derived live from process.env (so a
 // /provision that adds a token takes effect immediately). Empty == bootstrap-open
 // (matches the signer: the host's FIRST /provision is unauthenticated, then every
@@ -181,22 +219,46 @@ function timingSafeTokenMatch(candidate, trusted) {
   return timingSafeEqual(a, b);
 }
 
+// Extract the presented bearer/x-*-token from a (lower-cased) header map.
+function extractRequestToken(headers = {}) {
+  const authorization = trimString(headers.authorization || headers.Authorization || '');
+  const bearer = authorization.toLowerCase().startsWith('bearer ')
+    ? authorization.slice('bearer '.length).trim()
+    : '';
+  return (
+    bearer ||
+    trimString(headers['x-nitro-token'] || headers['x-phala-token'] || headers['x-runtime-token'])
+  );
+}
+
 // Throws 401 unless a trusted token is configured AND the request bears a match.
 // No-op while no token is provisioned yet (bootstrap), so the initial /provision
 // can land. headers is a lower-cased header map.
 function assertAuthorized(headers = {}) {
   const trusted = currentTrustedTokens();
   if (!trusted.size) return;
-  const authorization = trimString(headers.authorization || headers.Authorization || '');
-  const bearer = authorization.toLowerCase().startsWith('bearer ')
-    ? authorization.slice('bearer '.length).trim()
-    : '';
-  const token =
-    bearer ||
-    trimString(headers['x-nitro-token'] || headers['x-phala-token'] || headers['x-runtime-token']);
+  const token = extractRequestToken(headers);
   for (const trustedToken of trusted) {
     if (timingSafeTokenMatch(token, trustedToken)) return;
   }
+  throw httpError(401, 'unauthorized');
+}
+
+// Authorize a /provision request. Once a runtime token is provisioned this is the
+// same token gate as every sensitive route. While none is provisioned yet
+// (bootstrap), the request is open UNLESS an image-pinned bootstrap token
+// (MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN) is baked into the EIF — in which case the
+// FIRST /provision must present it (closing the unauthenticated-bootstrap gap).
+function assertProvisionAuthorized(headers = {}) {
+  const trusted = currentTrustedTokens();
+  if (trusted.size) {
+    assertAuthorized(headers);
+    return;
+  }
+  const bootstrap = trimString(process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN);
+  if (!bootstrap) return; // fully-open bootstrap (preserves prior behaviour when unset)
+  const token = extractRequestToken(headers);
+  if (timingSafeTokenMatch(token, bootstrap)) return;
   throw httpError(401, 'unauthorized');
 }
 
@@ -209,17 +271,42 @@ function normalizeSignerRole(value) {
   return 'updater';
 }
 
+// Whether a KMS ciphertext is provisioned for a given signer role. When a key is
+// materialized AND its ciphertext is present, the key is KMS-attested; a
+// materialized key with NO ciphertext came from a host-provided plaintext env var.
+function roleHasKmsCiphertext(role) {
+  if (role === 'oracle_verifier') {
+    return Boolean(trimString(process.env.MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64));
+  }
+  if (role === 'updater') {
+    return Boolean(trimString(process.env.MORPHEUS_UPDATER_NEO_N3_KMS_CIPHERTEXT_BASE64));
+  }
+  return false;
+}
+
+// Classify how a (materialized) role key reached the enclave: 'kms_attested' when
+// recovered in-TEE from a provisioned KMS ciphertext, else 'host_plaintext' (a
+// directly-provided plaintext key — only possible when the plaintext-provision
+// opt-in is on). 'none' when no key is materialized. Surfaced via /health so any
+// reliance on a plaintext key is detectable.
+function roleKeySource(role, materialized) {
+  if (!materialized) return 'none';
+  return roleHasKmsCiphertext(role) ? 'kms_attested' : 'host_plaintext';
+}
+
 // Pinned-role health for the two signing roles the enclave holds (matches the
 // signer's signerHealth()). Used by /provision + folded into /health.
 function signerRolesHealth() {
   const network = resolveNetwork();
   return ['updater', 'oracle_verifier'].map((role) => {
     const report = reportPinnedNeoN3Role(network, role, { env: process.env, allowMissing: false });
+    const materialized = Boolean(report.materialized);
     return {
       role,
-      ok: report.ok && Boolean(report.materialized),
+      ok: report.ok && materialized,
       identity: report.selected_identity || report.pinned || null,
       issues: report.issues,
+      key_source: roleKeySource(role, materialized),
     };
   });
 }
@@ -230,6 +317,23 @@ function signerRolesHealth() {
 function handleProvision(payload) {
   const env =
     payload?.env && typeof payload.env === 'object' && !Array.isArray(payload.env) ? payload.env : {};
+  // Unless explicitly opted in, a host MUST NOT provision plaintext signing keys —
+  // only the KMS-attested *_KMS_CIPHERTEXT_BASE64 variants. This stops a host from
+  // injecting a plaintext key that the materialize*FromKms() helpers would then
+  // treat as already-materialized (bypassing attestation while still labelled
+  // 'enclave-attested'). Reject the whole request so the caller sees the violation.
+  if (!plaintextKeyProvisionAllowed()) {
+    const rejected = Object.keys(env)
+      .filter((key) => PLAINTEXT_KEY_ENV_KEYS.includes(key) && trimString(env[key]))
+      .sort();
+    if (rejected.length) {
+      throw httpError(
+        403,
+        'plaintext signing-key provisioning is disabled; provide the *_KMS_CIPHERTEXT_BASE64 ' +
+          `variant instead (set MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION=1 to override). Rejected: ${rejected.join(', ')}`
+      );
+    }
+  }
   const applied = [];
   for (const [key, value] of Object.entries(env)) {
     if (!/^[A-Z0-9_]{1,96}$/.test(key)) continue;
@@ -1388,19 +1492,38 @@ export function handleHealth() {
   let signerOk = false;
   let signerError = null;
   let verifierPublicKey = null;
+  let verifierMaterialized = false;
+  let updaterMaterialized = false;
   try {
     const report = reportPinnedNeoN3Role(network, 'oracle_verifier', {
       env: process.env,
       allowMissing: false,
     });
-    signerOk = report.ok && Boolean(report.materialized);
+    verifierMaterialized = Boolean(report.materialized);
+    signerOk = report.ok && verifierMaterialized;
     verifierPublicKey = report.public_key || null;
     if (!signerOk && report.issues?.length) signerError = report.issues.join('; ');
   } catch (error) {
     signerError = error instanceof Error ? error.message : String(error);
   }
+  try {
+    const updaterReport = reportPinnedNeoN3Role(network, 'updater', {
+      env: process.env,
+      allowMissing: false,
+    });
+    updaterMaterialized = Boolean(updaterReport.materialized);
+  } catch {
+    updaterMaterialized = false;
+  }
   const computeReady = typeof activeWorkerHandler === 'function';
   const ready = computeReady && signerOk;
+  // key_source per signing role lets ops detect any reliance on a host-provided
+  // plaintext key (vs the expected kms_attested path). 'host_plaintext' should
+  // only ever appear when MORPHEUS_ALLOW_PLAINTEXT_KEY_PROVISION is explicitly on.
+  const keySource = {
+    oracle_verifier: roleKeySource('oracle_verifier', verifierMaterialized),
+    updater: roleKeySource('updater', updaterMaterialized),
+  };
   return {
     status: ready ? 'ok' : 'degraded',
     ready,
@@ -1411,6 +1534,8 @@ export function handleHealth() {
       signer: signerOk,
       ...(verifierPublicKey ? { oracle_verifier_public_key: verifierPublicKey } : {}),
     },
+    key_source: keySource,
+    plaintext_key_provision_allowed: plaintextKeyProvisionAllowed(),
     // Outcome of the in-TEE KMS-path probe (no secrets) — lets ops confirm
     // attestation-gated decrypt works (the prerequisite for TEE-exclusive keys).
     kms_diag: lastKmsDiag,
@@ -1426,6 +1551,19 @@ function httpError(status, message) {
   const error = new Error(message);
   error.status = status;
   return error;
+}
+
+// Route matcher: accept the route exactly, OR with a SINGLE leading network/segment
+// prefix (the control plane dispatches network-prefixed routes such as
+// `/mainnet/oracle/public-key`). This is tighter than a bare path.endsWith(route),
+// which would also match `/anything/<route>` (e.g. `/evil/health`). The prefix must
+// be exactly one path segment.
+function matchesRoute(path, route) {
+  if (path === route) return true;
+  const idx = path.indexOf(route);
+  if (idx <= 0 || idx + route.length !== path.length) return false;
+  const prefix = path.slice(0, idx); // e.g. "/mainnet"
+  return /^\/[A-Za-z0-9._-]+$/.test(prefix);
 }
 
 /**
@@ -1444,12 +1582,12 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
   try {
     // Open endpoints (no auth): liveness + attestation (the attestation is a
     // signed measurement, not a secret operation; matches the signer).
-    if (httpMethod === 'GET' && path.endsWith('/health')) {
+    if (httpMethod === 'GET' && matchesRoute(path, '/health')) {
       const health = handleHealth();
       return { status: health.ready ? 200 : 503, body: health };
     }
 
-    if ((httpMethod === 'GET' || httpMethod === 'POST') && path.endsWith('/attestation')) {
+    if ((httpMethod === 'GET' || httpMethod === 'POST') && matchesRoute(path, '/attestation')) {
       // GET binds via query params; POST via JSON body.
       const payload =
         httpMethod === 'GET' ? Object.fromEntries(url.searchParams) : parseBody(body);
@@ -1457,33 +1595,34 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
       return { status: 200, body: result };
     }
 
-    // Provisioning: bootstrap-open (assertAuthorized is a no-op until the first
-    // token is provisioned), then token-gated like every sensitive call below.
-    if (httpMethod === 'POST' && path.endsWith('/provision')) {
-      assertAuthorized(headers);
+    // Provisioning: bootstrap-open until the first token is provisioned UNLESS an
+    // image-pinned bootstrap token is configured (then the first /provision must
+    // present it); token-gated like every sensitive call below thereafter.
+    if (httpMethod === 'POST' && matchesRoute(path, '/provision')) {
+      assertProvisionAuthorized(headers);
       const result = handleProvision(parseBody(body));
       return { status: 200, body: result };
     }
 
     // Sensitive (signing) endpoints — require the provisioned bearer token.
-    if (httpMethod === 'POST' && path.endsWith('/oracle/fulfill')) {
+    if (httpMethod === 'POST' && matchesRoute(path, '/oracle/fulfill')) {
       assertAuthorized(headers);
       const result = await handleOracleFulfill(parseBody(body));
       return { status: 200, body: result };
     }
 
-    if (httpMethod === 'POST' && path.endsWith('/feed/sign')) {
+    if (httpMethod === 'POST' && matchesRoute(path, '/feed/sign')) {
       assertAuthorized(headers);
       const result = await handleFeedSign(parseBody(body));
       return { status: 200, body: result };
     }
 
-    if (httpMethod === 'POST' && path.endsWith('/sign/payload')) {
+    if (httpMethod === 'POST' && matchesRoute(path, '/sign/payload')) {
       assertAuthorized(headers);
       return { status: 200, body: handleSignPayload(parseBody(body)) };
     }
 
-    if (httpMethod === 'POST' && path.endsWith('/keys/derived')) {
+    if (httpMethod === 'POST' && matchesRoute(path, '/keys/derived')) {
       assertAuthorized(headers);
       return { status: 200, body: handleKeysDerived(parseBody(body)) };
     }
@@ -1500,7 +1639,7 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
     // by the egress allow-list (fail-closed); set ORACLE_HTTP_ALLOWLIST for an
     // app-layer defense-in-depth match.
     if (httpMethod === 'POST') {
-      const passthrough = EXECUTION_PLANE_PASSTHROUGH.find((route) => path.endsWith(route));
+      const passthrough = EXECUTION_PLANE_PASSTHROUGH.find((route) => matchesRoute(path, route));
       if (passthrough) {
         assertAuthorized(headers);
         const resp = await computeViaWorker(passthrough, parseBody(body));
@@ -1514,7 +1653,7 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
     // so it reflects this enclave's ACTUAL materialized keypair — closing the gap where
     // a key sealed in-TEE had no published public half, leaving confidential decrypt
     // unusable. Ungated: it is a public key; the private half never leaves the enclave.
-    if ((httpMethod === 'GET' || httpMethod === 'POST') && path.endsWith('/oracle/public-key')) {
+    if ((httpMethod === 'GET' || httpMethod === 'POST') && matchesRoute(path, '/oracle/public-key')) {
       const resp = await computeViaWorker('/oracle/public-key', httpMethod === 'POST' ? parseBody(body) : {});
       return { status: resp.status, body: resp.body };
     }

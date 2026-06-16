@@ -30,13 +30,14 @@ function parseTimestamp(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function readSignerMaterial(body: Record<string, unknown>) {
-  const wif = trimString(body.wif || '');
-  const private_key = trimString(body.private_key || body.privateKey || '');
-  return {
-    ...(wif ? { wif } : {}),
-    ...(private_key ? { private_key } : {}),
-  };
+// Raw signer material must never travel in an API body — signing goes through
+// the server-side enclave/KMS-backed signer (resolveNeoN3UpdaterSigner). Detect
+// any wif/private_key field so the request can be rejected outright.
+function hasRawSignerMaterial(body: Record<string, unknown>) {
+  return Boolean(
+    trimString(body.wif || '') ||
+      trimString(body.private_key || body.privateKey || '')
+  );
 }
 
 function buildRouteUpkeepDispatch(
@@ -97,6 +98,10 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   if (!isPlainObject(body)) return badRequest('invalid JSON body');
+
+  if (hasRawSignerMaterial(body)) {
+    return badRequest('raw signer material (wif/private_key) is not accepted; signing uses the configured enclave/KMS signer');
+  }
 
   const automationId = trimString(body.automation_id || body.id || '');
   if (!automationId) return badRequest('automation_id is required');
@@ -173,7 +178,6 @@ export async function POST(request: Request) {
         callbackContract: trimString(job.callback_contract || ''),
         callbackMethod: trimString(job.callback_method || ''),
         requestId: dispatch.request_id,
-        ...readSignerMaterial(body),
       });
     } catch (error) {
       if (!isDuplicateQueueError(error)) throw error;

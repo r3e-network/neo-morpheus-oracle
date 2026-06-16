@@ -66,18 +66,28 @@ function extractTrustedAuthToken(request) {
   );
 }
 
+// The rate-limit bypass must be gated on a credential that is SEPARATE from the
+// service signing/auth tokens (MORPHEUS_RUNTIME_TOKEN / NITRO_API_TOKEN /
+// PHALA_API_TOKEN / *_SHARED_SECRET). Those tokens authorize signing; reusing
+// them to also grant unlimited rate means a single leaked signing token both
+// signs AND removes the abuse ceiling. The bypass therefore requires its own
+// dedicated token(s) — if none are configured, there is no bypass (fail closed),
+// so every request is rate limited.
+function trustedRateLimitBypassTokens() {
+  return [
+    process.env.MORPHEUS_RATE_LIMIT_BYPASS_TOKEN,
+    process.env.MORPHEUS_RATE_LIMIT_BYPASS_TOKENS,
+  ]
+    .flatMap((value) => trimString(value).split(','))
+    .map((value) => trimString(value))
+    .filter(Boolean);
+}
+
 function isTrustedServiceRequest(request) {
   const token = extractTrustedAuthToken(request);
   if (!token) return false;
-  const trusted = [
-    process.env.MORPHEUS_RUNTIME_TOKEN,
-    process.env.NITRO_API_TOKEN,
-    process.env.PHALA_API_TOKEN,
-    process.env.NITRO_SHARED_SECRET,
-    process.env.PHALA_SHARED_SECRET,
-  ]
-    .map((value) => trimString(value))
-    .filter(Boolean);
+  const trusted = trustedRateLimitBypassTokens();
+  if (trusted.length === 0) return false;
   return trusted.includes(token);
 }
 
