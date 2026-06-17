@@ -860,6 +860,18 @@ function isHostUnattestedFetchLane(kernelIntent, payload) {
   return Boolean(trimString(payload?.url || ''));
 }
 
+// Truthful default trust_tier for a lane computed on the HOST worker. With the
+// enclave-fulfill flag OFF (today's default topology) the host worker is NOT a
+// measured enclave and produces no attestation document, so its lanes are
+// host-unattested — labeling them enclave-attested would be misleading. With the
+// flag ON the host worker IS the attested enclave for these lanes, so they keep
+// the attested label. Purely advisory provenance metadata — never digested.
+function defaultHostWorkerTrustTier(config) {
+  return config?.nitro?.enclaveFulfill
+    ? TRUST_TIER_ENCLAVE_ATTESTED
+    : TRUST_TIER_HOST_UNATTESTED;
+}
+
 // Recompute the fulfillment digest LOCALLY from the result the enclave returned,
 // using the SAME canonical builders + the SAME deployment/network binding the
 // relayer's own signFulfillmentPayload uses. Returns the lowercase hex digest so
@@ -1467,6 +1479,10 @@ async function prepareOracleFulfillment(config, event, logger = null) {
       worker_response: vrfResponse.body,
       worker_status: 200,
       verification_signature: vrfVerification.signature,
+      // Local CSPRNG VRF runs on the host worker (this branch is only reached with
+      // the enclave-fulfill flag OFF — the flag-ON path computes VRF in the enclave
+      // above). Label it truthfully: host-unattested, not enclave-attested.
+      trust_tier: defaultHostWorkerTrustTier(config),
     });
   }
   // Confidential reveal: the request payload is an X25519 sealed envelope; the
@@ -1599,12 +1615,13 @@ async function prepareOracleFulfillment(config, event, logger = null) {
     worker_status: workerResponse.status,
     verification_signature: verification.signature,
     // Tiered-trust label: the arbitrary-URL fetch lane (computed on the untrusted
-    // host worker, no enclave attestation possible) is host-unattested. Every other
-    // host-worker lane keeps the default attested label (flag-off topology where
-    // the worker IS the enclave today). Purely a provenance label — not digested.
+    // host worker, no enclave attestation possible) is always host-unattested.
+    // Every other host-worker lane takes the truthful host-worker default — with
+    // the enclave-fulfill flag OFF (no attestation document exists) that is
+    // host-unattested, not enclave-attested. Purely a provenance label — not digested.
     trust_tier: isHostUnattestedFetchLane(kernelIntent, payload)
       ? TRUST_TIER_HOST_UNATTESTED
-      : TRUST_TIER_ENCLAVE_ATTESTED,
+      : defaultHostWorkerTrustTier(config),
     durations_ms: {
       worker: workerDurationMs,
       verification: verificationDurationMs,

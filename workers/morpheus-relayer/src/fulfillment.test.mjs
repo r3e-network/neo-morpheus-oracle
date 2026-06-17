@@ -1474,6 +1474,133 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
     }
   });
 
+  it('flag-OFF labels the host-worker price lane host-unattested, NOT enclave-attested', async () => {
+    // With the enclave-fulfill flag OFF the price/feed lane is computed on the host
+    // worker (no attestation document exists), so its advisory trust_tier must be
+    // truthful: host-unattested. Tagging it enclave-attested would be misleading.
+    const event = {
+      chain: 'neo_n3',
+      requestId: '7001',
+      requestType: 'privacy_oracle',
+      appId: 'miniapp-os',
+      payloadText: '{"symbol":"NEO-USD"}',
+      txHash: '0x7001',
+    };
+    const original = global.fetch;
+    const calls = [];
+    global.fetch = async (url) => {
+      const u = String(url);
+      calls.push({ url: u });
+      if (u.startsWith('https://worker.test')) {
+        return new Response(JSON.stringify({ result: { price: '5.25' }, extracted_value: '5.25' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (u.endsWith('/sign/payload')) {
+        return new Response(JSON.stringify({ status: 'ok', signature: 'e'.repeat(128), public_key: '02ff' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
+    };
+    const submitted = [];
+    const config = baseConfig({
+      nitro: {
+        apiUrl: 'https://worker.test',
+        signerUrl: 'https://signer.test',
+        enclaveFulfill: false, // explicit flag-OFF
+        enclaveFulfillUrl: 'https://enclave.test',
+        timeoutMs: 1000,
+      },
+      hooks: {
+        fulfillNeoRequest: async (call) => {
+          submitted.push(call);
+          return { tx_hash: '0xtwostep', vm_state: 'HALT' };
+        },
+      },
+    });
+    try {
+      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+      assert.equal(submitted.length, 1, 'still submits');
+      assert.equal(result.result.success, true);
+      assert.notEqual(
+        result.result.trust_tier,
+        'enclave-attested',
+        'flag-off host-worker price lane must NOT be labeled enclave-attested'
+      );
+      assert.equal(result.result.trust_tier, 'host-unattested');
+    } finally {
+      global.fetch = original;
+    }
+  });
+
+  it('flag-OFF labels the local CSPRNG VRF lane host-unattested, NOT enclave-attested', async () => {
+    // The local random.generate (VRF) branch only runs with the flag OFF — the
+    // randomness + signing happen on the host worker, so its trust_tier must be
+    // host-unattested, not the misleading enclave-attested default.
+    const event = {
+      chain: 'neo_n3',
+      requestId: '7002',
+      requestType: 'rng',
+      appId: 'miniapp-os',
+      payloadText: '{}',
+      txHash: '0x7002',
+    };
+    const original = global.fetch;
+    const calls = [];
+    global.fetch = async (url) => {
+      const u = String(url);
+      calls.push({ url: u });
+      // Local VRF performs no worker compute; it only signs via the host /sign/payload.
+      if (u.endsWith('/sign/payload')) {
+        return new Response(JSON.stringify({ status: 'ok', signature: 'f'.repeat(128), public_key: '02ff' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
+    };
+    const submitted = [];
+    const config = baseConfig({
+      nitro: {
+        apiUrl: 'https://worker.test',
+        signerUrl: 'https://signer.test',
+        enclaveFulfill: false, // explicit flag-OFF
+        enclaveFulfillUrl: 'https://enclave.test',
+        timeoutMs: 1000,
+      },
+      hooks: {
+        fulfillNeoRequest: async (call) => {
+          submitted.push(call);
+          return { tx_hash: '0xrng', vm_state: 'HALT' };
+        },
+      },
+    });
+    try {
+      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+      // The local VRF lane never calls the enclave fulfill endpoint or the worker.
+      assert.ok(!calls.some((c) => c.url.endsWith('/oracle/fulfill')), 'local VRF must not call the enclave');
+      assert.equal(submitted.length, 1, 'still submits');
+      assert.equal(result.result.success, true);
+      assert.notEqual(
+        result.result.trust_tier,
+        'enclave-attested',
+        'flag-off local VRF lane must NOT be labeled enclave-attested'
+      );
+      assert.equal(result.result.trust_tier, 'host-unattested');
+    } finally {
+      global.fetch = original;
+    }
+  });
+
   it('flag-ON downgrades trust_tier to host-unattested when the enclave returns NO attestation doc (C1)', async () => {
     // Today's enclave images return a signature but (pre-cutover) may not carry an
     // attestation document. The relayer must NOT blindly trust the response's
