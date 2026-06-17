@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { processAutomationJobs } from './automation.js';
+import {
+  guardQueuedAutomationExecution,
+  handleAutomationControlRequest,
+  processAutomationJobs,
+} from './automation.js';
 
 // These tests assert the DURABLE execution-idempotency guarantee: dedup must not
 // depend on the process-local in-memory cache. The fake store below faithfully
@@ -318,4 +322,153 @@ test('a second sequential tick advances to the NEXT execution (count increments 
   assert.deepEqual(first.broadcasts, ['automation:neo_n3:automation:neo_n3:idem:1']);
   assert.deepEqual(second.broadcasts, ['automation:neo_n3:automation:neo_n3:idem:2']);
   assert.equal(store.snapshot().execution_count, 2);
+});
+
+function makeCancelDeps(store) {
+  return {
+    fetchAutomationJobById: async (automationId) => {
+      const snap = store.snapshot();
+      return snap.automation_id === automationId ? snap : null;
+    },
+    patchAutomationJob: async (automationId, fields) => store.patch(automationId, fields),
+  };
+}
+
+test('cancel of an idle (not-yet-claimed) job reports a clean cancellation', async () => {
+  const store = createDurableStore(baseJob());
+  const cancelDeps = makeCancelDeps(store);
+
+  const result = await handleAutomationControlRequest(
+    {
+      requestType: 'automation_cancel',
+      requester: store.snapshot().requester,
+    },
+    { automation_id: store.snapshot().automation_id },
+    cancelDeps
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.status, 'cancelled', 'an idle job cancels cleanly');
+  assert.equal(result.body.future_executions_cancelled, true);
+  assert.equal(result.body.in_flight_execution, undefined, 'no in-flight execution to charge');
+
+  const finalJob = store.snapshot();
+  assert.equal(finalJob.status, 'cancelled');
+  assert.equal(finalJob.next_run_at, null, 'schedule cleared so no future executions run');
+});
+
+test('cancel after a successful claim+queue reports the in-flight (charged) execution', async () => {
+  // A tick claims the due job, advances execution_count=1, pins the on-chain
+  // request_id, and broadcasts it. The on-chain broadcast lands (the execution is
+  // billed) but the finalize patch is interrupted by a false-negative error, so the
+  // durable row is left mid-flight (status=processing) with the pinned request_id —
+  // exactly the window in which a cancel must not pretend the job fully stopped.
+  const store = createDurableStore(baseJob());
+  const broadcasts = [];
+  const tick = makeDeps(store, {
+    queueImpl: (requestId) => {
+      broadcasts.push(requestId);
+      // The tx is broadcast (and billed on-chain) but the relayer sees a timeout
+      // before it can finalize the row.
+      throw new Error('rpc timeout after broadcast');
+    },
+  });
+  const tickResult = await processAutomationJobs(automationConfig, silentLogger, tick.deps);
+  assert.equal(tickResult.failed, 1);
+
+  const midFlight = store.snapshot();
+  assert.equal(midFlight.status, 'processing', 'job is mid-flight after claim+queue');
+  assert.equal(midFlight.execution_count, 1);
+  assert.equal(midFlight.last_queued_request_id, 'automation:neo_n3:automation:neo_n3:idem:1');
+  assert.deepEqual(broadcasts, ['automation:neo_n3:automation:neo_n3:idem:1']);
+
+  // Now the user cancels while that execution is still in flight.
+  const cancelDeps = makeCancelDeps(store);
+  const result = await handleAutomationControlRequest(
+    {
+      requestType: 'automation_cancel',
+      requester: midFlight.requester,
+    },
+    { automation_id: midFlight.automation_id },
+    cancelDeps
+  );
+
+  assert.equal(result.ok, true);
+  assert.equal(result.status, 200);
+  // The cancel must NOT pretend it was fully cancelled while one execution is still
+  // being charged.
+  assert.equal(result.body.status, 'cancelling', 'not reported as a clean full cancel');
+  assert.equal(result.body.future_executions_cancelled, true, 'all future executions prevented');
+  assert.ok(result.body.in_flight_execution, 'in-flight execution surfaced in the result');
+  assert.equal(
+    result.body.in_flight_execution.request_id,
+    'automation:neo_n3:automation:neo_n3:idem:1',
+    'surfaces the already-queued (billed) execution id'
+  );
+  assert.equal(
+    result.body.in_flight_execution.will_be_charged,
+    true,
+    'caller is told the already-queued execution is still charged'
+  );
+  assert.match(result.body.message, /still run and be charged/);
+
+  // The schedule is cleared (no future executions), but the pinned in-flight id is
+  // preserved so the already-billed execution can still reconcile/fulfill.
+  const cancelled = store.snapshot();
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.next_run_at, null, 'no future executions scheduled');
+  assert.equal(
+    cancelled.last_queued_request_id,
+    'automation:neo_n3:automation:neo_n3:idem:1',
+    'in-flight execution id retained'
+  );
+});
+
+test('cancel mid-flight lets the already-billed execution fulfill but blocks future ones', async () => {
+  // Mid-flight cancelled job: status=cancelled, with the in-flight execution :1 pinned.
+  const cancelledJob = baseJob({
+    status: 'cancelled',
+    next_run_at: null,
+    execution_count: 1,
+    last_queued_request_id: 'automation:neo_n3:automation:neo_n3:idem:1',
+  });
+
+  const guardDeps = {
+    fetchAutomationJobById: async () => ({ ...cancelledJob }),
+    patchAutomationRunByQueueTxHash: async () => undefined,
+  };
+
+  // The in-flight (already-broadcast + billed) execution must be allowed to fulfill.
+  const inFlightGuard = await guardQueuedAutomationExecution(
+    {
+      txHash: '0xtx-inflight',
+      chain: 'neo_n3',
+    },
+    {
+      ...guardDeps,
+      fetchAutomationRunByQueueTxHash: async () => ({
+        automation_id: cancelledJob.automation_id,
+        queued_request_id: 'automation:neo_n3:automation:neo_n3:idem:1',
+      }),
+    }
+  );
+  assert.equal(inFlightGuard.blocked, false, 'the already-billed in-flight execution is not stranded');
+
+  // A different (future) queued execution of the same cancelled job is still blocked.
+  const futureGuard = await guardQueuedAutomationExecution(
+    {
+      txHash: '0xtx-future',
+      chain: 'neo_n3',
+    },
+    {
+      ...guardDeps,
+      fetchAutomationRunByQueueTxHash: async () => ({
+        automation_id: cancelledJob.automation_id,
+        queued_request_id: 'automation:neo_n3:automation:neo_n3:idem:2',
+      }),
+    }
+  );
+  assert.equal(futureGuard.blocked, true, 'future executions of a cancelled job stay blocked');
+  assert.equal(futureGuard.route, 'automation:cancelled-before-execution');
 });

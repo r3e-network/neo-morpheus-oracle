@@ -220,14 +220,49 @@ function buildRegistrationResult(job) {
   };
 }
 
+// A job is mid-flight when a tick has already claimed it (status=processing, or the
+// paused stale-reclaim lane) AND pinned an on-chain request_id for the in-flight
+// execution. That execution is already broadcast/queued and earns its on-chain
+// billing regardless of cancel — so the cancel result must not pretend it was fully
+// cancelled. (A FINALIZED row carries last_queued_request_id too, but its status is
+// back to active/completed, so the status check is the discriminator.)
+function resolveInFlightExecutionForCancel(job) {
+  if (!job) return null;
+  const status = trimString(job.status || '');
+  const isMidFlight =
+    status === 'processing' ||
+    (status === 'paused' &&
+      trimString(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER);
+  if (!isMidFlight) return null;
+  const inFlightRequestId = trimString(job.last_queued_request_id || '');
+  if (!inFlightRequestId) return null;
+  return inFlightRequestId;
+}
+
 function buildCancellationResult(job, automationId) {
-  return {
+  const inFlightRequestId = resolveInFlightExecutionForCancel(job);
+  const result = {
     mode: 'automation',
     action: 'cancel',
     automation_id: automationId,
     chain: job?.chain || null,
-    status: 'cancelled',
+    // All FUTURE executions are prevented; if an execution is already in flight the
+    // job is not yet fully cancelled — it finishes the already-charged execution.
+    status: inFlightRequestId ? 'cancelling' : 'cancelled',
+    future_executions_cancelled: true,
   };
+  if (inFlightRequestId) {
+    // Surface that one already-queued execution will still run and be billed, so the
+    // caller is not told the cancel was clean while still being charged for it.
+    result.in_flight_execution = {
+      request_id: inFlightRequestId,
+      // The already-queued execution is earned on-chain; cancel does not refund it.
+      will_be_charged: true,
+    };
+    result.message =
+      'one already-queued execution will still run and be charged; all future executions are cancelled';
+  }
+  return result;
 }
 
 function buildCancelledExecutionError(automationId) {
@@ -279,19 +314,30 @@ export async function guardQueuedAutomationExecution(event, deps = {}) {
   }
 
   if (trimString(job.status || '') === 'cancelled') {
-    const error = buildCancelledExecutionError(automationId);
-    await patchRun(txHash, {
-      status: 'failed',
-      error,
-    }).catch(() => undefined);
-    return {
-      blocked: true,
-      route: 'automation:cancelled-before-execution',
-      error,
-      automation_id: automationId,
-      run,
-      job,
-    };
+    // A cancel that lands while an execution is mid-flight must NOT strand the
+    // already-queued (and therefore already-billed) execution. That one earned its
+    // on-chain billing before the cancel, so it is allowed to fulfill; every OTHER
+    // (future) queued execution of a cancelled job is blocked. The pinned
+    // last_queued_request_id is the in-flight execution's id; only the run carrying
+    // that exact id is let through.
+    const inFlightRequestId = trimString(job.last_queued_request_id || '');
+    const runRequestId = trimString(run.queued_request_id || '');
+    const isInFlightExecution = Boolean(inFlightRequestId) && runRequestId === inFlightRequestId;
+    if (!isInFlightExecution) {
+      const error = buildCancelledExecutionError(automationId);
+      await patchRun(txHash, {
+        status: 'failed',
+        error,
+      }).catch(() => undefined);
+      return {
+        blocked: true,
+        route: 'automation:cancelled-before-execution',
+        error,
+        automation_id: automationId,
+        run,
+        job,
+      };
+    }
   }
 
   return {
@@ -307,13 +353,17 @@ export function isAutomationControlRequestType(requestType) {
   return normalized === 'automation_register' || normalized === 'automation_cancel';
 }
 
-export async function handleAutomationControlRequest(event, payload) {
+export async function handleAutomationControlRequest(event, payload, deps = {}) {
   const normalized = normalizeRequestType(event.requestType);
+  const upsertJob = deps.upsertAutomationJob || upsertAutomationJob;
+  const persistEncrypted = deps.persistAutomationEncryptedFields || persistAutomationEncryptedFields;
+  const fetchJob = deps.fetchAutomationJobById || fetchAutomationJobById;
+  const patchJob = deps.patchAutomationJob || patchAutomationJob;
 
   if (normalized === 'automation_register') {
     const job = buildAutomationJobFromPayload(event, payload);
-    await upsertAutomationJob(job);
-    await persistAutomationEncryptedFields(job);
+    await upsertJob(job);
+    await persistEncrypted(job);
     return {
       ok: true,
       status: 200,
@@ -332,7 +382,7 @@ export async function handleAutomationControlRequest(event, payload) {
         route: 'automation:cancel',
       };
     }
-    const job = await fetchAutomationJobById(automationId);
+    const job = await fetchJob(automationId);
     if (!job) {
       return {
         ok: false,
@@ -349,11 +399,26 @@ export async function handleAutomationControlRequest(event, payload) {
         route: 'automation:cancel',
       };
     }
-    await patchAutomationJob(automationId, {
+
+    // Always prevent FUTURE executions by clearing the schedule and flipping the job
+    // out of the active lane.
+    const cancellationPatch = {
       status: 'cancelled',
       next_run_at: null,
-      last_error: null,
-    });
+    };
+
+    // If a tick already claimed + queued an execution (mid-flight), the on-chain
+    // request is earned and will be billed. Preserve the pinned request_id and the
+    // in-flight failure marker so the stale-reclaim lane / guardQueuedAutomationExecution
+    // still reconciles that one execution; only blanking last_error here would lose the
+    // claim marker that keeps a paused mid-flight row reclaimable. Do NOT clear the
+    // billing of the already-queued execution — it is not refundable.
+    const inFlightRequestId = resolveInFlightExecutionForCancel(job);
+    if (!inFlightRequestId) {
+      cancellationPatch.last_error = null;
+    }
+
+    await patchJob(automationId, cancellationPatch);
     return {
       ok: true,
       status: 200,
