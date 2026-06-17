@@ -61,6 +61,36 @@ namespace MorpheusOracle.Contracts
     [ContractPermission("*", "onOracleResult")]
     public class MorpheusOracle : SmartContract
     {
+        // ── Storage-key prefix allocation map (READ BEFORE ADDING A PREFIX) ──────────
+        //
+        // FOOTGUN: the values below are HEXADECIMAL literals, but the original author
+        // advanced them as if counting in DECIMAL — so the sequence jumps 0x09 -> 0x10
+        // and 0x19 -> 0x20 (and 0x29 -> 0x2A is where genuine hex counting resumes).
+        // Those jumps are NOT reservations: the byte values 0x0A-0x0F and 0x1A-0x1F
+        // were simply skipped and are FREE. Do not read the gaps as "taken".
+        //
+        // These bytes are the on-chain storage layout and are FROZEN for the deployed
+        // contracts (testnet + mainnet). NEVER renumber an existing prefix — doing so
+        // orphans every key already written under the old byte. Only ever APPEND a new
+        // prefix using one of the free bytes listed below.
+        //
+        //   USED (do not reuse):
+        //     0x01-0x09  ADMIN, UPDATER, REQUEST, COUNTER, APP, APP_INDEX, APP_COUNT,
+        //                MODULE, MODULE_INDEX
+        //     0x10-0x19  MODULE_COUNT, APP_MODULE_GRANT, RUNTIME_KEY, RUNTIME_KEY_ALGO,
+        //                RUNTIME_KEY_VERSION, RUNTIME_VERIFIER, TOTAL_REQUESTS,
+        //                TOTAL_FULFILLED, REQUEST_FEE, REQUEST_CREDIT
+        //     0x20-0x29  ACCRUED_REQUEST_FEES, APP_REQUESTS, APP_FULFILLED, APP_INBOX,
+        //                APP_STATE, REQUEST_TTL, RESERVED_REQUEST_FEES, CALLBACK_INDEX,
+        //                ACCOUNT_REGISTERED, SPONSOR_GATED
+        //     0x2A-0x2C  SPONSOR_ALLOWED, SPONSOR_CAP, SPONSOR_SPENT
+        //
+        //   FREE (safe to claim next, in this order):
+        //     0x2D, 0x2E, 0x2F, then 0x30+ … (and the skipped 0x0A-0x0F, 0x1A-0x1F).
+        //
+        //   NOTE: FULFILLMENT_SIGNATURE_DOMAIN below is a multi-byte ASCII signing-domain
+        //   constant, NOT a storage prefix — it does not consume a prefix byte.
+        // ─────────────────────────────────────────────────────────────────────────────
         private static readonly byte[] PREFIX_ADMIN = new byte[] { 0x01 };
         private static readonly byte[] PREFIX_UPDATER = new byte[] { 0x02 };
         private static readonly byte[] PREFIX_REQUEST = new byte[] { 0x03 };

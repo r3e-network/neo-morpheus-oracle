@@ -28,6 +28,13 @@ namespace MorpheusOracle.Contracts
     [ManifestExtra("Description", "Shared numeric resource registry for the Morpheus MiniApp OS")]
     public class MorpheusDataFeed : SmartContract
     {
+        // Storage-key prefixes. USED: 0x01-0x06 (contiguous). FREE: 0x07+.
+        // These bytes are the FROZEN on-chain storage layout — NEVER renumber an
+        // existing prefix; only APPEND with the next free byte.
+        // WARNING (hex, not decimal): these are HEX literals, so the byte after 0x09
+        // is 0x0A, NOT 0x10. The sister contract MorpheusOracle counted these in
+        // decimal by mistake and left deceptive 0x0A-0x0F / 0x1A-0x1F gaps — keep this
+        // one contiguous in true hex order to avoid the same footgun.
         private static readonly byte[] PREFIX_ADMIN = new byte[] { 0x01 };
         private static readonly byte[] PREFIX_UPDATER = new byte[] { 0x02 };
         private static readonly byte[] PREFIX_FEED = new byte[] { 0x03 };
