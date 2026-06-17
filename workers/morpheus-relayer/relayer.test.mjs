@@ -623,11 +623,16 @@ test('processAutomationJobs preserves retry semantics for transient automation q
   );
 
   assert.deepEqual(result, { queued: 0, skipped: 0, failed: 1, inspected: 1 });
+  // The durable claim already advanced + pinned this execution before the broadcast,
+  // so a non-terminal broadcast failure keeps the row in the stale-reclaim lane
+  // (status=processing) rather than flipping it back to active. A later tick reclaims
+  // it past claimStaleMs and retries the SAME pinned request_id (the kernel dedups if
+  // the tx landed), so a false-negative timeout cannot mint a second execution.
   assert.deepEqual(patchedJobs, [
     {
       automationId: 'automation:neo_n3:transient',
       fields: {
-        status: 'active',
+        status: 'processing',
         last_error: 'rpc timeout',
       },
     },

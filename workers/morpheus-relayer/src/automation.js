@@ -467,7 +467,7 @@ function computeNextIntervalRun(job, nowMs) {
   return new Date(nowMs + intervalMs).toISOString();
 }
 
-function classifyAutomationExecutionFailure(error) {
+function classifyAutomationExecutionFailure(error, options = {}) {
   const message = trimString(error instanceof Error ? error.message : String(error));
   const normalized = message.toLowerCase();
 
@@ -479,6 +479,22 @@ function classifyAutomationExecutionFailure(error) {
       patch: {
         status: 'error',
         next_run_at: null,
+        last_error: message,
+      },
+    };
+  }
+
+  // Non-terminal failure AFTER the durable claim advanced + pinned this execution
+  // (the broadcast was attempted and may have landed despite the error). Keep the
+  // row in the stale-reclaim lane (status=processing) instead of flipping it back to
+  // active: a later tick reclaims it past claimStaleMs and retries the SAME pinned
+  // request_id (the kernel dedups if the tx landed), so a false-negative broadcast
+  // error cannot mint a second logical execution / double callback.
+  if (options.inFlightExecution) {
+    return {
+      terminal: false,
+      patch: {
+        status: 'processing',
         last_error: message,
       },
     };
@@ -536,10 +552,69 @@ function buildQueuedAutomationTxRecord(queuedTx, dispatch) {
   };
 }
 
-async function queueAutomationExecution(config, job, deps = {}) {
-  const dispatch = buildUpkeepDispatch(job);
+function parseNonNegativeCount(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.trunc(numeric);
+}
+
+// Resolves the dispatch (and therefore the count-based on-chain request_id) for a
+// job's NEXT logical execution, while detecting a reclaim of an execution that was
+// already advanced+pinned before a crash.
+//
+// Durability invariant: the on-chain request_id is derived from
+// (automation_id, execution_count). To make execution dedup DURABLE rather than
+// solely process-local, the claim advances execution_count and pins
+// last_queued_request_id ATOMICALLY (see processAutomationJobs). So once a logical
+// execution N is claimed, the durable row carries execution_count=N and
+// last_queued_request_id=id(N).
+//
+// - Fresh claim: row.last_queued_request_id != id(row.execution_count + 1), so the
+//   next execution is (count + 1); the claim must advance the row.
+// - Reclaim after a crashed broadcast: the row was already advanced to count=N with
+//   last_queued_request_id=id(N) AND left mid-flight (status=processing / paused
+//   claim marker — the finalize patch never ran). Re-deriving the dispatch off the
+//   row would mint id(N+1) and double-queue. Instead we re-derive the SAME execution
+//   (count N-1 as the base so next_execution_count=N, request_id=id(N)) and DO NOT
+//   advance again.
+//
+// The mid-flight status is the discriminator: a FINALIZED row is also at count=N
+// with last_queued_request_id=id(N) but has status back to active/completed, so a
+// later due tick must advance to N+1 — not be mistaken for a reclaim.
+function isReclaimableInflightStatus(job) {
+  const status = trimString(job.status || '');
+  if (status === 'processing') return true;
+  return status === 'paused' && trimString(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER;
+}
+
+function resolveAutomationExecutionDispatch(job) {
+  const currentCount = parseNonNegativeCount(job.execution_count || job.executionCount);
+  const pinnedRequestId = trimString(job.last_queued_request_id || '');
+  // The id this row would mint if its current count were the just-claimed (but not
+  // yet finalized) execution (i.e. the row was already advanced for it).
+  const advancedDispatch = buildUpkeepDispatch({ ...job, execution_count: currentCount - 1 });
+  if (
+    isReclaimableInflightStatus(job) &&
+    currentCount > 0 &&
+    pinnedRequestId &&
+    pinnedRequestId === advancedDispatch.request_id
+  ) {
+    return { dispatch: advancedDispatch, alreadyAdvanced: true };
+  }
+  // Fresh execution: advance from the current count.
+  return { dispatch: buildUpkeepDispatch(job), alreadyAdvanced: false };
+}
+
+// The dispatch is resolved ONCE at claim time (resolveAutomationExecutionDispatch)
+// and threaded through here so the on-chain request_id is pinned before broadcast
+// and never re-derived off the already-advanced row (which would mint the NEXT id).
+async function queueAutomationExecution(config, job, dispatch, deps = {}) {
   const payloadText = stringifyExecutionPayload(
-    buildUpkeepExecutionPayload(job.execution_payload || {}, dispatch)
+    buildUpkeepExecutionPayload(job.execution_payload || {}, {
+      ...job,
+      execution_count: dispatch.execution_count,
+      request_id: dispatch.request_id,
+    })
   );
   const queueNeoN3 = deps.queueNeoN3AutomationRequest || queueNeoN3AutomationRequest;
   if (job.chain !== 'neo_n3') {
@@ -592,6 +667,14 @@ export async function processAutomationJobs(config, logger, deps = {}) {
   for (const job of jobs) {
     if (queued >= config.automation.maxQueuedPerTick) break;
 
+    // Set once the durable claim has advanced+pinned the execution and we are about
+    // to (or did) broadcast. If the broadcast then fails non-terminally, the catch
+    // keeps the row in the stale-reclaim lane (status=processing) so the SAME pinned
+    // request_id is retried — never a fresh second logical execution. This unifies a
+    // broadcast that crashes (no catch runs) with one that throws a false-negative
+    // timeout after the tx may already have landed on-chain.
+    let inFlightExecution = null;
+
     try {
       const jobStatus = trimString(job.status || '');
       const isRecoverableClaim =
@@ -608,25 +691,54 @@ export async function processAutomationJobs(config, logger, deps = {}) {
         continue;
       }
 
-      const claimedJob = await claimJob(
-        schedulableJob.automation_id,
-        {
-          status: 'processing',
-          last_error: null,
-        },
-        {
-          dueAtIso,
-          staleBeforeIso,
-        }
-      );
+      // Advance execution_count and pin last_queued_request_id ATOMICALLY as part
+      // of the durable claim so execution dedup survives a relayer crash/restart and
+      // does not rely on the process-local fast-path cache as the source of truth.
+      // For a fresh claim, the single winning conditional PATCH advances the count
+      // and pins the count-based request_id; a concurrent duplicate claim finds the
+      // row already advanced (status no longer matches active/stale-processing) and
+      // returns null → no-op. For a reclaim of an already-advanced execution (crash
+      // after broadcast), the dispatch re-derives the SAME id and the claim keeps the
+      // pinned values (no second logical execution).
+      // Reclaim detection needs the ORIGINAL durable status (processing / paused
+      // claim marker), which schedulableJob has normalized to 'active'.
+      const { dispatch: claimDispatch, alreadyAdvanced } = resolveAutomationExecutionDispatch({
+        ...schedulableJob,
+        status: job.status,
+        last_error: job.last_error,
+      });
+      const claimFields = {
+        status: 'processing',
+        last_error: null,
+      };
+      if (!alreadyAdvanced) {
+        claimFields.execution_count = claimDispatch.next_execution_count;
+        claimFields.last_queued_request_id = claimDispatch.request_id;
+      }
+      const claimedJob = await claimJob(schedulableJob.automation_id, claimFields, {
+        dueAtIso,
+        staleBeforeIso,
+      });
       if (!claimedJob) {
         skipped += 1;
         continue;
       }
 
-      const executionJob = { ...schedulableJob, ...claimedJob, status: 'active' };
-      const queuedTx = await queueAutomationExecution(config, executionJob, deps);
-      const dispatch = queuedTx?.dispatch || buildUpkeepDispatch(executionJob);
+      // The claimed row is the durable source of truth for the pinned execution:
+      // its execution_count is already advanced and last_queued_request_id holds the
+      // count-based id, so queueAutomationExecution re-derives the same request_id.
+      const executionJob = {
+        ...schedulableJob,
+        ...claimedJob,
+        execution_count: claimDispatch.next_execution_count,
+        last_queued_request_id: claimDispatch.request_id,
+        status: 'active',
+      };
+      // From here the execution is durably pinned (count advanced, request_id set).
+      // A failure after this point must retry the SAME execution, not mint a new one.
+      inFlightExecution = { request_id: claimDispatch.request_id };
+      const queuedTx = await queueAutomationExecution(config, executionJob, claimDispatch, deps);
+      const dispatch = queuedTx?.dispatch || claimDispatch;
       const queuedRequestId = queuedTx?.request_id || dispatch.request_id;
       const queueTxRecord = buildQueuedAutomationTxRecord(queuedTx, dispatch);
 
@@ -666,7 +778,7 @@ export async function processAutomationJobs(config, logger, deps = {}) {
       queued += 1;
     } catch (error) {
       failed += 1;
-      const failure = classifyAutomationExecutionFailure(error);
+      const failure = classifyAutomationExecutionFailure(error, { inFlightExecution });
       await patchJob(job.automation_id, failure.patch).catch(() => undefined);
       await recordRun({
         automation_id: job.automation_id,
