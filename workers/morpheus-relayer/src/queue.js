@@ -22,7 +22,7 @@ import {
   upsertRelayerJob,
 } from './persistence.js';
 import { getRequestCursorFloor } from './chain-cursor.js';
-import { parseTimestampMs } from '@neo-morpheus-oracle/shared/utils';
+import { mapWithConcurrency, parseTimestampMs } from '@neo-morpheus-oracle/shared/utils';
 
 export function createPersistor(config, state) {
   const minIntervalMs = Math.max(Number(config.statePersistMinIntervalMs || 0), 0);
@@ -541,22 +541,4 @@ export async function quarantineDurableBacklogBelowRequestFloor(config, logger, 
     );
   }
   return patched;
-}
-
-async function mapWithConcurrency(items, limit, worker) {
-  const results = new Array(items.length);
-  let cursor = 0;
-
-  async function runWorker() {
-    while (true) {
-      const index = cursor;
-      cursor += 1;
-      if (index >= items.length) return;
-      results[index] = await worker(items[index], index);
-    }
-  }
-
-  const width = Math.max(Math.min(limit, items.length), 1);
-  await Promise.all(Array.from({ length: width }, () => runWorker()));
-  return results;
 }

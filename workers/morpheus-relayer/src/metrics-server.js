@@ -2,10 +2,7 @@ import http from 'node:http';
 
 import { renderPrometheusMetrics } from './prometheus.js';
 import { loadRelayerState, snapshotMetrics } from './state.js';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib/strings.js';
 
 function buildMetricsPayload(stateFile) {
   return renderPrometheusMetrics(snapshotMetrics(loadRelayerState(stateFile)));

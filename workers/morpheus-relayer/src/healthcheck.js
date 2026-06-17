@@ -1,9 +1,6 @@
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib/strings.js';
 
 export function checkRelayerStateFreshness({
   stateFile = process.env.MORPHEUS_RELAYER_STATE_FILE,

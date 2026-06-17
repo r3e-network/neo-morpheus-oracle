@@ -1,4 +1,5 @@
 import { enqueueBetterStackLog } from './betterstack-log-sink.js';
+import { trimString } from './lib/strings.js';
 
 const LEVEL_PRIORITY = {
   debug: 10,
@@ -6,10 +7,6 @@ const LEVEL_PRIORITY = {
   warn: 30,
   error: 40,
 };
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 // Scrub URLs (and any credentials embedded in authenticated RPC/DB URLs) from text that
 // egresses to the external log sink (BetterStack). The on-chain error path is already

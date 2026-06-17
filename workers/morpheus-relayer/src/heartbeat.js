@@ -1,6 +1,4 @@
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib/strings.js';
 
 function resolveTimeoutMs() {
   const configured = Number(process.env.MORPHEUS_HEARTBEAT_TIMEOUT_MS || '');

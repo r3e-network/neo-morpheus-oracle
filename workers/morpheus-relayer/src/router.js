@@ -1,11 +1,8 @@
 import { createHash } from 'node:crypto';
+import { trimString } from './lib/strings.js';
 // Neo N3 contract uses the v1 kernel domain with the full envelope (appId, moduleId, operation).
 const FULFILLMENT_SIGNATURE_DOMAIN_N3 = Buffer.from('miniapp-os-fulfillment-v1', 'utf8');
 const FULFILLMENT_SIGNATURE_DOMAIN_LEGACY = Buffer.from('morpheus-fulfillment-v2', 'utf8');
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function strip0x(value) {
   return trimString(value).replace(/^0x/i, '');

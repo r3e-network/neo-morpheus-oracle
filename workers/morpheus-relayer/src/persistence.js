@@ -1,10 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { resolveKernelIntent } from './router.js';
 import { buildRiskEventRecord, buildWorkflowExecutionRecord } from './workflow-persistence.js';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib/strings.js';
 
 function sha256Hex(value) {
   return createHash('sha256')

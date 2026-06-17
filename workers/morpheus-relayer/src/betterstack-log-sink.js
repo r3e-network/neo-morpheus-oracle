@@ -1,3 +1,5 @@
+import { trimString } from './lib/strings.js';
+
 const queue = [];
 let flushTimer = null;
 let inFlight = false;
@@ -27,10 +29,6 @@ export function clearLogSinkQueueForTests() {
   inFlight = false;
   queueLocked = false;
   droppedTotal = 0;
-}
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function isErrorLevelRecord(record) {

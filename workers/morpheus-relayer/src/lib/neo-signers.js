@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { wallet } from '@cityofzion/neon-js';
+import { trimString } from './strings.js';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '../../../../');
@@ -191,10 +192,6 @@ const ROLE_KEY_GROUPS = {
     },
   },
 };
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 export function normalizeMorpheusNetwork(value) {
   return trimString(value || 'testnet').toLowerCase() === 'mainnet' ? 'mainnet' : 'testnet';

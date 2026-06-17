@@ -20,6 +20,7 @@ import {
   resolveChainFromBlock,
   pruneRetryQueueBelowRequestFloor,
 } from './chain-cursor.js';
+import { mapWithConcurrency } from '@neo-morpheus-oracle/shared/utils';
 
 // Process due retry-queue items under the backpressure cap. Shared by every
 // chain-processing branch so maxRetryEventsPerTick (and its skip metric) apply
@@ -357,22 +358,4 @@ export function resolveRequestCursor(config, state, chain, latestRequestId, logg
 
 function optionsSafeNumber(value) {
   return value === null || value === undefined || value === '' ? null : Number(value);
-}
-
-async function mapWithConcurrency(items, limit, worker) {
-  const results = new Array(items.length);
-  let cursor = 0;
-
-  async function runWorker() {
-    while (true) {
-      const index = cursor;
-      cursor += 1;
-      if (index >= items.length) return;
-      results[index] = await worker(items[index], index);
-    }
-  }
-
-  const width = Math.max(Math.min(limit, items.length), 1);
-  await Promise.all(Array.from({ length: width }, () => runWorker()));
-  return results;
 }

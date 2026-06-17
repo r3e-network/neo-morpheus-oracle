@@ -1,6 +1,4 @@
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib/strings.js';
 
 function parseNonNegativeInteger(value) {
   const numeric = Number(value);

@@ -4,10 +4,7 @@ import { experimental, sc, tx, u, wallet as neonWallet } from '@cityofzion/neon-
 import { mapWithConcurrency } from '@neo-morpheus-oracle/shared/utils';
 import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './nitro-signer.js';
 import { callNitro } from './nitro.js';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib/strings.js';
 
 // Identifier hygiene: event identifier fields must carry the on-chain bytes
 // VERBATIM (no trimming) so fulfillment digests reproduce exactly what the

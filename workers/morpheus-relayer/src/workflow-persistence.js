@@ -1,8 +1,5 @@
 import { RESULT_ENVELOPE_VERSION } from '../../../packages/shared/src/workflow-catalog.js';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib/strings.js';
 
 function normalizeNetwork(value) {
   return trimString(value) === 'mainnet' ? 'mainnet' : 'testnet';
