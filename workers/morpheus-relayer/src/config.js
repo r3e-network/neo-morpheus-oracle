@@ -192,6 +192,15 @@ function loadJsonFile(filePath) {
   }
 }
 
+function loadFileIfReadable(filePath) {
+  if (!filePath) return '';
+  try {
+    return fs.readFileSync(filePath, 'utf8').trim();
+  } catch {
+    return '';
+  }
+}
+
 function resolveNetworkName() {
   return env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet';
 }
@@ -454,6 +463,33 @@ export function createRelayerConfig() {
         trimString(env('MORPHEUS_RELAYER_ENCLAVE_FULFILL_URL')) ||
         trimString(env('NITRO_SIGNER_URL', 'MORPHEUS_SIGNER_URL')) ||
         resolveNitroApiUrls(network, registry),
+      // Enclave-ONLY endpoint for the confidential /oracle/decrypt (and any future
+      // key/sign) lane. Confidential decryption MUST happen inside the measured
+      // enclave; it must NEVER fail over to a public/edge endpoint (that would
+      // perform decryption off the attested boundary and leak plaintext). It is
+      // resolved from the EXPLICIT enclave/signer URLs (not the public-fallback-laden
+      // apiUrl): a dedicated decrypt URL, then the enclave-fulfill URL, then the
+      // signer URL. Only when NONE of those are explicitly configured does it fall
+      // back to the worker apiUrl (single-endpoint deployments where the apiUrl IS the
+      // enclave); the decrypt call always runs with failover DISABLED so only this
+      // first enclave URL is ever contacted (fail closed if unreachable).
+      decryptUrl:
+        trimString(env('MORPHEUS_RELAYER_ENCLAVE_DECRYPT_URL', 'MORPHEUS_DECRYPT_URL')) ||
+        trimString(env('MORPHEUS_RELAYER_ENCLAVE_FULFILL_URL')) ||
+        trimString(env('NITRO_SIGNER_URL', 'MORPHEUS_SIGNER_URL')) ||
+        resolveNitroApiUrls(network, registry),
+      // PEM of the pinned AWS Nitro Enclaves attestation ROOT certificate. When set,
+      // the relayer best-effort verifies the COSE_Sign1 ES384 signature and the
+      // certificate chain of an enclave attestation document up to this root. When
+      // unset, signature/chain verification is skipped (the digest+PCR0 binding check
+      // still runs) so pre-cutover deployments keep fulfilling.
+      nitroRootCertPem:
+        trimString(env('MORPHEUS_NITRO_ROOT_CERT_PEM')) ||
+        loadFileIfReadable(trimString(env('MORPHEUS_NITRO_ROOT_CERT_PATH'))),
+      // Maximum age (ms) of an attestation document's echoed timestamp before it is
+      // considered stale (replay protection). 0/unset disables the timestamp-age gate
+      // (the nonce-echo binding is the primary anti-replay control). Defaults to 0.
+      attestationMaxAgeMs: Math.max(Number(env('MORPHEUS_ATTESTATION_MAX_AGE_MS') || 0), 0),
       token: env(
         'MORPHEUS_RUNTIME_TOKEN',
         'NITRO_API_TOKEN',

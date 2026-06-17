@@ -361,18 +361,166 @@ function cborRead(buf, offset) {
   }
 }
 
-function decodeCoseSign1Payload(coseBuffer) {
+function decodeCoseSign1(coseBuffer) {
   const { value: cose } = cborRead(coseBuffer, 0);
   if (!Array.isArray(cose) || cose.length !== 4) {
     throw new Error('cose: not a 4-element COSE_Sign1');
   }
-  const payloadBytes = cose[2];
+  const [protectedHeaderBytes, , payloadBytes, signature] = cose;
   if (!Buffer.isBuffer(payloadBytes)) throw new Error('cose: payload is not a byte string');
   const { value: payload } = cborRead(payloadBytes, 0);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     throw new Error('cose: payload is not a map');
   }
-  return payload;
+  return {
+    protectedHeaderBytes: Buffer.isBuffer(protectedHeaderBytes)
+      ? protectedHeaderBytes
+      : Buffer.alloc(0),
+    payloadBytes,
+    payload,
+    signature: Buffer.isBuffer(signature) ? signature : Buffer.alloc(0),
+  };
+}
+
+// Build the COSE Sig_structure for a COSE_Sign1 (RFC 8152 §4.4):
+//   Sig_structure = [ "Signature1", body_protected(bstr), external_aad(bstr ""), payload(bstr) ]
+// This is the exact byte string the enclave's ES384 signature is computed over.
+function buildCoseSign1SigStructure(protectedHeaderBytes, payloadBytes) {
+  return cborEncodeSigStructure([
+    'Signature1',
+    protectedHeaderBytes,
+    Buffer.alloc(0),
+    payloadBytes,
+  ]);
+}
+
+// Minimal deterministic CBOR encoder for the 4-element Sig_structure array (text
+// string + three byte strings). Self-contained so no CBOR/COSE library is bundled.
+function cborEncodeSigStructure(items) {
+  const head = (major, len) => {
+    if (len < 24) return Buffer.from([(major << 5) | len]);
+    if (len < 256) return Buffer.from([(major << 5) | 24, len]);
+    if (len < 65536) return Buffer.from([(major << 5) | 25, (len >> 8) & 0xff, len & 0xff]);
+    const b = Buffer.alloc(5);
+    b[0] = (major << 5) | 26;
+    b.writeUInt32BE(len, 1);
+    return b;
+  };
+  const parts = [head(4, items.length)];
+  for (const item of items) {
+    if (typeof item === 'string') {
+      const b = Buffer.from(item, 'utf8');
+      parts.push(head(3, b.length), b);
+    } else {
+      const b = Buffer.isBuffer(item) ? item : Buffer.from(item || []);
+      parts.push(head(2, b.length), b);
+    }
+  }
+  return Buffer.concat(parts);
+}
+
+// Convert a 96-byte COSE raw (r||s) ES384 signature into the DER-encoded ECDSA
+// signature Node's crypto.verify expects. Returns null if the input is not a
+// 96-byte raw signature (e.g. a placeholder), so the caller treats it as
+// unverifiable rather than throwing.
+function coseEs384SignatureToDer(rawSignature) {
+  if (!Buffer.isBuffer(rawSignature) || rawSignature.length !== 96) return null;
+  const encodeInt = (bytes) => {
+    let i = 0;
+    while (i < bytes.length - 1 && bytes[i] === 0) i += 1;
+    let trimmed = bytes.subarray(i);
+    if (trimmed[0] & 0x80) trimmed = Buffer.concat([Buffer.from([0]), trimmed]);
+    return Buffer.concat([Buffer.from([0x02, trimmed.length]), trimmed]);
+  };
+  const r = encodeInt(rawSignature.subarray(0, 48));
+  const s = encodeInt(rawSignature.subarray(48, 96));
+  const body = Buffer.concat([r, s]);
+  return Buffer.concat([Buffer.from([0x30, body.length]), body]);
+}
+
+// The AWS Nitro attestation certificate chain (cabundle + leaf) lives in the COSE
+// payload map: `certificate` (leaf, DER bstr) and `cabundle` (array of DER bstr,
+// root-first). Return the chain leaf-first as DER buffers, or null when absent.
+function extractAttestationCertChain(payload) {
+  const leaf = payload.certificate;
+  const cabundle = Array.isArray(payload.cabundle) ? payload.cabundle : [];
+  if (!Buffer.isBuffer(leaf)) return null;
+  const intermediates = cabundle.filter(Buffer.isBuffer);
+  return { leaf, intermediates };
+}
+
+// Best-effort COSE_Sign1 ES384 signature + certificate-chain verification against a
+// pinned AWS Nitro root certificate. Returns one of:
+//   { verified: true }                     — signature + chain to the pinned root OK
+//   { verified: false, checked: false }    — not checkable (no root pinned / no cert
+//                                            / placeholder signature) — caller does
+//                                            NOT treat this as attested but does NOT
+//                                            hard-fail (backward compatible)
+//   throws                                 — a real, checkable signature/chain that
+//                                            FAILS verification (forged document)
+function verifyCoseSign1Crypto(rootCertPem, cose, payload) {
+  if (!trimString(rootCertPem)) return { verified: false, checked: false };
+  const chain = extractAttestationCertChain(payload);
+  if (!chain) return { verified: false, checked: false };
+  const der = coseEs384SignatureToDer(cose.signature);
+  if (!der) return { verified: false, checked: false };
+
+  let leafCert;
+  let rootCert;
+  let intermediateCerts;
+  try {
+    const { X509Certificate } = crypto;
+    leafCert = new X509Certificate(chain.leaf);
+    rootCert = new X509Certificate(rootCertPem);
+    intermediateCerts = chain.intermediates.map((der509) => new X509Certificate(der509));
+  } catch {
+    // Malformed certs in a doc we were ASKED to verify (root pinned) is a hard fail.
+    throw new Error(
+      'invalid signature: enclave attestation certificate chain is malformed — refusing to submit'
+    );
+  }
+
+  // Chain validation: each cert must be issued by the next; the top must chain to
+  // the pinned root. AWS publishes the chain root-first in cabundle, leaf separate.
+  const ordered = [leafCert, ...intermediateCerts.slice().reverse()];
+  for (let i = 0; i < ordered.length; i += 1) {
+    const issuer = ordered[i + 1] || rootCert;
+    if (!ordered[i].verify(issuer.publicKey)) {
+      throw new Error(
+        'invalid signature: enclave attestation certificate chain does not verify to the pinned ' +
+          'AWS Nitro root — refusing to submit'
+      );
+    }
+  }
+  // The top intermediate (or the leaf, if no intermediates) must chain to the root.
+  const topCert = ordered[ordered.length - 1];
+  if (topCert !== rootCert && !topCert.verify(rootCert.publicKey)) {
+    throw new Error(
+      'invalid signature: enclave attestation certificate chain does not verify to the pinned ' +
+        'AWS Nitro root — refusing to submit'
+    );
+  }
+
+  // COSE_Sign1 signature over the Sig_structure using the LEAF cert's P-384 key.
+  const sigStructure = buildCoseSign1SigStructure(cose.protectedHeaderBytes, cose.payloadBytes);
+  let ok = false;
+  try {
+    ok = crypto.verify(
+      'sha384',
+      sigStructure,
+      { key: leafCert.publicKey, dsaEncoding: 'der' },
+      der
+    );
+  } catch {
+    ok = false;
+  }
+  if (!ok) {
+    throw new Error(
+      'invalid signature: enclave attestation COSE_Sign1 ES384 signature does not verify against ' +
+        'the leaf certificate — refusing to submit'
+    );
+  }
+  return { verified: true, checked: true };
 }
 
 // The PCR0 the live enclave is pinned to. Sourced from MORPHEUS_EXPECTED_PCR0 (or
@@ -411,14 +559,39 @@ export function enclaveSignatureVerificationEnabled(config) {
  * one is pinned) is a HARD failure — the caller treats it like a digest mismatch
  * and refuses to submit.
  */
-export function verifyEnclaveAttestation(config, body, localDigestHex) {
+// Pinned AWS Nitro attestation ROOT certificate (PEM). When set, the relayer
+// best-effort verifies the COSE_Sign1 ES384 signature + the document's certificate
+// chain up to this root. Sourced from config.nitro.nitroRootCertPem or
+// MORPHEUS_NITRO_ROOT_CERT_PEM. Unset = crypto verification skipped (binding+PCR0
+// still enforced) so pre-cutover deployments keep fulfilling.
+export function resolveNitroRootCertPem(config) {
+  return (
+    trimString(config?.nitro?.nitroRootCertPem || '') ||
+    trimString(process.env.MORPHEUS_NITRO_ROOT_CERT_PEM || '')
+  );
+}
+
+// Maximum accepted age (ms) of an attestation document's echoed timestamp. 0 (the
+// default) disables the timestamp-age gate; the nonce-echo binding is the primary
+// anti-replay control. Sourced from config.nitro.attestationMaxAgeMs or
+// MORPHEUS_ATTESTATION_MAX_AGE_MS.
+export function resolveAttestationMaxAgeMs(config) {
+  const fromConfig = Number(config?.nitro?.attestationMaxAgeMs);
+  if (Number.isFinite(fromConfig) && fromConfig > 0) return fromConfig;
+  const fromEnv = Number(process.env.MORPHEUS_ATTESTATION_MAX_AGE_MS || 0);
+  return Number.isFinite(fromEnv) && fromEnv > 0 ? fromEnv : 0;
+}
+
+export function verifyEnclaveAttestation(config, body, localDigestHex, options = {}) {
   const docBase64 = trimString(body?.attestation_doc_base64 || '');
   if (!docBase64) {
     return { attested: false, reason: 'no attestation document', pcr0: '' };
   }
+  let cose;
   let payload;
   try {
-    payload = decodeCoseSign1Payload(Buffer.from(docBase64, 'base64'));
+    cose = decodeCoseSign1(Buffer.from(docBase64, 'base64'));
+    payload = cose.payload;
   } catch (error) {
     return {
       attested: false,
@@ -446,6 +619,55 @@ export function verifyEnclaveAttestation(config, body, localDigestHex) {
     return { attested: false, reason: 'attestation document has no user_data binding', pcr0: '' };
   }
 
+  // FRESHNESS / ANTI-REPLAY (a): when the relayer supplied a per-request nonce AND the
+  // document carries a nonce, the document MUST echo that exact nonce. A
+  // captured-but-genuine document for the same digest carries a DIFFERENT (older)
+  // nonce, so a mismatch is a replay attempt — hard fail. Backward compatibility: a
+  // pre-cutover enclave image that does NOT echo a nonce leaves the doc nonce empty;
+  // we cannot prove freshness then, so the nonce-echo gate stays inert (the
+  // digest+PCR0 binding below still applies). Once the enclave echoes nonces, a
+  // replayed doc (wrong nonce) is rejected.
+  const expectedNonce = normalizePublicKey(options.expectedNonce || '');
+  const docNonce = Buffer.isBuffer(payload.nonce)
+    ? payload.nonce.toString('hex')
+    : normalizePublicKey(payload.nonce || '');
+  if (expectedNonce && docNonce && docNonce !== expectedNonce) {
+    throw new Error(
+      'invalid signature: enclave attestation nonce does not echo the relayer-supplied nonce ' +
+        `(doc=${docNonce} expected=${expectedNonce}) — refusing to submit (possible replay)`
+    );
+  }
+
+  // FRESHNESS / ANTI-REPLAY (a, timestamp): when a max-age is configured AND the
+  // document carries a timestamp, reject a document whose timestamp is older than the
+  // window (stale/replayed). NSM timestamps are epoch milliseconds. A future-dated
+  // doc beyond a small skew is also rejected. No timestamp / no max-age => inert.
+  const maxAgeMs = resolveAttestationMaxAgeMs(config);
+  if (maxAgeMs > 0) {
+    const docTimestampMs = Number(payload.timestamp);
+    if (Number.isFinite(docTimestampMs) && docTimestampMs > 0) {
+      const now = Number.isFinite(Number(options.now)) ? Number(options.now) : Date.now();
+      const ageMs = now - docTimestampMs;
+      const FUTURE_SKEW_MS = 60_000;
+      if (ageMs > maxAgeMs || ageMs < -FUTURE_SKEW_MS) {
+        throw new Error(
+          'invalid signature: enclave attestation timestamp is outside the freshness window ' +
+            `(age_ms=${ageMs} max_ms=${maxAgeMs}) — refusing to submit (possible replay)`
+        );
+      }
+    }
+  }
+
+  // COSE_Sign1 signature + certificate-chain verification (b): best-effort. When a
+  // pinned AWS Nitro root cert is configured AND the document carries a real
+  // certificate chain + a 96-byte ES384 signature, verify the COSE_Sign1 signature
+  // and the chain up to the pinned root. A document that FAILS this crypto check is
+  // NOT attested — it is a forged/tampered structure and a hard failure (throw). When
+  // no root is pinned / no cert chain present / placeholder signature, the check is a
+  // no-op (binding + PCR0 still enforced below) so pre-cutover deployments keep
+  // fulfilling.
+  const cryptoResult = verifyCoseSign1Crypto(resolveNitroRootCertPem(config), cose, payload);
+
   // PCR0 binding: the document must come from the pinned measured image. When a
   // PCR0 is configured we ASSERT it (a mismatch is a hard failure — wrong/forged
   // image). When none is configured we cannot prove the image, so we do not claim
@@ -462,13 +684,21 @@ export function verifyEnclaveAttestation(config, body, localDigestHex) {
           `(doc=${docPcr0 || 'missing'} expected=${expectedPcr0}) — refusing to submit`
       );
     }
-    return { attested: true, reason: 'attested (digest + PCR0 verified)', pcr0: docPcr0 };
+    return {
+      attested: true,
+      reason: cryptoResult.verified
+        ? 'attested (digest + PCR0 + COSE signature/chain verified)'
+        : 'attested (digest + PCR0 verified)',
+      pcr0: docPcr0,
+      cose_verified: Boolean(cryptoResult.verified),
+    };
   }
   // Digest binding verified, but PCR0 not pinned -> cannot prove the measured image.
   return {
     attested: false,
     reason: 'attestation digest verified but no MORPHEUS_EXPECTED_PCR0 pinned',
     pcr0: docPcr0,
+    cose_verified: Boolean(cryptoResult.verified),
   };
 }
 
@@ -688,6 +918,11 @@ function buildEnclaveFulfillmentContext(config, chain, event, fulfillmentContext
 // fulfillment_digest_hex, trust_tier} and asserts the returned digest equals the
 // relayer's own recomputation before the caller submits.
 async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payload, _kernelIntent) {
+  // Per-request freshness nonce: the enclave echoes it back inside the attestation
+  // document so the relayer can prove the doc was produced FOR THIS request (not a
+  // captured/replayed genuine doc for the same digest). Captured here so it can be
+  // passed to verifyEnclaveAttestation as the expectedNonce.
+  const requestNonce = crypto.randomBytes(16).toString('hex');
   const enclavePayload = {
     chain,
     request_type: event.requestType,
@@ -702,7 +937,7 @@ async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payl
     // (the enclave reads it the same way the host /oracle/decrypt branch does).
     payload_text: event.payloadText || '',
     fulfillment_context: buildEnclaveFulfillmentContext(config, chain, event, fulfillmentContext),
-    nonce: crypto.randomBytes(16).toString('hex'),
+    nonce: requestNonce,
   };
 
   const response = await callNitro(config, '/oracle/fulfill', enclavePayload, {
@@ -778,7 +1013,9 @@ async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payl
   // absent or cannot be proven (no doc / no pinned PCR0 yet), the result is treated
   // as NOT enclave-attested: trust_tier is downgraded but the lane still submits so
   // the current deployment keeps fulfilling.
-  const attestation = verifyEnclaveAttestation(config, body, localDigest);
+  const attestation = verifyEnclaveAttestation(config, body, localDigest, {
+    expectedNonce: requestNonce,
+  });
   const trustTier = attestation.attested ? TRUST_TIER_ENCLAVE_ATTESTED : TRUST_TIER_HOST_UNATTESTED;
 
   return {
@@ -1246,10 +1483,17 @@ async function prepareOracleFulfillment(config, event, logger = null) {
     // ciphertext. Fields are derived from the event/decoded payload; when a
     // message_id is genuinely unavailable (legacy events) only the envelope is
     // sent, and the worker's binding gate stays inert for that request.
+    // ENCLAVE-ONLY decrypt lane: confidential decryption must happen INSIDE the
+    // measured enclave. Pin the call to the enclave-only decrypt URL and DISABLE
+    // failover so it can never fall over to a public/edge/off-TEE endpoint (which
+    // would decrypt outside the attested boundary and leak plaintext). If the
+    // enclave is unreachable, callNitro throws (fail closed) and the request is
+    // retried as a transient failure — it is never silently routed off-TEE.
     const decResponse = await callNitro(
       config,
       '/oracle/decrypt',
-      buildDecryptBindingRequest(config, event, payload, envelope)
+      buildDecryptBindingRequest(config, event, payload, envelope),
+      { baseUrl: config.nitro.decryptUrl || config.nitro.signerUrl, allowFallback: false }
     );
     // A transient decrypt-worker HTTP failure (5xx/429/408/425/0 — enclave
     // overload, rate limit, connectivity blip) must be retried, never finalized

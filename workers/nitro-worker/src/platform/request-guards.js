@@ -68,7 +68,7 @@ function extractTrustedAuthToken(request) {
 
 // The rate-limit bypass must be gated on a credential that is SEPARATE from the
 // service signing/auth tokens (MORPHEUS_RUNTIME_TOKEN / NITRO_API_TOKEN /
-// PHALA_API_TOKEN / *_SHARED_SECRET). Those tokens authorize signing; reusing
+// NITRO_SHARED_SECRET). Those tokens authorize signing; reusing
 // them to also grant unlimited rate means a single leaked signing token both
 // signs AND removes the abuse ceiling. The bypass therefore requires its own
 // dedicated token(s) — if none are configured, there is no bypass (fail closed),

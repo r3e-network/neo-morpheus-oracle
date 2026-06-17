@@ -50,12 +50,13 @@ export const appConfig = {
   // Server-only env names exclusively: a NEXT_PUBLIC_* fallback here would
   // invite operators to configure the runtime bearer secret as a value that
   // Next.js inlines into public client bundles.
+  // PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally dropped: those Phala
+  // credentials were revoked when the runtime migrated off Phala. Only the
+  // current MORPHEUS_*/NITRO_* runtime tokens are accepted.
   nitroToken:
     trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '') ||
     trimString(process.env.NITRO_API_TOKEN || '') ||
-    trimString(process.env.PHALA_API_TOKEN || '') ||
     trimString(process.env.NITRO_SHARED_SECRET || '') ||
-    trimString(process.env.PHALA_SHARED_SECRET || '') ||
     '',
   controlPlaneUrl:
     process.env.MORPHEUS_CONTROL_PLANE_URL ||
@@ -67,9 +68,7 @@ export const appConfig = {
     process.env.MORPHEUS_OPERATOR_API_KEY ||
     process.env.ADMIN_CONSOLE_API_KEY ||
     process.env.NITRO_API_TOKEN ||
-    process.env.PHALA_API_TOKEN ||
     process.env.NITRO_SHARED_SECRET ||
-    process.env.PHALA_SHARED_SECRET ||
     '',
   feedProjectSlug: process.env.MORPHEUS_FEED_PROJECT_SLUG || 'morpheus',
   feedProvider: process.env.MORPHEUS_FEED_PROVIDER || 'twelvedata',

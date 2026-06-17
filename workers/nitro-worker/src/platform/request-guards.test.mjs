@@ -193,7 +193,7 @@ test('applyRequestGuards does NOT bypass rate limiting for a signing/auth token'
   process.env.UPSTASH_REDIS_REST_TOKEN = 'token';
   process.env.MORPHEUS_UPSTASH_GUARDS_ENABLED = 'true';
   // A leaked signing/auth token must NOT also remove the abuse ceiling.
-  process.env.PHALA_API_TOKEN = 'signing-token';
+  process.env.MORPHEUS_RUNTIME_TOKEN = 'signing-token';
   delete process.env.MORPHEUS_RATE_LIMIT_BYPASS_TOKEN;
   process.env.MORPHEUS_RATE_LIMIT_PAYMASTER_AUTHORIZE_MAX = '1';
 

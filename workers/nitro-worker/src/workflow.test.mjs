@@ -15,8 +15,7 @@ import assert from 'node:assert/strict';
 // ---------------------------------------------------------------------------
 const originalFetch = global.fetch;
 
-process.env.PHALA_SHARED_SECRET = 'workflow-test-secret';
-process.env.PHALA_API_TOKEN = 'workflow-test-secret';
+process.env.MORPHEUS_RUNTIME_TOKEN = 'workflow-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';

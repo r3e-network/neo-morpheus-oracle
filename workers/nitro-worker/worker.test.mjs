@@ -8,8 +8,7 @@ import { rpc as neoRpc, wallet as neoWallet } from '@cityofzion/neon-js';
 import { exportJWK, SignJWT } from 'jose';
 
 const originalFetch = global.fetch;
-const originalPhalaToken = process.env.PHALA_SHARED_SECRET;
-const originalPhalaApiToken = process.env.PHALA_API_TOKEN;
+const originalRuntimeToken = process.env.MORPHEUS_RUNTIME_TOKEN;
 const originalNeoN3Key = process.env.PHALA_NEO_N3_PRIVATE_KEY;
 const originalNeoRpc = process.env.NEO_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
@@ -27,8 +26,7 @@ const originalNextPublicWeb3AuthClientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIE
 const originalWeb3AuthJwksUrl = process.env.WEB3AUTH_JWKS_URL;
 const originalAllowUnpinnedSigners = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
 
-process.env.PHALA_SHARED_SECRET = 'worker-test-secret';
-process.env.PHALA_API_TOKEN = 'worker-test-secret';
+process.env.MORPHEUS_RUNTIME_TOKEN = 'worker-test-secret';
 process.env.PHALA_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
@@ -52,8 +50,7 @@ delete process.env.WEB3AUTH_JWKS_URL;
 // Keep unit tests hermetic even when a developer machine has real Morpheus/Neo secrets exported.
 // These secrets can change default validation behavior or trigger pinned-signer drift checks.
 const WORKER_TEST_ENV_KEEP = new Set([
-  'PHALA_SHARED_SECRET',
-  'PHALA_API_TOKEN',
+  'MORPHEUS_RUNTIME_TOKEN',
   'PHALA_NEO_N3_PRIVATE_KEY',
   'NEO_RPC_URL',
   'EVM_RPC_URL',
@@ -1290,8 +1287,11 @@ test('encrypted_params_ref is idempotent for the same request_id but rejects rep
 
 test.after(() => {
   global.fetch = originalFetch;
-  process.env.PHALA_SHARED_SECRET = originalPhalaToken;
-  process.env.PHALA_API_TOKEN = originalPhalaApiToken;
+  if (originalRuntimeToken === undefined) {
+    delete process.env.MORPHEUS_RUNTIME_TOKEN;
+  } else {
+    process.env.MORPHEUS_RUNTIME_TOKEN = originalRuntimeToken;
+  }
   process.env.PHALA_NEO_N3_PRIVATE_KEY = originalNeoN3Key;
   process.env.NEO_RPC_URL = originalNeoRpc;
   process.env.EVM_RPC_URL = originalEvmRpc;

@@ -150,11 +150,13 @@ const handlePost = createRateLimitedHandler(
         route: '/api/confidential/store',
         method: 'POST',
         category: 'system',
+        // The client-supplied ciphertext is intentionally omitted: it can wrap
+        // sensitive secrets, so it must never be written to the operation log
+        // (Supabase + BetterStack). Only non-sensitive request metadata is kept.
         requestPayload: {
           project_slug: projectSlug || null,
           network,
           target_chain: targetChain,
-          ciphertext,
         },
         responsePayload,
         httpStatus: 200,
@@ -171,11 +173,11 @@ const handlePost = createRateLimitedHandler(
         route: '/api/confidential/store',
         method: 'POST',
         category: 'system',
+        // Omit ciphertext from logs even on failure (see success-path note).
         requestPayload: {
           project_slug: projectSlug || null,
           network,
           target_chain: targetChain,
-          ciphertext,
         },
         responsePayload: { error: message },
         httpStatus: 500,

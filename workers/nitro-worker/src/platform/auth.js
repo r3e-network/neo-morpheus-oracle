@@ -9,11 +9,13 @@ function safeEqual(a, b) {
 }
 
 export async function requireAuth(request) {
+  // PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally dropped: those Phala
+  // credentials were revoked when the runtime migrated off Phala. Only the
+  // current MORPHEUS_*/NITRO_* runtime tokens authorize worker requests.
   const expected = env(
+    'MORPHEUS_RUNTIME_TOKEN',
     'NITRO_API_TOKEN',
-    'PHALA_API_TOKEN',
-    'NITRO_SHARED_SECRET',
-    'PHALA_SHARED_SECRET'
+    'NITRO_SHARED_SECRET'
   );
   const auth = trimString(
     request.headers.get('authorization') ||

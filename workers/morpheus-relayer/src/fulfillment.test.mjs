@@ -18,6 +18,7 @@ import {
   resolveEventFulfillmentContext,
   resolveExpectedPcr0,
   resolveFulfillmentSigningContext,
+  resolveNitroRootCertPem,
   trimOnchainErrorMessage,
   verifyEnclaveAttestation,
   verifyEnclaveSignatureAgainstPinnedVerifier,
@@ -1576,9 +1577,16 @@ function cborEncodeForTest(value) {
     if (big < 256n) return Buffer.from([(major << 5) | 24, Number(big)]);
     if (big < 65536n)
       return Buffer.from([(major << 5) | 25, Number(big >> 8n) & 0xff, Number(big) & 0xff]);
-    const b = Buffer.alloc(5);
-    b[0] = (major << 5) | 26;
-    b.writeUInt32BE(Number(big), 1);
+    if (big < 4294967296n) {
+      const b = Buffer.alloc(5);
+      b[0] = (major << 5) | 26;
+      b.writeUInt32BE(Number(big), 1);
+      return b;
+    }
+    // 64-bit unsigned (minor 27) — needed for epoch-ms timestamps.
+    const b = Buffer.alloc(9);
+    b[0] = (major << 5) | 27;
+    b.writeBigUInt64BE(big, 1);
     return b;
   };
   if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return head(0, value);
@@ -1600,11 +1608,13 @@ function cborEncodeForTest(value) {
   throw new Error(`cborEncodeForTest: unsupported ${typeof value}`);
 }
 
-function buildAttestationDoc({ userDataHex, pcr0Hex }) {
+function buildAttestationDoc({ userDataHex, pcr0Hex, nonceHex, timestampMs }) {
   const payload = {
     pcrs: { 0: Buffer.from(pcr0Hex, 'hex'), 1: Buffer.alloc(48, 1) },
     user_data: Buffer.from(userDataHex, 'hex'),
   };
+  if (nonceHex) payload.nonce = Buffer.from(nonceHex, 'hex');
+  if (typeof timestampMs === 'number') payload.timestamp = timestampMs;
   const cose = [Buffer.from([0xa0]), {}, cborEncodeForTest(payload), Buffer.alloc(96, 7)];
   return cborEncodeForTest(cose).toString('base64');
 }
@@ -1664,6 +1674,289 @@ describe('verifyEnclaveAttestation (C1)', () => {
       if (saved === undefined) delete process.env.MORPHEUS_EXPECTED_PCR0;
       else process.env.MORPHEUS_EXPECTED_PCR0 = saved;
     }
+  });
+});
+
+// ===================================================================
+// Confidential decrypt lane is ENCLAVE-ONLY (no off-TEE public failover)
+// ===================================================================
+
+describe('confidential decrypt lane endpoint isolation', () => {
+  const silentLogger = { info() {}, warn() {}, error() {} };
+  // Local oracle_verifier key so signFulfillmentPayload signs locally (no /sign call).
+  const VERIFIER_PK = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+
+  function decryptConfig(extra = {}) {
+    return {
+      network: 'testnet',
+      maxRetries: 3,
+      maxCallbackRetries: 6,
+      retryBaseDelayMs: 10,
+      retryMaxDelayMs: 100,
+      processedCacheSize: 100,
+      deadLetterLimit: 10,
+      durableQueue: { enabled: false },
+      nitro: {
+        // apiUrl carries a PUBLIC off-TEE failover (the live topology); the decrypt
+        // lane must NEVER touch it.
+        apiUrl: 'https://enclave.test,https://oracle.public.test/testnet',
+        signerUrl: 'https://enclave.test',
+        decryptUrl: 'https://enclave.test',
+        enclaveFulfill: false,
+        timeoutMs: 1000,
+      },
+      neo_n3: {
+        oracleContract: '0x1212121212121212121212121212121212121212',
+        networkMagic: 894710606,
+        updaterPrivateKey: VERIFIER_PK,
+      },
+      hooks: {
+        fulfillNeoRequest: async () => ({ tx_hash: '0xfeed', vm_state: 'HALT' }),
+      },
+      ...extra,
+    };
+  }
+
+  it('sends /oracle/decrypt ONLY to the enclave URL and never to the public apiUrl', async () => {
+    const calls = [];
+    const original = global.fetch;
+    global.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.startsWith('https://enclave.test') && u.endsWith('/oracle/decrypt')) {
+        return new Response(JSON.stringify({ plaintext: 'revealed-secret' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ error: `unexpected endpoint ${u}` }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    const event = {
+      chain: 'neo_n3',
+      requestId: '7100',
+      requestType: 'confidential_reveal',
+      appId: 'miniapp-message',
+      payloadText: 'sealed-envelope-bytes',
+      txHash: '0x7100',
+    };
+    try {
+      await processEvent(decryptConfig(), createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+      const decryptCalls = calls.filter((u) => u.endsWith('/oracle/decrypt'));
+      assert.equal(decryptCalls.length, 1, 'exactly one decrypt call');
+      assert.ok(
+        decryptCalls.every((u) => u.startsWith('https://enclave.test')),
+        'decrypt must only hit the enclave URL'
+      );
+      assert.ok(
+        !calls.some((u) => u.includes('oracle.public.test')),
+        'decrypt must NEVER fail over to the public off-TEE endpoint'
+      );
+    } finally {
+      global.fetch = original;
+    }
+  });
+
+  it('fails closed (no public failover) when the enclave decrypt endpoint is unreachable', async () => {
+    const calls = [];
+    const original = global.fetch;
+    global.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.startsWith('https://enclave.test')) {
+        throw new Error('ECONNREFUSED enclave down');
+      }
+      // A public endpoint should never be reached; if it is, return success so the
+      // assertion below (no public contact) is what fails the test.
+      return new Response(JSON.stringify({ plaintext: 'leaked-off-tee' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    const event = {
+      chain: 'neo_n3',
+      requestId: '7101',
+      requestType: 'confidential_reveal',
+      appId: 'miniapp-message',
+      payloadText: 'sealed-envelope-bytes',
+      txHash: '0x7101',
+    };
+    try {
+      await processEvent(decryptConfig(), createEmptyRelayerState(), () => {}, silentLogger, event, {
+        attempts: 0,
+        durable_claimed: true,
+      });
+      assert.ok(
+        !calls.some((u) => u.includes('oracle.public.test')),
+        'must NOT fall back to a public off-TEE endpoint when the enclave is down'
+      );
+    } finally {
+      global.fetch = original;
+    }
+  });
+});
+
+// ===================================================================
+// C1 freshness / anti-replay — nonce echo + timestamp window
+// ===================================================================
+
+describe('verifyEnclaveAttestation freshness/anti-replay', () => {
+  const DIGEST = 'ab'.repeat(32);
+  const userDataFor = (digestHex) =>
+    createHash('sha256').update(Buffer.from(digestHex, 'hex')).digest('hex');
+  const PCR0 = 'cd'.repeat(48);
+  const config = { nitro: { expectedPcr0: PCR0 } };
+
+  it('a doc echoing the relayer nonce verifies (attested)', () => {
+    const nonceHex = '11'.repeat(16);
+    const doc = buildAttestationDoc({
+      userDataHex: userDataFor(DIGEST),
+      pcr0Hex: PCR0,
+      nonceHex,
+    });
+    const res = verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST, {
+      expectedNonce: nonceHex,
+    });
+    assert.equal(res.attested, true);
+  });
+
+  it('a captured doc with a DIFFERENT nonce is rejected (replay, throws)', () => {
+    const doc = buildAttestationDoc({
+      userDataHex: userDataFor(DIGEST),
+      pcr0Hex: PCR0,
+      nonceHex: '22'.repeat(16),
+    });
+    assert.throws(
+      () =>
+        verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST, {
+          expectedNonce: '11'.repeat(16),
+        }),
+      /nonce does not echo|possible replay/
+    );
+  });
+
+  it('a doc WITHOUT a nonce stays backward-compatible (no hard fail)', () => {
+    const doc = buildAttestationDoc({ userDataHex: userDataFor(DIGEST), pcr0Hex: PCR0 });
+    const res = verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST, {
+      expectedNonce: '11'.repeat(16),
+    });
+    assert.equal(res.attested, true);
+  });
+
+  it('a stale timestamp (beyond max age) is rejected when a max age is configured', () => {
+    const cfg = { nitro: { expectedPcr0: PCR0, attestationMaxAgeMs: 60_000 } };
+    const now = 1_000_000_000_000;
+    const doc = buildAttestationDoc({
+      userDataHex: userDataFor(DIGEST),
+      pcr0Hex: PCR0,
+      timestampMs: now - 120_000, // 2 min old, window is 1 min
+    });
+    assert.throws(
+      () =>
+        verifyEnclaveAttestation(cfg, { attestation_doc_base64: doc }, DIGEST, { now }),
+      /freshness window|possible replay/
+    );
+  });
+
+  it('a fresh timestamp within the window is accepted', () => {
+    const cfg = { nitro: { expectedPcr0: PCR0, attestationMaxAgeMs: 60_000 } };
+    const now = 1_000_000_000_000;
+    const doc = buildAttestationDoc({
+      userDataHex: userDataFor(DIGEST),
+      pcr0Hex: PCR0,
+      timestampMs: now - 5_000,
+    });
+    const res = verifyEnclaveAttestation(cfg, { attestation_doc_base64: doc }, DIGEST, { now });
+    assert.equal(res.attested, true);
+  });
+
+  it('timestamp gate is inert when no max age is configured (backward compatible)', () => {
+    const doc = buildAttestationDoc({
+      userDataHex: userDataFor(DIGEST),
+      pcr0Hex: PCR0,
+      timestampMs: 1, // ancient, but no max-age set
+    });
+    const res = verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST);
+    assert.equal(res.attested, true);
+  });
+});
+
+// ===================================================================
+// C1 best-effort COSE_Sign1 ES384 signature + cert-chain verification
+// ===================================================================
+//
+// Full end-to-end COSE signature verification requires minting a real P-384 cert
+// chain; the relayer treats an unconfigured root as a no-op (binding+PCR0 still
+// enforced) and a configured root + REAL cert chain that fails verification as a
+// hard failure. These tests cover the configuration-resolution + no-op + malformed
+// (hard-fail) branches without depending on cert minting.
+
+// Build an attestation doc that carries a (bogus) certificate chain + a 96-byte
+// signature, so the crypto branch is exercised (rather than short-circuited by an
+// absent chain).
+function buildAttestationDocWithChain({ userDataHex, pcr0Hex, leafDer, cabundleDer }) {
+  const payload = {
+    pcrs: { 0: Buffer.from(pcr0Hex, 'hex'), 1: Buffer.alloc(48, 1) },
+    user_data: Buffer.from(userDataHex, 'hex'),
+    certificate: leafDer,
+    cabundle: cabundleDer,
+  };
+  const cose = [Buffer.from([0xa0]), {}, cborEncodeForTest(payload), Buffer.alloc(96, 7)];
+  return cborEncodeForTest(cose).toString('base64');
+}
+
+describe('verifyEnclaveAttestation COSE crypto verification', () => {
+  const DIGEST = 'ab'.repeat(32);
+  const userDataFor = (digestHex) =>
+    createHash('sha256').update(Buffer.from(digestHex, 'hex')).digest('hex');
+  const PCR0 = 'cd'.repeat(48);
+  const ROOT_PEM = '-----BEGIN CERTIFICATE-----\nMIIBfakeRootCert\n-----END CERTIFICATE-----';
+
+  it('resolveNitroRootCertPem reads config then env', () => {
+    assert.equal(resolveNitroRootCertPem({ nitro: { nitroRootCertPem: 'PEM-A' } }), 'PEM-A');
+    const saved = process.env.MORPHEUS_NITRO_ROOT_CERT_PEM;
+    process.env.MORPHEUS_NITRO_ROOT_CERT_PEM = 'PEM-B';
+    try {
+      assert.equal(resolveNitroRootCertPem({}), 'PEM-B');
+    } finally {
+      if (saved === undefined) delete process.env.MORPHEUS_NITRO_ROOT_CERT_PEM;
+      else process.env.MORPHEUS_NITRO_ROOT_CERT_PEM = saved;
+    }
+  });
+
+  it('is a no-op when no root cert is pinned (binding+PCR0 still apply)', () => {
+    const config = { nitro: { expectedPcr0: PCR0 } };
+    const doc = buildAttestationDoc({ userDataHex: userDataFor(DIGEST), pcr0Hex: PCR0 });
+    const res = verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST);
+    assert.equal(res.attested, true);
+    assert.equal(res.cose_verified, false, 'no root pinned => crypto check skipped');
+  });
+
+  it('is a no-op when a root is pinned but the doc carries no cert chain (placeholder sig)', () => {
+    const config = { nitro: { expectedPcr0: PCR0, nitroRootCertPem: ROOT_PEM } };
+    const doc = buildAttestationDoc({ userDataHex: userDataFor(DIGEST), pcr0Hex: PCR0 });
+    const res = verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST);
+    assert.equal(res.attested, true);
+    assert.equal(res.cose_verified, false);
+  });
+
+  it('hard-fails when a root is pinned and the doc carries a MALFORMED cert chain', () => {
+    const config = { nitro: { expectedPcr0: PCR0, nitroRootCertPem: ROOT_PEM } };
+    const doc = buildAttestationDocWithChain({
+      userDataHex: userDataFor(DIGEST),
+      pcr0Hex: PCR0,
+      leafDer: Buffer.from('not-a-real-der-cert'),
+      cabundleDer: [Buffer.from('also-bogus')],
+    });
+    assert.throws(
+      () => verifyEnclaveAttestation(config, { attestation_doc_base64: doc }, DIGEST),
+      /certificate chain is malformed|does not verify/
+    );
   });
 });
 

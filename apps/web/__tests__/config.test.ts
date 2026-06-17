@@ -9,9 +9,9 @@ describe('appConfig security boundaries', () => {
     // regardless of the developer shell environment.
     vi.stubEnv('MORPHEUS_RUNTIME_TOKEN', '');
     vi.stubEnv('NITRO_API_TOKEN', '');
-    vi.stubEnv('PHALA_API_TOKEN', '');
     vi.stubEnv('NITRO_SHARED_SECRET', '');
-    vi.stubEnv('PHALA_SHARED_SECRET', '');
+    // PHALA_API_TOKEN / PHALA_SHARED_SECRET are no longer accepted as token
+    // sources (revoked Phala credentials), so they are not stubbed here.
   });
 
   afterEach(() => {
@@ -33,6 +33,22 @@ describe('appConfig security boundaries', () => {
     const { appConfig } = await import('../lib/config');
 
     expect(appConfig.nitroToken).toBe('server-token');
+  });
+
+  it('no longer accepts revoked Phala credentials as runtime/control-plane tokens', async () => {
+    // Pin the other control-plane key sources empty so the only candidate
+    // values are the revoked Phala credentials.
+    vi.stubEnv('MORPHEUS_CONTROL_PLANE_API_KEY', '');
+    vi.stubEnv('MORPHEUS_PROVIDER_CONFIG_API_KEY', '');
+    vi.stubEnv('MORPHEUS_OPERATOR_API_KEY', '');
+    vi.stubEnv('ADMIN_CONSOLE_API_KEY', '');
+    vi.stubEnv('PHALA_API_TOKEN', 'revoked-phala-token');
+    vi.stubEnv('PHALA_SHARED_SECRET', 'revoked-phala-secret');
+
+    const { appConfig } = await import('../lib/config');
+
+    expect(appConfig.nitroToken).toBe('');
+    expect(appConfig.controlPlaneApiKey).toBe('');
   });
 
   it('refuses to load in a browser context', async () => {

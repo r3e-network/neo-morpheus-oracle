@@ -43,14 +43,12 @@ export function getRuntimeConfigJson() {
   }
 }
 
-// Get Nitro/runtime API token from environment (NITRO_* preferred, PHALA_* fallback)
+// Get Nitro/runtime API token from environment.
+// PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally dropped: those Phala
+// credentials were revoked when the runtime migrated off Phala. Only the
+// current NITRO_* names are accepted.
 export function getNitroApiToken() {
-  return trimString(
-    process.env.NITRO_API_TOKEN ||
-      process.env.PHALA_API_TOKEN ||
-      process.env.NITRO_SHARED_SECRET ||
-      process.env.PHALA_SHARED_SECRET
-  );
+  return trimString(process.env.NITRO_API_TOKEN || process.env.NITRO_SHARED_SECRET);
 }
 // Back-compat alias for the prior export name.
 export const getPhalaApiToken = getNitroApiToken;
@@ -60,13 +58,13 @@ export function getMorpheusRuntimeToken() {
   return trimString(process.env.MORPHEUS_RUNTIME_TOKEN);
 }
 
-// Get trusted tokens from environment
+// Get trusted tokens from environment.
+// PHALA_SHARED_SECRET intentionally dropped (revoked Phala credential).
 export function getTrustedTokens() {
   return [
     getMorpheusRuntimeToken(),
     getNitroApiToken(),
     trimString(process.env.NITRO_SHARED_SECRET),
-    trimString(process.env.PHALA_SHARED_SECRET),
   ]
     .filter(Boolean)
     .map((t) => t.trim());
