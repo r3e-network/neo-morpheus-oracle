@@ -76,9 +76,11 @@ namespace MorpheusOracle.Contracts
         /// <remarks>
         /// Returns null when unset, which is the default. While unset every write is
         /// gated by the updater witness only (the original behavior). Once an admin
-        /// registers a key, a write that carries a signature is additionally checked
-        /// against this key, so a leaked updater witness alone no longer suffices to
-        /// anchor an arbitrary price.
+        /// registers a key, every updater-witness write MUST carry a signature that
+        /// verifies against this key — the unsigned path (UpdateFeed/UpdateFeeds, or
+        /// UpdateFeedSigned with an empty signature) is rejected — so a leaked updater
+        /// witness alone can no longer anchor an arbitrary price. AdminResetFeed is the
+        /// only exception (admin-gated, a higher-trust key, for feed-stall recovery).
         /// </remarks>
         [Safe]
         public static ECPoint OracleVerificationKey()
@@ -173,6 +175,13 @@ namespace MorpheusOracle.Contracts
         /// The off-chain signer must reproduce these exact bytes when a verification
         /// key is registered.
         /// </summary>
+        /// <remarks>
+        /// The '|' separator is reserved: the write path rejects any symbol that
+        /// itself contains '|' (see <see cref="VerifyFeedSignature"/>), so the four
+        /// fields cannot be re-interpreted by smuggling a delimiter into the symbol
+        /// (e.g. a symbol of "A|9" colliding with a different price field). This keeps
+        /// the canonical message unambiguous without a length-prefix framing.
+        /// </remarks>
         private static ByteString BuildFeedMessage(string pair, BigInteger price, BigInteger timestamp, BigInteger roundId)
         {
             ByteString message = Helper.Concat((ByteString)pair, (ByteString)"|");
@@ -185,16 +194,29 @@ namespace MorpheusOracle.Contracts
         }
 
         /// <summary>
-        /// Optional second factor on top of the updater witness. Inert by default:
-        /// only runs when an admin has registered a verification key AND the write
-        /// carries a non-empty signature. When active it rejects the write unless the
-        /// signature verifies over the canonical price message (symbol|price|timestamp|round).
+        /// Mandatory second factor on top of the updater witness, once a verification
+        /// key is registered. Inert by default (no key => returns immediately, the
+        /// write stays updater-witness only, fully backward compatible). Once an admin
+        /// registers a key EVERY updater-witness write must carry a non-empty signature
+        /// that verifies over the canonical price message (symbol|price|timestamp|round):
+        /// an absent/empty signature is rejected, so a leaked updater witness alone can
+        /// no longer anchor an arbitrary price through the unsigned path.
         /// </summary>
         private static void VerifyFeedSignature(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString signature)
         {
             ECPoint verificationKey = OracleVerificationKey();
             if (verificationKey == null) return;
-            if (signature == null || signature.Length == 0) return;
+
+            // A verification key is registered: the signature is now REQUIRED. An
+            // empty/absent signature (the witness-only path) is no longer accepted —
+            // this is what closes the leaked-updater-witness bypass.
+            ExecutionEngine.Assert(signature != null && signature.Length > 0, "feed signature required");
+
+            // The '|' separator is reserved so the canonical four-field message is
+            // unambiguous; a symbol carrying it could otherwise masquerade as a
+            // different (price|timestamp|round) framing. MemorySearch returns -1 when
+            // the delimiter is absent.
+            ExecutionEngine.Assert(StdLib.MemorySearch((ByteString)pair, (ByteString)"|") < 0, "pair may not contain '|'");
 
             ByteString message = BuildFeedMessage(pair, price, timestamp, roundId);
             ExecutionEngine.Assert(
@@ -259,7 +281,11 @@ namespace MorpheusOracle.Contracts
         }
 
         /// <summary>
-        /// Writes or overwrites a single feed record.
+        /// Writes or overwrites a single feed record over the unsigned (updater-witness
+        /// only) path. Works while no verification key is registered; once a key is
+        /// registered this path carries no signature and therefore REVERTS
+        /// ("feed signature required") — publishers must switch to <see cref="UpdateFeedSigned"/>.
+        /// The 6-argument ABI is preserved so the entrypoint is unchanged.
         /// </summary>
         public static void UpdateFeed(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
         {
@@ -271,9 +297,9 @@ namespace MorpheusOracle.Contracts
         /// Writes a single feed record carrying an off-chain ECDSA signature over the
         /// canonical price message (symbol|price|timestamp|round). Behaves identically
         /// to <see cref="UpdateFeed"/> while no verification key is registered; once a
-        /// key is registered the signature is required to verify against it. This is
-        /// the backward-compatible signed write path: the original 6-parameter
-        /// <see cref="UpdateFeed"/> ABI is unchanged so existing publishers keep working.
+        /// key is registered the signature is MANDATORY and must verify against it (an
+        /// empty signature is rejected). This is the signed write path the publisher
+        /// must use once a verification key is registered.
         /// </summary>
         public static void UpdateFeedSigned(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId, ByteString signature)
         {

@@ -1,5 +1,6 @@
 import { trimString } from '../../platform/core.js';
 import { relayNeoN3Invocation } from '../../chain/index.js';
+import { maybeSignNeoN3Bytes } from '../../chain/signing.js';
 import { decimalToIntegerString } from './decimal.js';
 import { clampFeedTimestampSec } from './shared.js';
 import {
@@ -32,20 +33,65 @@ export function buildNeoN3RelaySigningPayload(payload = {}) {
   };
 }
 
-// C1 — carry the ECDSA signature + signer public key (produced off-chain by
-// buildSignedResultEnvelope) into the persisted feed record so the value CAN be
-// verified once an on-chain verification key is registered. While no key is
-// registered the contract ignores these fields and the write stays
-// updater-witness only, so this is additive and backward compatible. Returns an
-// empty object when the quote was not signed.
+// C1 — carry the ECDSA signature + signer public key (produced at submit time by
+// signFeedUpdate over the canonical on-chain message) into the persisted feed
+// record so the anchored value CAN be re-verified once an on-chain verification
+// key is registered. While no key is registered the contract ignores these
+// fields and the write stays updater-witness only, so this is additive and
+// backward compatible. Returns an empty object when the update was not signed.
 export function buildFeedSignatureFields(quote = {}) {
-  const signature = trimString(quote?.signature || '');
-  const signerPublicKey = trimString(quote?.public_key || quote?.signer_public_key || '');
+  const signature = trimString(quote?.feed_signature || quote?.signature || '');
+  const signerPublicKey = trimString(
+    quote?.feed_signer_public_key || quote?.public_key || quote?.signer_public_key || ''
+  );
   if (!signature && !signerPublicKey) return {};
   return {
     ...(signature ? { signature } : {}),
     ...(signerPublicKey ? { signer_public_key: signerPublicKey } : {}),
   };
+}
+
+// C1 — the EXACT canonical price message the contract's BuildFeedMessage builds
+// and verifies a signature over: symbol|price|timestamp|round, where `price` is
+// the integer on-chain price (decimalToIntegerString output), `timestamp` is the
+// clamped submission seconds, and `round` is the round id. These ASCII bytes must
+// be byte-identical to the contract's, or a registered verification key would
+// reject every update. Keep this in lockstep with
+// MorpheusDataFeed.BuildFeedMessage.
+export function buildCanonicalFeedMessage({ storagePair, priceUnits, timestampSec, roundId }) {
+  return `${storagePair}|${priceUnits}|${timestampSec}|${roundId}`;
+}
+
+// C1 — produce a secp256r1 signature over the canonical feed message using the
+// enclave-resident oracle verifier key, so the contract can enforce it once an
+// admin registers the matching verification key. Returns null when no signing key
+// is available (the worker then falls back to the unsigned updateFeed path, which
+// keeps working until a verification key is registered). Caller-supplied key
+// material is never used here — the dstack/env oracle_verifier role signs.
+async function signFeedUpdate(payload, { storagePair, priceUnits, timestampSec, roundId }) {
+  const message = buildCanonicalFeedMessage({ storagePair, priceUnits, timestampSec, roundId });
+  const signed = await maybeSignNeoN3Bytes(Buffer.from(message, 'ascii'), {
+    network: payload.network,
+    dstack_key_role: 'oracle_verifier',
+  });
+  const signature = trimString(signed?.signature || '');
+  const publicKey = trimString(signed?.public_key || '');
+  if (!signature) return null;
+  return { signature, public_key: publicKey };
+}
+
+// C1 — choose the contract entrypoint for a single feed update: when a signature
+// was produced, use the 7-arg signed updateFeedSigned (the signature is appended
+// as the 7th ByteArray param so the contract can verify it); otherwise the
+// unchanged 6-arg updateFeed.
+export function buildFeedUpdateInvocation(baseParams, signed) {
+  if (signed && trimString(signed.signature)) {
+    return {
+      method: 'updateFeedSigned',
+      params: [...baseParams, { type: 'ByteArray', value: signed.signature }],
+    };
+  }
+  return { method: 'updateFeed', params: baseParams };
 }
 
 export async function submitQuoteToN3(
@@ -58,24 +104,40 @@ export async function submitQuoteToN3(
   sourceSetId,
   timestampSec
 ) {
+  const priceUnits = decimalToIntegerString(quote.price, quote.decimals);
+  // Provider observation timestamp, clamped against the strictly-monotonic
+  // MorpheusDataFeed (B9) so a future-dated value cannot stall the feed. The
+  // signature below MUST cover this exact submitted value, so resolve it once.
+  const submitTimestampSec = String(resolveSubmitTimestampSec(quote, timestampSec));
+  const roundIdStr = String(roundId);
+
+  // C1 — sign the canonical message over the EXACT submitted (price|timestamp|round)
+  // so a registered on-chain verification key can enforce it. When no signing key
+  // is available, signed is null and we use the unsigned updateFeed path (which
+  // keeps working until a key is registered).
+  const signed = await signFeedUpdate(payload, {
+    storagePair,
+    priceUnits,
+    timestampSec: submitTimestampSec,
+    roundId: roundIdStr,
+  });
+
+  const baseParams = [
+    { type: 'String', value: storagePair },
+    { type: 'Integer', value: roundIdStr },
+    { type: 'Integer', value: priceUnits },
+    { type: 'Integer', value: submitTimestampSec },
+    { type: 'ByteArray', value: quote.attestation_hash },
+    { type: 'Integer', value: String(sourceSetId) },
+  ];
+
+  const { method, params } = buildFeedUpdateInvocation(baseParams, signed);
   const invokeResult = await relayNeoN3Invocation({
     request_id: trimString(payload.request_id) || `pricefeed:${storagePair}:${Date.now()}`,
     network: payload.network,
     contract_hash: dataFeedHash,
-    method: 'updateFeed',
-    params: [
-      { type: 'String', value: storagePair },
-      { type: 'Integer', value: roundId },
-      { type: 'Integer', value: decimalToIntegerString(quote.price, quote.decimals) },
-      // Provider observation timestamp, clamped against the strictly-monotonic
-      // MorpheusDataFeed (B9) so a future-dated value cannot stall the feed.
-      {
-        type: 'Integer',
-        value: String(resolveSubmitTimestampSec(quote, timestampSec)),
-      },
-      { type: 'ByteArray', value: quote.attestation_hash },
-      { type: 'Integer', value: String(sourceSetId) },
-    ],
+    method,
+    params,
     wait: resolveFeedSubmissionWait(payload),
     timeout_ms: resolveFeedSubmissionWaitTimeoutMs(payload),
     rpc_url: neoContext.rpcUrl,
@@ -85,10 +147,34 @@ export async function submitQuoteToN3(
   if (invokeResult.status >= 400) {
     throw new Error(invokeResult.body?.error || 'Neo N3 feed submit failed');
   }
+  // Surface the signature so the caller can persist it (buildFeedSignatureFields).
+  if (signed) {
+    quote.feed_signature = signed.signature;
+    quote.feed_signer_public_key = signed.public_key;
+  }
   return invokeResult.body;
 }
 
+// C1 — error raised when the batch updateFeeds path cannot be used because a
+// verification key is registered (so each update must be signed) but updateFeeds
+// has no signed batch entrypoint. submitQuotesToN3WithFallback recognizes this and
+// routes through the per-feed signed updateFeedSigned submissions instead.
+export const SIGNED_FEED_REQUIRES_PER_FEED_PATH = 'neo_n3_updatefeeds_requires_signed_path';
+
 async function submitQuotesToN3(dataFeedHash, neoContext, payload, updates) {
+  // If a verification key is configured, every update must be signed; the batch
+  // updateFeeds entrypoint carries no signature, so signal the per-feed signed
+  // fallback rather than submitting an unsigned batch that the contract rejects.
+  const probe = await signFeedUpdate(payload, {
+    storagePair: updates[0]?.storagePair,
+    priceUnits: decimalToIntegerString(updates[0]?.quote.price, updates[0]?.quote.decimals),
+    timestampSec: String(updates[0]?.timestampSec),
+    roundId: String(updates[0]?.roundId),
+  });
+  if (probe) {
+    throw new Error(SIGNED_FEED_REQUIRES_PER_FEED_PATH);
+  }
+
   const invokeResult = await relayNeoN3Invocation({
     request_id: trimString(payload.request_id) || `pricefeed:batch:${Date.now()}`,
     network: payload.network,
@@ -156,7 +242,12 @@ function isUnauthorizedNeoN3BatchUpdate(error) {
   );
 }
 
+function isSignedFeedPerFeedPathRequired(error) {
+  return toNeoN3BatchUpdateFailureMessage(error) === SIGNED_FEED_REQUIRES_PER_FEED_PATH;
+}
+
 export function getRecoverableNeoN3BatchUpdateFailureReason(error) {
+  if (isSignedFeedPerFeedPathRequired(error)) return SIGNED_FEED_REQUIRES_PER_FEED_PATH;
   if (isMissingNeoN3BatchUpdateMethod(error)) return 'neo_n3_updatefeeds_missing';
   if (isUnauthorizedNeoN3BatchUpdate(error)) return 'neo_n3_updatefeeds_unauthorized';
   return null;

@@ -28,15 +28,35 @@ export function trimmedMean(values, trimPct = 0.1) {
 export const CANONICAL_AGGREGATE_MIN_PROVIDERS = 2;
 
 /**
+ * The number of DISTINCT providers that actually contributed to the published
+ * price. C2 — deduplicating is essential: a misconfiguration like
+ * MORPHEUS_FEED_PROVIDERS="twelvedata,twelvedata" would otherwise produce a
+ * providers_used array of length 2 from a SINGLE source, masquerading as a
+ * multi-provider aggregate. Counting unique ids closes that masquerade.
+ */
+export function countDistinctProviders(aggregation) {
+  if (!aggregation || typeof aggregation !== 'object') return 0;
+  if (!Array.isArray(aggregation.providers_used)) return 0;
+  const distinct = new Set();
+  for (const provider of aggregation.providers_used) {
+    const id = String(provider == null ? '' : provider)
+      .trim()
+      .toLowerCase();
+    if (id) distinct.add(id);
+  }
+  return distinct.size;
+}
+
+/**
  * Whether an aggregation result is backed by at least `minProviders` independent
- * sources. Uses the count of quotes that actually contributed to the published
- * price (providers_used), so a divergent two-source result that collapses to a
- * single survivor does not qualify as a multi-provider aggregate.
+ * sources. Uses the count of DISTINCT quotes that actually contributed to the
+ * published price (providers_used), so neither a divergent two-source result that
+ * collapses to a single survivor NOR a duplicated provider id qualifies as a
+ * multi-provider aggregate.
  */
 export function meetsMinProviders(aggregation, minProviders = CANONICAL_AGGREGATE_MIN_PROVIDERS) {
   if (!aggregation || typeof aggregation !== 'object') return false;
-  const used = Array.isArray(aggregation.providers_used) ? aggregation.providers_used.length : 0;
-  return used >= minProviders;
+  return countDistinctProviders(aggregation) >= minProviders;
 }
 
 export function aggregateQuotes(

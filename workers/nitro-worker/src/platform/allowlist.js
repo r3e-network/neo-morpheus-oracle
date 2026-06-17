@@ -146,6 +146,7 @@ export function buildTxProxyAllowlist(networkInput = 'testnet') {
     allowlist,
     envForNetwork(network, 'CONTRACT_MORPHEUS_DATAFEED_HASH', 'CONTRACT_PRICEFEED_HASH'),
     'updateFeed',
+    'updateFeedSigned',
     'updateFeeds',
     'update'
   );

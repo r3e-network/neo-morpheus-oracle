@@ -6,17 +6,21 @@ import path from 'node:path';
 
 import {
   __buildCanonicalAggregateRecordForTests,
+  __buildCanonicalFeedMessageForTests,
   __buildFeedSignatureFieldsForTests,
+  __buildFeedUpdateInvocationForTests,
   __buildNeoN3RelaySigningPayloadForTests,
   __buildFeedSnapshotRowsForTests,
   __buildSyncPolicyForTests,
   __clampFeedTimestampSecForTests,
+  __countDistinctProvidersForTests,
   __fetchJsonRpcForTests,
   __fetchLatestFeedSnapshotsForTests,
   __isMissingNeoN3BatchUpdateMethodForTests,
   __isRecoverableNeoN3BatchUpdateFailureForTests,
   __getRecoverableNeoN3BatchUpdateFailureReasonForTests,
   __loadFeedStateForTests,
+  __meetsMinProvidersForTests,
   __persistFeedSnapshotsForTests,
   __resolveFeedSubmissionWaitForTests,
   __resolveFeedSubmissionWaitTimeoutMsForTests,
@@ -24,6 +28,7 @@ import {
   __resetFeedStateForTests,
   __shouldSubmitFeedForTests,
   __shouldLoadOnchainFeedBaselineForTests,
+  __SIGNED_FEED_REQUIRES_PER_FEED_PATH,
   buildCanonicalAggregateStorageKey,
   handleFeedsPrice,
   handleOracleFeed,
@@ -151,6 +156,21 @@ test('Neo N3 batch fallback treats batch-only unauthorized as recoverable', () =
       'Insufficient GAS. Required: 0.00863725 Available: 0.00586564'
     ),
     null
+  );
+});
+
+test('signed-feed batch path is recognized as a recoverable per-feed fallback (C1)', () => {
+  // When a verification key is registered, the batch updateFeeds path raises this
+  // marker so submitQuotesToN3WithFallback routes through the per-feed signed
+  // updateFeedSigned submissions instead of submitting an unsigned batch.
+  assert.equal(typeof __SIGNED_FEED_REQUIRES_PER_FEED_PATH, 'string');
+  assert.equal(
+    __getRecoverableNeoN3BatchUpdateFailureReasonForTests(__SIGNED_FEED_REQUIRES_PER_FEED_PATH),
+    __SIGNED_FEED_REQUIRES_PER_FEED_PATH
+  );
+  assert.equal(
+    __isRecoverableNeoN3BatchUpdateFailureForTests(__SIGNED_FEED_REQUIRES_PER_FEED_PATH),
+    true
   );
 });
 
@@ -947,6 +967,146 @@ test('handleOracleFeed writes one canonical AGG record when two providers agree 
   // Mean of 2.70 and 2.72 is 2.71.
   assert.equal(canonical.price, '2.710000');
   assert.equal(canonical.price_units, '2710000');
+});
+
+test('countDistinctProviders deduplicates a repeated provider id (C2)', () => {
+  assert.equal(
+    __countDistinctProvidersForTests({ providers_used: ['twelvedata', 'twelvedata'] }),
+    1
+  );
+  assert.equal(
+    __countDistinctProvidersForTests({ providers_used: ['twelvedata', 'TwelveData', ' twelvedata '] }),
+    1
+  );
+  assert.equal(
+    __countDistinctProvidersForTests({ providers_used: ['twelvedata', 'binance-spot'] }),
+    2
+  );
+  assert.equal(__countDistinctProvidersForTests({ providers_used: [] }), 0);
+  assert.equal(__countDistinctProvidersForTests(null), 0);
+});
+
+test('meetsMinProviders rejects a duplicated single provider but accepts two distinct ones (C2)', () => {
+  // The exact masquerade: MORPHEUS_FEED_PROVIDERS="twelvedata,twelvedata" yields a
+  // length-2 providers_used from ONE source — it must NOT satisfy minProviders=2.
+  assert.equal(
+    __meetsMinProvidersForTests({ providers_used: ['twelvedata', 'twelvedata'] }, 2),
+    false
+  );
+  assert.equal(
+    __meetsMinProvidersForTests({ providers_used: ['twelvedata', 'binance-spot'] }, 2),
+    true
+  );
+});
+
+test('buildCanonicalAggregateRecord refuses a duplicated single provider (C2)', () => {
+  // Even when the upstream dedup is bypassed (e.g. an aggregation handed in
+  // directly), the canonical record must never be written from one source.
+  assert.equal(
+    __buildCanonicalAggregateRecordForTests('NEO-USD', {
+      price: 2.7,
+      method: 'mean',
+      providers_used: ['twelvedata', 'twelvedata'],
+      providers_rejected: [],
+      confidence: 'medium',
+    }),
+    null
+  );
+});
+
+test('buildCanonicalFeedMessage matches the contract canonical bytes symbol|price|timestamp|round (C1)', () => {
+  // This is the exact format MorpheusDataFeed.BuildFeedMessage produces and the
+  // signed bytes must be byte-identical to it. price is the integer on-chain price.
+  assert.equal(
+    __buildCanonicalFeedMessageForTests({
+      storagePair: 'TWELVEDATA:NEO-USD',
+      priceUnits: '2710000',
+      timestampSec: '1700000000',
+      roundId: '7',
+    }),
+    'TWELVEDATA:NEO-USD|2710000|1700000000|7'
+  );
+});
+
+test('buildFeedUpdateInvocation routes a signed update to updateFeedSigned (C1)', () => {
+  const baseParams = [
+    { type: 'String', value: 'TWELVEDATA:NEO-USD' },
+    { type: 'Integer', value: '7' },
+    { type: 'Integer', value: '2710000' },
+    { type: 'Integer', value: '1700000000' },
+    { type: 'ByteArray', value: '' },
+    { type: 'Integer', value: '0' },
+  ];
+
+  // Unsigned (no verification key configured) → the unchanged 6-arg updateFeed.
+  const unsigned = __buildFeedUpdateInvocationForTests(baseParams, null);
+  assert.equal(unsigned.method, 'updateFeed');
+  assert.equal(unsigned.params.length, 6);
+
+  // Signed → the 7-arg updateFeedSigned with the signature appended as a ByteArray.
+  const signed = __buildFeedUpdateInvocationForTests(baseParams, { signature: '0xdeadbeef' });
+  assert.equal(signed.method, 'updateFeedSigned');
+  assert.equal(signed.params.length, 7);
+  assert.deepEqual(signed.params[6], { type: 'ByteArray', value: '0xdeadbeef' });
+  // The base params are unchanged.
+  assert.deepEqual(signed.params.slice(0, 6), baseParams);
+
+  // A signed envelope with an empty signature is treated as unsigned.
+  const emptySig = __buildFeedUpdateInvocationForTests(baseParams, { signature: '' });
+  assert.equal(emptySig.method, 'updateFeed');
+});
+
+test('handleOracleFeed does not write a canonical AGG record for duplicated providers (C2)', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-dup-provider-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  // The misconfiguration: the same provider listed twice.
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata,twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+  __resetProviderRuntimeCachesForTests();
+
+  let twelvedataCalls = 0;
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (!value.includes('api.twelvedata.com')) {
+      throw new Error(`unexpected fetch ${value}`);
+    }
+    twelvedataCalls += 1;
+    return new Response(JSON.stringify({ price: '2.700' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+    force: true,
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+
+  // The duplicated provider collapses to a single fetch (upstream dedup) and no
+  // multi-source aggregation is surfaced.
+  assert.equal(twelvedataCalls, 1, 'duplicated provider must not fan out into two fetches');
+  assert.ok(!body.aggregations, 'no aggregation from a single distinct source');
+
+  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
+  assert.equal(
+    state.records[buildCanonicalAggregateStorageKey('NEO-USD')],
+    undefined,
+    'no canonical AGG record from a duplicated provider'
+  );
+  assert.ok(
+    !body.sync_results.some((entry) => entry.relay_status === 'aggregated'),
+    'no aggregated sync result from a duplicated provider'
+  );
 });
 
 test('handleOracleFeed does not write a canonical AGG record for a single provider (C2)', async () => {

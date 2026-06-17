@@ -12,15 +12,17 @@ using DataFeed = Neo.SmartContract.Testing.MorpheusDataFeed;
 namespace MorpheusOracle.Contracts.Tests
 {
     /// <summary>
-    /// VM-level coverage for the optional on-chain price-signature check (C1). The
-    /// feed keeps its original updater-witness gate; once an admin registers a
-    /// verification key, a write that carries a signature must additionally verify
-    /// against the canonical price message (symbol|price|timestamp|round).
+    /// VM-level coverage for the on-chain price-signature check (C1). The feed keeps
+    /// its original updater-witness gate; once an admin registers a verification key
+    /// the signature becomes MANDATORY: every updater-witness write must carry a
+    /// signature that verifies against the canonical price message
+    /// (symbol|price|timestamp|round), and the unsigned paths (UpdateFeed/UpdateFeeds,
+    /// or UpdateFeedSigned with an empty signature) REVERT. This is what closes the
+    /// leaked-updater-witness bypass — verification is no longer caller-opt-in.
     ///
     /// The verification must stay inert until a key is registered: with no key the
-    /// witness-only writes behave exactly as before, and even after a key is
-    /// registered the original 6-parameter UpdateFeed path (which carries no
-    /// signature) keeps working so existing publishers are not broken.
+    /// witness-only writes behave exactly as before, so existing publishers are not
+    /// broken until the operator deliberately registers a key.
     ///
     /// Same harness pattern as <see cref="MorpheusDataFeedEngineTests"/> and
     /// <see cref="NeoDIDRegistryEngineTests"/>. The deployed contract is the
@@ -202,22 +204,86 @@ namespace MorpheusOracle.Contracts.Tests
         }
 
         [Fact]
-        public void UpdateFeed_StaysWitnessOnly_EvenAfterKeyIsRegistered()
+        public void UnsignedWrites_AreRejected_OnceKeyIsRegistered()
         {
+            // THE core proof that the leaked-updater-witness bypass is closed: once a
+            // verification key is registered, neither the witness-only UpdateFeed nor a
+            // UpdateFeedSigned carrying an empty signature can anchor a value. A leaked
+            // updater witness alone is no longer sufficient.
             Harness h = Deploy();
 
             h.Engine.SetTransactionSigners(h.Admin);
             h.Contract.SetOracleVerificationKey(h.Signer.PublicKey);
 
-            // The original 6-parameter UpdateFeed carries no signature, so the
-            // verification path stays inert for it: existing publishers keep working.
+            h.Engine.SetTransactionSigners(h.Updater);
+
+            // The original 6-parameter (unsigned) UpdateFeed now REVERTS — there is no
+            // signature to verify against the registered key.
+            AssertReverts(
+                () => h.Contract.UpdateFeed(Pair, 1, 50_000, 1_000, Array.Empty<byte>(), 1),
+                "feed signature required");
+
+            // UpdateFeedSigned with an empty signature is the same unsigned path and is
+            // likewise rejected.
+            AssertReverts(
+                () => h.Contract.UpdateFeedSigned(Pair, 1, 50_000, 1_000, Array.Empty<byte>(), 1, Array.Empty<byte>()),
+                "feed signature required");
+
+            // Nothing was written by either rejected attempt.
+            Assert.Equal(BigInteger.Zero, h.Contract.PairCount);
+
+            // For completeness: a correctly-signed write over the SAME arguments still
+            // succeeds, so the feed is not bricked — only the unsigned bypass is closed.
+            BigInteger roundId = 1;
+            BigInteger price = 50_000;
+            BigInteger timestamp = 1_000;
+            byte[] signature = Sign(h.Signer, FeedMessage(Pair, price, timestamp, roundId));
+            h.Contract.UpdateFeedSigned(Pair, roundId, price, timestamp, Array.Empty<byte>(), 1, signature);
+            AssertLatest(h, roundId, price, timestamp);
+        }
+
+        [Fact]
+        public void UpdateFeeds_BatchUnsignedWrites_AreRejected_OnceKeyIsRegistered()
+        {
+            // The batch witness-only path is gated by the same mandatory check, so a
+            // leaked updater witness cannot batch-anchor arbitrary prices either.
+            Harness h = Deploy();
+
+            h.Engine.SetTransactionSigners(h.Admin);
+            h.Contract.SetOracleVerificationKey(h.Signer.PublicKey);
+
+            h.Engine.SetTransactionSigners(h.Updater);
+            AssertReverts(
+                () => h.Contract.UpdateFeeds(
+                    new object[] { Pair },
+                    new object[] { 1 },
+                    new object[] { 50_000 },
+                    new object[] { 1_000 },
+                    new object[] { Array.Empty<byte>() },
+                    new object[] { 1 }),
+                "feed signature required");
+            Assert.Equal(BigInteger.Zero, h.Contract.PairCount);
+        }
+
+        [Fact]
+        public void UnsignedWrites_StillWork_WhileNoKeyIsRegistered()
+        {
+            // Backward compatibility: with NO verification key the witness-only path is
+            // unchanged — existing publishers keep working exactly as before.
+            Harness h = Deploy();
+            Assert.Null(h.Contract.OracleVerificationKey);
+
             h.Engine.SetTransactionSigners(h.Updater);
             h.Contract.UpdateFeed(Pair, 1, 50_000, 1_000, Array.Empty<byte>(), 1);
             AssertLatest(h, 1, 50_000, 1_000);
 
-            // UpdateFeedSigned with an empty signature is likewise inert (only a
-            // non-empty signature triggers verification).
-            h.Contract.UpdateFeedSigned(Pair, 2, 51_000, 1_001, Array.Empty<byte>(), 1, Array.Empty<byte>());
+            h.Contract.UpdateFeeds(
+                new object[] { Pair },
+                new object[] { 2 },
+                new object[] { 51_000 },
+                new object[] { 1_001 },
+                new object[] { Array.Empty<byte>() },
+                new object[] { 1 });
             AssertLatest(h, 2, 51_000, 1_001);
         }
 

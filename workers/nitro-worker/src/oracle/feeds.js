@@ -10,6 +10,7 @@ import {
 import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
 import {
   aggregateQuotes,
+  countDistinctProviders,
   meetsMinProviders,
   CANONICAL_AGGREGATE_MIN_PROVIDERS,
 } from './aggregation.js';
@@ -78,12 +79,15 @@ import {
   shouldSubmitFeed,
 } from './feeds/sync-policy.js';
 import {
+  buildCanonicalFeedMessage,
   buildFeedSignatureFields,
+  buildFeedUpdateInvocation,
   buildNeoN3RelaySigningPayload,
   isMissingNeoN3BatchUpdateMethod,
   isRecoverableNeoN3BatchUpdateFailure,
   getRecoverableNeoN3BatchUpdateFailureReason,
   submitQuotesToN3WithFallback,
+  SIGNED_FEED_REQUIRES_PER_FEED_PATH,
 } from './feeds/feed-submit.js';
 
 // Re-export the converters so consumers (oracle/index.js) and tests keep
@@ -173,16 +177,34 @@ function buildFeedSnapshotRows(targetChain, syncResults, state, batchTx, scope =
   return rows.filter((entry) => trimString(entry.symbol));
 }
 
+// C2 — provider ids are deduplicated here so a misconfiguration like
+// MORPHEUS_FEED_PROVIDERS="twelvedata,twelvedata" cannot fan out into two quotes
+// from a single source (which would then masquerade as a multi-provider
+// aggregate). This is the upstream half of the defense; meetsMinProviders is the
+// downstream guard.
+function dedupeProviderIds(ids) {
+  const seen = new Set();
+  const out = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
 function parseProviderList(value, fallback = []) {
   if (Array.isArray(value)) {
-    return value.map((entry) => trimString(entry).toLowerCase()).filter(Boolean);
+    return dedupeProviderIds(value.map((entry) => trimString(entry).toLowerCase()).filter(Boolean));
   }
   const raw = trimString(value);
   if (!raw) return fallback;
-  return raw
-    .split(',')
-    .map((entry) => trimString(entry).toLowerCase())
-    .filter(Boolean);
+  return dedupeProviderIds(
+    raw
+      .split(',')
+      .map((entry) => trimString(entry).toLowerCase())
+      .filter(Boolean)
+  );
 }
 
 function resolveRequestedProviders(symbol, options = {}) {
@@ -503,9 +525,8 @@ function buildCanonicalAggregateRecord(pair, aggregation, previousRecord = null)
       providers_rejected: Array.isArray(aggregation.providers_rejected)
         ? aggregation.providers_rejected
         : [],
-      provider_count: Array.isArray(aggregation.providers_used)
-        ? aggregation.providers_used.length
-        : 0,
+      // C2 — count DISTINCT providers so a duplicated id can't inflate the count.
+      provider_count: countDistinctProviders(aggregation),
       deviation_pct: aggregation.deviation_pct ?? null,
       confidence: aggregation.confidence ?? null,
       price: priceDecimalString,
@@ -530,6 +551,24 @@ export function __buildNeoN3RelaySigningPayloadForTests(payload = {}) {
 export function __buildFeedSignatureFieldsForTests(quote = {}) {
   return buildFeedSignatureFields(quote);
 }
+
+export function __buildCanonicalFeedMessageForTests(fields) {
+  return buildCanonicalFeedMessage(fields);
+}
+
+export function __buildFeedUpdateInvocationForTests(baseParams, signed) {
+  return buildFeedUpdateInvocation(baseParams, signed);
+}
+
+export function __countDistinctProvidersForTests(aggregation) {
+  return countDistinctProviders(aggregation);
+}
+
+export function __meetsMinProvidersForTests(aggregation, minProviders) {
+  return meetsMinProviders(aggregation, minProviders);
+}
+
+export const __SIGNED_FEED_REQUIRES_PER_FEED_PATH = SIGNED_FEED_REQUIRES_PER_FEED_PATH;
 
 export function __resolveFeedSubmissionWaitForTests(payload = {}) {
   return resolveFeedSubmissionWait(payload);
