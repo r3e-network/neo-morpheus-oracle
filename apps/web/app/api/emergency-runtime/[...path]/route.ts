@@ -53,7 +53,7 @@ function health(network: Network) {
       compute_merged_into_oracle: false,
     },
     degraded: true,
-    reason: 'phala_runtime_control_plane_disabled',
+    reason: 'runtime_control_plane_disabled',
   });
 }
 
@@ -68,7 +68,7 @@ function info(network: Network) {
     },
     dstack: {
       available: false,
-      reason: 'phala_runtime_unavailable',
+      reason: 'runtime_unavailable',
     },
     overload: {
       inflight: 0,
@@ -94,7 +94,7 @@ async function handle(request: Request, context: RouteContext) {
     runtime: 'emergency-vercel-runtime',
     network,
     path: routePath,
-    message: 'Phala runtime origin is unavailable; only health and info probes are restored.',
+    message: 'Runtime origin is unavailable; only health and info probes are restored.',
   });
 }
 

@@ -206,9 +206,8 @@ function resolveNetworkName() {
 }
 
 function resolvePublicRuntimeCandidates(network, registry) {
-  // Prefer the `nitro` registry key; fall back to the legacy `phala` key so a
-  // live box whose deployed registry has not yet been redeployed still resolves.
-  const runtimeRegistry = registry.nitro ?? registry.phala;
+  // The runtime is the AWS Nitro enclave (Phala is retired); read the `nitro` registry key.
+  const runtimeRegistry = registry.nitro;
   return uniqueOrdered([
     trimString(runtimeRegistry?.public_api_url || ''),
     `https://oracle.meshmini.app/${network}`,
@@ -223,9 +222,7 @@ function resolveNitroApiUrls(network, registry) {
         `MORPHEUS_${network.toUpperCase()}_RUNTIME_URL`,
         'MORPHEUS_RUNTIME_URL',
         `MORPHEUS_${network.toUpperCase()}_NITRO_API_URL`,
-        `MORPHEUS_${network.toUpperCase()}_PHALA_API_URL`,
-        'NITRO_API_URL',
-        'PHALA_API_URL'
+        'NITRO_API_URL'
       )
     )
   );

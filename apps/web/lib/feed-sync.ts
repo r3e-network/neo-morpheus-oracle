@@ -59,9 +59,7 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
   const headers = new Headers({ 'content-type': 'application/json' });
   if (appConfig.nitroToken) {
     headers.set('authorization', `Bearer ${appConfig.nitroToken}`);
-    // Emit both header names for backward-compat with the legacy Phala runtime.
     headers.set('x-nitro-token', appConfig.nitroToken);
-    headers.set('x-phala-token', appConfig.nitroToken);
   }
 
   const results = await Promise.all(

@@ -60,7 +60,6 @@ function extractTrustedAuthToken(request) {
   }
   return firstTruthy(
     request.headers.get('x-nitro-token'),
-    request.headers.get('x-phala-token'),
     request.headers.get('x-morpheus-runtime-token'),
     request.headers.get('x-api-key')
   );

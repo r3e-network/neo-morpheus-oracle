@@ -94,9 +94,7 @@ export async function proxyToNitro(
   headers.set('content-type', headers.get('content-type') || 'application/json');
   if (appConfig.nitroToken) {
     headers.set('authorization', `Bearer ${appConfig.nitroToken}`);
-    // Emit both header names for backward-compat with the legacy Phala runtime.
     headers.set('x-nitro-token', appConfig.nitroToken);
-    headers.set('x-phala-token', appConfig.nitroToken);
   }
   headers.set('x-morpheus-network', networkKey);
 

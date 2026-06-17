@@ -1674,23 +1674,23 @@ test('createRelayerConfig exposes callback ceiling, neox confirm timeout, and pe
 
 test('createRelayerConfig appends public runtime fallbacks after explicit runtime urls', () => {
   const previousNetwork = process.env.MORPHEUS_NETWORK;
-  const previousApiUrl = process.env.PHALA_API_URL;
+  const previousApiUrl = process.env.NITRO_API_URL;
   const previousRuntimeUrl = process.env.MORPHEUS_RUNTIME_URL;
 
   process.env.MORPHEUS_NETWORK = 'testnet';
-  process.env.PHALA_API_URL = 'http://phala-worker:8080';
+  process.env.NITRO_API_URL = 'http://nitro-worker:8080';
   delete process.env.MORPHEUS_RUNTIME_URL;
 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.match(config.nitro.apiUrl, /^http:\/\/phala-worker:8080,/);
+    assert.match(config.nitro.apiUrl, /^http:\/\/nitro-worker:8080,/);
     assert.match(config.nitro.apiUrl, /https:\/\/oracle\.meshmini\.app\/testnet/);
     assert.match(config.nitro.apiUrl, /https:\/\/edge\.meshmini\.app\/testnet/);
   } finally {
     if (previousNetwork === undefined) delete process.env.MORPHEUS_NETWORK;
     else process.env.MORPHEUS_NETWORK = previousNetwork;
-    if (previousApiUrl === undefined) delete process.env.PHALA_API_URL;
-    else process.env.PHALA_API_URL = previousApiUrl;
+    if (previousApiUrl === undefined) delete process.env.NITRO_API_URL;
+    else process.env.NITRO_API_URL = previousApiUrl;
     if (previousRuntimeUrl === undefined) delete process.env.MORPHEUS_RUNTIME_URL;
     else process.env.MORPHEUS_RUNTIME_URL = previousRuntimeUrl;
   }
@@ -1699,13 +1699,13 @@ test('createRelayerConfig appends public runtime fallbacks after explicit runtim
 test('createRelayerConfig lets direct env override packed runtime URL candidates', () => {
   const previousNetwork = process.env.MORPHEUS_NETWORK;
   const previousRuntimeConfig = process.env.MORPHEUS_RUNTIME_CONFIG_JSON;
-  const previousPhalaApiUrl = process.env.PHALA_API_URL;
+  const previousNitroApiUrl = process.env.NITRO_API_URL;
 
   process.env.MORPHEUS_NETWORK = 'mainnet';
   process.env.MORPHEUS_RUNTIME_CONFIG_JSON = JSON.stringify({
     MORPHEUS_MAINNET_RUNTIME_URL: 'https://packed-runtime.example/mainnet',
   });
-  process.env.PHALA_API_URL = 'http://mainnet-feed-worker:8080';
+  process.env.NITRO_API_URL = 'http://mainnet-feed-worker:8080';
 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
@@ -1715,8 +1715,8 @@ test('createRelayerConfig lets direct env override packed runtime URL candidates
     else process.env.MORPHEUS_NETWORK = previousNetwork;
     if (previousRuntimeConfig === undefined) delete process.env.MORPHEUS_RUNTIME_CONFIG_JSON;
     else process.env.MORPHEUS_RUNTIME_CONFIG_JSON = previousRuntimeConfig;
-    if (previousPhalaApiUrl === undefined) delete process.env.PHALA_API_URL;
-    else process.env.PHALA_API_URL = previousPhalaApiUrl;
+    if (previousNitroApiUrl === undefined) delete process.env.NITRO_API_URL;
+    else process.env.NITRO_API_URL = previousNitroApiUrl;
   }
 });
 

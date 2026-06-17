@@ -19,8 +19,7 @@ export async function requireAuth(request) {
   );
   const auth = trimString(
     request.headers.get('authorization') ||
-      request.headers.get('x-nitro-token') ||
-      request.headers.get('x-phala-token')
+      request.headers.get('x-nitro-token')
   );
   if (!expected) {
     return { ok: false, response: json(503, { error: 'worker auth secret is not configured' }) };

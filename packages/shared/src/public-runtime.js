@@ -41,7 +41,7 @@ function getHealthState(probe) {
   }
   // Emergency/fallback runtimes answer with status 'ok' plus an explicit
   // degraded flag and reason (e.g. {status:'ok', degraded:true,
-  // reason:'phala_runtime_control_plane_disabled'} during a TEE outage), so
+  // reason:'runtime_control_plane_disabled'} during a TEE outage), so
   // the status string alone must not certify the runtime as healthy.
   if (body.degraded === true || readString(body.reason)) {
     return 'degraded';
