@@ -203,7 +203,7 @@ test('applyRequestGuards does NOT bypass rate limiting for a signing/auth token'
       method: 'POST',
       headers: {
         authorization: 'Bearer signing-token',
-        'x-phala-token': 'signing-token',
+        'x-nitro-token': 'signing-token',
         'cf-connecting-ip': '203.0.113.9',
       },
       body: JSON.stringify({
