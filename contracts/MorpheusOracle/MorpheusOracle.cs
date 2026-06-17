@@ -36,6 +36,8 @@ namespace MorpheusOracle.Contracts
     public delegate void AccruedFeesWithdrawnHandler(UInt160 to, BigInteger amount);
     public delegate void RequestExpiredHandler(BigInteger requestId, string appId, UInt160 requester, UInt160 sponsor, BigInteger refundAmount);
     public delegate void RequestTTLUpdatedHandler(BigInteger oldTTL, BigInteger newTTL);
+    public delegate void SponsoredRequesterAllowedHandler(string appId, UInt160 requester, bool allowed);
+    public delegate void SponsoredRequesterCapUpdatedHandler(string appId, UInt160 requester, BigInteger cap);
 
     /// <summary>
     /// Legacy deployment name retained for compatibility, now acting as the shared MiniApp OS kernel.
@@ -96,6 +98,20 @@ namespace MorpheusOracle.Contracts
         // miniapp admin or fee-payer. Replaces the O(n) registry scan for directed-deposit auth.
         // Idempotent by design so the post-upgrade backfill (RebuildIndexes) cannot drift.
         private static readonly byte[] PREFIX_ACCOUNT_REGISTERED = new byte[] { 0x28 };
+        // Per-app opt-in flag (appId -> 1) recording that the app's admin has configured at least
+        // one sponsorship control (allowlist entry or spend cap). Until this flag is set the app
+        // sponsors EVERY requester exactly as before (backward compatible); once set, only
+        // allowlisted or under-cap requesters draw on the sponsor's credit.
+        private static readonly byte[] PREFIX_SPONSOR_GATED = new byte[] { 0x29 };
+        // Per-(appId, requester) allowlist bit ((appId,requester) -> 1) of requesters whose
+        // requests the app's fee payer is willing to sponsor unconditionally.
+        private static readonly byte[] PREFIX_SPONSOR_ALLOWED = new byte[] { 0x2A };
+        // Per-(appId, requester) sponsored spend cap ((appId,requester) -> cap) limiting the total
+        // fees the sponsor will cover for that requester. 0/absent means no cap configured.
+        private static readonly byte[] PREFIX_SPONSOR_CAP = new byte[] { 0x2B };
+        // Per-(appId, requester) cumulative sponsored spend ((appId,requester) -> spent), compared
+        // against the cap above so a capped requester can be sponsored only while under budget.
+        private static readonly byte[] PREFIX_SPONSOR_SPENT = new byte[] { 0x2C };
         private static readonly byte[] FULFILLMENT_SIGNATURE_DOMAIN = new byte[] { 109, 105, 110, 105, 97, 112, 112, 45, 111, 115, 45, 102, 117, 108, 102, 105, 108, 108, 109, 101, 110, 116, 45, 118, 49 };
 
         private const int MAX_APP_ID_LENGTH = 64;
@@ -234,6 +250,12 @@ namespace MorpheusOracle.Contracts
 
         [DisplayName("RequestTTLUpdated")]
         public static event RequestTTLUpdatedHandler OnRequestTTLUpdated;
+
+        [DisplayName("SponsoredRequesterAllowed")]
+        public static event SponsoredRequesterAllowedHandler OnSponsoredRequesterAllowed;
+
+        [DisplayName("SponsoredRequesterCapUpdated")]
+        public static event SponsoredRequesterCapUpdatedHandler OnSponsoredRequesterCapUpdated;
 
         public static void _deploy(object data, bool update)
         {
@@ -551,6 +573,53 @@ namespace MorpheusOracle.Contracts
             return raw == null ? (ByteString)"" : raw;
         }
 
+        /// <summary>
+        /// True once the app admin has enabled sponsorship gating (set any allowlist entry or
+        /// spend cap). While false the app's fee payer sponsors every requester (legacy behavior).
+        /// </summary>
+        [Safe]
+        public static bool IsSponsorshipGated(string appId)
+        {
+            ValidateIdentifier(appId, MAX_APP_ID_LENGTH, "invalid app id");
+            return SponsorGatedMap().Get(appId) != null;
+        }
+
+        /// <summary>
+        /// True when the given requester is on the app's sponsorship allowlist (its requests are
+        /// charged to the app fee payer unconditionally while gating is enabled).
+        /// </summary>
+        [Safe]
+        public static bool IsSponsoredRequesterAllowed(string appId, UInt160 requester)
+        {
+            ValidateIdentifier(appId, MAX_APP_ID_LENGTH, "invalid app id");
+            if (requester == null || !requester.IsValid) return false;
+            return SponsorAllowedMap().Get(BuildRequesterKey(appId, requester)) != null;
+        }
+
+        /// <summary>
+        /// The per-app per-requester sponsored spend cap. 0 means no cap is configured.
+        /// </summary>
+        [Safe]
+        public static BigInteger GetSponsoredRequesterCap(string appId, UInt160 requester)
+        {
+            ValidateIdentifier(appId, MAX_APP_ID_LENGTH, "invalid app id");
+            if (requester == null || !requester.IsValid) return 0;
+            ByteString raw = SponsorCapMap().Get(BuildRequesterKey(appId, requester));
+            return raw == null ? 0 : (BigInteger)raw;
+        }
+
+        /// <summary>
+        /// The cumulative fees the app fee payer has already sponsored for the given requester.
+        /// </summary>
+        [Safe]
+        public static BigInteger GetSponsoredRequesterSpent(string appId, UInt160 requester)
+        {
+            ValidateIdentifier(appId, MAX_APP_ID_LENGTH, "invalid app id");
+            if (requester == null || !requester.IsValid) return 0;
+            ByteString raw = SponsorSpentMap().Get(BuildRequesterKey(appId, requester));
+            return raw == null ? 0 : (BigInteger)raw;
+        }
+
         public static void SetAdmin(UInt160 newAdmin)
         {
             ValidateAdmin();
@@ -728,6 +797,27 @@ namespace MorpheusOracle.Contracts
             // FeePaid, so accrued and reserved stay symmetric after both decrements.
             ReleaseReservedFee(req.FeePaid);
 
+            // Store a canonical InboxItem exactly as FulfillRequest does so inbox-only consumers
+            // (which never watch events) observe this terminal state. Without it an expired
+            // request leaves the inbox empty forever and an inbox poller waits indefinitely.
+            // The item carries Success=false and the same documented expiry error recorded on the
+            // request, with an empty result, mirroring the failed-fulfillment shape.
+            InboxItem inbox = new InboxItem
+            {
+                AppId = req.AppId,
+                RequestId = requestId,
+                ModuleId = req.ModuleId,
+                Operation = req.Operation,
+                Requester = req.Requester,
+                Success = false,
+                Result = (ByteString)"",
+                Error = req.Error,
+                DeliveredAt = Runtime.Time
+            };
+
+            AppInboxMap().Put(BuildInboxKey(req.AppId, requestId), StdLib.Serialize(inbox));
+            OnMiniAppInboxStored(req.AppId, requestId, req.Requester, false);
+
             OnRequestExpired(requestId, req.AppId, req.Requester, req.Sponsor, refund);
             OnMiniAppRequestCompleted(
                 requestId,
@@ -785,6 +875,63 @@ namespace MorpheusOracle.Contracts
 
             PutMiniApp(appId, app.Admin, feePayer, callbackContract, metadataUri, metadataHash, active, app.CreatedAt);
             OnMiniAppUpdated(appId, app.Admin, feePayer, callbackContract, active);
+        }
+
+        /// <summary>
+        /// Allow or disallow an individual requester from drawing on the app fee payer's prepaid
+        /// credit. Gated by the app admin (or the system admin). The FIRST time any sponsorship
+        /// control is configured for an app (an allowlist entry set to true, or a non-zero spend
+        /// cap) the app flips into "gated" mode: from then on the fee payer sponsors ONLY
+        /// allowlisted or under-cap requesters and everyone else pays their own fee. This closes
+        /// the sponsored-fee drain where any requester could spam a sponsored app to burn the
+        /// sponsor's credit. Apps that never configure a control keep the legacy
+        /// sponsor-everyone behavior, so this change is backward compatible.
+        /// </summary>
+        public static void SetSponsoredRequesterAllowed(string appId, UInt160 requester, bool allowed)
+        {
+            MiniAppRecord app = RequireMiniApp(appId);
+            ValidateMiniAppAdmin(app);
+            ExecutionEngine.Assert(requester != null && requester.IsValid, "invalid requester");
+
+            byte[] key = BuildRequesterKey(appId, requester);
+            if (allowed)
+            {
+                SponsorAllowedMap().Put(key, 1);
+                EnableSponsorshipGating(appId);
+            }
+            else
+            {
+                SponsorAllowedMap().Delete(key);
+            }
+
+            OnSponsoredRequesterAllowed(appId, requester, allowed);
+        }
+
+        /// <summary>
+        /// Configure (or clear, with cap == 0) the total fees the app fee payer will sponsor for a
+        /// single requester. While gating is enabled a non-allowlisted requester is sponsored only
+        /// while its cumulative sponsored spend stays at or below this cap; once exhausted it pays
+        /// its own fee. Setting a non-zero cap enables gating for the app. Gated by the app admin.
+        /// </summary>
+        public static void SetSponsoredRequesterCap(string appId, UInt160 requester, BigInteger cap)
+        {
+            MiniAppRecord app = RequireMiniApp(appId);
+            ValidateMiniAppAdmin(app);
+            ExecutionEngine.Assert(requester != null && requester.IsValid, "invalid requester");
+            ExecutionEngine.Assert(cap >= 0, "invalid cap");
+
+            byte[] key = BuildRequesterKey(appId, requester);
+            if (cap > 0)
+            {
+                SponsorCapMap().Put(key, cap);
+                EnableSponsorshipGating(appId);
+            }
+            else
+            {
+                SponsorCapMap().Delete(key);
+            }
+
+            OnSponsoredRequesterCapUpdated(appId, requester, cap);
         }
 
         public static void GrantModuleToMiniApp(string appId, string moduleId)
@@ -1187,6 +1334,29 @@ namespace MorpheusOracle.Contracts
 
         private static StorageMap CallbackIndexMap() => new StorageMap(Storage.CurrentContext, PREFIX_CALLBACK_INDEX);
         private static StorageMap AccountRegisteredMap() => new StorageMap(Storage.CurrentContext, PREFIX_ACCOUNT_REGISTERED);
+        private static StorageMap SponsorGatedMap() => new StorageMap(Storage.CurrentContext, PREFIX_SPONSOR_GATED);
+        private static StorageMap SponsorAllowedMap() => new StorageMap(Storage.CurrentContext, PREFIX_SPONSOR_ALLOWED);
+        private static StorageMap SponsorCapMap() => new StorageMap(Storage.CurrentContext, PREFIX_SPONSOR_CAP);
+        private static StorageMap SponsorSpentMap() => new StorageMap(Storage.CurrentContext, PREFIX_SPONSOR_SPENT);
+
+        // Flip the app into sponsorship-gated mode. Idempotent: once set, the app sponsors only
+        // allowlisted/under-cap requesters. There is intentionally no way to clear the flag back
+        // to sponsor-everyone — an admin disables sponsorship by clearing individual entries.
+        private static void EnableSponsorshipGating(string appId)
+        {
+            SponsorGatedMap().Put(appId, 1);
+        }
+
+        // Accrue a sponsored fee against the requester's per-app spend ledger so a configured cap
+        // is enforced cumulatively across requests.
+        private static void RecordSponsoredSpend(string appId, UInt160 requester, BigInteger amount)
+        {
+            if (amount <= 0 || requester == null || !requester.IsValid) return;
+            byte[] key = BuildRequesterKey(appId, requester);
+            ByteString raw = SponsorSpentMap().Get(key);
+            BigInteger spent = raw == null ? 0 : (BigInteger)raw;
+            SponsorSpentMap().Put(key, spent + amount);
+        }
 
         private static void MarkAccountRegistered(UInt160 account)
         {
@@ -1322,8 +1492,16 @@ namespace MorpheusOracle.Contracts
             ValidateRequestInputs(appId, moduleId, operation, payload);
             MiniAppRecord app = RequireActiveMiniApp(appId);
 
-            UInt160 sponsor = ResolveFeePayer(requester, app.FeePayer);
+            UInt160 sponsor = ResolveFeePayer(appId, requester, app.FeePayer);
             BigInteger feePaid = ConsumeRequestFeeFromPayer(sponsor);
+
+            // When the fee payer actually covered this request (i.e. the sponsor differs from the
+            // requester), record the spend against any configured per-requester cap so a capped
+            // requester can only ever be sponsored up to its budget.
+            if (feePaid > 0 && sponsor != requester)
+            {
+                RecordSponsoredSpend(appId, requester, feePaid);
+            }
 
             BigInteger requestId = NextRequestId();
             KernelRequest req = new KernelRequest
@@ -1352,19 +1530,44 @@ namespace MorpheusOracle.Contracts
             return requestId;
         }
 
-        private static UInt160 ResolveFeePayer(UInt160 requester, UInt160 sponsor)
+        private static UInt160 ResolveFeePayer(string appId, UInt160 requester, UInt160 sponsor)
         {
             BigInteger fee = SystemRequestFee();
             if (fee <= 0) return requester;
 
             if (sponsor != null
                 && sponsor.IsValid
-                && FeeCreditOf(sponsor) >= fee)
+                && sponsor != requester
+                && FeeCreditOf(sponsor) >= fee
+                && IsRequesterSponsorable(appId, requester, fee))
             {
                 return sponsor;
             }
 
             return requester;
+        }
+
+        // Decides whether the app fee payer is willing to cover this requester's fee. Until the
+        // app admin configures any sponsorship control the answer is always yes (legacy
+        // sponsor-everyone behavior, so the change is backward compatible). Once the app is gated
+        // the fee payer covers a requester only when it is allowlisted, or when a per-requester
+        // spend cap is configured and crediting this fee keeps the requester at or below it.
+        private static bool IsRequesterSponsorable(string appId, UInt160 requester, BigInteger fee)
+        {
+            if (SponsorGatedMap().Get(appId) == null) return true;
+
+            byte[] key = BuildRequesterKey(appId, requester);
+            if (SponsorAllowedMap().Get(key) != null) return true;
+
+            ByteString rawCap = SponsorCapMap().Get(key);
+            if (rawCap == null) return false;
+
+            BigInteger cap = (BigInteger)rawCap;
+            if (cap <= 0) return false;
+
+            ByteString rawSpent = SponsorSpentMap().Get(key);
+            BigInteger spent = rawSpent == null ? 0 : (BigInteger)rawSpent;
+            return spent + fee <= cap;
         }
 
         private static UInt160 ResolveCreditBeneficiary(UInt160 from, object data)
@@ -1604,6 +1807,17 @@ namespace MorpheusOracle.Contracts
             return (byte[])Helper.Concat(
                 CryptoLib.Sha256((ByteString)(appId ?? "")),
                 stateKey ?? (ByteString)""
+            );
+        }
+
+        // Composite key for per-(appId, requester) sponsorship records. Hashes the appId so a
+        // fixed-width prefix is followed by the 20-byte account, avoiding any separator collision
+        // between distinct (appId, requester) pairs.
+        private static byte[] BuildRequesterKey(string appId, UInt160 requester)
+        {
+            return (byte[])Helper.Concat(
+                CryptoLib.Sha256((ByteString)(appId ?? "")),
+                (ByteString)requester
             );
         }
     }
