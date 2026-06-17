@@ -528,8 +528,39 @@ describe('NEO_N3_SIGNER_ENV_KEYS', () => {
   });
 
   it('includes the core relayer and updater env var names', () => {
+    assert.ok(NEO_N3_SIGNER_ENV_KEYS.includes('MORPHEUS_WORKER_NEO_N3_WIF'));
     assert.ok(NEO_N3_SIGNER_ENV_KEYS.includes('MORPHEUS_RELAYER_NEO_N3_WIF'));
     assert.ok(NEO_N3_SIGNER_ENV_KEYS.includes('MORPHEUS_UPDATER_NEO_N3_WIF'));
     assert.ok(NEO_N3_SIGNER_ENV_KEYS.includes('MORPHEUS_ORACLE_VERIFIER_WIF'));
+  });
+});
+
+// ===================================================================
+// worker role: MORPHEUS_WORKER_* primary with PHALA_* fallback
+// ===================================================================
+
+describe('worker signer resolution', () => {
+  it('prefers the network-scoped MORPHEUS_WORKER WIF as primary source', () => {
+    withCleanSignerEnv(() => {
+      process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+      process.env.MORPHEUS_WORKER_NEO_N3_WIF_TESTNET = ACCOUNT_A.WIF;
+
+      const report = resolvePinnedNeoN3Role('testnet', 'worker');
+      assert.equal(report.ok, true);
+      assert.equal(report.selected_source, 'MORPHEUS_WORKER_NEO_N3_WIF_TESTNET');
+      assert.equal(report.selected_identity.address, ACCOUNT_A.address);
+    });
+  });
+
+  it('still resolves from a PHALA worker WIF when no MORPHEUS_WORKER key is set', () => {
+    withCleanSignerEnv(() => {
+      process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+      process.env.PHALA_NEO_N3_WIF_TESTNET = ACCOUNT_A.WIF;
+
+      const report = resolvePinnedNeoN3Role('testnet', 'worker');
+      assert.equal(report.ok, true);
+      assert.equal(report.selected_source, 'PHALA_NEO_N3_WIF_TESTNET');
+      assert.equal(report.selected_identity.address, ACCOUNT_A.address);
+    });
   });
 });

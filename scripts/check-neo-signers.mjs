@@ -52,7 +52,8 @@ async function buildReport(label, filePaths, { allowMissing = false, network = '
     network || env.MORPHEUS_NETWORK || runtimeConfig.MORPHEUS_NETWORK || 'testnet'
   );
   const signerEnv = { ...runtimeConfig, ...env };
-  const useDerivedKeys = isTrue(signerEnv.PHALA_USE_DERIVED_KEYS);
+  const useDerivedKeys =
+    isTrue(signerEnv.NITRO_USE_DERIVED_KEYS) || isTrue(signerEnv.PHALA_USE_DERIVED_KEYS);
   const signers = ['worker', 'relayer', 'updater', 'oracle_verifier'].map((role) => {
     const entry = reportPinnedNeoN3Roles(resolvedNetwork, [role], {
       env: signerEnv,

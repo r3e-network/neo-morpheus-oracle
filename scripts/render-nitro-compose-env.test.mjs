@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { wallet } from '@cityofzion/neon-js';
+import { resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const archivedEnvKeys = [
@@ -117,4 +118,35 @@ test('render-nitro-compose-env omits archived Neo X fields from generated output
     ),
     'runtime config must expose the network-scoped updater private key to the relayer primary signer path'
   );
+
+  const lineValue = (key) => {
+    const linePrefix = `${key}=`;
+    const match = rendered.split(/\r?\n/).find((line) => line.startsWith(linePrefix));
+    return match ? match.slice(linePrefix.length) : undefined;
+  };
+
+  assert.ok(renderedKeys.has('NITRO_USE_DERIVED_KEYS'), 'missing NITRO_USE_DERIVED_KEYS line');
+  assert.equal(
+    lineValue('NITRO_USE_DERIVED_KEYS'),
+    lineValue('PHALA_USE_DERIVED_KEYS'),
+    'NITRO_USE_DERIVED_KEYS must mirror PHALA_USE_DERIVED_KEYS'
+  );
+  assert.ok(
+    Object.prototype.hasOwnProperty.call(runtimeConfig, 'NITRO_USE_DERIVED_KEYS'),
+    'runtime config must expose NITRO_USE_DERIVED_KEYS'
+  );
+
+  const signerEnv = { ...runtimeConfig, MORPHEUS_ALLOW_UNPINNED_SIGNERS: 'true' };
+  for (const role of ['worker', 'oracle_verifier']) {
+    const report = resolvePinnedNeoN3Role('mainnet', role, { env: signerEnv });
+    assert.equal(
+      report.ok,
+      true,
+      `${role} signer must resolve from rendered runtime config: ${report.issues.join('; ')}`
+    );
+    assert.ok(
+      report.materialized && (report.materialized.wif || report.materialized.private_key),
+      `${role} signer must materialize key material from rendered runtime config`
+    );
+  }
 });

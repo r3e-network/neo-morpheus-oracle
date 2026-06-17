@@ -157,6 +157,14 @@ const lines = [
   line('MORPHEUS_PUBLIC_PORT', pick(envs, 'MORPHEUS_PUBLIC_PORT') || '3000'),
   line('PHALA_SHARED_SECRET', pick(envs, 'PHALA_SHARED_SECRET')),
   line('PHALA_API_TOKEN', pick(envs, 'PHALA_API_TOKEN')),
+  line(
+    'MORPHEUS_RUNTIME_TOKEN',
+    pick(envs, 'MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN', 'PHALA_SHARED_SECRET', 'PHALA_API_TOKEN')
+  ),
+  line(
+    'NITRO_API_TOKEN',
+    pick(envs, 'NITRO_API_TOKEN', 'MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET')
+  ),
   line('SUPABASE_URL', pick(envs, 'SUPABASE_URL')),
   line('SUPABASE_SECRET_KEY', pick(envs, 'SUPABASE_SECRET_KEY')),
   line('SUPABASE_SERVICE_ROLE_KEY', pick(envs, 'SUPABASE_SERVICE_ROLE_KEY')),
@@ -221,7 +229,7 @@ function hasRenderedValue(renderedEnv, key) {
 }
 
 const requiredKeys = [
-  'PHALA_SHARED_SECRET',
+  'MORPHEUS_RUNTIME_TOKEN',
   'SUPABASE_URL',
   'SUPABASE_SECRET_KEY',
   'MAINNET_RUNTIME_CONFIG_JSON',

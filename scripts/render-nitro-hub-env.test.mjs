@@ -208,3 +208,79 @@ test('render-nitro-hub-env never promotes unscoped local signer material into sc
   assert.equal(rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET, 'mainnet-verifier-public-key');
   assert.equal(rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET, 'testnet-verifier-public-key');
 });
+
+test('render-nitro-hub-env derives MORPHEUS_RUNTIME_TOKEN from a PHALA_SHARED_SECRET-only env', () => {
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'render-nitro-hub-env-phala-token-'));
+  const deployDir = path.join(workDir, 'deploy/nitro');
+  const outputPath = path.join(deployDir, 'morpheus.hub.env');
+  const shared = {
+    MORPHEUS_NITRO_WORKER_IMAGE: 'worker:test',
+    MORPHEUS_RELAYER_IMAGE: 'relayer:test',
+    PHALA_SHARED_SECRET: 'phala-only-secret',
+    SUPABASE_URL: 'https://supabase.example',
+    SUPABASE_SECRET_KEY: 'supabase-secret',
+  };
+
+  writeEnvFile(path.join(deployDir, 'morpheus.mainnet.env'), {
+    ...shared,
+    MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({ MORPHEUS_NETWORK: 'mainnet' }),
+  });
+  writeEnvFile(path.join(deployDir, 'morpheus.testnet.env'), {
+    ...shared,
+    MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({ MORPHEUS_NETWORK: 'testnet' }),
+  });
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, 'scripts/render-nitro-hub-env.mjs'), '--output', outputPath],
+    {
+      cwd: workDir,
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH },
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const rendered = parseEnv(fs.readFileSync(outputPath, 'utf8'));
+
+  assert.equal(rendered.PHALA_SHARED_SECRET, 'phala-only-secret');
+  assert.equal(rendered.MORPHEUS_RUNTIME_TOKEN, 'phala-only-secret');
+  assert.equal(rendered.NITRO_API_TOKEN, 'phala-only-secret');
+});
+
+test('render-nitro-hub-env passes when only MORPHEUS_RUNTIME_TOKEN is provided', () => {
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'render-nitro-hub-env-runtime-token-'));
+  const deployDir = path.join(workDir, 'deploy/nitro');
+  const outputPath = path.join(deployDir, 'morpheus.hub.env');
+  const shared = {
+    MORPHEUS_NITRO_WORKER_IMAGE: 'worker:test',
+    MORPHEUS_RELAYER_IMAGE: 'relayer:test',
+    SUPABASE_URL: 'https://supabase.example',
+    SUPABASE_SECRET_KEY: 'supabase-secret',
+  };
+
+  writeEnvFile(path.join(deployDir, 'morpheus.mainnet.env'), {
+    ...shared,
+    MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({ MORPHEUS_NETWORK: 'mainnet' }),
+  });
+  writeEnvFile(path.join(deployDir, 'morpheus.testnet.env'), {
+    ...shared,
+    MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({ MORPHEUS_NETWORK: 'testnet' }),
+  });
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, 'scripts/render-nitro-hub-env.mjs'), '--output', outputPath],
+    {
+      cwd: workDir,
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, MORPHEUS_RUNTIME_TOKEN: 'runtime-token-only' },
+    }
+  );
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const rendered = parseEnv(fs.readFileSync(outputPath, 'utf8'));
+
+  assert.equal(rendered.MORPHEUS_RUNTIME_TOKEN, 'runtime-token-only');
+  assert.equal(rendered.NITRO_API_TOKEN, 'runtime-token-only');
+});

@@ -141,8 +141,8 @@ const relayerEnv =
     line('MORPHEUS_RELAYER_MODE', 'combined'),
     line('MORPHEUS_ACTIVE_CHAINS', 'neo_n3'),
     line('MORPHEUS_RUNTIME_URL', 'http://127.0.0.1:8787'),
-    line('PHALA_API_URL', 'http://127.0.0.1:8787'),
     line('PHALA_USE_DERIVED_KEYS', 'true'),
+    line('NITRO_USE_DERIVED_KEYS', 'true'),
     line('MORPHEUS_RUNTIME_TOKEN', runtimeToken),
     line('PHALA_SHARED_SECRET', runtimeToken),
     line(

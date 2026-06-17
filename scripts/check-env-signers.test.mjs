@@ -62,6 +62,43 @@ test('check-nitro-env accepts suffix-scoped mainnet worker, relayer, and updater
   assert.deepEqual(report.missing_either_of, []);
 });
 
+test('check-nitro-env passes with NITRO_USE_DERIVED_KEYS and no pinned signer WIFs', () => {
+  const signer = generatedSignerLines();
+  const envPath = writeEnvFile([
+    'SUPABASE_URL=https://supabase.test',
+    'SUPABASE_SERVICE_ROLE_KEY=service-role-key',
+    'MORPHEUS_NETWORK=mainnet',
+    'NEO_RPC_URL=https://neo-rpc.test',
+    'NEO_NETWORK_MAGIC=860833102',
+    'CONTRACT_MORPHEUS_ORACLE_HASH=0x5b492098fc094c760402e01f7e0b631b939d2bea',
+    'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH=0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844',
+    'MORPHEUS_ALLOW_UNPINNED_SIGNERS=true',
+    'NITRO_USE_DERIVED_KEYS=true',
+    'NITRO_API_TOKEN=runtime-token',
+    `MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET=${signer.wif}`,
+  ]);
+
+  const result = spawnSync(process.execPath, ['scripts/check-nitro-env.mjs'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env: baseSpawnEnv({ PHALA_ENV_FILE: envPath }),
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.ok, true);
+  assert.deepEqual(report.missing_required, []);
+  assert.deepEqual(report.missing_either_of, []);
+  const derivedRoles = report.neo_n3_signers.filter((entry) =>
+    ['worker', 'relayer', 'updater'].includes(entry.role)
+  );
+  for (const entry of derivedRoles) {
+    assert.equal(entry.derived_key_mode, true);
+    assert.equal(entry.ok, true);
+    assert.deepEqual(entry.issues, []);
+  }
+});
+
 test('check-control-plane-env accepts suffix-scoped mainnet updater signer for feed execution', () => {
   const signer = generatedSignerLines();
   const envPath = writeEnvFile([

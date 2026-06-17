@@ -55,7 +55,15 @@ function mergeConfidentialValue(baseValue, patchValue) {
 }
 
 function getOracleKeyStorePath() {
-  return trimString(env('PHALA_ORACLE_KEYSTORE_PATH')) || '/data/morpheus/oracle-key.json';
+  return (
+    trimString(
+      env(
+        'NITRO_ORACLE_KEYSTORE_PATH',
+        'MORPHEUS_ORACLE_KEYSTORE_PATH',
+        'PHALA_ORACLE_KEYSTORE_PATH'
+      )
+    ) || '/data/morpheus/oracle-key.json'
+  );
 }
 
 function parseConfiguredOracleKeyMaterial() {
@@ -182,8 +190,13 @@ function resolveAbsoluteKeystorePath(filePath) {
 
 async function deriveOracleWrapKey() {
   const keyPath =
-    trimString(env('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH')) ||
-    'morpheus/oracle/encryption/wrap/v1';
+    trimString(
+      env(
+        'NITRO_DSTACK_ORACLE_ENCRYPTION_KEY_PATH',
+        'MORPHEUS_ORACLE_ENCRYPTION_KEY_PATH',
+        'PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'
+      )
+    ) || 'morpheus/oracle/encryption/wrap/v1';
   const bytes = await deriveKeyBytes(keyPath, 'oracle-encryption-wrap');
   if (bytes.length < 32) {
     throw new Error(

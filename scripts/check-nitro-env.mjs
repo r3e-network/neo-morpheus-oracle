@@ -66,7 +66,6 @@ function resolveEnvPath({ networkOverride, envFileOverride } = {}) {
 }
 
 const required = [
-  'PHALA_SHARED_SECRET',
   'SUPABASE_URL',
   'MORPHEUS_NETWORK',
   'NEO_RPC_URL',
@@ -85,6 +84,13 @@ const network = normalizeMorpheusNetwork(
 );
 const networkSuffix = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
 const requiredEither = [
+  [
+    'MORPHEUS_RUNTIME_TOKEN',
+    'NITRO_API_TOKEN',
+    'PHALA_API_TOKEN',
+    'NITRO_SHARED_SECRET',
+    'PHALA_SHARED_SECRET',
+  ],
   ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'],
   [
     'PHALA_NEO_N3_WIF',
@@ -106,7 +112,9 @@ const requiredEither = [
   ],
 ];
 const missing = required.filter((key) => !getValue(env, runtimeConfig, key));
-const useDerivedKeys = isTrue(getValue(env, runtimeConfig, 'PHALA_USE_DERIVED_KEYS'));
+const useDerivedKeys =
+  isTrue(getValue(env, runtimeConfig, 'NITRO_USE_DERIVED_KEYS')) ||
+  isTrue(getValue(env, runtimeConfig, 'PHALA_USE_DERIVED_KEYS'));
 const missingEither = requiredEither.filter((group) => {
   if (
     useDerivedKeys &&
