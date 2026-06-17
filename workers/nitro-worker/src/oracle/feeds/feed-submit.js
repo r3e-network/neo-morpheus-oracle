@@ -32,6 +32,22 @@ export function buildNeoN3RelaySigningPayload(payload = {}) {
   };
 }
 
+// C1 — carry the ECDSA signature + signer public key (produced off-chain by
+// buildSignedResultEnvelope) into the persisted feed record so the value CAN be
+// verified once an on-chain verification key is registered. While no key is
+// registered the contract ignores these fields and the write stays
+// updater-witness only, so this is additive and backward compatible. Returns an
+// empty object when the quote was not signed.
+export function buildFeedSignatureFields(quote = {}) {
+  const signature = trimString(quote?.signature || '');
+  const signerPublicKey = trimString(quote?.public_key || quote?.signer_public_key || '');
+  if (!signature && !signerPublicKey) return {};
+  return {
+    ...(signature ? { signature } : {}),
+    ...(signerPublicKey ? { signer_public_key: signerPublicKey } : {}),
+  };
+}
+
 export async function submitQuoteToN3(
   dataFeedHash,
   neoContext,

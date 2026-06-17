@@ -8,7 +8,11 @@ import {
   trimString,
 } from '../platform/core.js';
 import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
-import { aggregateQuotes } from './aggregation.js';
+import {
+  aggregateQuotes,
+  meetsMinProviders,
+  CANONICAL_AGGREGATE_MIN_PROVIDERS,
+} from './aggregation.js';
 import {
   buildSignedResultEnvelope,
   buildVerificationEnvelope,
@@ -74,6 +78,7 @@ import {
   shouldSubmitFeed,
 } from './feeds/sync-policy.js';
 import {
+  buildFeedSignatureFields,
   buildNeoN3RelaySigningPayload,
   isMissingNeoN3BatchUpdateMethod,
   isRecoverableNeoN3BatchUpdateFailure,
@@ -458,8 +463,72 @@ function buildRoundId(previousRecord) {
   return String(Number(previousRecord.round_id) + 1);
 }
 
+// C2 — the storage key for the single canonical aggregated record of a pair.
+// The per-provider records (PROVIDER:PAIR) are single-source and never
+// cross-checked against each other; this canonical key holds the multi-provider
+// aggregated value so a consumer can read one tamper-resistant price per pair.
+export function buildCanonicalAggregateStorageKey(pair) {
+  return `AGG:${normalizeFeedPairSymbol(pair)}`;
+}
+
+// C2 — build the canonical aggregated record for a pair from a multi-source
+// aggregation result. Returns null unless at least CANONICAL_AGGREGATE_MIN_PROVIDERS
+// (>=2) independent providers contributed, so a single-source value can never be
+// laundered into the canonical record. The price carries the aggregation's
+// median/mean output rather than any one provider's quote.
+function buildCanonicalAggregateRecord(pair, aggregation, previousRecord = null) {
+  if (!meetsMinProviders(aggregation, CANONICAL_AGGREGATE_MIN_PROVIDERS)) return null;
+  const aggregatedPrice = Number(aggregation?.price);
+  if (!Number.isFinite(aggregatedPrice)) return null;
+
+  const storageKey = buildCanonicalAggregateStorageKey(pair);
+  // toFixed avoids exponential notation (e.g. 1e-7) that decimalToIntegerString
+  // would reject, and bounds the float to the feed scale before integer conversion.
+  const priceDecimalString = integerToDecimalString(
+    decimalToIntegerString(aggregatedPrice.toFixed(FEED_PRICE_DECIMALS), FEED_PRICE_DECIMALS),
+    FEED_PRICE_DECIMALS
+  );
+  const roundId = buildRoundId(previousRecord);
+  return {
+    storageKey,
+    record: {
+      ...(previousRecord && typeof previousRecord === 'object' ? previousRecord : {}),
+      storage_pair: storageKey,
+      pair: normalizeFeedPairSymbol(pair),
+      aggregate: true,
+      aggregation_method: aggregation.method ?? null,
+      providers_used: Array.isArray(aggregation.providers_used)
+        ? aggregation.providers_used
+        : [],
+      providers_rejected: Array.isArray(aggregation.providers_rejected)
+        ? aggregation.providers_rejected
+        : [],
+      provider_count: Array.isArray(aggregation.providers_used)
+        ? aggregation.providers_used.length
+        : 0,
+      deviation_pct: aggregation.deviation_pct ?? null,
+      confidence: aggregation.confidence ?? null,
+      price: priceDecimalString,
+      price_units: decimalToIntegerString(priceDecimalString, FEED_PRICE_DECIMALS),
+      round_id: roundId,
+      last_observed_price: priceDecimalString,
+      last_observed_price_units: decimalToIntegerString(priceDecimalString, FEED_PRICE_DECIMALS),
+      last_observed_at_ms: Date.now(),
+      price_scale_decimals: FEED_PRICE_DECIMALS,
+    },
+  };
+}
+
+export function __buildCanonicalAggregateRecordForTests(pair, aggregation, previousRecord = null) {
+  return buildCanonicalAggregateRecord(pair, aggregation, previousRecord);
+}
+
 export function __buildNeoN3RelaySigningPayloadForTests(payload = {}) {
   return buildNeoN3RelaySigningPayload(payload);
+}
+
+export function __buildFeedSignatureFieldsForTests(quote = {}) {
+  return buildFeedSignatureFields(quote);
 }
 
 export function __resolveFeedSubmissionWaitForTests(payload = {}) {
@@ -589,6 +658,31 @@ export async function handleOracleFeed(payload) {
     }
     if (quoteSet.aggregation) {
       aggregations[symbol] = quoteSet.aggregation;
+      // C2 — when >=2 providers agree, persist ONE canonical aggregated record
+      // (AGG:<PAIR>) carrying the aggregation price. This closes the integrity gap
+      // where every consumed record was a single, unchecked per-provider value.
+      const canonicalKey = buildCanonicalAggregateStorageKey(symbol);
+      const previousCanonical = {
+        ...(state.records[canonicalKey] || {}),
+        ...(onchainRecords[canonicalKey] || {}),
+      };
+      const canonical = buildCanonicalAggregateRecord(
+        symbol,
+        quoteSet.aggregation,
+        Object.keys(previousCanonical).length > 0 ? previousCanonical : null
+      );
+      if (canonical) {
+        state.records[canonical.storageKey] = canonical.record;
+        syncResults.push({
+          provider: 'aggregate',
+          pair: canonical.record.pair,
+          storage_pair: canonical.storageKey,
+          relay_status: 'aggregated',
+          aggregation_method: canonical.record.aggregation_method,
+          provider_count: canonical.record.provider_count,
+          confidence: canonical.record.confidence,
+        });
+      }
     }
     for (const quote of quoteSet.quotes) {
       const storagePair = getFeedStoragePair(quote.provider, quote.pair);
@@ -756,6 +850,9 @@ export async function handleOracleFeed(payload) {
         last_observed_at_ms: entry.observedAtMs,
         attestation_hash: entry.quote.attestation_hash,
         price_scale_decimals: FEED_PRICE_DECIMALS,
+        // C1 — persist the off-chain ECDSA signature + signer pubkey alongside the
+        // anchored value so it can be verified once a verification key is registered.
+        ...buildFeedSignatureFields(entry.quote),
       };
       continue;
     }

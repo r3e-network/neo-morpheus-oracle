@@ -21,6 +21,24 @@ export function trimmedMean(values, trimPct = 0.1) {
   return trimmed.reduce((sum, v) => sum + v, 0) / trimmed.length;
 }
 
+// C2 — the minimum number of independent providers that must contribute to a
+// canonical aggregated record before it is anchored. A single-source value is
+// exactly the integrity gap the canonical record closes, so it must never be
+// written from fewer than two providers.
+export const CANONICAL_AGGREGATE_MIN_PROVIDERS = 2;
+
+/**
+ * Whether an aggregation result is backed by at least `minProviders` independent
+ * sources. Uses the count of quotes that actually contributed to the published
+ * price (providers_used), so a divergent two-source result that collapses to a
+ * single survivor does not qualify as a multi-provider aggregate.
+ */
+export function meetsMinProviders(aggregation, minProviders = CANONICAL_AGGREGATE_MIN_PROVIDERS) {
+  if (!aggregation || typeof aggregation !== 'object') return false;
+  const used = Array.isArray(aggregation.providers_used) ? aggregation.providers_used.length : 0;
+  return used >= minProviders;
+}
+
 export function aggregateQuotes(
   quotes,
   { method = 'median', maxDeviationPct = 25, minProviders = 1 } = {}

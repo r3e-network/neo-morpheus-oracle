@@ -12,6 +12,7 @@ namespace MorpheusOracle.Contracts
     public delegate void FeedUpdatedHandler(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId);
     public delegate void AdminChangedHandler(UInt160 oldAdmin, UInt160 newAdmin);
     public delegate void UpdaterChangedHandler(UInt160 oldUpdater, UInt160 newUpdater);
+    public delegate void VerificationKeyChangedHandler(ECPoint oldKey, ECPoint newKey);
 
     /// <summary>
     /// On-chain synchronized storage for Morpheus shared numeric resources.
@@ -32,6 +33,7 @@ namespace MorpheusOracle.Contracts
         private static readonly byte[] PREFIX_FEED = new byte[] { 0x03 };
         private static readonly byte[] PREFIX_PAIR_INDEX = new byte[] { 0x04 };
         private static readonly byte[] PREFIX_PAIR_COUNT = new byte[] { 0x05 };
+        private static readonly byte[] PREFIX_VERIFICATION_KEY = new byte[] { 0x06 };
 
         [DisplayName("FeedUpdated")]
         public static event FeedUpdatedHandler OnFeedUpdated;
@@ -41,6 +43,9 @@ namespace MorpheusOracle.Contracts
 
         [DisplayName("UpdaterChanged")]
         public static event UpdaterChangedHandler OnUpdaterChanged;
+
+        [DisplayName("VerificationKeyChanged")]
+        public static event VerificationKeyChangedHandler OnVerificationKeyChanged;
 
         public struct FeedRecord
         {
@@ -64,6 +69,23 @@ namespace MorpheusOracle.Contracts
 
         [Safe]
         public static UInt160 Updater() => (UInt160)Storage.Get(Storage.CurrentContext, PREFIX_UPDATER);
+
+        /// <summary>
+        /// The optional ECDSA public key used to verify off-chain price signatures.
+        /// </summary>
+        /// <remarks>
+        /// Returns null when unset, which is the default. While unset every write is
+        /// gated by the updater witness only (the original behavior). Once an admin
+        /// registers a key, a write that carries a signature is additionally checked
+        /// against this key, so a leaked updater witness alone no longer suffices to
+        /// anchor an arbitrary price.
+        /// </remarks>
+        [Safe]
+        public static ECPoint OracleVerificationKey()
+        {
+            ByteString raw = Storage.Get(Storage.CurrentContext, PREFIX_VERIFICATION_KEY);
+            return raw == null ? null : (ECPoint)(byte[])raw;
+        }
 
         private static void ValidateAdmin()
         {
@@ -97,6 +119,34 @@ namespace MorpheusOracle.Contracts
             OnUpdaterChanged(oldUpdater, updater);
         }
 
+        /// <summary>
+        /// Registers (or rotates) the ECDSA public key used to verify off-chain price
+        /// signatures. Admin-only. Registering a key opts the feed into signature
+        /// verification for any signed write; until then writes stay updater-witness
+        /// only.
+        /// </summary>
+        public static void SetOracleVerificationKey(ECPoint publicKey)
+        {
+            ValidateAdmin();
+            ExecutionEngine.Assert(publicKey != null && publicKey.IsValid, "invalid verification key");
+            ECPoint oldKey = OracleVerificationKey();
+            Storage.Put(Storage.CurrentContext, PREFIX_VERIFICATION_KEY, (byte[])publicKey);
+            OnVerificationKeyChanged(oldKey, publicKey);
+        }
+
+        /// <summary>
+        /// Clears the verification key, reverting the feed to updater-witness-only
+        /// writes. Admin-only escape hatch (e.g. if the off-chain signer key is lost
+        /// before a replacement is provisioned).
+        /// </summary>
+        public static void ClearOracleVerificationKey()
+        {
+            ValidateAdmin();
+            ECPoint oldKey = OracleVerificationKey();
+            Storage.Delete(Storage.CurrentContext, PREFIX_VERIFICATION_KEY);
+            OnVerificationKeyChanged(oldKey, null);
+        }
+
         private static StorageMap FeedMap() => new StorageMap(Storage.CurrentContext, PREFIX_FEED);
         private static StorageMap PairIndexMap() => new StorageMap(Storage.CurrentContext, PREFIX_PAIR_INDEX);
 
@@ -117,7 +167,43 @@ namespace MorpheusOracle.Contracts
             Storage.Put(Storage.CurrentContext, PREFIX_PAIR_COUNT, count + 1);
         }
 
-        private static void UpdateFeedInternal(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
+        /// <summary>
+        /// Canonical price message a signature is verified over: the symbol, price,
+        /// timestamp, and round joined by '|' (e.g. "BTC-USD|5000000000|1700000000|7").
+        /// The off-chain signer must reproduce these exact bytes when a verification
+        /// key is registered.
+        /// </summary>
+        private static ByteString BuildFeedMessage(string pair, BigInteger price, BigInteger timestamp, BigInteger roundId)
+        {
+            ByteString message = Helper.Concat((ByteString)pair, (ByteString)"|");
+            message = Helper.Concat(message, (ByteString)StdLib.Itoa(price, 10));
+            message = Helper.Concat(message, (ByteString)"|");
+            message = Helper.Concat(message, (ByteString)StdLib.Itoa(timestamp, 10));
+            message = Helper.Concat(message, (ByteString)"|");
+            message = Helper.Concat(message, (ByteString)StdLib.Itoa(roundId, 10));
+            return message;
+        }
+
+        /// <summary>
+        /// Optional second factor on top of the updater witness. Inert by default:
+        /// only runs when an admin has registered a verification key AND the write
+        /// carries a non-empty signature. When active it rejects the write unless the
+        /// signature verifies over the canonical price message (symbol|price|timestamp|round).
+        /// </summary>
+        private static void VerifyFeedSignature(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString signature)
+        {
+            ECPoint verificationKey = OracleVerificationKey();
+            if (verificationKey == null) return;
+            if (signature == null || signature.Length == 0) return;
+
+            ByteString message = BuildFeedMessage(pair, price, timestamp, roundId);
+            ExecutionEngine.Assert(
+                CryptoLib.VerifyWithECDsa(message, verificationKey, signature, NamedCurveHash.secp256r1SHA256),
+                "invalid feed signature"
+            );
+        }
+
+        private static void UpdateFeedInternal(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId, ByteString signature)
         {
             ExecutionEngine.Assert(pair != null && pair.Length > 0, "pair required");
             ExecutionEngine.Assert(roundId >= 0, "invalid round");
@@ -125,6 +211,8 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
             ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
             ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
+
+            VerifyFeedSignature(pair, roundId, price, timestamp, signature);
 
             ByteString existingRaw = FeedMap().Get(pair);
             if (existingRaw != null)
@@ -176,7 +264,21 @@ namespace MorpheusOracle.Contracts
         public static void UpdateFeed(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
         {
             ValidateUpdater();
-            UpdateFeedInternal(pair, roundId, price, timestamp, attestationHash, sourceSetId);
+            UpdateFeedInternal(pair, roundId, price, timestamp, attestationHash, sourceSetId, null);
+        }
+
+        /// <summary>
+        /// Writes a single feed record carrying an off-chain ECDSA signature over the
+        /// canonical price message (symbol|price|timestamp|round). Behaves identically
+        /// to <see cref="UpdateFeed"/> while no verification key is registered; once a
+        /// key is registered the signature is required to verify against it. This is
+        /// the backward-compatible signed write path: the original 6-parameter
+        /// <see cref="UpdateFeed"/> ABI is unchanged so existing publishers keep working.
+        /// </summary>
+        public static void UpdateFeedSigned(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId, ByteString signature)
+        {
+            ValidateUpdater();
+            UpdateFeedInternal(pair, roundId, price, timestamp, attestationHash, sourceSetId, signature);
         }
 
         /// <summary>
@@ -241,7 +343,8 @@ namespace MorpheusOracle.Contracts
                     prices[index],
                     timestamps[index],
                     attestationHashes[index],
-                    sourceSetIds[index]
+                    sourceSetIds[index],
+                    null
                 );
             }
         }

@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  __buildCanonicalAggregateRecordForTests,
+  __buildFeedSignatureFieldsForTests,
   __buildNeoN3RelaySigningPayloadForTests,
   __buildFeedSnapshotRowsForTests,
   __buildSyncPolicyForTests,
@@ -22,6 +24,7 @@ import {
   __resetFeedStateForTests,
   __shouldSubmitFeedForTests,
   __shouldLoadOnchainFeedBaselineForTests,
+  buildCanonicalAggregateStorageKey,
   handleFeedsPrice,
   handleOracleFeed,
   normalizePairSymbol,
@@ -823,4 +826,171 @@ test('handleFeedsPrice sanitizes provider errors before returning them', async (
   assert.equal(response.status, 502);
   const body = await response.json();
   assert.equal(body.error, 'internal error');
+});
+
+test('buildFeedSignatureFields carries the off-chain signature and signer pubkey (C1)', () => {
+  // A signed quote contributes the ECDSA signature + signer public key so the
+  // anchored value can be verified once an on-chain verification key is registered.
+  assert.deepEqual(
+    __buildFeedSignatureFieldsForTests({
+      signature: '0xsig',
+      public_key: '03abc',
+      price: '2.7',
+    }),
+    { signature: '0xsig', signer_public_key: '03abc' }
+  );
+
+  // An unsigned quote contributes nothing (the contract stays witness-only).
+  assert.deepEqual(__buildFeedSignatureFieldsForTests({ price: '2.7' }), {});
+  assert.deepEqual(__buildFeedSignatureFieldsForTests({}), {});
+});
+
+test('buildCanonicalAggregateRecord requires at least two providers (C2)', () => {
+  // A single-source aggregation must never be laundered into the canonical record.
+  assert.equal(
+    __buildCanonicalAggregateRecordForTests('NEO-USD', {
+      price: 2.7,
+      method: 'single-source',
+      providers_used: ['twelvedata'],
+      confidence: 'single-source',
+    }),
+    null
+  );
+
+  // A two-source-divergent result collapsed to one survivor is also single-provider.
+  assert.equal(
+    __buildCanonicalAggregateRecordForTests('NEO-USD', {
+      price: 2.7,
+      method: 'two-source-divergent',
+      providers_used: ['twelvedata'],
+      providers_rejected: ['binance-spot'],
+      confidence: 'low',
+    }),
+    null
+  );
+
+  // Two agreeing providers qualify and carry the aggregation price.
+  const canonical = __buildCanonicalAggregateRecordForTests('NEO-USD', {
+    price: 2.71,
+    method: 'mean',
+    providers_used: ['twelvedata', 'binance-spot'],
+    providers_rejected: [],
+    deviation_pct: 0.37,
+    confidence: 'medium',
+  });
+  assert.ok(canonical);
+  assert.equal(canonical.storageKey, 'AGG:NEO-USD');
+  assert.equal(canonical.record.aggregate, true);
+  assert.equal(canonical.record.provider_count, 2);
+  assert.equal(canonical.record.aggregation_method, 'mean');
+  assert.equal(canonical.record.price, '2.710000');
+  assert.equal(canonical.record.price_units, '2710000');
+  assert.deepEqual(canonical.record.providers_used, ['twelvedata', 'binance-spot']);
+});
+
+test('handleOracleFeed writes one canonical AGG record when two providers agree (C2)', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-canonical-agg-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata,binance-spot';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+  __resetProviderRuntimeCachesForTests();
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value.includes('api.twelvedata.com')) {
+      return new Response(JSON.stringify({ price: '2.700' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (value.includes('binance.com')) {
+      return new Response(JSON.stringify({ symbol: 'NEOUSDT', price: '2.720' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+    force: true,
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+
+  // The two-source aggregation is surfaced and a single canonical record is persisted.
+  assert.ok(body.aggregations && body.aggregations['NEO-USD']);
+  const canonicalKey = buildCanonicalAggregateStorageKey('NEO-USD');
+  assert.equal(canonicalKey, 'AGG:NEO-USD');
+
+  const aggregatedSyncResults = body.sync_results.filter(
+    (entry) => entry.relay_status === 'aggregated'
+  );
+  assert.equal(aggregatedSyncResults.length, 1, 'exactly one canonical aggregate per pair');
+  assert.equal(aggregatedSyncResults[0].storage_pair, canonicalKey);
+  assert.equal(aggregatedSyncResults[0].provider_count, 2);
+
+  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
+  const canonical = state.records[canonicalKey];
+  assert.ok(canonical, 'canonical AGG record persisted');
+  assert.equal(canonical.aggregate, true);
+  assert.equal(canonical.provider_count, 2);
+  // Mean of 2.70 and 2.72 is 2.71.
+  assert.equal(canonical.price, '2.710000');
+  assert.equal(canonical.price_units, '2710000');
+});
+
+test('handleOracleFeed does not write a canonical AGG record for a single provider (C2)', async () => {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-feed-no-agg-'));
+  process.env.MORPHEUS_FEED_STATE_PATH = path.join(tempDir, 'feed-state.json');
+  process.env.MORPHEUS_FEED_BOOTSTRAP_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_SNAPSHOT_SUPABASE_ENABLED = 'false';
+  process.env.MORPHEUS_FEED_PROVIDERS = 'twelvedata';
+  process.env.TWELVEDATA_API_KEY = 'test-twelvedata-key';
+  process.env.MORPHEUS_NETWORK = 'mainnet';
+  process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+  delete process.env.CONTRACT_PRICEFEED_HASH;
+  delete process.env.CONTRACT_MORPHEUS_DATAFEED_HASH;
+  __resetProviderRuntimeCachesForTests();
+
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (!value.includes('api.twelvedata.com')) {
+      throw new Error(`unexpected fetch ${value}`);
+    }
+    return new Response(JSON.stringify({ price: '2.700' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const response = await handleOracleFeed({
+    network: 'mainnet',
+    target_chain: 'neo_n3',
+    symbols: ['NEO-USD'],
+    force: true,
+  });
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.ok(!body.aggregations, 'no aggregation for a single source');
+
+  const state = await __loadFeedStateForTests({ network: 'mainnet', targetChain: 'neo_n3' });
+  assert.equal(
+    state.records[buildCanonicalAggregateStorageKey('NEO-USD')],
+    undefined,
+    'no canonical record from a single provider'
+  );
+  assert.ok(
+    !body.sync_results.some((entry) => entry.relay_status === 'aggregated'),
+    'no aggregated sync result for a single provider'
+  );
 });
