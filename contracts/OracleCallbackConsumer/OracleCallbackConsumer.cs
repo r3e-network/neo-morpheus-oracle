@@ -177,6 +177,15 @@ namespace MorpheusOracle.Contracts
 
         private static void StoreCallback(BigInteger requestId, string appId, string moduleId, string operation, UInt160 requester, bool success, ByteString result, string error)
         {
+            // Replay guard: a given requestId is fulfilled exactly once, so the
+            // first callback for an id is authoritative and any later callback
+            // for the same id is a replay/forgery. Value-bearing consumers MUST
+            // reject duplicates here instead of overwriting an already-recorded
+            // result (e.g. flipping a success to a failure, or vice versa).
+            ExecutionEngine.Assert(
+                Storage.Get(Storage.CurrentContext, BuildCallbackKey(requestId)) == null,
+                "callback already recorded");
+
             CallbackRecord record = new CallbackRecord
             {
                 AppId = appId,

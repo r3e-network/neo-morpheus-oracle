@@ -409,6 +409,9 @@ public class UserConsumerN3 : SmartContract
 {
     private static readonly byte[] PREFIX_ORACLE = new byte[] { 0x01 };
     private static readonly byte[] PREFIX_CALLBACK = new byte[] { 0x10 };
+    // Outstanding requests this consumer issued, keyed by requestId, with the
+    // requestType we expect the kernel to echo back.
+    private static readonly byte[] PREFIX_PENDING = new byte[] { 0x11 };
 
     [Safe]
     public static UInt160 Oracle() => (UInt160)Storage.Get(Storage.CurrentContext, PREFIX_ORACLE);
@@ -428,7 +431,7 @@ public class UserConsumerN3 : SmartContract
         string payloadJson = "{\"provider\":\"twelvedata\",\"symbol\":\"NEO-USD\",\"json_path\":\"price\",\"target_chain\":\"neo_n3\"}";
         ByteString payload = payloadJson;
 
-        return (BigInteger)Contract.Call(
+        BigInteger requestId = (BigInteger)Contract.Call(
             Oracle(),
             "request",
             CallFlags.All,
@@ -437,12 +440,29 @@ public class UserConsumerN3 : SmartContract
             Runtime.ExecutingScriptHash,
             "onOracleResult"
         );
+        // Record the request so OnOracleResult only honors callbacks we issued.
+        Storage.Put(
+            Storage.CurrentContext,
+            Helper.Concat(PREFIX_PENDING, (ByteString)requestId.ToByteArray()),
+            "privacy_oracle");
+        return requestId;
     }
 
     public static void OnOracleResult(BigInteger requestId, string requestType, bool success, ByteString result, string error)
     {
+        ExecutionEngine.Assert(Runtime.CallingScriptHash == Oracle(), "unauthorized caller");
+
+        // Reject callbacks for requestIds we never issued (or already settled):
+        // the lookup reverts on an unknown/forged id, and deleting the record
+        // below makes a replay of the same id revert here too.
+        ByteString pendingKey = Helper.Concat(PREFIX_PENDING, (ByteString)requestId.ToByteArray());
+        ByteString expectedType = Storage.Get(Storage.CurrentContext, pendingKey);
+        ExecutionEngine.Assert(expectedType != null, "unknown request id");
+        ExecutionEngine.Assert(requestType == (string)expectedType, "request type mismatch");
+
         Storage.Put(Storage.CurrentContext, Helper.Concat(PREFIX_CALLBACK, (ByteString)requestId.ToByteArray()),
             StdLib.Serialize(new object[] { requestType, success, result, error }));
+        Storage.Delete(Storage.CurrentContext, pendingKey);
     }
 }
 ```

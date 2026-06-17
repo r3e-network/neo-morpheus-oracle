@@ -23,5 +23,22 @@ namespace MorpheusOracle.Contracts.Tests
             Assert.Contains("MiniAppResultReceived", code);
             Assert.Contains("KernelChanged", code);
         }
+
+        [Fact]
+        public void StoreCallbackRejectsDuplicateRequestIds()
+        {
+            string code = ContractSourceAssertions.ReadSource(
+                "contracts",
+                "OracleCallbackConsumer",
+                "OracleCallbackConsumer.cs");
+
+            // A requestId is fulfilled exactly once; recording a second callback
+            // for the same id is a replay/forgery and must revert rather than
+            // overwrite the authoritative first result.
+            Assert.Matches(
+                @"StoreCallback\([^)]*\)\s*\{[\s\S]*?ExecutionEngine\.Assert\(\s*Storage\.Get\([^)]*BuildCallbackKey\(requestId\)\)\s*==\s*null",
+                code);
+            Assert.Contains("callback already recorded", code);
+        }
     }
 }
