@@ -9,6 +9,8 @@
     "metrics": "node src/cli.js metrics",
     "metrics:prom": "node src/cli.js metrics:prom",
     "serve:metrics": "node src/cli.js serve:metrics",
+    "config:validate": "node src/cli.js config:validate",
+    "config:dump": "node src/cli.js config:dump",
     "check": "find src \\( -name '*.js' -o -name '*.mjs' \\) -print | sort | xargs -n1 node --check && node --check relayer.test.mjs",
     "test": "node --test relayer.test.mjs src/*.test.mjs src/*/*.test.mjs"
   },

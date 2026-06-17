@@ -8,6 +8,23 @@ so a live deployment is unchanged until the variable is set.
 > `deploy/nitro/morpheus.env.example` (outside this package). The variables below
 > were added with the 2026-06-14 robustness pass and should also be mirrored there.
 
+## Operator introspection: `config:validate` / `config:dump`
+
+The full env surface (~146 variables read through aliased fallback chains in
+`src/config.js`) is described by a declarative manifest in `src/config-schema.js`.
+Two read-only CLI subcommands introspect it — they never change runtime
+resolution:
+
+| Command | Purpose |
+|---------|---------|
+| `npm run config:dump` (`node src/cli.js config:dump`) | Prints the **resolved** configuration: for each logical setting it shows the value (secrets redacted to `«redacted» [set]`), which env **alias won**, and the precedence source (`env` vs `runtime_config_json` vs `default`). |
+| `npm run config:validate` (`node src/cli.js config:validate`) | Builds the config, validates that conditionally-**required** settings are present (e.g. the Neo N3 oracle contract + updater signer when `neo_n3` is active and mode is not `feed_only` with derived keys off; the Neo X oracle + updater key when `neox` is active), and **warns** on `MORPHEUS_*`/`NITRO_*`/`PHALA_*` variables that match no known alias (likely typos that `config.js` silently ignores), suggesting the closest alias. Emits JSON and exits non-zero when invalid (CI-gateable). |
+
+Secrets (any var whose name contains `WIF`, `PRIVATE_KEY`, `SECRET`, `TOKEN`,
+`SERVICE_ROLE_KEY`, `PASSWORD`, `SEED`, `MNEMONIC`, …) are shown only as set/unset
+— their values are never printed. The schema's alias lists are kept truthful to
+`config.js` by a drift-guard test (`src/config-introspect.test.mjs`).
+
 ## Alerting (F1)
 
 | Variable | Default | Purpose |
