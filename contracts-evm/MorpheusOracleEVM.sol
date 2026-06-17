@@ -7,14 +7,45 @@ pragma solidity ^0.8.24;
 /// relayer does the work and fulfils them. The fulfilment result is bound to the
 /// request + this deployment by an oracle_verifier secp256k1 signature (ecrecover),
 /// and the relayer's `updater` address sends the fulfil tx (gas + witness).
+///
+/// @dev Parity hardening for the next (bytecode-frozen) deployment — see README
+/// "Next-deployment notes". This revision closes the gaps with the N3 kernel:
+///  - Callback uniqueness (OR-D-03): a callback contract maps to at most one app.
+///  - Exact-fee / no-strand: `_submit` accrues exactly `requestFee` and refunds the
+///    remainder of `msg.value` to the requester (checks-effects-interactions).
+///  - Request TTL + expiry + refund: `expireStaleRequest` mirrors N3
+///    `ExpireStaleRequest` — after TTL on an un-fulfilled request it marks the
+///    request Failed, refunds the exact fee paid to the original fee payer, and
+///    emits `RequestExpired`.
+///  - Reserved-fee invariant: fees backing still-pending requests are reserved and
+///    excluded from the owner withdraw path (`withdrawableFees() = accrued - reserved`),
+///    mirroring N3 `WithdrawableFees` / `ReservedRequestFees`.
+///  - Owner-change events: `setOwner` emits `OwnerChanged`.
+///
+/// @dev Sponsorship gating (N3 `IsSponsorshipGated` / allowlist / per-requester cap)
+/// is intentionally NOT mirrored here. N3 sponsorship gates which *prepaid credit
+/// balance* (sponsor vs requester) is debited; the EVM kernel has no prepaid-credit /
+/// fee-payer model — the payer is always whoever sends `msg.value` on the request tx.
+/// Mirroring it would require importing the entire N3 credit/sponsor accounting model,
+/// a separate initiative. Documented as a follow-up rather than half-implemented.
 contract MorpheusOracleEVM {
     address public owner;
     address public updater;       // sends fulfilRequest (gas payer / witness)
     address public oracleVerifier; // ecrecover target for the result signature
 
     uint256 public requestFee;     // wei charged per request (0 = free)
-    uint256 public accruedFees;
+    uint256 public accruedFees;    // total fees accrued (earned + still-reserved)
+    /// @notice Portion of accruedFees backing still-pending requests, held as
+    /// potential expiry refunds. Invariant: accruedFees >= reservedFees always.
+    /// Only the surplus (accrued - reserved) is owner-withdrawable.
+    uint256 public reservedFees;
     uint256 private _nextRequestId = 1;
+
+    /// @notice Default request TTL in seconds (1 hour). After it elapses on an
+    /// un-fulfilled request, anyone-authorized can expire it and refund the fee.
+    /// Mirrors N3 DEFAULT_REQUEST_TTL (expressed there in milliseconds).
+    uint256 public constant DEFAULT_REQUEST_TTL = 1 hours;
+    uint256 public requestTTL = DEFAULT_REQUEST_TTL; // seconds; owner-settable
 
     enum Status { None, Pending, Succeeded, Failed }
 
@@ -32,6 +63,13 @@ contract MorpheusOracleEVM {
         bool success;
         bytes result;
         string error;
+        // Exact fee accrued+reserved for this request at submission. Stored so an
+        // expiry refund returns precisely what was paid even if requestFee changed
+        // via setRequestFee in between. Mirrors N3 KernelRequest.FeePaid.
+        uint256 feePaid;
+        // Account the fee was charged from (the request submitter). On expiry the
+        // refund is returned here. Mirrors N3 KernelRequest.Sponsor.
+        address feePayer;
     }
 
     struct MiniApp { address admin; address callbackContract; bool active; bool exists; }
@@ -47,8 +85,14 @@ contract MorpheusOracleEVM {
     event ModuleGranted(string appId, string moduleId);
     event RequestQueued(uint256 indexed requestId, string appId, string moduleId, string operation, address requester, address callbackContract, bytes payload);
     event RequestFulfilled(uint256 indexed requestId, bool success, bytes result, string error);
+    event RequestExpired(uint256 indexed requestId, string appId, address requester, address feePayer, uint256 refundAmount);
+    event RequestTTLChanged(uint256 previous, uint256 next);
+    event FeeRefunded(uint256 indexed requestId, address indexed to, uint256 amount);
+    event FeesWithdrawn(address indexed to, uint256 amount);
+    event RequestFeeChanged(uint256 previous, uint256 next);
     event UpdaterChanged(address indexed previous, address indexed next);
     event OracleVerifierChanged(address indexed previous, address indexed next);
+    event OwnerChanged(address indexed previous, address indexed next);
 
     error NotOwner();
     error NotUpdater();
@@ -59,10 +103,17 @@ contract MorpheusOracleEVM {
     error AppExists();
     error AppNotFound();
     error RequestNotPending();
+    error RequestNotFound();
+    error NotExpired();
+    error NotAuthorized();
     error BadSignature();
     error FeeNotPaid();
     error OnlyCallbackContract();
+    error CallbackAlreadyRegistered();
+    error RefundFailed();
     error ZeroAddress();
+    error ExceedsWithdrawable();
+    error InvalidTTL();
 
     modifier onlyOwner() { if (msg.sender != owner) revert NotOwner(); _; }
     modifier onlyUpdater() { if (msg.sender != updater && msg.sender != owner) revert NotUpdater(); _; }
@@ -71,23 +122,57 @@ contract MorpheusOracleEVM {
         owner = msg.sender;
         updater = updater_ == address(0) ? msg.sender : updater_;
         oracleVerifier = oracleVerifier_ == address(0) ? msg.sender : oracleVerifier_;
+        emit OwnerChanged(address(0), msg.sender);
+        emit UpdaterChanged(address(0), updater);
+        emit OracleVerifierChanged(address(0), oracleVerifier);
     }
 
     // ── admin ──────────────────────────────────────────────────────────────
     function setUpdater(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit UpdaterChanged(updater, next); updater = next; }
     function setOracleVerifier(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OracleVerifierChanged(oracleVerifier, next); oracleVerifier = next; }
-    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); owner = next; }
-    function setRequestFee(uint256 amount) external onlyOwner { requestFee = amount; }
-    function withdrawFees(address payable to, uint256 amount) external onlyOwner { require(amount <= accruedFees, "exceeds"); accruedFees -= amount; (bool ok,) = to.call{value: amount}(""); require(ok, "xfer"); }
+    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OwnerChanged(owner, next); owner = next; }
+    function setRequestFee(uint256 amount) external onlyOwner { emit RequestFeeChanged(requestFee, amount); requestFee = amount; }
+
+    /// @notice Set the request TTL (seconds). Mirrors N3 SetRequestTTL.
+    function setRequestTTL(uint256 ttlSeconds) external onlyOwner {
+        if (ttlSeconds == 0) revert InvalidTTL();
+        emit RequestTTLChanged(requestTTL, ttlSeconds);
+        requestTTL = ttlSeconds;
+    }
+
+    /// @notice Free surplus the owner may withdraw — accrued fees minus the portion
+    /// reserved as expiry refunds for still-pending requests. Mirrors N3 WithdrawableFees.
+    function withdrawableFees() public view returns (uint256) {
+        return accruedFees > reservedFees ? accruedFees - reservedFees : 0;
+    }
+
+    /// @notice Withdraw earned (unreserved) fees. Capped at withdrawableFees so the
+    /// owner can never take fees still owed as pending-request refunds (N3 invariant).
+    function withdrawFees(address payable to, uint256 amount) external onlyOwner {
+        if (to == address(0)) revert ZeroAddress();
+        if (amount > withdrawableFees()) revert ExceedsWithdrawable();
+        accruedFees -= amount; // effects before interaction
+        (bool ok,) = to.call{value: amount}("");
+        if (!ok) revert RefundFailed();
+        emit FeesWithdrawn(to, amount);
+    }
 
     function registerModule(string calldata moduleId) external onlyOwner { _modules[keccak256(bytes(moduleId))] = true; emit ModuleRegistered(moduleId); }
     function setModuleActive(string calldata moduleId, bool active) external onlyOwner { _modules[keccak256(bytes(moduleId))] = active; }
 
+    /// @notice Register a miniapp. A callback contract may route to AT MOST ONE app:
+    /// re-binding an already-mapped callback to a fresh appId is rejected so nobody
+    /// can hijack an existing app's `requestFromCallback` path (OR-D-03 / N3 parity).
     function registerMiniApp(string calldata appId, address admin, address callbackContract) external {
         if (msg.sender != owner && msg.sender != admin) revert NotAppAdmin();
         if (_apps[appId].exists) revert AppExists();
+        if (callbackContract != address(0)) {
+            // Uniqueness: reject if this callback already routes to a different app.
+            // Allowing only the empty mapping (string-empty) blocks the last-write-wins takeover.
+            if (bytes(_appByCallback[callbackContract]).length != 0) revert CallbackAlreadyRegistered();
+            _appByCallback[callbackContract] = appId;
+        }
         _apps[appId] = MiniApp({ admin: admin, callbackContract: callbackContract, active: true, exists: true });
-        if (callbackContract != address(0)) _appByCallback[callbackContract] = appId;
         emit MiniAppRegistered(appId, admin, callbackContract);
     }
 
@@ -108,7 +193,8 @@ contract MorpheusOracleEVM {
     }
 
     /// @notice Contract-mediated submission: a registered app's callback contract
-    /// submits on behalf of a requester (the dice-game pattern).
+    /// submits on behalf of a requester (the dice-game pattern). The fee (if any) is
+    /// charged from the callback contract's `msg.value` and refunded to it on expiry.
     function requestFromCallback(address requester, string calldata operation, bytes calldata payload)
         external payable returns (uint256)
     {
@@ -127,16 +213,34 @@ contract MorpheusOracleEVM {
         if (!a.active) revert AppInactive();
         if (!_modules[keccak256(bytes(moduleId))]) revert UnknownModule();
         if (!_grant[keccak256(abi.encodePacked(appId, "|", moduleId))]) revert ModuleNotGranted();
-        if (msg.value < requestFee) revert FeeNotPaid();
-        if (requestFee > 0) accruedFees += requestFee;
 
+        uint256 fee = requestFee;
+        if (msg.value < fee) revert FeeNotPaid();
+
+        // No-strand: accrue + reserve exactly the fee; the remainder of msg.value
+        // (overpayment, or all value while fee==0) is returned to msg.sender. State
+        // is fully updated before the external refund (checks-effects-interactions),
+        // and the refund recipient is msg.sender (the request submitter / callback
+        // contract), not an attacker-chosen address.
         uint256 id = _nextRequestId++;
+        if (fee > 0) {
+            accruedFees += fee;
+            reservedFees += fee; // backs this pending request's potential expiry refund
+        }
+
         _requests[id] = Request({
             id: id, appId: appId, moduleId: moduleId, operation: operation, payload: payload,
             requester: requester, callbackContract: a.callbackContract, status: Status.Pending,
-            createdAt: uint64(block.timestamp), fulfilledAt: 0, success: false, result: "", error: ""
+            createdAt: uint64(block.timestamp), fulfilledAt: 0, success: false, result: "", error: "",
+            feePaid: fee, feePayer: msg.sender
         });
         emit RequestQueued(id, appId, moduleId, operation, requester, a.callbackContract, payload);
+
+        uint256 overage = msg.value - fee;
+        if (overage > 0) {
+            (bool ok,) = payable(msg.sender).call{value: overage}("");
+            if (!ok) revert RefundFailed();
+        }
         return id;
     }
 
@@ -165,6 +269,11 @@ contract MorpheusOracleEVM {
         r.success = success;
         r.result = result;
         r.error = error_;
+
+        // The request is no longer pending/refundable: the oracle earned the fee, so
+        // release it from the reserved pool into the withdrawable surplus (N3 parity).
+        _releaseReserved(r.feePaid);
+
         emit RequestFulfilled(requestId, success, result, error_);
 
         // best-effort callback (never reverts the fulfilment)
@@ -178,11 +287,58 @@ contract MorpheusOracleEVM {
         }
     }
 
+    /// @notice Expire a stale pending request that has exceeded `requestTTL`. Marks it
+    /// Failed, releases its reserved fee, refunds the exact fee paid to the original
+    /// fee payer, and emits RequestExpired. Mirrors N3 ExpireStaleRequest.
+    /// Authorization: owner or updater only (prevents griefing), matching N3.
+    function expireStaleRequest(uint256 requestId) external {
+        if (msg.sender != owner && msg.sender != updater) revert NotAuthorized();
+
+        Request storage r = _requests[requestId];
+        if (r.id == 0) revert RequestNotFound();
+        if (r.status != Status.Pending) revert RequestNotPending();
+        if (block.timestamp <= uint256(r.createdAt) + requestTTL) revert NotExpired();
+
+        // effects: terminal state + ledger updates BEFORE the external refund
+        r.status = Status.Failed;
+        r.fulfilledAt = uint64(block.timestamp);
+        r.success = false;
+        r.error = "request expired: TTL exceeded";
+
+        uint256 refund = r.feePaid;
+        address payable to = payable(r.feePayer);
+
+        // Release the reservation regardless of refund (request left the pending state).
+        _releaseReserved(refund);
+        // Clamp the refund to the fees still held, then debit accrued by the same amount
+        // so the accrued/reserved ledgers stay symmetric (N3 keeps accrued >= reserved,
+        // so refund == feePaid in normal operation; the clamp is purely defensive).
+        if (refund > accruedFees) refund = accruedFees;
+        if (refund > 0) {
+            accruedFees -= refund;
+        }
+
+        emit RequestExpired(requestId, r.appId, r.requester, to, refund);
+
+        // interaction last
+        if (refund > 0 && to != address(0)) {
+            (bool ok,) = to.call{value: refund}("");
+            if (!ok) revert RefundFailed();
+            emit FeeRefunded(requestId, to, refund);
+        }
+    }
+
+    function _releaseReserved(uint256 amount) internal {
+        if (amount == 0) return;
+        reservedFees = reservedFees > amount ? reservedFees - amount : 0;
+    }
+
     // ── reads ──────────────────────────────────────────────────────────────
     function getRequest(uint256 requestId) external view returns (Request memory) { return _requests[requestId]; }
     function totalRequests() external view returns (uint256) { return _nextRequestId - 1; }
     function isModuleGranted(string calldata appId, string calldata moduleId) external view returns (bool) { return _grant[keccak256(abi.encodePacked(appId, "|", moduleId))]; }
     function getMiniApp(string calldata appId) external view returns (MiniApp memory) { return _apps[appId]; }
+    function appIdByCallback(address callbackContract) external view returns (string memory) { return _appByCallback[callbackContract]; }
 
     function _recover(bytes32 hash, bytes memory sig) internal pure returns (address) {
         if (sig.length != 65) return address(0);

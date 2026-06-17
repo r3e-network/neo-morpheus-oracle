@@ -22,6 +22,10 @@ interface IMorpheusOracleEVM {
         bool success;
         bytes result;
         string error;
+        // Trailing fields added in the hardened kernel (exact fee + payer recorded
+        // for expiry refunds). Mirrored here so getRequest() tuple-decodes correctly.
+        uint256 feePaid;
+        address feePayer;
     }
 
     function requestFromCallback(address requester, string calldata operation, bytes calldata payload)
@@ -69,6 +73,7 @@ contract MiniAppDiceGameEVM {
     event BankrollFunded(address indexed from, uint256 amount);
     event Withdrawn(address indexed to, uint256 amount);
     event OracleChanged(address indexed previous, address indexed next);
+    event OwnerChanged(address indexed previous, address indexed next);
 
     error NotOwner();
     error OnlyOracle();
@@ -187,7 +192,7 @@ contract MiniAppDiceGameEVM {
     // ── admin ──────────────────────────────────────────────────────────────
     function setOracle(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OracleChanged(oracle, next); oracle = next; }
     function setStakeLimits(uint256 min_, uint256 max_) external onlyOwner { require(min_ > 0 && max_ >= min_, "limits"); minStake = min_; maxStake = max_; }
-    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); owner = next; }
+    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OwnerChanged(owner, next); owner = next; }
     function withdrawBankroll(uint256 amount, address payable to) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         require(amount <= availableBankroll(), "exceeds available");

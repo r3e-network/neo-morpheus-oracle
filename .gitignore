@@ -21,6 +21,9 @@ examples/build
 contracts/neox/artifacts
 contracts/neox/cache
 contracts/neox/node_modules
+contracts-evm/cache
+contracts-evm/build/forge-out
+contracts-evm/build/*.bin
 .morpheus-relayer-state.json
 .morpheus-relayer-state*.json
 deploy/phala/morpheus.env

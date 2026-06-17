@@ -37,7 +37,22 @@
   },
   {
     "inputs": [],
+    "name": "CallbackAlreadyRegistered",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ExceedsWithdrawable",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "FeeNotPaid",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidTTL",
     "type": "error"
   },
   {
@@ -48,6 +63,16 @@
   {
     "inputs": [],
     "name": "NotAppAdmin",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotAuthorized",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NotExpired",
     "type": "error"
   },
   {
@@ -67,6 +92,16 @@
   },
   {
     "inputs": [],
+    "name": "RefundFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RequestNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "RequestNotPending",
     "type": "error"
   },
@@ -79,6 +114,50 @@
     "inputs": [],
     "name": "ZeroAddress",
     "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeeRefunded",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeesWithdrawn",
+    "type": "event"
   },
   {
     "anonymous": false,
@@ -154,6 +233,81 @@
       }
     ],
     "name": "OracleVerifierChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previous",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "next",
+        "type": "address"
+      }
+    ],
+    "name": "OwnerChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "appId",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "requester",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "feePayer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "refundAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "RequestExpired",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "previous",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "next",
+        "type": "uint256"
+      }
+    ],
+    "name": "RequestFeeChanged",
     "type": "event"
   },
   {
@@ -240,6 +394,25 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "previous",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "next",
+        "type": "uint256"
+      }
+    ],
+    "name": "RequestTTLChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "address",
         "name": "previous",
@@ -257,6 +430,19 @@
   },
   {
     "inputs": [],
+    "name": "DEFAULT_REQUEST_TTL",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "accruedFees",
     "outputs": [
       {
@@ -266,6 +452,38 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "callbackContract",
+        "type": "address"
+      }
+    ],
+    "name": "appIdByCallback",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "requestId",
+        "type": "uint256"
+      }
+    ],
+    "name": "expireStaleRequest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -452,6 +670,16 @@
             "internalType": "string",
             "name": "error",
             "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "feePaid",
+            "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "feePayer",
+            "type": "address"
           }
         ],
         "internalType": "struct MorpheusOracleEVM.Request",
@@ -609,6 +837,32 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "requestTTL",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "reservedFees",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "string",
@@ -661,6 +915,19 @@
       }
     ],
     "name": "setRequestFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "ttlSeconds",
+        "type": "uint256"
+      }
+    ],
+    "name": "setRequestTTL",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -754,6 +1021,19 @@
     "name": "withdrawFees",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawableFees",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   }
 ]

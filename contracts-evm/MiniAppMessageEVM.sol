@@ -48,6 +48,7 @@ contract MiniAppMessageEVM {
     event RevealRequested(uint256 indexed id, uint256 indexed requestId, address indexed by);
     event MessageRevealed(uint256 indexed id, string plaintext);
     event OracleChanged(address indexed previous, address indexed next);
+    event OwnerChanged(address indexed previous, address indexed next);
 
     error NotOwner();
     error OnlyOracle();
@@ -123,6 +124,6 @@ contract MiniAppMessageEVM {
 
     // ── admin ──────────────────────────────────────────────────────────────
     function setOracle(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OracleChanged(oracle, next); oracle = next; }
-    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); owner = next; }
+    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OwnerChanged(owner, next); owner = next; }
     function setMaxEnvelopeBytes(uint256 n) external onlyOwner { require(n >= 256 && n <= 65536, "range"); maxEnvelopeBytes = n; }
 }
