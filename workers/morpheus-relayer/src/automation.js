@@ -16,7 +16,7 @@ import {
 } from './persistence.js';
 import { fetchNeoN3FeedRecord, queueNeoN3AutomationRequest } from './neo-n3.js';
 import { buildUpkeepDispatch, buildUpkeepExecutionPayload } from './automation-supervisor.js';
-import { trimString } from './lib/strings.js';
+import { normalizeRequestType, trimString } from './lib/strings.js';
 
 function resolveSupabaseNetwork(value) {
   return trimString(
@@ -24,12 +24,6 @@ function resolveSupabaseNetwork(value) {
   ) === 'mainnet'
     ? 'mainnet'
     : 'testnet';
-}
-
-function normalizeRequestType(value) {
-  return trimString(value)
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
 }
 
 function isPlainObject(value) {

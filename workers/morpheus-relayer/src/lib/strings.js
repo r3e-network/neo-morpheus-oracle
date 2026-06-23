@@ -12,3 +12,16 @@
 export function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
+
+// Canonical request-type normalization (single source of truth shared by
+// router.js, automation.js and fulfillment.js). This token is consensus-adjacent:
+// it selects the worker route, derives moduleId/operation feeding the fulfillment
+// digest, and gates the operator-only lane — divergent copies could route a
+// request to a different worker than it signs a digest for. It deliberately uses
+// the strict trimString above (non-strings -> ''), so a non-string requestType
+// normalizes to '' rather than a String()-coerced token.
+export function normalizeRequestType(value) {
+  return trimString(value)
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+}

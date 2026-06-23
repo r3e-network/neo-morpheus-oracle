@@ -42,6 +42,7 @@ import {
 } from './queue.js';
 import { reportPinnedNeoN3Role, resolvePinnedNeoN3VerifierPublicKey } from './lib/neo-signers.js';
 import { computeRetryDelayMs } from './lib/retry.js';
+import { normalizeRequestType } from './lib/strings.js';
 import { sendHeartbeat } from './heartbeat.js';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
@@ -806,9 +807,7 @@ async function finalizeFailedRequest(config, event, errorMessage) {
 }
 
 export function enrichAutomationExecutionPayload(event, payload) {
-  const normalizedRequestType = trimString(event?.requestType || '')
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRequestType = normalizeRequestType(event?.requestType);
   if (!normalizedRequestType.startsWith('automation_')) return payload;
 
   const automationId = trimString(payload?.automation_id || '');
