@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
+
 /// @title MorpheusOracleEVM
 /// @notice EVM (Neo X) oracle kernel mirroring the Neo N3 MorpheusOracle request
 /// lifecycle: miniapps (or their callback contracts) submit requests; an off-chain
@@ -28,7 +30,7 @@ pragma solidity ^0.8.24;
 /// fee-payer model — the payer is always whoever sends `msg.value` on the request tx.
 /// Mirroring it would require importing the entire N3 credit/sponsor accounting model,
 /// a separate initiative. Documented as a follow-up rather than half-implemented.
-contract MorpheusOracleEVM {
+contract MorpheusOracleEVM is IMorpheusOracleEVM {
     address public owner;
     address public updater;       // sends fulfilRequest (gas payer / witness)
     address public oracleVerifier; // ecrecover target for the result signature
@@ -47,30 +49,8 @@ contract MorpheusOracleEVM {
     uint256 public constant DEFAULT_REQUEST_TTL = 1 hours;
     uint256 public requestTTL = DEFAULT_REQUEST_TTL; // seconds; owner-settable
 
-    enum Status { None, Pending, Succeeded, Failed }
-
-    struct Request {
-        uint256 id;
-        string appId;
-        string moduleId;
-        string operation;
-        bytes payload;
-        address requester;
-        address callbackContract;
-        Status status;
-        uint64 createdAt;
-        uint64 fulfilledAt;
-        bool success;
-        bytes result;
-        string error;
-        // Exact fee accrued+reserved for this request at submission. Stored so an
-        // expiry refund returns precisely what was paid even if requestFee changed
-        // via setRequestFee in between. Mirrors N3 KernelRequest.FeePaid.
-        uint256 feePaid;
-        // Account the fee was charged from (the request submitter). On expiry the
-        // refund is returned here. Mirrors N3 KernelRequest.Sponsor.
-        address feePayer;
-    }
+    // `Status` enum and `Request` struct are inherited from IMorpheusOracleEVM so the
+    // kernel and every consumer share one positional layout (drift = compile error).
 
     struct MiniApp { address admin; address callbackContract; bool active; bool exists; }
 
@@ -181,8 +161,16 @@ contract MorpheusOracleEVM {
         if (!a.exists) revert AppNotFound();
         if (msg.sender != owner && msg.sender != a.admin) revert NotAppAdmin();
         if (!_modules[keccak256(bytes(moduleId))]) revert UnknownModule();
-        _grant[keccak256(abi.encodePacked(appId, "|", moduleId))] = true;
+        _grant[_grantKey(appId, moduleId)] = true;
         emit ModuleGranted(appId, moduleId);
+    }
+
+    /// @dev Single source of truth for the (appId, moduleId) grant key. The literal
+    /// "|" separator and argument order are consensus-critical — existing on-chain
+    /// grants only resolve if this derivation stays byte-identical across the write
+    /// (grantModule), check (_submit) and read (isModuleGranted) paths.
+    function _grantKey(string memory appId, string memory moduleId) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(appId, "|", moduleId));
     }
 
     // ── request ────────────────────────────────────────────────────────────
@@ -196,7 +184,7 @@ contract MorpheusOracleEVM {
     /// submits on behalf of a requester (the dice-game pattern). The fee (if any) is
     /// charged from the callback contract's `msg.value` and refunded to it on expiry.
     function requestFromCallback(address requester, string calldata operation, bytes calldata payload)
-        external payable returns (uint256)
+        external payable override returns (uint256)
     {
         string memory appId = _appByCallback[msg.sender];
         MiniApp storage a = _apps[appId];
@@ -212,7 +200,7 @@ contract MorpheusOracleEVM {
         if (!a.exists) revert AppNotFound();
         if (!a.active) revert AppInactive();
         if (!_modules[keccak256(bytes(moduleId))]) revert UnknownModule();
-        if (!_grant[keccak256(abi.encodePacked(appId, "|", moduleId))]) revert ModuleNotGranted();
+        if (!_grant[_grantKey(appId, moduleId)]) revert ModuleNotGranted();
 
         uint256 fee = requestFee;
         if (msg.value < fee) revert FeeNotPaid();
@@ -334,9 +322,9 @@ contract MorpheusOracleEVM {
     }
 
     // ── reads ──────────────────────────────────────────────────────────────
-    function getRequest(uint256 requestId) external view returns (Request memory) { return _requests[requestId]; }
+    function getRequest(uint256 requestId) external view override returns (Request memory) { return _requests[requestId]; }
     function totalRequests() external view returns (uint256) { return _nextRequestId - 1; }
-    function isModuleGranted(string calldata appId, string calldata moduleId) external view returns (bool) { return _grant[keccak256(abi.encodePacked(appId, "|", moduleId))]; }
+    function isModuleGranted(string calldata appId, string calldata moduleId) external view returns (bool) { return _grant[_grantKey(appId, moduleId)]; }
     function getMiniApp(string calldata appId) external view returns (MiniApp memory) { return _apps[appId]; }
     function appIdByCallback(address callbackContract) external view returns (string memory) { return _appByCallback[callbackContract]; }
 
