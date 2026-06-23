@@ -975,7 +975,9 @@ test('countDistinctProviders deduplicates a repeated provider id (C2)', () => {
     1
   );
   assert.equal(
-    __countDistinctProvidersForTests({ providers_used: ['twelvedata', 'TwelveData', ' twelvedata '] }),
+    __countDistinctProvidersForTests({
+      providers_used: ['twelvedata', 'TwelveData', ' twelvedata '],
+    }),
     1
   );
   assert.equal(

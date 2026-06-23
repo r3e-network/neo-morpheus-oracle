@@ -21,13 +21,17 @@ test('mapWithConcurrency preserves input order regardless of completion order', 
 test('mapWithConcurrency caps in-flight workers at the limit', async () => {
   let active = 0;
   let peak = 0;
-  await mapWithConcurrency(Array.from({ length: 12 }, (_, i) => i), 3, async (value) => {
-    active += 1;
-    peak = Math.max(peak, active);
-    await new Promise((resolve) => setTimeout(resolve, 1));
-    active -= 1;
-    return value;
-  });
+  await mapWithConcurrency(
+    Array.from({ length: 12 }, (_, i) => i),
+    3,
+    async (value) => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      active -= 1;
+      return value;
+    }
+  );
   assert.equal(peak, 3);
 });
 

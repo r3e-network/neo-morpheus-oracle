@@ -6,13 +6,13 @@ the findings and what was actioned.
 
 ## Applied & pushed to `main` (verified)
 
-| Commit | Change | Verification |
-|--------|--------|--------------|
-| `3acc72c` | fix(morpheus): refund exact fee paid on request expiry | nccs compile + 15 VM/unit tests |
-| `8cb1179` | chore: stop tracking compiled example contract artifacts (`examples/build/`) | git only; unreferenced |
-| `fb69bb5` | fix(web): prevent path traversal in `lib/mdx.ts` docs slug | `next build` |
-| `41a6fe2` | refactor(relayer): use shared `parseTimestampMs` | relayer check + 216 tests |
-| `c9b2db0` | refactor(web): remove dead `OperationsTab` | `next build` |
+| Commit    | Change                                                                       | Verification                    |
+| --------- | ---------------------------------------------------------------------------- | ------------------------------- |
+| `3acc72c` | fix(morpheus): refund exact fee paid on request expiry                       | nccs compile + 15 VM/unit tests |
+| `8cb1179` | chore: stop tracking compiled example contract artifacts (`examples/build/`) | git only; unreferenced          |
+| `fb69bb5` | fix(web): prevent path traversal in `lib/mdx.ts` docs slug                   | `next build`                    |
+| `41a6fe2` | refactor(relayer): use shared `parseTimestampMs`                             | relayer check + 216 tests       |
+| `c9b2db0` | refactor(web): remove dead `OperationsTab`                                   | `next build`                    |
 
 These were limited to **behavior-preserving** changes (or a contained, verifiable
 security fix) that I could prove safe. Everything below is **NOT** pushed: each is a
@@ -97,7 +97,7 @@ a blind push to `main`.
     compromised updater can overwrite fresh data with stale. Enforce
     `roundId > existing` and non-decreasing timestamp.
 
-13. **Aggregation bias.** Two-source divergence returns the *lower* price
+13. **Aggregation bias.** Two-source divergence returns the _lower_ price
     (`workers/phala-worker/src/oracle/aggregation.js:61`), and `minProviders` isn't
     re-checked after outlier rejection (`:86`). Decide fail-closed vs median and test.
 
@@ -120,7 +120,7 @@ a blind push to `main`.
 ## P3 — Quality / tech-debt (safe, mechanical, deferred)
 
 - **ESLint ignores `workers/**`, `scripts/**`, `contracts/**`** (`.eslintrc.json:30`) —
-  root cause of accumulated duplication; narrow the ignore (start with `no-unused-vars`).
+root cause of accumulated duplication; narrow the ignore (start with `no-unused-vars`).
 - **`trimString` duplicated ~29×** across workers/web; canonical export exists in
   `packages/shared`. Also `strip0x`, `uniqueOrdered`, `normalizeHash160/PublicKey/Signature`,
   Neo stack-item decoders, the GAS contract-hash literal, and the price-decimals constant

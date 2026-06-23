@@ -596,7 +596,12 @@ interface ChainResult {
 function withinValidity(cert: X509Certificate, atMs: number): boolean {
   const from = cert.validFromDate?.getTime();
   const to = cert.validToDate?.getTime();
-  if (typeof from !== 'number' || typeof to !== 'number' || Number.isNaN(from) || Number.isNaN(to)) {
+  if (
+    typeof from !== 'number' ||
+    typeof to !== 'number' ||
+    Number.isNaN(from) ||
+    Number.isNaN(to)
+  ) {
     return false;
   }
   return atMs >= from && atMs <= to;

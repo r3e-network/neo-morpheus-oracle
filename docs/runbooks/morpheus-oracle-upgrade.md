@@ -10,11 +10,11 @@ repointing.
 What this generation adds over the deployed one (verified by the upgrade script's
 method diff):
 
-| Change | Why |
-| --- | --- |
-| `reservedRequestFees` / `withdrawableFees` + reserve-gated `withdrawAccruedFees` | The deployed kernel lets the admin withdraw fees that back pending requests, shrinking expiry refunds. |
-| O(1) callback reverse index + `rebuildIndexes(start, count)` backfill | The deployed kernel resolves `request`/`requestFromCallback` with an O(n) registry scan (per-request DoS as the registry grows). |
-| Callback-uniqueness assert in `PutMiniApp` (`"callback already registered"`) | Without it the new O(1) index is last-write-wins: any account could register a fresh appId over an existing app's callback and repoint/brick its legacy request routing (the N3 half of OR-D-03; the EVM half is bytecode-frozen, see `docs/runbooks/callback-monitor.md`). |
+| Change                                                                           | Why                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `reservedRequestFees` / `withdrawableFees` + reserve-gated `withdrawAccruedFees` | The deployed kernel lets the admin withdraw fees that back pending requests, shrinking expiry refunds.                                                                                                                                                                      |
+| O(1) callback reverse index + `rebuildIndexes(start, count)` backfill            | The deployed kernel resolves `request`/`requestFromCallback` with an O(n) registry scan (per-request DoS as the registry grows).                                                                                                                                            |
+| Callback-uniqueness assert in `PutMiniApp` (`"callback already registered"`)     | Without it the new O(1) index is last-write-wins: any account could register a fresh appId over an existing app's callback and repoint/brick its legacy request routing (the N3 half of OR-D-03; the EVM half is bytecode-frozen, see `docs/runbooks/callback-monitor.md`). |
 
 ## Tooling
 
@@ -113,4 +113,5 @@ The upgrade reuses the deployed storage layout unchanged: all pre-existing prefi
 (`0x26` reserved fees, `0x27` callback index keyed by the callback `UInt160` 20-byte
 LE bytes -> appId string, `0x28` account membership) start empty and are populated by
 new submissions and `rebuildIndexes`. The callback-uniqueness assert adds only a read
-+ revert on the existing `0x27` prefix - no stored value is reinterpreted.
+
+- revert on the existing `0x27` prefix - no stored value is reinterpreted.

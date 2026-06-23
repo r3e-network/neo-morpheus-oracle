@@ -309,9 +309,7 @@ export function formatConfigDump(env = process.env) {
       display = setting.value;
     }
     const via =
-      setting.source === 'default'
-        ? 'default'
-        : `${setting.winningAlias} via ${setting.source}`;
+      setting.source === 'default' ? 'default' : `${setting.winningAlias} via ${setting.source}`;
     const flag = setting.required ? ' [required]' : '';
     lines.push(`${paddedKey}  = ${display}    (${via})${flag}`);
   }

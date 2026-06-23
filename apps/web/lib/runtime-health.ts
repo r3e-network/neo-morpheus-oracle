@@ -32,7 +32,11 @@ export async function fetchBoxHealth(): Promise<RuntimeProbe> {
     }
     return { ok: response.ok, status: response.status, body };
   } catch (error) {
-    return { ok: false, status: 0, body: { error: error instanceof Error ? error.message : String(error) } };
+    return {
+      ok: false,
+      status: 0,
+      body: { error: error instanceof Error ? error.message : String(error) },
+    };
   }
 }
 

@@ -10,9 +10,8 @@ import os from 'node:os';
 const MONITOR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'feed-monitor.mjs');
 
 process.env.FEED_MONITOR_SKIP_MAIN = '1';
-const { parseAllRecords, isMarketClosed, staleAgeLimit, renderPromText } = await import(
-  './feed-monitor.mjs'
-);
+const { parseAllRecords, isMarketClosed, staleAgeLimit, renderPromText } =
+  await import('./feed-monitor.mjs');
 
 function recordStruct(pair, { roundId = 1, price = 5_250_000, timestamp }) {
   return {

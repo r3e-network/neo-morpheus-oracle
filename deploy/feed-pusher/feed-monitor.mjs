@@ -182,10 +182,13 @@ if (process.env.FEED_MONITOR_SKIP_MAIN !== '1') {
     }
     for (const r of rows) {
       const limit = staleAgeLimit(r.pair, date);
-      if (r.age > limit)
-        problems.push(`FEED STALE ${r.pair} age=${(r.age / 60).toFixed(0)}min`);
+      if (r.age > limit) problems.push(`FEED STALE ${r.pair} age=${(r.age / 60).toFixed(0)}min`);
     }
-    const g = await rpc('invokefunction', [GASH, 'balanceOf', [{ type: 'Hash160', value: UPDATER }]]);
+    const g = await rpc('invokefunction', [
+      GASH,
+      'balanceOf',
+      [{ type: 'Hash160', value: UPDATER }],
+    ]);
     const gas = Number(g.stack[0].value) / 1e8;
     if (gas < MIN_GAS) problems.push(`LOW GAS updater=${gas.toFixed(1)} (refund ${UPDATER})`);
     writePromTextfile(rows, gas);

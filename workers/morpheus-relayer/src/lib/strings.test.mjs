@@ -30,7 +30,10 @@ describe('relayer trimString', () => {
     assert.equal(trimString({}), '');
     assert.equal(trimString([]), '');
     assert.equal(trimString(['a']), '');
-    assert.equal(trimString(() => 'x'), '');
+    assert.equal(
+      trimString(() => 'x'),
+      ''
+    );
   });
 
   it('diverges from the shared trimString for non-string inputs (load-bearing)', () => {

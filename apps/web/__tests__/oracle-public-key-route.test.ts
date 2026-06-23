@@ -17,7 +17,11 @@ function neoRpcMock(responder: (method: string) => unknown) {
     const method = body?.params?.[1];
     const item = responder(method);
     return new Response(
-      JSON.stringify({ jsonrpc: '2.0', id: 1, result: { state: 'HALT', stack: item ? [item] : [] } }),
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        result: { state: 'HALT', stack: item ? [item] : [] },
+      }),
       { status: 200, headers: { 'content-type': 'application/json' } }
     );
   });

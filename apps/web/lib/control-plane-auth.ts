@@ -17,7 +17,9 @@ export function isAuthorizedControlPlaneRequest(request: Request) {
   if (!sharedToken) return false;
   const bearer = trimString(request.headers.get('authorization'));
   const admin = trimString(request.headers.get('x-admin-api-key'));
-  return timingSafeCompare(bearer, `Bearer ${sharedToken}`) || timingSafeCompare(admin, sharedToken);
+  return (
+    timingSafeCompare(bearer, `Bearer ${sharedToken}`) || timingSafeCompare(admin, sharedToken)
+  );
 }
 
 function extractRuntimeAuthToken(request: Request) {

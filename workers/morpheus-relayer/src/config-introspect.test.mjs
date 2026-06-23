@@ -245,7 +245,10 @@ test('every schema setting has a unique key, description, and alias list', () =>
     assert.ok(typeof setting.key === 'string' && setting.key.length > 0, 'key present');
     assert.ok(!seen.has(setting.key), `duplicate schema key: ${setting.key}`);
     seen.add(setting.key);
-    assert.ok(Array.isArray(setting.aliases) && setting.aliases.length > 0, `${setting.key} aliases`);
+    assert.ok(
+      Array.isArray(setting.aliases) && setting.aliases.length > 0,
+      `${setting.key} aliases`
+    );
     assert.ok(
       typeof setting.description === 'string' && setting.description.length > 0,
       `${setting.key} description`

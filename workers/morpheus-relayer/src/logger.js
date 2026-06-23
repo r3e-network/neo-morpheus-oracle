@@ -14,9 +14,7 @@ const LEVEL_PRIORITY = {
 // scrubbed by fulfillment.js trimOnchainErrorMessage; the structured-log lane had no
 // equivalent, so a credentialed RPC/Supabase URL inside an error could leak in cleartext.
 function redactSecrets(text) {
-  return typeof text === 'string'
-    ? text.replace(/https?:\/\/[^\s\]]+/gi, '[redacted-url]')
-    : text;
+  return typeof text === 'string' ? text.replace(/https?:\/\/[^\s\]]+/gi, '[redacted-url]') : text;
 }
 
 // Keys whose values are secret-shaped (credentials, raw key material, sealed

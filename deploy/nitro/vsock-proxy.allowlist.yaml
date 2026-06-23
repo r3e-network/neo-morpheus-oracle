@@ -29,26 +29,26 @@
 
 allowlist:
   # --- Price / feed providers (workers/nitro-worker/src/oracle/providers.js) ---
-  - {address: api.twelvedata.com, port: 443}   # providers.js:490 (TWELVEDATA_API_KEY)
-  - {address: api1.binance.com, port: 443}     # providers.js:521 (binance-spot default base)
-  - {address: api.coinbase.com, port: 443}     # providers.js:541 (coinbase-spot)
+  - { address: api.twelvedata.com, port: 443 } # providers.js:490 (TWELVEDATA_API_KEY)
+  - { address: api1.binance.com, port: 443 } # providers.js:521 (binance-spot default base)
+  - { address: api.coinbase.com, port: 443 } # providers.js:541 (coinbase-spot)
 
   # --- Neo N3 RPC + indexer ---
-  - {address: api.n3index.dev, port: 443}      # relayer/config.js:24,32,469 (RPC + indexer; live box)
-  - {address: mainnet1.neo.coz.io, port: 443}  # config/networks/mainnet.json
-  - {address: mainnet2.neo.coz.io, port: 443}  # config/networks/mainnet.json
-  - {address: testnet1.neo.coz.io, port: 443}  # config/networks/testnet.json (staging)
+  - { address: api.n3index.dev, port: 443 } # relayer/config.js:24,32,469 (RPC + indexer; live box)
+  - { address: mainnet1.neo.coz.io, port: 443 } # config/networks/mainnet.json
+  - { address: mainnet2.neo.coz.io, port: 443 } # config/networks/mainnet.json
+  - { address: testnet1.neo.coz.io, port: 443 } # config/networks/testnet.json (staging)
 
   # --- Neo X (EVM) RPC — NeoDID message-reveal lane + relayer neox ---
-  - {address: neoxt4seed1.ngd.network, port: 443}  # relayer/config.js:523,535,540
-  - {address: neoxt4seed2.ngd.network, port: 443}  # relayer/config.js:540
+  - { address: neoxt4seed1.ngd.network, port: 443 } # relayer/config.js:523,535,540
+  - { address: neoxt4seed2.ngd.network, port: 443 } # relayer/config.js:540
 
   # --- NeoDID web3auth JWKS (verify id_token in-enclave) ---
-  - {address: api-auth.web3auth.io, port: 443}  # neodid/index.js:182 (createRemoteJWKSet)
+  - { address: api-auth.web3auth.io, port: 443 } # neodid/index.js:182 (createRemoteJWKSet)
 
   # --- Supabase (provider config + feed snapshots; durable feed baseline) ---
-  - {address: przhhxbovqwopibssjzr.supabase.co, port: 443}  # providers.js:161 + feed-state.js (morpheus project ref)
+  - { address: przhhxbovqwopibssjzr.supabase.co, port: 443 } # providers.js:161 + feed-state.js (morpheus project ref)
 
   # --- AWS (key material + KMS-attested decrypt; us-east-1 default) ---
-  - {address: secretsmanager.us-east-1.amazonaws.com, port: 443}  # platform/nitro-signer.js:86,88 (AWS_REGION default us-east-1)
-  - {address: kms.us-east-1.amazonaws.com, port: 443}             # KMS-attested decrypt of confidential/NeoDID masters
+  - { address: secretsmanager.us-east-1.amazonaws.com, port: 443 } # platform/nitro-signer.js:86,88 (AWS_REGION default us-east-1)
+  - { address: kms.us-east-1.amazonaws.com, port: 443 } # KMS-attested decrypt of confidential/NeoDID masters

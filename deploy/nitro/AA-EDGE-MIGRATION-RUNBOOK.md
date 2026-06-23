@@ -71,14 +71,16 @@ Covered (the control plane's `EXECUTION_PLANE_ROUTES` /
 `/neodid/action-ticket`, `/neodid/recovery-ticket`.
 
 **Not covered by this migration** (separate paths — verify independently):
+
 - `/feeds/tick` — feeds are already pushed on-chain by the box feed-pusher (in-TEE).
 - `/callbacks/broadcast`, `/automation/execute` — route to `MORPHEUS_APP_BACKEND_URL`
   (the Vercel Next.js app), not the execution runtime.
 - **AA paymaster / gasless relay** (gas-sponsor, aa-relay-console) — there is **no
   `/paymaster` route in the control plane**; that path is app-backend/chain-direct.
-  The AA *contracts* are live on-chain, so contract-interaction AA apps already work.
+  The AA _contracts_ are live on-chain, so contract-interaction AA apps already work.
 
 ## Prerequisites
+
 - `CLOUDFLARE_API_TOKEN` for the `morpheus-control-plane` worker (account
   `bf0d7e814f69945157f30505e9fba9fe`), with `wrangler`.
 - DNS control for a runtime hostname (recommended: `runtime.meshmini.app`).
@@ -90,12 +92,15 @@ Covered (the control plane's `EXECUTION_PLANE_ROUTES` /
 ## Steps (ordered — each gates the next)
 
 ### 1. Build + deploy the execution-plane-capable enclave (maintenance window)
+
 The passthrough (`EXECUTION_PLANE_PASSTHROUGH` in `enclave-server.mjs`) is a **new
 EIF** → new PCRs. Build it on the box:
+
 ```
 cd /opt/morpheus/neo-morpheus-oracle && git pull
 MORPHEUS_RELEASE=oracle-enclave-exec-<date> bash deploy/nitro/build-enclave-eif.sh --verify-reproducible
 ```
+
 Record PCR0/1/2 → commit a new `deploy/nitro/measurements/<release>.json` (the
 attestation verifier serves it). EXPECTED PCR0 (reproducible, this commit): `49a142254c73cd4a299b74d78db7f459f3857c6b589cc7c0f67df9657b0f763da76cf29f2d652035aa431608c5f4e281` (full manifest: deploy/nitro/measurements/oracle-enclave-exec-2026-06-15.json).
 
@@ -106,26 +111,32 @@ brief mainnet signing pause, relayer retries cover it). **Rollback:** repoint
 `MORPHEUS_NITRO_EIF` to `morpheus-nitro-signer.eif` (current) and restart.
 
 ### 2. Stand up the public gateway on the box
+
 ```
 cp deploy/nitro/runtime-gateway.nginx.conf /etc/nginx/conf.d/morpheus-runtime.conf
 certbot certonly --nginx -d runtime.meshmini.app   # or install your cert at the paths in the conf
 nginx -t && systemctl reload nginx
 ```
+
 The gateway proxies ONLY the 6 execution routes (+ /health, /attestation) to the
 existing host bridge `127.0.0.1:8787` → vsock → enclave. (No new box port is exposed
 beyond 443.)
 
 ### 3. Execution token
+
 The enclave auth-gates the passthrough with its provisioned trusted tokens
 (`MORPHEUS_RUNTIME_TOKEN` / `NITRO_API_TOKEN`, already provisioned). Set the control
 plane's `MORPHEUS_EXECUTION_TOKEN` (wrangler secret) to that same token so its
 `Authorization: Bearer` is accepted:
+
 ```
 cd deploy/cloudflare/morpheus-control-plane && wrangler secret put MORPHEUS_EXECUTION_TOKEN
 ```
 
 ### 4. DNS
+
 Point `runtime.meshmini.app` → the box public IP (`32.199.39.216`). Verify:
+
 ```
 curl -s https://runtime.meshmini.app/health
 curl -s -X POST https://runtime.meshmini.app/mainnet/oracle/smart-fetch \
@@ -134,20 +145,25 @@ curl -s -X POST https://runtime.meshmini.app/mainnet/oracle/smart-fetch \
 ```
 
 ### 5. Re-point the control plane (config already staged)
+
 `wrangler.meshmini.toml` already sets `MORPHEUS_{MAINNET,TESTNET}_EXECUTION_BASE_URL =
 https://runtime.meshmini.app/{network}`. Deploy:
+
 ```
 cd deploy/cloudflare/morpheus-control-plane && wrangler deploy --config wrangler.meshmini.toml
 ```
+
 Validate: submit an oracle HTTP request through the control plane and confirm it is
 fulfilled via the box (the box's egress proxy logs the provider fetch).
 
 ### 6. Retire the Vercel placeholder
+
 Once execution flows through the box, disable / re-point the
 `apps/web/app/api/emergency-runtime` placeholder so `oracle.meshmini.app` /
 `edge.meshmini.app` no longer report `degraded`.
 
 ## Per-lane notes (validate after deploy)
+
 - `/oracle/smart-fetch`, `/oracle/query`: need provider egress — already wired
   (the enclave egress proxy + allowlist). Should work out of the box.
 - `/neodid/*`: the salt is provisioned (see provision-enclave-compute.sh), but

@@ -178,8 +178,7 @@ export function verifyAttestation(input: {
   // `full_attestation_ok` now REQUIRES the cryptographic Nitro layer: the hash
   // binding holds, metadata matches, AND the COSE/cert/PCR/binding chain
   // verified. Quote/event_log presence alone no longer flips this true.
-  const fullAttestationOk =
-    bindingOk && metadataFailed.length === 0 && measurementChainVerified;
+  const fullAttestationOk = bindingOk && metadataFailed.length === 0 && measurementChainVerified;
 
   return {
     ok: bindingOk && metadataFailed.length === 0,

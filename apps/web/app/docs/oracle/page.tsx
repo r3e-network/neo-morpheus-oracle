@@ -208,9 +208,8 @@ const ciphertext = await encryptJsonWithOraclePublicKey(public_key, JSON.stringi
 // Returns a Base64 encoded encrypted blob: "vF9+kx..."`}
         />
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '0.85rem' }}>
-          See the{' '}
-          <Link href="/docs/r/HPKE_X25519_MIGRATION">X25519 / HPKE sealing reference</Link> for the
-          full sealed-envelope wire format.
+          See the <Link href="/docs/r/HPKE_X25519_MIGRATION">X25519 / HPKE sealing reference</Link>{' '}
+          for the full sealed-envelope wire format.
         </p>
       </div>
 

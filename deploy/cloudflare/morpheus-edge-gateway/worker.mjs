@@ -626,7 +626,11 @@ export default {
       );
       if (!boxRequest) {
         return decorateGatewayResponse(
-          json(503, { error: 'runtime_box_unconfigured', route: routing.forwardedPath }, { 'cache-control': 'no-store' }),
+          json(
+            503,
+            { error: 'runtime_box_unconfigured', route: routing.forwardedPath },
+            { 'cache-control': 'no-store' }
+          ),
           routing,
           'runtime-box-unconfigured'
         );
@@ -637,12 +641,20 @@ export default {
       );
       try {
         const boxResponse = await fetch(boxRequest, { signal: AbortSignal.timeout(boxTimeoutMs) });
-        return decorateGatewayResponse(new Response(boxResponse.body, boxResponse), routing, 'runtime-box');
+        return decorateGatewayResponse(
+          new Response(boxResponse.body, boxResponse),
+          routing,
+          'runtime-box'
+        );
       } catch {
         return decorateGatewayResponse(
           json(
             503,
-            { error: 'runtime_box_unavailable', route: routing.forwardedPath, message: 'confidential runtime temporarily unavailable' },
+            {
+              error: 'runtime_box_unavailable',
+              route: routing.forwardedPath,
+              message: 'confidential runtime temporarily unavailable',
+            },
             { 'cache-control': 'no-store' }
           ),
           routing,

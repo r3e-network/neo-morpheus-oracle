@@ -22,7 +22,10 @@ test('oracle data argument cannot reach host process via concatenated constructo
   }).catch((error) => ({ __threw: error.message }));
 
   if (result && typeof result === 'object' && '__threw' in result) {
-    assert.match(result.__threw, /Code generation from strings disallowed|is not a function|undefined/);
+    assert.match(
+      result.__threw,
+      /Code generation from strings disallowed|is not a function|undefined/
+    );
   } else {
     assert.notEqual(result, 'object', 'escape reached host process');
   }
@@ -39,7 +42,10 @@ test('oracle context argument cannot reach host process via concatenated constru
   }).catch((error) => ({ __threw: error.message }));
 
   if (result && typeof result === 'object' && '__threw' in result) {
-    assert.match(result.__threw, /Code generation from strings disallowed|is not a function|undefined/);
+    assert.match(
+      result.__threw,
+      /Code generation from strings disallowed|is not a function|undefined/
+    );
   } else {
     assert.notEqual(result, 'object', 'escape reached host process');
   }
@@ -56,7 +62,10 @@ test('compute input argument cannot reach host process via concatenated construc
   }).catch((error) => ({ __threw: error.message }));
 
   if (result && typeof result === 'object' && '__threw' in result) {
-    assert.match(result.__threw, /Code generation from strings disallowed|is not a function|undefined/);
+    assert.match(
+      result.__threw,
+      /Code generation from strings disallowed|is not a function|undefined/
+    );
   } else {
     assert.notEqual(result, 'object', 'escape reached host process');
   }
@@ -73,7 +82,10 @@ test('helpers function cannot reach host process via constructor chain', async (
   }).catch((error) => ({ __threw: error.message }));
 
   if (result && typeof result === 'object' && '__threw' in result) {
-    assert.match(result.__threw, /Code generation from strings disallowed|is not a function|undefined/);
+    assert.match(
+      result.__threw,
+      /Code generation from strings disallowed|is not a function|undefined/
+    );
   } else {
     assert.notEqual(result, 'object', 'escape reached host process');
   }

@@ -128,7 +128,9 @@ function parseSealedKeystoreFromEnv() {
     env('PHALA_ORACLE_SEALED_KEYSTORE_JSON') || env('MORPHEUS_ORACLE_SEALED_KEYSTORE_JSON') || ''
   );
   const rawBase64 = trimString(
-    env('PHALA_ORACLE_SEALED_KEYSTORE_BASE64') || env('MORPHEUS_ORACLE_SEALED_KEYSTORE_BASE64') || ''
+    env('PHALA_ORACLE_SEALED_KEYSTORE_BASE64') ||
+      env('MORPHEUS_ORACLE_SEALED_KEYSTORE_BASE64') ||
+      ''
   );
   let parsed = null;
   if (rawJson) {

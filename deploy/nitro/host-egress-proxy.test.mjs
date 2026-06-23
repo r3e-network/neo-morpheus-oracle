@@ -29,7 +29,10 @@ function connectThroughProxy(proxyPort, target, { sendAfter = '' } = {}) {
     let buf = Buffer.alloc(0);
     let statusLine = '';
     let tunneled = '';
-    const timer = setTimeout(() => { sock.destroy(); resolve({ statusLine, tunneled }); }, 1500);
+    const timer = setTimeout(() => {
+      sock.destroy();
+      resolve({ statusLine, tunneled });
+    }, 1500);
     sock.on('data', (d) => {
       buf = Buffer.concat([buf, d]);
       const headerEnd = buf.indexOf('\r\n\r\n');
@@ -38,12 +41,21 @@ function connectThroughProxy(proxyPort, target, { sendAfter = '' } = {}) {
         const established = /\s200\s/.test(statusLine);
         buf = buf.subarray(headerEnd + 4);
         if (established && sendAfter) sock.write(sendAfter);
-        if (!established) { clearTimeout(timer); sock.destroy(); resolve({ statusLine, tunneled }); return; }
+        if (!established) {
+          clearTimeout(timer);
+          sock.destroy();
+          resolve({ statusLine, tunneled });
+          return;
+        }
       }
       if (statusLine && /\s200\s/.test(statusLine)) {
         tunneled += buf.toString();
         buf = Buffer.alloc(0);
-        if (tunneled.length) { clearTimeout(timer); sock.destroy(); resolve({ statusLine, tunneled }); }
+        if (tunneled.length) {
+          clearTimeout(timer);
+          sock.destroy();
+          resolve({ statusLine, tunneled });
+        }
       }
     });
     sock.on('error', reject);
@@ -68,7 +80,9 @@ test('allow-listed CONNECT tunnels to the upstream and pipes bytes', async () =>
 
 test('non-allow-listed CONNECT is refused with 403 (no upstream dial)', async () => {
   let upstreamHit = false;
-  const upstream = net.createServer(() => { upstreamHit = true; });
+  const upstream = net.createServer(() => {
+    upstreamHit = true;
+  });
   const upPort = await listen(upstream);
   // Allow a DIFFERENT port so the requested target is not on the list.
   const proxy = createProxyServer({ allowlist: new Set([`127.0.0.1:${upPort + 1}`]) });

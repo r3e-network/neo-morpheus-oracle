@@ -43,7 +43,9 @@ export default function DocsVerifier() {
           borderRadius: '0 var(--ns-radius-md) var(--ns-radius-md) 0',
         }}
       >
-        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+        <p
+          style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}
+        >
           <strong>Scope of trust:</strong> the built-in verifier confirms that the result is{' '}
           <em>enclave-key-signed</em> and that the hash binding + declared metadata are consistent,
           and that a quote and event log are <em>present</em>. It does <strong>not</strong> validate

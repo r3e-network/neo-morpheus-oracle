@@ -494,8 +494,8 @@ function VerifierPageClient() {
             <div>
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>Verification Result</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                Application-level checks for output_hash, attestation_hash, and report_data. Quote is
-                checked for presence only — not validated against a Nitro/TDX root of trust.
+                Application-level checks for output_hash, attestation_hash, and report_data. Quote
+                is checked for presence only — not validated against a Nitro/TDX root of trust.
               </p>
             </div>
             <CheckCircle2 size={20} color="var(--neo-green)" />

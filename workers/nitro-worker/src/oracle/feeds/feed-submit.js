@@ -3,10 +3,7 @@ import { relayNeoN3Invocation } from '../../chain/index.js';
 import { maybeSignNeoN3Bytes } from '../../chain/signing.js';
 import { decimalToIntegerString } from './decimal.js';
 import { clampFeedTimestampSec } from './shared.js';
-import {
-  resolveFeedSubmissionWait,
-  resolveFeedSubmissionWaitTimeoutMs,
-} from './sync-policy.js';
+import { resolveFeedSubmissionWait, resolveFeedSubmissionWaitTimeoutMs } from './sync-policy.js';
 
 // Resolve the on-chain submission timestamp for a single-feed updateFeed call.
 // Prefer an already-clamped value (computed in the batch path against the

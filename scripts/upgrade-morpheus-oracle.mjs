@@ -54,7 +54,9 @@ const requestedNetwork = normalizeMorpheusNetwork(
   flags.network || process.env.MORPHEUS_NETWORK || 'testnet'
 );
 await loadDotEnv();
-const network = normalizeMorpheusNetwork(flags.network || process.env.MORPHEUS_NETWORK || requestedNetwork);
+const network = normalizeMorpheusNetwork(
+  flags.network || process.env.MORPHEUS_NETWORK || requestedNetwork
+);
 await loadDotEnv(new URL(`../deploy/nitro/morpheus.${network}.env`, import.meta.url), {
   override: true,
 });
@@ -147,7 +149,8 @@ function reconstructNefFile(nefJson) {
     paramCount.writeUInt16LE(token.paramcount);
     parts.push(paramCount);
     parts.push(Buffer.from([token.hasreturnvalue ? 1 : 0]));
-    const callFlags = typeof token.callflags === 'string' ? CALL_FLAGS[token.callflags] : token.callflags;
+    const callFlags =
+      typeof token.callflags === 'string' ? CALL_FLAGS[token.callflags] : token.callflags;
     if (callFlags === undefined) throw new Error(`unknown call flags '${token.callflags}'`);
     parts.push(Buffer.from([callFlags]));
   }
@@ -181,16 +184,21 @@ async function waitForTransaction(txid) {
       const execution = log?.executions?.[0];
       if (execution) {
         if (execution.vmstate !== 'HALT') {
-          throw new Error(`transaction ${txid} executed with ${execution.vmstate}: ${execution.exception || ''}`);
+          throw new Error(
+            `transaction ${txid} executed with ${execution.vmstate}: ${execution.exception || ''}`
+          );
         }
         return execution;
       }
     } catch (error) {
-      if (!/Unknown transaction|Unknown script container|RPC error/.test(String(error.message))) throw error;
+      if (!/Unknown transaction|Unknown script container|RPC error/.test(String(error.message)))
+        throw error;
     }
     await new Promise((resolve) => setTimeout(resolve, TX_POLL_INTERVAL_MS));
   }
-  throw new Error(`transaction ${txid} not confirmed after ${(TX_POLL_ATTEMPTS * TX_POLL_INTERVAL_MS) / 1000}s`);
+  throw new Error(
+    `transaction ${txid} not confirmed after ${(TX_POLL_ATTEMPTS * TX_POLL_INTERVAL_MS) / 1000}s`
+  );
 }
 
 // --- 1. Current deployed state (read-only) ------------------------------------------
@@ -198,7 +206,9 @@ const state = await rpc('getcontractstate', [oracleHash]);
 const deployedMethods = state.manifest.abi.methods.map((m) => m.name);
 const updateAbi = state.manifest.abi.methods.find((m) => m.name === 'update');
 if (!updateAbi || updateAbi.parameters.length !== 2) {
-  throw new Error('deployed kernel does not expose update(nefFile, manifest); cannot upgrade in place');
+  throw new Error(
+    'deployed kernel does not expose update(nefFile, manifest); cannot upgrade in place'
+  );
 }
 
 const adminInvoke = await readMethod('admin');
@@ -342,18 +352,29 @@ if (applyUpdate) {
     await waitForTransaction(txid);
 
     const updated = await rpc('getcontractstate', [oracleHash]);
-    if (updated.updatecounter !== state.updatecounter + 1 || updated.nef.checksum !== localChecksum) {
+    if (
+      updated.updatecounter !== state.updatecounter + 1 ||
+      updated.nef.checksum !== localChecksum
+    ) {
       throw new Error(
         `post-update state mismatch: updatecounter=${updated.updatecounter} checksum=${updated.nef.checksum}`
       );
     }
-    console.log(`update confirmed: updatecounter=${updated.updatecounter} checksum=${updated.nef.checksum}`);
+    console.log(
+      `update confirmed: updatecounter=${updated.updatecounter} checksum=${updated.nef.checksum}`
+    );
   }
 
   // Post-update verification reads: the new fee views must answer and the registry
   // must still resolve (storage carried across the update untouched).
   const verification = {};
-  for (const method of ['accruedRequestFees', 'reservedRequestFees', 'withdrawableFees', 'getMiniAppCount', 'getTotalRequests']) {
+  for (const method of [
+    'accruedRequestFees',
+    'reservedRequestFees',
+    'withdrawableFees',
+    'getMiniAppCount',
+    'getTotalRequests',
+  ]) {
     const result = await readMethod(method);
     verification[method] = String(integerFromStackItem(result.stack?.[0]) ?? 'null');
   }
@@ -372,7 +393,9 @@ if (applyUpdate) {
       created_at: String(integerFromStackItem(fields[7]) ?? 'null'),
     };
     if (!verification.getMiniApp.created_at || verification.getMiniApp.created_at === '0') {
-      throw new Error(`GetMiniApp probe for '${probeAppId}' returned an empty record after the update`);
+      throw new Error(
+        `GetMiniApp probe for '${probeAppId}' returned an empty record after the update`
+      );
     }
   }
   console.log(`post-update verification: ${JSON.stringify(verification, null, 2)}`);
@@ -383,7 +406,9 @@ if (applyRebuild) {
   const current = await rpc('getcontractstate', [oracleHash]);
   const currentMethods = current.manifest.abi.methods.map((m) => m.name);
   if (!currentMethods.includes('rebuildIndexes')) {
-    throw new Error('deployed kernel has no rebuildIndexes; run the update first (UPGRADE_APPLY=1)');
+    throw new Error(
+      'deployed kernel has no rebuildIndexes; run the update first (UPGRADE_APPLY=1)'
+    );
   }
 
   for (const [start, count] of chunks) {
@@ -391,15 +416,24 @@ if (applyRebuild) {
       { type: 'Integer', value: String(start) },
       { type: 'Integer', value: String(count) },
     ];
-    const chunkPreview = await rpc('invokefunction', [oracleHash, 'rebuildIndexes', params, adminSigner]);
+    const chunkPreview = await rpc('invokefunction', [
+      oracleHash,
+      'rebuildIndexes',
+      params,
+      adminSigner,
+    ]);
     if (chunkPreview.state !== 'HALT') {
-      throw new Error(`rebuildIndexes(${start}, ${count}) preview FAULTed: ${chunkPreview.exception || 'unknown'}`);
+      throw new Error(
+        `rebuildIndexes(${start}, ${count}) preview FAULTed: ${chunkPreview.exception || 'unknown'}`
+      );
     }
     const txid = await contract.invoke('rebuildIndexes', [
       sc.ContractParam.integer(start),
       sc.ContractParam.integer(count),
     ]);
-    console.log(`rebuildIndexes(${start}, ${count}) tx: ${txid} (preview gas ${chunkPreview.gasconsumed})`);
+    console.log(
+      `rebuildIndexes(${start}, ${count}) tx: ${txid} (preview gas ${chunkPreview.gasconsumed})`
+    );
     await waitForTransaction(txid);
   }
 
@@ -409,7 +443,9 @@ if (applyRebuild) {
   const expected = new Map();
   const appsWithCallbacks = [];
   for (let index = 0; index < appCount; index++) {
-    const idInvoke = await readMethod('getMiniAppIdByIndex', [{ type: 'Integer', value: String(index) }]);
+    const idInvoke = await readMethod('getMiniAppIdByIndex', [
+      { type: 'Integer', value: String(index) },
+    ]);
     const appId = b64ToBuf(idInvoke.stack?.[0]?.value || '').toString('utf8');
     if (!appId) continue;
     const appInvoke = await readMethod('getMiniApp', [{ type: 'String', value: appId }]);
@@ -425,7 +461,9 @@ if (applyRebuild) {
     const stored = await rpc('getstorage', [oracleHash, key.toString('base64')]);
     const storedAppId = stored ? b64ToBuf(stored).toString('utf8') : null;
     if (storedAppId !== appId) {
-      throw new Error(`callback index mismatch for ${callback}: expected '${appId}', found '${storedAppId}'`);
+      throw new Error(
+        `callback index mismatch for ${callback}: expected '${appId}', found '${storedAppId}'`
+      );
     }
     verified += 1;
   }

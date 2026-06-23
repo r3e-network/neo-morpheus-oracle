@@ -56,20 +56,20 @@ the docker image twice and asserts identical image IDs.)
 See `manifest.schema.json` (JSON Schema, draft 2020-12) for the authoritative
 shape and `example.json` for a filled-in (illustrative, NON-REAL) example.
 
-| field          | type            | meaning                                                        |
-|----------------|-----------------|----------------------------------------------------------------|
-| `release`      | string          | release id, e.g. `oracle-2026-06-14`                           |
-| `app_id`       | string          | always `morpheus-oracle`                                       |
-| `network`      | string          | `testnet` \| `mainnet`                                         |
-| `git_commit`   | string          | full commit SHA the EIF was built from                         |
-| `image_id`     | string \| null  | docker image id (`sha256:...`) the EIF was built from          |
-| `eif_sha256`   | string \| null  | sha256 of the `.eif` file                                      |
-| `hash_algorithm` | string        | PCR hash algorithm, always `SHA384` for Nitro                  |
-| `pcr0`         | string (hex 96) | enclave image measurement (kernel + app)                       |
-| `pcr1`         | string (hex 96) | Linux kernel + bootstrap measurement                           |
-| `pcr2`         | string (hex 96) | application measurement                                        |
-| `pcr8`         | string (hex 96), optional | signing-cert measurement (only if the EIF is signed) |
-| `built_at`     | string          | ISO-8601 UTC build timestamp                                   |
+| field            | type                      | meaning                                               |
+| ---------------- | ------------------------- | ----------------------------------------------------- |
+| `release`        | string                    | release id, e.g. `oracle-2026-06-14`                  |
+| `app_id`         | string                    | always `morpheus-oracle`                              |
+| `network`        | string                    | `testnet` \| `mainnet`                                |
+| `git_commit`     | string                    | full commit SHA the EIF was built from                |
+| `image_id`       | string \| null            | docker image id (`sha256:...`) the EIF was built from |
+| `eif_sha256`     | string \| null            | sha256 of the `.eif` file                             |
+| `hash_algorithm` | string                    | PCR hash algorithm, always `SHA384` for Nitro         |
+| `pcr0`           | string (hex 96)           | enclave image measurement (kernel + app)              |
+| `pcr1`           | string (hex 96)           | Linux kernel + bootstrap measurement                  |
+| `pcr2`           | string (hex 96)           | application measurement                               |
+| `pcr8`           | string (hex 96), optional | signing-cert measurement (only if the EIF is signed)  |
+| `built_at`       | string                    | ISO-8601 UTC build timestamp                          |
 
 PCR values are SHA384 → 48 bytes → 96 lowercase hex characters.
 

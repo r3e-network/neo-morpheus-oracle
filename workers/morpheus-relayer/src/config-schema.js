@@ -70,7 +70,8 @@ export const CONFIG_SCHEMA = [
     aliases: ['NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'],
     default: 'false',
     required: false,
-    description: 'When true, signing keys are derived in-enclave (no local updater signer required).',
+    description:
+      'When true, signing keys are derived in-enclave (no local updater signer required).',
   },
   {
     key: 'instanceId',
@@ -212,7 +213,8 @@ export const CONFIG_SCHEMA = [
     aliases: ['MORPHEUS_DURABLE_QUEUE_ALLOW_LOCAL_CLAIM_DURING_BACKOFF'],
     default: 'false',
     required: false,
-    description: 'Allow local claim while the shared idempotency store is in backoff (single-instance only).',
+    description:
+      'Allow local claim while the shared idempotency store is in backoff (single-instance only).',
   },
   {
     key: 'durableQueue.syncLimit',
@@ -534,7 +536,8 @@ export const CONFIG_SCHEMA = [
     aliases: ['NEO_NETWORK_MAGIC'],
     default: '(unset)',
     required: false,
-    description: 'Generic Neo N3 network magic; only honored when ALLOW_GENERIC_NEO_NETWORK_MAGIC is true.',
+    description:
+      'Generic Neo N3 network magic; only honored when ALLOW_GENERIC_NEO_NETWORK_MAGIC is true.',
   },
 
   // --- Neo N3 scan / indexer / contracts ---
@@ -631,7 +634,8 @@ export const CONFIG_SCHEMA = [
     default: '(unset)',
     required: false,
     secret: true,
-    description: 'Fee-funder WIF; required only if auto top-up is enabled and the updater needs funding.',
+    description:
+      'Fee-funder WIF; required only if auto top-up is enabled and the updater needs funding.',
   },
   {
     key: 'neo_n3.feeTopUp.funderPrivateKey',

@@ -97,16 +97,18 @@ function extractDecryptCiphertext(payload) {
 
 function hasDecryptBindingFields(payload) {
   return (
-    payload.messageId !== undefined ||
-    payload.message_id !== undefined ||
-    payload.id !== undefined
+    payload.messageId !== undefined || payload.message_id !== undefined || payload.id !== undefined
   );
 }
 
 // Enforce the (chain, contract, messageId) binding + unlockTime re-assertion.
 // Returns null when the request passes the gate, or a Response describing the
 // rejection. `readMessage` is injectable for tests.
-async function assertDecryptBinding(payload, ciphertext, { readMessage = readMessageFromChain } = {}) {
+async function assertDecryptBinding(
+  payload,
+  ciphertext,
+  { readMessage = readMessageFromChain } = {}
+) {
   const chain = trimString(payload.chain || payload.network || 'neox').toLowerCase();
   if (!NEOX_DECRYPT_CHAIN_ALIASES.has(chain)) {
     return json(400, { error: 'gated decrypt currently supports the neox chain only' });

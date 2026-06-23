@@ -48,7 +48,11 @@ import {
 } from '../../workers/morpheus-relayer/src/router.js';
 
 // Canonical EVM digest + signer.
-import { buildNeoXDigest, signNeoXFulfillment, resolveResultBytesHex } from '../../workers/morpheus-relayer/src/neox.js';
+import {
+  buildNeoXDigest,
+  signNeoXFulfillment,
+  resolveResultBytesHex,
+} from '../../workers/morpheus-relayer/src/neox.js';
 
 // Signer role/key resolution — the SAME resolution the enclave signer
 // (nitro-signer-server.mjs) uses: reportPinnedNeoN3Role -> materialized key ->
@@ -144,7 +148,8 @@ function cborRead(buf, offset) {
   else if (minor === 25) length = readUint(2);
   else if (minor === 26) length = readUint(4);
   else if (minor === 27) length = readUint(8);
-  else if (minor === 31) length = -1n; // indefinite
+  else if (minor === 31)
+    length = -1n; // indefinite
   else throw new Error(`cbor: unsupported minor ${minor}`);
 
   switch (major) {
@@ -427,7 +432,9 @@ function signerRolesHealth() {
 // process.env everywhere) instead of a separate overlay.
 function handleProvision(payload) {
   const env =
-    payload?.env && typeof payload.env === 'object' && !Array.isArray(payload.env) ? payload.env : {};
+    payload?.env && typeof payload.env === 'object' && !Array.isArray(payload.env)
+      ? payload.env
+      : {};
   // Unless explicitly opted in, a host MUST NOT provision plaintext signing keys —
   // only the KMS-attested *_KMS_CIPHERTEXT_BASE64 variants. This stops a host from
   // injecting a plaintext key that the materialize*FromKms() helpers would then
@@ -598,7 +605,9 @@ function signNeoN3OracleVerifier(digestBytes) {
   }
   const secret = report.materialized.private_key || report.materialized.wif;
   const account = new neoWallet.Account(secret);
-  const digestHex = Buffer.isBuffer(digestBytes) ? digestBytes.toString('hex') : normalizeHex(digestBytes);
+  const digestHex = Buffer.isBuffer(digestBytes)
+    ? digestBytes.toString('hex')
+    : normalizeHex(digestBytes);
   const signature = neoWallet.sign(digestHex, account.privateKey);
   return {
     signature,
@@ -668,7 +677,14 @@ function isHostUnattestedLane(kernelIntent, payload) {
 //     buildWorkerPayload-decorated payload (VRF computed in-enclave via /vrf/random,
 //     which the relayer today short-circuits with crypto.randomBytes — moving it
 //     in-enclave is the intended Phase >=0 behavior).
-async function computeWorkerResponse(chain, requestType, payload, requestId, kernelIntent, context) {
+async function computeWorkerResponse(
+  chain,
+  requestType,
+  payload,
+  requestId,
+  kernelIntent,
+  context
+) {
   if (kernelIntent.moduleId === 'confidential.decrypt') {
     const envelope = trimString(context.payloadText || payload?.envelope || '');
     return computeViaWorker('/oracle/decrypt', { ...payload, envelope });
@@ -685,11 +701,11 @@ async function computeWorkerResponse(chain, requestType, payload, requestId, ker
 export async function handleOracleFulfill(requestBody) {
   const chain = normalizeChain(requestBody?.chain);
   const requestType = trimString(requestBody?.request_type || requestBody?.requestType || '');
-  const requestId = trimString(
-    requestBody?.request_id ?? requestBody?.requestId ?? ''
-  );
+  const requestId = trimString(requestBody?.request_id ?? requestBody?.requestId ?? '');
   const payload =
-    requestBody?.payload && typeof requestBody.payload === 'object' && !Array.isArray(requestBody.payload)
+    requestBody?.payload &&
+    typeof requestBody.payload === 'object' &&
+    !Array.isArray(requestBody.payload)
       ? requestBody.payload
       : {};
   const fulfillmentContext =
@@ -990,7 +1006,10 @@ export function buildUpdateFeedsTxMessage(planned, txParams, updaterPublicKey) {
 // resolution + signing primitive the enclave signer uses for {role:'updater'}.
 function resolveUpdaterIdentity() {
   const network = resolveNetwork();
-  const report = reportPinnedNeoN3Role(network, 'updater', { env: process.env, allowMissing: false });
+  const report = reportPinnedNeoN3Role(network, 'updater', {
+    env: process.env,
+    allowMissing: false,
+  });
   if (!report.ok || !report.materialized) {
     throw httpError(503, 'updater signer is not configured or does not match pinned identity');
   }
@@ -1017,7 +1036,8 @@ function randomUint32() {
 }
 
 function normalizeOnchainState(rawState) {
-  const state = rawState && typeof rawState === 'object' && !Array.isArray(rawState) ? rawState : {};
+  const state =
+    rawState && typeof rawState === 'object' && !Array.isArray(rawState) ? rawState : {};
   const out = {};
   for (const [sym, value] of Object.entries(state)) {
     if (!value || typeof value !== 'object') continue;
@@ -1057,7 +1077,9 @@ async function handleNeoXFeedSign(requestBody) {
   if (!feedKey) throw httpError(503, 'neox feed key is not configured');
 
   const txp =
-    requestBody?.tx_params && typeof requestBody.tx_params === 'object' ? requestBody.tx_params : {};
+    requestBody?.tx_params && typeof requestBody.tx_params === 'object'
+      ? requestBody.tx_params
+      : {};
   const to = trimString(txp.to || txp.contract || requestBody?.contract || '');
   const chainId = Number(txp.chain_id ?? txp.chainId);
   const nonce = Number(txp.nonce);
@@ -1067,7 +1089,8 @@ async function handleNeoXFeedSign(requestBody) {
   if (!to) throw httpError(400, 'neox tx_params.to (feed contract) is required');
   if (!Number.isFinite(chainId) || chainId <= 0)
     throw httpError(400, 'neox tx_params.chain_id is required');
-  if (!Number.isInteger(nonce) || nonce < 0) throw httpError(400, 'neox tx_params.nonce is required');
+  if (!Number.isInteger(nonce) || nonce < 0)
+    throw httpError(400, 'neox tx_params.nonce is required');
   if (gasLimit == null || maxFeePerGas == null || maxPriorityFeePerGas == null) {
     throw httpError(
       400,
@@ -1078,7 +1101,9 @@ async function handleNeoXFeedSign(requestBody) {
   const now = Number.isFinite(Number(requestBody?.now))
     ? Math.floor(Number(requestBody.now))
     : Math.floor(Date.now() / 1000);
-  const onchainState = normalizeOnchainState(requestBody?.onchain_state || requestBody?.onchainState);
+  const onchainState = normalizeOnchainState(
+    requestBody?.onchain_state || requestBody?.onchainState
+  );
 
   // (1) COMPUTE prices in-enclave (mirrors feed-pusher td()).
   const prices = await activePriceFetcher(symbols);
@@ -1173,7 +1198,10 @@ export async function handleFeedSign(requestBody) {
     return handleNeoXFeedSign(requestBody);
   }
   if (chain !== 'neo_n3' && chain !== 'legacy') {
-    throw httpError(400, `unsupported feed chain: ${chain} (only neo_n3 and neox are enclave-signed)`);
+    throw httpError(
+      400,
+      `unsupported feed chain: ${chain} (only neo_n3 and neox are enclave-signed)`
+    );
   }
 
   const symbols = Array.isArray(requestBody?.symbols)
@@ -1181,7 +1209,9 @@ export async function handleFeedSign(requestBody) {
     : [];
   if (!symbols.length) throw httpError(400, 'symbols[] is required');
 
-  const onchainState = normalizeOnchainState(requestBody?.onchain_state || requestBody?.onchainState);
+  const onchainState = normalizeOnchainState(
+    requestBody?.onchain_state || requestBody?.onchainState
+  );
   const nonce = normalizeHex(requestBody?.nonce || '');
   const now = Number.isFinite(Number(requestBody?.now))
     ? Math.floor(Number(requestBody.now))
@@ -1406,7 +1436,10 @@ export function runKmsDiag() {
     lastKmsDiag =
       parsed && parsed.ok && parsed.plaintext_b64 ? { state: 'ok' } : { state: 'bad_output' };
   } catch (error) {
-    lastKmsDiag = { state: 'error', message: String((error && error.message) || error).slice(0, 700) };
+    lastKmsDiag = {
+      state: 'error',
+      message: String((error && error.message) || error).slice(0, 700),
+    };
   }
 }
 
@@ -1444,7 +1477,9 @@ export function materializeOracleKeyFromKms() {
       'base64'
     ).toString('utf8');
   } else {
-    console.error(JSON.stringify({ level: 'error', event: 'kms_oracle_key_materialize_bad_output' }));
+    console.error(
+      JSON.stringify({ level: 'error', event: 'kms_oracle_key_materialize_bad_output' })
+    );
   }
 }
 
@@ -1472,7 +1507,11 @@ function materializeNeoXSecpKeyFromKms({
     parsed = activeAttestRunner(['kms-decrypt', '--region', region, '--ciphertext', ciphertext]);
   } catch (error) {
     console.error(
-      JSON.stringify({ level: 'error', event: `${event}_failed`, error: String((error && error.message) || error) })
+      JSON.stringify({
+        level: 'error',
+        event: `${event}_failed`,
+        error: String((error && error.message) || error),
+      })
     );
     return;
   }
@@ -1573,7 +1612,10 @@ function resolveAttestationPublicKey(role) {
   const network = resolveNetwork();
   const normalized = trimString(role).toLowerCase() === 'updater' ? 'updater' : 'oracle_verifier';
   try {
-    const report = reportPinnedNeoN3Role(network, normalized, { env: process.env, allowMissing: false });
+    const report = reportPinnedNeoN3Role(network, normalized, {
+      env: process.env,
+      allowMissing: false,
+    });
     return { role: normalized, publicKeyHex: normalizeHex(report.public_key || '') };
   } catch {
     return { role: normalized, publicKeyHex: '' };
@@ -1593,7 +1635,9 @@ export function handleAttestation(payload = {}) {
       payload.user_data_hex ||
       ''
   );
-  const nonceHex = normalizeHex(payload.nonce || payload.report_data || payload.report_data_hex || '');
+  const nonceHex = normalizeHex(
+    payload.nonce || payload.report_data || payload.report_data_hex || ''
+  );
   if (nonceHex && (!/^[0-9a-f]*$/.test(nonceHex) || nonceHex.length % 2 !== 0)) {
     throw httpError(400, 'nonce must be even-length hex');
   }
@@ -1758,8 +1802,7 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
 
     if ((httpMethod === 'GET' || httpMethod === 'POST') && matchesRoute(path, '/attestation')) {
       // GET binds via query params; POST via JSON body.
-      const payload =
-        httpMethod === 'GET' ? Object.fromEntries(url.searchParams) : parseBody(body);
+      const payload = httpMethod === 'GET' ? Object.fromEntries(url.searchParams) : parseBody(body);
       const result = handleAttestation(payload);
       return { status: 200, body: result };
     }
@@ -1822,8 +1865,14 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
     // so it reflects this enclave's ACTUAL materialized keypair — closing the gap where
     // a key sealed in-TEE had no published public half, leaving confidential decrypt
     // unusable. Ungated: it is a public key; the private half never leaves the enclave.
-    if ((httpMethod === 'GET' || httpMethod === 'POST') && matchesRoute(path, '/oracle/public-key')) {
-      const resp = await computeViaWorker('/oracle/public-key', httpMethod === 'POST' ? parseBody(body) : {});
+    if (
+      (httpMethod === 'GET' || httpMethod === 'POST') &&
+      matchesRoute(path, '/oracle/public-key')
+    ) {
+      const resp = await computeViaWorker(
+        '/oracle/public-key',
+        httpMethod === 'POST' ? parseBody(body) : {}
+      );
       return { status: resp.status, body: resp.body };
     }
 
@@ -1877,7 +1926,10 @@ export function createServer() {
       return;
     }
     const result = await dispatch(req.method || 'GET', req.url || '/', req.headers || {}, bodyText);
-    res.writeHead(result.status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.writeHead(result.status, {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+    });
     res.end(JSON.stringify(result.body));
   });
 }
