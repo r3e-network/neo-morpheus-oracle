@@ -239,7 +239,11 @@ test('neo_n3 (with appId): digest + envelope + signature byte-exact', async () =
   ).toString('hex');
 
   // Byte-exactness: server digest === independently-recomputed canonical digest.
-  assert.equal(body.fulfillment_digest_hex, expectedDigest, 'fulfillment digest must be byte-exact');
+  assert.equal(
+    body.fulfillment_digest_hex,
+    expectedDigest,
+    'fulfillment digest must be byte-exact'
+  );
   // Result + envelope match the canonical encoding.
   assert.equal(body.result, fulfillment.result || '');
   assert.deepEqual(body.verification, expectedEnvelope);
@@ -435,7 +439,11 @@ test('neox: keccak digest + envelope + EIP-191 signature byte-exact', async () =
   );
   const expectedDigest = buildNeoXDigest(neoxConfig, evmFulfillment, resultBytesHex);
 
-  assert.equal(body.fulfillment_digest_hex, expectedDigest, 'neox keccak digest must be byte-exact');
+  assert.equal(
+    body.fulfillment_digest_hex,
+    expectedDigest,
+    'neox keccak digest must be byte-exact'
+  );
   assert.deepEqual(body.verification, expectedEnvelope);
 
   // EIP-191 personal-sign recovery: recovered address == verifier wallet address.
@@ -443,7 +451,10 @@ test('neox: keccak digest + envelope + EIP-191 signature byte-exact', async () =
     body.public_key.toLowerCase(),
     NEOX_VERIFIER_WALLET.signingKey.publicKey.toLowerCase()
   );
-  const recovered = ethers.verifyMessage(ethers.getBytes(body.fulfillment_digest_hex), body.signature);
+  const recovered = ethers.verifyMessage(
+    ethers.getBytes(body.fulfillment_digest_hex),
+    body.signature
+  );
   assert.equal(
     recovered.toLowerCase(),
     NEOX_VERIFIER_WALLET.address.toLowerCase(),
@@ -566,7 +577,9 @@ test('feed/sign: updateFeeds tx message byte-identical to feed-pusher + signatur
     planned.R.push(plan.round);
     planned.PX.push(px);
     planned.TS.push(plan.ts);
-    planned.AH.push(createHash('sha256').update(`${s}|${px}|${plan.ts}`).digest('hex').slice(0, 32));
+    planned.AH.push(
+      createHash('sha256').update(`${s}|${px}|${plan.ts}`).digest('hex').slice(0, 32)
+    );
     planned.SS.push(0);
   }
 
@@ -590,12 +603,16 @@ test('feed/sign: updateFeeds tx message byte-identical to feed-pusher + signatur
   // The load-bearing assertion: the server's signed message === the message
   // feed-pusher.mjs would sign, recomputed independently from raw neon-js using
   // the SAME nonce the server returned.
-  const expectedMessage = feedPusherTxMessage(planned, {
-    blockCount: TX_PARAMS.block_count,
-    systemFee: TX_PARAMS.system_fee,
-    networkFee: TX_PARAMS.network_fee,
-    nonce: body.tx_nonce,
-  }, UPDATER_ACCOUNT.publicKey);
+  const expectedMessage = feedPusherTxMessage(
+    planned,
+    {
+      blockCount: TX_PARAMS.block_count,
+      systemFee: TX_PARAMS.system_fee,
+      networkFee: TX_PARAMS.network_fee,
+      nonce: body.tx_nonce,
+    },
+    UPDATER_ACCOUNT.publicKey
+  );
   assert.equal(
     body.tx_message_hex,
     expectedMessage,
@@ -663,12 +680,20 @@ test('feed/sign: tx params come from the provider seam when not supplied in the 
   const { status, body } = await dispatch('POST', '/feed/sign', AUTH, JSON.stringify(req));
   assert.equal(status, 200, `dispatch failed: ${JSON.stringify(body)}`);
   assert.equal(body.status, 'ok');
-  assert.equal(body.valid_until_block, 9000000 + 500, 'valid_until_block must come from the provider');
+  assert.equal(
+    body.valid_until_block,
+    9000000 + 500,
+    'valid_until_block must come from the provider'
+  );
   assert.equal(body.tx_nonce, 4242);
 
   // Rebuild independently with the provider's params + returned nonce.
   const px = Math.round(7.0 * 1e6);
-  const plan = planFeedUpdate({ round: FIXED_NOW - 60, price: 5.0, ts: FIXED_NOW - 60 }, 7.0, FIXED_NOW);
+  const plan = planFeedUpdate(
+    { round: FIXED_NOW - 60, price: 5.0, ts: FIXED_NOW - 60 },
+    7.0,
+    FIXED_NOW
+  );
   const planned = {
     P: ['TWELVEDATA:NEO-USD'],
     R: [plan.round],
@@ -682,7 +707,11 @@ test('feed/sign: tx params come from the provider seam when not supplied in the 
     { blockCount: 9000000, systemFee: 555, networkFee: 666, nonce: body.tx_nonce },
     UPDATER_ACCOUNT.publicKey
   );
-  assert.equal(body.tx_message_hex, expectedMessage, 'provider-param tx message must be byte-exact');
+  assert.equal(
+    body.tx_message_hex,
+    expectedMessage,
+    'provider-param tx message must be byte-exact'
+  );
   assert.equal(neoWallet.verify(body.tx_message_hex, body.signature, body.public_key), true);
 
   __resetFeedTxParamsProviderForTests();
@@ -950,7 +979,8 @@ function cborEncode(value) {
     const big = BigInt(n);
     if (big < 24n) return Buffer.from([(major << 5) | Number(big)]);
     if (big < 256n) return Buffer.from([(major << 5) | 24, Number(big)]);
-    if (big < 65536n) return Buffer.from([(major << 5) | 25, Number(big >> 8n) & 0xff, Number(big) & 0xff]);
+    if (big < 65536n)
+      return Buffer.from([(major << 5) | 25, Number(big >> 8n) & 0xff, Number(big) & 0xff]);
     const b = Buffer.alloc(5);
     b[0] = (major << 5) | 26;
     b.writeUInt32BE(Number(big), 1);
@@ -1055,7 +1085,11 @@ test('oracle/fulfill still signs when attestation is unavailable (best-effort C1
     request_type: requestType,
     request_id: '5151',
     payload: { symbol: 'BTC/USD' },
-    fulfillment_context: { app_id: 'a', module_id: resolveKernelIntent(requestType).moduleId, operation: resolveKernelIntent(requestType).operation },
+    fulfillment_context: {
+      app_id: 'a',
+      module_id: resolveKernelIntent(requestType).moduleId,
+      operation: resolveKernelIntent(requestType).operation,
+    },
   };
   const { status, body } = await dispatch('POST', '/oracle/fulfill', AUTH, JSON.stringify(req));
   assert.equal(status, 200);
@@ -1209,7 +1243,9 @@ test('provision rejects plaintext signing-key env vars unless the opt-in flag is
       'POST',
       '/provision',
       AUTH,
-      JSON.stringify({ env: { MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64: 'Y2lwaGVydGV4dA==' } })
+      JSON.stringify({
+        env: { MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64: 'Y2lwaGVydGV4dA==' },
+      })
     );
     assert.equal(accepted.status, 200);
     assert.ok(accepted.body.env_keys.includes('MORPHEUS_ORACLE_VERIFIER_KMS_CIPHERTEXT_BASE64'));
@@ -1343,7 +1379,12 @@ test('route matching: a non-prefix path that merely ends with a route is not mat
 
 test('execution-plane passthrough forwards whitelisted routes to the worker (auth-gated)', async () => {
   // No auth -> 401 before reaching the worker.
-  const noAuth = await dispatch('POST', '/mainnet/oracle/smart-fetch', {}, JSON.stringify({ symbol: 'BTC/USD' }));
+  const noAuth = await dispatch(
+    'POST',
+    '/mainnet/oracle/smart-fetch',
+    {},
+    JSON.stringify({ symbol: 'BTC/USD' })
+  );
   assert.equal(noAuth.status, 401);
 
   // Authed whitelisted route -> forwarded to the in-process worker handler.

@@ -318,12 +318,7 @@ async function buildCoseSign1(
     finalPayload[finalPayload.length - 5] ^= 0xff;
   }
 
-  return cArray([
-    cBytes(protectedBstr),
-    cMap(unprotEntries),
-    cBytes(finalPayload),
-    cBytes(rawSig),
-  ]);
+  return cArray([cBytes(protectedBstr), cMap(unprotEntries), cBytes(finalPayload), cBytes(rawSig)]);
 }
 
 // ===========================================================================
@@ -903,7 +898,14 @@ describe('CBOR decoder — indefinite-length (real AWS NSM docs use it)', () => 
     const pcr0 = Buffer.alloc(48, 0xaa);
     const pcr1 = Buffer.alloc(48, 0xbb);
     const buf = Buffer.concat([
-      B(0xbf), B(0x00), B(0x58, 48), pcr0, B(0x01), B(0x58, 48), pcr1, B(0xff),
+      B(0xbf),
+      B(0x00),
+      B(0x58, 48),
+      pcr0,
+      B(0x01),
+      B(0x58, 48),
+      pcr1,
+      B(0xff),
     ]);
     const m = CborDecoder.decodeFirst(buf) as Map<unknown, unknown>;
     expect((m.get(0) as Buffer).equals(pcr0)).toBe(true);

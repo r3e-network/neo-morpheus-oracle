@@ -159,11 +159,23 @@ const lines = [
   line('PHALA_API_TOKEN', pick(envs, 'PHALA_API_TOKEN')),
   line(
     'MORPHEUS_RUNTIME_TOKEN',
-    pick(envs, 'MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN', 'PHALA_SHARED_SECRET', 'PHALA_API_TOKEN')
+    pick(
+      envs,
+      'MORPHEUS_RUNTIME_TOKEN',
+      'NITRO_API_TOKEN',
+      'PHALA_SHARED_SECRET',
+      'PHALA_API_TOKEN'
+    )
   ),
   line(
     'NITRO_API_TOKEN',
-    pick(envs, 'NITRO_API_TOKEN', 'MORPHEUS_RUNTIME_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET')
+    pick(
+      envs,
+      'NITRO_API_TOKEN',
+      'MORPHEUS_RUNTIME_TOKEN',
+      'PHALA_API_TOKEN',
+      'PHALA_SHARED_SECRET'
+    )
   ),
   line('SUPABASE_URL', pick(envs, 'SUPABASE_URL')),
   line('SUPABASE_SECRET_KEY', pick(envs, 'SUPABASE_SECRET_KEY')),

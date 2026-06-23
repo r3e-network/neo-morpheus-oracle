@@ -158,10 +158,9 @@ public static void OnOracleResult(BigInteger requestId, string requestType, bool
       <p>
         Wallet relays only return a <code>{`{ txid }`}</code> — the on-chain <code>requestId</code>{' '}
         is <strong>not</strong> in the relay response. This is the most common integration mistake.
-        To correlate your request with its callback, poll{' '}
-        <code>getapplicationlog(txid)</code> and read the <code>requestId</code> out of the{' '}
-        <code>OracleRequested</code> (or <code>MiniAppRequestQueued</code>) notification emitted by
-        the Oracle contract.
+        To correlate your request with its callback, poll <code>getapplicationlog(txid)</code> and
+        read the <code>requestId</code> out of the <code>OracleRequested</code> (or{' '}
+        <code>MiniAppRequestQueued</code>) notification emitted by the Oracle contract.
       </p>
 
       <CodeBlock
@@ -188,11 +187,10 @@ async function waitForRequestId(rpcClient, txid, timeoutMs = 90000) {
       <p>
         Once the transaction is mined, the <strong>Morpheus Relayer</strong> detects the event,
         forwards the encrypted payload to the enclave (AWS Nitro CVM), and then submits a callback
-        transaction
-        back to the shared kernel containing the signed result envelope. The kernel persists the
-        canonical inbox record first, and optional external callback adapters can mirror that result
-        into custom contracts. If the upstream fetch or compute fails, the request should still
-        finalize with a failure result instead of being silently dropped.
+        transaction back to the shared kernel containing the signed result envelope. The kernel
+        persists the canonical inbox record first, and optional external callback adapters can
+        mirror that result into custom contracts. If the upstream fetch or compute fails, the
+        request should still finalize with a failure result instead of being silently dropped.
       </p>
 
       <div

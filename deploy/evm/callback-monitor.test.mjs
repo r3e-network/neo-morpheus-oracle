@@ -20,7 +20,9 @@ function registrationData(appId, admin, callback) {
   const pad = (hex) => hex.replace(/^0x/, '').toLowerCase().padStart(64, '0');
   const str = Buffer.from(appId, 'utf8');
   const padded = str.toString('hex').padEnd(Math.max(1, Math.ceil(str.length / 32)) * 64, '0');
-  return '0x' + pad('0x60') + pad(admin) + pad(callback) + pad('0x' + str.length.toString(16)) + padded;
+  return (
+    '0x' + pad('0x60') + pad(admin) + pad(callback) + pad('0x' + str.length.toString(16)) + padded
+  );
 }
 
 function registrationLog({ appId, admin = ADMIN, callback, block, txHash }) {
@@ -121,7 +123,11 @@ test('clean pass: legit registrations exit 0 and the first run is lookback-bound
   const dir = mkdtempSync(path.join(os.tmpdir(), 'callback-monitor-'));
   try {
     const result = await runMonitor(`http://127.0.0.1:${port}`, dir, { LOOKBACK_BLOCKS: '500' });
-    assert.equal(result.code, 0, `expected ok exit, got ${result.code}: ${result.stdout}${result.stderr}`);
+    assert.equal(
+      result.code,
+      0,
+      `expected ok exit, got ${result.code}: ${result.stdout}${result.stderr}`
+    );
     assert.match(result.stdout, /ok scanned=\[500,1000\] registrations=2/);
     // First-run lookback bound: scan starts at latest - LOOKBACK_BLOCKS, not 0.
     assert.equal(calls[0].from, 500);
@@ -155,7 +161,11 @@ test('violation: a known callback re-registered under a foreign appId alerts and
   const dir = mkdtempSync(path.join(os.tmpdir(), 'callback-monitor-'));
   try {
     const result = await runMonitor(`http://127.0.0.1:${port}`, dir, { LOOKBACK_BLOCKS: '1000' });
-    assert.equal(result.code, 1, `expected alert exit 1, got ${result.code}: ${result.stdout}${result.stderr}`);
+    assert.equal(
+      result.code,
+      1,
+      `expected alert exit 1, got ${result.code}: ${result.stdout}${result.stderr}`
+    );
     assert.match(result.stdout, /ALERT: CALLBACK HIJACK/);
     assert.match(result.stdout, /expected appId=dice re-registered as appId=evil-app/);
     const status = readJson(dir, 'callback-monitor-status.json');
@@ -180,7 +190,11 @@ test('violation: any registration reusing an already-seen callback address alert
   const dir = mkdtempSync(path.join(os.tmpdir(), 'callback-monitor-'));
   try {
     const result = await runMonitor(`http://127.0.0.1:${port}`, dir, { LOOKBACK_BLOCKS: '1000' });
-    assert.equal(result.code, 1, `expected alert exit 1, got ${result.code}: ${result.stdout}${result.stderr}`);
+    assert.equal(
+      result.code,
+      1,
+      `expected alert exit 1, got ${result.code}: ${result.stdout}${result.stderr}`
+    );
     assert.match(result.stdout, /ALERT: CALLBACK REUSE/);
     const status = readJson(dir, 'callback-monitor-status.json');
     assert.equal(status.ok, false);
@@ -272,7 +286,11 @@ test('violations are sticky across runs until acknowledged', async () => {
 test('rpc failure exits 2 without advancing the state file', async () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'callback-monitor-'));
   const result = await runMonitor('http://127.0.0.1:1', dir, { LOOKBACK_BLOCKS: '500' });
-  assert.equal(result.code, 2, `expected rpc-error exit 2, got ${result.code}: ${result.stdout}${result.stderr}`);
+  assert.equal(
+    result.code,
+    2,
+    `expected rpc-error exit 2, got ${result.code}: ${result.stdout}${result.stderr}`
+  );
   assert.match(result.stdout, /monitor RPC error/);
   assert.throws(() => readJson(dir, 'callback-monitor-state.json'));
 });

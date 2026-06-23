@@ -141,7 +141,9 @@ export default function GlobalError({
                   border: '1px solid var(--border-highlight, #d8dde6)',
                   borderRadius: 'var(--ns-radius-xs, 6px)',
                   background: 'var(--bg-card, #ffffff)',
-                  color: digestCopied ? 'var(--neo-green, #16a34a)' : 'var(--text-secondary, #5b6478)',
+                  color: digestCopied
+                    ? 'var(--neo-green, #16a34a)'
+                    : 'var(--text-secondary, #5b6478)',
                   cursor: 'pointer',
                   padding: '2px 8px',
                   fontSize: '0.7rem',

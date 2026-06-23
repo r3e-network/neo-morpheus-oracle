@@ -347,7 +347,8 @@ export function isAutomationControlRequestType(requestType) {
 export async function handleAutomationControlRequest(event, payload, deps = {}) {
   const normalized = normalizeRequestType(event.requestType);
   const upsertJob = deps.upsertAutomationJob || upsertAutomationJob;
-  const persistEncrypted = deps.persistAutomationEncryptedFields || persistAutomationEncryptedFields;
+  const persistEncrypted =
+    deps.persistAutomationEncryptedFields || persistAutomationEncryptedFields;
   const fetchJob = deps.fetchAutomationJobById || fetchAutomationJobById;
   const patchJob = deps.patchAutomationJob || patchAutomationJob;
 
@@ -640,7 +641,9 @@ function parseNonNegativeCount(value) {
 function isReclaimableInflightStatus(job) {
   const status = trimString(job.status || '');
   if (status === 'processing') return true;
-  return status === 'paused' && trimString(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER;
+  return (
+    status === 'paused' && trimString(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER
+  );
 }
 
 function resolveAutomationExecutionDispatch(job) {

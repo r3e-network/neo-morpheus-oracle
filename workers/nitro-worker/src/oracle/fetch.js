@@ -271,7 +271,9 @@ export class UpstreamFetchError extends Error {
 
 function isTimeoutError(error) {
   const message = error instanceof Error ? error.message : String(error);
-  return /timed out/i.test(message) || error?.name === 'TimeoutError' || error?.name === 'AbortError';
+  return (
+    /timed out/i.test(message) || error?.name === 'TimeoutError' || error?.name === 'AbortError'
+  );
 }
 
 // Wrap a raw fetch/transport error (DNS, connection refused, reset, timeout,
@@ -375,11 +377,14 @@ export async function performOracleFetch(payload) {
   const responseHeaders = Object.fromEntries(response.headers.entries());
   const data = parseBodyMaybe(rawResponse, response.headers.get('content-type')) ?? rawResponse;
   if (!response.ok) {
-    throw new UpstreamFetchError(buildUpstreamErrorMessage(url, response.status, data, rawResponse), {
-      httpStatus: response.status === 504 ? 504 : 502,
-      kind: 'upstream_http_error',
-      upstreamStatus: response.status,
-    });
+    throw new UpstreamFetchError(
+      buildUpstreamErrorMessage(url, response.status, data, rawResponse),
+      {
+        httpStatus: response.status === 504 ? 504 : 502,
+        kind: 'upstream_http_error',
+        upstreamStatus: response.status,
+      }
+    );
   }
   const selectedValue = getJsonPathValue(data, resolvedPayload.json_path);
 

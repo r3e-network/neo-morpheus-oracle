@@ -184,11 +184,7 @@ export default {
     // Short-circuit it so the host-side signer is never invoked. automation_register
     // / automation_cancel are different routes (Supabase-only) and are unaffected.
     if (routing.routePath === '/automation/execute') {
-      return json(
-        200,
-        { ok: true, status: 'noop', reason: 'automation_executed_by_relayer' },
-        rid
-      );
+      return json(200, { ok: true, status: 'noop', reason: 'automation_executed_by_relayer' }, rid);
     }
 
     const rateLimited = await applyRateLimit(request, env, jobConfig.queue);

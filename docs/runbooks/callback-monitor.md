@@ -32,13 +32,13 @@ subsequent run until acknowledged — a one-shot alert cannot be missed.
 
 ## Files / env
 
-| What        | Default                                          | Env          |
-| ----------- | ------------------------------------------------ | ------------ |
-| RPC         | `https://mainnet-1.rpc.banelabs.org`             | `NEOX_RPC`   |
-| Kernel      | build record / `0xeCFC1C65…`                     | `KERNEL_ADDRESS` |
-| State file  | `/opt/morpheus/nitro/callback-monitor-state.json`  | `STATE_FILE`  |
-| Status file | `/opt/morpheus/nitro/callback-monitor-status.json` | `STATUS_FILE` |
-| Log         | `/opt/morpheus/nitro/callback-monitor.log`         | `MONITOR_LOG` |
+| What        | Default                                            | Env              |
+| ----------- | -------------------------------------------------- | ---------------- |
+| RPC         | `https://mainnet-1.rpc.banelabs.org`               | `NEOX_RPC`       |
+| Kernel      | build record / `0xeCFC1C65…`                       | `KERNEL_ADDRESS` |
+| State file  | `/opt/morpheus/nitro/callback-monitor-state.json`  | `STATE_FILE`     |
+| Status file | `/opt/morpheus/nitro/callback-monitor-status.json` | `STATUS_FILE`    |
+| Log         | `/opt/morpheus/nitro/callback-monitor.log`         | `MONITOR_LOG`    |
 
 First run scans `latest - LOOKBACK_BLOCKS` (default 50000 ≈ 5 days) and pre-seeds the
 seen-set with the expected owners, so a hijack older than the window still trips.

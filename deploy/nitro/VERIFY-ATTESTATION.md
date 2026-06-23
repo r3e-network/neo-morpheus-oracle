@@ -30,7 +30,7 @@ Oracle: the worker compute (price feeds, HTTP/JSON oracle lanes, VRF) and the
 secp256r1 / secp256k1 signers run inside **one** AWS Nitro Enclave, so a result
 is computed **and** signed within a single measured boundary — the host never
 sees or substitutes the data between compute and signature. Because we run a
-single node (not a decentralized quorum), the TEE *is* the trust root: the
+single node (not a decentralized quorum), the TEE _is_ the trust root: the
 enclave attests to exactly which code is running, and consumers verify that
 attestation before trusting a signed result.
 
@@ -53,11 +53,11 @@ the operator.
 `nitro-cli build-enclave` derives three Platform Configuration Registers from the
 enclave image:
 
-| PCR  | Covers | Value (this release) |
-|------|--------|----------------------|
+| PCR  | Covers                                                   | Value (this release)                                                                               |
+| ---- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
 | PCR0 | The whole enclave image (kernel + ramdisk + application) | `4a76e94891b5a698b2eba9c03fbecbeb37e195eb7963d4841feef68070c1a56ad42c60fd558613c0b40292ee44777194` |
-| PCR1 | Linux kernel + boot ramdisk (stable across app changes) | `4b4d5b3661b3efc12920900c80e126e4ce783c522de6c02a2a5bf7af3a2b9327b86776f188e4be1c1c404a129dbda493` |
-| PCR2 | The application filesystem | `224c4d8ac2cde303f919b7165efef6c0932b042f1e50d95b3053a5ed41f67eef2943333baa0bd6de9ed3f3eaba81e3df` |
+| PCR1 | Linux kernel + boot ramdisk (stable across app changes)  | `4b4d5b3661b3efc12920900c80e126e4ce783c522de6c02a2a5bf7af3a2b9327b86776f188e4be1c1c404a129dbda493` |
+| PCR2 | The application filesystem                               | `224c4d8ac2cde303f919b7165efef6c0932b042f1e50d95b3053a5ed41f67eef2943333baa0bd6de9ed3f3eaba81e3df` |
 
 - **Hash algorithm:** SHA384 (48 bytes / 96 hex chars each)
 - **Source commit:** `9ee3e2d089da64b494d8fd5da666b50207edaf6c`
@@ -71,7 +71,7 @@ top); the `4a76e948…` value in this table is the prior signer release and is k
 for historical verification of that build only.
 
 > **Note on the `.eif` file hash.** `nitro-cli` stamps a build timestamp into the
-> EIF *file* metadata, so the **file sha256 is not stable** between builds even
+> EIF _file_ metadata, so the **file sha256 is not stable** between builds even
 > when the measured filesystem is identical. **Do not** verify by EIF file hash —
 > verify by **PCR**. The PCRs are derived only from the flattened filesystem and
 > are reproducible (see §2). The `eif_sha256` in the manifest identifies the one
@@ -118,7 +118,7 @@ mtimes) is stripped in `Dockerfile.enclave`.
 
 ---
 
-## 3. Verification path B — live attestation (proves what is *running*)
+## 3. Verification path B — live attestation (proves what is _running_)
 
 This proves the enclave **actually running in production** is this exact build —
 not just that the build is reproducible.
@@ -181,16 +181,16 @@ matches AWS's documented value before trusting it.
 
 ## 6. Release assets
 
-| Asset | What it is |
-|-------|------------|
-| `oracle-enclave-testnet-2026-06-14.1.measurements.json` | The canonical PCR manifest (source of truth for §1). |
-| `describe-eif.oracle-enclave-testnet-2026-06-14.1.json` | `nitro-cli describe-eif` of the operator's build (§4). |
-| `aws-nitro-root-g1.pem` | AWS Nitro Enclaves Root G1 (§5). |
-| `nsm-attest-src/` | Source of the in-enclave NSM attestation helper (`main.go` + pinned `go.mod`/`go.sum`); reproduced inside the image. |
-| `SHA256SUMS` | sha256 of every asset above. |
-| `VERIFY-ATTESTATION.md` | This document. |
+| Asset                                                   | What it is                                                                                                           |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `oracle-enclave-testnet-2026-06-14.1.measurements.json` | The canonical PCR manifest (source of truth for §1).                                                                 |
+| `describe-eif.oracle-enclave-testnet-2026-06-14.1.json` | `nitro-cli describe-eif` of the operator's build (§4).                                                               |
+| `aws-nitro-root-g1.pem`                                 | AWS Nitro Enclaves Root G1 (§5).                                                                                     |
+| `nsm-attest-src/`                                       | Source of the in-enclave NSM attestation helper (`main.go` + pinned `go.mod`/`go.sum`); reproduced inside the image. |
+| `SHA256SUMS`                                            | sha256 of every asset above.                                                                                         |
+| `VERIFY-ATTESTATION.md`                                 | This document.                                                                                                       |
 
-**The 295 MB `.eif` binary is not attached.** It is *reproducible from source*
+**The 295 MB `.eif` binary is not attached.** It is _reproducible from source_
 (§2) — rebuilding the tagged commit yields the identical PCRs — and the build
 host is access-restricted (no registry/object-store egress), so publishing the
 binary adds download convenience but no verification power over the reproducible

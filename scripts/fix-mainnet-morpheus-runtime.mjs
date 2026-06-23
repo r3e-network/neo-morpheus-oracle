@@ -3,7 +3,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
-import { normalizeHash160, normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
+import {
+  normalizeHash160,
+  normalizeMorpheusNetwork,
+  resolvePinnedNeoN3Role,
+} from './lib-neo-signers.mjs';
 import { parseGasToRaw } from './lib-gas-units.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';

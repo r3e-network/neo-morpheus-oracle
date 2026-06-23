@@ -2,11 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { env, requestLog, trimString } from '../../platform/core.js';
-import {
-  DEFAULT_FEED_STATE_PATH,
-  isEnabled,
-  resolveFeedScope,
-} from './shared.js';
+import { DEFAULT_FEED_STATE_PATH, isEnabled, resolveFeedScope } from './shared.js';
 
 const feedStateCache = new Map();
 
@@ -238,9 +234,7 @@ export function getFeedStalenessSummary(nowMs = Date.now()) {
     if (!records || typeof records !== 'object') continue;
     for (const record of Object.values(records)) {
       recordCount += 1;
-      const observed = Number(
-        record?.last_submitted_at_ms ?? record?.last_observed_at_ms ?? 0
-      );
+      const observed = Number(record?.last_submitted_at_ms ?? record?.last_observed_at_ms ?? 0);
       if (Number.isFinite(observed) && observed > newestObservedAtMs) {
         newestObservedAtMs = observed;
       }

@@ -450,14 +450,20 @@ test('B7: a totalRequests decrease (reorg) resets the request cursor instead of 
   // Cursor is ahead of the now-lower chain tip (a request was reorged out).
   state.neox.last_request_id = 20;
 
-  const result = await processChainByRequestCursor(neoxCursorConfig(), state, silentLogger, 'neox', {
-    hasConfig: () => true,
-    // totalRequests fell from 20 to 5 — the cursor must NOT stay at 20.
-    getLatestRequestId: async () => 5,
-    scan: async () => {
-      throw new Error('scan should not run when the cursor is reset to the tail');
-    },
-  });
+  const result = await processChainByRequestCursor(
+    neoxCursorConfig(),
+    state,
+    silentLogger,
+    'neox',
+    {
+      hasConfig: () => true,
+      // totalRequests fell from 20 to 5 — the cursor must NOT stay at 20.
+      getLatestRequestId: async () => 5,
+      scan: async () => {
+        throw new Error('scan should not run when the cursor is reset to the tail');
+      },
+    }
+  );
 
   // resolveRequestCursor detects last_request_id > latest and resets to null; the
   // quiet-chain early return fires (fromRequestId > latest) without over-advancing.
@@ -469,15 +475,21 @@ test('B7: a transport error during the request-cursor scan aborts the tick witho
   const state = createEmptyRelayerState();
   state.neox.last_request_id = 4;
 
-  const result = await processChainByRequestCursor(neoxCursorConfig(), state, silentLogger, 'neox', {
-    hasConfig: () => true,
-    getLatestRequestId: async () => 10,
-    scan: async () => {
-      // A transport error mid-scan must not advance the cursor past 4 (5..10 is
-      // rescanned next tick), so reorged-out / missed ids are never orphaned.
-      throw new Error('fetch failed');
-    },
-  });
+  const result = await processChainByRequestCursor(
+    neoxCursorConfig(),
+    state,
+    silentLogger,
+    'neox',
+    {
+      hasConfig: () => true,
+      getLatestRequestId: async () => 10,
+      scan: async () => {
+        // A transport error mid-scan must not advance the cursor past 4 (5..10 is
+        // rescanned next tick), so reorged-out / missed ids are never orphaned.
+        throw new Error('fetch failed');
+      },
+    }
+  );
 
   assert.equal(state.neox.last_request_id, 4);
   assert.equal(result.scanned_requests, null);

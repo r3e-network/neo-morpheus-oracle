@@ -1,6 +1,6 @@
 # Phase D — in-TEE EVM (secp256k1) signing for Neo X
 
-**Goal (RC1):** every Neo X (EVM) signature the oracle produces is made *inside* the
+**Goal (RC1):** every Neo X (EVM) signature the oracle produces is made _inside_ the
 attested enclave with **no host-resident secp256k1 key** — the same guarantee Phase C
 gave the X25519 oracle decryption key.
 
@@ -68,7 +68,7 @@ EIP-1559 transaction**. Implemented (mirrors the Neo N3 reproducibility contract
 1. `enclave-server.mjs` `handleNeoXFeedSign()` (dispatched from `handleFeedSign` on
    `chain==='neox'`): fetches prices in-enclave, plans+scales the SAME way `pushNeoX`
    does (`planFeedUpdate`, 1e6 scale), builds the EIP-1559 `updateFeeds` tx from the
-   host-pinned `tx_params` (to/chain_id/nonce/gas_limit/max[priority]_fee_per_gas), and
+   host-pinned `tx_params` (to/chain_id/nonce/gas_limit/max[priority]\_fee_per_gas), and
    signs it with the KMS-materialized feed key (`MORPHEUS_NEOX_FEED_PRIVATE_KEY`).
    Returns the **signed serialized tx** + the plan arrays + the exact tx fields.
 2. `feed-pusher.mjs` `pushNeoX` — added an enclave branch gated on

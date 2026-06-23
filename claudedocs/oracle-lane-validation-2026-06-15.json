@@ -8,97 +8,67 @@
       "apps": [
         {
           "app": "neo-message",
-          "lanes": [
-            "confidential",
-            "oracle-query"
-          ],
+          "lanes": ["confidential", "oracle-query"],
           "how": "encrypt to oracle pubkey, store on MiniAppMessageEVM, reveal in TEE"
         },
         {
           "app": "private-transfer",
-          "lanes": [
-            "confidential",
-            "oracle-query"
-          ],
+          "lanes": ["confidential", "oracle-query"],
           "how": "encrypt payload to oracle pubkey, confidential store, TEE release"
         },
         {
           "app": "neodid-passport",
-          "lanes": [
-            "oracle-query"
-          ],
+          "lanes": ["oracle-query"],
           "how": "live NeoDID resolver then wallet-signs"
         },
         {
           "app": "automation-copilot",
-          "lanes": [
-            "automation",
-            "price-feed"
-          ],
+          "lanes": ["automation", "price-feed"],
           "how": "reads price plus dispatches automation.upkeep via edge"
         },
         {
           "app": "dice-game",
-          "lanes": [
-            "vrf"
-          ],
+          "lanes": ["vrf"],
           "how": "NeoX requests Morpheus VRF; N3 path GetRandom not oracle"
         },
         {
           "app": "oracle-price-console",
-          "lanes": [
-            "price-feed"
-          ],
+          "lanes": ["price-feed"],
           "how": "direct MorpheusDataFeed getLatest"
         },
         {
           "app": "neo-swap",
-          "lanes": [
-            "price-feed"
-          ],
+          "lanes": ["price-feed"],
           "how": "swap legs via getPriceWithMeta"
         },
         {
           "app": "neo-treasury",
-          "lanes": [
-            "price-feed"
-          ],
+          "lanes": ["price-feed"],
           "how": "USD via shared price over MorpheusDataFeed"
         },
         {
           "app": "oracle-vrf-console",
-          "lanes": [
-            "vrf"
-          ],
+          "lanes": ["vrf"],
           "how": "builder only, no dispatch"
         },
         {
           "app": "oracle-compute-lab",
-          "lanes": [
-            "oracle-query",
-            "confidential"
-          ],
+          "lanes": ["oracle-query", "confidential"],
           "how": "builder only, sealed input redacted"
         },
         {
           "app": "oracle-http-console",
-          "lanes": [
-            "oracle-query"
-          ],
+          "lanes": ["oracle-query"],
           "how": "builder only, fetch on lane later"
         },
         {
           "app": "oracle-seal-console",
-          "lanes": [
-            "confidential"
-          ],
+          "lanes": ["confidential"],
           "how": "builder only, non-crypto envelope"
         },
         {
           "app": "oracle-neodid-console",
-          "lanes": [
-            "oracle-query"
-          ],
+          "lanes": ["oracle-query"],
           "how": "builder only, never calls verifier"
         }
       ]

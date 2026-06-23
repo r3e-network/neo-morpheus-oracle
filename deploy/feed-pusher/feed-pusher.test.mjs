@@ -37,7 +37,19 @@ const OPTS = { thresholdBps: 10, maxStaleSec: 1800 };
 
 test('toTwelveDataSymbol maps equities/ETFs to bare tickers, crypto/forex to X/USD', () => {
   // Equities + ETFs + CORN must be the bare ticker (TwelveData 404s 'AAPL/USD').
-  for (const s of ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'META', 'NVDA', 'SPY', 'QQQ', 'GLD', 'CORN']) {
+  for (const s of [
+    'AAPL',
+    'GOOGL',
+    'MSFT',
+    'AMZN',
+    'TSLA',
+    'META',
+    'NVDA',
+    'SPY',
+    'QQQ',
+    'GLD',
+    'CORN',
+  ]) {
     assert.equal(toTwelveDataSymbol(`${s}-USD`), s);
   }
   // Crypto / forex / metals stay in the X/USD pair form.
@@ -147,10 +159,7 @@ test('planFeedUpdate honours the MAX_DEVIATION_BPS=0 admin override for genuine 
 test('planFeedUpdate bootstrap (no on-chain price) bypasses the deviation guard but not the invalid-price guard', () => {
   const now = 1_780_000_000;
   // Bootstrap: cur.price<=0 has no usable reference, so any valid first price lands.
-  assert.equal(
-    planFeedUpdate({ round: 0, price: 0, ts: 0 }, 99999, now, OPTS).push,
-    true
-  );
+  assert.equal(planFeedUpdate({ round: 0, price: 0, ts: 0 }, 99999, now, OPTS).push, true);
   // ...but a zero/invalid first price is still rejected even at bootstrap.
   const bad = planFeedUpdate({ round: 0, price: 0, ts: 0 }, 0, now, OPTS);
   assert.equal(bad.push, false);
@@ -399,7 +408,12 @@ test('rebuildUpdateFeedsTxFromEnclavePlan signs against the production updater v
     rounds: [42],
     prices_scaled: [px],
     timestamps: [1_780_000_000],
-    attestation_hashes: [createHash('sha256').update('GAS-USD|' + px + '|1780000000').digest('hex').slice(0, 32)],
+    attestation_hashes: [
+      createHash('sha256')
+        .update('GAS-USD|' + px + '|1780000000')
+        .digest('hex')
+        .slice(0, 32),
+    ],
     source_set_ids: [0],
   };
   const rebuilt = rebuildUpdateFeedsTxFromEnclavePlan(plan, txParams);
@@ -493,7 +507,11 @@ test('flag-ON pushNeoN3 delegates compute+sign to the enclave /feed/sign and bro
     assert.equal(broadcast.length, 1, 'expected exactly one enclave-signed broadcast');
     const raw = Buffer.from(broadcast[0], 'base64').toString('hex');
     const broadcastTx = tx.Transaction.deserialize(raw);
-    assert.equal(broadcastTx.nonce, enclaveRequest.tx_params.nonce, 'broadcast nonce == enclave tx_nonce');
+    assert.equal(
+      broadcastTx.nonce,
+      enclaveRequest.tx_params.nonce,
+      'broadcast nonce == enclave tx_nonce'
+    );
     assert.equal(broadcastTx.witnesses.length, 1, 'broadcast tx carries the enclave witness');
 
     // The witness corresponds: the host attached the ENCLAVE'S returned signature
@@ -510,8 +528,11 @@ test('flag-ON pushNeoN3 delegates compute+sign to the enclave /feed/sign and bro
     // And the message the enclave signed equals the broadcast tx's signing message
     // (the host rebuilt the IDENTICAL tx the enclave signed before broadcasting).
     const broadcastMessage = broadcastTx.getMessageForSigning(N3_MAGIC);
-    assert.equal(wallet.verify(broadcastMessage, enclaveSignature, signer.publicKey), true,
-      'enclave signature verifies over the broadcast tx signing message');
+    assert.equal(
+      wallet.verify(broadcastMessage, enclaveSignature, signer.publicKey),
+      true,
+      'enclave signature verifies over the broadcast tx signing message'
+    );
   } finally {
     __resetEnclaveFeedSignForTests();
     __resetN3RpcForTests();
@@ -526,8 +547,10 @@ test('flag-ON pushNeoN3 refuses to broadcast when the enclave tx message diverge
   __setN3RpcForTests(async (method, params) => {
     switch (method) {
       case 'invokefunction':
-        if (params[1] === 'getAllFeedRecords') return { state: 'HALT', stack: [{ type: 'Array', value: [] }] };
-        if (params[1] === 'balanceOf') return { state: 'HALT', stack: [{ type: 'Integer', value: String(20 * 1e8) }] };
+        if (params[1] === 'getAllFeedRecords')
+          return { state: 'HALT', stack: [{ type: 'Array', value: [] }] };
+        if (params[1] === 'balanceOf')
+          return { state: 'HALT', stack: [{ type: 'Integer', value: String(20 * 1e8) }] };
         throw new Error('unexpected invokefunction ' + params[1]);
       case 'getblockcount':
         return blockCount;
@@ -564,10 +587,7 @@ test('flag-ON pushNeoN3 refuses to broadcast when the enclave tx message diverge
   });
 
   try {
-    await assert.rejects(
-      () => pushNeoN3({ 'NEO-USD': 5.25 }, now),
-      /enclave tx message mismatch/
-    );
+    await assert.rejects(() => pushNeoN3({ 'NEO-USD': 5.25 }, now), /enclave tx message mismatch/);
     assert.equal(broadcast.length, 0, 'must NOT broadcast on a message mismatch (fails closed)');
   } finally {
     __resetEnclaveFeedSignForTests();
@@ -616,7 +636,12 @@ test('neox enclave feed-sign: host re-encodes the calldata + accepts a matching 
   );
 
   // A matching signed tx is accepted; the parsed tx is returned.
-  const parsed = assertEnclaveNeoXTxMatches(ethers, resp, { to: TO, chainId: 47763, nonce: 7, from });
+  const parsed = assertEnclaveNeoXTxMatches(ethers, resp, {
+    to: TO,
+    chainId: 47763,
+    nonce: 7,
+    from,
+  });
   assert.equal(parsed.nonce, 7);
   assert.equal(parsed.from.toLowerCase(), from.toLowerCase());
   assert.equal(parsed.data, data);
@@ -683,7 +708,8 @@ test('neox enclave feed-sign: host refuses to broadcast on any tx drift (fails c
   );
   // Missing signed_tx.
   assert.throws(
-    () => assertEnclaveNeoXTxMatches(ethers, { ...plan }, { to: TO, chainId: 47763, nonce: 7, from }),
+    () =>
+      assertEnclaveNeoXTxMatches(ethers, { ...plan }, { to: TO, chainId: 47763, nonce: 7, from }),
     /signed_tx/
   );
 });

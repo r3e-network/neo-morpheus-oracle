@@ -213,9 +213,5 @@ test('getPublicRuntimeStatusNotes tolerates a catalog without automation.trigger
   assert.deepEqual(snapshot.catalog.automation, {});
 
   const notes = getPublicRuntimeStatusNotes(snapshot);
-  assert.deepEqual(notes, [
-    'Execution: undefined',
-    'Risk: undefined',
-    'Automation: ',
-  ]);
+  assert.deepEqual(notes, ['Execution: undefined', 'Risk: undefined', 'Automation: ']);
 });

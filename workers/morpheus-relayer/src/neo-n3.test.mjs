@@ -463,10 +463,7 @@ test('scanNeoN3OracleRequests aborts the scan on a transport error mid-range', a
   const originalFetch = global.fetch;
   try {
     global.fetch = stubBlockScanRpc(fixture, []);
-    await assert.rejects(
-      scanNeoN3OracleRequests(blockScanConfig(4), 100, 102),
-      /transport boom/
-    );
+    await assert.rejects(scanNeoN3OracleRequests(blockScanConfig(4), 100, 102), /transport boom/);
   } finally {
     global.fetch = originalFetch;
   }
@@ -489,8 +486,7 @@ function stubPendingAppLogRpc() {
     return {
       ok: true,
       status: 200,
-      text: async () =>
-        JSON.stringify({ jsonrpc: '2.0', id: 1, result: { executions: [{}] } }),
+      text: async () => JSON.stringify({ jsonrpc: '2.0', id: 1, result: { executions: [{}] } }),
     };
   };
 }

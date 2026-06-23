@@ -323,18 +323,39 @@ describe('computeRetryDelayMs', () => {
 
   it('works with different config values', () => {
     const custom = { retryBaseDelayMs: 500, retryMaxDelayMs: 5000 };
-    assert.equal(computeRetryDelayMs(custom, 1, () => 1), 500);
-    assert.equal(computeRetryDelayMs(custom, 2, () => 1), 1000);
-    assert.equal(computeRetryDelayMs(custom, 4, () => 1), 4000);
-    assert.equal(computeRetryDelayMs(custom, 5, () => 1), 5000); // capped
+    assert.equal(
+      computeRetryDelayMs(custom, 1, () => 1),
+      500
+    );
+    assert.equal(
+      computeRetryDelayMs(custom, 2, () => 1),
+      1000
+    );
+    assert.equal(
+      computeRetryDelayMs(custom, 4, () => 1),
+      4000
+    );
+    assert.equal(
+      computeRetryDelayMs(custom, 5, () => 1),
+      5000
+    ); // capped
   });
 
   it('applies full jitter within [0.5, 1.0] * ceiling (lower bound)', () => {
     // rng=()=>0 -> factor 0.5 -> half the deterministic ceiling.
-    assert.equal(computeRetryDelayMs(config, 1, () => 0), 500);
-    assert.equal(computeRetryDelayMs(config, 3, () => 0), 2000);
+    assert.equal(
+      computeRetryDelayMs(config, 1, () => 0),
+      500
+    );
+    assert.equal(
+      computeRetryDelayMs(config, 3, () => 0),
+      2000
+    );
     // Capped attempt still halves: 30000 * 0.5 = 15000.
-    assert.equal(computeRetryDelayMs(config, 20, () => 0), 15000);
+    assert.equal(
+      computeRetryDelayMs(config, 20, () => 0),
+      15000
+    );
   });
 
   it('jitters two equal-attempt delays to different values', () => {
@@ -766,10 +787,17 @@ describe('processEvent delivery retry exhaustion', () => {
       const originalFetch = global.fetch;
       global.fetch = mockWorkerFetch(status, body);
       try {
-        return await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-          attempts: 0,
-          durable_claimed: true,
-        });
+        return await processEvent(
+          config,
+          createEmptyRelayerState(),
+          () => {},
+          silentLogger,
+          event,
+          {
+            attempts: 0,
+            durable_claimed: true,
+          }
+        );
       } finally {
         global.fetch = originalFetch;
       }
@@ -794,7 +822,11 @@ describe('processEvent delivery retry exhaustion', () => {
         // Retried, NOT delivered as a permanent on-chain failure callback.
         assert.equal(result.retry_status, 'scheduled', `status ${status} should be retried`);
         assert.equal(result.error_class, 'transient');
-        assert.equal(delivered, false, 'no fulfillRequest should reach the chain on a transient blip');
+        assert.equal(
+          delivered,
+          false,
+          'no fulfillRequest should reach the chain on a transient blip'
+        );
       });
     }
 
@@ -1239,10 +1271,17 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
         },
       });
       try {
-        const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-          attempts: 0,
-          durable_claimed: true,
-        });
+        const result = await processEvent(
+          config,
+          createEmptyRelayerState(),
+          () => {},
+          silentLogger,
+          event,
+          {
+            attempts: 0,
+            durable_claimed: true,
+          }
+        );
 
         // EXACTLY one nitro endpoint hit, and it was /oracle/fulfill (not a worker
         // compute call followed by a separate /sign/payload).
@@ -1288,10 +1327,17 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
         },
       });
       try {
-        const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-          attempts: 0,
-          durable_claimed: true,
-        });
+        const result = await processEvent(
+          config,
+          createEmptyRelayerState(),
+          () => {},
+          silentLogger,
+          event,
+          {
+            attempts: 0,
+            durable_claimed: true,
+          }
+        );
 
         // A digest mismatch classifies as a terminal configuration error
         // (the message contains 'invalid signature') -> never submitted.
@@ -1331,10 +1377,17 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       },
     });
     try {
-      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      const result = await processEvent(
+        config,
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
 
       // Single /oracle/fulfill call — the relayer-local crypto.randomBytes VRF
       // branch is skipped while the flag is on.
@@ -1376,10 +1429,13 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       }
       // The host /sign/payload call (no relayer-local verifier configured).
       if (u.endsWith('/sign/payload')) {
-        return new Response(JSON.stringify({ status: 'ok', signature: 'd'.repeat(128), public_key: '02ff' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ status: 'ok', signature: 'd'.repeat(128), public_key: '02ff' }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        );
       }
       return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
     };
@@ -1393,10 +1449,17 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       },
     });
     try {
-      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      const result = await processEvent(
+        config,
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
 
       // The arbitrary-URL lane never hits /oracle/fulfill.
       assert.ok(!calls.some((c) => c.url.endsWith('/oracle/fulfill')), 'must not call the enclave');
@@ -1427,16 +1490,22 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       const u = String(url);
       calls.push({ url: u });
       if (u.startsWith('https://worker.test')) {
-        return new Response(JSON.stringify({ result: { price: '5.25' }, extracted_value: '5.25' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ result: { price: '5.25' }, extracted_value: '5.25' }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        );
       }
       if (u.endsWith('/sign/payload')) {
-        return new Response(JSON.stringify({ status: 'ok', signature: 'e'.repeat(128), public_key: '02ff' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ status: 'ok', signature: 'e'.repeat(128), public_key: '02ff' }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        );
       }
       return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
     };
@@ -1457,15 +1526,31 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       },
     });
     try {
-      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      const result = await processEvent(
+        config,
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
 
       // Flag-off = the historical split path. /oracle/fulfill is NEVER called.
-      assert.ok(!calls.some((c) => c.url.endsWith('/oracle/fulfill')), 'flag-off must not call the enclave fulfill endpoint');
-      assert.ok(calls.some((c) => c.url.startsWith('https://worker.test')), 'flag-off uses the host worker compute');
-      assert.ok(calls.some((c) => c.url.endsWith('/sign/payload')), 'flag-off uses the separate enclave /sign/payload');
+      assert.ok(
+        !calls.some((c) => c.url.endsWith('/oracle/fulfill')),
+        'flag-off must not call the enclave fulfill endpoint'
+      );
+      assert.ok(
+        calls.some((c) => c.url.startsWith('https://worker.test')),
+        'flag-off uses the host worker compute'
+      );
+      assert.ok(
+        calls.some((c) => c.url.endsWith('/sign/payload')),
+        'flag-off uses the separate enclave /sign/payload'
+      );
       assert.equal(submitted.length, 1);
       assert.equal(submitted[0].verification.signature, 'e'.repeat(128));
       assert.equal(result.result.success, true);
@@ -1492,16 +1577,22 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       const u = String(url);
       calls.push({ url: u });
       if (u.startsWith('https://worker.test')) {
-        return new Response(JSON.stringify({ result: { price: '5.25' }, extracted_value: '5.25' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ result: { price: '5.25' }, extracted_value: '5.25' }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        );
       }
       if (u.endsWith('/sign/payload')) {
-        return new Response(JSON.stringify({ status: 'ok', signature: 'e'.repeat(128), public_key: '02ff' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ status: 'ok', signature: 'e'.repeat(128), public_key: '02ff' }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        );
       }
       return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
     };
@@ -1522,10 +1613,17 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       },
     });
     try {
-      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      const result = await processEvent(
+        config,
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
       assert.equal(submitted.length, 1, 'still submits');
       assert.equal(result.result.success, true);
       assert.notEqual(
@@ -1558,10 +1656,13 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       calls.push({ url: u });
       // Local VRF performs no worker compute; it only signs via the host /sign/payload.
       if (u.endsWith('/sign/payload')) {
-        return new Response(JSON.stringify({ status: 'ok', signature: 'f'.repeat(128), public_key: '02ff' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ status: 'ok', signature: 'f'.repeat(128), public_key: '02ff' }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }
+        );
       }
       return new Response(JSON.stringify({ error: `unexpected ${u}` }), { status: 500 });
     };
@@ -1582,12 +1683,22 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       },
     });
     try {
-      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      const result = await processEvent(
+        config,
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
       // The local VRF lane never calls the enclave fulfill endpoint or the worker.
-      assert.ok(!calls.some((c) => c.url.endsWith('/oracle/fulfill')), 'local VRF must not call the enclave');
+      assert.ok(
+        !calls.some((c) => c.url.endsWith('/oracle/fulfill')),
+        'local VRF must not call the enclave'
+      );
       assert.equal(submitted.length, 1, 'still submits');
       assert.equal(result.result.success, true);
       assert.notEqual(
@@ -1628,10 +1739,17 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       },
     });
     try {
-      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      const result = await processEvent(
+        config,
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
       assert.equal(submitted.length, 1, 'still submits (lane keeps fulfilling)');
       assert.equal(
         result.result.trust_tier,
@@ -1659,7 +1777,10 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
     const userData = createHash('sha256')
       .update(Buffer.from(enclaveBody.fulfillment_digest_hex, 'hex'))
       .digest('hex');
-    enclaveBody.attestation_doc_base64 = buildAttestationDoc({ userDataHex: userData, pcr0Hex: PCR0 });
+    enclaveBody.attestation_doc_base64 = buildAttestationDoc({
+      userDataHex: userData,
+      pcr0Hex: PCR0,
+    });
     const { restore } = installEnclaveFetch(enclaveBody);
     const submitted = [];
     const config = baseConfig({
@@ -1679,10 +1800,17 @@ describe('enclave /oracle/fulfill path (MORPHEUS_RELAYER_ENCLAVE_FULFILL flag)',
       },
     });
     try {
-      const result = await processEvent(config, createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      const result = await processEvent(
+        config,
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
       assert.equal(submitted.length, 1);
       assert.equal(result.result.trust_tier, 'enclave-attested');
     } finally {
@@ -1722,7 +1850,8 @@ function cborEncodeForTest(value) {
     const b = Buffer.from(value, 'utf8');
     return Buffer.concat([head(3, b.length), b]);
   }
-  if (Array.isArray(value)) return Buffer.concat([head(4, value.length), ...value.map(cborEncodeForTest)]);
+  if (Array.isArray(value))
+    return Buffer.concat([head(4, value.length), ...value.map(cborEncodeForTest)]);
   if (value && typeof value === 'object') {
     const entries = Object.entries(value);
     const parts = [head(5, entries.length)];
@@ -1870,10 +1999,17 @@ describe('confidential decrypt lane endpoint isolation', () => {
       txHash: '0x7100',
     };
     try {
-      await processEvent(decryptConfig(), createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      await processEvent(
+        decryptConfig(),
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
       const decryptCalls = calls.filter((u) => u.endsWith('/oracle/decrypt'));
       assert.equal(decryptCalls.length, 1, 'exactly one decrypt call');
       assert.ok(
@@ -1914,10 +2050,17 @@ describe('confidential decrypt lane endpoint isolation', () => {
       txHash: '0x7101',
     };
     try {
-      await processEvent(decryptConfig(), createEmptyRelayerState(), () => {}, silentLogger, event, {
-        attempts: 0,
-        durable_claimed: true,
-      });
+      await processEvent(
+        decryptConfig(),
+        createEmptyRelayerState(),
+        () => {},
+        silentLogger,
+        event,
+        {
+          attempts: 0,
+          durable_claimed: true,
+        }
+      );
       assert.ok(
         !calls.some((u) => u.includes('oracle.public.test')),
         'must NOT fall back to a public off-TEE endpoint when the enclave is down'
@@ -1984,8 +2127,7 @@ describe('verifyEnclaveAttestation freshness/anti-replay', () => {
       timestampMs: now - 120_000, // 2 min old, window is 1 min
     });
     assert.throws(
-      () =>
-        verifyEnclaveAttestation(cfg, { attestation_doc_base64: doc }, DIGEST, { now }),
+      () => verifyEnclaveAttestation(cfg, { attestation_doc_base64: doc }, DIGEST, { now }),
       /freshness window|possible replay/
     );
   });
@@ -2093,7 +2235,12 @@ describe('verifyEnclaveAttestation COSE crypto verification', () => {
 
 describe('buildDecryptBindingRequest (C3)', () => {
   it('sends only the envelope when no message_id is derivable (legacy)', () => {
-    const req = buildDecryptBindingRequest({}, { chain: 'neox' }, { raw_payload: 'env' }, 'the-env');
+    const req = buildDecryptBindingRequest(
+      {},
+      { chain: 'neox' },
+      { raw_payload: 'env' },
+      'the-env'
+    );
     assert.deepEqual(req, { envelope: 'the-env' });
   });
 

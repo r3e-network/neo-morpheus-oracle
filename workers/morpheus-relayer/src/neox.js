@@ -436,7 +436,12 @@ export async function waitForNeoXReceipt(tx, timeoutMs) {
         ),
       timeoutMs
     );
-    timer.unref?.();
+    // NOTE: the timer is intentionally NOT unref()'d. Its whole purpose is to
+    // FIRE and reject a stuck wait; an unref'd timer does not keep the event loop
+    // alive, so on an otherwise-idle loop the process would drain before the
+    // deadline fires and the promise would hang forever (the opposite of the
+    // intended fail-fast). `finally { clearTimeout }` clears it the instant the
+    // race settles, so it is bounded (<= timeoutMs) and never leaks.
   });
   try {
     return await Promise.race([tx.wait(1, timeoutMs), deadline]);

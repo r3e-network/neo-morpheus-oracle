@@ -124,7 +124,8 @@ function decodeRegistration(dataHex) {
   const callback = '0x' + word(2).slice(24);
   const lenPos = strOffset * 2;
   const len = parseInt(d.slice(lenPos, lenPos + 64), 16);
-  if (!Number.isInteger(len) || lenPos + 64 + len * 2 > d.length) throw new Error('bad string length');
+  if (!Number.isInteger(len) || lenPos + 64 + len * 2 > d.length)
+    throw new Error('bad string length');
   const appId = Buffer.from(d.slice(lenPos + 64, lenPos + 64 + len * 2), 'hex').toString('utf8');
   return { appId, admin: admin.toLowerCase(), callback: callback.toLowerCase() };
 }

@@ -519,9 +519,7 @@ function buildCanonicalAggregateRecord(pair, aggregation, previousRecord = null)
       pair: normalizeFeedPairSymbol(pair),
       aggregate: true,
       aggregation_method: aggregation.method ?? null,
-      providers_used: Array.isArray(aggregation.providers_used)
-        ? aggregation.providers_used
-        : [],
+      providers_used: Array.isArray(aggregation.providers_used) ? aggregation.providers_used : [],
       providers_rejected: Array.isArray(aggregation.providers_rejected)
         ? aggregation.providers_rejected
         : [],

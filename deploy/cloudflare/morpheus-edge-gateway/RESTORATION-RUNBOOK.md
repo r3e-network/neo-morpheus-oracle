@@ -32,6 +32,7 @@ enclave's sign/keys/decrypt routes private (host-only) — do NOT proxy them.
 ## `apps/web` route coverage (verified 2026-06-15)
 
 Covered (re-point works once the path shape is reconciled — see below):
+
 - `/oracle/query` → `apps/web/app/api/oracle/query`
 - `/oracle/smart-fetch` → `app/api/oracle/smart-fetch`
 - `/oracle/public-key` → `app/api/oracle/public-key`
@@ -42,6 +43,7 @@ Covered (re-point works once the path shape is reconciled — see below):
 - `/keys/derived` → `app/api/runtime/keys/derived`; `/info` → `app/api/runtime/info`
 
 **GAPS — not implemented in `apps/web` (will 404 on re-point):**
+
 - `/paymaster/*` (gasless sponsorship) — none.
 - `/vrf/*` — none.
 - `/relay/transaction` (gasless relay) — only `relayer/metrics` + `relayer/dead-letters` exist.
@@ -57,6 +59,7 @@ Covered (re-point works once the path shape is reconciled — see below):
 in `worker.mjs`). But `apps/web` routes are `/api/{path}` with **no `/{net}/` segment
 and an `/api` prefix**. A naive `MORPHEUS_ORIGIN_URL = https://<web>/api` would request
 `https://<web>/api/{net}/oracle/query` → 404. Options:
+
 1. Add a small rewrite in `morpheus-edge-gateway` (strip `/{net}`, prefix `/api`, pass
    the network as `x-morpheus-network` or a query param), OR
 2. Add `apps/web/app/api/[net]/...` passthrough routes that accept the network segment,
@@ -82,11 +85,13 @@ and an `/api` prefix**. A naive `MORPHEUS_ORIGIN_URL = https://<web>/api` would 
 7. Retire the Vercel `emergency-runtime` placeholder.
 
 ## Risks
+
 - **Proxy loop** if `apps/web`'s runtime URL still points at `oracle.meshmini.app` (step 3).
 - **Silent 404s** on paymaster/relay/vrf if step 1 is skipped.
 - **Privilege leak** if anyone instead widens the box gateway to the full API (do NOT).
 
 ## Open questions (need a decision before deploy)
+
 1. Paymaster / gasless relay / VRF: implement in `apps/web` (and route where — chain-direct?
    a control-plane lane? the box?) or drop from the public edge?
 2. Enable untrusted-script compute (`/compute/execute` is gated by

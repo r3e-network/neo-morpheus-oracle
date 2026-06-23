@@ -37,12 +37,24 @@ const ALLOWLIST_PATH =
   (process.env.ENCLAVE_EGRESS_ALLOWLIST || '').trim() ||
   join(__dirname, 'vsock-proxy.allowlist.yaml');
 // Upstream dial + idle timeouts (ms). A wedged upstream must not pin a fd.
-const CONNECT_TIMEOUT_MS = Math.max(Number(process.env.ENCLAVE_EGRESS_CONNECT_TIMEOUT_MS) || 10_000, 1000);
-const IDLE_TIMEOUT_MS = Math.max(Number(process.env.ENCLAVE_EGRESS_IDLE_TIMEOUT_MS) || 120_000, 5000);
+const CONNECT_TIMEOUT_MS = Math.max(
+  Number(process.env.ENCLAVE_EGRESS_CONNECT_TIMEOUT_MS) || 10_000,
+  1000
+);
+const IDLE_TIMEOUT_MS = Math.max(
+  Number(process.env.ENCLAVE_EGRESS_IDLE_TIMEOUT_MS) || 120_000,
+  5000
+);
 
 function log(level, event, data = {}) {
   process.stdout.write(
-    JSON.stringify({ ts: new Date().toISOString(), level, runtime: 'morpheus-egress-proxy', event, ...data }) + '\n'
+    JSON.stringify({
+      ts: new Date().toISOString(),
+      level,
+      runtime: 'morpheus-egress-proxy',
+      event,
+      ...data,
+    }) + '\n'
   );
 }
 
@@ -120,7 +132,9 @@ export function createProxyServer({
       if (!settled) {
         settled = true;
         log('warn', 'egress_connect_timeout', { host, port });
-        try { clientSocket.write('HTTP/1.1 504 Gateway Timeout\r\nConnection: close\r\n\r\n'); } catch {}
+        try {
+          clientSocket.write('HTTP/1.1 504 Gateway Timeout\r\nConnection: close\r\n\r\n');
+        } catch {}
         upstream.destroy();
         clientSocket.destroy();
       }
@@ -149,7 +163,9 @@ export function createProxyServer({
         settled = true;
         clearTimeout(connectTimer);
         log('warn', 'egress_upstream_error', { host, port, error: error.message });
-        try { clientSocket.write('HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n'); } catch {}
+        try {
+          clientSocket.write('HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n');
+        } catch {}
       }
       upstream.destroy();
       clientSocket.destroy();
@@ -161,7 +177,9 @@ export function createProxyServer({
   });
 
   server.on('clientError', (err, socket) => {
-    try { socket.destroy(); } catch {}
+    try {
+      socket.destroy();
+    } catch {}
   });
 
   return server;
@@ -181,9 +199,17 @@ if (isMain) {
   if (!allowlist.size) {
     log('error', 'empty_allowlist_fail_closed', { path: ALLOWLIST_PATH });
   } else {
-    log('info', 'allowlist_loaded', { path: ALLOWLIST_PATH, count: allowlist.size, hosts: [...allowlist].sort() });
+    log('info', 'allowlist_loaded', {
+      path: ALLOWLIST_PATH,
+      count: allowlist.size,
+      hosts: [...allowlist].sort(),
+    });
   }
   createProxyServer({ allowlist }).listen(PROXY_PORT, PROXY_HOST, () => {
-    log('info', 'listening', { host: PROXY_HOST, port: PROXY_PORT, allowlist_count: allowlist.size });
+    log('info', 'listening', {
+      host: PROXY_HOST,
+      port: PROXY_PORT,
+      allowlist_count: allowlist.size,
+    });
   });
 }

@@ -12,14 +12,9 @@ export async function requireAuth(request) {
   // PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally dropped: those Phala
   // credentials were revoked when the runtime migrated off Phala. Only the
   // current MORPHEUS_*/NITRO_* runtime tokens authorize worker requests.
-  const expected = env(
-    'MORPHEUS_RUNTIME_TOKEN',
-    'NITRO_API_TOKEN',
-    'NITRO_SHARED_SECRET'
-  );
+  const expected = env('MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN', 'NITRO_SHARED_SECRET');
   const auth = trimString(
-    request.headers.get('authorization') ||
-      request.headers.get('x-nitro-token')
+    request.headers.get('authorization') || request.headers.get('x-nitro-token')
   );
   if (!expected) {
     return { ok: false, response: json(503, { error: 'worker auth secret is not configured' }) };

@@ -57,7 +57,10 @@ function createDurableStore(initialJob) {
     if (status === 'processing') {
       return staleBeforeMs !== null && updatedMs !== null && updatedMs < staleBeforeMs;
     }
-    if (status === 'paused' && String(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER) {
+    if (
+      status === 'paused' &&
+      String(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER
+    ) {
       return staleBeforeMs !== null && updatedMs !== null && updatedMs < staleBeforeMs;
     }
     return false;
@@ -453,7 +456,11 @@ test('cancel mid-flight lets the already-billed execution fulfill but blocks fut
       }),
     }
   );
-  assert.equal(inFlightGuard.blocked, false, 'the already-billed in-flight execution is not stranded');
+  assert.equal(
+    inFlightGuard.blocked,
+    false,
+    'the already-billed in-flight execution is not stranded'
+  );
 
   // A different (future) queued execution of the same cancelled job is still blocked.
   const futureGuard = await guardQueuedAutomationExecution(

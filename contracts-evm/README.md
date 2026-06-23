@@ -6,10 +6,10 @@ live in `build/<Name>.neox-mainnet.json`. Operations: `deploy/evm/RUNBOOK.md`.
 
 ## Deployed (Neo X mainnet — bytecode-frozen, no upgrade path)
 
-| Contract             | Address                                      |
-| -------------------- | -------------------------------------------- |
-| `MorpheusOracleEVM`  | `0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2` |
-| `MorpheusPriceFeed`  | `0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB` |
+| Contract             | Address                                                             |
+| -------------------- | ------------------------------------------------------------------- |
+| `MorpheusOracleEVM`  | `0xeCFC1C652B5cCdBfe3E9314a83156787D92a3fD2`                        |
+| `MorpheusPriceFeed`  | `0x38DD6BCEBDD47f4234AE11760CEFB58f9ae6a3bB`                        |
 | `MiniAppDiceGameEVM` | `0xFA795F814d38F218153d21838360096f3F5cb774` (oracle app `dice`)    |
 | `MiniAppMessageEVM`  | `0xd1906192c2308ae416aCDa96238cA846EBB83f15` (oracle app `message`) |
 

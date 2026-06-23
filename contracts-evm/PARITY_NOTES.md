@@ -99,6 +99,7 @@ A fee leaves the reserved pool only when the request is fulfilled (earned, `fulf
 ### 5. Owner-change events
 
 `OwnerChanged(previous, next)` is emitted on every ownership transfer:
+
 - `MorpheusOracleEVM.setOwner` (+ constructor seeds `OwnerChanged(address(0), deployer)`).
 - `MiniAppDiceGameEVM.setOwner`.
 - `MiniAppMessageEVM.setOwner`.

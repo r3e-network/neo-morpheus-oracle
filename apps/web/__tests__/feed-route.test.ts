@@ -32,10 +32,13 @@ function neoRpcMock() {
     const method = body?.params?.[1];
     const stack =
       method === 'getAllFeedRecords' ? [recordsStack()] : [{ type: 'Integer', value: '0' }];
-    return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { state: 'HALT', stack } }), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({ jsonrpc: '2.0', id: 1, result: { state: 'HALT', stack } }),
+      {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }
+    );
   });
 }
 
@@ -98,9 +101,12 @@ describe('feed price route (on-chain re-home)', () => {
     vi.stubGlobal('fetch', neoRpcMock());
 
     const { GET } = await import('../app/api/feeds/[symbol]/route');
-    const response = await GET(new Request('https://example.test/api/feeds/TWELVEDATA%3ADOGE-USD'), {
-      params: Promise.resolve({ symbol: 'TWELVEDATA:DOGE-USD' }),
-    });
+    const response = await GET(
+      new Request('https://example.test/api/feeds/TWELVEDATA%3ADOGE-USD'),
+      {
+        params: Promise.resolve({ symbol: 'TWELVEDATA:DOGE-USD' }),
+      }
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({

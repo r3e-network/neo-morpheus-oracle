@@ -221,8 +221,9 @@ const N3_GAS_WARN = Number(process.env.GAS_WARN || 8);
 // the IDENTICAL tx from the returned plan + tx_nonce, asserts its own
 // getMessageForSigning matches the returned tx_message_hex (so the host and enclave
 // agree on the signed bytes), attaches the witness, and broadcasts.
-const ENCLAVE_FEED_SIGN =
-  /^(1|true|yes|on)$/i.test(String(process.env.MORPHEUS_FEED_PUSHER_ENCLAVE_SIGN || '').trim());
+const ENCLAVE_FEED_SIGN = /^(1|true|yes|on)$/i.test(
+  String(process.env.MORPHEUS_FEED_PUSHER_ENCLAVE_SIGN || '').trim()
+);
 
 async function defaultN3Rpc(method, params) {
   let lastErr;
@@ -306,7 +307,8 @@ async function defaultEnclaveFeedSign(requestBody) {
   } catch {
     throw new Error('enclave /feed/sign non-JSON (HTTP ' + r.status + ')');
   }
-  if (!r.ok) throw new Error('enclave /feed/sign failed (HTTP ' + r.status + '): ' + (j.error || ''));
+  if (!r.ok)
+    throw new Error('enclave /feed/sign failed (HTTP ' + r.status + '): ' + (j.error || ''));
   return j;
 }
 
@@ -325,9 +327,7 @@ export function __resetEnclaveFeedSignForTests() {
 // tx_message_hex. Exported for the flag-on unit test.
 export function rebuildUpdateFeedsTxFromEnclavePlan(plan, txParams) {
   const { pairs, rounds, prices_scaled: PX, timestamps: TS, attestation_hashes: AH } = plan;
-  const SS = Array.isArray(plan.source_set_ids)
-    ? plan.source_set_ids
-    : pairs.map(() => 0);
+  const SS = Array.isArray(plan.source_set_ids) ? plan.source_set_ids : pairs.map(() => 0);
   const script = sc.createScript({
     scriptHash: N3_FEED,
     operation: 'updateFeeds',
@@ -604,7 +604,10 @@ export function assertEnclaveNeoXTxMatches(ethers, resp, expected) {
   need((parsed.to || '').toLowerCase() === String(expected.to).toLowerCase(), 'to');
   need(Number(parsed.chainId) === Number(expected.chainId), 'chainId');
   need(parsed.nonce === Number(expected.nonce), `nonce ${parsed.nonce}!=${expected.nonce}`);
-  need((parsed.from || '').toLowerCase() === String(expected.from).toLowerCase(), `from ${parsed.from}`);
+  need(
+    (parsed.from || '').toLowerCase() === String(expected.from).toLowerCase(),
+    `from ${parsed.from}`
+  );
   need(parsed.data === rebuiltData, 'calldata');
   return parsed;
 }
@@ -687,7 +690,9 @@ async function pushNeoX(prices, now) {
     }
     const bal = Number(ethers.formatEther(await provider.getBalance(NEOX_FEED_FROM)));
     if (bal < NEOX_GAS_WARN)
-      log(`[neox] ⚠️ LOW GAS: updater ${NEOX_FEED_FROM} ${bal.toFixed(3)} < ${NEOX_GAS_WARN} — fund it`);
+      log(
+        `[neox] ⚠️ LOW GAS: updater ${NEOX_FEED_FROM} ${bal.toFixed(3)} < ${NEOX_GAS_WARN} — fund it`
+      );
     return;
   }
 

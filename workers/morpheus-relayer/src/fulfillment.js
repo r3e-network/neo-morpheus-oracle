@@ -417,9 +417,7 @@ function isHostUnattestedFetchLane(kernelIntent, payload) {
 // flag ON the host worker IS the attested enclave for these lanes, so they keep
 // the attested label. Purely advisory provenance metadata — never digested.
 function defaultHostWorkerTrustTier(config) {
-  return config?.nitro?.enclaveFulfill
-    ? TRUST_TIER_ENCLAVE_ATTESTED
-    : TRUST_TIER_HOST_UNATTESTED;
+  return config?.nitro?.enclaveFulfill ? TRUST_TIER_ENCLAVE_ATTESTED : TRUST_TIER_HOST_UNATTESTED;
 }
 
 // Recompute the fulfillment digest LOCALLY from the result the enclave returned,
@@ -479,7 +477,14 @@ function buildEnclaveFulfillmentContext(config, chain, event, fulfillmentContext
 // {success, result, result_bytes_base64, error, signature, public_key,
 // fulfillment_digest_hex, trust_tier} and asserts the returned digest equals the
 // relayer's own recomputation before the caller submits.
-async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payload, _kernelIntent) {
+async function callEnclaveFulfill(
+  config,
+  chain,
+  event,
+  fulfillmentContext,
+  payload,
+  _kernelIntent
+) {
   // Per-request freshness nonce: the enclave echoes it back inside the attestation
   // document so the relayer can prove the doc was produced FOR THIS request (not a
   // captured/replayed genuine doc for the same digest). Captured here so it can be
@@ -585,7 +590,8 @@ async function callEnclaveFulfill(config, chain, event, fulfillmentContext, payl
     signature: body.signature,
     trust_tier: trustTier,
     attestation,
-    worker_response: body.verification && typeof body.verification === 'object' ? body.verification : body,
+    worker_response:
+      body.verification && typeof body.verification === 'object' ? body.verification : body,
   };
 }
 
@@ -1065,7 +1071,9 @@ async function prepareOracleFulfillment(config, event, logger = null) {
     if (!decResponse.ok && isTransientWorkerStatus(decResponse.status)) {
       throw buildTransientWorkerError(
         decResponse.status,
-        typeof decResponse.body?.error === 'string' ? decResponse.body.error : 'confidential decrypt'
+        typeof decResponse.body?.error === 'string'
+          ? decResponse.body.error
+          : 'confidential decrypt'
       );
     }
     const ok = decResponse.ok && typeof decResponse.body?.plaintext === 'string';
@@ -1425,9 +1433,7 @@ async function recordTerminalOutcome(
 
   return {
     event,
-    ...(retryStatus === 'settled'
-      ? { result: null }
-      : { error: lastError }),
+    ...(retryStatus === 'settled' ? { result: null } : { error: lastError }),
     retry_status: retryStatus,
     event_key: eventKey,
     attempts,
@@ -1757,58 +1763,74 @@ export async function processEvent(config, state, persistState, logger, event, r
       // permanent short-circuit is enforced in resolveDeliveryRetryOrExhaust:
       // a permanently failing callback (e.g. a consumer that FAULTs on every test
       // invoke) dead-letters instead of redelivering the same payload forever.
-      return resolveDeliveryRetryOrExhaust(config, state, persistState, logger, event, kernelIntent, {
-        nextAttempts: attempts + 1,
-        errorMessage: message,
-        exhaustRoute: preparedForRedelivery.route || 'callback-delivery',
-        retryOptions: {
-          firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
-          extraRetryItemFields: {
-            prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
+      return resolveDeliveryRetryOrExhaust(
+        config,
+        state,
+        persistState,
+        logger,
+        event,
+        kernelIntent,
+        {
+          nextAttempts: attempts + 1,
+          errorMessage: message,
+          exhaustRoute: preparedForRedelivery.route || 'callback-delivery',
+          retryOptions: {
+            firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+            extraRetryItemFields: {
+              prepared_fulfillment: buildPreparedFulfillmentRetryMeta(preparedForRedelivery),
+            },
+            upsertStatus: 'callback_retry_scheduled',
+            upsertExtras: {
+              route: preparedForRedelivery.route,
+              worker_status: preparedForRedelivery.worker_status,
+            },
+            upsertWorkerResponse: buildCallbackPendingWorkerResponse(
+              preparedForRedelivery,
+              kernelIntent
+            ),
+            retryStatus: 'callback_retry_scheduled',
+            logLevel: 'warn',
+            logMessage: 'Retrying prepared Morpheus oracle callback delivery',
+            logModuleId: preparedForRedelivery.module_id || kernelIntent.moduleId,
+            logOperation: preparedForRedelivery.operation || kernelIntent.operation,
           },
-          upsertStatus: 'callback_retry_scheduled',
-          upsertExtras: {
-            route: preparedForRedelivery.route,
-            worker_status: preparedForRedelivery.worker_status,
-          },
-          upsertWorkerResponse: buildCallbackPendingWorkerResponse(
-            preparedForRedelivery,
-            kernelIntent
-          ),
-          retryStatus: 'callback_retry_scheduled',
-          logLevel: 'warn',
-          logMessage: 'Retrying prepared Morpheus oracle callback delivery',
-          logModuleId: preparedForRedelivery.module_id || kernelIntent.moduleId,
-          logOperation: preparedForRedelivery.operation || kernelIntent.operation,
-        },
-      });
+        }
+      );
     }
 
     if (isFinalizeOnly) {
       // The failure-finalize lane re-enqueues without scheduleRetry too: cap it
       // and dead-letter a finalize callback that fails permanently.
-      return resolveDeliveryRetryOrExhaust(config, state, persistState, logger, event, kernelIntent, {
-        nextAttempts: attempts + 1,
-        errorMessage: message,
-        exhaustRoute: 'failure-finalize',
-        exhaustTerminalError: terminalError,
-        retryOptions: {
-          firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
-          extraRetryItemFields: { finalize_only: true, terminal_error: terminalError },
-          upsertStatus: 'failure_callback_retry_scheduled',
-          upsertWorkerResponse: {
-            retry_meta: {
-              finalize_only: true,
-              terminal_error: terminalError,
-              module_id: kernelIntent.moduleId,
-              operation: kernelIntent.operation,
+      return resolveDeliveryRetryOrExhaust(
+        config,
+        state,
+        persistState,
+        logger,
+        event,
+        kernelIntent,
+        {
+          nextAttempts: attempts + 1,
+          errorMessage: message,
+          exhaustRoute: 'failure-finalize',
+          exhaustTerminalError: terminalError,
+          retryOptions: {
+            firstFailedAt: retryItem?.first_failed_at || new Date().toISOString(),
+            extraRetryItemFields: { finalize_only: true, terminal_error: terminalError },
+            upsertStatus: 'failure_callback_retry_scheduled',
+            upsertWorkerResponse: {
+              retry_meta: {
+                finalize_only: true,
+                terminal_error: terminalError,
+                module_id: kernelIntent.moduleId,
+                operation: kernelIntent.operation,
+              },
             },
+            retryStatus: 'scheduled',
+            logLevel: 'warn',
+            logMessage: 'Retrying terminal failure callback delivery',
           },
-          retryStatus: 'scheduled',
-          logLevel: 'warn',
-          logMessage: 'Retrying terminal failure callback delivery',
-        },
-      });
+        }
+      );
     }
 
     const errorClass = classifyError(message);

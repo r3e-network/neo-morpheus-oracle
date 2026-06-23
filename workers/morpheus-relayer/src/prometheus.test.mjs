@@ -5,11 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { TOP_LEVEL_COUNTERS, renderPrometheusMetrics } from './prometheus.js';
-import {
-  createEmptyRelayerState,
-  incrementLabeledFailure,
-  snapshotMetrics,
-} from './state.js';
+import { createEmptyRelayerState, incrementLabeledFailure, snapshotMetrics } from './state.js';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 

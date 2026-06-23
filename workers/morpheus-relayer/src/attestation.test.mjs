@@ -7,10 +7,7 @@ import { createHash } from 'node:crypto';
 // symbols must resolve from ./attestation.js (not only via the ./fulfillment.js
 // re-export). The full behavioral matrix lives in fulfillment.test.mjs; this file
 // re-asserts a couple of the load-bearing behaviors against the module under test.
-import {
-  resolveExpectedPcr0,
-  verifyEnclaveAttestation,
-} from './attestation.js';
+import { resolveExpectedPcr0, verifyEnclaveAttestation } from './attestation.js';
 
 // Minimal CBOR encoder (mirrors the enclave's) used to build a real COSE_Sign1
 // attestation document the relayer's verifier parses.

@@ -15,9 +15,7 @@ export function env(...names: string[]): string;
  * Normalize the supported input shapes (Buffer, Uint8Array, ArrayBuffer,
  * string, or arbitrary value via stableStringify) into a Node Buffer.
  */
-export function ensureBuffer(
-  input: Buffer | Uint8Array | ArrayBuffer | string | unknown
-): Buffer;
+export function ensureBuffer(input: Buffer | Uint8Array | ArrayBuffer | string | unknown): Buffer;
 
 /**
  * SHA-256 hex digest of the given input, normalized through `ensureBuffer`.

@@ -35,8 +35,7 @@ function parseTimestamp(value: unknown) {
 // any wif/private_key field so the request can be rejected outright.
 function hasRawSignerMaterial(body: Record<string, unknown>) {
   return Boolean(
-    trimString(body.wif || '') ||
-      trimString(body.private_key || body.privateKey || '')
+    trimString(body.wif || '') || trimString(body.private_key || body.privateKey || '')
   );
 }
 
@@ -100,7 +99,9 @@ export async function POST(request: Request) {
   if (!isPlainObject(body)) return badRequest('invalid JSON body');
 
   if (hasRawSignerMaterial(body)) {
-    return badRequest('raw signer material (wif/private_key) is not accepted; signing uses the configured enclave/KMS signer');
+    return badRequest(
+      'raw signer material (wif/private_key) is not accepted; signing uses the configured enclave/KMS signer'
+    );
   }
 
   const automationId = trimString(body.automation_id || body.id || '');
