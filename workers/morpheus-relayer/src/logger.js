@@ -1,5 +1,6 @@
 import { enqueueBetterStackLog } from './betterstack-log-sink.js';
 import { trimString } from './lib/strings.js';
+import { isSecretName } from './lib/secret-redaction.js';
 
 const LEVEL_PRIORITY = {
   debug: 10,
@@ -20,12 +21,11 @@ function redactSecrets(text) {
 
 // Keys whose values are secret-shaped (credentials, raw key material, sealed
 // payloads) are redacted in full regardless of value shape — an object or array
-// under one of these keys could still smuggle a secret past the URL scrub.
-const SECRET_KEY_PATTERN =
-  /(wif|private_?key|secret|token|api_?key|authorization|envelope|plaintext|seed)/i;
-
+// under one of these keys could still smuggle a secret past the URL scrub. The
+// secret-name fragment list is single-sourced in lib/secret-redaction.js (shared
+// with the config-dump redactor) so neither sink can lose coverage.
 function isSecretKey(key) {
-  return typeof key === 'string' && SECRET_KEY_PATTERN.test(key);
+  return isSecretName(key);
 }
 
 // Bound the cost of deep-walking arbitrarily nested/large payloads so a single

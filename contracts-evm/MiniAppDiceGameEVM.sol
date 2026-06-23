@@ -1,41 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
+
 /// @title MiniAppDiceGameEVM
 /// @notice Neo X (EVM) dice game settled by Morpheus VRF. A player stakes GAS and
 /// picks a face [1..6]; the contract requests verifiable randomness from the
 /// MorpheusOracleEVM kernel and settles in onOracleResult: a win pays 5.7x the
 /// stake (the house edge: fair 6x * 0.95) from the house bankroll, a loss keeps
 /// the stake, and a VRF failure refunds the stake. Mirrors the Neo N3 dice flow.
-interface IMorpheusOracleEVM {
-    struct Request {
-        uint256 id;
-        string appId;
-        string moduleId;
-        string operation;
-        bytes payload;
-        address requester;
-        address callbackContract;
-        uint8 status; // None=0, Pending=1, Succeeded=2, Failed=3
-        uint64 createdAt;
-        uint64 fulfilledAt;
-        bool success;
-        bytes result;
-        string error;
-        // Trailing fields added in the hardened kernel (exact fee + payer recorded
-        // for expiry refunds). Mirrored here so getRequest() tuple-decodes correctly.
-        uint256 feePaid;
-        address feePayer;
-    }
-
-    function requestFromCallback(address requester, string calldata operation, bytes calldata payload)
-        external
-        payable
-        returns (uint256);
-
-    function getRequest(uint256 requestId) external view returns (Request memory);
-}
-
 contract MiniAppDiceGameEVM {
     address public owner;
     address public oracle;
@@ -139,8 +112,12 @@ contract MiniAppDiceGameEVM {
     /// result. Makes stuck bets self-healing and trustless.
     function settleFromKernel(uint256 requestId) external {
         IMorpheusOracleEVM.Request memory r = IMorpheusOracleEVM(oracle).getRequest(requestId);
-        require(r.status == 2 || r.status == 3, "kernel request not fulfilled");
-        _settle(requestId, r.status == 2, r.result);
+        // Succeeded(2) or Failed(3) == terminal/fulfilled (Pending(1) and None(0) are not).
+        require(
+            r.status == IMorpheusOracleEVM.Status.Succeeded || r.status == IMorpheusOracleEVM.Status.Failed,
+            "kernel request not fulfilled"
+        );
+        _settle(requestId, r.status == IMorpheusOracleEVM.Status.Succeeded, r.result);
     }
 
     function _settle(uint256 requestId, bool success, bytes memory result) internal {

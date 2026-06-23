@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { buildSignedResultEnvelope, buildVerificationEnvelope } from '../chain/index.js';
+import { buildSignedResultEnvelope, buildLaneSignedEnvelope } from '../chain/index.js';
 import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
 import {
   env,
@@ -334,12 +334,8 @@ export async function handlePaymasterAuthorize(payload = {}) {
     const teeAttestation = await maybeBuildDstackAttestation(payload, result);
     return json(200, {
       ...result,
-      output_hash: signed.output_hash,
-      signature: signed.signature,
-      public_key: signed.public_key,
-      attestation_hash: signed.attestation_hash,
-      tee_attestation: teeAttestation,
-      verification: buildVerificationEnvelope(signed, teeAttestation),
+      // D5 canonical signed-result envelope — single-sourced.
+      ...buildLaneSignedEnvelope(signed, teeAttestation),
     });
   } catch (error) {
     return jsonError(400, error);

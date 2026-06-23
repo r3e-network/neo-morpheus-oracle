@@ -41,6 +41,8 @@ import {
   upsertJobOrThrow,
 } from './queue.js';
 import { reportPinnedNeoN3Role, resolvePinnedNeoN3VerifierPublicKey } from './lib/neo-signers.js';
+import { computeRetryDelayMs } from './lib/retry.js';
+import { normalizeRequestType } from './lib/strings.js';
 import { sendHeartbeat } from './heartbeat.js';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
@@ -200,18 +202,11 @@ export function classifyError(err) {
   return 'unknown';
 }
 
-export function computeRetryDelayMs(config, attempts, rng = Math.random) {
-  const ceiling = Math.min(
-    config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0),
-    config.retryMaxDelayMs
-  );
-  // Full/equal jitter: spread the delay across [0.5, 1.0] * ceiling so a shared
-  // dependency outage (RPC, Nitro signer, Supabase 402) does not bucket every
-  // queued retry into the same next_retry_at and re-stampede the recovering
-  // dependency on one tick. Math.round keeps integer-millisecond timestamps.
-  const jitterFactor = 0.5 + 0.5 * rng();
-  return Math.round(ceiling * jitterFactor);
-}
+// computeRetryDelayMs (backoff-with-jitter) now lives in ./lib/retry.js as the
+// single source of truth shared with state.js:scheduleRetry. It is imported above
+// for internal use and re-exported here so existing importers (and the
+// characterization tests) keep resolving it from ./fulfillment.js unchanged.
+export { computeRetryDelayMs };
 
 /**
  * Ceiling on callback-delivery / failure-finalize redelivery attempts. The
@@ -812,9 +807,7 @@ async function finalizeFailedRequest(config, event, errorMessage) {
 }
 
 export function enrichAutomationExecutionPayload(event, payload) {
-  const normalizedRequestType = trimString(event?.requestType || '')
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
+  const normalizedRequestType = normalizeRequestType(event?.requestType);
   if (!normalizedRequestType.startsWith('automation_')) return payload;
 
   const automationId = trimString(payload?.automation_id || '');

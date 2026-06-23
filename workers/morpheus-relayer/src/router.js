@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { trimString } from './lib/strings.js';
+import { normalizeRequestType, trimString } from './lib/strings.js';
 // Neo N3 contract uses the v1 kernel domain with the full envelope (appId, moduleId, operation).
 const FULFILLMENT_SIGNATURE_DOMAIN_N3 = Buffer.from('miniapp-os-fulfillment-v1', 'utf8');
 const FULFILLMENT_SIGNATURE_DOMAIN_LEGACY = Buffer.from('morpheus-fulfillment-v2', 'utf8');
@@ -136,11 +136,10 @@ function encodeUint256Bytes(value) {
   return Buffer.from(numeric.toString(16).padStart(64, '0'), 'hex');
 }
 
-export function normalizeRequestType(value) {
-  return trimString(value)
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
-}
+// normalizeRequestType is single-sourced in ./lib/strings.js. Re-exported here so
+// existing importers (and the characterization tests) keep resolving it from
+// ./router.js unchanged.
+export { normalizeRequestType };
 
 export function resolveKernelIntent(requestType) {
   const normalized = normalizeRequestType(requestType);

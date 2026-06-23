@@ -3,7 +3,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { experimental, rpc as neoRpc, sc, tx, u, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
-import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
+import { normalizeHash160, normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
+import { parseGasToRaw } from './lib-gas-units.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const ADMIN_ADDRESS = 'NUVmRwZDoSZMKcPj9UCQLHkpno2TPqYVxC';
@@ -43,15 +44,9 @@ function strip0x(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();
 }
 
-function normalizeHash160(value) {
-  const raw = trimString(value);
-  if (!raw) return '';
-  if (wallet.isAddress(raw)) {
-    return `0x${wallet.getScriptHashFromAddress(raw).toLowerCase()}`;
-  }
-  const hex = strip0x(raw);
-  return /^[0-9a-f]{40}$/.test(hex) ? `0x${hex}` : '';
-}
+// normalizeHash160 is imported from ./lib-neo-signers.mjs (single source of truth
+// for contract/address hash normalization across the mainnet maintenance scripts).
+// strip0x stays — it has ~8 other call sites on the witness/signer path here.
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -66,13 +61,11 @@ function rawGasToDecimal(raw) {
   return fraction ? `${whole}.${fraction}` : `${whole}`;
 }
 
-function parseGasToRaw(value, fallback) {
-  const text = trimString(value);
-  if (!text) return fallback;
-  if (!/^\d+(\.\d{1,8})?$/.test(text)) return fallback;
-  const [whole, fraction = ''] = text.split('.');
-  return BigInt(whole) * 100000000n + BigInt(fraction.padEnd(8, '0'));
-}
+// parseGasToRaw is imported from ./lib-gas-units.mjs — the tested, exact-BigInt
+// implementation shared with the rest of the gas-budget tooling. (The previous
+// local copy diverged: it rejected a leading '+' and >8-decimal input by falling
+// back, where the canonical version accepts '+' and rounds >8-decimal input up by
+// one base unit. The canonical exact-BigInt semantics are the intended behavior.)
 
 function parseStackBytes(value) {
   const raw = trimString(value);

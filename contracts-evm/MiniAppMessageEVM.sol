@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
+
 /// @title MiniAppMessageEVM
 /// @notice Encrypted + optionally time-locked messages on Neo X, settled by the
 /// Morpheus confidential-compute (TEE) oracle.
@@ -15,13 +17,6 @@ pragma solidity ^0.8.24;
 ///    unlockTime. After it, anyone may call requestReveal(); the oracle decrypts
 ///    the envelope in the enclave and posts the plaintext on-chain via
 ///    onOracleResult, making it public from that moment on.
-interface IMorpheusOracleEVM {
-    function requestFromCallback(address requester, string calldata operation, bytes calldata payload)
-        external
-        payable
-        returns (uint256);
-}
-
 contract MiniAppMessageEVM {
     address public owner;
     address public oracle;

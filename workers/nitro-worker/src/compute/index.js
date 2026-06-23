@@ -20,7 +20,7 @@ import {
   stableStringify,
   trimString,
 } from '../platform/core.js';
-import { buildSignedResultEnvelope, buildVerificationEnvelope } from '../chain/index.js';
+import { buildSignedResultEnvelope, buildLaneSignedEnvelope } from '../chain/index.js';
 import { runScriptWithTimeout } from '../platform/script-runner.js';
 import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
 import { resolveConfidentialPayload } from '../oracle/crypto.js';
@@ -730,12 +730,9 @@ export async function handleComputeExecute(payload) {
         ? String(resolvedPayload.target_chain_id)
         : null,
       ...result,
-      output_hash: signed.output_hash,
-      signature: signed.signature,
-      public_key: signed.public_key,
-      attestation_hash: signed.attestation_hash,
-      tee_attestation: teeAttestation,
-      verification: buildVerificationEnvelope(signed, teeAttestation),
+      // D5 canonical signed-result envelope (output_hash + signature + public_key
+      // + attestation_hash + tee_attestation + verification) — single-sourced.
+      ...buildLaneSignedEnvelope(signed, teeAttestation),
     });
   } catch (error) {
     return jsonError(400, error);
