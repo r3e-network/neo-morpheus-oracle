@@ -1,8 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { rpc as neoRpc, wallet } from '@cityofzion/neon-js';
+import { rpc as neoRpc } from '@cityofzion/neon-js';
 import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
 import {
+  normalizeHash160,
   resolvePinnedNeoN3UpdaterHash,
   resolvePinnedNeoN3VerifierPublicKey,
 } from './lib-neo-signers.mjs';
@@ -25,19 +26,8 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function strip0x(value) {
-  return trimString(value).replace(/^0x/i, '').toLowerCase();
-}
-
-function normalizeHash160(value) {
-  const raw = trimString(value);
-  if (!raw) return '';
-  if (wallet.isAddress(raw)) {
-    return `0x${wallet.getScriptHashFromAddress(raw).toLowerCase()}`;
-  }
-  const hex = strip0x(raw);
-  return /^[0-9a-f]{40}$/.test(hex) ? `0x${hex}` : '';
-}
+// normalizeHash160 is imported from ./lib-neo-signers.mjs (single source of truth).
+// strip0x was used solely by the old local copy, so it is removed with it.
 
 function parseStackItem(item) {
   if (!item || typeof item !== 'object') return null;
