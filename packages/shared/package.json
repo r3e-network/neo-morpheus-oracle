@@ -12,6 +12,9 @@
       "types": "./src/utils.d.ts",
       "default": "./src/utils.js"
     },
+    "./cbor": {
+      "default": "./src/cbor.js"
+    },
     "./rate-limit": {
       "types": "./src/rate-limit.d.ts",
       "default": "./src/rate-limit.js"

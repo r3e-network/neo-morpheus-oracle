@@ -59,6 +59,7 @@ import {
 // neon-js wallet.sign (secp256r1). Those functions are not exported from the
 // signer server, so we reuse the shared resolver + sign inline with neon-js.
 import { reportPinnedNeoN3Role, normalizeMorpheusNetwork } from '../../scripts/lib-neo-signers.mjs';
+import { decodeCoseSign1Payload } from '../../packages/shared/src/cbor.js';
 import neonPkg from '@cityofzion/neon-js';
 
 const { wallet: neoWallet, sc, tx, u } = neonPkg;
@@ -114,117 +115,12 @@ function trimString(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-// ---------------------------------------------------------------------------
-// Minimal CBOR / COSE_Sign1 decoder (no external deps).
-//
-// A Nitro NSM attestation document is a COSE_Sign1 structure — a CBOR array
-// [protected_header(bstr), unprotected_header(map), payload(bstr), signature(bstr)]
-// (often inside a CBOR tag 18). The payload is itself a CBOR map containing the
-// measured `pcrs` (map of index -> bstr), `user_data` (bstr), `public_key` (bstr),
-// `nonce` (bstr), etc. We decode JUST enough CBOR to pull out that payload map so
-// the verifier can read user_data + pcrs WITHOUT bundling a CBOR/COSE library.
-// This is parsing only — the document's cryptographic chain is what the verifier
-// ultimately trusts; here we only need to read the committed fields.
-// ---------------------------------------------------------------------------
-
-function cborRead(buf, offset) {
-  if (offset >= buf.length) throw new Error('cbor: truncated');
-  const initial = buf[offset];
-  const major = initial >> 5;
-  const minor = initial & 0x1f;
-  let pos = offset + 1;
-  const readUint = (n) => {
-    let value = 0n;
-    for (let i = 0; i < n; i += 1) {
-      if (pos >= buf.length) throw new Error('cbor: truncated uint');
-      value = (value << 8n) | BigInt(buf[pos]);
-      pos += 1;
-    }
-    return value;
-  };
-  let length;
-  if (minor < 24) length = BigInt(minor);
-  else if (minor === 24) length = readUint(1);
-  else if (minor === 25) length = readUint(2);
-  else if (minor === 26) length = readUint(4);
-  else if (minor === 27) length = readUint(8);
-  else if (minor === 31)
-    length = -1n; // indefinite
-  else throw new Error(`cbor: unsupported minor ${minor}`);
-
-  switch (major) {
-    case 0: // unsigned int
-      return { value: Number(length), pos };
-    case 1: // negative int
-      return { value: -1 - Number(length), pos };
-    case 2: // byte string
-    case 3: {
-      // text string
-      const len = Number(length);
-      const slice = buf.subarray(pos, pos + len);
-      pos += len;
-      return { value: major === 2 ? Buffer.from(slice) : slice.toString('utf8'), pos };
-    }
-    case 4: {
-      // array
-      const arr = [];
-      const len = Number(length);
-      for (let i = 0; i < len; i += 1) {
-        const item = cborRead(buf, pos);
-        arr.push(item.value);
-        pos = item.pos;
-      }
-      return { value: arr, pos };
-    }
-    case 5: {
-      // map
-      const map = {};
-      const len = Number(length);
-      for (let i = 0; i < len; i += 1) {
-        const key = cborRead(buf, pos);
-        pos = key.pos;
-        const val = cborRead(buf, pos);
-        pos = val.pos;
-        const keyName = Buffer.isBuffer(key.value) ? key.value.toString('hex') : String(key.value);
-        map[keyName] = val.value;
-      }
-      return { value: map, pos };
-    }
-    case 6: {
-      // tag — decode + return the tagged value (we ignore the tag number).
-      const inner = cborRead(buf, pos);
-      return { value: inner.value, pos: inner.pos };
-    }
-    case 7: {
-      // simple/float — true/false/null/undefined or float; not needed for our fields.
-      if (minor === 20) return { value: false, pos };
-      if (minor === 21) return { value: true, pos };
-      if (minor === 22) return { value: null, pos };
-      if (minor === 23) return { value: undefined, pos };
-      // floats (25/26/27) — skip the bytes, return null (unused by our reader).
-      return { value: null, pos };
-    }
-    default:
-      throw new Error(`cbor: unsupported major ${major}`);
-  }
-}
-
-// Decode a COSE_Sign1 (CBOR) buffer and return its payload map (the attestation
-// document fields: pcrs, user_data, public_key, nonce, ...). Throws on a structure
-// that is not a 4-element COSE_Sign1 with a decodable CBOR payload.
-function decodeCoseSign1Payload(coseBuffer) {
-  const { value: cose } = cborRead(coseBuffer, 0);
-  if (!Array.isArray(cose) || cose.length !== 4) {
-    throw new Error('cose: not a 4-element COSE_Sign1');
-  }
-  const payloadBytes = cose[2];
-  if (!Buffer.isBuffer(payloadBytes)) throw new Error('cose: payload is not a byte string');
-  const { value: payload } = cborRead(payloadBytes, 0);
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('cose: payload is not a map');
-  }
-  return payload;
-}
+// CBOR / COSE_Sign1 decoding (cborRead, decodeCoseSign1Payload) is single-sourced
+// in @neo-morpheus-oracle/shared/cbor (imported above), shared with the relayer
+// that VERIFIES these documents, so producer and verifier agree on indefinite-
+// length CBOR. A Nitro NSM attestation document is a COSE_Sign1 whose payload is a
+// CBOR map with the measured pcrs / user_data / public_key / nonce; we decode just
+// enough to read those committed fields.
 
 function normalizeHex(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();
