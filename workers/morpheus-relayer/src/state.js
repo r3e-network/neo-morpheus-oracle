@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveKernelIntent } from './router.js';
+import { computeRetryDelayMs } from './lib/retry.js';
 
 // Per-chain state is keyed by these chain ids. Adding a chain here makes the
 // relayer engine track its cursor/retry/dead-letter state automatically.
@@ -417,15 +418,9 @@ export function scheduleRetry(state, chain, event, errorMessage, config, rng = M
     };
   }
 
-  const ceiling = Math.min(
-    config.retryBaseDelayMs * 2 ** Math.max(attempts - 1, 0),
-    config.retryMaxDelayMs
-  );
-  // Full/equal jitter (mirror fulfillment.js computeRetryDelayMs): spread the
-  // delay across [0.5, 1.0] * ceiling so a shared-dependency outage does not
-  // bucket every queued retry into the same next_retry_at and re-stampede the
-  // recovering dependency on one tick.
-  const delayMs = Math.round(ceiling * (0.5 + 0.5 * rng()));
+  // Backoff-with-jitter shared with the fulfillment retry lanes (single source of
+  // truth in ./lib/retry.js) so the two lanes can't drift and re-stampede.
+  const delayMs = computeRetryDelayMs(config, attempts, rng);
   const item = {
     key,
     event,
