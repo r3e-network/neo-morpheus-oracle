@@ -1,4 +1,5 @@
 import { NEO_N3_SIGNER_ENV_KEYS } from './lib/neo-signers.js';
+import { isSecretName } from './lib/secret-redaction.js';
 
 // Declarative manifest of every environment variable createRelayerConfig() reads.
 //
@@ -28,25 +29,11 @@ export const DIRECT_CONTROL_ENV_KEYS = [
   'NEXT_PUBLIC_MORPHEUS_NETWORK',
 ];
 
-// Substrings that, when contained in an env var name, mark its value as a secret
-// that must be redacted in any dump (only set/unset + winning alias is shown).
-const SECRET_NAME_FRAGMENTS = [
-  'WIF',
-  'PRIVATE_KEY',
-  'PRIVATEKEY',
-  'SECRET',
-  'TOKEN',
-  'SERVICE_ROLE_KEY',
-  'SERVICE_KEY',
-  'PASSWORD',
-  'PASSPHRASE',
-  'SEED',
-  'MNEMONIC',
-];
-
+// Secret env-var-name detection is single-sourced in lib/secret-redaction.js (the
+// union of this dump's fragments and the structured-logger's, so neither sink can
+// lose coverage). Re-exported here under the name config-introspect.js imports.
 export function isSecretEnvName(name) {
-  const upper = String(name || '').toUpperCase();
-  return SECRET_NAME_FRAGMENTS.some((fragment) => upper.includes(fragment));
+  return isSecretName(name);
 }
 
 // Each setting:
