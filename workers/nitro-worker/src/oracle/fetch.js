@@ -11,7 +11,7 @@ import {
   cappedDurationMs,
 } from '../platform/core.js';
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from './providers.js';
-import { buildSignedResultEnvelope, buildVerificationEnvelope } from '../chain/index.js';
+import { buildSignedResultEnvelope, buildLaneSignedEnvelope } from '../chain/index.js';
 import {
   decryptEncryptedToken,
   executeProgrammableOracle,
@@ -434,12 +434,8 @@ export async function buildOracleResponse(payload, mode) {
       body_json: typeof fetchResult.data === 'string' ? null : fetchResult.data,
       extracted_value: fetchResult.selected_value ?? null,
       result: executed.result,
-      output_hash: signed.output_hash,
-      signature: signed.signature,
-      public_key: signed.public_key,
-      attestation_hash: signed.attestation_hash,
-      tee_attestation: teeAttestation,
-      verification: buildVerificationEnvelope(signed, teeAttestation),
+      // D5 canonical signed-result envelope — single-sourced.
+      ...buildLaneSignedEnvelope(signed, teeAttestation),
     };
   }
 
@@ -452,11 +448,7 @@ export async function buildOracleResponse(payload, mode) {
     upstream_status: fetchResult.upstream_status,
     result: executed.result,
     extracted_value: fetchResult.selected_value ?? null,
-    output_hash: signed.output_hash,
-    signature: signed.signature,
-    public_key: signed.public_key,
-    attestation_hash: signed.attestation_hash,
-    tee_attestation: teeAttestation,
-    verification: buildVerificationEnvelope(signed, teeAttestation),
+    // D5 canonical signed-result envelope — single-sourced.
+    ...buildLaneSignedEnvelope(signed, teeAttestation),
   };
 }
