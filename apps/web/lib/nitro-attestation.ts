@@ -32,6 +32,8 @@
 
 import { createHash, webcrypto, X509Certificate } from 'node:crypto';
 
+import { buildCoseSign1SigStructure } from '@neo-morpheus-oracle/shared/cose-verify';
+
 // ---------------------------------------------------------------------------
 // Pinned AWS Nitro Enclaves root(s)
 // ---------------------------------------------------------------------------
@@ -384,58 +386,12 @@ function readFloat16(buf: Buffer, offset: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// Minimal CBOR encoder (only what COSE Sig_structure needs: array, bstr,
-// tstr, small uint maps). Used to reproduce the to-be-signed Sig_structure.
-// ---------------------------------------------------------------------------
-
-function encodeCborHead(major: number, length: number): Buffer {
-  const mt = major << 5;
-  if (length < 24) return Buffer.from([mt | length]);
-  if (length < 0x100) return Buffer.from([mt | 24, length]);
-  if (length < 0x10000) {
-    const b = Buffer.alloc(3);
-    b[0] = mt | 25;
-    b.writeUInt16BE(length, 1);
-    return b;
-  }
-  if (length < 0x100000000) {
-    const b = Buffer.alloc(5);
-    b[0] = mt | 26;
-    b.writeUInt32BE(length, 1);
-    return b;
-  }
-  const b = Buffer.alloc(9);
-  b[0] = mt | 27;
-  b.writeBigUInt64BE(BigInt(length), 1);
-  return b;
-}
-
-function encodeCborBytes(value: Buffer): Buffer {
-  return Buffer.concat([encodeCborHead(2, value.length), value]);
-}
-
-function encodeCborText(value: string): Buffer {
-  const utf8 = Buffer.from(value, 'utf8');
-  return Buffer.concat([encodeCborHead(3, utf8.length), utf8]);
-}
-
-function encodeCborArray(items: Buffer[]): Buffer {
-  return Buffer.concat([encodeCborHead(4, items.length), ...items]);
-}
-
-/**
- * COSE Sig_structure for COSE_Sign1 (RFC 8152 §4.4):
- *   Sig_structure = [ "Signature1", body_protected (bstr), external_aad (bstr), payload (bstr) ]
- * external_aad is the empty byte string for NSM documents.
- */
-function buildSig1Structure(protectedHeader: Buffer, payload: Buffer): Buffer {
-  return encodeCborArray([
-    encodeCborText('Signature1'),
-    encodeCborBytes(protectedHeader),
-    encodeCborBytes(Buffer.alloc(0)),
-    encodeCborBytes(payload),
-  ]);
-}
+// COSE Sig_structure encoder: single-sourced in @neo-morpheus-oracle/shared/cose-verify
+// (buildCoseSign1SigStructure). Previously this file carried its own copy with an
+// extra 64-bit length branch that is never reached for NSM-sized payloads (< 64KB),
+// so the two produced byte-identical Sig_structure bytes — but two copies can drift
+// silently. The decode side (CborDecoder) stays local for now (see roadmap 1.1c-HOLD:
+// NsmAttestationDocument.pcrs is a Map and tests pin Map semantics).
 
 // ---------------------------------------------------------------------------
 // COSE_Sign1 + NSM document structures
@@ -556,7 +512,7 @@ async function verifyCoseEs384(cose: CoseSign1, leaf: X509Certificate): Promise<
     throw new Error(`unexpected/forbidden COSE alg in protected header: ${String(alg)} (want -35)`);
   }
 
-  const sigStructure = buildSig1Structure(cose.protectedHeaderRaw, cose.payload);
+  const sigStructure = buildCoseSign1SigStructure(cose.protectedHeaderRaw, cose.payload);
 
   // AWS NSM COSE signatures are raw P-384 r||s (96 bytes). WebCrypto ECDSA
   // verify consumes exactly that fixed-width concatenation.
@@ -991,10 +947,5 @@ export const __internals = {
   CborDecoder,
   decodeCoseSign1,
   decodeNsmPayload,
-  buildSig1Structure,
-  encodeCborArray,
-  encodeCborBytes,
-  encodeCborText,
-  encodeCborHead,
   sha256Hex,
 };

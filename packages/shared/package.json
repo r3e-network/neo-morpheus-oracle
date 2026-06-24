@@ -16,6 +16,7 @@
       "default": "./src/cbor.js"
     },
     "./cose-verify": {
+      "types": "./src/cose-verify.d.ts",
       "default": "./src/cose-verify.js"
     },
     "./rate-limit": {
