@@ -139,7 +139,14 @@ export async function runRelayerOnce(options = {}) {
   const startedAt = Date.now();
   state.metrics.last_tick_started_at = new Date(startedAt).toISOString();
   incrementMetric(state, 'ticks_total', 1);
-  saveRelayerState(config.stateFile, state);
+  // NOTE: the prior tick-start saveRelayerState is intentionally omitted. It only updated
+  // last_tick_started_at + ticks_total — both of which Prometheus reads from IN-MEMORY
+  // state.metrics (not disk), and which the Supabase run snapshot reads from in-memory state
+  // when maybePersistRun fires (it has its own interval/activity gate). The load-bearing
+  // persisted state (processed_records, retry_queue) only changes DURING a tick, so it is
+  // captured by the tick-end write below. Skipping this write removes one full-state
+  // serialize + atomic rename per tick even when the box is completely idle.
+  // (Round-2 R2-0.3.)
 
   const feedSync = shouldRunFeedSync(config)
     ? await processFeedSync(config, state, logger)
@@ -183,7 +190,28 @@ export async function runRelayerOnce(options = {}) {
 
   state.metrics.last_tick_completed_at = new Date().toISOString();
   state.metrics.last_tick_duration_ms = Date.now() - startedAt;
-  saveRelayerState(config.stateFile, state);
+  // Persist the tick-end state, but skip the full-state serialize + atomic rename when this
+  // tick was completely idle AND the on-disk snapshot is still fresh. The load-bearing state
+  // (processed_records, retry_queue) only mutates during an active tick; an idle tick changes
+  // only last_tick_* metrics (which Prometheus reads from memory, not disk). Skipping here
+  // removes the dominant per-tick disk I/O on idle deployments. (Round-2 R2-0.3.)
+  const tickHadActivity =
+    !feedSync?.skipped ||
+    chainResultHasActivity(neoN3) ||
+    chainResultHasActivity(neox) ||
+    Number(automation?.queued || 0) > 0 ||
+    Number(automation?.failed || 0) > 0 ||
+    Number(automation?.inspected || 0) > 0;
+  const statePersistMinIntervalMs = Math.max(Number(config.statePersistMinIntervalMs || 0), 0);
+  const lastPersistedMs = parseTimestampMs(state.updated_at);
+  const idleAndFresh =
+    !tickHadActivity &&
+    statePersistMinIntervalMs > 0 &&
+    lastPersistedMs > 0 &&
+    Date.now() - lastPersistedMs < statePersistMinIntervalMs;
+  if (!idleAndFresh) {
+    saveRelayerState(config.stateFile, state);
+  }
 
   const result = {
     instance_id: config.instanceId,
