@@ -377,6 +377,13 @@ function buildNeoN3EventFromNotificationState(eventName, decodedState, meta = {}
   return null;
 }
 
+// Per-block in-flight cap for the independent getapplicationlog reads (see the
+// note in scanNeoN3OracleRequestBlock). Kept small so the total in-flight —
+// bounded by the block-level concurrency (resolveScanConcurrency, <= 8) times
+// this — does not overwhelm the RPC node; operators hitting rate limits can lower
+// config.concurrency.
+const IN_BLOCK_APPLOG_CONCURRENCY = 4;
+
 // Scan a single block's transactions for oracle request notifications. Keeps
 // the per-tx getapplicationlog read (the only source of execution
 // notifications on Neo N3 — getblock verbose returns headers + tx bodies, not
@@ -387,10 +394,19 @@ async function scanNeoN3OracleRequestBlock(config, height, targetContract) {
   const events = [];
   const block = await neoRpcCall(config, 'getblock', [height, 1]);
   const transactions = Array.isArray(block?.tx) ? block.tx : [];
-  for (const transaction of transactions) {
-    const txHash = transaction.txid || transaction.hash;
-    if (!txHash) continue;
-    const appLog = await neoRpcCall(config, 'getapplicationlog', [txHash]);
+  // The per-tx getapplicationlog reads are independent, so fetch them under a
+  // small bounded concurrency instead of serially (a per-block N+1).
+  // mapWithConcurrency preserves input order and rejects on the first error, so
+  // the in-block ordering AND the fail-fast cursor safety are both unchanged.
+  const txHashes = transactions
+    .map((transaction) => transaction.txid || transaction.hash)
+    .filter(Boolean);
+  const appLogs = await mapWithConcurrency(txHashes, IN_BLOCK_APPLOG_CONCURRENCY, (txHash) =>
+    neoRpcCall(config, 'getapplicationlog', [txHash])
+  );
+  for (let txIndex = 0; txIndex < txHashes.length; txIndex += 1) {
+    const txHash = txHashes[txIndex];
+    const appLog = appLogs[txIndex];
     const executions = Array.isArray(appLog?.executions) ? appLog.executions : [];
     for (const execution of executions) {
       const notifications = Array.isArray(execution?.notifications) ? execution.notifications : [];
