@@ -234,7 +234,14 @@ contract MorpheusOracleEVM is IMorpheusOracleEVM {
 
     /// @notice Digest the relayer's oracle_verifier signs (bound to this contract + chain).
     function fulfillmentDigest(uint256 requestId, bool success, bytes memory result, string memory error_) public view returns (bytes32) {
-        Request storage r = _requests[requestId];
+        return _fulfillmentDigest(_requests[requestId], requestId, success, result, error_);
+    }
+
+    /// @dev Internal overload that takes the already-bound storage pointer so the
+    /// fulfillment hot path does not re-SLOAD appId/moduleId/operation it just read.
+    /// The public view fn above (used by the relayer for off-chain pre-computation)
+    /// delegates here, so both produce identical digests.
+    function _fulfillmentDigest(Request storage r, uint256 requestId, bool success, bytes memory result, string memory error_) internal view returns (bytes32) {
         return keccak256(abi.encode(
             "morpheus-evm-fulfillment-v1", block.chainid, address(this),
             requestId, keccak256(bytes(r.appId)), keccak256(bytes(r.moduleId)), keccak256(bytes(r.operation)),
@@ -248,7 +255,7 @@ contract MorpheusOracleEVM is IMorpheusOracleEVM {
         Request storage r = _requests[requestId];
         if (r.status != Status.Pending) revert RequestNotPending();
         // verify the result is signed by the oracle verifier (ecrecover over the EIP-191 personal digest)
-        bytes32 digest = fulfillmentDigest(requestId, success, result, error_);
+        bytes32 digest = _fulfillmentDigest(r, requestId, success, result, error_);
         bytes32 ethSigned = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", digest));
         if (_recover(ethSigned, signature) != oracleVerifier) revert BadSignature();
 

@@ -168,8 +168,15 @@ namespace MorpheusOracle.Contracts
 
         private static void IndexPairIfNeeded(string pair)
         {
-            ByteString existing = FeedMap().Get(pair);
-            if (existing != null) return;
+            IndexPairIfNeeded(pair, FeedMap().Get(pair));
+        }
+
+        // The caller of UpdateFeedInternal / AdminResetFeed already fetched the pair's raw
+        // bytes for its own stale/overwrite checks; accept that snapshot here so the index
+        // existence test does not re-Storage.Get the same key (one SLOAD saved per write).
+        private static void IndexPairIfNeeded(string pair, ByteString existingRaw)
+        {
+            if (existingRaw != null) return;
 
             BigInteger count = GetPairCount();
             PairIndexMap().Put(count.ToByteArray(), pair);
@@ -246,12 +253,14 @@ namespace MorpheusOracle.Contracts
             ByteString existingRaw = FeedMap().Get(pair);
             if (existingRaw != null)
             {
-                FeedRecord existing = GetLatest(pair);
+                // Deserialize the bytes we already fetched rather than re-reading the pair
+                // via GetLatest (which Storage.Get's the same key again). One SLOAD saved.
+                FeedRecord existing = (FeedRecord)StdLib.Deserialize(existingRaw);
                 ExecutionEngine.Assert(roundId > existing.RoundId, "stale round");
                 ExecutionEngine.Assert(timestamp >= existing.Timestamp, "stale timestamp");
             }
 
-            IndexPairIfNeeded(pair);
+            IndexPairIfNeeded(pair, existingRaw);
 
             FeedRecord record = new FeedRecord
             {

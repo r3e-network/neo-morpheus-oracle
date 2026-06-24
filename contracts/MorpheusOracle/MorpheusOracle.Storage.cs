@@ -169,18 +169,18 @@ namespace MorpheusOracle.Contracts
             return module;
         }
 
-        private static void IndexMiniAppIfNeeded(string appId)
+        private static void IndexMiniAppIfNeeded(string appId, BigInteger existingCreatedAt)
         {
-            if (GetMiniApp(appId).CreatedAt > 0) return;
+            if (existingCreatedAt > 0) return;
 
             BigInteger count = GetMiniAppCount();
             AppIndexMap().Put(count.ToByteArray(), appId);
             Storage.Put(Storage.CurrentContext, PREFIX_APP_COUNT, count + 1);
         }
 
-        private static void IndexSystemModuleIfNeeded(string moduleId)
+        private static void IndexSystemModuleIfNeeded(string moduleId, BigInteger existingCreatedAt)
         {
-            if (GetSystemModule(moduleId).CreatedAt > 0) return;
+            if (existingCreatedAt > 0) return;
 
             BigInteger count = GetSystemModuleCount();
             ModuleIndexMap().Put(count.ToByteArray(), moduleId);
@@ -226,7 +226,7 @@ namespace MorpheusOracle.Contracts
             MiniAppRecord prior = GetMiniApp(appId);
             if (prior.CreatedAt == 0)
             {
-                IndexMiniAppIfNeeded(appId);
+                IndexMiniAppIfNeeded(appId, prior.CreatedAt);
             }
 
             // Maintain the callback->appId reverse index. Drop the stale mapping when the
@@ -280,9 +280,10 @@ namespace MorpheusOracle.Contracts
 
         private static void PutSystemModule(string moduleId, string endpoint, string schemaHash, bool active, BigInteger createdAt)
         {
-            if (GetSystemModule(moduleId).CreatedAt == 0)
+            SystemModuleRecord prior = GetSystemModule(moduleId);
+            if (prior.CreatedAt == 0)
             {
-                IndexSystemModuleIfNeeded(moduleId);
+                IndexSystemModuleIfNeeded(moduleId, prior.CreatedAt);
             }
 
             SystemModuleRecord module = new SystemModuleRecord
