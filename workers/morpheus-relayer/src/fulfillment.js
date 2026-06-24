@@ -370,6 +370,13 @@ export function resetLocalVerifierCacheForTests() {
   localVerifierAccountCache.clear();
 }
 
+// Test-only: expose the resolver so the memoization contract (cached across calls,
+// fresh after reset, isolated by network/key) can be asserted directly. The function
+// is otherwise an internal helper of signFulfillmentPayload.
+export function resolveLocalVerifierAccountForTests(config) {
+  return resolveLocalVerifierAccount(config);
+}
+
 export async function signFulfillmentPayload(config, chain, fulfillment) {
   // Neo X (EVM): keccak digest + secp256k1 EIP-191 signature (ecrecover on-chain).
   // The Nitro enclave signs secp256r1 only, so this never touches /sign/payload.

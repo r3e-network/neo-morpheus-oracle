@@ -78,6 +78,11 @@ test('buildSignAndBroadcastNeoN3Tx builds, fees, double-signs, and broadcasts a 
       calls.map((entry) => entry.method),
       ['getblockcount', 'invokescript', 'calculatenetworkfee', 'sendrawtransaction']
     );
+    // R2-1.2: this single getblockcount also pins the removal of the redundant pre-flight
+    // health probe from fulfillNeoN3Request (Round-1 change b7642ba). buildSignAndBroadcastNeoN3Tx
+    // is the actual submit path that probe used to pre-empt; asserting exactly one getblockcount
+    // here means a re-added probe would surface as a second entry. (A direct fulfillNeoN3Request-
+    // level test is impractical — neon's high-level SmartContract.invoke bypasses global.fetch.)
     assert.deepEqual(calls[3].params, [signedBase64]);
   } finally {
     global.fetch = originalFetch;

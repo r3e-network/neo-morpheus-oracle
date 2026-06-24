@@ -14,10 +14,12 @@ import {
   isTerminalConfigurationError,
   isTransientWorkerStatus,
   processEvent,
+  resetLocalVerifierCacheForTests,
   resolveCallbackRetryCeiling,
   resolveEventFulfillmentContext,
   resolveExpectedPcr0,
   resolveFulfillmentSigningContext,
+  resolveLocalVerifierAccountForTests,
   resolveNitroRootCertPem,
   trimOnchainErrorMessage,
   verifyEnclaveAttestation,
@@ -2326,6 +2328,102 @@ describe('verifyEnclaveSignatureAgainstPinnedVerifier (digest-sig)', () => {
       else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = saved.allow;
       if (saved.key === undefined) delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET;
       else process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET = saved.key;
+    }
+  });
+});
+
+// ===================================================================
+// resolveLocalVerifierAccount memoization (R2-1.1 — locks in the Round-1 perf win)
+// ===================================================================
+// The memo (fulfillment.js:328) skips the NEO_N3_SIGNER_ENV_KEYS scan + secp256r1
+// derivation on every signed callback. These tests pin the three properties a wrong
+// cache would silently break: (a) a second call returns the SAME (cached) account
+// object — reference-equal, proving no re-derivation; (b) after the test-only reset,
+// the next call re-derives a FRESH object (different identity); (c) a different
+// network resolves independently (cache isolation by network+key).
+
+describe('resolveLocalVerifierAccount memoization', () => {
+  // A valid Neo N3 test WIF + its derived public key (generated via neon-js, not a live key).
+  const VERIFIER_WIF = 'KxKbVtgf3iENAickUsBBMd374A4juokbFgFbD6ynJWNUtCjHWttj';
+  const ENV_KEY = 'MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET';
+
+  function withVerifierEnv(fn) {
+    return async () => {
+      resetLocalVerifierCacheForTests();
+      const savedKey = process.env[ENV_KEY];
+      const savedAllow = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+      process.env[ENV_KEY] = VERIFIER_WIF;
+      // Bypass the pinned-identity match (config/signer-identities.json) so any valid WIF
+      // is accepted as the oracle_verifier — this test is about the CACHE, not key identity.
+      process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+      try {
+        await fn();
+      } finally {
+        if (savedKey === undefined) delete process.env[ENV_KEY];
+        else process.env[ENV_KEY] = savedKey;
+        if (savedAllow === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+        else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = savedAllow;
+        resetLocalVerifierCacheForTests();
+      }
+    };
+  }
+
+  // Minimal config: the verifier env var both (a) pins the expected public key via
+  // resolvePinnedNeoN3VerifierPublicKey and (b) is a candidate itself (the explicit
+  // oracle_verifier WIF). So { network: 'testnet' } alone resolves the account.
+  const config = () => ({ network: 'testnet' });
+
+  it(
+    'returns a reference-equal account across two calls (cache hit, no re-derivation)',
+    withVerifierEnv(() => {
+      const first = resolveLocalVerifierAccountForTests(config());
+      assert.ok(first, 'expected a resolved verifier account for the pinned WIF');
+      const second = resolveLocalVerifierAccountForTests(config());
+      // Reference equality proves the second call hit the cache rather than re-running
+      // reportPinnedNeoN3Role + buildLocalNeoN3Account.
+      assert.equal(second, first, 'second call must return the cached account object');
+    })
+  );
+
+  it(
+    're-derives a fresh account object after resetLocalVerifierCacheForTests',
+    withVerifierEnv(() => {
+      const first = resolveLocalVerifierAccountForTests(config());
+      resetLocalVerifierCacheForTests();
+      const second = resolveLocalVerifierAccountForTests(config());
+      assert.notEqual(
+        second,
+        first,
+        'after reset, a NEW account object must be derived (different identity)'
+      );
+      // Same key material, just a different object — the publicKey must still match.
+      assert.equal(second.publicKey, first.publicKey);
+    })
+  );
+
+  it('isolates the cache by network (mainnet slot is independent of testnet)', () => {
+    resetLocalVerifierCacheForTests();
+    const savedKey = process.env[ENV_KEY];
+    const savedAllow = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+    process.env[ENV_KEY] = VERIFIER_WIF;
+    process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
+    try {
+      const testnetAccount = resolveLocalVerifierAccountForTests({ network: 'testnet' });
+      assert.ok(testnetAccount, 'testnet account resolved from the pinned verifier WIF');
+      // The mainnet slot has no pinned verifier key here, so resolvePinnedNeoN3VerifierPublicKey
+      // throws — that throw itself proves the network-keyed cache did not leak the testnet
+      // account into the mainnet slot.
+      assert.throws(
+        () => resolveLocalVerifierAccountForTests({ network: 'mainnet' }),
+        /oracle_verifier signer drift|no pinned verifier public key/i,
+        'mainnet must not resolve to the testnet-cached account (cache isolation)'
+      );
+    } finally {
+      if (savedKey === undefined) delete process.env[ENV_KEY];
+      else process.env[ENV_KEY] = savedKey;
+      if (savedAllow === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
+      else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = savedAllow;
+      resetLocalVerifierCacheForTests();
     }
   });
 });
