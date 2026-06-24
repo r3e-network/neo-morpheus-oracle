@@ -1156,12 +1156,18 @@ namespace MorpheusOracle.Contracts
             {
                 try
                 {
+                    // Prefer the rich onMiniAppResult callback (carries appId + requester so
+                    // the consumer is not forced to record appId="legacy"/requester=null).
+                    // The manifest permits both methods (see ContractPermission attributes).
                     Contract.Call(
                         req.CallbackContract,
-                        LEGACY_CALLBACK_METHOD,
+                        CALLBACK_METHOD,
                         CallFlags.All,
                         requestId,
+                        req.AppId,
+                        req.ModuleId,
                         req.Operation,
+                        req.Requester,
                         req.Success,
                         req.Result,
                         req.Error
@@ -1169,7 +1175,27 @@ namespace MorpheusOracle.Contracts
                 }
                 catch
                 {
-                    // Inbox persistence is canonical. External callbacks are best-effort extensions only.
+                    try
+                    {
+                        // Fallback for consumers that only implement the 5-arg legacy adapter
+                        // (every already-deployed consumer). A reverted onMiniAppResult call
+                        // rolls back fully before this runs, so the consumer is never left in a
+                        // partial state.
+                        Contract.Call(
+                            req.CallbackContract,
+                            LEGACY_CALLBACK_METHOD,
+                            CallFlags.All,
+                            requestId,
+                            req.Operation,
+                            req.Success,
+                            req.Result,
+                            req.Error
+                        );
+                    }
+                    catch
+                    {
+                        // Inbox persistence is canonical. External callbacks are best-effort extensions only.
+                    }
                 }
             }
 

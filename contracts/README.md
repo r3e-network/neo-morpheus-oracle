@@ -82,10 +82,14 @@ next `ContractManagement.Update`:
 - **Callback reverse-mapping uniqueness (OR-D-03)**: `PutMiniApp` (and `RebuildIndexes`) must
   assert `CallbackIndexMap[callbackContract]` is empty or already equals the appId before
   writing, or any account can repoint another app's callback routing (last-write-wins).
-- **`onOracleResult` is the only dispatched callback**: `FulfillRequest` always calls
-  `onOracleResult(requestId, operation, success, result, error)`; `onMiniAppResult` is never
-  invoked (dead constant + manifest permission). A consumer implementing only `onMiniAppResult`
-  silently receives nothing — the failure is swallowed by the kernel's try/catch.
+- **Rich `onMiniAppResult` dispatch (fixed in source; pending the next Update)**: the source
+  now delivers `onMiniAppResult(requestId, appId, moduleId, operation, requester, success,
+result, error)` and falls back to the legacy `onOracleResult(requestId, operation, success,
+result, error)` for consumers that only implement the 5-arg adapter, so consumers built
+  against `onMiniAppResult` receive the real appId + requester instead of recording
+  appId="legacy"/requester=null. Both calls are best-effort (swallowed on failure). Until the
+  next `ContractManagement.Update` deploys this, the LIVE kernel `0xf54d8584` still calls only
+  `onOracleResult`.
 - **`ExpireStaleRequest` writes no inbox item**: expiry refunds and emits
   `RequestExpired`/`MiniAppRequestCompleted` but stores no `InboxItem`, so inbox polling can
   never observe it. Consumers must treat `GetRequest().Status` as the source of truth and
