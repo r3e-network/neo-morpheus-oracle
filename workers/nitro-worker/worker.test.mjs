@@ -40,7 +40,7 @@ process.env.SUPABASE_URL = '';
 process.env.SUPABASE_SERVICE_ROLE_KEY = '';
 process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = 'true';
 process.env.MORPHEUS_ALLOW_EPHEMERAL_KEY = 'true';
-process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0x5b492098fc094c760402e01f7e0b631b939d2bea';
+process.env.CONTRACT_MORPHEUS_ORACLE_HASH = '0xf54d8584ef82315c1800373272ab08ae0db2d5ef';
 process.env.NEODID_SECRET_SALT = 'worker-test-neodid-salt';
 process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
 delete process.env.WEB3AUTH_CLIENT_ID;
@@ -732,7 +732,7 @@ test('neodid recovery-ticket rejects an unverified provider_uid by default (E3 f
       headers: authHeaders(),
       body: JSON.stringify({
         provider: 'github',
-        aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+        aa_contract: '0xf54d8584ef82315c1800373272ab08ae0db2d5ef',
         account_id: 'aa-social-recovery-demo',
         new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
         recovery_nonce: '7',
@@ -768,7 +768,7 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
         headers: authHeaders(),
         body: JSON.stringify({
           provider: 'github',
-          aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+          aa_contract: '0xf54d8584ef82315c1800373272ab08ae0db2d5ef',
           verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
           account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
           account_id: 'aa-social-recovery-demo',
@@ -796,7 +796,7 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
         Buffer.concat([
           NEODID_RECOVERY_DOMAIN,
           encodeLengthPrefixedAscii('neo_n3'),
-          Buffer.from('0x5b492098fc094c760402e01f7e0b631b939d2bea'.replace(/^0x/, ''), 'hex'),
+          Buffer.from('0xf54d8584ef82315c1800373272ab08ae0db2d5ef'.replace(/^0x/, ''), 'hex'),
           Buffer.from('0x03013f49c42a14546c8bbe58f9d434c3517fccab'.replace(/^0x/, ''), 'hex'),
           Buffer.from('0x6d0656f6dd91469db1c90cc1e574380613f43738'.replace(/^0x/, ''), 'hex'),
           encodeLengthPrefixedAscii('aa-social-recovery-demo'),
@@ -817,7 +817,7 @@ test('neodid recovery-ticket supports confidential provider payloads and binds A
         headers: authHeaders(),
         body: JSON.stringify({
           provider: 'github',
-          aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+          aa_contract: '0xf54d8584ef82315c1800373272ab08ae0db2d5ef',
           account_id: 'aa-social-recovery-demo',
           new_owner: '0x89b05cac00804648c666b47ecb1c57bc185821b7',
           recovery_nonce: '8',
@@ -871,7 +871,7 @@ test('neodid recovery-ticket accepts confidential web3auth id_token payloads', a
       headers: authHeaders(),
       body: JSON.stringify({
         provider: 'web3auth',
-        aa_contract: '0x5b492098fc094c760402e01f7e0b631b939d2bea',
+        aa_contract: '0xf54d8584ef82315c1800373272ab08ae0db2d5ef',
         verifier_contract: '0x03013f49c42a14546c8bbe58f9d434c3517fccab',
         account_address: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
         account_id: 'aa-social-recovery-demo',
@@ -1320,11 +1320,11 @@ test.after(() => {
 
 test('txproxy allowlist permits Oracle fulfillRequest and queueAutomationRequest', async () => {
   assert.equal(
-    allowlistAllows('0x5b492098fc094c760402e01f7e0b631b939d2bea', 'fulfillRequest'),
+    allowlistAllows('0xf54d8584ef82315c1800373272ab08ae0db2d5ef', 'fulfillRequest'),
     true
   );
   assert.equal(
-    allowlistAllows('0x5b492098fc094c760402e01f7e0b631b939d2bea', 'queueAutomationRequest'),
+    allowlistAllows('0xf54d8584ef82315c1800373272ab08ae0db2d5ef', 'queueAutomationRequest'),
     true
   );
 });

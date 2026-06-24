@@ -23,7 +23,7 @@ Current Neo N3 anchors:
 | Oracle runtime API            | `https://oracle.meshmini.app/mainnet`                                                  | `https://oracle.meshmini.app/testnet`                                           |
 | Oracle attestation explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`        | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
 | Datafeed attestation explorer | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`        | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` |
-| `MorpheusOracle` kernel       | `0x5b492098fc094c760402e01f7e0b631b939d2bea` via `oracle.morpheus.neo`                 | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
+| `MorpheusOracle` kernel       | `0xf54d8584ef82315c1800373272ab08ae0db2d5ef` via `oracle.morpheus.neo`                 | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
 | `OracleCallbackConsumer` opt. | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                           | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
 | `MorpheusDataFeed` module     | `0x03013f49c42a14546c8bbe58f9d434c3517fccab` via `pricefeed.morpheus.neo`              | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
 | `AbstractAccount`             | `0x0268a387913b250166ddec032b03332690a1ef78` via `smartwallet.neo` / `aa.morpheus.neo` | `0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2`                                    |

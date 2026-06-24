@@ -20,7 +20,7 @@ const AUTH_TOKEN =
   process.env.MORPHEUS_RUNTIME_TOKEN ||
   process.env.PHALA_API_TOKEN ||
   '';
-const ORACLE_CONTRACT = process.env.ORACLE_CONTRACT || '0x5b492098fc094c760402e01f7e0b631b939d2bea';
+const ORACLE_CONTRACT = process.env.ORACLE_CONTRACT || '0xf54d8584ef82315c1800373272ab08ae0db2d5ef';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = parseInt(process.env.NEO_NETWORK_MAGIC || '860833102');
 
