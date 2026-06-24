@@ -153,49 +153,79 @@ export async function processChain(config, state, logger, chain, options) {
   // redeliveries that need no fresh chain-tip read. On a discovery throw, log
   // and fall through to runDueRetries WITHOUT advancing last_block (the cursor
   // only advances on a successful scan below).
+  //
+  // Idle-discovery backoff (Round-2 R2-0.1): when a chain has had NO scanned
+  // events AND no due retries for consecutive ticks, skip the getLatestBlock +
+  // scan RPCs entirely until the backoff window elapses. This cuts steady-state
+  // Neo-RPC load on idle deployments. The backoff is conservative:
+  //   - DISABLED by default (config.discoveryIdleBackoffMs <= 0 means always scan).
+  //   - Reset to zero the moment any events are scanned OR any retry is due.
+  //   - runDueRetries ALWAYS runs regardless of backoff, so due callbacks are
+  //     never delayed (the existing discovery-failure fallthrough guarantees this).
+  const discoveryIdleBackoffMs = Math.max(Number(config.discoveryIdleBackoffMs || 0), 0);
+  const dueRetriesBeforeDiscovery = getDueRetryItems(state, chain);
+  let skipDiscoveryForIdle = false;
+  if (discoveryIdleBackoffMs > 0 && dueRetriesBeforeDiscovery.length === 0) {
+    const lastScanMs = Number(state[chain].last_discovery_at || 0);
+    if (lastScanMs > 0 && Date.now() - lastScanMs < discoveryIdleBackoffMs) {
+      skipDiscoveryForIdle = true;
+      incrementMetric(state, 'discovery_idle_skips_total');
+    }
+  } else {
+    state[chain].idle_discovery_skips = 0;
+  }
   let scannedBlocks = null;
   let eventResults = [];
   const observedRequestIds = new Set();
 
   try {
-    const latestBlock = await options.getLatestBlock(config);
-    const confirmedTip = latestBlock - Math.max(config.confirmations[chain], 0);
+    if (skipDiscoveryForIdle) {
+      // Idle backoff active and nothing due: skip the discovery RPCs entirely.
+      // runDueRetries below still runs (and dueRetriesBeforeDiscovery was empty), so
+      // no callback is delayed. The cursor is NOT advanced — the next scan after the
+      // backoff window picks up exactly where it left off.
+      logger.debug({ chain }, 'Skipping idle-chain discovery RPC (backoff)');
+    } else {
+      state[chain].last_discovery_at = Date.now();
+      const latestBlock = await options.getLatestBlock(config);
+      const confirmedTip = latestBlock - Math.max(config.confirmations[chain], 0);
 
-    if (confirmedTip >= 0) {
-      const fromBlock = resolveChainFromBlock(config, state, chain, confirmedTip, logger);
-      if (fromBlock <= confirmedTip) {
-        const toBlock = Math.min(confirmedTip, fromBlock + config.maxBlocksPerTick - 1);
-        const scannedEvents = await options.scan(config, fromBlock, toBlock);
-        incrementMetric(state, 'events_scanned_total', scannedEvents.length);
-        const filtered = filterNewEvents(state, chain, scannedEvents);
-        incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
-        await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
-        const deferred = await deferEventsForBackpressure(
-          config,
-          state,
-          logger,
-          chain,
-          filtered.events,
-          persistState
-        );
-        eventResults = deferred.processable.length
-          ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
-              processEvent(config, state, persistState, logger, event)
-            )
-          : [];
-        for (const event of deferred.processable) {
-          observedRequestIds.add(String(event.requestId || ''));
+      if (confirmedTip >= 0) {
+        const fromBlock = resolveChainFromBlock(config, state, chain, confirmedTip, logger);
+        if (fromBlock <= confirmedTip) {
+          const toBlock = Math.min(confirmedTip, fromBlock + config.maxBlocksPerTick - 1);
+          const scannedEvents = await options.scan(config, fromBlock, toBlock);
+          incrementMetric(state, 'events_scanned_total', scannedEvents.length);
+          const filtered = filterNewEvents(state, chain, scannedEvents);
+          incrementMetric(state, 'duplicates_skipped_total', filtered.duplicates);
+          await persistFreshEventsToDurableQueue(config, logger, chain, filtered.events);
+          const deferred = await deferEventsForBackpressure(
+            config,
+            state,
+            logger,
+            chain,
+            filtered.events,
+            persistState
+          );
+          eventResults = deferred.processable.length
+            ? await mapWithConcurrency(deferred.processable, config.concurrency, (event) =>
+                processEvent(config, state, persistState, logger, event)
+              )
+            : [];
+          for (const event of deferred.processable) {
+            observedRequestIds.add(String(event.requestId || ''));
+          }
+          state[chain].last_block = toBlock;
+          persistState();
+          scannedBlocks = {
+            from: fromBlock,
+            to: toBlock,
+            latest: latestBlock,
+            confirmed_tip: confirmedTip,
+          };
         }
-        state[chain].last_block = toBlock;
-        persistState();
-        scannedBlocks = {
-          from: fromBlock,
-          to: toBlock,
-          latest: latestBlock,
-          confirmed_tip: confirmedTip,
-        };
       }
-    }
+    } // end else (non-idle discovery)
   } catch (error) {
     incrementMetric(state, 'discovery_failures_total');
     logger.warn(

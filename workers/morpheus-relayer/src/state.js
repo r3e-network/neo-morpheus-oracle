@@ -11,6 +11,9 @@ function defaultChainState() {
   return {
     last_block: null,
     last_request_id: null,
+    // Timestamp (ms) of the last successful discovery RPC; used by the idle-discovery
+    // backoff (R2-0.1) to skip chain scanning on quiet ticks. 0 = never scanned yet.
+    last_discovery_at: 0,
     processed_records: {},
     processed_order: [],
     retry_queue: [],

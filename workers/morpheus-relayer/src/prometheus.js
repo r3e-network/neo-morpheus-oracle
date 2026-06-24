@@ -36,6 +36,7 @@ export const TOP_LEVEL_COUNTERS = [
   'claim_conflicts_total',
   'stale_reclaims_total',
   'discovery_failures_total',
+  'discovery_idle_skips_total',
   'reconciliation_failures_total',
   'durable_claim_skipped_during_backoff_total',
   'manual_actions_loaded_total',

@@ -303,6 +303,15 @@ export function createRelayerConfig() {
       `${mode}:${network}:${trimString(os.hostname() || 'host')}:${process.pid}`,
     activeChains,
     pollIntervalMs: Number(env('MORPHEUS_RELAYER_POLL_INTERVAL_MS') || 5000),
+    // Idle-discovery backoff (Round-2 R2-0.1): when a chain has no scanned events AND
+    // no due retries for a tick, skip the getLatestBlock + scan RPCs until this many ms
+    // have elapsed since the last scan. 0 = disabled (always scan every tick, the
+    // prior behavior). runDueRetries always runs regardless, so due callbacks are never
+    // delayed. Set e.g. 30000 to cut idle-chain RPC load to once per 30s on quiet boxes.
+    discoveryIdleBackoffMs: Math.max(
+      Number(env('MORPHEUS_RELAYER_DISCOVERY_IDLE_BACKOFF_MS') || 0),
+      0
+    ),
     concurrency: Math.max(Number(env('MORPHEUS_RELAYER_CONCURRENCY') || 4), 1),
     maxBlocksPerTick: Math.max(Number(env('MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK') || 250), 1),
     maxRetries,
