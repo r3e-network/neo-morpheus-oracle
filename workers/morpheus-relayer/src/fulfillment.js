@@ -248,6 +248,23 @@ export function resolveFulfillmentSigningContext(chain, fulfillment = {}) {
   };
 }
 
+// Resolve the digest-binding context fed to buildFulfillmentDigestBytes. Single
+// source of truth for the two neo_n3 callers that must agree byte-for-byte:
+// signFulfillmentPayload (which SIGNS the digest) and recomputeFulfillmentDigestHex
+// (which independently RECOMPUTES it to cross-check the enclave's signature before
+// submit). Both must bind the digest to the exact deployed contract + network
+// (contractScriptHash + networkMagic) the kernel's ComputeFulfillmentDigest appends
+// for cross-deployment/replay defense. Enforcing it here by construction means the
+// cross-check can no longer pass by accident because both paths shared the same bug.
+function resolveDigestBinding(config, chain, fulfillment) {
+  const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
+  if (chain === 'neo_n3') {
+    digestContext.contractScriptHash = config?.neo_n3?.oracleContract || '';
+    digestContext.networkMagic = config?.neo_n3?.networkMagic;
+  }
+  return digestContext;
+}
+
 export function resolveEventFulfillmentContext(event = {}, kernelIntent = {}) {
   // Verbatim on-chain identifiers; the internal kernel-intent mapping only fills
   // genuinely absent (empty) fields so the digest always covers the exact bytes
@@ -338,14 +355,10 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
   if (chain === 'neox') {
     return signNeoXFulfillment(config, fulfillment);
   }
-  const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
   // Bind the digest to the exact deployed contract + network so the signature
   // cannot be replayed across deployments/networks (matches the kernel's
   // ComputeFulfillmentDigest which appends the executing script hash + magic).
-  if (chain === 'neo_n3') {
-    digestContext.contractScriptHash = config?.neo_n3?.oracleContract || '';
-    digestContext.networkMagic = config?.neo_n3?.networkMagic;
-  }
+  const digestContext = resolveDigestBinding(config, chain, fulfillment);
   // Pass chain + kernel envelope fields so the digest matches the on-chain
   // contract's ComputeFulfillmentDigest. Legacy Neo N3 callbacks still use
   // the requestType-based digest when appId/moduleId/operation are absent.
@@ -433,11 +446,7 @@ function recomputeFulfillmentDigestHex(config, chain, fulfillment) {
     // buildNeoXDigest returns a 0x-prefixed keccak hex; normalize for comparison.
     return normalizePublicKey(buildNeoXDigest(config, fulfillment, resultBytesHex));
   }
-  const digestContext = resolveFulfillmentSigningContext(chain, fulfillment);
-  if (chain === 'neo_n3') {
-    digestContext.contractScriptHash = config?.neo_n3?.oracleContract || '';
-    digestContext.networkMagic = config?.neo_n3?.networkMagic;
-  }
+  const digestContext = resolveDigestBinding(config, chain, fulfillment);
   const digestBytes = buildFulfillmentDigestBytes(
     fulfillment.requestId,
     fulfillment.requestType,
