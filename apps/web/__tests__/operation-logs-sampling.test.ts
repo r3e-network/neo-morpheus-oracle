@@ -29,7 +29,8 @@ vi.mock('@/lib/server-supabase', () => ({
 vi.mock('@/lib/betterstack-log-sink', () => ({ emitBetterStackOperationLog }));
 
 async function importModule() {
-  return import('../lib/operation-logs');
+  const mod = await import('../lib/operation-logs');
+  return { ...mod, flush: mod.flushPendingOperationLogs };
 }
 
 describe('operation log monitoring-read sampling', () => {
@@ -42,7 +43,7 @@ describe('operation log monitoring-read sampling', () => {
   });
 
   it('samples successful monitoring GET probes 1-in-N per route', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     for (let index = 0; index < 40; index += 1) {
       await recordOperationLog({
         route: '/api/runtime/status',
@@ -52,13 +53,14 @@ describe('operation log monitoring-read sampling', () => {
         httpStatus: 200,
       });
     }
+    await flush();
     // Default rate 20: probes 1 and 21 land, the other 38 are sampled out.
     expect(insertedRows.length).toBe(2);
     expect(emitBetterStackOperationLog).toHaveBeenCalledTimes(2);
   });
 
   it('tracks sampling counters per route', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     for (const route of ['/api/health', '/api/onchain/state', '/api/feeds/status']) {
       await recordOperationLog({
         route,
@@ -68,13 +70,14 @@ describe('operation log monitoring-read sampling', () => {
         httpStatus: 200,
       });
     }
+    await flush();
     // First probe of each route always logs.
     expect(insertedRows.length).toBe(3);
   });
 
   it('honors MORPHEUS_OPERATION_LOG_SAMPLE_RATE overrides', async () => {
     process.env.MORPHEUS_OPERATION_LOG_SAMPLE_RATE = '5';
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     for (let index = 0; index < 10; index += 1) {
       await recordOperationLog({
         route: '/api/networks',
@@ -84,11 +87,12 @@ describe('operation log monitoring-read sampling', () => {
         httpStatus: 200,
       });
     }
+    await flush();
     expect(insertedRows.length).toBe(2);
   });
 
   it('always logs failed monitoring GETs', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     for (let index = 0; index < 5; index += 1) {
       await recordOperationLog({
         route: '/api/onchain/state',
@@ -99,11 +103,12 @@ describe('operation log monitoring-read sampling', () => {
         error: 'chain read failed',
       });
     }
+    await flush();
     expect(insertedRows.length).toBe(5);
   });
 
   it('never samples non-GET or non-monitoring traffic', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     for (let index = 0; index < 5; index += 1) {
       await recordOperationLog({
         route: '/api/oracle/query',
@@ -119,11 +124,12 @@ describe('operation log monitoring-read sampling', () => {
         httpStatus: 200,
       });
     }
+    await flush();
     expect(insertedRows.length).toBe(10);
   });
 
   it('strips upstream_candidates from GET rows but keeps it for mutations', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({
       route: '/api/runtime/status',
       method: 'GET',
@@ -138,6 +144,7 @@ describe('operation log monitoring-read sampling', () => {
       httpStatus: 200,
       metadata: { upstream_candidates: ['https://a.test'], network: 'testnet' },
     });
+    await flush();
 
     expect(insertedRows.length).toBe(2);
     const [getRow, postRow] = insertedRows;
@@ -147,7 +154,7 @@ describe('operation log monitoring-read sampling', () => {
   });
 
   it('does not mutate the caller-provided metadata object', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     const metadata = { upstream_candidates: ['https://a.test'] };
     await recordOperationLog({
       route: '/api/runtime/status',
@@ -156,6 +163,7 @@ describe('operation log monitoring-read sampling', () => {
       httpStatus: 200,
       metadata,
     });
+    await flush();
     expect(metadata.upstream_candidates).toEqual(['https://a.test']);
   });
 });

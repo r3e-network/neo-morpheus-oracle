@@ -33,7 +33,8 @@ vi.mock('@/lib/server-supabase', () => ({
 vi.mock('@/lib/betterstack-log-sink', () => ({ emitBetterStackOperationLog }));
 
 async function importModule() {
-  return import('../lib/operation-logs');
+  const mod = await import('../lib/operation-logs');
+  return { ...mod, flush: mod.flushPendingOperationLogs };
 }
 
 describe('operation log secret redaction', () => {
@@ -46,7 +47,7 @@ describe('operation log secret redaction', () => {
   });
 
   it('redacts signing_key and signingKey in both Supabase and BetterStack payloads', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({
       route: '/api/relay/transaction',
       method: 'POST',
@@ -58,6 +59,7 @@ describe('operation log secret redaction', () => {
       },
       httpStatus: 200,
     });
+    await flush();
 
     expect(insertedRows.length).toBe(1);
     const row = insertedRows[0];
@@ -70,7 +72,7 @@ describe('operation log secret redaction', () => {
   });
 
   it('redacts the mnemonic/seed/passphrase/credential family', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({
       route: '/api/sign/payload',
       method: 'POST',
@@ -83,6 +85,7 @@ describe('operation log secret redaction', () => {
       },
       httpStatus: 200,
     });
+    await flush();
 
     const row = insertedRows[0];
     expect(row.request_payload.mnemonic).toBe('[REDACTED]');
@@ -92,7 +95,7 @@ describe('operation log secret redaction', () => {
   });
 
   it('redacts raw-string payloads by value shape (raw_body/raw_payload/raw_string)', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({
       route: '/api/relay/transaction',
       method: 'POST',
@@ -105,6 +108,7 @@ describe('operation log secret redaction', () => {
       },
       httpStatus: 200,
     });
+    await flush();
 
     const row = insertedRows[0];
     expect(row.request_payload.raw_body).toMatch(/^\[REDACTED-RAW sha256:[0-9a-f]{16}\]$/);
@@ -117,7 +121,7 @@ describe('operation log secret redaction', () => {
   });
 
   it('scrubs credentials embedded in URL userinfo for any string value', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({
       route: '/api/feeds/tick',
       method: 'POST',
@@ -128,6 +132,7 @@ describe('operation log secret redaction', () => {
       },
       httpStatus: 200,
     });
+    await flush();
 
     const row = insertedRows[0];
     expect(row.request_payload.upstream).toBe('https://[REDACTED]@provider.example.com/v1/prices');
@@ -135,7 +140,7 @@ describe('operation log secret redaction', () => {
   });
 
   it('does not over-redact public key material', async () => {
-    const { recordOperationLog } = await importModule();
+    const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({
       route: '/api/sign/payload',
       method: 'POST',
@@ -147,6 +152,7 @@ describe('operation log secret redaction', () => {
       },
       httpStatus: 200,
     });
+    await flush();
 
     const row = insertedRows[0];
     expect(row.request_payload.public_key).not.toBe('[REDACTED]');

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { after } from 'next/server';
 
 import { emitBetterStackOperationLog } from './betterstack-log-sink';
 import {
@@ -215,6 +216,46 @@ function resolveOperationNetwork(
   return resolveSupabaseNetwork(fromRequest || fromMetadata);
 }
 
+// Defers log persistence until after the response is sent, so the per-request
+// Supabase INSERTs (up to two: the operation row + encrypted-secret rows) and the
+// BetterStack post never block the response. Mirrors the established pattern in
+// betterstack-log-sink.ts: after() defers work to the post-response tail of the
+// request context (kept alive by the Next.js runtime); if after() is unavailable
+// (e.g. invoked outside a request context, or under the Vitest runtime without
+// Next's request lifecycle), fall back to fire-and-forget rather than dropping
+// the log.
+//
+// The row is fully built BEFORE deferral, so no request-scoped data is referenced
+// in the tail — only the prepared insert args.
+//
+// Each scheduled persist promise is tracked in `pendingPersists` so tests can
+// deterministically await it via `flushPendingOperationLogs()` (after() is
+// non-awaitable by design, so this is the only way to observe completion in a
+// test). Production code never awaits this array.
+const pendingPersists: Array<Promise<unknown>> = [];
+
+function schedulePersist(persist: () => Promise<void>) {
+  const run = () => persist().catch(() => {});
+  try {
+    after(async () => {
+      await persist();
+    });
+  } catch {
+    // after() throws when not in a request context (or on a runtime without it);
+    // never let logging errors propagate to the caller. Fire-and-forget instead,
+    // tracking the promise so tests can flush deterministically.
+    pendingPersists.push(run());
+  }
+}
+
+/** Test-only: await all deferred operation-log persists. No-op in production. */
+export async function flushPendingOperationLogs() {
+  while (pendingPersists.length > 0) {
+    const pending = pendingPersists.splice(0);
+    await Promise.allSettled(pending);
+  }
+}
+
 export async function recordOperationLog(input: OperationLogInput) {
   try {
     if (shouldSampleOutMonitoringRead(input)) return;
@@ -222,6 +263,7 @@ export async function recordOperationLog(input: OperationLogInput) {
     const supabase = getServerSupabaseClient();
     if (!supabase) return;
 
+    // ── Build the row synchronously (only awaits what's needed to construct it) ──
     const metadata = isPlainObject(input.metadata) ? { ...input.metadata } : {};
     if (input.method.toUpperCase() === 'GET') {
       // The upstream candidate list is identical for every GET probe and only
@@ -245,8 +287,9 @@ export async function recordOperationLog(input: OperationLogInput) {
       }
     }
 
-    const operationLogs = supabase.from('morpheus_operation_logs') as any;
-    await operationLogs.insert({
+    // Capture the prepared insert payload as plain values so nothing references
+    // request-scoped objects after the response is sent.
+    const operationRow = {
       operation_id: operationId,
       network,
       route: input.route,
@@ -264,9 +307,11 @@ export async function recordOperationLog(input: OperationLogInput) {
         input.responsePayload === undefined ? null : compactJsonValue(input.responsePayload),
       error: trimString(input.error || '') || null,
       metadata: compactJsonValue(metadata),
-    });
+    };
 
-    emitBetterStackOperationLog({
+    // BetterStack post is already post-response (it uses after() internally); build
+    // its compacted payload here so no request objects leak into the deferred tail.
+    const betterStackRecord = {
       route: input.route,
       method: input.method.toUpperCase(),
       category: input.category,
@@ -279,37 +324,46 @@ export async function recordOperationLog(input: OperationLogInput) {
         input.httpStatus && input.httpStatus >= 200 && input.httpStatus < 400 ? 'ok' : 'error',
       http_status: input.httpStatus || null,
       error: trimString(input.error || '') || null,
-      request_payload: compactJsonValue(input.requestPayload),
-      response_payload:
-        input.responsePayload === undefined ? null : compactJsonValue(input.responsePayload),
-      metadata: compactJsonValue(metadata),
-    });
+      request_payload: operationRow.request_payload,
+      response_payload: operationRow.response_payload,
+      metadata: operationRow.metadata,
+    };
 
-    if (!targetChain) return;
-    const encryptedFields = collectEncryptedFields(input.requestPayload);
-    if (encryptedFields.length === 0) return;
+    // Encrypted-field rows are derived once, here, from the (still in-scope) request
+    // payload rather than inside the deferred tail.
+    const encryptedFields = targetChain ? collectEncryptedFields(input.requestPayload) : [];
 
-    const rows = encryptedFields.map((entry) => ({
-      project_id: projectId,
-      network,
-      name: `${input.route}:${operationId}:${entry.field_path}`,
-      target_chain: targetChain,
-      encryption_algorithm: entry.algorithm,
-      key_version: 1,
-      ciphertext: entry.ciphertext,
-      metadata: {
-        operation_id: operationId,
-        route: input.route,
-        method: input.method.toUpperCase(),
+    // ── Defer all I/O to the post-response tail ──
+    schedulePersist(async () => {
+      const operationLogs = supabase.from('morpheus_operation_logs') as any;
+      await operationLogs.insert(operationRow);
+
+      emitBetterStackOperationLog(betterStackRecord);
+
+      if (encryptedFields.length === 0) return;
+
+      const rows = encryptedFields.map((entry) => ({
+        project_id: projectId,
         network,
-        request_id: requestId || null,
-        field_path: entry.field_path,
-        ciphertext_sha256: sha256Hex(entry.ciphertext),
-      },
-    }));
+        name: `${input.route}:${operationId}:${entry.field_path}`,
+        target_chain: targetChain,
+        encryption_algorithm: entry.algorithm,
+        key_version: 1,
+        ciphertext: entry.ciphertext,
+        metadata: {
+          operation_id: operationId,
+          route: input.route,
+          method: input.method.toUpperCase(),
+          network,
+          request_id: requestId || null,
+          field_path: entry.field_path,
+          ciphertext_sha256: sha256Hex(entry.ciphertext),
+        },
+      }));
 
-    const encryptedSecrets = supabase.from('morpheus_encrypted_secrets') as any;
-    await encryptedSecrets.insert(rows);
+      const encryptedSecrets = supabase.from('morpheus_encrypted_secrets') as any;
+      await encryptedSecrets.insert(rows);
+    });
   } catch (error) {
     console.warn('[morpheus] failed to record operation log', error);
   }
