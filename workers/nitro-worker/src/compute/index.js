@@ -548,22 +548,27 @@ export async function executeBuiltinCompute(payload) {
           ),
         },
       };
-    case 'zkp.groth16.verify':
+    case 'zkp.groth16.verify': {
+      // Resolve the verifying key + normalized public signals ONCE and reuse them
+      // for both the size-limit check and the verification. normalizePublicSignals
+      // maps over the entire signals array, so evaluating it (and the ?? alias
+      // resolution) twice was needless work on this expensive ZK path. Behavior is
+      // unchanged: normalizePublicSignals is pure and the throw-order is preserved
+      // (it still runs before enforceZkpVerificationSizeLimit).
+      const verifyingKey = input.verifying_key ?? input.verifyingKey;
+      const publicSignals = normalizePublicSignals(input.public_signals ?? input.publicSignals);
       enforceZkpVerificationSizeLimit({
-        verifying_key: input.verifying_key ?? input.verifyingKey,
-        public_signals: normalizePublicSignals(input.public_signals ?? input.publicSignals),
+        verifying_key: verifyingKey,
+        public_signals: publicSignals,
         proof: input.proof,
       });
       return {
         function: fn,
         result: {
-          is_valid: await verifyGroth16Proof(
-            input.verifying_key ?? input.verifyingKey,
-            normalizePublicSignals(input.public_signals ?? input.publicSignals),
-            input.proof
-          ),
+          is_valid: await verifyGroth16Proof(verifyingKey, publicSignals, input.proof),
         },
       };
+    }
     case 'zkp.groth16.prove.plan': {
       const constraints = Number(input.constraints || 0);
       const witnessCount = Number(input.witness_count || input.witnessCount || 0);
