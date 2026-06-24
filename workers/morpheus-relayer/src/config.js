@@ -413,6 +413,11 @@ export function createRelayerConfig() {
         0
       ),
       claimStaleMs: Math.max(Number(env('MORPHEUS_AUTOMATION_CLAIM_STALE_MS') || 120000), 1000),
+      // Idle-fetch backoff (Round-2 R2-0.2): after a fetch returns ZERO due jobs, skip the
+      // next fetchActiveAutomationJobs query for this many ms. 0 = disabled (fetch every tick,
+      // the prior behavior). Automation jobs are inserted by the control plane, so keep this
+      // SMALL (e.g. 15000-30000) — an externally-inserted job is picked up within this window.
+      idleBackoffMs: Math.max(Number(env('MORPHEUS_AUTOMATION_IDLE_BACKOFF_MS') || 0), 0),
     },
     logFormat: env('MORPHEUS_RELAYER_LOG_FORMAT', 'LOG_FORMAT') || 'json',
     logLevel: env('MORPHEUS_RELAYER_LOG_LEVEL', 'LOG_LEVEL') || 'info',

@@ -693,12 +693,34 @@ async function queueAutomationExecution(config, job, dispatch, deps = {}) {
   };
 }
 
+// Idle-fetch backoff (Round-2 R2-0.2): automation jobs are inserted by the control plane
+// (apps/web), so the relayer cannot know when a new one arrives without polling. To cut
+// steady-state Supabase load on idle deployments, skip the fetchActiveAutomationJobs query
+// for up to automationIdleBackoffMs after a fetch that returned ZERO due jobs. The window is
+// bounded small (default disabled; a sane opt-in is 15-30s) so an externally-inserted job is
+// picked up within that window. Module-level because automation is process-singleton (one
+// processAutomationJobs per relayer, not per-chain). Reset to 0 the moment a non-empty fetch
+// returns so an active automation schedule resumes immediately.
+let lastEmptyAutomationFetchAt = 0;
+
 export async function processAutomationJobs(config, logger, deps = {}) {
   if (!config.automation.enabled) {
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
   }
   if (shouldSkipSupabasePersistence()) {
     return { queued: 0, skipped: 0, failed: 0, inspected: 0 };
+  }
+
+  // Idle-fetch backoff: if the last fetch was empty and we're still within the window,
+  // skip this fetch entirely (returns empty). An externally-inserted job is picked up on
+  // the next fetch after the window elapses. Disabled when automationIdleBackoffMs <= 0.
+  const automationIdleBackoffMs = Math.max(Number(config.automation.idleBackoffMs || 0), 0);
+  if (
+    automationIdleBackoffMs > 0 &&
+    lastEmptyAutomationFetchAt > 0 &&
+    Date.now() - lastEmptyAutomationFetchAt < automationIdleBackoffMs
+  ) {
+    return { queued: 0, skipped: 0, failed: 0, inspected: 0, idle_skipped: true };
   }
 
   const fetchJobs = deps.fetchActiveAutomationJobs || fetchActiveAutomationJobs;
@@ -712,6 +734,9 @@ export async function processAutomationJobs(config, logger, deps = {}) {
   const staleBeforeIso = new Date(now.getTime() - claimStaleMs).toISOString();
   try {
     jobs = await fetchJobs(config.automation.batchSize, dueAtIso);
+    // Track empty vs non-empty fetches for the idle backoff. A non-empty fetch resets the
+    // window so an active schedule resumes immediately; an empty fetch arms the skip.
+    lastEmptyAutomationFetchAt = jobs.length === 0 ? Date.now() : 0;
   } catch (error) {
     markSupabasePersistenceUnavailable(error);
     logger.warn({ error }, 'Supabase automation fetch unavailable; skipping automation tick');
