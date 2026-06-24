@@ -103,15 +103,19 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(adminPaysSelf || appAdminPaysSelf, "fee payer witness required");
         }
 
-        private static void ValidateRequestInputs(string appId, string moduleId, string operation, ByteString payload)
+        // Returns the already-fetched active MiniAppRecord so the caller can reuse it
+        // instead of reading + deserializing the record a second time. RequireActiveMiniApp
+        // and RequireActiveModule already assert existence + Active (producing the same
+        // "miniapp inactive" / "module inactive" reverts, and earlier), so the trailing
+        // app.Active / module.Active asserts were unreachable duplicates and are dropped.
+        private static MiniAppRecord ValidateRequestInputs(string appId, string moduleId, string operation, ByteString payload)
         {
             MiniAppRecord app = RequireActiveMiniApp(appId);
-            SystemModuleRecord module = RequireActiveModule(moduleId);
+            RequireActiveModule(moduleId);
             ExecutionEngine.Assert(operation != null && operation.Length > 0 && operation.Length <= MAX_OPERATION_LENGTH, "invalid operation");
             ExecutionEngine.Assert(payload == null || payload.Length <= MAX_PAYLOAD_LENGTH, "payload too large");
             ExecutionEngine.Assert(IsModuleGrantedToMiniApp(appId, moduleId), "module not granted");
-            ExecutionEngine.Assert(app.Active, "miniapp inactive");
-            ExecutionEngine.Assert(module.Active, "module inactive");
+            return app;
         }
 
         private static MiniAppRecord EmptyMiniApp(string appId)

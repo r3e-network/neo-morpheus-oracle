@@ -14,8 +14,10 @@ namespace MorpheusOracle.Contracts
     {
         private static BigInteger SubmitMiniAppRequestInternal(UInt160 requester, string appId, string moduleId, string operation, ByteString payload)
         {
-            ValidateRequestInputs(appId, moduleId, operation, payload);
-            MiniAppRecord app = RequireActiveMiniApp(appId);
+            // ValidateRequestInputs returns the active MiniAppRecord it already read, so
+            // we reuse it here instead of reading + deserializing the record a second time
+            // (no AppMap write happens between the two, so the re-read was pure overhead).
+            MiniAppRecord app = ValidateRequestInputs(appId, moduleId, operation, payload);
 
             UInt160 sponsor = ResolveFeePayer(appId, requester, app.FeePayer);
             BigInteger feePaid = ConsumeRequestFeeFromPayer(sponsor);
