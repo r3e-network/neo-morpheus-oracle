@@ -318,10 +318,23 @@ function buildLocalNeoN3Account(keyMaterial = '') {
   }
 }
 
+// resolveLocalVerifierAccount derives the Neo N3 signer that matches the pinned
+// oracle_verifier public key. Its inputs — config.network + process.env (resolved via
+// reportPinnedNeoN3Role, which iterates the full NEO_N3_SIGNER_ENV_KEYS set and derives
+// up to 6 EC accounts) — are immutable for the process lifetime, so the result is
+// memoized per (network, expectedPublicKey) to skip the env scan + secp256r1 key
+// derivation on every signed callback. The memo is reset between tests via
+// resetLocalVerifierCacheForTests (mirroring resetSupabasePersistenceBackoffForTests).
+const localVerifierAccountCache = new Map();
+
 function resolveLocalVerifierAccount(config) {
   const expectedPublicKey = normalizePublicKey(
     resolvePinnedNeoN3VerifierPublicKey(config.network, process.env)
   );
+  const cacheKey = `${config.network || ''}:${expectedPublicKey}`;
+  const cached = localVerifierAccountCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   const candidates = [];
 
   const explicitVerifier = reportPinnedNeoN3Role(config.network, 'oracle_verifier', {
@@ -342,11 +355,19 @@ function resolveLocalVerifierAccount(config) {
   if (workerSigner?.private_key) candidates.push(buildLocalNeoN3Account(workerSigner.private_key));
   if (workerSigner?.wif) candidates.push(buildLocalNeoN3Account(workerSigner.wif));
 
-  return (
+  const resolved =
     candidates.find(
       (account) => account && normalizePublicKey(account.publicKey) === expectedPublicKey
-    ) || null
-  );
+    ) || null;
+  localVerifierAccountCache.set(cacheKey, resolved);
+  return resolved;
+}
+
+// Test-only: clear the local-verifier memo so tests that vary env/config.network
+// (e.g. fulfillment.test.mjs sets distinct oracle_verifier keys per case) get a fresh
+// resolution. Not used in production, where network + env are fixed for the process.
+export function resetLocalVerifierCacheForTests() {
+  localVerifierAccountCache.clear();
 }
 
 export async function signFulfillmentPayload(config, chain, fulfillment) {
