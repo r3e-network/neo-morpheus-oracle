@@ -88,6 +88,8 @@ const {
   __resetFeedTxParamsProviderForTests,
   __setAttestRunnerForTests,
   __resetAttestRunnerForTests,
+  __setAsyncAttestRunnerForTests,
+  __resetAsyncAttestRunnerForTests,
   materializeOracleKeyFromKms,
   materializeNeoXVerifierKeyFromKms,
   materializeNeoXFeedKeyFromKms,
@@ -880,7 +882,7 @@ test('attestation: user_data binds sha256(fulfillment_digest) + nonce echo (stub
 
   // Stub the attest runner: capture the args the server passes, return a fake doc.
   let capturedArgs = null;
-  __setAttestRunnerForTests((args) => {
+  __setAsyncAttestRunnerForTests((args) => {
     capturedArgs = args;
     return { ok: true, attestation_b64: 'ZmFrZS1jb3NlLWRvYw==', document_len: 11 };
   });
@@ -909,11 +911,11 @@ test('attestation: user_data binds sha256(fulfillment_digest) + nonce echo (stub
     '--public-key must bind the oracle_verifier signer'
   );
 
-  __resetAttestRunnerForTests();
+  __resetAsyncAttestRunnerForTests();
 });
 
 test('attestation: GET liveness probe with no binding emits no user_data', async () => {
-  __setAttestRunnerForTests((args) => {
+  __setAsyncAttestRunnerForTests((args) => {
     // No --user-data when no binding is supplied.
     assert.equal(args.includes('--user-data'), false);
     return { ok: true, attestation_b64: 'bGl2ZW5lc3M=', document_len: 8 };
@@ -922,11 +924,11 @@ test('attestation: GET liveness probe with no binding emits no user_data', async
   assert.equal(status, 200);
   assert.equal(body.user_data_hex, null);
   assert.equal(body.attestation_document, 'bGl2ZW5lc3M=');
-  __resetAttestRunnerForTests();
+  __resetAsyncAttestRunnerForTests();
 });
 
 test('attestation: a {ok:false} nsm helper surfaces a 503 with its error', async () => {
-  __setAttestRunnerForTests(() => ({ ok: false, error: 'open /dev/nsm: not in an enclave' }));
+  __setAsyncAttestRunnerForTests(() => ({ ok: false, error: 'open /dev/nsm: not in an enclave' }));
   const { status, body } = await dispatch(
     'POST',
     '/attestation',
@@ -935,11 +937,11 @@ test('attestation: a {ok:false} nsm helper surfaces a 503 with its error', async
   );
   assert.equal(status, 503);
   assert.match(body.error, /\/dev\/nsm/);
-  __resetAttestRunnerForTests();
+  __resetAsyncAttestRunnerForTests();
 });
 
 test('attestation: a throwing nsm helper (spawn failure) surfaces a wrapped 503', async () => {
-  __setAttestRunnerForTests(() => {
+  __setAsyncAttestRunnerForTests(() => {
     throw new Error('spawn ENOENT');
   });
   const { status, body } = await dispatch(
@@ -950,7 +952,7 @@ test('attestation: a throwing nsm helper (spawn failure) surfaces a wrapped 503'
   );
   assert.equal(status, 503);
   assert.match(body.error, /nsm attestation helper failed/);
-  __resetAttestRunnerForTests();
+  __resetAsyncAttestRunnerForTests();
 });
 
 test('attestation: a malformed (odd-length) binding hex is rejected with 400', async () => {
@@ -1036,7 +1038,7 @@ test('oracle/fulfill binds an attestation document committing sha256(fulfillment
 
   // Stub the attest runner so it returns a REAL COSE_Sign1 whose user_data is the
   // commitment the server passes (--user-data sha256(digest)) and a known PCR0.
-  __setAttestRunnerForTests((args) => {
+  __setAsyncAttestRunnerForTests((args) => {
     const argMap = {};
     for (let i = 0; i < args.length; i += 2) argMap[args[i]] = args[i + 1];
     const doc = buildFakeAttestationDoc({ userDataHex: argMap['--user-data'], pcr0Hex: PCR0 });
@@ -1070,13 +1072,13 @@ test('oracle/fulfill binds an attestation document committing sha256(fulfillment
   // The PCR0 the relayer pins is surfaced from the parsed document.
   assert.equal(body.attestation_pcrs.pcr0, PCR0);
   assert.equal(body.nonce, 'cafebabe');
-  __resetAttestRunnerForTests();
+  __resetAsyncAttestRunnerForTests();
 });
 
 test('oracle/fulfill still signs when attestation is unavailable (best-effort C1)', async () => {
   // A throwing/absent NSM binary must NOT break the signed fulfillment — the
   // relayer enforces and downgrades trust_tier when it cannot prove attestation.
-  __setAttestRunnerForTests(() => {
+  __setAsyncAttestRunnerForTests(() => {
     throw new Error('spawn ENOENT (no nsm binary outside an enclave)');
   });
   const requestType = 'oracle_query';
@@ -1096,7 +1098,7 @@ test('oracle/fulfill still signs when attestation is unavailable (best-effort C1
   assert.ok(body.signature, 'signature must still be produced');
   assert.equal(body.attestation_doc_base64, undefined, 'no doc when the binary is unavailable');
   assert.ok(body.attestation_error, 'the attestation failure is surfaced for ops');
-  __resetAttestRunnerForTests();
+  __resetAsyncAttestRunnerForTests();
 });
 
 // ---------------------------------------------------------------------------

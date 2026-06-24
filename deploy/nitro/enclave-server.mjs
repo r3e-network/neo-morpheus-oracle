@@ -25,7 +25,7 @@
 //   - `GET /health`          — compute + signer readiness.
 
 import http from 'node:http';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 // Canonical compute reuse — the worker's default export `handler(Request)=>Response`.
@@ -770,7 +770,7 @@ export async function handleOracleFulfill(requestBody) {
   // prove attestation, so the lane keeps fulfilling. The freshness nonce (when
   // supplied) is echoed into the document's report_data.
   try {
-    const attestation = handleAttestation({
+    const attestation = await handleAttestation({
       fulfillment_digest_hex: digestHex,
       ...(nonce ? { nonce } : {}),
       role: 'oracle_verifier',
@@ -1334,6 +1334,61 @@ export function __resetAttestRunnerForTests() {
   activeAttestRunner = defaultAttestRunner;
 }
 
+// Async attestation runner (Round-2 R2-2.2). The HOT path — handleAttestation, called by
+// every /oracle/fulfill + /oracle/feed — used defaultAttestRunner, which calls execFileSync
+// and BLOCKS the single-threaded Node event loop for the /dev/nsm ioctl (up to 8s). Two
+// simultaneous fulfills serialized on it. This async variant uses node:child_process
+// execFile (callback form) wrapped in a Promise, so the event loop serves other requests
+// during the NSM round-trip. The produced bytes are IDENTICAL (same binary, same args,
+// same stdio/timeout/diag-attachment) — only the blocking behavior changes.
+//
+// The KMS-materialization cold path (runKmsDiag / materialize*FromKms) stays on the SYNC
+// defaultAttestRunner — it runs only at /provision (not concurrent), so the sync block is
+// harmless there, and keeping it sync avoids a sweeping async cascade through those callers.
+function defaultAsyncAttestRunner(args) {
+  const timeoutMs = Array.isArray(args) && args[0] === 'kms-decrypt' ? 25000 : 8000;
+  return new Promise((resolve, reject) => {
+    execFile(
+      DEFAULT_ATTEST_BIN,
+      args,
+      { timeout: timeoutMs, maxBuffer: 4 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] },
+      (error, stdout, stderr) => {
+        if (error) {
+          if (!error.__diagAttached) {
+            const parts = [];
+            if (error.signal) parts.push(`signal=${error.signal}`);
+            if (error.status != null) parts.push(`status=${error.status}`);
+            if (stdout) parts.push(`stdout=${stdout.toString().slice(0, 500)}`);
+            if (stderr) parts.push(`stderr=${stderr.toString().slice(0, 300)}`);
+            if (parts.length) error.message = `${error.message} :: ${parts.join(' ')}`;
+            error.__diagAttached = true;
+          }
+          reject(error);
+          return;
+        }
+        try {
+          resolve(JSON.parse(stdout.toString('utf8').trim().split('\n').filter(Boolean).pop()));
+        } catch (parseError) {
+          parseError.__diagAttached = true;
+          reject(parseError);
+        }
+      }
+    );
+  });
+}
+
+let activeAsyncAttestRunner = defaultAsyncAttestRunner;
+
+// Test seam for the async runner. Accepts either an async function or a sync function
+// (wrapped in Promise.resolve) so existing sync test runners keep working unchanged.
+export function __setAsyncAttestRunnerForTests(fn) {
+  activeAsyncAttestRunner = typeof fn === 'function' ? fn : defaultAsyncAttestRunner;
+}
+
+export function __resetAsyncAttestRunnerForTests() {
+  activeAsyncAttestRunner = defaultAsyncAttestRunner;
+}
+
 // Phase C (RC2): when a KMS-attested ciphertext of the oracle key material is
 // provisioned (MORPHEUS_ORACLE_KMS_CIPHERTEXT_BASE64 — the host only ever holds
 // this ciphertext, which is useless without the enclave's attestation), recover
@@ -1548,7 +1603,7 @@ function resolveAttestationPublicKey(role) {
   }
 }
 
-export function handleAttestation(payload = {}) {
+export async function handleAttestation(payload = {}) {
   // The binding commitment. Prefer an explicit digest/tx message; fall back to a
   // caller-supplied user_data hex. Either way user_data = sha256(<binding bytes>),
   // a single 32-byte commit (the §5 dead-binding fix).
@@ -1586,7 +1641,10 @@ export function handleAttestation(payload = {}) {
 
   let parsed;
   try {
-    parsed = activeAttestRunner(args);
+    // Use the ASYNC attestation runner (R2-2.2) so the /dev/nsm ioctl does not block the
+    // event loop — concurrent /oracle/fulfill requests can interleave during the NSM call.
+    // The KMS cold path still uses the sync activeAttestRunner (only /provision, not hot).
+    parsed = await activeAsyncAttestRunner(args);
   } catch (error) {
     const detail =
       error && error.stderr
@@ -1729,7 +1787,7 @@ export async function dispatch(method, rawUrl, headers = {}, body = '') {
     if ((httpMethod === 'GET' || httpMethod === 'POST') && matchesRoute(path, '/attestation')) {
       // GET binds via query params; POST via JSON body.
       const payload = httpMethod === 'GET' ? Object.fromEntries(url.searchParams) : parseBody(body);
-      const result = handleAttestation(payload);
+      const result = await handleAttestation(payload);
       return { status: 200, body: result };
     }
 
