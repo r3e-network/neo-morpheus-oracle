@@ -124,11 +124,6 @@ async function neoRpcCall(configOrRpcUrl, method, params = []) {
   throw lastError || new Error(`Neo RPC ${method} failed`);
 }
 
-async function ensureHealthyNeoN3Rpc(config) {
-  await neoRpcCall(config, 'getblockcount');
-  return trimString(config?.neo_n3?.rpcUrl || '');
-}
-
 // Decode a Neo VM stack/notification item. `encoding` pins how ByteString /
 // ByteArray values are encoded by the source: Neo JSON-RPC and n3index both
 // emit base64, so all in-repo call sites pass 'base64'. The 'auto' default
@@ -1065,7 +1060,12 @@ export async function fulfillNeoN3Request(
   verificationSignature,
   resultBytesBase64 = ''
 ) {
-  await ensureHealthyNeoN3Rpc(config);
+  // No standalone health probe here: buildSignAndBroadcastNeoN3Tx / contract.invoke
+  // each issue their own getblockcount + invokescript RPCs, and neoRpcCall promotes a
+  // known-good RPC URL on every successful call (neo-n3.js:114), so a pre-flight probe
+  // was a redundant getblockcount round-trip (up to the 30s RPC timeout) per submit.
+  // Fail-fast is preserved: a fully-dead RPC set surfaces at the first submit RPC and
+  // retries all configured URLs via neoRpcCall's loop, identical to the probe's behavior.
   const resultHex = trimString(resultBytesBase64)
     ? base64ToHex(resultBytesBase64)
     : Buffer.from(String(result || ''), 'utf8').toString('hex');
@@ -1160,7 +1160,6 @@ export async function queueNeoN3AutomationRequest(
   callbackMethod,
   requestIdOverride = ''
 ) {
-  await ensureHealthyNeoN3Rpc(config);
   const requestId = trimString(requestIdOverride) || `automation:n3:${Date.now()}`;
   let invoke;
   try {
