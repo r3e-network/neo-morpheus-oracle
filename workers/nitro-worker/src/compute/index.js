@@ -549,19 +549,17 @@ export async function executeBuiltinCompute(payload) {
         },
       };
     case 'zkp.groth16.verify': {
-      // Resolve the verifying key + normalized public signals ONCE and reuse them
-      // for both the size-limit check and the verification. normalizePublicSignals
-      // maps over the entire signals array, so evaluating it (and the ?? alias
-      // resolution) twice was needless work on this expensive ZK path. Behavior is
-      // unchanged: normalizePublicSignals is pure and the throw-order is preserved
-      // (it still runs before enforceZkpVerificationSizeLimit).
+      // Resolve the verifying key + normalized public signals ONCE and reuse them.
+      // normalizePublicSignals maps over the entire signals array, so evaluating it
+      // (and the ?? alias resolution) more than once was needless work on this hot ZK
+      // path; it is pure and idempotent, so a single call is behavior-identical.
+      //
+      // The size-limit check is NOT repeated here: verifyGroth16Proof enforces it
+      // internally (index.js:264), so an explicit pre-check would run it twice.
+      // normalizePublicSignals still runs before the size-limit (inside
+      // verifyGroth16Proof), preserving the original throw-order.
       const verifyingKey = input.verifying_key ?? input.verifyingKey;
       const publicSignals = normalizePublicSignals(input.public_signals ?? input.publicSignals);
-      enforceZkpVerificationSizeLimit({
-        verifying_key: verifyingKey,
-        public_signals: publicSignals,
-        proof: input.proof,
-      });
       return {
         function: fn,
         result: {

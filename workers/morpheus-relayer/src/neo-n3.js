@@ -48,6 +48,19 @@ function getNeoN3RpcUrls(configOrRpcUrl) {
   ]);
 }
 
+// Move a known-good RPC URL to the front of the configured list so the next call
+// tries it first (a simple health-stickiness heuristic). This is a best-effort
+// optimization, NOT a consistency-critical write:
+//   - Under the bounded in-block/scan concurrency (scanNeoN3OracleRequestBlock,
+//     scanNeoN3OracleRequests) several successful neoRpcCall invocations may run
+//     promoteNeoN3RpcUrl concurrently. They race on config.neo_n3.rpcUrl/rpcUrls,
+//     so one update can clobber another (last-write-wins). That is acceptable
+//     because every promoted URL is one that just succeeded, so any winning order
+//     is still a valid, healthy ordering — no result is corrupted, and a transient
+//     sub-optimal order self-corrects on the next successful call.
+// Do not make this write load-bearing; if a future change needs the list order to
+// be stable across concurrent reads, snapshot getNeoN3RpcUrls once per call
+// instead of mutating here.
 function promoteNeoN3RpcUrl(config, rpcUrl) {
   const nextUrl = trimString(rpcUrl);
   if (!nextUrl || !config?.neo_n3) return;
