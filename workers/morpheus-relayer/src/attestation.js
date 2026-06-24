@@ -3,6 +3,10 @@ import { wallet as neonWallet } from '@cityofzion/neon-js';
 
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import { decodeCoseSign1 } from '@neo-morpheus-oracle/shared/cbor';
+import {
+  buildCoseSign1SigStructure,
+  coseEs384SignatureToDer,
+} from '@neo-morpheus-oracle/shared/cose-verify';
 import { normalizeErrorMessage } from './feed-sync.js';
 import { resolvePinnedNeoN3VerifierPublicKey } from './lib/neo-signers.js';
 
@@ -10,70 +14,18 @@ export function normalizePublicKey(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();
 }
 
-// CBOR / COSE_Sign1 DECODING (cborRead, decodeCoseSign1) is single-sourced in
+// CBOR / COSE_Sign1 DECODING (decodeCoseSign1) is single-sourced in
 // @neo-morpheus-oracle/shared/cbor, shared with the enclave server that PRODUCES
-// these documents, so producer and verifier agree on indefinite-length CBOR. The
-// Sig_structure ENCODER below stays here (it is verifier-only). A Nitro NSM
-// attestation document is a COSE_Sign1 (CBOR array [protected, unprotected,
-// payload(bstr), signature]); the payload is a CBOR map with the measured `pcrs`,
-// `user_data`, `public_key`, `nonce` that the relayer reads to VERIFY (C1) the
-// document binds the digest + matches the pinned PCR0.
-
-// Build the COSE Sig_structure for a COSE_Sign1 (RFC 8152 §4.4):
-//   Sig_structure = [ "Signature1", body_protected(bstr), external_aad(bstr ""), payload(bstr) ]
-// This is the exact byte string the enclave's ES384 signature is computed over.
-function buildCoseSign1SigStructure(protectedHeaderBytes, payloadBytes) {
-  return cborEncodeSigStructure([
-    'Signature1',
-    protectedHeaderBytes,
-    Buffer.alloc(0),
-    payloadBytes,
-  ]);
-}
-
-// Minimal deterministic CBOR encoder for the 4-element Sig_structure array (text
-// string + three byte strings). Self-contained so no CBOR/COSE library is bundled.
-function cborEncodeSigStructure(items) {
-  const head = (major, len) => {
-    if (len < 24) return Buffer.from([(major << 5) | len]);
-    if (len < 256) return Buffer.from([(major << 5) | 24, len]);
-    if (len < 65536) return Buffer.from([(major << 5) | 25, (len >> 8) & 0xff, len & 0xff]);
-    const b = Buffer.alloc(5);
-    b[0] = (major << 5) | 26;
-    b.writeUInt32BE(len, 1);
-    return b;
-  };
-  const parts = [head(4, items.length)];
-  for (const item of items) {
-    if (typeof item === 'string') {
-      const b = Buffer.from(item, 'utf8');
-      parts.push(head(3, b.length), b);
-    } else {
-      const b = Buffer.isBuffer(item) ? item : Buffer.from(item || []);
-      parts.push(head(2, b.length), b);
-    }
-  }
-  return Buffer.concat(parts);
-}
-
-// Convert a 96-byte COSE raw (r||s) ES384 signature into the DER-encoded ECDSA
-// signature Node's crypto.verify expects. Returns null if the input is not a
-// 96-byte raw signature (e.g. a placeholder), so the caller treats it as
-// unverifiable rather than throwing.
-function coseEs384SignatureToDer(rawSignature) {
-  if (!Buffer.isBuffer(rawSignature) || rawSignature.length !== 96) return null;
-  const encodeInt = (bytes) => {
-    let i = 0;
-    while (i < bytes.length - 1 && bytes[i] === 0) i += 1;
-    let trimmed = bytes.subarray(i);
-    if (trimmed[0] & 0x80) trimmed = Buffer.concat([Buffer.from([0]), trimmed]);
-    return Buffer.concat([Buffer.from([0x02, trimmed.length]), trimmed]);
-  };
-  const r = encodeInt(rawSignature.subarray(0, 48));
-  const s = encodeInt(rawSignature.subarray(48, 96));
-  const body = Buffer.concat([r, s]);
-  return Buffer.concat([Buffer.from([0x30, body.length]), body]);
-}
+// these documents, so producer and verifier agree on indefinite-length CBOR.
+//
+// The Sig_structure ENCODER (buildCoseSign1SigStructure / cborEncodeSigStructure) and
+// the ES384 raw(r||s)->DER converter (coseEs384SignatureToDer) are now ALSO single-sourced
+// in @neo-morpheus-oracle/shared/cose-verify. Previously they were verifier-only helpers
+// duplicated here, in apps/web/lib/nitro-attestation.ts, and re-inlined in the shared
+// cbor test — three copies that could drift silently. A Nitro NSM attestation document
+// is a COSE_Sign1 (CBOR array [protected, unprotected, payload(bstr), signature]); the
+// payload is a CBOR map with the measured `pcrs`, `user_data`, `public_key`, `nonce` that
+// the relayer reads to VERIFY (C1) the document binds the digest + matches the pinned PCR0.
 
 // The AWS Nitro attestation certificate chain (cabundle + leaf) lives in the COSE
 // payload map: `certificate` (leaf, DER bstr) and `cabundle` (array of DER bstr,
