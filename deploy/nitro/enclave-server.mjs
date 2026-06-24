@@ -357,6 +357,9 @@ function handleProvision(payload) {
       applied.push(key);
     }
   }
+  // Provisioning may have rotated a signer env var — drop the materialized-signer cache so
+  // the next sign call re-resolves against the new key material. (Round-2 R2-2.1.)
+  if (applied.length > 0) clearResolvedSignerCache();
   // If a KMS-attested oracle-key ciphertext was provisioned, recover the key
   // material in-TEE now (before any decrypt request needs it) so the host never
   // injects plaintext. No-op when not configured or already materialized.
@@ -487,20 +490,48 @@ async function computeViaWorker(route, workerPayload) {
 // Signing
 // ---------------------------------------------------------------------------
 
-// Resolve + sign with the oracle_verifier secp256r1 (Neo N3) key, using the SAME
-// role/key resolution the enclave signer uses (reportPinnedNeoN3Role) and the
-// SAME signing primitive (neon-js wallet.sign over the digest hex).
-function signNeoN3OracleVerifier(digestBytes) {
-  const network = resolveNetwork();
-  const report = reportPinnedNeoN3Role(network, 'oracle_verifier', {
+// Signer-key memoization (Round-2 R2-2.1). signNeoN3OracleVerifier / resolveUpdaterIdentity
+// each call reportPinnedNeoN3Role, which materializes up to ~12 candidate neon.Account
+// objects (WIF decode + secp256r1 pubkey + script-hash) per call — work that is identical
+// across calls unless /provision (or a KMS materialization) writes a new signer env var.
+// Cache the materialized account per (network, role) and clear the cache on every
+// process.env key mutation in handleProvision + materialize*FromKms. signerRolesHealth and
+// the /health handler stay UNCACHED (they must reflect live key material). The cache holds
+// the neon account + the resolved report (so the second `new neoWallet.Account(secret)` in
+// the signers is also eliminated — they reuse the cached account directly).
+const resolvedSignerCache = new Map();
+function clearResolvedSignerCache() {
+  resolvedSignerCache.clear();
+}
+function resolvePinnedSigner(network, role) {
+  const cacheKey = `${network}:${role}`;
+  const cached = resolvedSignerCache.get(cacheKey);
+  if (cached) return cached;
+  const report = reportPinnedNeoN3Role(network, role, {
     env: process.env,
     allowMissing: false,
   });
   if (!report.ok || !report.materialized) {
-    throw new Error('oracle_verifier signer is not configured or does not match pinned identity');
+    return null;
   }
   const secret = report.materialized.private_key || report.materialized.wif;
   const account = new neoWallet.Account(secret);
+  const entry = { account, report };
+  resolvedSignerCache.set(cacheKey, entry);
+  return entry;
+}
+
+// Resolve + sign with the oracle_verifier secp256r1 (Neo N3) key, using the SAME
+// role/key resolution the enclave signer uses (reportPinnedNeoN3Role) and the SAME
+// signing primitive (neon-js wallet.sign over the digest hex). The materialized account
+// is cached per (network, 'oracle_verifier') so the ~12-candidate secp256r1 derivation
+// runs once per process unless /provision or KMS materialization rotates the key.
+function signNeoN3OracleVerifier(digestBytes) {
+  const resolved = resolvePinnedSigner(resolveNetwork(), 'oracle_verifier');
+  if (!resolved) {
+    throw new Error('oracle_verifier signer is not configured or does not match pinned identity');
+  }
+  const { account } = resolved;
   const digestHex = Buffer.isBuffer(digestBytes)
     ? digestBytes.toString('hex')
     : normalizeHex(digestBytes);
@@ -900,18 +931,14 @@ export function buildUpdateFeedsTxMessage(planned, txParams, updaterPublicKey) {
 
 // Resolve + sign with the updater secp256r1 (Neo N3) key — SAME role/key
 // resolution + signing primitive the enclave signer uses for {role:'updater'}.
+// Uses the cached account (resolvePinnedSigner) for the same per-process memoization as
+// signNeoN3OracleVerifier.
 function resolveUpdaterIdentity() {
-  const network = resolveNetwork();
-  const report = reportPinnedNeoN3Role(network, 'updater', {
-    env: process.env,
-    allowMissing: false,
-  });
-  if (!report.ok || !report.materialized) {
+  const resolved = resolvePinnedSigner(resolveNetwork(), 'updater');
+  if (!resolved) {
     throw httpError(503, 'updater signer is not configured or does not match pinned identity');
   }
-  const secret = report.materialized.private_key || report.materialized.wif;
-  const account = new neoWallet.Account(secret);
-  return { account };
+  return { account: resolved.account };
 }
 
 function signUpdaterMessage(messageHex) {
@@ -1437,6 +1464,9 @@ function materializeNeoXSecpKeyFromKms({
     return;
   }
   process.env[targetEnvVar] = privateKey;
+  // KMS materialization may have written a signer env var — drop the cached signers so the
+  // next sign call re-resolves. (Round-2 R2-2.1.)
+  clearResolvedSignerCache();
 }
 
 // EVM oracle-fulfillment VERIFIER key (signs the attestation over oracle results) —
