@@ -4,7 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
-import { copyText, encodeUtf8Base64, escapeForCSharp } from '@/lib/neo-snippets';
+import {
+  buildCallbackQueryTemplate,
+  buildNeoRequestInvoke,
+  copyText,
+  encodeUtf8Base64,
+  escapeForCSharp,
+} from '@/lib/neo-snippets';
 
 import { OracleSettings } from './OracleSettings';
 import { OracleRequestForm } from './OracleRequestForm';
@@ -439,36 +445,15 @@ BigInteger requestId = (BigInteger)Contract.Call(
 
   const payloadBase64 = generatedRequest ? encodeUtf8Base64(generatedRequest.payloadJson) : '';
   const neoRpcInvoke = generatedRequest
-    ? JSON.stringify(
-        {
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'invokefunction',
-          params: [
-            oracleState?.contract || selectedNetworkConfig.oracleContract,
-            'request',
-            [
-              { type: 'String', value: generatedRequest.requestType },
-              { type: 'ByteArray', value: payloadBase64 },
-              { type: 'Hash160', value: walletCallbackHash },
-              { type: 'String', value: walletCallbackMethod },
-            ],
-          ],
-        },
-        null,
-        2
-      )
+    ? buildNeoRequestInvoke({
+        oracleContract: oracleState?.contract || selectedNetworkConfig.oracleContract,
+        requestType: generatedRequest.requestType,
+        payloadBase64,
+        callbackHash: walletCallbackHash,
+        callbackMethod: walletCallbackMethod,
+      })
     : '';
-  const callbackQueryTemplate = JSON.stringify(
-    {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'invokefunction',
-      params: [walletCallbackHash, 'getCallback', [{ type: 'Integer', value: '<requestId>' }]],
-    },
-    null,
-    2
-  );
+  const callbackQueryTemplate = buildCallbackQueryTemplate(walletCallbackHash);
 
   return (
     <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

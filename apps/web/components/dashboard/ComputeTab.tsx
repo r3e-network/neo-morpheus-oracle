@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
-import { encodeUtf8Base64, escapeForCSharp } from '@/lib/neo-snippets';
+import {
+  buildCallbackQueryTemplate,
+  buildNeoRequestInvoke,
+  encodeUtf8Base64,
+  escapeForCSharp,
+} from '@/lib/neo-snippets';
 
 import { ComputeFunctions } from './ComputeFunctions';
 import { ComputeEditor } from './ComputeEditor';
@@ -461,36 +466,15 @@ BigInteger requestId = (BigInteger)Contract.Call(
     ? encodeUtf8Base64(JSON.stringify(generatedPackage.payload))
     : '';
   const neoRpcInvoke = generatedPackage
-    ? JSON.stringify(
-        {
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'invokefunction',
-          params: [
-            oracleContract,
-            'request',
-            [
-              { type: 'String', value: 'compute' },
-              { type: 'ByteArray', value: payloadBase64 },
-              { type: 'Hash160', value: walletCallbackHash },
-              { type: 'String', value: walletCallbackMethod },
-            ],
-          ],
-        },
-        null,
-        2
-      )
+    ? buildNeoRequestInvoke({
+        oracleContract,
+        requestType: 'compute',
+        payloadBase64,
+        callbackHash: walletCallbackHash,
+        callbackMethod: walletCallbackMethod,
+      })
     : '';
-  const callbackQueryTemplate = JSON.stringify(
-    {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'invokefunction',
-      params: [walletCallbackHash, 'getCallback', [{ type: 'Integer', value: '<requestId>' }]],
-    },
-    null,
-    2
-  );
+  const callbackQueryTemplate = buildCallbackQueryTemplate(walletCallbackHash);
   return (
     <div className="fade-up" style={{ display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
       <div

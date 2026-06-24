@@ -30,3 +30,64 @@ export function encodeUtf8Base64(value: string) {
 export function copyText(value: string) {
   return navigator.clipboard.writeText(value);
 }
+
+export interface NeoRequestInvokeParams {
+  oracleContract: string;
+  requestType: string;
+  payloadBase64: string;
+  callbackHash: string;
+  callbackMethod: string;
+}
+
+/**
+ * Build the Neo N3 `invokefunction` JSON an integrator pastes into an RPC call to
+ * submit an oracle `request`. The field order and the JSON.stringify 2-space
+ * indentation are the EXACT bytes users copy on-chain, so this must stay
+ * byte-identical across the Oracle / Compute / Studio generators — hence one
+ * builder rather than three inline copies that could silently drift.
+ */
+export function buildNeoRequestInvoke({
+  oracleContract,
+  requestType,
+  payloadBase64,
+  callbackHash,
+  callbackMethod,
+}: NeoRequestInvokeParams) {
+  return JSON.stringify(
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'invokefunction',
+      params: [
+        oracleContract,
+        'request',
+        [
+          { type: 'String', value: requestType },
+          { type: 'ByteArray', value: payloadBase64 },
+          { type: 'Hash160', value: callbackHash },
+          { type: 'String', value: callbackMethod },
+        ],
+      ],
+    },
+    null,
+    2
+  );
+}
+
+/**
+ * Build the Neo N3 `invokefunction` JSON for reading a request's callback record
+ * via `getCallback`. `<requestId>` is a placeholder the integrator substitutes
+ * with the id returned by the request. Byte-identical across all three generators.
+ */
+export function buildCallbackQueryTemplate(callbackHash: string) {
+  return JSON.stringify(
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'invokefunction',
+      params: [callbackHash, 'getCallback', [{ type: 'Integer', value: '<requestId>' }]],
+    },
+    null,
+    2
+  );
+}

@@ -5,7 +5,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { Boxes, ArrowRight, Copy } from 'lucide-react';
 import { CodeBlock } from '@/components/ui/CodeBlock';
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
-import { copyText, encodeUtf8Base64, escapeForCSharp } from '@/lib/neo-snippets';
+import {
+  buildCallbackQueryTemplate,
+  buildNeoRequestInvoke,
+  copyText,
+  encodeUtf8Base64,
+  escapeForCSharp,
+} from '@/lib/neo-snippets';
 import { getDashboardNetworkConfig } from '@/components/dashboard/networkSelection';
 import {
   ORACLE_KEY_LOADING_STATUS,
@@ -416,35 +422,14 @@ BigInteger requestId = (BigInteger)Contract.Call(
  "onOracleResult"
 );`;
 
-  const neoRpcInvoke = JSON.stringify(
-    {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'invokefunction',
-      params: [
-        oracleContract,
-        'request',
-        [
-          { type: 'String', value: generated.requestType },
-          { type: 'ByteArray', value: payloadBase64 },
-          { type: 'Hash160', value: callbackHashForSnippet },
-          { type: 'String', value: callbackMethodForSnippet },
-        ],
-      ],
-    },
-    null,
-    2
-  );
-  const callbackQueryTemplate = JSON.stringify(
-    {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'invokefunction',
-      params: [callbackHashForSnippet, 'getCallback', [{ type: 'Integer', value: '<requestId>' }]],
-    },
-    null,
-    2
-  );
+  const neoRpcInvoke = buildNeoRequestInvoke({
+    oracleContract,
+    requestType: generated.requestType,
+    payloadBase64,
+    callbackHash: callbackHashForSnippet,
+    callbackMethod: callbackMethodForSnippet,
+  });
+  const callbackQueryTemplate = buildCallbackQueryTemplate(callbackHashForSnippet);
 
   return (
     <div className={embedded ? 'fade-up' : 'fade-in'}>
