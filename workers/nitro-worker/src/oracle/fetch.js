@@ -18,7 +18,6 @@ import {
   resolveConfidentialPayload,
   resolveEncryptedTokenCiphertext,
 } from './crypto.js';
-import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
 
 // --- Security: SSRF-safe IP classification for the oracle HTTP fetch path ---
 // String-prefix host checks are bypassable via DNS rebinding, octal/hex/decimal
@@ -425,9 +424,12 @@ export async function buildOracleResponse(payload, mode) {
     upstream_status: fetchResult.upstream_status,
   };
   const signed = await buildSignedResultEnvelope(derived, resolvedPayload);
+  // signed.tee_attestation already binds sha256(stableStringify(derived)) via output_hash
+  // (computed once inside buildSignedResultEnvelope); reuse it instead of re-calling the
+  // 8787 /attest endpoint with the same report_data in each branch below.
+  const teeAttestation = signed.tee_attestation;
 
   if (mode === 'query') {
-    const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, derived);
     return {
       mode: executed.executed ? 'fetch+compute' : 'fetch',
       request_source: context.request_source,
@@ -444,7 +446,6 @@ export async function buildOracleResponse(payload, mode) {
     };
   }
 
-  const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, derived);
   return {
     mode: executed.executed ? 'fetch+compute' : 'fetch',
     request_source: context.request_source,

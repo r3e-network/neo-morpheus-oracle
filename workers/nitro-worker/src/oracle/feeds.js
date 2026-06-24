@@ -7,7 +7,6 @@ import {
   parseDurationMs,
   trimString,
 } from '../platform/core.js';
-import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
 import {
   aggregateQuotes,
   countDistinctProviders,
@@ -405,7 +404,9 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     sources: [provider],
   };
   const signed = await buildSignedResultEnvelope(quote, resolvedPayload);
-  const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, quote);
+  // signed.tee_attestation already binds sha256(stableStringify(quote)) via output_hash;
+  // reuse it instead of a second /attest call with the same report_data.
+  const teeAttestation = signed.tee_attestation;
   return {
     ...quote,
     signature: signed.signature,

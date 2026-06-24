@@ -22,7 +22,6 @@ import {
 } from '../platform/core.js';
 import { buildSignedResultEnvelope, buildLaneSignedEnvelope } from '../chain/index.js';
 import { runScriptWithTimeout } from '../platform/script-runner.js';
-import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
 import { resolveConfidentialPayload } from '../oracle/crypto.js';
 import { validateUserScriptSource } from '../platform/script-policy.js';
 import { runWasmWithTimeout } from '../platform/wasm-runner.js';
@@ -723,7 +722,9 @@ export async function handleComputeExecute(payload) {
         ? await executeBuiltinCompute(resolvedPayload)
         : await executeStandaloneCompute(resolvedPayload);
     const signed = await buildSignedResultEnvelope(result, resolvedPayload);
-    const teeAttestation = await maybeBuildDstackAttestation(resolvedPayload, result);
+    // signed.tee_attestation already binds sha256(stableStringify(result)) (computed once
+    // inside buildSignedResultEnvelope via output_hash). Reuse it rather than calling the
+    // 8787 /attest endpoint a second time with the same report_data.
     return json(200, {
       mode,
       target_chain: resolvedPayload.target_chain
@@ -735,7 +736,7 @@ export async function handleComputeExecute(payload) {
       ...result,
       // D5 canonical signed-result envelope (output_hash + signature + public_key
       // + attestation_hash + tee_attestation + verification) — single-sourced.
-      ...buildLaneSignedEnvelope(signed, teeAttestation),
+      ...buildLaneSignedEnvelope(signed, signed.tee_attestation),
     });
   } catch (error) {
     return jsonError(400, error);

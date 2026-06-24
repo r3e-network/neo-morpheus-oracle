@@ -17,7 +17,6 @@ import {
 import { resolveConfidentialPayload } from '../oracle/crypto.js';
 import { buildVerificationEnvelope, buildSignedResultEnvelope } from '../chain/index.js';
 import {
-  maybeBuildDstackAttestation,
   deriveKeyBytes,
   deriveNeoN3PrivateKeyHex,
   getDstackInfo,
@@ -579,7 +578,9 @@ function buildZkLoginDigestBytes(ticket) {
 
 async function buildNeoDidResponse(mode, result, payload) {
   const signed = await buildSignedResultEnvelope(result, payload);
-  const teeAttestation = await maybeBuildDstackAttestation(payload, signed.output_hash);
+  // signed.tee_attestation already binds signed.output_hash (sha256(stableStringify(result)))
+  // computed once inside buildSignedResultEnvelope; reuse it instead of a second /attest call.
+  const teeAttestation = signed.tee_attestation;
   const callbackEncoding = trimString(payload.callback_encoding || payload.result_encoding || '');
   return json(200, {
     ...result,

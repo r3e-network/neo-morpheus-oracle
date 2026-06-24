@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { buildSignedResultEnvelope, buildLaneSignedEnvelope } from '../chain/index.js';
-import { maybeBuildDstackAttestation } from '../platform/nitro-signer.js';
 import {
   env,
   envForNetwork,
@@ -331,11 +330,12 @@ export async function handlePaymasterAuthorize(payload = {}) {
   try {
     const result = await evaluatePaymasterAuthorization(payload);
     const signed = await buildSignedResultEnvelope(result, payload);
-    const teeAttestation = await maybeBuildDstackAttestation(payload, result);
+    // signed.tee_attestation already binds sha256(stableStringify(result)) via output_hash;
+    // reuse it rather than re-calling the 8787 /attest endpoint with the same report_data.
     return json(200, {
       ...result,
       // D5 canonical signed-result envelope — single-sourced.
-      ...buildLaneSignedEnvelope(signed, teeAttestation),
+      ...buildLaneSignedEnvelope(signed, signed.tee_attestation),
     });
   } catch (error) {
     return jsonError(400, error);
