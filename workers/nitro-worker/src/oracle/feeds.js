@@ -428,15 +428,30 @@ export async function fetchPriceQuotes(symbol, options = {}) {
   if (providers.length === 0) throw new Error(`no providers configured for ${symbol}`);
   const normalizedPair = normalizePairSymbol(symbol);
 
+  // Fetch all providers concurrently instead of serially: multi-provider aggregate
+  // latency is then bounded by the slowest provider rather than the SUM of provider
+  // round-trips. Concurrency is safe — each resolveQuoteForProvider builds its own
+  // request/state, and fetchProviderJSON's per-provider circuit breaker + response
+  // cache + in-flight dedup (providers.js) are already designed for concurrent calls.
+  // allSettled preserves INPUT (provider-config) order in the results array, so the
+  // quotes/errors ordering and the downstream aggregateQuotes output match the prior
+  // serial behavior exactly — only the wall-clock latency changes.
+  const settled = await Promise.allSettled(
+    providers.map((provider) => resolveQuoteForProvider(symbol, options, provider))
+  );
+
   const quotes = [];
   const errors = [];
-  for (const provider of providers) {
-    try {
-      quotes.push(await resolveQuoteForProvider(symbol, options, provider));
-    } catch (error) {
-      errors.push({ provider, error: error instanceof Error ? error.message : String(error) });
+  settled.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      quotes.push(result.value);
+    } else {
+      errors.push({
+        provider: providers[index],
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      });
     }
-  }
+  });
 
   const aggregation =
     quotes.length >= 2
