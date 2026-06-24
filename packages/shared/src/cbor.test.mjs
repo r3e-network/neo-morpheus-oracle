@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { generateKeyPairSync, sign as cryptoSign, verify as cryptoVerify } from 'node:crypto';
 import { cborRead, decodeCoseSign1, decodeCoseSign1Payload } from './cbor.js';
 
 const B = (...bytes) => Buffer.from(bytes);
@@ -114,4 +115,140 @@ test('round-trips uints across the 1/2/4-byte length encodings', () => {
   assert.equal(decode(B(0x18, 0x64)), 100); // uint8 100
   assert.equal(decode(B(0x19, 0x01, 0x00)), 256); // uint16 256
   assert.equal(decode(B(0x1a, 0x00, 0x01, 0x00, 0x00)), 65536); // uint32 65536
+});
+
+// ── end-to-end ES384 signature verification (closes the raw-bytes → verify loop) ──
+// The structural tests above prove decodeCoseSign1 preserves the raw payload/protected
+// bytes. This test closes the remaining gap: it signs a REAL COSE_Sign1 with a P-384
+// key, decodes it via the shared codec, rebuilds the Sig_structure with the SAME encoder
+// the relayer uses (attestation.js buildCoseSign1SigStructure), and asserts Node's
+// crypto.verify returns true. If decodeCoseSign1 ever re-serialized or truncated the
+// bytes, this signature would stop verifying. This pins the exact property the ES384
+// verification path depends on.
+
+// Mirrors cborEncodeSigStructure in workers/morpheus-relayer/src/attestation.js so the
+// test reconstructs the SAME Sig_structure bytes the production verifier builds.
+function cborEncodeSigStructure(items) {
+  const head = (major, len) => {
+    if (len < 24) return Buffer.from([(major << 5) | len]);
+    if (len < 256) return Buffer.from([(major << 5) | 24, len]);
+    if (len < 65536) return Buffer.from([(major << 5) | 25, (len >> 8) & 0xff, len & 0xff]);
+    const b = Buffer.alloc(5);
+    b[0] = (major << 5) | 26;
+    b.writeUInt32BE(len, 1);
+    return b;
+  };
+  const parts = [head(4, items.length)];
+  for (const item of items) {
+    if (typeof item === 'string') {
+      const b = Buffer.from(item, 'utf8');
+      parts.push(head(3, b.length), b);
+    } else {
+      const b = Buffer.isBuffer(item) ? item : Buffer.from(item || []);
+      parts.push(head(2, b.length), b);
+    }
+  }
+  return Buffer.concat(parts);
+}
+
+// Minimal CBOR encoder for the COSE_Sign1 wrapper [protected(bstr), unprotected(map),
+// payload(bstr), signature(bstr)] and the protected-header map {1:-35, 2:"ES384" etc}.
+function encHead(major, len) {
+  if (len < 24) return Buffer.from([(major << 5) | len]);
+  if (len < 256) return Buffer.from([(major << 5) | 24, len]);
+  if (len < 65536) return Buffer.from([(major << 5) | 25, (len >> 8) & 0xff, len & 0xff]);
+  const b = Buffer.alloc(5);
+  b[0] = (major << 5) | 26;
+  b.writeUInt32BE(len, 1);
+  return b;
+}
+// Encode a CBOR byte string (major 2) — used for protected header, payload, signature.
+const encBstr = (b) => Buffer.concat([encHead(2, b.length), b]);
+// Encode a CBOR text string (major 3) — used for map keys like "user_data".
+const encText = (s) => {
+  const b = Buffer.from(s, 'utf8');
+  return Buffer.concat([encHead(3, b.length), b]);
+};
+// Encode a CBOR map from already-encoded key/value items.
+const encMap = (pairs) => Buffer.concat([Buffer.from([0xa0 | pairs.length]), ...pairs.flat()]);
+
+test('a real ES384-signed COSE_Sign1 verifies through decodeCoseSign1 raw bytes', async () => {
+  const { privateKey, publicKey } = generateKeyPairSync('ec', {
+    namedCurve: 'P-384',
+  });
+
+  // Protected header (alg ES384 = -35, per RFC 8152). This is the byte string the
+  // decoder must return VERBATIM so the verifier can put it back into the Sig_structure.
+  // {1: -35}  →  0xa1 (map1) 01 (uint1) 38 24 (negint, -1-36 = -35)
+  const protectedHeaderMap = encMap([[Buffer.from([0x01]), Buffer.from([0x38, 0x24])]]);
+  const unprotectedMap = Buffer.from([0xa0]); // {}
+
+  // Two attestation-shaped payloads with the SAME logical content but different CBOR
+  // encodings, to prove BOTH decode paths feed verifying bytes. The indefinite form is
+  // exactly the producer/verifier-disagreement case PR #10 unified.
+  const userData = encBstr(B(0xde, 0xad, 0xbe, 0xef)); // h'deadbeef' as a CBOR bstr
+  const pcrValue = encBstr(B(0xaa)); // h'aa' as a CBOR bstr
+  // definite pcrs map {0: h'aa'}  →  0xa1 00 41 aa
+  const pcrsDefinite = encMap([[Buffer.from([0x00]), pcrValue]]);
+  // indefinite pcrs map {_ 0: h'aa'}  →  0xbf 00 41 aa 0xff
+  const pcrsIndefinite = Buffer.concat([
+    Buffer.from([0xbf]),
+    Buffer.from([0x00]),
+    pcrValue,
+    Buffer.from([0xff]),
+  ]);
+
+  const payloadDefinite = encMap([
+    [encText('user_data'), userData],
+    [encText('pcrs'), pcrsDefinite],
+  ]);
+  const payloadIndefinite = encMap([
+    [encText('user_data'), userData],
+    [encText('pcrs'), pcrsIndefinite],
+  ]);
+
+  // Sig_structure = ["Signature1", body_protected(bstr), external_aad(bstr""), payload(bstr)]
+  for (const { name, payloadBytes } of [
+    { name: 'definite-length payload', payloadBytes: payloadDefinite },
+    { name: 'indefinite-length payload (PR #10 fix)', payloadBytes: payloadIndefinite },
+  ]) {
+    const sigStructure = cborEncodeSigStructure([
+      'Signature1',
+      protectedHeaderMap,
+      Buffer.alloc(0),
+      payloadBytes,
+    ]);
+    const der = cryptoSign('sha384', sigStructure, { key: privateKey, dsaEncoding: 'der' });
+
+    // Wrap into a COSE_Sign1 [protected, unprotected, payload, signature].
+    const cose = Buffer.concat([
+      Buffer.from([0x84]), // array(4)
+      encBstr(protectedHeaderMap),
+      unprotectedMap,
+      encBstr(payloadBytes),
+      encBstr(der), // any 96-byte r||s works for verify; reuse der for simplicity
+    ]);
+
+    // Decode via the shared codec — this is the function under test.
+    const decoded = decodeCoseSign1(cose);
+
+    // Reconstruct the Sig_structure from the decoder's RAW output (not from re-encoded
+    // bytes) exactly as the production verifier does, and assert the signature verifies.
+    const rebuilt = cborEncodeSigStructure([
+      'Signature1',
+      decoded.protectedHeaderBytes,
+      Buffer.alloc(0),
+      decoded.payloadBytes,
+    ]);
+    assert.deepEqual(rebuilt, sigStructure, `${name}: rebuilt Sig_structure must match`);
+    assert.deepEqual(
+      decoded.protectedHeaderBytes,
+      protectedHeaderMap,
+      `${name}: protected bytes verbatim`
+    );
+    assert.deepEqual(decoded.payloadBytes, payloadBytes, `${name}: payload bytes verbatim`);
+
+    const okDer = cryptoVerify('sha384', rebuilt, { key: publicKey, dsaEncoding: 'der' }, der);
+    assert.ok(okDer, `${name}: ES384 signature must verify over the decoder's raw bytes`);
+  }
 });

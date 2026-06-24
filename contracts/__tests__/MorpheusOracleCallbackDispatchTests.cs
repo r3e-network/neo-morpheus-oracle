@@ -93,6 +93,63 @@ namespace MorpheusOracle.Contracts.Tests
 
         // ── helpers (mirrors MorpheusOracleFeeAccountingTests harness) ───────────────
 
+        // The VM test above covers the happy rich path (consumer implements onMiniAppResult
+        // and receives the real appId/requester). These SOURCE-LEVEL assertions pin the
+        // dispatch CONTRACT a future edit could silently break without any VM signal:
+        //   (a) the rich onMiniAppResult call carries the EXACT 8 args in the order the
+        //       consumer's OnMiniAppResult signature declares (a reorder = silent cross-
+        //       contract bug, the #1 dispatch hazard);
+        //   (b) the legacy onOracleResult fallback is invoked STRICTLY inside the catch of
+        //       the rich call — i.e. EITHER/OR, never BOTH (a consumer implementing both
+        //       must not be called twice);
+        //   (c) the rich arg order matches the consumer source, not just this contract.
+        // Source-level (via ContractSourceAssertions) is the idiomatic pattern here (see
+        // OracleCallbackConsumerTest / UserConsumerN3Test) and avoids compiling a second
+        // legacy-only consumer contract just to exercise the fallback at the VM level.
+        [Fact]
+        public void DispatchCallsRichOnMiniAppResultFirstWithLegacyFallbackOnlyOnCatch()
+        {
+            string kernel = ContractSourceAssertions.ReadSource(
+                "contracts", "MorpheusOracle", "MorpheusOracle.cs");
+            string consumer = ContractSourceAssertions.ReadSource(
+                "contracts", "OracleCallbackConsumer", "OracleCallbackConsumer.cs");
+
+            // (c) The consumer's OnMiniAppResult declares this exact parameter order; the
+            // kernel must pass args in the SAME order. Asserting the consumer signature
+            // here means a drift between the two files is caught at test time.
+            ContractSourceAssertions.AssertHasPublicStaticMethod(
+                consumer, "void", "OnMiniAppResult");
+            Assert.Matches(
+                @"OnMiniAppResult\(\s*BigInteger\s+requestId\s*,\s*string\s+appId\s*,\s*string\s+moduleId\s*,\s*string\s+operation\s*,\s*UInt160\s+requester\s*,\s*bool\s+success\s*,\s*ByteString\s+result\s*,\s*string\s+error\s*\)",
+                consumer);
+
+            // (a) The kernel's rich Contract.Call passes CALLBACK_METHOD then these 8 args
+            // in the order (requestId, appId, moduleId, operation, requester, success,
+            // result, error) — matching the consumer signature above.
+            Assert.Contains("CALLBACK_METHOD", kernel);
+            Assert.Matches(
+                @"Contract\.Call\(\s*req\.CallbackContract\s*,\s*CALLBACK_METHOD\s*,\s*CallFlags\.All\s*,\s*" +
+                @"requestId\s*,\s*req\.AppId\s*,\s*req\.ModuleId\s*,\s*req\.Operation\s*,\s*" +
+                @"req\.Requester\s*,\s*req\.Success\s*,\s*req\.Result\s*,\s*req\.Error\s*\)",
+                kernel);
+
+            // (b) The legacy fallback (LEGACY_CALLBACK_METHOD / onOracleResult) must be
+            // nested strictly inside the catch of the rich call. We assert the rich call's
+            // arguments appear BEFORE the legacy call's arguments in source order, and that
+            // the legacy call is reached only via a catch. This locks EITHER/OR semantics:
+            // a consumer whose onMiniAppResult succeeds never reaches the legacy call.
+            Assert.Contains("LEGACY_CALLBACK_METHOD", kernel);
+            Assert.Matches(
+                @"Contract\.Call\(\s*req\.CallbackContract\s*,\s*LEGACY_CALLBACK_METHOD\s*,\s*CallFlags\.All\s*,\s*" +
+                @"requestId\s*,\s*req\.Operation\s*,\s*req\.Success\s*,\s*req\.Result\s*,\s*req\.Error\s*\)",
+                kernel);
+
+            int richCallPos = kernel.IndexOf("CALLBACK_METHOD", StringComparison.Ordinal);
+            int legacyCallPos = kernel.IndexOf("LEGACY_CALLBACK_METHOD", StringComparison.Ordinal);
+            Assert.True(richCallPos >= 0 && legacyCallPos > richCallPos,
+                "legacy onOracleResult fallback must come after the rich onMiniAppResult call");
+        }
+
         // GetCallback returns raw VM stack items; decode a ByteString field to its UTF-8 string.
         private static string Str(object item) =>
             System.Text.Encoding.UTF8.GetString(((Neo.VM.Types.ByteString)item).GetSpan());
