@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { relayNeoN3Invocation } from '@neo-morpheus-oracle/nitro-worker/src/chain/index.js';
 import { experimental, sc, tx, u, wallet as neonWallet } from '@cityofzion/neon-js';
 import { mapWithConcurrency } from '@neo-morpheus-oracle/shared/utils';
+import { LEGACY_CALLBACK_METHOD } from '@neo-morpheus-oracle/shared/callback-methods';
 import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './nitro-signer.js';
 import { callNitro } from './nitro.js';
 import { trimString } from './lib/strings.js';
@@ -276,7 +277,7 @@ export function buildNeoN3EventFromRequestRecord(decoded, requestId) {
       operation: String(operation || ''),
       requester: String(requester || ''),
       callbackContract: String(callbackContract || ''),
-      callbackMethod: 'onOracleResult',
+      callbackMethod: LEGACY_CALLBACK_METHOD,
       payloadText: String(payloadText || ''),
       createdAtMs: Number(createdAtMs || 0),
       fulfilledAtMs: Number(fulfilledAtMs || 0),
@@ -359,7 +360,7 @@ function buildNeoN3EventFromNotificationState(eventName, decodedState, meta = {}
       operation: String(operation || ''),
       requester: String(requester || ''),
       callbackContract: '',
-      callbackMethod: 'onOracleResult',
+      callbackMethod: LEGACY_CALLBACK_METHOD,
       payloadText: String(payload || ''),
       blockNumber: Number(meta.blockNumber ?? 0),
       txHash: String(meta.txHash || ''),

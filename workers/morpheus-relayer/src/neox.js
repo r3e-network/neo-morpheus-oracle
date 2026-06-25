@@ -11,6 +11,7 @@
 // result for the EVM MorpheusOracleEVM kernel.
 import { ethers } from 'ethers';
 import { mapWithConcurrency, trimString } from '@neo-morpheus-oracle/shared/utils';
+import { LEGACY_CALLBACK_METHOD } from '@neo-morpheus-oracle/shared/callback-methods';
 
 // Minimal ABI for the MorpheusOracleEVM kernel (request_cursor scan + fulfil).
 const ORACLE_ABI = [
@@ -281,7 +282,7 @@ function buildNeoXEventFromRequest(record) {
       record.callbackContract && record.callbackContract !== ethers.ZeroAddress
         ? trimString(record.callbackContract)
         : '',
-    callbackMethod: 'onOracleResult',
+    callbackMethod: LEGACY_CALLBACK_METHOD,
     blockNumber: Number(record.createdAt || 0),
     createdAtMs: Number(record.createdAt || 0) * 1000,
     txHash: '',

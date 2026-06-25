@@ -19,6 +19,9 @@
       "types": "./src/cose-verify.d.ts",
       "default": "./src/cose-verify.js"
     },
+    "./callback-methods": {
+      "default": "./src/callback-methods.js"
+    },
     "./rate-limit": {
       "types": "./src/rate-limit.d.ts",
       "default": "./src/rate-limit.js"
