@@ -34,6 +34,10 @@ const STATUS_PENDING = 1; // Status enum: None=0, Pending=1, Succeeded=2, Failed
 
 const providerCache = new Map();
 const signerCache = new Map();
+// The verifier wallet (digest-signing only, not on-chain txs) is immutable for the process
+// lifetime, so memoize it per private key — avoids re-running the secp256k1 key parse in
+// ethers.Wallet on every Neo X fulfill. (Round-2 R2-2.4, mirrors signerCache.)
+const verifierWalletCache = new Map();
 // Per-signer submission queue: serialize tx build+send+wait+reset so concurrent
 // engine workers never race on the shared NonceManager (out-of-order nonces) or
 // reset() it mid-flight. EVM submission is fast + Neo X volume is low.
@@ -175,7 +179,12 @@ function verifierWallet(config) {
     trimString(config?.neox?.verifierPrivateKey || '') ||
     trimString(config?.neox?.updaterPrivateKey || '');
   if (!pk) throw new Error('neox verifier private key is not configured');
-  return new ethers.Wallet(pk);
+  let wallet = verifierWalletCache.get(pk);
+  if (!wallet) {
+    wallet = new ethers.Wallet(pk);
+    verifierWalletCache.set(pk, wallet);
+  }
+  return wallet;
 }
 
 export function hasNeoXRelayerConfig(config) {
