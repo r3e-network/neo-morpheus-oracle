@@ -82,7 +82,26 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - run: dotnet tool install --global Neo.Compiler.CSharp --version 3.9.1
+      # Cache the NuGet package store + the Neo nccs global tool. Keyed on the nccs version pin
+      # + a hash of all csproj files, so a dependency or contract change invalidates correctly.
+      # Saves the nccs download + full NuGet restore on every contracts run (Round-2 R2-4.2).
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('contracts/**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+      - name: Cache Neo nccs tool
+        uses: actions/cache@v4
+        with:
+          path: ~/.dotnet/tools
+          key: ${{ runner.os }}-nccs-3.9.1
+      # Install nccs idempotently: a cache hit leaves it already installed, so tolerate that
+      # specific failure (a genuine install error still aborts — 'already installed' is the
+      # only non-zero exit we expect when ~/.dotnet/tools is warm).
+      - run: |
+          dotnet tool install --global Neo.Compiler.CSharp --version 3.9.1 \
+            || dotnet tool list --global | grep -q 'Neo.Compiler.CSharp.*3.9.1'
       - run: echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
       - run: bash contracts/build.sh
       - run: node --test scripts/contract-build-regressions.test.mjs

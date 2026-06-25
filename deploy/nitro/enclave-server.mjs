@@ -779,8 +779,13 @@ export async function handleOracleFulfill(requestBody) {
       response.attestation_doc_base64 = attestation.attestation_document;
       response.attestation_user_data_hex = attestation.user_data_hex || null;
       if (attestation.public_key) response.attestation_public_key = attestation.public_key;
-      const pcrs = attestation.pcrs || extractAttestationPcrs(attestation.attestation_document);
-      if (pcrs && Object.keys(pcrs).length) response.attestation_pcrs = pcrs;
+      // handleAttestation already extracts pcrs from the COSE_Sign1 (enclave-server.mjs:1666);
+      // reuse it directly instead of re-running extractAttestationPcrs on the same document
+      // (a full second base64-decode + CBOR parse that is dead work on the success path).
+      // (Round-2 R2-2.3.)
+      if (attestation.pcrs && Object.keys(attestation.pcrs).length) {
+        response.attestation_pcrs = attestation.pcrs;
+      }
     }
   } catch (error) {
     // Attestation is best-effort here (the relayer enforces): record why it was
