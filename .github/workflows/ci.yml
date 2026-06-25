@@ -6,6 +6,32 @@ on:
   pull_request:
 
 jobs:
+  # Detect which areas changed so the heavy downstream jobs can skip on docs-only PRs.
+  # Always reports 'yes' on main pushes (full coverage is preserved there) and on PRs that
+  # touch workflow/config code (a ci.yml change could affect any job). Round-2 R2-4.1.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'apps/**'
+              - 'workers/**'
+              - 'packages/**'
+              - 'contracts/**'
+              - 'contracts-evm/**'
+              - 'scripts/**'
+              - 'deploy/**'
+              - 'config/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/**'
+
   lint-and-format:
     runs-on: ubuntu-latest
     steps:
@@ -26,6 +52,8 @@ jobs:
       - run: npm run lint
 
   web-and-worker:
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.code == 'yes' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -43,6 +71,8 @@ jobs:
       - run: npm --prefix apps/web run build
 
   contracts:
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.code == 'yes' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
