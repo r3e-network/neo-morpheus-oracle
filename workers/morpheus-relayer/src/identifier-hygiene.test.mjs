@@ -84,6 +84,48 @@ test('buildFulfillmentDigestBytes hashes the legacy requestType and error verbat
   assert.notDeepEqual(padded, trimmed);
 });
 
+// ── Cross-language golden vector (R2-3.1) ────────────────────────────────────
+// The tests above pin the JS digest against a JS re-implementation of the contract's
+// algorithm — which stays green if BOTH drift together. This test pins the JS output to
+// FIXED expected hex for a canonical vector, so any drift in buildFulfillmentDigestBytes
+// (a field reorder, a domain-string change, an encoding bug) fails here. The SAME vector
+// is asserted independently by the Neo C# suite (MorpheusOracleGoldenDigestTests), so a
+// drift on EITHER side breaks one of the two suites. The bound vector uses the live
+// deployment-binding path (contractScriptHash + networkMagic), matching the C# harness.
+//
+// Vector: requestId=42, appId='demo.app', moduleId='oracle.fetch', operation='fetch',
+//         success=true, result='{"v":1}', error='', requestType='oracle_query'.
+//         Bound: scriptHash=0x1212...1212, networkMagic=894710606 (testnet default).
+test('N3 fulfillment digest matches the cross-language golden vector (bound + unbound)', () => {
+  // Unbound (legacy/older-deployment form, no contract/magic suffix).
+  const unbound = buildFulfillmentDigestBytes('42', 'oracle_query', true, '{"v":1}', '', '', {
+    chain: 'neo_n3',
+    appId: 'demo.app',
+    moduleId: 'oracle.fetch',
+    operation: 'fetch',
+  }).toString('hex');
+  assert.equal(
+    unbound,
+    'f1d56005dafa9f199ccb9d6525bc155b9583779aadd8c89dc7a2060077d675aa',
+    'unbound N3 digest drifted from the golden vector (cross-language parity broken)'
+  );
+
+  // Bound (live deployment-binding form): contractScriptHash + networkMagic appended.
+  const bound = buildFulfillmentDigestBytes('42', 'oracle_query', true, '{"v":1}', '', '', {
+    chain: 'neo_n3',
+    appId: 'demo.app',
+    moduleId: 'oracle.fetch',
+    operation: 'fetch',
+    contractScriptHash: '0x1212121212121212121212121212121212121212',
+    networkMagic: 894710606,
+  }).toString('hex');
+  assert.equal(
+    bound,
+    'cf2832f7e5ab9a37a6c93907be5d7762d7b6c62c256363df432adc7b2fb2192e',
+    'bound N3 digest drifted from the golden vector (cross-language parity broken)'
+  );
+});
+
 test('resolveFulfillmentSigningContext passes identifiers through verbatim', () => {
   assert.deepEqual(
     resolveFulfillmentSigningContext('neo_n3', {
