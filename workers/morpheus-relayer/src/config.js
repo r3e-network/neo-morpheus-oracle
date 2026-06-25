@@ -16,21 +16,31 @@ const MAX_FEED_SYNC_TIMEOUT_MS = 30_000;
 // slow poison-item retries to minutes, while still bounding accidental
 // misconfiguration (the default cap stays at 10s).
 const MAX_RETRY_MAX_DELAY_MS = 600_000;
+// Last-resort fallback RPC URLs used ONLY when config/networks/<network>.json is absent or
+// its rpc_urls list is empty (the registry is the SSOT — loadNetworkRegistry reads it, and
+// resolveNeoN3RpcUrls prefers registry.neo_n3.rpc_urls ahead of this fallback). Kept as a
+// defense-in-depth net so a missing registry file does not leave the relayer with no nodes.
+// Mirrored from config/networks/*.json on 2026-06-25 (Round-2 R2-3.5).
 const DEFAULT_NEO_N3_RPC_URLS = {
   mainnet: [
-    'http://seed1.neo.org:10332',
-    'http://seed2.neo.org:10332',
-    'http://seed3.neo.org:10332',
     'https://api.n3index.dev/mainnet',
     'https://mainnet1.neo.coz.io:443',
     'https://mainnet2.neo.coz.io:443',
+    'http://seed1.neo.org:10332',
+    'http://seed2.neo.org:10332',
+    'http://seed3.neo.org:10332',
   ],
   testnet: [
+    'https://api.n3index.dev/testnet',
+    'https://testnet1.neo.coz.io:443',
+    'http://seed1t5.neo.org:20332',
+    'http://seed2t5.neo.org:20332',
+    'http://seed3t5.neo.org:20332',
+    'http://seed4t5.neo.org:20332',
+    'http://seed5t5.neo.org:20332',
     'http://seed3.neo.org:20332',
     'http://seed4.neo.org:20332',
     'http://seed5.neo.org:20332',
-    'https://api.n3index.dev/testnet',
-    'https://testnet1.neo.coz.io:443',
   ],
 };
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
