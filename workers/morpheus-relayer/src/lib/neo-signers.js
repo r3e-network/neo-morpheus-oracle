@@ -329,11 +329,15 @@ function formatIssues(role, issues) {
   return `${role} signer drift: ${issues.join('; ')}`;
 }
 
+// `strict` replaces a former three-value `mode` ('strict' | 'prefer-match' | 'report').
+// Only 'strict' was ever load-bearing — it is the sole value that turns pinning issues
+// into a throw (below). 'prefer-match' and 'report' behaved identically (non-throwing),
+// `mode` was never returned or read by any caller, so the tri-state collapses to a boolean.
 function buildRoleReport({
   network,
   role,
   env = process.env,
-  mode = 'strict',
+  strict = true,
   allowMissing = false,
 }) {
   const normalizedNetwork = normalizeMorpheusNetwork(network);
@@ -438,7 +442,7 @@ function buildRoleReport({
     materialized: selected?.materialized || null,
   };
 
-  if (mode === 'strict' && issues.length) {
+  if (strict && issues.length) {
     throw new Error(formatIssues(role, issues));
   }
 
@@ -446,15 +450,15 @@ function buildRoleReport({
 }
 
 export function resolvePinnedNeoN3Role(network, role, options = {}) {
-  return buildRoleReport({ network, role, mode: 'strict', ...options });
+  return buildRoleReport({ network, role, strict: true, ...options });
 }
 
 export function resolvePinnedNeoN3RolePreferMatch(network, role, options = {}) {
-  return buildRoleReport({ network, role, mode: 'prefer-match', ...options });
+  return buildRoleReport({ network, role, strict: false, ...options });
 }
 
 export function reportPinnedNeoN3Role(network, role, options = {}) {
-  return buildRoleReport({ network, role, mode: 'report', ...options });
+  return buildRoleReport({ network, role, strict: false, ...options });
 }
 
 export function reportPinnedNeoN3Roles(network, roles, options = {}) {
