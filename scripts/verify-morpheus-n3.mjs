@@ -11,6 +11,7 @@ import {
   detectMorpheusOracleInterface,
   resolveNetworkScopedValue,
   snapshotEnv,
+  withRetries,
 } from './lib-verify-morpheus-n3.mjs';
 
 const CONTRACT_ENV_KEYS = [
@@ -62,29 +63,6 @@ function parseStackItem(item) {
     default:
       return item.value ?? null;
   }
-}
-
-function isTransientRpcError(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  return /HTTP code 502|HTTP code 503|HTTP code 504|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed/i.test(
-    message
-  );
-}
-
-async function withRetries(label, task, attempts = 5) {
-  let lastError;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      return await task();
-    } catch (error) {
-      lastError = error;
-      if (!isTransientRpcError(error) || attempt === attempts) break;
-      await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-    }
-  }
-  throw new Error(
-    `${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
-  );
 }
 
 async function loadRegistry(network) {
