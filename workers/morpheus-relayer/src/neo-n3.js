@@ -125,6 +125,36 @@ async function neoRpcCall(configOrRpcUrl, method, params = []) {
   throw lastError || new Error(`Neo RPC ${method} failed`);
 }
 
+// Decode a hex ByteString (caller has already confirmed it looks-hex): printable
+// UTF-8 if it round-trips, else a reversed 0x-hash for 20-byte values, else raw utf8.
+function decodeByteStringFromHex(raw) {
+  const bytes = Buffer.from(raw, 'hex');
+  const text = tryDecodeUtf8(bytes);
+  if (isPrintableText(text)) return text;
+  if (raw.length === 40) return `0x${bytes.reverse().toString('hex')}`;
+  try {
+    return bytes.toString('utf8');
+  } catch {
+    return raw;
+  }
+}
+
+// Decode a base64 ByteString: printable UTF-8 if it round-trips, else a reversed
+// 0x-hash for 20-byte values, else raw utf8; returns the input on any decode error.
+function decodeByteStringFromBase64(raw) {
+  try {
+    const bytes = Buffer.from(raw, 'base64');
+    const text = tryDecodeUtf8(bytes);
+    if (isPrintableText(text)) return text;
+    if (bytes.length === 20) {
+      return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
+    }
+    return bytes.toString('utf8');
+  } catch {
+    return raw;
+  }
+}
+
 // Decode a Neo VM stack/notification item. `encoding` pins how ByteString /
 // ByteArray values are encoded by the source: Neo JSON-RPC and n3index both
 // emit base64, so all in-repo call sites pass 'base64'. The 'auto' default
@@ -150,28 +180,9 @@ export function decodeNeoItem(item, encoding = 'auto') {
       if (!raw) return '';
       const looksHex = /^[0-9a-fA-F]+$/.test(raw) && raw.length % 2 === 0;
       if (encoding === 'hex' || (encoding !== 'base64' && looksHex)) {
-        if (!looksHex) return raw;
-        const bytes = Buffer.from(raw, 'hex');
-        const text = tryDecodeUtf8(bytes);
-        if (isPrintableText(text)) return text;
-        if (raw.length === 40) return `0x${bytes.reverse().toString('hex')}`;
-        try {
-          return bytes.toString('utf8');
-        } catch {
-          return raw;
-        }
+        return looksHex ? decodeByteStringFromHex(raw) : raw;
       }
-      try {
-        const bytes = Buffer.from(raw, 'base64');
-        const text = tryDecodeUtf8(bytes);
-        if (isPrintableText(text)) return text;
-        if (bytes.length === 20) {
-          return `0x${Buffer.from(bytes).reverse().toString('hex')}`;
-        }
-        return bytes.toString('utf8');
-      } catch {
-        return raw;
-      }
+      return decodeByteStringFromBase64(raw);
     }
     case 'array':
     case 'struct':

@@ -431,6 +431,22 @@ export async function signFulfillmentPayload(config, chain, fulfillment) {
   return response.body;
 }
 
+// Build + sign the canonical fulfillment envelope for an encoded result. The four
+// encoded-result lanes (automation / guard / vrf / worker) pass the identical
+// shape; the decrypt site (raw, no `|| ''` fallbacks) and the operator-only /
+// failure literal sites differ and are deliberately NOT routed through this helper.
+function signEncodedFulfillment(config, event, fulfillmentContext, fulfillment) {
+  return signFulfillmentPayload(config, event.chain, {
+    requestId: event.requestId,
+    requestType: event.requestType,
+    ...fulfillmentContext,
+    success: fulfillment.success,
+    result: fulfillment.result || '',
+    result_bytes_base64: fulfillment.result_bytes_base64 || '',
+    error: fulfillment.error || '',
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Compute-in-enclave fulfillment (POST /oracle/fulfill) — flag-gated (Phase 4)
 // ---------------------------------------------------------------------------
@@ -934,15 +950,12 @@ async function prepareOracleFulfillment(config, event, logger = null) {
   if (isAutomationControlRequestType(event.requestType)) {
     const automationResponse = await handleAutomationControlRequest(event, payload);
     const fulfillment = encodeFulfillmentResult(event.requestType, automationResponse);
-    const verification = await signFulfillmentPayload(config, event.chain, {
-      requestId: event.requestId,
-      requestType: event.requestType,
-      ...fulfillmentContext,
-      success: fulfillment.success,
-      result: fulfillment.result || '',
-      result_bytes_base64: fulfillment.result_bytes_base64 || '',
-      error: fulfillment.error || '',
-    });
+    const verification = await signEncodedFulfillment(
+      config,
+      event,
+      fulfillmentContext,
+      fulfillment
+    );
 
     return buildPreparedFulfillment(fulfillment, {
       route: automationResponse.route,
@@ -969,15 +982,12 @@ async function prepareOracleFulfillment(config, event, logger = null) {
         },
       };
       const fulfillment = encodeFulfillmentResult(event.requestType, guardResponse);
-      const verification = await signFulfillmentPayload(config, event.chain, {
-        requestId: event.requestId,
-        requestType: event.requestType,
-        ...fulfillmentContext,
-        success: fulfillment.success,
-        result: fulfillment.result || '',
-        result_bytes_base64: fulfillment.result_bytes_base64 || '',
-        error: fulfillment.error || '',
-      });
+      const verification = await signEncodedFulfillment(
+        config,
+        event,
+        fulfillmentContext,
+        fulfillment
+      );
 
       return buildPreparedFulfillment(fulfillment, {
         route: automationGuard.route,
@@ -1054,15 +1064,12 @@ async function prepareOracleFulfillment(config, event, logger = null) {
     const randomness = crypto.randomBytes(32).toString('hex');
     const vrfResponse = { ok: true, status: 200, body: { randomness } };
     const vrfFulfillment = encodeFulfillmentResult(event.requestType, vrfResponse);
-    const vrfVerification = await signFulfillmentPayload(config, event.chain, {
-      requestId: event.requestId,
-      requestType: event.requestType,
-      ...fulfillmentContext,
-      success: vrfFulfillment.success,
-      result: vrfFulfillment.result || '',
-      result_bytes_base64: vrfFulfillment.result_bytes_base64 || '',
-      error: vrfFulfillment.error || '',
-    });
+    const vrfVerification = await signEncodedFulfillment(
+      config,
+      event,
+      fulfillmentContext,
+      vrfFulfillment
+    );
     return buildPreparedFulfillment(vrfFulfillment, {
       route: 'local:vrf',
       module_id: fulfillmentContext.moduleId,
@@ -1174,15 +1181,7 @@ async function prepareOracleFulfillment(config, event, logger = null) {
   }
   const fulfillment = encodeFulfillmentResult(event.requestType, workerResponse);
   const verificationStartedAt = Date.now();
-  const verification = await signFulfillmentPayload(config, event.chain, {
-    requestId: event.requestId,
-    requestType: event.requestType,
-    ...fulfillmentContext,
-    success: fulfillment.success,
-    result: fulfillment.result || '',
-    result_bytes_base64: fulfillment.result_bytes_base64 || '',
-    error: fulfillment.error || '',
-  });
+  const verification = await signEncodedFulfillment(config, event, fulfillmentContext, fulfillment);
   const verificationDurationMs = Date.now() - verificationStartedAt;
 
   logger?.info(
