@@ -51,27 +51,6 @@ export type ControlPlaneJobRecord = {
   updated_at?: string;
 };
 
-export const controlPlaneRouteQueues: Record<ControlPlaneRoute, ControlPlaneQueue> = {
-  '/oracle/query': 'oracle_request',
-  '/oracle/smart-fetch': 'oracle_request',
-  '/compute/execute': 'oracle_request',
-  '/neodid/bind': 'oracle_request',
-  '/neodid/action-ticket': 'oracle_request',
-  '/neodid/recovery-ticket': 'oracle_request',
-  '/feeds/tick': 'feed_tick',
-  '/callbacks/broadcast': 'callback_broadcast',
-  '/automation/execute': 'automation_execute',
-};
-
-// Public route paths and queue names remain compatibility-oriented. Internally these map to
-// broader MiniApp OS runtime lanes so the same infrastructure can serve many miniapps.
-export const controlPlaneQueueKernelLanes: Record<ControlPlaneQueue, ControlPlaneKernelLane> = {
-  oracle_request: 'request_dispatch',
-  feed_tick: 'shared_resource_sync',
-  callback_broadcast: 'callback_adapter_broadcast',
-  automation_execute: 'automation_orchestration',
-};
-
 export type OraclePayload = {
   project_slug?: string;
   url?: string;
@@ -157,20 +136,6 @@ export type ProviderConfig = {
   provider_id: BuiltinProviderId | string;
   enabled: boolean;
   config: Record<string, unknown>;
-};
-
-export const providerConfigSchemaHints: Record<string, unknown> = {
-  twelvedata: {
-    endpoint: 'price',
-    symbol: 'NEO-USD',
-    interval: '1min',
-  },
-  'binance-spot': {
-    symbol: 'NEOUSDT',
-  },
-  'coinbase-spot': {
-    symbol: 'NEO-USD',
-  },
 };
 
 // Re-export utilities for TypeScript consumers
