@@ -1076,6 +1076,19 @@ export async function fulfillNeoN3Request(
     const signerAccount = signerPayload.wif
       ? new neonWallet.Account(signerPayload.wif)
       : new neonWallet.Account(signerPayload.private_key);
+    // Best-effort fee top-up before the primary (WIF/private-key) submission. The
+    // runtime-derived path already does this; the default local-signer path did not, so
+    // feeTopUp (default-enabled) was inert for the default deployment. Fail-soft on
+    // purpose: a manually-funded deployment configures no funder, and
+    // ensureNeoN3FeeBalance throws in that case — which, if it propagated, would block
+    // EVERY fulfill on the default path (and would wrongly trigger the derived-key
+    // fallback in the outer catch). A healthy account (balance >= reserve) skips without
+    // a transfer; a genuine underfunding still surfaces at contract.invoke below.
+    try {
+      await ensureNeoN3FeeBalance(config, signerAccount);
+    } catch {
+      // intentionally best-effort — never block an otherwise-fundable fulfill on a top-up problem
+    }
     const contract = new experimental.SmartContract(config.neo_n3.oracleContract, {
       rpcAddress: config.neo_n3.rpcUrl,
       networkMagic: config.neo_n3.networkMagic,
@@ -1165,6 +1178,17 @@ export async function queueNeoN3AutomationRequest(
   let invoke;
   try {
     const signerPayload = await resolveNeoN3UpdaterPayload(config);
+    // Best-effort fee top-up on the primary path, mirroring fulfillNeoN3Request and the
+    // derived-key automation path. Fail-soft for the same reason (default deployment is
+    // enabled-but-funderless and ensureNeoN3FeeBalance throws there).
+    try {
+      const signerAccount = signerPayload.wif
+        ? new neonWallet.Account(signerPayload.wif)
+        : new neonWallet.Account(signerPayload.private_key);
+      await ensureNeoN3FeeBalance(config, signerAccount);
+    } catch {
+      // intentionally best-effort — never block an otherwise-fundable queue on a top-up problem
+    }
     invoke = await relayNeoN3Invocation({
       request_id: requestId,
       contract_hash: config.neo_n3.oracleContract,

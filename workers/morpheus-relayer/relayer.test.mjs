@@ -1330,6 +1330,120 @@ test('Neo N3 fulfill auto-funds the derived updater when GAS fee reserve is low'
   }
 });
 
+test('Neo N3 fulfill auto-funds the local (WIF) updater when GAS fee reserve is low', async () => {
+  // Regression: the primary WIF/private-key submission path did not run
+  // ensureNeoN3FeeBalance, so feeTopUp (default-enabled) was inert for the default
+  // deployment. After the fix the primary path tops up exactly like the derived-key path.
+  const originalFetch = global.fetch;
+  const updater = new wallet.Account('2'.repeat(64));
+  const funder = new wallet.Account('4'.repeat(64));
+  const sendrawTransactions = [];
+  const balanceChecks = [];
+  try {
+    global.fetch = async (url, init = {}) => {
+      const rpcBody = JSON.parse(String(init.body || '{}'));
+      if (rpcBody.method === 'getblockcount') {
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: 1000 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (rpcBody.method === 'invokefunction') {
+        assert.equal(rpcBody.params?.[1], 'balanceOf');
+        const account = String(rpcBody.params?.[2]?.[0]?.value || '').toLowerCase();
+        balanceChecks.push(account);
+        const value = account === `0x${updater.scriptHash}`.toLowerCase() ? '0' : '2000000000';
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { state: 'HALT', stack: [{ type: 'Integer', value }] },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'invokescript') {
+        return new Response(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            result: { state: 'HALT', gasconsumed: '1000000' },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'calculatenetworkfee') {
+        return new Response(
+          JSON.stringify({ jsonrpc: '2.0', id: 1, result: { networkfee: '100000' } }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      if (rpcBody.method === 'sendrawtransaction') {
+        sendrawTransactions.push(String(rpcBody.params?.[0] || ''));
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: true }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (rpcBody.method === 'getapplicationlog') {
+        return new Response(
+          JSON.stringify({ jsonrpc: '2.0', id: 1, result: { executions: [{ vmstate: 'HALT' }] } }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        );
+      }
+      throw new Error(`unexpected fetch ${String(url)} ${rpcBody.method}`);
+    };
+
+    // The neon-js experimental.SmartContract.invoke used by the primary path issues its
+    // RPCs through neon-core's own client (not global.fetch), so the fulfill tx itself
+    // can't be intercepted here — true of every fulfill test (the derived test only works
+    // because its primary path throws on an empty signer and falls through to the
+    // global.fetch-backed derived path). We assert the FIX: the fee top-up now runs on the
+    // primary WIF path BEFORE the invoke. The invoke failing against the test host (no
+    // mocked neon-core client) is expected and swallowed.
+    await fulfillNeoN3Request(
+      {
+        network: 'mainnet',
+        neo_n3: {
+          rpcUrl: 'http://127.0.0.1:1',
+          rpcUrls: ['http://127.0.0.1:1'],
+          networkMagic: 860833102,
+          oracleContract: '0xf54d8584ef82315c1800373272ab08ae0db2d5ef',
+          updaterWif: updater.WIF,
+          updaterPrivateKey: '',
+          feeTopUp: {
+            enabled: true,
+            minBalance: '50000000',
+            topUpAmount: '100000000',
+            maxTopUpAmount: '500000000',
+            funderWif: funder.WIF,
+            funderPrivateKey: '',
+          },
+        },
+      },
+      23,
+      true,
+      '',
+      '',
+      '3'.repeat(128),
+      Buffer.from('ok').toString('base64')
+    ).catch(() => {});
+
+    // Definitive proof of the fix: before it, the primary WIF path never called
+    // ensureNeoN3FeeBalance, so the updater balance was never read. Now it is.
+    assert.ok(
+      balanceChecks.includes(`0x${updater.scriptHash}`.toLowerCase()),
+      'expected the WIF updater balance to be checked (top-up wired into the primary path)'
+    );
+    assert.ok(
+      sendrawTransactions.length >= 1,
+      'expected the top-up tx to broadcast before the (un-mockable) fulfill invoke'
+    );
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('createRelayerConfig exposes the shared-worker derived-key preference', () => {
   const previous = process.env.PHALA_USE_DERIVED_KEYS;
   process.env.PHALA_USE_DERIVED_KEYS = 'true';
