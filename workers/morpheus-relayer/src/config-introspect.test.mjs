@@ -213,7 +213,13 @@ test('schema aliases stay truthful to config.js (drift guard)', () => {
   // contain literally.
   const configSource = fs.readFileSync(path.join(moduleDir, 'config.js'), 'utf8');
   const signerSource = fs.readFileSync(path.join(moduleDir, 'lib', 'neo-signers.js'), 'utf8');
-  const haystack = `${configSource}\n${signerSource}`;
+  // The NEO_N3_SIGNER_ENV_KEYS list moved to the shared core (lib/neo-signers.js is
+  // now a thin shim), so the env aliases live there — include it in the haystack.
+  const coreSource = fs.readFileSync(
+    path.join(moduleDir, '..', '..', '..', 'packages', 'shared', 'src', 'neo-signers-core.js'),
+    'utf8'
+  );
+  const haystack = `${configSource}\n${signerSource}\n${coreSource}`;
 
   // Aliases produced by `${genericKey}_${suffix}` / `MORPHEUS_${network}_...`
   // interpolation in config.js. Each maps the dynamic alias -> the literal stem
