@@ -2,15 +2,12 @@ import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 import { sendHeartbeat } from '@/lib/heartbeat';
 import { fulfillNeoN3RequestViaBackend, resolveControlPlaneNetwork } from '@/lib/neo-control-plane';
 import { badRequest } from '@/lib/api-helpers';
+import { trimString } from '@/lib/strings';
 
 export const runtime = 'nodejs';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function readSignerMaterial(body: Record<string, unknown>) {

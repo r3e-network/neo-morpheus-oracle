@@ -5,10 +5,7 @@ import {
   type MorpheusNetwork,
 } from './server-supabase';
 import { networkRegistry } from './networks';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './strings';
 
 function pickValue(...values: unknown[]) {
   for (const value of values) {

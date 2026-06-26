@@ -8,6 +8,7 @@ import {
   resolveSupabaseNetwork,
   type MorpheusNetwork,
 } from './server-supabase';
+import { trimString } from './strings';
 
 type OperationCategory =
   | 'oracle'
@@ -88,10 +89,6 @@ function shouldSampleOutMonitoringRead(input: OperationLogInput) {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 function safeJsonParse(value: string) {

@@ -5,10 +5,7 @@ import {
 } from '@/lib/control-plane';
 import { proxyToNitro } from '@/lib/nitro';
 import { createRateLimitedHandler } from '@/lib/rate-limit';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from '@/lib/strings';
 
 const handlePost = createRateLimitedHandler(
   async function POST(request: Request) {

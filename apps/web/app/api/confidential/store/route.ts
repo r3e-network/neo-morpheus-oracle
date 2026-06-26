@@ -10,6 +10,7 @@ import {
   resolveProjectIdBySlug,
   resolveSupabaseNetwork,
 } from '@/lib/server-supabase';
+import { trimString } from '@/lib/strings';
 
 type EncryptedSecretInsertRow = {
   project_id: string | null;
@@ -29,10 +30,6 @@ type EncryptedSecretInsertResult = {
   encryption_algorithm: string;
   created_at: string | null;
 };
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function normalizeHash160(value: unknown) {
   const raw = trimString(value).replace(/^0x/i, '').toLowerCase();

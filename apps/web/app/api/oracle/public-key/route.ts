@@ -1,13 +1,10 @@
 import { badRequest } from '@/lib/api-helpers';
 import { getSelectedNetwork, getSelectedNetworkKey, isKnownNetworkKey } from '@/lib/networks';
 import { readNeoN3Contract } from '@/lib/onchain-state';
+import { trimString } from '@/lib/strings';
 
 // The oracle's confidential-payload encryption key is X25519-HKDF-SHA256-AES-256-GCM.
 const DEFAULT_ALGORITHM = 'X25519-HKDF-SHA256-AES-256-GCM';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function readNetwork(request: Request) {
   return new URL(request.url).searchParams.get('network');
