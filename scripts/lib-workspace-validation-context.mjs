@@ -337,7 +337,7 @@ export function buildWorkspaceValidationData({
 
   const paymasterAppId =
     trimString(process.env.MORPHEUS_PAYMASTER_APP_ID) ||
-    trimString((networkRegistry?.nitro ?? networkRegistry?.phala)?.cvm_id) ||
+    trimString(networkRegistry?.nitro?.cvm_id) ||
     'ddff154546fe22d15b65667156dd4b7c611e6093';
 
   const publicContext = {
@@ -359,8 +359,7 @@ export function buildWorkspaceValidationData({
         morpheusLocalEnv,
       }),
       control_plane_url:
-        trimString((networkRegistry?.nitro ?? networkRegistry?.phala)?.control_plane_url) ||
-        'https://control.meshmini.app',
+        trimString(networkRegistry?.nitro?.control_plane_url) || 'https://control.meshmini.app',
       oracle_hash: trimString(networkRegistry?.neo_n3?.contracts?.morpheus_oracle || ''),
       callback_hash:
         trimString(networkRegistry?.neo_n3?.examples?.oracle_callback_consumer || '') ||

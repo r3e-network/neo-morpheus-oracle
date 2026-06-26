@@ -101,9 +101,7 @@ function buildDomains(rawRegistry) {
 }
 
 function buildMorpheusRuntime(network, rawRegistry) {
-  // Prefer the `nitro` registry key; fall back to the legacy `phala` key so a
-  // live box whose deployed registry has not yet been redeployed still loads.
-  const nitro = rawRegistry?.nitro ?? rawRegistry?.phala ?? {};
+  const nitro = rawRegistry?.nitro ?? {};
   const publicApiUrl = trimString(nitro.public_api_url);
   const edgeUrl = trimString(nitro.edge_public_url);
   const controlPlaneBaseUrl = trimString(nitro.control_plane_url);
