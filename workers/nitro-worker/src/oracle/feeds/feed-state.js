@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
-import { env, requestLog, trimString } from '../../platform/core.js';
+import { env, getSupabaseRestConfig, requestLog, trimString } from '../../platform/core.js';
 import { DEFAULT_FEED_STATE_PATH, isEnabled, resolveFeedScope } from './shared.js';
 
 const feedStateCache = new Map();
@@ -17,25 +17,6 @@ export function getFeedStateWriteFailureCount() {
 
 export function __resetFeedStateWriteFailureCountForTests() {
   feedStateWriteFailures = 0;
-}
-
-export function getSupabaseRestConfig() {
-  const baseUrl = trimString(
-    env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL') || env('morpheus_SUPABASE_URL') || ''
-  );
-  const apiKey = trimString(
-    env('SUPABASE_SECRET_KEY') ||
-      env('morpheus_SUPABASE_SECRET_KEY') ||
-      env('SUPABASE_SERVICE_ROLE_KEY') ||
-      env('morpheus_SUPABASE_SERVICE_ROLE_KEY') ||
-      env('SUPABASE_SERVICE_KEY') ||
-      ''
-  );
-  if (!baseUrl || !apiKey) return null;
-  return {
-    restUrl: `${baseUrl.replace(/\/$/, '')}/rest/v1`,
-    apiKey,
-  };
 }
 
 export async function fetchLatestFeedSnapshots(limit = 250, scope = {}) {

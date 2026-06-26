@@ -37,6 +37,5 @@ export {
   readMessageFromChain,
   resolveNeoxMessageChainContext,
   parseMessageId,
-  addressesEqual as messageAddressesEqual,
   NEOX_DECRYPT_CHAIN_ALIASES,
 } from './message-reveal.js';

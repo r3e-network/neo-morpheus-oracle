@@ -1,7 +1,9 @@
 import {
   env,
+  getSupabaseRestConfig,
   json,
   normalizeMorpheusNetwork,
+  readResponseTextWithLimit,
   resolveMaxBytes,
   resolvePayloadNetwork,
   sleep,
@@ -154,25 +156,6 @@ function resolveSupabaseNetwork(value) {
   return normalizeMorpheusNetwork(
     value || env('MORPHEUS_NETWORK') || env('NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet'
   );
-}
-
-function getSupabaseRestConfig() {
-  const baseUrl = trimString(
-    env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL') || env('morpheus_SUPABASE_URL') || ''
-  );
-  const apiKey = trimString(
-    env('SUPABASE_SECRET_KEY') ||
-      env('morpheus_SUPABASE_SECRET_KEY') ||
-      env('SUPABASE_SERVICE_ROLE_KEY') ||
-      env('morpheus_SUPABASE_SERVICE_ROLE_KEY') ||
-      env('SUPABASE_SERVICE_KEY') ||
-      ''
-  );
-  if (!baseUrl || !apiKey) return null;
-  return {
-    restUrl: `${baseUrl.replace(/\/$/, '')}/rest/v1`,
-    apiKey,
-  };
 }
 
 function cloneProviderResult(result) {
@@ -618,30 +601,7 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 8000) {
         });
 
         const maxBodyBytes = resolveProviderResponseMaxBodyBytes();
-        const text = await (async () => {
-          if (!response.body || typeof response.body.getReader !== 'function') {
-            const body = await response.text();
-            if (Buffer.byteLength(body, 'utf8') > maxBodyBytes) {
-              throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
-            }
-            return body;
-          }
-          const reader = response.body.getReader();
-          const chunks = [];
-          let total = 0;
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = Buffer.from(value);
-            total += chunk.length;
-            if (total > maxBodyBytes) {
-              await reader.cancel().catch(() => {});
-              throw new Error(`provider response exceeds max size of ${maxBodyBytes} bytes`);
-            }
-            chunks.push(chunk);
-          }
-          return Buffer.concat(chunks).toString('utf8');
-        })();
+        const text = await readResponseTextWithLimit(response, maxBodyBytes, 'provider response');
 
         let data = null;
         if (text) {
