@@ -4,8 +4,7 @@ import {
   resolveSupabaseNetwork,
   type MorpheusNetwork,
 } from './server-supabase';
-import mainnet from '../../../config/networks/mainnet.json';
-import testnet from '../../../config/networks/testnet.json';
+import { networkRegistry } from './networks';
 
 function trimString(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
@@ -23,12 +22,8 @@ export function resolveControlPlaneNetwork(value?: string | null): MorpheusNetwo
   return resolveSupabaseNetwork(value);
 }
 
-function getNetworkConfig(network: MorpheusNetwork) {
-  return network === 'mainnet' ? mainnet : testnet;
-}
-
 export function resolveNeoN3Runtime(network: MorpheusNetwork) {
-  const cfg = getNetworkConfig(network);
+  const cfg = networkRegistry[network];
   return {
     rpcUrl: pickValue(
       network === 'mainnet' ? process.env.NEO_MAINNET_RPC_URL : process.env.NEO_TESTNET_RPC_URL,

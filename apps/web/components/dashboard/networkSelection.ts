@@ -1,10 +1,4 @@
-import { getSelectedNetwork, getSelectedNetworkKey } from '@/lib/networks';
-
-export function getBrowserNetworkKey() {
-  if (typeof window === 'undefined') return getSelectedNetworkKey();
-  const url = new URL(window.location.href);
-  return getSelectedNetworkKey(url.searchParams.get('network'));
-}
+import { getBrowserNetworkKey, getSelectedNetwork, getSelectedNetworkKey } from '@/lib/networks';
 
 export function getDashboardNetworkConfig(networkOverride?: string | null) {
   const networkKey = networkOverride

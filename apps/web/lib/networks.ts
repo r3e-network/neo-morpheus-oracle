@@ -46,3 +46,11 @@ export function getSelectedNetwork(networkOverride?: string | null) {
 export function getSelectedNetworkKey(networkOverride?: string | null) {
   return resolveSelectedNetworkKey(networkOverride || readSelectedEnv());
 }
+
+// Client-side network key: prefer the `?network=` query param when running in the
+// browser, otherwise fall back to the env-derived selection (SSR-safe).
+export function getBrowserNetworkKey() {
+  if (typeof window === 'undefined') return getSelectedNetworkKey();
+  const url = new URL(window.location.href);
+  return getSelectedNetworkKey(url.searchParams.get('network'));
+}

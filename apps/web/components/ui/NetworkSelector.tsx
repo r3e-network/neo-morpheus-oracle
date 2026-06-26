@@ -2,18 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
-import { getSelectedNetworkKey } from '@/lib/networks';
+import { getBrowserNetworkKey, getSelectedNetworkKey } from '@/lib/networks';
 
 const networks = [
   { key: 'mainnet' as const, label: 'Mainnet', color: 'var(--neo-green)' },
   { key: 'testnet' as const, label: 'Testnet', color: 'var(--warning)' },
 ];
-
-function getBrowserNetworkKey() {
-  if (typeof window === 'undefined') return getSelectedNetworkKey();
-  const url = new URL(window.location.href);
-  return getSelectedNetworkKey(url.searchParams.get('network'));
-}
 
 export function NetworkSelector() {
   const [isOpen, setIsOpen] = useState(false);
