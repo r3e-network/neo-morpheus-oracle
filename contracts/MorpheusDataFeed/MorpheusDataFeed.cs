@@ -239,7 +239,9 @@ namespace MorpheusOracle.Contracts
             );
         }
 
-        private static void UpdateFeedInternal(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId, ByteString signature)
+        // Shared input validation for the two write paths (UpdateFeedInternal and
+        // AdminResetFeed) so the accepted-input contract cannot drift between them.
+        private static void ValidateFeedInputs(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, BigInteger sourceSetId, ByteString attestationHash)
         {
             ExecutionEngine.Assert(pair != null && pair.Length > 0, "pair required");
             ExecutionEngine.Assert(roundId >= 0, "invalid round");
@@ -247,6 +249,29 @@ namespace MorpheusOracle.Contracts
             ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
             ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
             ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
+        }
+
+        // Shared record write + event emit for the two write paths. Emits the
+        // coalesced record.AttestationHash (not the raw param) so the stored value
+        // and the event stay identical across both callers.
+        private static void WriteFeedRecord(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
+        {
+            FeedRecord record = new FeedRecord
+            {
+                Pair = pair,
+                RoundId = roundId,
+                Price = price,
+                Timestamp = timestamp,
+                AttestationHash = attestationHash ?? (ByteString)"",
+                SourceSetId = sourceSetId
+            };
+            FeedMap().Put(pair, StdLib.Serialize(record));
+            OnFeedUpdated(pair, roundId, price, timestamp, record.AttestationHash, sourceSetId);
+        }
+
+        private static void UpdateFeedInternal(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId, ByteString signature)
+        {
+            ValidateFeedInputs(pair, roundId, price, timestamp, sourceSetId, attestationHash);
 
             VerifyFeedSignature(pair, roundId, price, timestamp, signature);
 
@@ -262,18 +287,7 @@ namespace MorpheusOracle.Contracts
 
             IndexPairIfNeeded(pair, existingRaw);
 
-            FeedRecord record = new FeedRecord
-            {
-                Pair = pair,
-                RoundId = roundId,
-                Price = price,
-                Timestamp = timestamp,
-                AttestationHash = attestationHash ?? (ByteString)"",
-                SourceSetId = sourceSetId
-            };
-
-            FeedMap().Put(pair, StdLib.Serialize(record));
-            OnFeedUpdated(pair, roundId, price, timestamp, record.AttestationHash, sourceSetId);
+            WriteFeedRecord(pair, roundId, price, timestamp, attestationHash, sourceSetId);
         }
 
         [Safe]
@@ -335,25 +349,10 @@ namespace MorpheusOracle.Contracts
         public static void AdminResetFeed(string pair, BigInteger roundId, BigInteger price, BigInteger timestamp, ByteString attestationHash, BigInteger sourceSetId)
         {
             ValidateAdmin();
-            ExecutionEngine.Assert(pair != null && pair.Length > 0, "pair required");
-            ExecutionEngine.Assert(roundId >= 0, "invalid round");
-            ExecutionEngine.Assert(price >= 0, "invalid price");
-            ExecutionEngine.Assert(timestamp >= 0, "invalid timestamp");
-            ExecutionEngine.Assert(sourceSetId >= 0, "invalid source set");
-            ExecutionEngine.Assert(attestationHash == null || attestationHash.Length <= 32, "attestation hash too long");
+            ValidateFeedInputs(pair, roundId, price, timestamp, sourceSetId, attestationHash);
 
             IndexPairIfNeeded(pair);
-            FeedRecord record = new FeedRecord
-            {
-                Pair = pair,
-                RoundId = roundId,
-                Price = price,
-                Timestamp = timestamp,
-                AttestationHash = attestationHash ?? (ByteString)"",
-                SourceSetId = sourceSetId
-            };
-            FeedMap().Put(pair, StdLib.Serialize(record));
-            OnFeedUpdated(pair, roundId, price, timestamp, record.AttestationHash, sourceSetId);
+            WriteFeedRecord(pair, roundId, price, timestamp, attestationHash, sourceSetId);
         }
 
         /// <summary>
