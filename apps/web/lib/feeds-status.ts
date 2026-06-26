@@ -17,10 +17,6 @@ export type FeedsStatusOptions = {
 
 let cachedStatus: { body: FeedsStatusBody; expiresAt: number } | null = null;
 
-function normalizeChainPair(value: string) {
-  return normalizeFeedSymbol(value);
-}
-
 // Re-homed (2026-06): the per-pair status is derived entirely from the on-chain
 // MorpheusDataFeed (the trustless source the box updates) instead of a live quote
 // fetched from the retired runtime. The `live` overlay now reflects the on-chain
@@ -37,7 +33,7 @@ export async function buildFeedsStatusBody(
   const configured = DEFAULT_FEED_SYMBOLS.map((pair) => {
     const descriptor = getFeedDescriptor(pair);
     const chainRecord =
-      chainRecords.find((entry) => normalizeChainPair(entry.pair) === pair) || null;
+      chainRecords.find((entry) => normalizeFeedSymbol(entry.pair) === pair) || null;
     const live = chainRecord
       ? {
           price: Number(chainRecord.price_display),

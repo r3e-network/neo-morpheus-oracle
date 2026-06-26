@@ -4,7 +4,6 @@ import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 export const DEFAULT_PAIRS = [...DEFAULT_FEED_SYMBOLS];
 const selectedNetwork = getSelectedNetwork();
 const selectedDomains: Record<string, string | undefined> = selectedNetwork.neo_n3?.domains || {};
-export const SELECTED_NETWORK = selectedNetwork;
 export const SELECTED_NETWORK_KEY = getSelectedNetworkKey();
 export const SELECTED_NETWORK_LABEL = SELECTED_NETWORK_KEY === 'mainnet' ? 'Mainnet' : 'Testnet';
 export const NETWORKS = {

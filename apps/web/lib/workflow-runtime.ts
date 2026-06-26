@@ -5,10 +5,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function clone<T>(value: T): T {
-  return structuredClone(value);
-}
-
 function coerceObject(value: unknown): Record<string, unknown> {
   if (isPlainObject(value)) return value;
   if (typeof value === 'string') {
@@ -29,7 +25,6 @@ function normalizeRoutePath(path: string) {
 }
 
 export type PublicWorkflowCatalog = typeof runtimeCatalog;
-export type PublicWorkflowDefinition = PublicWorkflowCatalog['workflows'][number];
 export type PublicRuntimeCatalogSummary = {
   envelope: PublicWorkflowCatalog['envelope'];
   topology: PublicWorkflowCatalog['topology'];
@@ -47,7 +42,7 @@ export type PublicRuntimeCatalogSummary = {
 };
 
 export function getPublicWorkflowCatalog(): PublicWorkflowCatalog {
-  return clone(runtimeCatalog);
+  return structuredClone(runtimeCatalog);
 }
 
 export function getPublicRuntimeCatalogSummary(): PublicRuntimeCatalogSummary {
