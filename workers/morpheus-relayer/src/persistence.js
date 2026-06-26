@@ -1,6 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { resolveKernelIntent } from './router.js';
-import { buildRiskEventRecord, buildWorkflowExecutionRecord } from './workflow-persistence.js';
 import { trimString } from './lib/strings.js';
 
 function sha256Hex(value) {
@@ -686,28 +685,4 @@ export async function persistAutomationEncryptedFields(job) {
     },
   }));
   await supabaseRequest('morpheus_encrypted_secrets', 'POST', rows);
-}
-
-export async function insertWorkflowExecution(record) {
-  return supabaseRequest(
-    'morpheus_workflow_executions',
-    'POST',
-    buildWorkflowExecutionRecord(record)
-  );
-}
-
-export async function insertPolicyDecision(record) {
-  return supabaseRequest('morpheus_policy_decisions', 'POST', {
-    network: record.network || resolveSupabaseNetwork(),
-    workflow_id: record.workflow_id || record.workflowId || null,
-    execution_id: record.execution_id || record.executionId || null,
-    scope: trimString(record.scope || ''),
-    decision: trimString(record.decision || 'review'),
-    reason: trimString(record.reason || '') || null,
-    metadata: isPlainObject(record.metadata) ? record.metadata : {},
-  });
-}
-
-export async function insertRiskEvent(record) {
-  return supabaseRequest('morpheus_risk_events', 'POST', buildRiskEventRecord(record));
 }

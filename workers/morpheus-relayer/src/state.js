@@ -270,11 +270,6 @@ export function hasProcessedEvent(state, chain, eventOrKey) {
   return Boolean(state?.[chain]?.processed_records?.[key]);
 }
 
-export function getProcessedEventRecord(state, chain, eventOrKey) {
-  const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
-  return state?.[chain]?.processed_records?.[key] || null;
-}
-
 export function isEventQueuedForRetry(state, chain, eventOrKey) {
   const key = typeof eventOrKey === 'string' ? eventOrKey : buildEventKey(eventOrKey);
   return state?.[chain]?.retry_queue?.some((item) => item.key === key) || false;
