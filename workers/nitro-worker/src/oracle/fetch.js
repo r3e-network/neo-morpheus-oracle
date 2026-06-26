@@ -6,6 +6,7 @@ import {
   normalizeHeaders,
   normalizeTargetChain,
   parseBodyMaybe,
+  readResponseTextWithLimit,
   resolveMaxBytes,
   trimString,
   cappedDurationMs,
@@ -213,32 +214,6 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   } finally {
     clearTimeout(timer);
   }
-}
-
-async function readResponseTextWithLimit(response, maxBytes, label) {
-  if (!response.body || typeof response.body.getReader !== 'function') {
-    const text = await response.text();
-    if (Buffer.byteLength(text, 'utf8') > maxBytes) {
-      throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
-    }
-    return text;
-  }
-
-  const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = Buffer.from(value);
-    total += chunk.length;
-    if (total > maxBytes) {
-      await reader.cancel().catch(() => {});
-      throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
-    }
-    chunks.push(chunk);
-  }
-  return Buffer.concat(chunks).toString('utf8');
 }
 
 function buildUpstreamErrorMessage(source, status, data, rawResponse) {

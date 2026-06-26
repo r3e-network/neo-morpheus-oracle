@@ -118,6 +118,55 @@ export function trimString(value) {
   return String(value || '').trim();
 }
 
+// Supabase REST endpoint + key from the env fallback chain. Returns null when
+// either is missing. Shared by the oracle crypto / providers / feed-state lanes.
+export function getSupabaseRestConfig() {
+  const baseUrl = trimString(
+    env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL') || env('morpheus_SUPABASE_URL') || ''
+  );
+  const apiKey = trimString(
+    env('SUPABASE_SECRET_KEY') ||
+      env('morpheus_SUPABASE_SECRET_KEY') ||
+      env('SUPABASE_SERVICE_ROLE_KEY') ||
+      env('morpheus_SUPABASE_SERVICE_ROLE_KEY') ||
+      env('SUPABASE_SERVICE_KEY') ||
+      ''
+  );
+  if (!baseUrl || !apiKey) return null;
+  return {
+    restUrl: `${baseUrl.replace(/\/$/, '')}/rest/v1`,
+    apiKey,
+  };
+}
+
+// Read a fetch Response body to text with a byte cap, streaming when possible and
+// cancelling the reader on overflow. `label` names the source in the error message.
+export async function readResponseTextWithLimit(response, maxBytes, label) {
+  if (!response.body || typeof response.body.getReader !== 'function') {
+    const text = await response.text();
+    if (Buffer.byteLength(text, 'utf8') > maxBytes) {
+      throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = Buffer.from(value);
+    total += chunk.length;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      throw new Error(`${label} exceeds max size of ${maxBytes} bytes`);
+    }
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 export function normalizeBoolean(value, fallback = false) {
   if (value === undefined || value === null || value === '') return fallback;
   const normalized = String(value).trim().toLowerCase();
