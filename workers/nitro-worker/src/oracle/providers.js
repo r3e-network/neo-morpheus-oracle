@@ -127,7 +127,7 @@ export function inferProviderIdFromPairSymbol(value) {
   return matchedPrefix ? FEED_PROVIDER_PREFIXES[matchedPrefix] : '';
 }
 
-export function stripProviderPrefixFromPairSymbol(value) {
+function stripProviderPrefixFromPairSymbol(value) {
   const normalized = trimString(value).toUpperCase();
   const matchedPrefix = Object.keys(FEED_PROVIDER_PREFIXES).find((prefix) =>
     normalized.startsWith(prefix)
@@ -413,13 +413,13 @@ export async function resolveProviderPayload(payload, options = {}) {
   };
 }
 
-export function pairToTwelveDataSymbol(pair) {
+function pairToTwelveDataSymbol(pair) {
   const normalized = trimString(pair).toUpperCase().replace(/_/g, '-');
   const [base, quote = 'USD'] = normalized.split('-');
   return `${base}/${quote}`;
 }
 
-export function pairToBinanceSymbol(pair) {
+function pairToBinanceSymbol(pair) {
   const normalized = trimString(pair).toUpperCase().replace(/_/g, '-');
   const [base, quote = 'USD'] = normalized.split('-');
   const quoteSymbol = quote === 'USD' ? 'USDT' : quote;

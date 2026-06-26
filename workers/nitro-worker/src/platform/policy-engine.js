@@ -25,7 +25,7 @@ function normalizeDecision(value, fallback = 'allow') {
 
 function buildPolicyDecision(base, overrides = {}) {
   const decision = normalizeDecision(overrides.decision, base.decision);
-  const allow = decision === 'allow' ? true : false;
+  const allow = decision === 'allow';
   return {
     workflow_id: base.workflow_id,
     allow,

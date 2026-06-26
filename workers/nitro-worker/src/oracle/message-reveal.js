@@ -107,7 +107,6 @@ export async function readMessageFromChain({ rpcUrl, chainId, contract, messageI
 }
 
 export const NEOX_DECRYPT_CHAIN_ALIASES = NEOX_CHAIN_ALIASES;
-export const DEFAULT_NEOX_DECRYPT_CHAIN_ID = DEFAULT_NEOX_CHAIN_ID;
 
 // Trusted, worker-configured Neo X message contract context (the contract is
 // NEVER taken from the caller — a hostile contract could otherwise lie about
