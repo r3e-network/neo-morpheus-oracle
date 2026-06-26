@@ -6,10 +6,7 @@ import {
   fetchPriceQuote,
   decimalToIntegerString,
 } from '../workers/nitro-worker/src/oracle/index.js';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 const CONTINUOUS_FEED_PAIRS = new Set([
   'TWELVEDATA:NEO-USD',

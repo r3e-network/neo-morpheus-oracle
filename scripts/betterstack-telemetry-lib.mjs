@@ -1,8 +1,5 @@
 import { loadDotEnv } from './lib-env.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 export async function loadBetterStackTelemetryEnv() {
   await loadDotEnv('.env.local');

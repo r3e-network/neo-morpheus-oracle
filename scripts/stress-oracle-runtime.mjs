@@ -1,14 +1,11 @@
 #!/usr/bin/env node
 
+import { trimString } from './lib-strings.mjs';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function parseArgs(argv = []) {
   const out = {

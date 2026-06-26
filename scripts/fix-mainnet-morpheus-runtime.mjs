@@ -9,6 +9,7 @@ import {
   resolvePinnedNeoN3Role,
 } from './lib-neo-signers.mjs';
 import { parseGasToRaw } from './lib-gas-units.mjs';
+import { trimString } from './lib-strings.mjs';
 import { withRetries } from './lib-verify-morpheus-n3.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
@@ -40,10 +41,6 @@ const explicitContractEnv = {
     process.env.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH
   ),
 };
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function strip0x(value) {
   return trimString(value).replace(/^0x/i, '').toLowerCase();

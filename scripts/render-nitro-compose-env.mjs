@@ -1,3 +1,4 @@
+import { trimString } from './lib-strings.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseDotEnv } from './lib-env.mjs';
@@ -31,10 +32,6 @@ function parseArgs(argv = process.argv.slice(2)) {
 const cliArgs = parseArgs();
 const requestedNetwork = trimString(cliArgs.network || process.env.PHALA_ENV_NETWORK || '');
 const requestedOutput = trimString(cliArgs.output || process.env.PHALA_ENV_OUTPUT || '');
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 async function readLocalEnv() {
   const merged = {};

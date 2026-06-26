@@ -1,3 +1,4 @@
+import { trimString } from './lib-strings.mjs';
 import { wallet } from '@cityofzion/neon-js';
 
 const CVM_URL =
@@ -15,10 +16,6 @@ const CVM_TOKEN =
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const ORACLE_HASH =
   process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '0xf54d8584ef82315c1800373272ab08ae0db2d5ef';
-
-function trimString(v) {
-  return typeof v === 'string' ? v.trim() : '';
-}
 
 async function cvmPost(path, body) {
   const url = `${CVM_URL.replace(/\/$/, '')}${path}`;

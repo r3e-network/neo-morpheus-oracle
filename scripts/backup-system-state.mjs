@@ -5,12 +5,9 @@ import { promisify } from 'node:util';
 import { createHash } from 'node:crypto';
 
 import { loadDotEnv, parseDotEnv } from './lib-env.mjs';
+import { trimString } from './lib-strings.mjs';
 
 const execFileAsync = promisify(execFile);
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function sha256Hex(value) {
   return createHash('sha256')

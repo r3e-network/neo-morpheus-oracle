@@ -2,10 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { experimental, sc, wallet } from '@cityofzion/neon-js';
 import { resolvePinnedNeoN3Role, normalizeMorpheusNetwork } from './lib-neo-signers.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 function resolveNeoN3NetworkDefaults() {
   const network = trimString(process.env.MORPHEUS_NETWORK || 'testnet').toLowerCase();

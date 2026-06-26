@@ -2,10 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readMergedDotEnvFiles } from './lib-env.mjs';
 import { reportPinnedNeoN3Role } from './lib-neo-signers.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 function parseArgs(argv = process.argv.slice(2)) {
   const out = { network: 'mainnet', source: [] };

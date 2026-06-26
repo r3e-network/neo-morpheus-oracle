@@ -1,3 +1,4 @@
+import { trimString } from './lib-strings.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { rpc as neoRpc } from '@cityofzion/neon-js';
@@ -22,10 +23,6 @@ const CONTRACT_ENV_KEYS = [
   'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET',
   'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_TESTNET',
 ];
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 // normalizeHash160 is imported from ./lib-neo-signers.mjs (single source of truth).
 // strip0x was used solely by the old local copy, so it is removed with it.

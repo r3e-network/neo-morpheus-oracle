@@ -1,9 +1,6 @@
+import { trimString } from './lib-strings.mjs';
 const GAS_DECIMALS = 8;
 const GAS_FACTOR = 10n ** BigInt(GAS_DECIMALS);
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 /**
  * Parses a decimal GAS amount (e.g. '0.1') into raw 8-decimal base units as an

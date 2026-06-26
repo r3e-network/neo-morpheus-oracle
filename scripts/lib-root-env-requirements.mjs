@@ -1,3 +1,4 @@
+import { trimString } from './lib-strings.mjs';
 // Shared requirement lists for scripts/check-root-env.mjs.
 //
 // Each group is an alias list: ONE non-empty value satisfies the group. The
@@ -88,10 +89,6 @@ export const ROOT_ENV_OPTIONAL_GROUPS = {
     ],
   ],
 };
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 export function getGroupValue(env, keys) {
   for (const key of keys) {

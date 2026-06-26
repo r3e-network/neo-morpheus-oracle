@@ -1,9 +1,6 @@
 import { wallet } from '@cityofzion/neon-js';
 import { buildFulfillmentDigestBytes } from '../workers/morpheus-relayer/src/router.js';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 export function resolveFulfillmentSigningContext({ requestRecord, defaultChain = 'neo_n3' } = {}) {
   const record = requestRecord && typeof requestRecord === 'object' ? requestRecord : null;

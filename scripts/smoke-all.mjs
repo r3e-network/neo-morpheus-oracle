@@ -1,9 +1,6 @@
+import { trimString } from './lib-strings.mjs';
 import { spawn } from 'node:child_process';
 import { loadDotEnv } from './lib-env.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function hasAny(...keys) {
   return keys.some((key) => trimString(process.env[key]));
