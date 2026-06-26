@@ -14,7 +14,6 @@ import {
   shouldUseDerivedKeys,
 } from '../platform/nitro-signer.js';
 import {
-  NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
   reportPinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
@@ -63,22 +62,13 @@ function resolveRequestedNeoN3DerivedRole(payload = {}) {
   return explicit || 'worker';
 }
 
-function snapshotSignerEnv() {
-  const snapshot = {};
-  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
-    const value = trimString(env(key));
-    if (value) snapshot[key] = value;
-  }
-  return snapshot;
-}
-
 function resolveNeoN3OracleVerifierKey(payload = {}) {
   const network = resolvePayloadNetwork(
     payload,
     normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
   const report = reportPinnedNeoN3Role(network, 'oracle_verifier', {
-    env: snapshotSignerEnv(),
+    env,
     allowMissing: true,
   });
   if (report.issues.length > 0) {
@@ -94,7 +84,7 @@ function resolveNeoN3WorkerKey(payload = {}) {
     normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
   const signer = reportPinnedNeoN3Role(network, 'worker', {
-    env: snapshotSignerEnv(),
+    env,
     allowMissing: true,
   });
   if (signer.issues.length > 0) {

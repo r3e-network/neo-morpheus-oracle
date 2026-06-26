@@ -57,7 +57,7 @@ jobs:
   # instead of the sum. (Round-2 R2-4.3.)
   web-and-worker:
     needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.code == 'yes' }}
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -95,7 +95,7 @@ jobs:
 
   contracts:
     needs: changes
-    if: ${{ github.event_name == 'push' || needs.changes.outputs.code == 'yes' }}
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
