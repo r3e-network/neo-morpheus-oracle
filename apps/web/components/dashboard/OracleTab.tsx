@@ -6,10 +6,10 @@ import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
 import {
   buildCallbackQueryTemplate,
+  buildNeoRequestContractCall,
   buildNeoRequestInvoke,
   copyText,
   encodeUtf8Base64,
-  escapeForCSharp,
 } from '@/lib/neo-snippets';
 
 import { OracleSettings } from './OracleSettings';
@@ -327,19 +327,11 @@ export function OracleTab({ providers: _providers, setOutput }: OracleTabProps) 
     const requestType = requestMode === 'provider' ? 'privacy_oracle' : 'oracle';
     const payload = buildOraclePayload();
     const payloadJson = JSON.stringify(payload);
-    const escapedPayloadJson = escapeForCSharp(payloadJson);
 
-    const neoN3Snippet = `string payloadJson = "${escapedPayloadJson}";
-
-BigInteger requestId = (BigInteger)Contract.Call(
- OracleHash,
- "request",
- CallFlags.All,
- "${requestType}",
- (ByteString)payloadJson,
- Runtime.ExecutingScriptHash,
- "onOracleResult"
-);`;
+    const neoN3Snippet = buildNeoRequestContractCall({
+      requestType,
+      compactPayloadJson: payloadJson,
+    });
 
     setGeneratedRequest({
       requestType,

@@ -91,3 +91,29 @@ export function buildCallbackQueryTemplate(callbackHash: string) {
     2
   );
 }
+
+/**
+ * Build the on-chain C# `Contract.Call` snippet a MiniApp uses to submit an oracle
+ * `request`. `compactPayloadJson` is escaped for a C# string literal. Byte-identical
+ * across the Oracle / Compute / Starter generators — the template whitespace is
+ * load-bearing (it is shown to and copied verbatim by integrators).
+ */
+export function buildNeoRequestContractCall({
+  requestType,
+  compactPayloadJson,
+}: {
+  requestType: string;
+  compactPayloadJson: string;
+}) {
+  return `string payloadJson = "${escapeForCSharp(compactPayloadJson)}";
+
+BigInteger requestId = (BigInteger)Contract.Call(
+ OracleHash,
+ "request",
+ CallFlags.All,
+ "${requestType}",
+ (ByteString)payloadJson,
+ Runtime.ExecutingScriptHash,
+ "onOracleResult"
+);`;
+}

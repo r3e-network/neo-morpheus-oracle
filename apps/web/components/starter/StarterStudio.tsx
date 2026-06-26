@@ -7,10 +7,10 @@ import { CodeBlock } from '@/components/ui/CodeBlock';
 import { encryptJsonWithOraclePublicKey } from '@/lib/browser-encryption';
 import {
   buildCallbackQueryTemplate,
+  buildNeoRequestContractCall,
   buildNeoRequestInvoke,
   copyText,
   encodeUtf8Base64,
-  escapeForCSharp,
 } from '@/lib/neo-snippets';
 import { getDashboardNetworkConfig } from '@/components/dashboard/networkSelection';
 import {
@@ -410,17 +410,10 @@ export function StarterStudio({ embedded = false }: StarterStudioProps) {
     (status) => status.level !== 'ready'
   );
   const readinessAccent = getReadinessAccent(readinessMessages);
-  const neoN3Snippet = `string payloadJson = "${escapeForCSharp(compactPayloadJson)}";
-
-BigInteger requestId = (BigInteger)Contract.Call(
- OracleHash,
- "request",
- CallFlags.All,
- "${generated.requestType}",
- (ByteString)payloadJson,
- Runtime.ExecutingScriptHash,
- "onOracleResult"
-);`;
+  const neoN3Snippet = buildNeoRequestContractCall({
+    requestType: generated.requestType,
+    compactPayloadJson,
+  });
 
   const neoRpcInvoke = buildNeoRequestInvoke({
     oracleContract,
