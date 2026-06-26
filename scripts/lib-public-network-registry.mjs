@@ -6,8 +6,6 @@ import { trimString } from './lib-strings.mjs';
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultOracleRoot = path.resolve(moduleDir, '..');
 
-export const MORPHEUS_NEODID_SERVICE_DID = 'did:morpheus:neo_n3:service:neodid';
-
 function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -125,7 +123,7 @@ function buildMorpheusRuntime(network, rawRegistry) {
     datafeedCvmId: trimString(nitro.datafeed_cvm_id),
     datafeedCvmName: trimString(nitro.datafeed_cvm_name),
     datafeedAttestationExplorerUrl: trimString(nitro.datafeed_attestation_explorer_url),
-    neoDidServiceDid: MORPHEUS_NEODID_SERVICE_DID,
+    neoDidServiceDid: 'did:morpheus:neo_n3:service:neodid',
   };
 }
 

@@ -228,8 +228,6 @@ const requiredOk =
   Object.values(missing).every((items) => items.length === 0) &&
   Object.values(urls).every((entry) => entry.ok);
 
-const strictOk = true;
-
 const partiallyConfiguredMissing = {};
 
 if (executionPlaneConfigured) {
@@ -310,8 +308,7 @@ if (webCutoverConfigured) {
 
 report.missing_optional_when_configured = partiallyConfiguredMissing;
 
-report.ok =
-  requiredOk && strictOk && Object.values(partiallyConfiguredMissing).every((v) => v.length === 0);
+report.ok = requiredOk && Object.values(partiallyConfiguredMissing).every((v) => v.length === 0);
 
 console.log(JSON.stringify(report, null, 2));
 if (!report.ok) process.exitCode = 1;

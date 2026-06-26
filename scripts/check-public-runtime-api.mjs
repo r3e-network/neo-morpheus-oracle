@@ -119,7 +119,7 @@ async function readJsonResponse(response, url) {
   }
 }
 
-export async function checkPublicRuntimeApi(baseUrl, fetchImpl = fetch) {
+async function checkPublicRuntimeApi(baseUrl, fetchImpl = fetch) {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const catalogUrl = `${normalizedBaseUrl}/api/runtime/catalog`;
   const statusUrl = `${normalizedBaseUrl}/api/runtime/status`;

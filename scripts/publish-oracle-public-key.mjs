@@ -13,7 +13,6 @@ async function main() {
     process.env[`MORPHEUS_${network.toUpperCase()}_RUNTIME_URL`] ||
     process.env.MORPHEUS_RUNTIME_URL ||
     process.env.NITRO_RUNTIME_URL ||
-    process.env.MORPHEUS_RUNTIME_URL ||
     process.env.NITRO_API_URL ||
     process.env.PHALA_API_URL ||
     ''
@@ -21,7 +20,6 @@ async function main() {
   const nitroToken =
     process.env.MORPHEUS_RUNTIME_TOKEN ||
     process.env.NITRO_API_TOKEN ||
-    process.env.MORPHEUS_RUNTIME_TOKEN ||
     process.env.PHALA_API_TOKEN ||
     process.env.PHALA_SHARED_SECRET ||
     '';

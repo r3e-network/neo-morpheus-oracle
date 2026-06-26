@@ -979,7 +979,7 @@ function percentile(values, ratio) {
   return sorted[index];
 }
 
-export async function runRuntimeServiceMatrix(options = {}) {
+async function runRuntimeServiceMatrix(options = {}) {
   await loadDotEnv(path.resolve(repoRoot, '.env.local'), { override: false });
   await loadDotEnv(path.resolve(repoRoot, '.env'), { override: false });
 
