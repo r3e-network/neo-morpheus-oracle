@@ -1,10 +1,4 @@
-import { trimString } from './lib/strings.js';
-
-function parseNonNegativeInteger(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) return 0;
-  return Math.trunc(numeric);
-}
+import { parseNonNegativeInteger, trimString } from './lib/strings.js';
 
 function normalizeWorkflowVersion(value) {
   const numeric = Number(value);

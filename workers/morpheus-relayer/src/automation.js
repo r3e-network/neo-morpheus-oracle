@@ -16,7 +16,7 @@ import {
 } from './persistence.js';
 import { fetchNeoN3FeedRecord, queueNeoN3AutomationRequest } from './neo-n3.js';
 import { buildUpkeepDispatch, buildUpkeepExecutionPayload } from './automation-supervisor.js';
-import { normalizeRequestType, trimString } from './lib/strings.js';
+import { normalizeRequestType, parseNonNegativeInteger, trimString } from './lib/strings.js';
 
 function resolveSupabaseNetwork(value) {
   return trimString(
@@ -609,12 +609,6 @@ function buildQueuedAutomationTxRecord(queuedTx, dispatch) {
   };
 }
 
-function parseNonNegativeCount(value) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric < 0) return 0;
-  return Math.trunc(numeric);
-}
-
 // Resolves the dispatch (and therefore the count-based on-chain request_id) for a
 // job's NEXT logical execution, while detecting a reclaim of an execution that was
 // already advanced+pinned before a crash.
@@ -647,7 +641,7 @@ function isReclaimableInflightStatus(job) {
 }
 
 function resolveAutomationExecutionDispatch(job) {
-  const currentCount = parseNonNegativeCount(job.execution_count || job.executionCount);
+  const currentCount = parseNonNegativeInteger(job.execution_count || job.executionCount);
   const pinnedRequestId = trimString(job.last_queued_request_id || '');
   // The id this row would mint if its current count were the just-claimed (but not
   // yet finalized) execution (i.e. the row was already advanced for it).

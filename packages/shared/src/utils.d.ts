@@ -14,4 +14,6 @@ export function mapWithConcurrency<T, R>(
   worker: (item: T, index: number) => R | Promise<R>
 ): Promise<R[]>;
 
+export function resolveScanConcurrency(config: unknown): number;
+
 export function stableStringify(value: unknown): string;
