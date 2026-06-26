@@ -95,6 +95,13 @@ export async function mapWithConcurrency(items, limit, worker) {
   return results;
 }
 
+// Bounded scan concurrency for mapWithConcurrency: a positive numeric
+// config.concurrency is clamped to [1, 8]; anything else falls back to 4.
+export function resolveScanConcurrency(config) {
+  const limit = Number(config?.concurrency);
+  return Number.isFinite(limit) && limit > 0 ? Math.min(limit, 8) : 4;
+}
+
 /**
  * Deterministic JSON stringification shared across worker, relayer, and web
  * verification flows so digest calculations stay byte-for-byte aligned.

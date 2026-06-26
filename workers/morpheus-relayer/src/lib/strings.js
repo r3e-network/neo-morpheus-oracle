@@ -25,3 +25,10 @@ export function normalizeRequestType(value) {
     .toLowerCase()
     .replace(/[\s-]+/g, '_');
 }
+
+// Coerce a value to a non-negative integer count; non-finite or negative -> 0.
+export function parseNonNegativeInteger(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return Math.trunc(numeric);
+}

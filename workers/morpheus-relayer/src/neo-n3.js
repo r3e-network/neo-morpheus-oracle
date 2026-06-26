@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { relayNeoN3Invocation } from '@neo-morpheus-oracle/nitro-worker/src/chain/index.js';
 import { experimental, sc, tx, u, wallet as neonWallet } from '@cityofzion/neon-js';
-import { mapWithConcurrency } from '@neo-morpheus-oracle/shared/utils';
+import { mapWithConcurrency, resolveScanConcurrency } from '@neo-morpheus-oracle/shared/utils';
 import { LEGACY_CALLBACK_METHOD } from '@neo-morpheus-oracle/shared/callback-methods';
 import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './nitro-signer.js';
 import { callNitro } from './nitro.js';
@@ -516,11 +516,6 @@ export async function scanNeoN3OracleRequestsViaN3Index(config, fromBlock, toBlo
       });
     })
     .filter((event) => event && asEventString(event.requestType));
-}
-
-function resolveScanConcurrency(config) {
-  const limit = Number(config?.concurrency);
-  return Number.isFinite(limit) && limit > 0 ? Math.min(limit, 8) : 4;
 }
 
 export async function scanNeoN3OracleRequestsById(config, fromRequestId, toRequestId) {

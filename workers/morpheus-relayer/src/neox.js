@@ -10,7 +10,11 @@
 // fulfillment.js BEFORE these run; this module only encodes/signs/submits the
 // result for the EVM MorpheusOracleEVM kernel.
 import { ethers } from 'ethers';
-import { mapWithConcurrency, trimString } from '@neo-morpheus-oracle/shared/utils';
+import {
+  mapWithConcurrency,
+  resolveScanConcurrency,
+  trimString,
+} from '@neo-morpheus-oracle/shared/utils';
 import { LEGACY_CALLBACK_METHOD } from '@neo-morpheus-oracle/shared/callback-methods';
 
 // Minimal ABI for the MorpheusOracleEVM kernel (request_cursor scan + fulfil).
@@ -295,11 +299,6 @@ function buildNeoXEventFromRequest(record) {
 // throws, idle workers stop pulling new ids so a transport failure does not keep
 // issuing RPC calls for the rest of the range. The previous local copy was
 // byte-identical to the shared one (G4 consolidation).
-
-function resolveScanConcurrency(config) {
-  const limit = Number(config?.concurrency);
-  return Number.isFinite(limit) && limit > 0 ? Math.min(limit, 8) : 4;
-}
 
 export async function scanNeoXOracleRequestsById(
   config,
