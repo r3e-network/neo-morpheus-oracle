@@ -22,6 +22,9 @@
     "./callback-methods": {
       "default": "./src/callback-methods.js"
     },
+    "./neo-signers-core": {
+      "default": "./src/neo-signers-core.js"
+    },
     "./rate-limit": {
       "types": "./src/rate-limit.d.ts",
       "default": "./src/rate-limit.js"
