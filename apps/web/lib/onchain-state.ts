@@ -1,3 +1,4 @@
+import { KNOWN_FEED_PROVIDER_PREFIXES } from './feed-defaults';
 import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
 import { trimString } from './strings';
 
@@ -64,11 +65,10 @@ function isPrintableAscii(value: string) {
 function decodeNeoByteString(bytes: Buffer) {
   const text = bytes.toString('utf8');
   const reversedText = Buffer.from(bytes).reverse().toString('utf8');
-  const knownPairPrefixes = ['TWELVEDATA:', 'BINANCE-SPOT:', 'COINBASE-SPOT:'];
 
   if (
     isPrintableAscii(reversedText) &&
-    knownPairPrefixes.some((prefix) => reversedText.startsWith(prefix))
+    KNOWN_FEED_PROVIDER_PREFIXES.some((prefix) => reversedText.startsWith(prefix))
   ) {
     return reversedText;
   }
