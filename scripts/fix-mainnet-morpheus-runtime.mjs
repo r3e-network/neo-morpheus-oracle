@@ -9,6 +9,7 @@ import {
   resolvePinnedNeoN3Role,
 } from './lib-neo-signers.mjs';
 import { parseGasToRaw } from './lib-gas-units.mjs';
+import { isTransientRpcError, withRetries } from './lib-verify-morpheus-n3.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const ADMIN_ADDRESS = 'NUVmRwZDoSZMKcPj9UCQLHkpno2TPqYVxC';
@@ -120,29 +121,6 @@ function stableJsonStringify(value) {
       .join(',')}}`;
   }
   return JSON.stringify(value);
-}
-
-function isTransientRpcError(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  return /HTTP code 502|HTTP code 503|HTTP code 504|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed/i.test(
-    message
-  );
-}
-
-async function withRetries(label, task, attempts = 5) {
-  let lastError;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      return await task();
-    } catch (error) {
-      lastError = error;
-      if (!isTransientRpcError(error) || attempt === attempts) break;
-      await sleep(1000 * attempt);
-    }
-  }
-  throw new Error(
-    `${label} failed: ${lastError instanceof Error ? lastError.message : String(lastError)}`
-  );
 }
 
 async function loadJsonIfExists(filePath) {
