@@ -55,8 +55,8 @@ function resolveRuntimeCandidates(networkOverride?: string | null) {
     selectedNetwork.nitro?.public_api_url || '',
     `https://oracle.meshmini.app/${networkKey}`,
     `https://edge.meshmini.app/${networkKey}`,
-    trimString(process.env.MORPHEUS_RUNTIME_URL || ''),
-    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || ''),
+    trimString(process.env.MORPHEUS_RUNTIME_URL),
+    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL),
   ]
     .map((value) => value.trim())
     .filter(Boolean);

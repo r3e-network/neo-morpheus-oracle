@@ -11,13 +11,6 @@ export function apiError(message: string, code: string, status = 500) {
 }
 
 /**
- * Standardized API success response (thin wrapper for consistency).
- */
-export function apiSuccess<T extends Record<string, unknown>>(body: T, status = 200) {
-  return NextResponse.json(body, { status });
-}
-
-/**
  * Minimal error response preserving the `{ error }` JSON shape used by the
  * relayer/oracle/control-plane route handlers. When `code` is omitted the body
  * stays byte-identical to the legacy `{ error }` shape; passing a `code`

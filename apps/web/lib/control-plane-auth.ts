@@ -13,7 +13,7 @@ export function isAuthorizedControlPlaneRequest(request: Request) {
   // plane migrated off Phala and revoked those credentials. Continuing to accept
   // them here re-granted a privilege the control plane had explicitly retired.
   // Only the current MORPHEUS_* runtime token is honored as a shared credential.
-  const sharedToken = trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '');
+  const sharedToken = trimString(process.env.MORPHEUS_RUNTIME_TOKEN);
   if (!sharedToken) return false;
   const bearer = trimString(request.headers.get('authorization'));
   const admin = trimString(request.headers.get('x-admin-api-key'));
@@ -47,7 +47,7 @@ export function isAuthorizedRuntimeRequest(request: Request) {
     process.env.NITRO_API_TOKEN,
     process.env.NITRO_SHARED_SECRET,
   ]
-    .map((value) => trimString(value || ''))
+    .map((value) => trimString(value))
     .filter(Boolean);
   if (trustedTokens.length === 0) return false;
   // Walk the full list with a constant-time compare so response timing cannot be

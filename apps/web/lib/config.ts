@@ -26,9 +26,9 @@ function networkScopedEnv(baseKey: string) {
 
 const defaultNitroApiCandidates = [
   networkScopedEnv('MORPHEUS_RUNTIME_URL'),
-  trimString(process.env.MORPHEUS_RUNTIME_URL || ''),
+  trimString(process.env.MORPHEUS_RUNTIME_URL),
   networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL'),
-  trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || ''),
+  trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL),
   defaultNitroApiUrl,
   `https://oracle.meshmini.app/${selectedNetworkKey}`,
   `https://edge.meshmini.app/${selectedNetworkKey}`,
@@ -42,9 +42,9 @@ export const appConfig = {
   selectedNetworkKey,
   nitroApiUrl:
     networkScopedEnv('MORPHEUS_RUNTIME_URL') ||
-    trimString(process.env.MORPHEUS_RUNTIME_URL || '') ||
+    trimString(process.env.MORPHEUS_RUNTIME_URL) ||
     networkScopedEnv('NEXT_PUBLIC_MORPHEUS_RUNTIME_URL') ||
-    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL || '') ||
+    trimString(process.env.NEXT_PUBLIC_MORPHEUS_RUNTIME_URL) ||
     defaultNitroApiUrl,
   nitroApiUrls: [...new Set(defaultNitroApiCandidates)],
   // Server-only env names exclusively: a NEXT_PUBLIC_* fallback here would
@@ -54,9 +54,9 @@ export const appConfig = {
   // credentials were revoked when the runtime migrated off Phala. Only the
   // current MORPHEUS_*/NITRO_* runtime tokens are accepted.
   nitroToken:
-    trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '') ||
-    trimString(process.env.NITRO_API_TOKEN || '') ||
-    trimString(process.env.NITRO_SHARED_SECRET || '') ||
+    trimString(process.env.MORPHEUS_RUNTIME_TOKEN) ||
+    trimString(process.env.NITRO_API_TOKEN) ||
+    trimString(process.env.NITRO_SHARED_SECRET) ||
     '',
   controlPlaneUrl:
     process.env.MORPHEUS_CONTROL_PLANE_URL ||

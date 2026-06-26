@@ -173,8 +173,7 @@ export function verifyAttestation(input: {
   // passed in as `nitroMeasurementChainVerified`. The legacy "quote + event_log
   // present" heuristic is retained as a presence signal only — it is NEVER
   // sufficient by itself to claim a verified measurement chain.
-  const nitroMeasurementChainVerified = input.nitroMeasurementChainVerified === true;
-  const measurementChainVerified = nitroMeasurementChainVerified;
+  const measurementChainVerified = input.nitroMeasurementChainVerified === true;
   // `full_attestation_ok` now REQUIRES the cryptographic Nitro layer: the hash
   // binding holds, metadata matches, AND the COSE/cert/PCR/binding chain
   // verified. Quote/event_log presence alone no longer flips this true.

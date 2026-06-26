@@ -126,8 +126,7 @@ function buildFeedLookupUrl(networkKey: 'mainnet' | 'testnet') {
   const registry = networkRegistry[networkKey];
   const contractHash = String(registry.neo_n3?.contracts?.morpheus_datafeed || '').trim();
   if (!contractHash) return '';
-  const n3IndexNetwork = networkKey === 'mainnet' ? 'mainnet' : 'testnet';
-  return buildN3IndexFeedNotificationUrl(n3IndexNetwork, contractHash, 200);
+  return buildN3IndexFeedNotificationUrl(networkKey, contractHash, 200);
 }
 
 async function lookupFeedNotifications(attestationHash: string, networkKey: 'mainnet' | 'testnet') {
