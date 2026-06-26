@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { invokeMorpheusOracleRequest } from '@/lib/nep21';
+import { resolveBuiltinComputeFunction } from './computeBuiltins';
 import {
   buildCallbackQueryTemplate,
   buildNeoRequestInvoke,
@@ -69,50 +70,11 @@ function buildSafeAuthoringPreview({
     };
   }
 
-  if (selectedFunc.includes('privacy.mask')) {
+  const previewBuiltin = resolveBuiltinComputeFunction(selectedFunc);
+  if (previewBuiltin) {
     return {
       mode: 'builtin',
-      function: 'privacy.mask',
-      input,
-    };
-  }
-
-  if (selectedFunc.includes('public_signal_hash')) {
-    return {
-      mode: 'builtin',
-      function: 'zkp.public_signal_hash',
-      input,
-    };
-  }
-
-  if (selectedFunc.includes('groth16.verify')) {
-    return {
-      mode: 'builtin',
-      function: 'zkp.groth16.verify',
-      input,
-    };
-  }
-
-  if (selectedFunc.includes('zerc20.single_withdraw.verify')) {
-    return {
-      mode: 'builtin',
-      function: 'zkp.zerc20.single_withdraw.verify',
-      input,
-    };
-  }
-
-  if (selectedFunc.includes('modexp')) {
-    return {
-      mode: 'builtin',
-      function: 'math.modexp',
-      input,
-    };
-  }
-
-  if (selectedFunc.includes('matrix')) {
-    return {
-      mode: 'builtin',
-      function: 'matrix.multiply',
+      function: previewBuiltin,
       input,
     };
   }
@@ -354,31 +316,11 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
       return;
     }
 
-    if (selectedFunc.includes('privacy.mask')) {
+    const packageBuiltin = resolveBuiltinComputeFunction(selectedFunc);
+    if (packageBuiltin) {
       payload = {
         mode: 'builtin',
-        function: 'privacy.mask',
-        input: parsedInput,
-        target_chain: 'neo_n3',
-      };
-    } else if (selectedFunc.includes('public_signal_hash')) {
-      payload = {
-        mode: 'builtin',
-        function: 'zkp.public_signal_hash',
-        input: parsedInput,
-        target_chain: 'neo_n3',
-      };
-    } else if (selectedFunc.includes('modexp')) {
-      payload = {
-        mode: 'builtin',
-        function: 'math.modexp',
-        input: parsedInput,
-        target_chain: 'neo_n3',
-      };
-    } else if (selectedFunc.includes('matrix')) {
-      payload = {
-        mode: 'builtin',
-        function: 'matrix.multiply',
+        function: packageBuiltin,
         input: parsedInput,
         target_chain: 'neo_n3',
       };
