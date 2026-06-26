@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { experimental, rpc as neoRpc, tx, u, wallet as neoWallet } from '@cityofzion/neon-js';
 import {
-  NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
   resolvePinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
@@ -27,22 +26,13 @@ import { forgetRequestId, rememberRequestId } from './signing.js';
 import { sleep } from '../platform/core.js';
 import { env } from '../platform/core.js';
 
-function snapshotSignerEnv() {
-  const snapshot = {};
-  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
-    const value = trimString(env(key));
-    if (value) snapshot[key] = value;
-  }
-  return snapshot;
-}
-
 function resolveNeoN3SigningKey(payload = {}) {
   const network = resolvePayloadNetwork(
     payload,
     normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
   const signer = resolvePinnedNeoN3Role(network, 'worker', {
-    env: snapshotSignerEnv(),
+    env,
   });
   return signer.materialized?.private_key || signer.materialized?.wif || '';
 }

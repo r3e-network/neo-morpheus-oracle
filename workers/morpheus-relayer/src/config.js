@@ -2,11 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  NEO_N3_SIGNER_ENV_KEYS,
-  normalizeMorpheusNetwork,
-  resolvePinnedNeoN3Role,
-} from './lib/neo-signers.js';
+import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib/neo-signers.js';
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
 const DEFAULT_NITRO_TIMEOUT_MS = 10_000;
@@ -241,15 +237,6 @@ function resolveNitroApiUrls(network, registry) {
   return combined.join(',');
 }
 
-function snapshotSignerEnv() {
-  const snapshot = {};
-  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
-    const value = env(key);
-    if (value) snapshot[key] = value;
-  }
-  return snapshot;
-}
-
 function loadNetworkRegistry(networkName) {
   const registryPath = path.resolve(repoRoot, 'config', 'networks', `${networkName}.json`);
   return (
@@ -300,7 +287,7 @@ export function createRelayerConfig() {
     mode === 'feed_only' || useDerivedKeys || !activeChains.includes('neo_n3')
       ? { materialized: null }
       : resolvePinnedNeoN3Role(network, 'updater', {
-          env: snapshotSignerEnv(),
+          env,
         });
 
   return {

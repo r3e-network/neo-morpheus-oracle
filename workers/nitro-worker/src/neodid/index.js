@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import {
-  NEO_N3_SIGNER_ENV_KEYS,
   normalizeMorpheusNetwork,
   resolvePinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
@@ -28,14 +27,6 @@ const NEODID_ACTION_DOMAIN = Buffer.from('neodid-action-v1', 'utf8');
 const NEODID_RECOVERY_DOMAIN = Buffer.from('neodid-recovery-v1', 'utf8');
 const NEODID_ZKLOGIN_DOMAIN = Buffer.from('neodid-zklogin-v1', 'utf8');
 
-function snapshotSignerEnv() {
-  const snapshot = {};
-  for (const key of NEO_N3_SIGNER_ENV_KEYS) {
-    const value = trimString(env(key));
-    if (value) snapshot[key] = value;
-  }
-  return snapshot;
-}
 // `derives_provider_uid_in_tee` (E3): true means the worker derives the
 // nullifier-binding provider_uid from a cryptographically-verified credential
 // INSIDE the enclave (web3auth verifies a signed id_token), so the uid is not
@@ -439,7 +430,7 @@ async function resolveNeoDidSignerPrivateKey(payload = {}) {
         normalizeMorpheusNetwork(env('MORPHEUS_NETWORK') || 'testnet')
       ),
       'worker',
-      { env: snapshotSignerEnv() }
+      { env }
     );
     privateKey = trimString(signer.materialized?.private_key || signer.materialized?.wif || '');
   }
