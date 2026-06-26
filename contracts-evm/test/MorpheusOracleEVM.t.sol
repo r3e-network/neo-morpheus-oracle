@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {TestBase, Vm, Log} from "./TestBase.sol";
 import {MorpheusOracleEVM} from "../MorpheusOracleEVM.sol";
+import {Owned} from "../Owned.sol";
 
 /// @notice Records the last onOracleResult call so callback dispatch can be asserted.
 contract MockCallback {
@@ -250,7 +251,7 @@ contract MorpheusOracleEVMTest is TestBase {
     // ── 5. owner-change event ───────────────────────────────────────────────────
     function test_setOwner_emitsOwnerChanged() public {
         vm.expectEmit(true, true, false, false);
-        emit MorpheusOracleEVM.OwnerChanged(address(this), address(0x9999));
+        emit Owned.OwnerChanged(address(this), address(0x9999));
         oracle.setOwner(address(0x9999));
         assertEq(oracle.owner(), address(0x9999), "owner not updated");
     }

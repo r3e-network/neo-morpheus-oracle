@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
+import {Owned} from "./Owned.sol";
 
 /// @title MiniAppDiceGameEVM
 /// @notice Neo X (EVM) dice game settled by Morpheus VRF. A player stakes GAS and
@@ -9,8 +10,7 @@ import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
 /// MorpheusOracleEVM kernel and settles in onOracleResult: a win pays 5.7x the
 /// stake (the house edge: fair 6x * 0.95) from the house bankroll, a loss keeps
 /// the stake, and a VRF failure refunds the stake. Mirrors the Neo N3 dice flow.
-contract MiniAppDiceGameEVM {
-    address public owner;
+contract MiniAppDiceGameEVM is Owned {
     address public oracle;
 
     // 5.7x payout on win = 57/10 (fair 6x for 1/6 odds, minus the 5% house edge).
@@ -46,17 +46,12 @@ contract MiniAppDiceGameEVM {
     event BankrollFunded(address indexed from, uint256 amount);
     event Withdrawn(address indexed to, uint256 amount);
     event OracleChanged(address indexed previous, address indexed next);
-    event OwnerChanged(address indexed previous, address indexed next);
 
-    error NotOwner();
     error OnlyOracle();
     error BadFace();
     error BadStake();
     error InsufficientBankroll();
     error UnknownBet();
-    error ZeroAddress();
-
-    modifier onlyOwner() { if (msg.sender != owner) revert NotOwner(); _; }
 
     constructor(address oracle_) {
         if (oracle_ == address(0)) revert ZeroAddress();
@@ -169,7 +164,6 @@ contract MiniAppDiceGameEVM {
     // ── admin ──────────────────────────────────────────────────────────────
     function setOracle(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OracleChanged(oracle, next); oracle = next; }
     function setStakeLimits(uint256 min_, uint256 max_) external onlyOwner { require(min_ > 0 && max_ >= min_, "limits"); minStake = min_; maxStake = max_; }
-    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OwnerChanged(owner, next); owner = next; }
     function withdrawBankroll(uint256 amount, address payable to) external onlyOwner {
         if (to == address(0)) revert ZeroAddress();
         require(amount <= availableBankroll(), "exceeds available");
