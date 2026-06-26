@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Boxes, Github, Menu, X, Wifi, WifiOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { getSelectedNetworkKey } from '@/lib/networks';
+import { getBrowserNetworkKey, getSelectedNetworkKey } from '@/lib/networks';
 import { NetworkSelector } from './NetworkSelector';
 
 type NavItem = {
@@ -20,12 +20,6 @@ const mainNavItems: NavItem[] = [
   { label: 'Docs', href: '/docs' },
   { label: 'Status', href: '/status' },
 ];
-
-function getBrowserNetworkKey() {
-  if (typeof window === 'undefined') return getSelectedNetworkKey();
-  const url = new URL(window.location.href);
-  return getSelectedNetworkKey(url.searchParams.get('network'));
-}
 
 function withNetworkQuery(href: string, selectedNetworkKey: string) {
   if (selectedNetworkKey === getSelectedNetworkKey()) return href;
