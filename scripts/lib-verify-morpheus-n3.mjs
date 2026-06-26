@@ -62,8 +62,9 @@ function sleep(ms) {
 }
 
 // Transient RPC failures (gateway/connectivity) that warrant a retry, vs a
-// deterministic error that would fail the same way on every attempt.
-export function isTransientRpcError(error) {
+// deterministic error that would fail the same way on every attempt. Private —
+// only withRetries (below) consumes it; callers use withRetries directly.
+function isTransientRpcError(error) {
   const message = error instanceof Error ? error.message : String(error);
   return /HTTP code 502|HTTP code 503|HTTP code 504|ECONNRESET|ETIMEDOUT|socket hang up|fetch failed/i.test(
     message

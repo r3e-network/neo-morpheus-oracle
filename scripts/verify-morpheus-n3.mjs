@@ -9,7 +9,6 @@ import {
 } from './lib-neo-signers.mjs';
 import {
   detectMorpheusOracleInterface,
-  isTransientRpcError,
   resolveNetworkScopedValue,
   snapshotEnv,
   withRetries,

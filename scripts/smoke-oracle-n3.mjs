@@ -14,12 +14,7 @@ import {
   normalizeMorpheusNetwork,
   reportPinnedNeoN3Role,
 } from './lib-neo-signers.mjs';
-import {
-  isTransientRpcError,
-  resolveNetworkScopedValue,
-  snapshotEnv,
-  withRetries,
-} from './lib-verify-morpheus-n3.mjs';
+import { resolveNetworkScopedValue, snapshotEnv, withRetries } from './lib-verify-morpheus-n3.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const CONTRACT_ENV_KEYS = [

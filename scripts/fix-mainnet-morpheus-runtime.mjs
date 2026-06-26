@@ -9,7 +9,7 @@ import {
   resolvePinnedNeoN3Role,
 } from './lib-neo-signers.mjs';
 import { parseGasToRaw } from './lib-gas-units.mjs';
-import { isTransientRpcError, withRetries } from './lib-verify-morpheus-n3.mjs';
+import { withRetries } from './lib-verify-morpheus-n3.mjs';
 
 const GAS_HASH = '0xd2a4cff31913016155e38e474a2c06d08be276cf';
 const ADMIN_ADDRESS = 'NUVmRwZDoSZMKcPj9UCQLHkpno2TPqYVxC';
