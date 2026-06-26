@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
+import {Updatable} from "./Updatable.sol";
 
 /// @title MorpheusOracleEVM
 /// @notice EVM (Neo X) oracle kernel mirroring the Neo N3 MorpheusOracle request
@@ -30,9 +31,7 @@ import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
 /// fee-payer model — the payer is always whoever sends `msg.value` on the request tx.
 /// Mirroring it would require importing the entire N3 credit/sponsor accounting model,
 /// a separate initiative. Documented as a follow-up rather than half-implemented.
-contract MorpheusOracleEVM is IMorpheusOracleEVM {
-    address public owner;
-    address public updater;       // sends fulfilRequest (gas payer / witness)
+contract MorpheusOracleEVM is IMorpheusOracleEVM, Updatable {
     address public oracleVerifier; // ecrecover target for the result signature
 
     uint256 public requestFee;     // wei charged per request (0 = free)
@@ -70,12 +69,8 @@ contract MorpheusOracleEVM is IMorpheusOracleEVM {
     event FeeRefunded(uint256 indexed requestId, address indexed to, uint256 amount);
     event FeesWithdrawn(address indexed to, uint256 amount);
     event RequestFeeChanged(uint256 previous, uint256 next);
-    event UpdaterChanged(address indexed previous, address indexed next);
     event OracleVerifierChanged(address indexed previous, address indexed next);
-    event OwnerChanged(address indexed previous, address indexed next);
 
-    error NotOwner();
-    error NotUpdater();
     error NotAppAdmin();
     error UnknownModule();
     error ModuleNotGranted();
@@ -91,12 +86,8 @@ contract MorpheusOracleEVM is IMorpheusOracleEVM {
     error OnlyCallbackContract();
     error CallbackAlreadyRegistered();
     error RefundFailed();
-    error ZeroAddress();
     error ExceedsWithdrawable();
     error InvalidTTL();
-
-    modifier onlyOwner() { if (msg.sender != owner) revert NotOwner(); _; }
-    modifier onlyUpdater() { if (msg.sender != updater && msg.sender != owner) revert NotUpdater(); _; }
 
     constructor(address updater_, address oracleVerifier_) {
         owner = msg.sender;
@@ -108,9 +99,7 @@ contract MorpheusOracleEVM is IMorpheusOracleEVM {
     }
 
     // ── admin ──────────────────────────────────────────────────────────────
-    function setUpdater(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit UpdaterChanged(updater, next); updater = next; }
     function setOracleVerifier(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OracleVerifierChanged(oracleVerifier, next); oracleVerifier = next; }
-    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OwnerChanged(owner, next); owner = next; }
     function setRequestFee(uint256 amount) external onlyOwner { emit RequestFeeChanged(requestFee, amount); requestFee = amount; }
 
     /// @notice Set the request TTL (seconds). Mirrors N3 SetRequestTTL.

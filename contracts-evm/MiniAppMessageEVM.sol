@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
+import {Owned} from "./Owned.sol";
 
 /// @title MiniAppMessageEVM
 /// @notice Encrypted + optionally time-locked messages on Neo X, settled by the
@@ -17,8 +18,7 @@ import {IMorpheusOracleEVM} from "./IMorpheusOracleEVM.sol";
 ///    unlockTime. After it, anyone may call requestReveal(); the oracle decrypts
 ///    the envelope in the enclave and posts the plaintext on-chain via
 ///    onOracleResult, making it public from that moment on.
-contract MiniAppMessageEVM {
-    address public owner;
+contract MiniAppMessageEVM is Owned {
     address public oracle;
     uint256 public maxEnvelopeBytes = 8192;
 
@@ -43,9 +43,7 @@ contract MiniAppMessageEVM {
     event RevealRequested(uint256 indexed id, uint256 indexed requestId, address indexed by);
     event MessageRevealed(uint256 indexed id, string plaintext);
     event OracleChanged(address indexed previous, address indexed next);
-    event OwnerChanged(address indexed previous, address indexed next);
 
-    error NotOwner();
     error OnlyOracle();
     error BadEnvelope();
     error UnknownMessage();
@@ -53,9 +51,6 @@ contract MiniAppMessageEVM {
     error StillLocked();
     error AlreadyRevealed();
     error RevealPending();
-    error ZeroAddress();
-
-    modifier onlyOwner() { if (msg.sender != owner) revert NotOwner(); _; }
 
     constructor(address oracle_) {
         if (oracle_ == address(0)) revert ZeroAddress();
@@ -119,6 +114,5 @@ contract MiniAppMessageEVM {
 
     // ── admin ──────────────────────────────────────────────────────────────
     function setOracle(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OracleChanged(oracle, next); oracle = next; }
-    function setOwner(address next) external onlyOwner { if (next == address(0)) revert ZeroAddress(); emit OwnerChanged(owner, next); owner = next; }
     function setMaxEnvelopeBytes(uint256 n) external onlyOwner { require(n >= 256 && n <= 65536, "range"); maxEnvelopeBytes = n; }
 }

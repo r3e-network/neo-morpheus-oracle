@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {Updatable} from "./Updatable.sol";
+
 /// @title MorpheusPriceFeed
 /// @notice EVM (Neo X) price feed mirroring the Neo N3 MorpheusDataFeed: an
 /// updater pushes batched prices that consumers read on-chain. Prices are scaled
 /// by 1e6 (DECIMALS=6) to match the Neo N3 feed so a single off-chain pusher can
 /// write the same integer value to both chains. roundId must strictly increase.
-contract MorpheusPriceFeed {
+contract MorpheusPriceFeed is Updatable {
     uint8 public constant DECIMALS = 6;
-
-    address public owner;
-    address public updater;
 
     struct Feed {
         uint256 price;     // scaled by 1e6
@@ -23,41 +22,15 @@ contract MorpheusPriceFeed {
     string[] private _symbols;
 
     event FeedUpdated(string symbol, uint256 price, uint256 timestamp, uint256 roundId);
-    event UpdaterChanged(address indexed previous, address indexed next);
-    event OwnerChanged(address indexed previous, address indexed next);
 
-    error NotOwner();
-    error NotUpdater();
     error LengthMismatch();
     error StaleRound(string symbol);
-    error ZeroAddress();
-
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner();
-        _;
-    }
-    modifier onlyUpdater() {
-        if (msg.sender != updater && msg.sender != owner) revert NotUpdater();
-        _;
-    }
 
     constructor(address initialUpdater) {
         owner = msg.sender;
         updater = initialUpdater == address(0) ? msg.sender : initialUpdater;
         emit OwnerChanged(address(0), msg.sender);
         emit UpdaterChanged(address(0), updater);
-    }
-
-    function setUpdater(address next) external onlyOwner {
-        if (next == address(0)) revert ZeroAddress();
-        emit UpdaterChanged(updater, next);
-        updater = next;
-    }
-
-    function setOwner(address next) external onlyOwner {
-        if (next == address(0)) revert ZeroAddress();
-        emit OwnerChanged(owner, next);
-        owner = next;
     }
 
     /// @notice Batch-update feeds. roundId per symbol must be > the stored roundId
