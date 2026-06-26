@@ -2,7 +2,8 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { parseConfiguredFeedPairs, parseDotEnv } from './lib-feed-freshness.mjs';
+import { parseConfiguredFeedPairs } from './lib-feed-freshness.mjs';
+import { parseDotEnv } from './lib-env.mjs';
 import { trimString } from './lib-strings.mjs';
 
 function installDefaultFetchTimeout(timeoutMs = 20_000) {

@@ -50,8 +50,6 @@ function computeChangeBps(previousUnits, nextUnits) {
   return Math.abs((next - previous) / previous) * 10_000;
 }
 
-export { parseDotEnv };
-
 export async function loadRuntimeConfigFromEnvFile(filePath) {
   const env = parseDotEnv(await fs.readFile(filePath, 'utf8'));
   const runtimeConfigRaw = trimString(env.MORPHEUS_RUNTIME_CONFIG_JSON || '');

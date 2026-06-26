@@ -27,7 +27,7 @@ function maybeParseJson(text: string) {
   }
 }
 
-function isRetryableStatus(status: number) {
+export function isRetryableStatus(status: number) {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 

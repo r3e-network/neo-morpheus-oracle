@@ -219,12 +219,7 @@ function buildRegistrationResult(job) {
 // back to active/completed, so the status check is the discriminator.)
 function resolveInFlightExecutionForCancel(job) {
   if (!job) return null;
-  const status = trimString(job.status || '');
-  const isMidFlight =
-    status === 'processing' ||
-    (status === 'paused' &&
-      trimString(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER);
-  if (!isMidFlight) return null;
+  if (!isReclaimableInflightStatus(job)) return null;
   const inFlightRequestId = trimString(job.last_queued_request_id || '');
   if (!inFlightRequestId) return null;
   return inFlightRequestId;
@@ -754,11 +749,7 @@ export async function processAutomationJobs(config, logger, deps = {}) {
     let inFlightExecution = null;
 
     try {
-      const jobStatus = trimString(job.status || '');
-      const isRecoverableClaim =
-        jobStatus === 'processing' ||
-        (jobStatus === 'paused' &&
-          trimString(job.last_error || '') === AUTOMATION_PROCESSING_CLAIM_MARKER);
+      const isRecoverableClaim = isReclaimableInflightStatus(job);
       const schedulableJob = isRecoverableClaim ? { ...job, status: 'active' } : job;
       const evaluation = await evaluateAutomationJob(config, schedulableJob, nowMs, deps);
       if (evaluation.patch) {

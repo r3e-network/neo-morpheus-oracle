@@ -1,5 +1,6 @@
 import { appConfig } from './config';
 import { parseFeedProviders, parseFeedSymbols } from './feed-defaults';
+import { isRetryableStatus } from './nitro';
 import { resolveProviderAwarePayload } from './provider-configs';
 import { trimString } from './strings';
 
@@ -101,14 +102,7 @@ export async function runFeedSyncJob(options: FeedSyncOptions = {}) {
             } catch {}
             lastStatus = response.status;
             lastBody = body;
-            if (
-              response.ok ||
-              (response.status !== 408 &&
-                response.status !== 409 &&
-                response.status !== 425 &&
-                response.status !== 429 &&
-                response.status < 500)
-            ) {
+            if (response.ok || !isRetryableStatus(response.status)) {
               break;
             }
           } catch (error) {
