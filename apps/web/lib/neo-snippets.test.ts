@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildCallbackQueryTemplate, buildNeoRequestInvoke } from './neo-snippets';
+import {
+  buildCallbackQueryTemplate,
+  buildNeoRequestContractCall,
+  buildNeoRequestInvoke,
+} from './neo-snippets';
 
 // These strings are what integrators copy/paste into a Neo N3 RPC call, so the
 // exact bytes (field order + 2-space indentation) are load-bearing. The literals
@@ -89,5 +93,36 @@ describe('buildCallbackQueryTemplate', () => {
   ]
 }`
     );
+  });
+});
+
+describe('buildNeoRequestContractCall', () => {
+  it('produces the exact on-chain Contract.Call snippet (whitespace is load-bearing)', () => {
+    const snippet = buildNeoRequestContractCall({
+      requestType: 'oracle',
+      compactPayloadJson: '{}',
+    });
+    expect(snippet).toBe(
+      `string payloadJson = "{}";
+
+BigInteger requestId = (BigInteger)Contract.Call(
+ OracleHash,
+ "request",
+ CallFlags.All,
+ "oracle",
+ (ByteString)payloadJson,
+ Runtime.ExecutingScriptHash,
+ "onOracleResult"
+);`
+    );
+  });
+
+  it('escapes double-quotes in the payload for the C# string literal', () => {
+    const snippet = buildNeoRequestContractCall({
+      requestType: 'compute',
+      compactPayloadJson: '{"k":"v"}',
+    });
+    expect(snippet).toContain('string payloadJson = "{\\"k\\":\\"v\\"}";');
+    expect(snippet).toContain('"compute"');
   });
 });

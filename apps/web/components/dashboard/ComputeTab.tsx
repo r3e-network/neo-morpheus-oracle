@@ -5,9 +5,9 @@ import { invokeMorpheusOracleRequest } from '@/lib/nep21';
 import { resolveBuiltinComputeFunction } from './computeBuiltins';
 import {
   buildCallbackQueryTemplate,
+  buildNeoRequestContractCall,
   buildNeoRequestInvoke,
   encodeUtf8Base64,
-  escapeForCSharp,
 } from '@/lib/neo-snippets';
 
 import { ComputeFunctions } from './ComputeFunctions';
@@ -358,17 +358,10 @@ export function ComputeTab({ computeFunctions: _computeFunctions, setOutput }: C
 
     const payloadJson = JSON.stringify(payload, null, 2);
     const compactPayloadJson = JSON.stringify(payload);
-    const neoN3Snippet = `string payloadJson = "${escapeForCSharp(compactPayloadJson)}";
-
-BigInteger requestId = (BigInteger)Contract.Call(
- OracleHash,
- "request",
- CallFlags.All,
- "compute",
- (ByteString)payloadJson,
- Runtime.ExecutingScriptHash,
- "onOracleResult"
-);`;
+    const neoN3Snippet = buildNeoRequestContractCall({
+      requestType: 'compute',
+      compactPayloadJson,
+    });
 
     setGeneratedPackage({
       requestType: 'compute',

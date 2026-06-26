@@ -8,18 +8,14 @@
  *
  * Usage:
  *   import {
- *     NeoMascot, EmptyStateArt, SuccessArt, ErrorArt, CoinArt, CategoryIcon,
+ *     NeoMascot, EmptyStateArt, SuccessArt, ErrorArt,
  *   } from "@shared/components-react";
  *
  *   <NeoMascot variant="brand" size={140} title="Welcome" />
  *   <EmptyStateArt size={220} />
  *   <SuccessArt size={120} title="Swap complete" />
- *   <CoinArt kind="neo" size={64} />
- *   <CategoryIcon name="finance" size={40} />
  */
 
 export * from './NeoMascot';
 export * from './EmptyStateArt';
 export * from './StatusArt';
-export * from './CoinArt';
-export * from './CategoryIcon';
