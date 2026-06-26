@@ -21,7 +21,6 @@ contract MorpheusPriceFeed {
 
     mapping(bytes32 => Feed) private _feeds;
     string[] private _symbols;
-    mapping(bytes32 => bool) private _known;
 
     event FeedUpdated(string symbol, uint256 price, uint256 timestamp, uint256 roundId);
     event UpdaterChanged(address indexed previous, address indexed next);
@@ -80,10 +79,7 @@ contract MorpheusPriceFeed {
             f.roundId = roundIds_[i];
             if (!f.exists) {
                 f.exists = true;
-                if (!_known[k]) {
-                    _known[k] = true;
-                    _symbols.push(symbols_[i]);
-                }
+                _symbols.push(symbols_[i]);
             }
             emit FeedUpdated(symbols_[i], prices_[i], timestamps_[i], roundIds_[i]);
         }
