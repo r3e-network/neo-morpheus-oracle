@@ -261,9 +261,7 @@ await loadDotEnv(path.resolve(repoRoot, 'deploy', 'nitro', `morpheus.${network}.
 
 if (!trimString(process.env.MORPHEUS_CONTROL_PLANE_URL || '')) {
   const networkRegistry = await loadNetworkRegistry(network);
-  const registryUrl = trimString(
-    (networkRegistry?.nitro ?? networkRegistry?.phala)?.control_plane_url || ''
-  );
+  const registryUrl = trimString(networkRegistry?.nitro?.control_plane_url || '');
   if (registryUrl) process.env.MORPHEUS_CONTROL_PLANE_URL = registryUrl;
 }
 

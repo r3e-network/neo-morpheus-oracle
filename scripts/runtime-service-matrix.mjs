@@ -769,7 +769,7 @@ async function resolveBaseUrlCandidates({ explicitBaseUrl, network, localEnvOver
   const configPath = path.resolve(repoRoot, 'config', 'networks', `${network}.json`);
   try {
     const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
-    const runtimeRegistry = config?.nitro ?? config?.phala;
+    const runtimeRegistry = config?.nitro;
     if (trimString(runtimeRegistry?.public_api_url)) {
       pushCandidate(runtimeRegistry.public_api_url);
     }
