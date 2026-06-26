@@ -1,11 +1,8 @@
+import { trimString } from './lib-strings.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { loadDotEnv } from './lib-env.mjs';
 import { jsonPretty, repoRoot, writeValidationArtifacts } from '../examples/scripts/common.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function parseArgs(argv = process.argv.slice(2)) {
   const out = {

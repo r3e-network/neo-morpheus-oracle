@@ -1,3 +1,4 @@
+import { trimString } from './lib-strings.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,10 +8,6 @@ import { parseDotEnv } from './lib-env.mjs';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultOracleRoot = path.resolve(moduleDir, '..');
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function parseDotEnvFile(filePath) {
   try {

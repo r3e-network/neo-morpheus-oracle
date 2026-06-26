@@ -1,11 +1,8 @@
 #!/usr/bin/env node
 
 import { buildFeedFreshnessReport } from './lib-feed-freshness.mjs';
+import { trimString } from './lib-strings.mjs';
 import path from 'node:path';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {

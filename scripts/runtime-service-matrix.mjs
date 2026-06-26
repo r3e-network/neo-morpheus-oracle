@@ -1,3 +1,4 @@
+import { trimString } from './lib-strings.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash, webcrypto } from 'node:crypto';
@@ -707,10 +708,6 @@ export const RUNTIME_SERVICE_MATRIX = [
     description: 'Tx proxy invocation fail-closed probe.',
   }),
 ];
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function normalizeBaseUrl(value) {
   return trimString(value).replace(/\/$/, '');

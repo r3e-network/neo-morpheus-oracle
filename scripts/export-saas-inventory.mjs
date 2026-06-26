@@ -7,10 +7,7 @@ import {
   betterStackTelemetryApi,
   loadBetterStackTelemetryEnv,
 } from './betterstack-telemetry-lib.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 function parseArgs(argv = []) {
   const options = {

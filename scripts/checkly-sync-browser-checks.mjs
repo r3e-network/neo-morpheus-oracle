@@ -1,9 +1,6 @@
 import { loadDotEnv } from './lib-env.mjs';
+import { trimString } from './lib-strings.mjs';
 import { execFileSync } from 'node:child_process';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 await loadDotEnv('.env.local');
 await loadDotEnv('.env');

@@ -2,10 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { readMergedDotEnvFiles } from './lib-env.mjs';
 import { normalizeMorpheusNetwork, reportPinnedNeoN3Roles } from './lib-neo-signers.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 async function pathExists(filePath) {
   try {

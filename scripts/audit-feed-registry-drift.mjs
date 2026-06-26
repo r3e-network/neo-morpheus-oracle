@@ -3,10 +3,7 @@
 import path from 'node:path';
 
 import { buildFeedRegistryDriftReport } from './lib-feed-registry-drift.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 function parseArgs(argv = process.argv.slice(2)) {
   const parsed = {

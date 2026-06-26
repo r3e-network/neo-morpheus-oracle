@@ -1,9 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 export function parseDotEnv(raw) {
   const out = {};

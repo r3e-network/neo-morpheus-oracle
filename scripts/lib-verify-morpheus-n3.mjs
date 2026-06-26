@@ -1,7 +1,4 @@
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
+import { trimString } from './lib-strings.mjs';
 function firstNonEmpty(values) {
   for (const value of values) {
     const trimmed = trimString(value);

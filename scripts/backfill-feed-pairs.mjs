@@ -3,10 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseConfiguredFeedPairs, parseDotEnv } from './lib-feed-freshness.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 function installDefaultFetchTimeout(timeoutMs = 20_000) {
   if (typeof globalThis.fetch !== 'function') return;

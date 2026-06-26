@@ -24,6 +24,7 @@
  *     contract on-chain) and verifies the callback index against the registry via
  *     getstorage. Independent of UPGRADE_APPLY so the backfill can be resumed.
  */
+import { trimString } from './lib-strings.mjs';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -36,10 +37,6 @@ const DEFAULT_ORACLE_HASH = '0xf54d8584ef82315c1800373272ab08ae0db2d5ef';
 const PREFIX_CALLBACK_INDEX = 0x27; // MorpheusOracle.cs PREFIX_CALLBACK_INDEX
 const TX_POLL_ATTEMPTS = 18;
 const TX_POLL_INTERVAL_MS = 5_000;
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 const { values: flags } = parseArgs({
   options: {

@@ -1,15 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { trimString } from './lib-strings.mjs';
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultOracleRoot = path.resolve(moduleDir, '..');
 
 export const MORPHEUS_NEODID_SERVICE_DID = 'did:morpheus:neo_n3:service:neodid';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));

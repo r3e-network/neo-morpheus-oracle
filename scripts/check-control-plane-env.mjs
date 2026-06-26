@@ -1,13 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseDotEnv } from './lib-env.mjs';
+import { trimString } from './lib-strings.mjs';
 
 const envPath = path.resolve(process.cwd(), '.env');
 const strict = process.argv.includes('--strict');
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function getValue(env, keys) {
   for (const key of keys) {

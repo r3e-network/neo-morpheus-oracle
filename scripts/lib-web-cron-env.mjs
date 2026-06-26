@@ -1,3 +1,4 @@
+import { trimString } from './lib-strings.mjs';
 import path from 'node:path';
 
 import { readMergedDotEnvFiles } from './lib-env.mjs';
@@ -15,10 +16,6 @@ export function defaultWebCronEnvFiles(repoRoot = process.cwd()) {
     path.join(repoRoot, 'apps/web/.env.local'),
     path.join(repoRoot, 'apps/web/.vercel/.env.production.local'),
   ];
-}
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
 }
 
 export async function inspectWebCronEnv({

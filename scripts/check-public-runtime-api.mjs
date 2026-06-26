@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 function assert(condition, message) {
   if (!condition) {

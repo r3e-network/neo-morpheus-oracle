@@ -1,12 +1,9 @@
+import { trimString } from './lib-strings.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { experimental, sc, u, wallet } from '@cityofzion/neon-js';
 import { loadDotEnv } from './lib-env.mjs';
 import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib-neo-signers.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 const requestedNetwork = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
 await loadDotEnv();

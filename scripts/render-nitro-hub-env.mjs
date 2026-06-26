@@ -1,13 +1,10 @@
+import { trimString } from './lib-strings.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parseDotEnv } from './lib-env.mjs';
 import { NEO_N3_SIGNER_ENV_KEYS } from './lib-neo-signers.mjs';
 
 const repoRoot = process.cwd();
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function stableStringify(value) {
   if (value === null || value === undefined) return 'null';

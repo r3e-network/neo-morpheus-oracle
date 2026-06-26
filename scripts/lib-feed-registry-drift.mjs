@@ -8,10 +8,7 @@ import {
   loadRuntimeConfigFromEnvFile,
   parseConfiguredFeedPairs,
 } from './lib-feed-freshness.mjs';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 export function parseOnchainFeedRecords(stackItem, nowMs = Date.now(), staleMinutes = 720) {
   const decoded = decodeNeoStackItem(stackItem);

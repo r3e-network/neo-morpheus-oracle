@@ -2,10 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { wallet } from '@cityofzion/neon-js';
-
-function trimString(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './lib-strings.mjs';
 
 function parseArgs(argv = process.argv.slice(2)) {
   const out = { network: 'mainnet', output: '' };
