@@ -226,7 +226,7 @@ export async function buildSignedResultEnvelope(result, payload = {}) {
   };
 }
 
-export function buildVerificationEnvelope(signed, teeAttestation = null) {
+export function buildVerificationEnvelope(signed) {
   return {
     output_hash: signed.output_hash,
     attestation_hash: signed.attestation_hash,
@@ -234,7 +234,7 @@ export function buildVerificationEnvelope(signed, teeAttestation = null) {
     public_key: signed.public_key,
     signer_address: signed.signer_address || null,
     signer_script_hash: signed.signer_script_hash || null,
-    tee_attestation: teeAttestation,
+    tee_attestation: signed.tee_attestation ?? null,
   };
 }
 
@@ -244,13 +244,13 @@ export function buildVerificationEnvelope(signed, teeAttestation = null) {
 // uniform: output_hash + signature + public_key + attestation_hash +
 // verification (+ tee_attestation). Additive — callers spread their lane-specific
 // fields alongside this; existing keys are preserved.
-export function buildLaneSignedEnvelope(signed, teeAttestation = null) {
+export function buildLaneSignedEnvelope(signed) {
   return {
     output_hash: signed.output_hash,
     signature: signed.signature || null,
     public_key: signed.public_key || null,
     attestation_hash: signed.attestation_hash,
-    tee_attestation: teeAttestation,
-    verification: buildVerificationEnvelope(signed, teeAttestation),
+    tee_attestation: signed.tee_attestation ?? null,
+    verification: buildVerificationEnvelope(signed),
   };
 }
