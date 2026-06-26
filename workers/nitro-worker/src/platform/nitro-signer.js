@@ -5,7 +5,7 @@
 // those masters. Neo N3 fulfillment signing is performed by the relayer through
 // the 8787 enclave, so the worker itself only needs derived/wrap key material.
 import { wallet as neoWallet } from '@cityofzion/neon-js';
-import { env, sha256Hex, stableStringify, trimString } from './core.js';
+import { env, normalizeBoolean, sha256Hex, stableStringify, trimString } from './core.js';
 
 const derivedKeyCache = new Map();
 const MAX_DERIVED_KEY_CACHE_SIZE = 64;
@@ -24,12 +24,6 @@ function neodidSaltSecretId() {
     trimString(env('NITRO_NEODID_SALT_SECRET_ID', 'MORPHEUS_NEODID_SALT_SECRET_ID')) ||
     'morpheus/neodid-salt'
   );
-}
-
-function normalizeBoolean(value, fallback = false) {
-  if (value === undefined || value === null || value === '') return fallback;
-  const normalized = String(value).trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
 export function shouldUseDerivedKeys(payload = {}) {

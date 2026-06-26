@@ -5,18 +5,13 @@ import {
   envForNetwork,
   json,
   jsonError,
+  normalizeBoolean,
   normalizeTargetChain,
   parseDurationMs,
   resolvePayloadNetwork,
   sha256Hex,
   trimString,
 } from '../platform/core.js';
-
-function normalizeBoolean(value, fallback = false) {
-  if (value === undefined || value === null || value === '') return fallback;
-  const normalized = String(value).trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes';
-}
 
 function parseCsv(value) {
   const raw = trimString(value);
