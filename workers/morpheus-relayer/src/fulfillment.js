@@ -51,7 +51,6 @@ import { trimString } from '@neo-morpheus-oracle/shared/utils';
 import {
   enclaveSignatureVerificationEnabled,
   normalizePublicKey,
-  resolveAttestationMaxAgeMs,
   resolveExpectedPcr0,
   resolveNitroRootCertPem,
   verifyEnclaveAttestation,
@@ -63,8 +62,6 @@ export { normalizeErrorMessage };
 // Re-exported here so existing importers (and the characterization tests) keep
 // resolving these symbols from ./fulfillment.js unchanged.
 export {
-  enclaveSignatureVerificationEnabled,
-  resolveAttestationMaxAgeMs,
   resolveExpectedPcr0,
   resolveNitroRootCertPem,
   verifyEnclaveAttestation,

@@ -150,36 +150,6 @@ export async function deriveNeoN3PrivateKeyHex(role = 'relayer') {
   );
 }
 
-export async function deriveRelayerNeoN3PrivateKeyHex() {
-  return deriveNeoN3PrivateKeyHex('relayer');
-}
-
 export async function deriveUpdaterNeoN3PrivateKeyHex() {
   return deriveNeoN3PrivateKeyHex('updater');
-}
-
-// Light runtime marker for the Nitro signer (the 8787 enclave holds signing keys).
-export async function getNitroInfo({ required = false } = {}) {
-  const endpoint =
-    trimString(env('NITRO_SIGNER_ENDPOINT', 'MORPHEUS_NITRO_SIGNER_ENDPOINT')) ||
-    'http://127.0.0.1:8787';
-  try {
-    const res = await fetch(new URL('/health', endpoint).toString(), { method: 'GET' });
-    const body = await res.json().catch(() => ({}));
-    return {
-      runtime: body.runtime || 'aws-nitro-signer',
-      network: body.network || null,
-      client_kind: 'nitro',
-    };
-  } catch {
-    if (required) throw new Error('Nitro signer health endpoint is unavailable');
-    return { runtime: 'aws-nitro-signer', network: null, client_kind: 'nitro' };
-  }
-}
-
-// Back-compat alias: the prior dstack client concept does not exist on Nitro;
-// return a marker carrying the runtime info instead.
-export async function getDstackClient({ required = false } = {}) {
-  const info = await getNitroInfo({ required });
-  return { client: null, kind: 'nitro', info };
 }
