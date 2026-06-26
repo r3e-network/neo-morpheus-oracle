@@ -3,10 +3,7 @@ import {
   loadProjectProviderConfig,
   resolveSupabaseNetwork,
 } from './server-supabase';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './strings';
 
 function normalizeProviderId(value: unknown) {
   return trimString(value).toLowerCase();

@@ -1,10 +1,7 @@
 import { proxyToNitro } from '@/lib/nitro';
 import { recordOperationLog } from '@/lib/operation-logs';
 import { isAuthorizedAdminRequest } from '@/lib/server-supabase';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from '@/lib/strings';
 
 export async function POST(request: Request) {
   const body = await request.text();

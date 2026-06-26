@@ -1,4 +1,5 @@
 import { getSelectedNetwork, getSelectedNetworkKey } from './networks';
+import { trimString } from './strings';
 
 type OnchainFeedRecord = {
   pair: string;
@@ -55,10 +56,6 @@ type OnchainStateBody = {
 };
 
 const onchainStateCache = new Map<string, { body: OnchainStateBody; expiresAt: number }>();
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function isPrintableAscii(value: string) {
   return /^[\x09\x0a\x0d\x20-\x7e]*$/.test(value);

@@ -1,10 +1,7 @@
 import { appConfig } from './config';
 import { parseFeedProviders, parseFeedSymbols } from './feed-defaults';
 import { resolveProviderAwarePayload } from './provider-configs';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './strings';
 
 function describeError(error: unknown) {
   if (error instanceof Error) return error.message;

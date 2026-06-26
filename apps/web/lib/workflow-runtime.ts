@@ -1,8 +1,5 @@
 import runtimeCatalog from '../public/morpheus-runtime-catalog.json';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from './strings';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

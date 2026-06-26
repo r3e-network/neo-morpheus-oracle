@@ -1,9 +1,6 @@
 import { getServerSupabaseClient, resolveSupabaseNetwork } from '@/lib/server-supabase';
 import { decorateControlPlaneJob } from '@/lib/workflow-runtime';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
+import { trimString } from '@/lib/strings';
 
 export async function GET(request: Request, context: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await context.params;

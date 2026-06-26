@@ -12,12 +12,9 @@ import {
   buildUpkeepExecutionPayload,
 } from '../../../../../../../workers/morpheus-relayer/src/automation-supervisor.js';
 import { badRequest } from '@/lib/api-helpers';
+import { trimString } from '@/lib/strings';
 
 export const runtime = 'nodejs';
-
-function trimString(value: unknown) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
