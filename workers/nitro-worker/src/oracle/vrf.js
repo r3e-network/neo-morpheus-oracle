@@ -13,7 +13,7 @@ export async function handleVrf(payload) {
     // D5: emit the canonical signed-result envelope (now including output_hash,
     // which the VRF lane previously dropped) so verification is uniform across
     // every fulfillment lane. Lane-specific fields are kept.
-    ...buildLaneSignedEnvelope(signed, signed.tee_attestation),
+    ...buildLaneSignedEnvelope(signed),
     timestamp: Math.floor(Date.now() / 1000),
     vrf_method: 'csprng-signed',
   });

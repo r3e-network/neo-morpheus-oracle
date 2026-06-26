@@ -579,7 +579,7 @@ async function buildNeoDidResponse(mode, result, payload) {
     callback_encoding: callbackEncoding || undefined,
     output_hash: signed.output_hash,
     attestation_hash: signed.attestation_hash,
-    verification: buildVerificationEnvelope(signed, teeAttestation),
+    verification: buildVerificationEnvelope(signed),
     tee_attestation: teeAttestation,
   });
 }

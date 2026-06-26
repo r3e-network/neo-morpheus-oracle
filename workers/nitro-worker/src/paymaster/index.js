@@ -335,7 +335,7 @@ export async function handlePaymasterAuthorize(payload = {}) {
     return json(200, {
       ...result,
       // D5 canonical signed-result envelope — single-sourced.
-      ...buildLaneSignedEnvelope(signed, signed.tee_attestation),
+      ...buildLaneSignedEnvelope(signed),
     });
   } catch (error) {
     return jsonError(400, error);

@@ -736,7 +736,7 @@ export async function handleComputeExecute(payload) {
       ...result,
       // D5 canonical signed-result envelope (output_hash + signature + public_key
       // + attestation_hash + tee_attestation + verification) — single-sourced.
-      ...buildLaneSignedEnvelope(signed, signed.tee_attestation),
+      ...buildLaneSignedEnvelope(signed),
     });
   } catch (error) {
     return jsonError(400, error);

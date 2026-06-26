@@ -413,7 +413,7 @@ async function resolveQuoteForProvider(symbol, options, provider) {
     public_key: signed.public_key,
     attestation_hash: signed.attestation_hash,
     tee_attestation: teeAttestation,
-    verification: buildVerificationEnvelope(signed, teeAttestation),
+    verification: buildVerificationEnvelope(signed),
   };
 }
 

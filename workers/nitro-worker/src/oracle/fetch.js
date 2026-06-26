@@ -424,10 +424,6 @@ export async function buildOracleResponse(payload, mode) {
     upstream_status: fetchResult.upstream_status,
   };
   const signed = await buildSignedResultEnvelope(derived, resolvedPayload);
-  // signed.tee_attestation already binds sha256(stableStringify(derived)) via output_hash
-  // (computed once inside buildSignedResultEnvelope); reuse it instead of re-calling the
-  // 8787 /attest endpoint with the same report_data in each branch below.
-  const teeAttestation = signed.tee_attestation;
 
   if (mode === 'query') {
     return {
@@ -442,7 +438,7 @@ export async function buildOracleResponse(payload, mode) {
       extracted_value: fetchResult.selected_value ?? null,
       result: executed.result,
       // D5 canonical signed-result envelope — single-sourced.
-      ...buildLaneSignedEnvelope(signed, teeAttestation),
+      ...buildLaneSignedEnvelope(signed),
     };
   }
 
@@ -455,6 +451,6 @@ export async function buildOracleResponse(payload, mode) {
     result: executed.result,
     extracted_value: fetchResult.selected_value ?? null,
     // D5 canonical signed-result envelope — single-sourced.
-    ...buildLaneSignedEnvelope(signed, teeAttestation),
+    ...buildLaneSignedEnvelope(signed),
   };
 }
