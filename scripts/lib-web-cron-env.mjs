@@ -10,7 +10,7 @@ export const WEB_CRON_REQUIRED_ENV = Object.freeze([
   'MORPHEUS_BETTERSTACK_CRON_HEALTH_HEARTBEAT_URL',
 ]);
 
-export function defaultWebCronEnvFiles(repoRoot = process.cwd()) {
+function defaultWebCronEnvFiles(repoRoot = process.cwd()) {
   return [
     path.join(repoRoot, 'apps/web/.env.production.local'),
     path.join(repoRoot, 'apps/web/.env.local'),

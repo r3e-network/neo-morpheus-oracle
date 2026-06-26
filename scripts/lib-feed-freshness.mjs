@@ -142,16 +142,6 @@ export function invokeNeoFunctionViaCurl(rpcUrl, contractHash, operation, params
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-function isRpcTimeoutError(error) {
-  const message = error instanceof Error ? error.message : String(error || '');
-  return (
-    message.includes('SSL connection timeout') ||
-    message.includes('Connection timed out') ||
-    message.includes('timeout') ||
-    message.includes('ETIMEDOUT')
-  );
-}
-
 function probeNeoRpcUrlViaCurl(rpcUrl) {
   const payload = {
     jsonrpc: '2.0',
@@ -182,10 +172,7 @@ function probeNeoRpcUrlViaCurl(rpcUrl) {
       )
     );
     return !response?.error;
-  } catch (error) {
-    if (isRpcTimeoutError(error)) {
-      return false;
-    }
+  } catch {
     return false;
   }
 }

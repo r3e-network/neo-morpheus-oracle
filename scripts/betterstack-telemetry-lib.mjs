@@ -6,7 +6,7 @@ export async function loadBetterStackTelemetryEnv() {
   await loadDotEnv('.env');
 }
 
-export function getBetterStackTelemetryTokens() {
+function getBetterStackTelemetryTokens() {
   return [
     trimString(process.env.BETTERSTACK_TELEMETRY_TOKEN),
     trimString(process.env.BETTERSTACK_TELEMETRY_TOKEN_ALT),

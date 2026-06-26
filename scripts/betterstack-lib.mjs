@@ -6,7 +6,7 @@ export async function loadBetterStackEnv() {
   await loadDotEnv('.env');
 }
 
-export function getBetterStackUptimeTokens() {
+function getBetterStackUptimeTokens() {
   return [
     trimString(process.env.BETTERSTACK_UPTIME_API_TOKEN),
     trimString(process.env.BETTERSTACK_UPTIME_API_TOKEN_ALT),
