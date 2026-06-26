@@ -648,7 +648,7 @@ export async function executeBuiltinCompute(payload) {
   }
 }
 
-export async function executeStandaloneCompute(payload) {
+async function executeStandaloneCompute(payload) {
   const maxInputBytes = resolveMaxBytes(env('COMPUTE_MAX_INPUT_BYTES'), 64 * 1024, 1024);
   const wasmModuleBase64 = resolveWasmModuleBase64(payload);
   if (wasmModuleBase64) {

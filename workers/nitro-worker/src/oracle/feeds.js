@@ -681,7 +681,7 @@ export async function handleOracleFeed(payload) {
   if (
     onchainFeedState.error &&
     Object.keys(state.records || {}).length === 0 &&
-    !Boolean(scopedPayload.force)
+    !scopedPayload.force
   ) {
     return json(503, {
       mode: 'pricefeed',

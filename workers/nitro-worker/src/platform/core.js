@@ -225,12 +225,6 @@ export function decodeBase64(value) {
   return Buffer.from(padded, 'base64');
 }
 
-export function toPem(label, bytes) {
-  const b64 = Buffer.from(bytes).toString('base64');
-  const wrapped = b64.match(/.{1,64}/g)?.join('\n') || b64;
-  return `-----BEGIN ${label}-----\n${wrapped}\n-----END ${label}-----`;
-}
-
 export function normalizeTargetChain(value) {
   const normalized = trimString(value || 'neo_n3').toLowerCase();
   if (SUPPORTED_ORACLE_TARGET_CHAINS.has(normalized)) return normalized;
@@ -354,14 +348,6 @@ export function assertUntrustedScriptsEnabled() {
       'user-supplied scripts are disabled; set MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS=true to opt in'
     );
   }
-}
-
-export function resolveScript(payload) {
-  if (typeof payload.script === 'string' && payload.script.trim()) return payload.script;
-  if (typeof payload.script_base64 === 'string' && payload.script_base64.trim()) {
-    return decodeBase64(payload.script_base64).toString('utf8');
-  }
-  return '';
 }
 
 export function resolveWasmModuleBase64(payload) {

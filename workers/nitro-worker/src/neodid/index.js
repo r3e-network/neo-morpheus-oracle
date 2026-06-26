@@ -666,7 +666,7 @@ export async function handleNeoDidActionTicket(payload = {}) {
   const saltBytes = await resolveNeoDidSalt(resolvedPayload);
   const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
   const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
-  const actionId = trimString(resolvedPayload.action_id || resolvedPayload.intent || '').trim();
+  const actionId = trimString(resolvedPayload.action_id || resolvedPayload.intent || '');
   if (!actionId) throw new Error('action_id is required');
   const actionNullifier = computeActionNullifier(provider, providerUid, actionId, saltBytes);
   const ticket = {
