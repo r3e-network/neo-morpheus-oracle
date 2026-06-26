@@ -437,6 +437,87 @@ function allowUnsafeProviderBaseUrlOverride() {
   return raw === '1' || raw.toLowerCase() === 'true' || raw.toLowerCase() === 'yes';
 }
 
+function buildTwelveDataRequest(payload, provider) {
+  const params = coerceProviderParams(payload.provider_params);
+  const pair =
+    stripProviderPrefixFromPairSymbol(
+      trimString(payload.symbol || params.pair || 'NEO-USD') || 'NEO-USD'
+    ) || 'NEO-USD';
+  const explicitSymbol = trimString(params.symbol || payload.provider_symbol || '');
+  const sourceSymbol = explicitSymbol || pair;
+  const symbol = explicitSymbol
+    ? /^[A-Z0-9]+-[A-Z0-9]+$/i.test(explicitSymbol)
+      ? pairToTwelveDataSymbol(explicitSymbol)
+      : explicitSymbol
+    : sourceSymbol.includes('/')
+      ? sourceSymbol
+      : pairToTwelveDataSymbol(sourceSymbol);
+  const endpoint = trimString(params.endpoint || payload.provider_endpoint || 'price') || 'price';
+  const url = new URL(`https://api.twelvedata.com/${endpoint}`);
+  url.searchParams.set('symbol', symbol);
+  url.searchParams.set('apikey', requireTwelveDataApiKey());
+  for (const [key, value] of Object.entries(params)) {
+    if (['symbol', 'endpoint'].includes(key)) continue;
+    if (value !== undefined && value !== null && value !== '')
+      url.searchParams.set(key, String(value));
+  }
+  return {
+    provider,
+    pair,
+    method: 'GET',
+    url: url.toString(),
+    headers: {},
+    body: undefined,
+    auth_mode: 'query',
+  };
+}
+
+function buildBinanceSpotRequest(payload, provider) {
+  const params = coerceProviderParams(payload.provider_params);
+  const pair =
+    stripProviderPrefixFromPairSymbol(
+      trimString(payload.symbol || params.pair || 'NEO-USD') || 'NEO-USD'
+    ) || 'NEO-USD';
+  const symbol =
+    trimString(params.symbol || payload.provider_symbol || pairToBinanceSymbol(pair)) ||
+    pairToBinanceSymbol(pair);
+  const requestedBaseUrl = trimString(params.base_url || payload.provider_base_url || '');
+  const baseUrl =
+    requestedBaseUrl && allowUnsafeProviderBaseUrlOverride()
+      ? requestedBaseUrl
+      : 'https://api1.binance.com';
+  const url = new URL('/api/v3/ticker/price', baseUrl);
+  url.searchParams.set('symbol', symbol);
+  return {
+    provider,
+    pair: pair.replace(/_/g, '-').toUpperCase(),
+    method: 'GET',
+    url: url.toString(),
+    headers: {},
+    body: undefined,
+    auth_mode: 'none',
+  };
+}
+
+function buildCoinbaseSpotRequest(payload, provider) {
+  const params = coerceProviderParams(payload.provider_params);
+  const pair =
+    stripProviderPrefixFromPairSymbol(
+      trimString(payload.symbol || params.symbol || 'NEO-USD') || 'NEO-USD'
+    ) || 'NEO-USD';
+  const normalized = pair.replace(/_/g, '-').toUpperCase();
+  const url = `https://api.coinbase.com/v2/prices/${normalized}/spot`;
+  return {
+    provider,
+    pair: normalized,
+    method: 'GET',
+    url,
+    headers: {},
+    body: undefined,
+    auth_mode: 'none',
+  };
+}
+
 export function buildProviderRequest(payload) {
   const symbolCandidate = trimString(
     payload.symbol ||
@@ -453,85 +534,12 @@ export function buildProviderRequest(payload) {
   if (!provider) return null;
 
   switch (provider) {
-    case 'twelvedata': {
-      const params = coerceProviderParams(payload.provider_params);
-      const pair =
-        stripProviderPrefixFromPairSymbol(
-          trimString(payload.symbol || params.pair || 'NEO-USD') || 'NEO-USD'
-        ) || 'NEO-USD';
-      const explicitSymbol = trimString(params.symbol || payload.provider_symbol || '');
-      const sourceSymbol = explicitSymbol || pair;
-      const symbol = explicitSymbol
-        ? /^[A-Z0-9]+-[A-Z0-9]+$/i.test(explicitSymbol)
-          ? pairToTwelveDataSymbol(explicitSymbol)
-          : explicitSymbol
-        : sourceSymbol.includes('/')
-          ? sourceSymbol
-          : pairToTwelveDataSymbol(sourceSymbol);
-      const endpoint =
-        trimString(params.endpoint || payload.provider_endpoint || 'price') || 'price';
-      const url = new URL(`https://api.twelvedata.com/${endpoint}`);
-      url.searchParams.set('symbol', symbol);
-      url.searchParams.set('apikey', requireTwelveDataApiKey());
-      for (const [key, value] of Object.entries(params)) {
-        if (['symbol', 'endpoint'].includes(key)) continue;
-        if (value !== undefined && value !== null && value !== '')
-          url.searchParams.set(key, String(value));
-      }
-      return {
-        provider,
-        pair,
-        method: 'GET',
-        url: url.toString(),
-        headers: {},
-        body: undefined,
-        auth_mode: 'query',
-      };
-    }
-    case 'binance-spot': {
-      const params = coerceProviderParams(payload.provider_params);
-      const pair =
-        stripProviderPrefixFromPairSymbol(
-          trimString(payload.symbol || params.pair || 'NEO-USD') || 'NEO-USD'
-        ) || 'NEO-USD';
-      const symbol =
-        trimString(params.symbol || payload.provider_symbol || pairToBinanceSymbol(pair)) ||
-        pairToBinanceSymbol(pair);
-      const requestedBaseUrl = trimString(params.base_url || payload.provider_base_url || '');
-      const baseUrl =
-        requestedBaseUrl && allowUnsafeProviderBaseUrlOverride()
-          ? requestedBaseUrl
-          : 'https://api1.binance.com';
-      const url = new URL('/api/v3/ticker/price', baseUrl);
-      url.searchParams.set('symbol', symbol);
-      return {
-        provider,
-        pair: pair.replace(/_/g, '-').toUpperCase(),
-        method: 'GET',
-        url: url.toString(),
-        headers: {},
-        body: undefined,
-        auth_mode: 'none',
-      };
-    }
-    case 'coinbase-spot': {
-      const params = coerceProviderParams(payload.provider_params);
-      const pair =
-        stripProviderPrefixFromPairSymbol(
-          trimString(payload.symbol || params.symbol || 'NEO-USD') || 'NEO-USD'
-        ) || 'NEO-USD';
-      const normalized = pair.replace(/_/g, '-').toUpperCase();
-      const url = `https://api.coinbase.com/v2/prices/${normalized}/spot`;
-      return {
-        provider,
-        pair: normalized,
-        method: 'GET',
-        url,
-        headers: {},
-        body: undefined,
-        auth_mode: 'none',
-      };
-    }
+    case 'twelvedata':
+      return buildTwelveDataRequest(payload, provider);
+    case 'binance-spot':
+      return buildBinanceSpotRequest(payload, provider);
+    case 'coinbase-spot':
+      return buildCoinbaseSpotRequest(payload, provider);
     default:
       throw new Error(`unknown builtin provider: ${provider}`);
   }
@@ -563,6 +571,73 @@ function detectProviderPayloadError(requestSpec, response, data) {
   return null;
 }
 
+// Fetch a provider response with bounded retries on transient status/errors.
+// Separated from fetchProviderJSON's caching/circuit-breaker bookkeeping so each
+// has one responsibility. Captures nothing beyond its two args.
+async function fetchProviderWithRetries(requestSpec, timeoutMs) {
+  const totalAttempts = resolveProviderRetryCount() + 1;
+  let lastError;
+
+  for (let attempt = 0; attempt < totalAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(new Error(`provider fetch timed out after ${timeoutMs}ms`)),
+      timeoutMs
+    );
+
+    try {
+      const response = await fetch(requestSpec.url, {
+        method: requestSpec.method || 'GET',
+        headers: requestSpec.headers,
+        body: requestSpec.body,
+        signal: controller.signal,
+      });
+
+      const maxBodyBytes = resolveProviderResponseMaxBodyBytes();
+      const text = await readResponseTextWithLimit(response, maxBodyBytes, 'provider response');
+
+      let data = null;
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { raw: text };
+        }
+      }
+
+      const payloadError = detectProviderPayloadError(requestSpec, response, data);
+      const result = {
+        ok: response.ok && !payloadError,
+        status: payloadError?.status || response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        text,
+        data,
+        provider_error: payloadError,
+      };
+
+      if (!result.ok && attempt + 1 < totalAttempts && isRetryableProviderStatus(result.status)) {
+        await sleep(resolveProviderRetryDelayMs(attempt, result));
+        continue;
+      }
+
+      return result;
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 >= totalAttempts || !isRetryableProviderError(error)) {
+        if (controller.signal.aborted) {
+          throw new Error(`provider fetch timed out after ${timeoutMs}ms`);
+        }
+        throw error;
+      }
+      await sleep(resolveProviderRetryDelayMs(attempt));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw lastError || new Error('provider fetch failed');
+}
+
 export async function fetchProviderJSON(requestSpec, timeoutMs = 8000) {
   const providerId = normalizeProviderId(requestSpec.provider || '');
   const breaker = providerId ? getOrCreateBreaker(providerId) : null;
@@ -581,71 +656,7 @@ export async function fetchProviderJSON(requestSpec, timeoutMs = 8000) {
     return cloneProviderResult(await providerResponseInFlight.get(cacheKey));
   }
 
-  const execute = async () => {
-    const totalAttempts = resolveProviderRetryCount() + 1;
-    let lastError;
-
-    for (let attempt = 0; attempt < totalAttempts; attempt += 1) {
-      const controller = new AbortController();
-      const timer = setTimeout(
-        () => controller.abort(new Error(`provider fetch timed out after ${timeoutMs}ms`)),
-        timeoutMs
-      );
-
-      try {
-        const response = await fetch(requestSpec.url, {
-          method: requestSpec.method || 'GET',
-          headers: requestSpec.headers,
-          body: requestSpec.body,
-          signal: controller.signal,
-        });
-
-        const maxBodyBytes = resolveProviderResponseMaxBodyBytes();
-        const text = await readResponseTextWithLimit(response, maxBodyBytes, 'provider response');
-
-        let data = null;
-        if (text) {
-          try {
-            data = JSON.parse(text);
-          } catch {
-            data = { raw: text };
-          }
-        }
-
-        const payloadError = detectProviderPayloadError(requestSpec, response, data);
-        const result = {
-          ok: response.ok && !payloadError,
-          status: payloadError?.status || response.status,
-          headers: Object.fromEntries(response.headers.entries()),
-          text,
-          data,
-          provider_error: payloadError,
-        };
-
-        if (!result.ok && attempt + 1 < totalAttempts && isRetryableProviderStatus(result.status)) {
-          await sleep(resolveProviderRetryDelayMs(attempt, result));
-          continue;
-        }
-
-        return result;
-      } catch (error) {
-        lastError = error;
-        if (attempt + 1 >= totalAttempts || !isRetryableProviderError(error)) {
-          if (controller.signal.aborted) {
-            throw new Error(`provider fetch timed out after ${timeoutMs}ms`);
-          }
-          throw error;
-        }
-        await sleep(resolveProviderRetryDelayMs(attempt));
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    throw lastError || new Error('provider fetch failed');
-  };
-
-  const promise = execute();
+  const promise = fetchProviderWithRetries(requestSpec, timeoutMs);
   if (cacheKey) {
     providerResponseInFlight.set(cacheKey, promise);
   }
