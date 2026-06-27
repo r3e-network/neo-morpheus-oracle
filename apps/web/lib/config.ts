@@ -49,10 +49,8 @@ export const appConfig = {
   nitroApiUrls: [...new Set(defaultNitroApiCandidates)],
   // Server-only env names exclusively: a NEXT_PUBLIC_* fallback here would
   // invite operators to configure the runtime bearer secret as a value that
-  // Next.js inlines into public client bundles.
-  // PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally dropped: those Phala
-  // credentials were revoked when the runtime migrated off Phala. Only the
-  // current MORPHEUS_*/NITRO_* runtime tokens are accepted.
+  // Next.js inlines into public client bundles. Only the current
+  // MORPHEUS_*/NITRO_* runtime tokens are accepted.
   nitroToken:
     trimString(process.env.MORPHEUS_RUNTIME_TOKEN) ||
     trimString(process.env.NITRO_API_TOKEN) ||

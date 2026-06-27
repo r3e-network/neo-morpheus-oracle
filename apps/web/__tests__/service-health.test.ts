@@ -26,8 +26,8 @@ describe('getServiceProblemDetail', () => {
   it('flags error strings and degraded flags carried inside 200 bodies', () => {
     expect(getServiceProblemDetail({ error: 'upstream unavailable' })).toBe('upstream unavailable');
     expect(
-      getServiceProblemDetail({ degraded: true, reason: 'phala_runtime_control_plane_disabled' })
-    ).toBe('phala_runtime_control_plane_disabled');
+      getServiceProblemDetail({ degraded: true, reason: 'runtime_control_plane_disabled' })
+    ).toBe('runtime_control_plane_disabled');
     expect(getServiceProblemDetail({ degraded: true })).toBe('service reported degraded: true');
   });
 

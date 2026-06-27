@@ -59,7 +59,7 @@ The Cloudflare control plane (`control.meshmini.app`,
 `deploy/cloudflare/morpheus-control-plane`) dispatches **confidential
 execution-plane** jobs to an execution runtime base URL. Today that base URL list is
 `oracle.meshmini.app → edge.meshmini.app → <phala>`, and **all three are dead or the
-Vercel `emergency-vercel-runtime` placeholder** (`phala_runtime_control_plane_disabled`)
+Vercel `emergency-vercel-runtime` placeholder** (`runtime_control_plane_disabled`)
 — so every execution-plane lane is degraded.
 
 This migration makes the **AWS Nitro box the execution runtime**, so the compute runs

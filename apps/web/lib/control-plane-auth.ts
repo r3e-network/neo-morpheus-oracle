@@ -9,9 +9,6 @@ export function isAuthorizedControlPlaneRequest(request: Request) {
     return true;
   }
 
-  // PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally removed: the control
-  // plane migrated off Phala and revoked those credentials. Continuing to accept
-  // them here re-granted a privilege the control plane had explicitly retired.
   // Only the current MORPHEUS_* runtime token is honored as a shared credential.
   const sharedToken = trimString(process.env.MORPHEUS_RUNTIME_TOKEN);
   if (!sharedToken) return false;
@@ -38,7 +35,6 @@ function extractRuntimeAuthToken(request: Request) {
 // runtime (e.g. /api/runtime/keys/derived). The edge gateway already requires a
 // trusted token for the same upstream paths; mirroring it here closes the gap
 // where the apps/web origin honored those paths unauthenticated.
-// PHALA_API_TOKEN / PHALA_SHARED_SECRET are intentionally excluded (revoked).
 export function isAuthorizedRuntimeRequest(request: Request) {
   const token = extractRuntimeAuthToken(request);
   if (!token) return false;
