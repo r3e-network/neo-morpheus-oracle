@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-process.env.PHALA_SHARED_SECRET = 'runtime-matrix-test-secret';
-process.env.PHALA_API_TOKEN = 'runtime-matrix-test-secret';
-process.env.PHALA_NEO_N3_PRIVATE_KEY =
+process.env.NITRO_SHARED_SECRET = 'runtime-matrix-test-secret';
+process.env.NITRO_API_TOKEN = 'runtime-matrix-test-secret';
+process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.MORPHEUS_ALLOW_EPHEMERAL_KEY = 'true';

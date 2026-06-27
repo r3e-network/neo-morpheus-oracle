@@ -52,11 +52,9 @@ function isTrue(value) {
 }
 
 function resolveEnvPath({ networkOverride, envFileOverride } = {}) {
-  const rawNetwork = trimString(
-    networkOverride || process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet'
-  );
+  const rawNetwork = trimString(networkOverride || process.env.MORPHEUS_NETWORK || 'mainnet');
   const network = normalizeMorpheusNetwork(rawNetwork || 'mainnet');
-  const configuredPath = trimString(envFileOverride || process.env.PHALA_ENV_FILE || '');
+  const configuredPath = trimString(envFileOverride || process.env.NITRO_ENV_FILE || '');
   return configuredPath
     ? path.resolve(process.cwd(), configuredPath)
     : path.resolve(process.cwd(), `deploy/nitro/morpheus.${network}.env`);
@@ -81,19 +79,13 @@ const network = normalizeMorpheusNetwork(
 );
 const networkSuffix = network === 'mainnet' ? 'MAINNET' : 'TESTNET';
 const requiredEither = [
-  [
-    'MORPHEUS_RUNTIME_TOKEN',
-    'NITRO_API_TOKEN',
-    'PHALA_API_TOKEN',
-    'NITRO_SHARED_SECRET',
-    'PHALA_SHARED_SECRET',
-  ],
+  ['MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN', 'NITRO_SHARED_SECRET'],
   ['SUPABASE_SECRET_KEY', 'SUPABASE_SERVICE_ROLE_KEY'],
   [
-    'PHALA_NEO_N3_WIF',
-    'PHALA_NEO_N3_PRIVATE_KEY',
-    `PHALA_NEO_N3_WIF_${networkSuffix}`,
-    `PHALA_NEO_N3_PRIVATE_KEY_${networkSuffix}`,
+    'MORPHEUS_WORKER_NEO_N3_WIF',
+    'MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY',
+    `MORPHEUS_WORKER_NEO_N3_WIF_${networkSuffix}`,
+    `MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_${networkSuffix}`,
   ],
   [
     'MORPHEUS_RELAYER_NEO_N3_WIF',
@@ -109,15 +101,13 @@ const requiredEither = [
   ],
 ];
 const missing = required.filter((key) => !getValue(env, runtimeConfig, key));
-const useDerivedKeys =
-  isTrue(getValue(env, runtimeConfig, 'NITRO_USE_DERIVED_KEYS')) ||
-  isTrue(getValue(env, runtimeConfig, 'PHALA_USE_DERIVED_KEYS'));
+const useDerivedKeys = isTrue(getValue(env, runtimeConfig, 'NITRO_USE_DERIVED_KEYS'));
 const missingEither = requiredEither.filter((group) => {
   if (
     useDerivedKeys &&
     group.some(
       (key) =>
-        key.startsWith('PHALA_NEO_N3_') ||
+        key.startsWith('MORPHEUS_WORKER_NEO_N3_') ||
         key.startsWith('MORPHEUS_RELAYER_NEO_N3_') ||
         key.startsWith('MORPHEUS_UPDATER_NEO_N3_')
     )
@@ -159,12 +149,8 @@ report.neo_n3_signers = ['worker', 'relayer', 'updater', 'oracle_verifier'].map(
 const explicitOracleVerifierKeys = [
   'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
   'MORPHEUS_ORACLE_VERIFIER_WIF',
-  'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
-  'PHALA_ORACLE_VERIFIER_WIF',
   `MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_${networkSuffix}`,
   `MORPHEUS_ORACLE_VERIFIER_WIF_${networkSuffix}`,
-  `PHALA_ORACLE_VERIFIER_PRIVATE_KEY_${networkSuffix}`,
-  `PHALA_ORACLE_VERIFIER_WIF_${networkSuffix}`,
 ];
 
 if (!explicitOracleVerifierKeys.some((key) => getValue(env, runtimeConfig, key))) {
