@@ -67,7 +67,7 @@ test('buildPublicRuntimeStatusSnapshot reports the emergency shim payload as deg
       body: {
         status: 'ok',
         degraded: true,
-        reason: 'phala_runtime_control_plane_disabled',
+        reason: 'runtime_control_plane_disabled',
       },
     },
     info: {
@@ -79,7 +79,7 @@ test('buildPublicRuntimeStatusSnapshot reports the emergency shim payload as deg
 
   assert.equal(snapshot.runtime.status, 'degraded');
   assert.equal(snapshot.runtime.health.state, 'degraded');
-  assert.equal(snapshot.runtime.health.detail, 'phala_runtime_control_plane_disabled');
+  assert.equal(snapshot.runtime.health.detail, 'runtime_control_plane_disabled');
 });
 
 test('buildPublicRuntimeStatusSnapshot keeps a down status string authoritative over the degraded flag', () => {
