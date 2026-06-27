@@ -37,7 +37,7 @@ test('render-nitro-hub-env propagates heartbeat URLs and network-scoped signer m
   const shared = {
     MORPHEUS_NITRO_WORKER_IMAGE: 'worker:test',
     MORPHEUS_RELAYER_IMAGE: 'relayer:test',
-    PHALA_SHARED_SECRET: 'shared-secret',
+    NITRO_API_TOKEN: 'shared-secret',
     SUPABASE_URL: 'https://supabase.example',
     SUPABASE_SECRET_KEY: 'supabase-secret',
   };
@@ -49,8 +49,8 @@ test('render-nitro-hub-env propagates heartbeat URLs and network-scoped signer m
     MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL: 'https://heartbeat.example/failure',
     MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({
       MORPHEUS_NETWORK: 'mainnet',
-      PHALA_NEO_N3_WIF: 'mainnet-feed-wif',
-      PHALA_NEO_N3_PRIVATE_KEY: 'mainnet-feed-private-key',
+      MORPHEUS_WORKER_NEO_N3_WIF: 'mainnet-feed-wif',
+      MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY: 'mainnet-feed-private-key',
       MORPHEUS_RELAYER_NEO_N3_WIF: 'mainnet-request-wif',
       MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: 'mainnet-request-private-key',
       MORPHEUS_UPDATER_NEO_N3_WIF: 'mainnet-updater-wif',
@@ -61,8 +61,8 @@ test('render-nitro-hub-env propagates heartbeat URLs and network-scoped signer m
     ...shared,
     MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({
       MORPHEUS_NETWORK: 'testnet',
-      PHALA_NEO_N3_WIF: 'testnet-feed-wif',
-      PHALA_NEO_N3_PRIVATE_KEY: 'testnet-feed-private-key',
+      MORPHEUS_WORKER_NEO_N3_WIF: 'testnet-feed-wif',
+      MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY: 'testnet-feed-private-key',
       MORPHEUS_RELAYER_NEO_N3_WIF: 'testnet-request-wif',
       MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY: 'testnet-request-private-key',
       MORPHEUS_UPDATER_NEO_N3_WIF: 'testnet-updater-wif',
@@ -95,10 +95,10 @@ test('render-nitro-hub-env propagates heartbeat URLs and network-scoped signer m
     rendered.MORPHEUS_BETTERSTACK_RELAYER_FAILURE_URL,
     'https://heartbeat.example/failure'
   );
-  assert.equal(rendered.PHALA_NEO_N3_WIF_MAINNET, 'mainnet-feed-wif');
-  assert.equal(rendered.PHALA_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-feed-private-key');
-  assert.equal(rendered.PHALA_NEO_N3_WIF_TESTNET, 'testnet-feed-wif');
-  assert.equal(rendered.PHALA_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-feed-private-key');
+  assert.equal(rendered.MORPHEUS_WORKER_NEO_N3_WIF_MAINNET, 'mainnet-feed-wif');
+  assert.equal(rendered.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-feed-private-key');
+  assert.equal(rendered.MORPHEUS_WORKER_NEO_N3_WIF_TESTNET, 'testnet-feed-wif');
+  assert.equal(rendered.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-feed-private-key');
   assert.equal(rendered.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET, 'mainnet-request-wif');
   assert.equal(rendered.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-request-private-key');
   assert.equal(rendered.MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET, 'mainnet-updater-wif');
@@ -116,7 +116,7 @@ test('render-nitro-hub-env lets secure local signer injection override packed ru
   const shared = {
     MORPHEUS_NITRO_WORKER_IMAGE: 'worker:test',
     MORPHEUS_RELAYER_IMAGE: 'relayer:test',
-    PHALA_SHARED_SECRET: 'shared-secret',
+    NITRO_API_TOKEN: 'shared-secret',
     SUPABASE_URL: 'https://supabase.example',
     SUPABASE_SECRET_KEY: 'supabase-secret',
   };
@@ -164,20 +164,20 @@ test('render-nitro-hub-env never promotes unscoped local signer material into sc
   const shared = {
     MORPHEUS_NITRO_WORKER_IMAGE: 'worker:test',
     MORPHEUS_RELAYER_IMAGE: 'relayer:test',
-    PHALA_SHARED_SECRET: 'shared-secret',
+    NITRO_API_TOKEN: 'shared-secret',
     SUPABASE_URL: 'https://supabase.example',
     SUPABASE_SECRET_KEY: 'supabase-secret',
   };
 
   writeEnvFile(path.join(workDir, '.env.local'), {
-    PHALA_NEO_N3_PRIVATE_KEY: 'local-generic-worker-private-key',
+    MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY: 'local-generic-worker-private-key',
     MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY: 'local-generic-verifier-public-key',
   });
   writeEnvFile(path.join(deployDir, 'morpheus.mainnet.env'), {
     ...shared,
     MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({
       MORPHEUS_NETWORK: 'mainnet',
-      PHALA_NEO_N3_PRIVATE_KEY: 'mainnet-worker-private-key',
+      MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY: 'mainnet-worker-private-key',
       MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY: 'mainnet-verifier-public-key',
     }),
   });
@@ -185,7 +185,7 @@ test('render-nitro-hub-env never promotes unscoped local signer material into sc
     ...shared,
     MORPHEUS_RUNTIME_CONFIG_JSON: JSON.stringify({
       MORPHEUS_NETWORK: 'testnet',
-      PHALA_NEO_N3_PRIVATE_KEY: 'testnet-worker-private-key',
+      MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY: 'testnet-worker-private-key',
       MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY: 'testnet-verifier-public-key',
     }),
   });
@@ -203,20 +203,20 @@ test('render-nitro-hub-env never promotes unscoped local signer material into sc
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const rendered = parseEnv(fs.readFileSync(outputPath, 'utf8'));
 
-  assert.equal(rendered.PHALA_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-worker-private-key');
-  assert.equal(rendered.PHALA_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-worker-private-key');
+  assert.equal(rendered.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET, 'mainnet-worker-private-key');
+  assert.equal(rendered.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_TESTNET, 'testnet-worker-private-key');
   assert.equal(rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_MAINNET, 'mainnet-verifier-public-key');
   assert.equal(rendered.MORPHEUS_ORACLE_VERIFIER_PUBLIC_KEY_TESTNET, 'testnet-verifier-public-key');
 });
 
-test('render-nitro-hub-env derives MORPHEUS_RUNTIME_TOKEN from a PHALA_SHARED_SECRET-only env', () => {
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'render-nitro-hub-env-phala-token-'));
+test('render-nitro-hub-env derives MORPHEUS_RUNTIME_TOKEN from a NITRO_API_TOKEN-only env', () => {
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'render-nitro-hub-env-nitro-token-'));
   const deployDir = path.join(workDir, 'deploy/nitro');
   const outputPath = path.join(deployDir, 'morpheus.hub.env');
   const shared = {
     MORPHEUS_NITRO_WORKER_IMAGE: 'worker:test',
     MORPHEUS_RELAYER_IMAGE: 'relayer:test',
-    PHALA_SHARED_SECRET: 'phala-only-secret',
+    NITRO_API_TOKEN: 'nitro-only-secret',
     SUPABASE_URL: 'https://supabase.example',
     SUPABASE_SECRET_KEY: 'supabase-secret',
   };
@@ -243,9 +243,8 @@ test('render-nitro-hub-env derives MORPHEUS_RUNTIME_TOKEN from a PHALA_SHARED_SE
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const rendered = parseEnv(fs.readFileSync(outputPath, 'utf8'));
 
-  assert.equal(rendered.PHALA_SHARED_SECRET, 'phala-only-secret');
-  assert.equal(rendered.MORPHEUS_RUNTIME_TOKEN, 'phala-only-secret');
-  assert.equal(rendered.NITRO_API_TOKEN, 'phala-only-secret');
+  assert.equal(rendered.MORPHEUS_RUNTIME_TOKEN, 'nitro-only-secret');
+  assert.equal(rendered.NITRO_API_TOKEN, 'nitro-only-secret');
 });
 
 test('render-nitro-hub-env passes when only MORPHEUS_RUNTIME_TOKEN is provided', () => {

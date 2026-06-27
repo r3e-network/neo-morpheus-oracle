@@ -145,35 +145,12 @@ const requestHubDomain =
 
 const lines = [
   '# Generated from deploy/nitro/morpheus.mainnet.env and morpheus.testnet.env; do not edit.',
-  line(
-    'MORPHEUS_NITRO_WORKER_IMAGE',
-    pick(envs, 'MORPHEUS_NITRO_WORKER_IMAGE', 'MORPHEUS_PHALA_WORKER_IMAGE')
-  ),
+  line('MORPHEUS_NITRO_WORKER_IMAGE', pick(envs, 'MORPHEUS_NITRO_WORKER_IMAGE')),
   line('MORPHEUS_RELAYER_IMAGE', pick(envs, 'MORPHEUS_RELAYER_IMAGE')),
   '',
   line('MORPHEUS_PUBLIC_PORT', pick(envs, 'MORPHEUS_PUBLIC_PORT') || '3000'),
-  line('PHALA_SHARED_SECRET', pick(envs, 'PHALA_SHARED_SECRET')),
-  line('PHALA_API_TOKEN', pick(envs, 'PHALA_API_TOKEN')),
-  line(
-    'MORPHEUS_RUNTIME_TOKEN',
-    pick(
-      envs,
-      'MORPHEUS_RUNTIME_TOKEN',
-      'NITRO_API_TOKEN',
-      'PHALA_SHARED_SECRET',
-      'PHALA_API_TOKEN'
-    )
-  ),
-  line(
-    'NITRO_API_TOKEN',
-    pick(
-      envs,
-      'NITRO_API_TOKEN',
-      'MORPHEUS_RUNTIME_TOKEN',
-      'PHALA_API_TOKEN',
-      'PHALA_SHARED_SECRET'
-    )
-  ),
+  line('MORPHEUS_RUNTIME_TOKEN', pick(envs, 'MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN')),
+  line('NITRO_API_TOKEN', pick(envs, 'NITRO_API_TOKEN', 'MORPHEUS_RUNTIME_TOKEN')),
   line('SUPABASE_URL', pick(envs, 'SUPABASE_URL')),
   line('SUPABASE_SECRET_KEY', pick(envs, 'SUPABASE_SECRET_KEY')),
   line('SUPABASE_SERVICE_ROLE_KEY', pick(envs, 'SUPABASE_SERVICE_ROLE_KEY')),

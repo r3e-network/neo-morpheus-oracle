@@ -30,8 +30,8 @@ function parseArgs(argv = process.argv.slice(2)) {
 }
 
 const cliArgs = parseArgs();
-const requestedNetwork = trimString(cliArgs.network || process.env.PHALA_ENV_NETWORK || '');
-const requestedOutput = trimString(cliArgs.output || process.env.PHALA_ENV_OUTPUT || '');
+const requestedNetwork = trimString(cliArgs.network || process.env.NITRO_ENV_NETWORK || '');
+const requestedOutput = trimString(cliArgs.output || process.env.NITRO_ENV_OUTPUT || '');
 
 async function readLocalEnv() {
   const merged = {};
@@ -99,7 +99,7 @@ function line(key, value) {
 }
 
 function resolveOracleKeystorePath(get) {
-  const configured = get('PHALA_ORACLE_KEYSTORE_PATH');
+  const configured = get('NITRO_ORACLE_KEYSTORE_PATH', 'MORPHEUS_ORACLE_KEYSTORE_PATH');
   if (!configured || configured === '/data/morpheus-oracle-key.json') {
     return '/data/morpheus/oracle-key.json';
   }
@@ -228,7 +228,7 @@ function resolvePinnedRoleMaterial(role) {
 }
 
 function resolveUseDerivedKeysDefault() {
-  const explicit = get('PHALA_USE_DERIVED_KEYS');
+  const explicit = get('NITRO_USE_DERIVED_KEYS');
   if (explicit) return explicit;
 
   const verifier = resolvePinnedRoleMaterial('oracle_verifier');
@@ -308,8 +308,10 @@ const runtimeConfig = {
     registry.neo_n3?.contracts?.morpheus_datafeed || '',
     'CONTRACT_MORPHEUS_DATAFEED_HASH'
   ),
-  PHALA_NEO_N3_WIF: workerSigner.wif,
-  PHALA_NEO_N3_PRIVATE_KEY: workerSigner.privateKey,
+  MORPHEUS_WORKER_NEO_N3_WIF: workerSigner.wif,
+  MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY: workerSigner.privateKey,
+  [`MORPHEUS_WORKER_NEO_N3_WIF_${networkEnvSuffix}`]: workerSigner.wif,
+  [`MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_${networkEnvSuffix}`]: workerSigner.privateKey,
   MORPHEUS_ORACLE_VERIFIER_WIF: verifierSigner.wif,
   MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY: verifierSigner.privateKey,
   MORPHEUS_UPDATER_NEO_N3_WIF: updaterSigner.wif,
@@ -387,25 +389,14 @@ const runtimeConfig = {
     get('COMPUTE_WASM_TIMEOUT_MS') || get('MORPHEUS_WASM_TIMEOUT_MS') || '10000',
   MORPHEUS_WASM_TIMEOUT_MS: get('MORPHEUS_WASM_TIMEOUT_MS') || '10000',
   MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS: get('MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS'),
-  PHALA_USE_DERIVED_KEYS: resolveUseDerivedKeysDefault(),
   NITRO_USE_DERIVED_KEYS: resolveUseDerivedKeysDefault(),
-  PHALA_EMIT_ATTESTATION: get('PHALA_EMIT_ATTESTATION') || 'true',
-  NITRO_EMIT_ATTESTATION: get('PHALA_EMIT_ATTESTATION') || 'true',
-  PHALA_DSTACK_ENDPOINT: get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock',
-  PHALA_DSTACK_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_NEO_N3_KEY_PATH'),
-  NITRO_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_NEO_N3_KEY_PATH'),
-  PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH'),
-  NITRO_RELAYER_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH'),
-  PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH'),
-  NITRO_UPDATER_NEO_N3_KEY_PATH: getInputOnly('PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH'),
-  PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH: getInputOnly(
-    'PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH'
-  ),
-  NITRO_ORACLE_VERIFIER_NEO_N3_KEY_PATH: getInputOnly(
-    'PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH'
-  ),
-  PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH: getInputOnly('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'),
-  PHALA_ORACLE_KEYSTORE_PATH: resolveOracleKeystorePath(get),
+  NITRO_EMIT_ATTESTATION: get('NITRO_EMIT_ATTESTATION') || 'true',
+  NITRO_NEO_N3_KEY_PATH: getInputOnly('NITRO_NEO_N3_KEY_PATH'),
+  NITRO_RELAYER_NEO_N3_KEY_PATH: getInputOnly('NITRO_RELAYER_NEO_N3_KEY_PATH'),
+  NITRO_UPDATER_NEO_N3_KEY_PATH: getInputOnly('NITRO_UPDATER_NEO_N3_KEY_PATH'),
+  NITRO_ORACLE_VERIFIER_NEO_N3_KEY_PATH: getInputOnly('NITRO_ORACLE_VERIFIER_NEO_N3_KEY_PATH'),
+  NITRO_DSTACK_ORACLE_ENCRYPTION_KEY_PATH: getInputOnly('NITRO_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'),
+  NITRO_ORACLE_KEYSTORE_PATH: resolveOracleKeystorePath(get),
   MORPHEUS_PAYMASTER_TESTNET_ENABLED: get('MORPHEUS_PAYMASTER_TESTNET_ENABLED'),
   MORPHEUS_PAYMASTER_TESTNET_POLICY_ID: get('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID'),
   MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS: get('MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS'),
@@ -453,7 +444,6 @@ const lines = [
   line(
     'MORPHEUS_NITRO_WORKER_IMAGE',
     getInputOnly('MORPHEUS_NITRO_WORKER_IMAGE') ||
-      getInputOnly('MORPHEUS_PHALA_WORKER_IMAGE') ||
       'ghcr.io/r3e-network/neo-morpheus-oracle-nitro-worker:latest'
   ),
   line(
@@ -462,9 +452,9 @@ const lines = [
       'ghcr.io/r3e-network/neo-morpheus-oracle-relayer:latest'
   ),
   '',
-  line('PHALA_WORKER_PORT', get('PHALA_WORKER_PORT') || '8080'),
-  line('PHALA_SHARED_SECRET', get('PHALA_SHARED_SECRET')),
-  line('PHALA_API_TOKEN', get('PHALA_API_TOKEN')),
+  line('NITROCORE_PORT', get('NITROCORE_PORT') || '8080'),
+  line('MORPHEUS_RUNTIME_TOKEN', get('MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN')),
+  line('NITRO_API_TOKEN', get('NITRO_API_TOKEN', 'MORPHEUS_RUNTIME_TOKEN')),
   line('CLOUDFLARE_DNS_API_TOKEN', get('CLOUDFLARE_DNS_API_TOKEN', 'CLOUDFLARE_API_TOKEN')),
   line('CERTBOT_EMAIL', get('CERTBOT_EMAIL', 'MORPHEUS_CERTBOT_EMAIL')),
   line(
@@ -609,8 +599,8 @@ const lines = [
     runtimeConfig.CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH
   ),
   line('CONTRACT_MORPHEUS_DATAFEED_HASH', runtimeConfig.CONTRACT_MORPHEUS_DATAFEED_HASH),
-  line('PHALA_NEO_N3_WIF', runtimeConfig.PHALA_NEO_N3_WIF),
-  line('PHALA_NEO_N3_PRIVATE_KEY', runtimeConfig.PHALA_NEO_N3_PRIVATE_KEY),
+  line('MORPHEUS_WORKER_NEO_N3_WIF', runtimeConfig.MORPHEUS_WORKER_NEO_N3_WIF),
+  line('MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY', runtimeConfig.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY),
   line('MORPHEUS_ORACLE_VERIFIER_WIF', runtimeConfig.MORPHEUS_ORACLE_VERIFIER_WIF),
   line('MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY', runtimeConfig.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY),
   line('MORPHEUS_RELAYER_NEO_N3_WIF', runtimeConfig.MORPHEUS_RELAYER_NEO_N3_WIF),
@@ -701,36 +691,20 @@ const lines = [
   ),
   line('MORPHEUS_WASM_TIMEOUT_MS', get('MORPHEUS_WASM_TIMEOUT_MS') || '10000'),
   line('MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS', get('MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS')),
-  line('PHALA_USE_DERIVED_KEYS', resolveUseDerivedKeysDefault()),
   line('NITRO_USE_DERIVED_KEYS', resolveUseDerivedKeysDefault()),
-  line('PHALA_EMIT_ATTESTATION', get('PHALA_EMIT_ATTESTATION') || 'true'),
-  line('NITRO_EMIT_ATTESTATION', get('PHALA_EMIT_ATTESTATION') || 'true'),
-  line('PHALA_DSTACK_ENDPOINT', get('PHALA_DSTACK_ENDPOINT') || '/var/run/dstack.sock'),
-  line('PHALA_DSTACK_NEO_N3_KEY_PATH', getInputOnly('PHALA_DSTACK_NEO_N3_KEY_PATH')),
-  line('NITRO_NEO_N3_KEY_PATH', getInputOnly('PHALA_DSTACK_NEO_N3_KEY_PATH')),
-  line(
-    'PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH',
-    getInputOnly('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH')
-  ),
-  line('NITRO_RELAYER_NEO_N3_KEY_PATH', getInputOnly('PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH')),
-  line(
-    'PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH',
-    getInputOnly('PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH')
-  ),
-  line('NITRO_UPDATER_NEO_N3_KEY_PATH', getInputOnly('PHALA_DSTACK_UPDATER_NEO_N3_KEY_PATH')),
-  line(
-    'PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH',
-    getInputOnly('PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH')
-  ),
+  line('NITRO_EMIT_ATTESTATION', get('NITRO_EMIT_ATTESTATION') || 'true'),
+  line('NITRO_NEO_N3_KEY_PATH', getInputOnly('NITRO_NEO_N3_KEY_PATH')),
+  line('NITRO_RELAYER_NEO_N3_KEY_PATH', getInputOnly('NITRO_RELAYER_NEO_N3_KEY_PATH')),
+  line('NITRO_UPDATER_NEO_N3_KEY_PATH', getInputOnly('NITRO_UPDATER_NEO_N3_KEY_PATH')),
   line(
     'NITRO_ORACLE_VERIFIER_NEO_N3_KEY_PATH',
-    getInputOnly('PHALA_DSTACK_ORACLE_VERIFIER_NEO_N3_KEY_PATH')
+    getInputOnly('NITRO_ORACLE_VERIFIER_NEO_N3_KEY_PATH')
   ),
   line(
-    'PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH',
-    getInputOnly('PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH')
+    'NITRO_DSTACK_ORACLE_ENCRYPTION_KEY_PATH',
+    getInputOnly('NITRO_DSTACK_ORACLE_ENCRYPTION_KEY_PATH')
   ),
-  line('PHALA_ORACLE_KEYSTORE_PATH', resolveOracleKeystorePath(get)),
+  line('NITRO_ORACLE_KEYSTORE_PATH', resolveOracleKeystorePath(get)),
   line('MORPHEUS_PAYMASTER_TESTNET_ENABLED', get('MORPHEUS_PAYMASTER_TESTNET_ENABLED')),
   line('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID', get('MORPHEUS_PAYMASTER_TESTNET_POLICY_ID')),
   line('MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS', get('MORPHEUS_PAYMASTER_TESTNET_MAX_GAS_UNITS')),
