@@ -83,7 +83,7 @@ These cover:
 npm run check:env
 npm run check:control-plane
 npm run check:control-plane:strict
-npm run check:phala-env
+npm run check:nitro-env
 npm run check:signers
 ```
 

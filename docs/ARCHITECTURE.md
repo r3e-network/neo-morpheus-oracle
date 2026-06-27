@@ -150,7 +150,7 @@ This keeps runtime behavior consistent and reduces operational drift.
 - TEE outputs derived results only
 - pricefeed publishing is isolated from request/response execution
 - signer identities are pinned and checked before deployment
-- public attestation anchors are the published Oracle and DataFeed Phala explorer pages
+- public attestation anchors are verified in-app via the `/api/attestation/verify` endpoint (and the `/verifier` page), backed by AWS Nitro attestation for the Oracle and DataFeed CVMs
 
 ## Generated Runtime Catalog Contract
 

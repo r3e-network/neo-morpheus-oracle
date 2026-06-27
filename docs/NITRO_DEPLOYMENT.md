@@ -23,8 +23,8 @@ Run from the repo root:
 npm run render:nitro-env -- --network mainnet --output-dir .secrets/nitro
 ```
 
-The renderer reads `.env`, `.env.local`, `deploy/phala/morpheus.mainnet.env`,
-`deploy/phala/morpheus.hub.env`, and the historical workspace secret export. It
+The renderer reads `.env`, `.env.local`, `deploy/nitro/morpheus.mainnet.env`,
+`deploy/nitro/morpheus.hub.env`, and the historical workspace secret export. It
 refuses to render unless the mainnet `updater` and `oracle_verifier` secrets
 match `config/signer-identities.json`.
 

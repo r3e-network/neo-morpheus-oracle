@@ -153,11 +153,11 @@ sudo systemctl enable morpheus-relayer
 sudo systemctl start morpheus-relayer
 ```
 
-## Phala Sidecar Pattern
+## Nitro Sidecar Pattern
 
 A simple production pattern is:
 
-- deploy `workers/phala-worker` to Phala
+- deploy `workers/nitro-worker` to the AWS Nitro enclave
 - run `workers/morpheus-relayer` as a sidecar process on a small VM or container
 - point `MORPHEUS_RUNTIME_URL` at the public Morpheus runtime endpoint
 - keep chain updater keys and Supabase service credentials only in the sidecar env

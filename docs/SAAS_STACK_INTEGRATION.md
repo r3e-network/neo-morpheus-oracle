@@ -57,8 +57,8 @@ Upstash is the shared external memory for:
 
 Key files:
 
-- `workers/phala-worker/src/platform/upstash.js`
-- `workers/phala-worker/src/platform/request-guards.js`
+- `workers/nitro-worker/src/platform/upstash.js`
+- `workers/nitro-worker/src/platform/request-guards.js`
 - `apps/web/lib/upstash.ts`
 - `apps/web/lib/rate-limit.ts`
 

@@ -129,9 +129,9 @@ The protocol cutover touches:
 - browser helper:
   - [browser-encryption.ts](../apps/web/lib/browser-encryption.ts)
 - worker key management and decryption:
-  - [crypto.js](../workers/phala-worker/src/oracle/crypto.js)
+  - [crypto.js](../workers/nitro-worker/src/oracle/crypto.js)
 - worker public-key metadata:
-  - [worker.js](../workers/phala-worker/src/worker.js)
+  - [worker.js](../workers/nitro-worker/src/worker.js)
 - example helpers:
   - [common.mjs](../examples/scripts/common.mjs)
 - mainnet validation matrix:

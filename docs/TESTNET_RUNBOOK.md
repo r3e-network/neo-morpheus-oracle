@@ -75,7 +75,7 @@ npm run write:addresses
 ## 7. Validate worker, relayer, and web
 
 ```bash
-npm --prefix workers/phala-worker test
+npm --prefix workers/nitro-worker test
 npm --prefix workers/morpheus-relayer test
 npm --prefix apps/web run build
 ```

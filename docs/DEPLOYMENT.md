@@ -23,7 +23,7 @@ Morpheus now deploys by responsibility, not by network.
 Recommended operator rules:
 
 - keep one root secret set in `.env`
-- render dedicated Phala env files per network
+- render dedicated Nitro env files per network
 - keep `MORPHEUS_ACTIVE_CHAINS=neo_n3` for production
 - never treat separate CVMs as separate networks; networks are selected by path and config
 
@@ -172,7 +172,7 @@ Current public pattern:
 - `https://control.meshmini.app/mainnet/*`
 - `https://control.meshmini.app/testnet/*`
 
-## Step 5: Render Phala Runtime Envs
+## Step 5: Render Nitro Runtime Envs
 
 Generate fresh env files before each deployment:
 
@@ -215,7 +215,7 @@ Deployment files:
 
 - `deploy/nitro/docker-compose.request-hub.yml`
 - `deploy/nitro/docker-compose.feed-hub.yml`
-- `workers/phala-worker/Dockerfile`
+- `workers/nitro-worker/Dockerfile`
 - `workers/morpheus-relayer/Dockerfile`
 
 ## Step 7: Configure The Relayer Modes
@@ -262,10 +262,10 @@ npm run set:updater:n3
 - Control plane:
   - `https://control.meshmini.app/mainnet`
   - `https://control.meshmini.app/testnet`
-- Oracle attestation explorer:
-  - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
-- DataFeed attestation explorer:
-  - `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
+- Oracle attestation verification:
+  - in-app `POST /api/attestation/verify` (or the `/verifier` page)
+- DataFeed attestation verification:
+  - in-app `POST /api/attestation/verify` (or the `/verifier` page)
 - Neo N3 service anchors:
   - `oracle.morpheus.neo`
   - `pricefeed.morpheus.neo`

@@ -1,6 +1,6 @@
 # Morpheus Control Plane
 
-Cloudflare Worker that owns the public control layer and durable orchestration layer for Morpheus. Confidential execution stays on the Phala CVMs.
+Cloudflare Worker that owns the public control layer and durable orchestration layer for Morpheus. Confidential execution stays on the AWS Nitro Enclaves.
 
 The public route names remain compatibility-oriented, but internally this worker should be read as
 the dispatch/orchestration layer for shared MiniApp OS module lanes.
@@ -32,7 +32,7 @@ Implemented routes:
 - `POST /<network>/jobs/recover`
 - `GET /<network>/health`
 
-This worker does **not** replace the Phala CVM. It only owns ingress,
+This worker does **not** replace the AWS Nitro enclave. It only owns ingress,
 durability, orchestration, and dispatch.
 
 Current runtime split:
