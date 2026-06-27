@@ -139,11 +139,11 @@ The current production topology is role-split, not network-split:
 - Oracle request/response CVM:
   - `oracle-morpheus-neo-r3e`
   - app id `ddff154546fe22d15b65667156dd4b7c611e6093`
-  - explorer `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+  - attestation verified in-app via `POST /api/attestation/verify` (or the `/verifier` page)
 - DataFeed CVM:
   - `datafeed-morpheus-neo-r3e`
   - app id `ac5b6886a2832df36e479294206611652400178f`
-  - explorer `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
+  - attestation verified in-app via `POST /api/attestation/verify` (or the `/verifier` page)
 
 Both mainnet and testnet Oracle traffic now terminate at the Oracle CVM and differ only by the
 network selected in the request path or payload. Feed synchronization runs on the dedicated
@@ -214,15 +214,15 @@ DataFeed CVM.
 
 当前 verifier 是“应用层验证”，不是完整的 TDX 证书链验证。
 
-### 5. 当前公开的 Phala Explorer
+### 5. 当前的 attestation 验证
 
 当前生产拓扑是按角色拆分，不是按网络拆分：
 
 - Oracle 请求/响应 CVM
   - 名称：`oracle-morpheus-neo-r3e`
   - app id：`ddff154546fe22d15b65667156dd4b7c611e6093`
-  - explorer：`https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
+  - attestation 通过应用内 `POST /api/attestation/verify`（或 `/verifier` 页面）验证
 - DataFeed CVM
   - 名称：`datafeed-morpheus-neo-r3e`
   - app id：`ac5b6886a2832df36e479294206611652400178f`
-  - explorer：`https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
+  - attestation 通过应用内 `POST /api/attestation/verify`（或 `/verifier` 页面）验证

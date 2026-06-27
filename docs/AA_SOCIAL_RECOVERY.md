@@ -31,7 +31,7 @@ Why:
 - Receives on-chain requests through the shared kernel contract
 - Accepts both native kernel requests and legacy compatibility requests such as `MorpheusOracle.request(...)`
 - Emits the kernel request event
-- Relayer forwards the payload to the Phala worker
+- Relayer forwards the payload to the AWS Nitro worker
 - Always fulfills the request into the system inbox, with optional external callback adapter delivery when configured
 
 ### 2. NeoDID Worker

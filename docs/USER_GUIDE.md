@@ -43,23 +43,23 @@ Always treat these files as the source of truth before copying an address into a
 
 Current Neo N3 anchors:
 
-| Item                          | Mainnet                                                                         | Testnet                                                                         |
-| ----------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Oracle Runtime URL            | `https://oracle.meshmini.app/mainnet`                                           | `https://oracle.meshmini.app/testnet`                                           |
-| Oracle Attestation Explorer   | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` | `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093` |
-| DataFeed Attestation Explorer | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` | `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f` |
-| MorpheusOracle Kernel         | `0xf54d8584ef82315c1800373272ab08ae0db2d5ef`                                    | `0x4b882e94ed766807c4fd728768f972e13008ad52`                                    |
-| OracleCallbackConsumer Opt.   | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`                                    | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`                                    |
-| MorpheusDataFeed Module       | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`                                    | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`                                    |
-| AbstractAccount               | `0x0268a387913b250166ddec032b03332690a1ef78`                                    | `0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2`                                    |
-| AA Web3AuthVerifier           | `0xf5c452cd4ba29dcdc47026383568c0d8b38d9272`                                    | `0x7147f9a508594a7656a25f45d0a7a7dede7c227f`                                    |
-| AA RecoveryVerifier           | `0x198b3a9cec9bccc2110d19bd929b10374a9d034d`                                    | `recovery.smartwallet.neo`                                                      |
-| NeoDIDRegistry                | `0xb81f31ea81e279793b30411b82c2e82078b63105`                                    | unpublished                                                                     |
-| Oracle NNS                    | `oracle.morpheus.neo`                                                           | unassigned                                                                      |
-| DataFeed NNS                  | `pricefeed.morpheus.neo`                                                        | unassigned                                                                      |
-| AA NNS                        | `smartwallet.neo`                                                               | unassigned                                                                      |
-| AA alias NNS                  | `aa.morpheus.neo`                                                               | unassigned                                                                      |
-| NeoDID NNS                    | `neodid.morpheus.neo`                                                           | unassigned                                                                      |
+| Item                        | Mainnet                                                | Testnet                                                |
+| --------------------------- | ------------------------------------------------------ | ------------------------------------------------------ |
+| Oracle Runtime URL          | `https://oracle.meshmini.app/mainnet`                  | `https://oracle.meshmini.app/testnet`                  |
+| Oracle Attestation          | in-app `POST /api/attestation/verify` (or `/verifier`) | in-app `POST /api/attestation/verify` (or `/verifier`) |
+| DataFeed Attestation        | in-app `POST /api/attestation/verify` (or `/verifier`) | in-app `POST /api/attestation/verify` (or `/verifier`) |
+| MorpheusOracle Kernel       | `0xf54d8584ef82315c1800373272ab08ae0db2d5ef`           | `0x4b882e94ed766807c4fd728768f972e13008ad52`           |
+| OracleCallbackConsumer Opt. | `0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844`           | `0x8c506f224d82e67200f20d9d5361f767f0756e3b`           |
+| MorpheusDataFeed Module     | `0x03013f49c42a14546c8bbe58f9d434c3517fccab`           | `0x9bea75cf702f6afc09125aa6d22f082bfd2ee064`           |
+| AbstractAccount             | `0x0268a387913b250166ddec032b03332690a1ef78`           | `0xdbf38e7b2117186bf7a5e17ead702322c0c5b6f2`           |
+| AA Web3AuthVerifier         | `0xf5c452cd4ba29dcdc47026383568c0d8b38d9272`           | `0x7147f9a508594a7656a25f45d0a7a7dede7c227f`           |
+| AA RecoveryVerifier         | `0x198b3a9cec9bccc2110d19bd929b10374a9d034d`           | `recovery.smartwallet.neo`                             |
+| NeoDIDRegistry              | `0xb81f31ea81e279793b30411b82c2e82078b63105`           | unpublished                                            |
+| Oracle NNS                  | `oracle.morpheus.neo`                                  | unassigned                                             |
+| DataFeed NNS                | `pricefeed.morpheus.neo`                               | unassigned                                             |
+| AA NNS                      | `smartwallet.neo`                                      | unassigned                                             |
+| AA alias NNS                | `aa.morpheus.neo`                                      | unassigned                                             |
+| NeoDID NNS                  | `neodid.morpheus.neo`                                  | unassigned                                             |
 
 Operational notes:
 

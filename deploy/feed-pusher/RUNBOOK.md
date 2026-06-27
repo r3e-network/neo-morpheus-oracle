@@ -60,7 +60,7 @@ host (`i-0c52851f134db20ee`) as a systemd timer.
 ## Known limitations
 
 - Single enclave signer on one box (SPOF). `/sign/payload` blind-signs for a bearer token — scope/rate-limit/replay-guard it.
-- Worker-dependent oracle lanes (VRF/HTTP/compute/privacy/DID/paymaster) remain 404 until `workers/phala-worker` is redeployed on Nitro. VRF alone is restorable relayer-locally (32 random bytes + oracle_verifier signature).
+- Worker-dependent oracle lanes (VRF/HTTP/compute/privacy/DID/paymaster) remain 404 until `workers/nitro-worker` is redeployed on Nitro. VRF alone is restorable relayer-locally (32 random bytes + oracle_verifier signature).
 
 ---
 

@@ -38,10 +38,10 @@ This split ensures pricefeeds keep running even when request/response traffic is
 - Oracle public entry:
   - `https://oracle.meshmini.app/mainnet`
   - `https://oracle.meshmini.app/testnet`
-- Oracle attestation explorer:
-  - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
-- DataFeed attestation explorer:
-  - `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
+- Oracle attestation verification:
+  - in-app `POST /api/attestation/verify` (or the `/verifier` page)
+- DataFeed attestation verification:
+  - in-app `POST /api/attestation/verify` (or the `/verifier` page)
 
 Mainnet and testnet share the same Oracle and DataFeed CVMs. Network selection is path-based and config-based.
 

@@ -37,10 +37,10 @@
 - Control plane:
   - `https://control.meshmini.app/mainnet`
   - `https://control.meshmini.app/testnet`
-- Oracle attestation explorer:
-  - `https://cloud.phala.com/explorer/app_ddff154546fe22d15b65667156dd4b7c611e6093`
-- DataFeed attestation explorer:
-  - `https://cloud.phala.com/explorer/app_ac5b6886a2832df36e479294206611652400178f`
+- Oracle attestation verification:
+  - in-app `POST /api/attestation/verify` (or the `/verifier` page)
+- DataFeed attestation verification:
+  - in-app `POST /api/attestation/verify` (or the `/verifier` page)
 
 ## Active Scope
 
