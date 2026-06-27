@@ -135,12 +135,7 @@ function resolveNetwork() {
 // secret from env and attach it to the in-process Request so the compute call is
 // authorized exactly as a host->worker call would be.
 function resolveWorkerAuthToken() {
-  for (const name of [
-    'NITRO_API_TOKEN',
-    'PHALA_API_TOKEN',
-    'NITRO_SHARED_SECRET',
-    'PHALA_SHARED_SECRET',
-  ]) {
+  for (const name of ['NITRO_API_TOKEN', 'NITRO_SHARED_SECRET']) {
     const value = trimString(process.env[name]);
     if (value) return value;
   }
@@ -168,9 +163,7 @@ const TOKEN_ENV_KEYS = [
   'NITRO_SIGNER_TOKEN',
   'MORPHEUS_RUNTIME_TOKEN',
   'NITRO_API_TOKEN',
-  'PHALA_API_TOKEN',
   'NITRO_SHARED_SECRET',
-  'PHALA_SHARED_SECRET',
 ];
 
 // Plaintext signing-key env vars a host could otherwise inject via /provision to
@@ -237,10 +230,7 @@ function extractRequestToken(headers = {}) {
   const bearer = authorization.toLowerCase().startsWith('bearer ')
     ? authorization.slice('bearer '.length).trim()
     : '';
-  return (
-    bearer ||
-    trimString(headers['x-nitro-token'] || headers['x-phala-token'] || headers['x-runtime-token'])
-  );
+  return bearer || trimString(headers['x-nitro-token'] || headers['x-runtime-token']);
 }
 
 // Throws 401 unless a trusted token is configured AND the request bears a match.

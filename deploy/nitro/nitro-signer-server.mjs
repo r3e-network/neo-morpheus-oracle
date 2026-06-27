@@ -14,9 +14,7 @@ const runtimeTrustedTokens = new Set(
     process.env.NITRO_SIGNER_TOKEN,
     process.env.MORPHEUS_RUNTIME_TOKEN,
     process.env.NITRO_API_TOKEN,
-    process.env.PHALA_API_TOKEN,
     process.env.NITRO_SHARED_SECRET,
-    process.env.PHALA_SHARED_SECRET,
   ]
     .map((value) => trimString(value))
     .filter(Boolean)
@@ -54,10 +52,7 @@ function assertAuthorized(req) {
     ? authorization.slice('bearer '.length).trim()
     : '';
   const token =
-    bearer ||
-    trimString(
-      req.headers['x-nitro-token'] || req.headers['x-phala-token'] || req.headers['x-runtime-token']
-    );
+    bearer || trimString(req.headers['x-nitro-token'] || req.headers['x-runtime-token']);
   let authorized = false;
   for (const trusted of runtimeTrustedTokens) {
     if (timingSafeTokenMatch(token, trusted)) authorized = true;
@@ -172,9 +167,7 @@ function handleProvision(payload) {
     'NITRO_SIGNER_TOKEN',
     'MORPHEUS_RUNTIME_TOKEN',
     'NITRO_API_TOKEN',
-    'PHALA_API_TOKEN',
     'NITRO_SHARED_SECRET',
-    'PHALA_SHARED_SECRET',
   ]) {
     if (provisionedEnv[key]) runtimeTrustedTokens.add(provisionedEnv[key]);
   }

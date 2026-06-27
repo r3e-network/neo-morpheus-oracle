@@ -88,7 +88,7 @@ try {
   // from the worker config (IMDS supplies the creds via the default chain).
   for (const [k, v] of Object.entries(worker)) if (process.env[k] === undefined) process.env[k] = v;
   const { deriveKeyBytes } = await import(`${repoRoot}/workers/nitro-worker/src/platform/nitro-signer.js`);
-  const ksPath = (worker.PHALA_ORACLE_KEYSTORE_PATH || worker.NITRO_ORACLE_KEYSTORE_PATH || '/data/morpheus/oracle-key.json').trim();
+  const ksPath = (worker.NITRO_ORACLE_KEYSTORE_PATH || '/data/morpheus/oracle-key.json').trim();
   // RC2 (KMS attestation): if the CMK ciphertext file is present, inject ONLY the
   // ciphertext — it is useless without the enclave's attestation, so the host
   // never holds the plaintext key. The enclave kms-decrypts it in-TEE via
