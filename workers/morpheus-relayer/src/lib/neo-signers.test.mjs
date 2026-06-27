@@ -256,12 +256,12 @@ describe('resolvePinnedNeoN3Role', () => {
   it('falls back to fallback keys when no primary key is set', () => {
     withCleanSignerEnv(() => {
       process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
-      // For testnet relayer, PHALA_NEO_N3_WIF_TESTNET is a fallback key
-      process.env.PHALA_NEO_N3_WIF_TESTNET = ACCOUNT_A.WIF;
+      // For testnet relayer, the generic MORPHEUS_RELAYER_NEO_N3_WIF is a fallback key
+      process.env.MORPHEUS_RELAYER_NEO_N3_WIF = ACCOUNT_A.WIF;
 
       const report = resolvePinnedNeoN3Role('testnet', 'relayer');
       assert.equal(report.ok, true);
-      assert.equal(report.selected_source, 'PHALA_NEO_N3_WIF_TESTNET');
+      assert.equal(report.selected_source, 'MORPHEUS_RELAYER_NEO_N3_WIF');
     });
   });
 
@@ -343,11 +343,11 @@ describe('reportPinnedNeoN3Role', () => {
     withCleanSignerEnv(() => {
       process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
       process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET = ACCOUNT_A.WIF;
-      process.env.PHALA_NEO_N3_WIF_TESTNET = ACCOUNT_A.WIF;
+      process.env.MORPHEUS_RELAYER_NEO_N3_WIF = ACCOUNT_A.WIF;
 
       const report = reportPinnedNeoN3Role('testnet', 'relayer');
       assert.ok(report.primary_sources_present.includes('MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET'));
-      assert.ok(report.fallback_sources_present.includes('PHALA_NEO_N3_WIF_TESTNET'));
+      assert.ok(report.fallback_sources_present.includes('MORPHEUS_RELAYER_NEO_N3_WIF'));
     });
   });
 
@@ -536,7 +536,7 @@ describe('NEO_N3_SIGNER_ENV_KEYS', () => {
 });
 
 // ===================================================================
-// worker role: MORPHEUS_WORKER_* primary with PHALA_* fallback
+// worker role: MORPHEUS_WORKER_* primary with generic NEO_N3 fallback
 // ===================================================================
 
 describe('worker signer resolution', () => {
@@ -552,14 +552,14 @@ describe('worker signer resolution', () => {
     });
   });
 
-  it('still resolves from a PHALA worker WIF when no MORPHEUS_WORKER key is set', () => {
+  it('still resolves from a generic NEO_N3 WIF fallback when no MORPHEUS_WORKER key is set', () => {
     withCleanSignerEnv(() => {
       process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
-      process.env.PHALA_NEO_N3_WIF_TESTNET = ACCOUNT_A.WIF;
+      process.env.NEO_TESTNET_WIF = ACCOUNT_A.WIF;
 
       const report = resolvePinnedNeoN3Role('testnet', 'worker');
       assert.equal(report.ok, true);
-      assert.equal(report.selected_source, 'PHALA_NEO_N3_WIF_TESTNET');
+      assert.equal(report.selected_source, 'NEO_TESTNET_WIF');
       assert.equal(report.selected_identity.address, ACCOUNT_A.address);
     });
   });
