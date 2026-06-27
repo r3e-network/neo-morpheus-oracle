@@ -217,7 +217,6 @@ test('control plane fails closed when no API keys are configured', async () => {
     MORPHEUS_CONTROL_PLANE_API_KEY: '',
     MORPHEUS_OPERATOR_API_KEY: '',
     MORPHEUS_PROVIDER_CONFIG_API_KEY: '',
-    PHALA_API_TOKEN: '',
   });
 
   const response = await worker.fetch(
@@ -235,7 +234,6 @@ test('control plane allows an empty key set only with the explicit anonymous opt
     MORPHEUS_CONTROL_PLANE_API_KEY: '',
     MORPHEUS_OPERATOR_API_KEY: '',
     MORPHEUS_PROVIDER_CONFIG_API_KEY: '',
-    PHALA_API_TOKEN: '',
     MORPHEUS_CONTROL_PLANE_ALLOW_ANONYMOUS: '1',
   });
 
@@ -437,7 +435,7 @@ test('feed_tick consumer forwards jobs to confidential execution plane feed rout
   assert.equal(state.jobs.get('job-feed')?.status, 'succeeded');
 });
 
-test('feed_tick consumer accepts Phala-rendered suffix-scoped updater signer env', async () => {
+test('feed_tick consumer accepts Nitro-rendered suffix-scoped updater signer env', async () => {
   const env = createEnv({
     MORPHEUS_MAINNET_EXECUTION_BASE_URL: 'https://exec.test',
     MORPHEUS_MAINNET_RELAYER_NEO_N3_WIF: '',

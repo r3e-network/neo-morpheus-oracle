@@ -14,8 +14,8 @@ const RATE_LIMITS = {
 };
 
 function resolveAcceptedKeys(env) {
-  // Phala is retired; PHALA_API_TOKEN is intentionally NOT an accepted ingress
-  // key (a leaked Phala token must not authenticate to the control plane).
+  // Only explicitly-configured control-plane API keys are accepted as ingress
+  // keys; no legacy token fallbacks (a leaked stale token must not authenticate).
   return [
     env.MORPHEUS_CONTROL_PLANE_API_KEY,
     env.MORPHEUS_OPERATOR_API_KEY,
