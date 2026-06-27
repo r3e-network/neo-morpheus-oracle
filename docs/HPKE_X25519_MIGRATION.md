@@ -79,9 +79,9 @@ The worker stores one stable X25519 private key per deployment environment.
 
 That key is:
 
-- generated inside the Phala worker runtime
-- sealed with a dstack-derived wrapping key
-- stored at `PHALA_ORACLE_KEYSTORE_PATH`
+- generated inside the Nitro worker runtime
+- sealed with a KMS wrapping key (decrypted in-TEE via NSM attestation)
+- stored at `NITRO_ORACLE_KEYSTORE_PATH`
 
 The client does **not** know the worker private key.
 Each client request instead creates a fresh ephemeral X25519 keypair locally.

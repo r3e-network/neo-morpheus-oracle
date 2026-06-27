@@ -53,7 +53,7 @@ npm --prefix workers/morpheus-relayer run metrics
 ## Required env
 
 - `MORPHEUS_RUNTIME_URL`
-- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN` / `PHALA_SHARED_SECRET`
+- `MORPHEUS_RUNTIME_TOKEN` or `NITRO_API_TOKEN` / `NITRO_SHARED_SECRET`
 - `MORPHEUS_NETWORK` (`testnet` or `mainnet`)
 - `NEO_RPC_URL`
 - `CONTRACT_MORPHEUS_ORACLE_HASH`
