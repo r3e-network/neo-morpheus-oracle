@@ -45,12 +45,7 @@ This split ensures pricefeeds keep running even when request/response traffic is
 
 Mainnet and testnet share the same Oracle and DataFeed CVMs. Network selection is path-based and config-based.
 
-## Launcher Files
-
-- `nitro.request-hub.toml`
-- `nitro.feed-hub.toml`
-
-Compose files:
+## Compose Files
 
 - `deploy/nitro/docker-compose.request-hub.yml`
 - `deploy/nitro/docker-compose.feed-hub.yml`
@@ -95,39 +90,37 @@ Recommended durability settings:
 - `MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED=true`
 - `MORPHEUS_RELAYER_INSTANCE_ID=<stable-id>`
 
-## Deployment Options
+## Deployment
 
-### Option A: Phala UI
-
-Use the dashboard and deploy one compose per CVM.
-
-Recommended:
-
-- Oracle CVM:
-  - launcher: `nitro.request-hub.toml`
-  - compose: `deploy/nitro/docker-compose.request-hub.yml`
-- DataFeed CVM:
-  - launcher: `nitro.feed-hub.toml`
-  - compose: `deploy/nitro/docker-compose.feed-hub.yml`
-  - public execution URL: `https://ac5b6886a2832df36e479294206611652400178f-3000.dstack-pha-prod5.phala.network/{network}`
-
-Prefer encrypted secrets in the dashboard over copying plaintext env files into the guest.
-
-### Option B: CLI
+Deploy runs inside an AWS Nitro Enclave. Build the enclave image, then launch
+it on a Nitro-capable host and provision secrets via the enclave scripts:
 
 ```bash
-phala deploy --cvm-id ac5b6886a2832df36e479294206611652400178f --compose deploy/nitro/docker-compose.feed-hub.yml -e deploy/nitro/morpheus.hub.env --wait
-phala deploy --cvm-id ddff154546fe22d15b65667156dd4b7c611e6093 --compose deploy/nitro/docker-compose.request-hub.yml -e deploy/nitro/morpheus.hub.env --wait
-# Include --profile mainnet-requests only after the mainnet request/updater
-# signer pair is present and passes `npm run check:signers`.
+# Build the Nitro Enclave Image File (EIF) for the worker + signer
+./deploy/nitro/build-enclave-eif.sh
+
+# On the Nitro-capable host: launch the signer enclave, then provision the
+# in-enclave worker compute (chain config, provider keys, auth token, and the
+# AWS credentials the SDK egresses through the vsock proxy)
+./deploy/nitro/start-nitro-signer.sh
+./deploy/nitro/provision-enclave-compute.sh
 ```
+
+Run one compose per role:
+
+- Oracle CVM: `deploy/nitro/docker-compose.request-hub.yml`
+- DataFeed CVM: `deploy/nitro/docker-compose.feed-hub.yml`
+
+Inject secrets through the enclave provisioning scripts rather than baking
+plaintext env files into the image. Enable the mainnet request profile only
+after the mainnet request/updater signer pair is present and
+`npm run check:signers` passes.
 
 ## Required Runtime Capabilities
 
 The Oracle runtime should be provisioned with:
 
-- `MORPHEUS_RUNTIME_TOKEN` or `PHALA_API_TOKEN`
-- `PHALA_SHARED_SECRET`
+- `MORPHEUS_RUNTIME_TOKEN` (or `NITRO_API_TOKEN`)
 - `MORPHEUS_RUNTIME_CONFIG_JSON`
 - Supabase server credentials
 - pinned N3 signing identities

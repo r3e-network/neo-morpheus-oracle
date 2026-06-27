@@ -161,6 +161,5 @@ npm run examples:test:n3:attack-regression
 - `docs/BUILTIN_COMPUTE.md`
 - `docs/EXAMPLES.md`
 - `docs/SAAS_STACK_INTEGRATION.md`
-- `docs/PHALA_DUAL_CVM_ATTESTATION_REGISTRY.md`
 - `deploy/nitro/README.md`
 - verifier UI: `/verifier`
