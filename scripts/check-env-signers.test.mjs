@@ -35,7 +35,7 @@ function generatedSignerLines() {
 test('check-nitro-env accepts suffix-scoped mainnet worker, relayer, and updater signers', () => {
   const signer = generatedSignerLines();
   const envPath = writeEnvFile([
-    'PHALA_SHARED_SECRET=test-secret',
+    'NITRO_SHARED_SECRET=test-secret',
     'SUPABASE_URL=https://supabase.test',
     'SUPABASE_SERVICE_ROLE_KEY=service-role-key',
     'MORPHEUS_NETWORK=mainnet',
@@ -44,7 +44,7 @@ test('check-nitro-env accepts suffix-scoped mainnet worker, relayer, and updater
     'CONTRACT_MORPHEUS_ORACLE_HASH=0xf54d8584ef82315c1800373272ab08ae0db2d5ef',
     'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH=0xe1226268f2fe08bea67fb29e1c8fda0d7c8e9844',
     'MORPHEUS_ALLOW_UNPINNED_SIGNERS=true',
-    `PHALA_NEO_N3_WIF_MAINNET=${signer.wif}`,
+    `MORPHEUS_WORKER_NEO_N3_WIF_MAINNET=${signer.wif}`,
     `MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET=${signer.wif}`,
     `MORPHEUS_UPDATER_NEO_N3_WIF_MAINNET=${signer.wif}`,
     `MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET=${signer.wif}`,
@@ -53,7 +53,7 @@ test('check-nitro-env accepts suffix-scoped mainnet worker, relayer, and updater
   const result = spawnSync(process.execPath, ['scripts/check-nitro-env.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',
-    env: baseSpawnEnv({ PHALA_ENV_FILE: envPath }),
+    env: baseSpawnEnv({ NITRO_ENV_FILE: envPath }),
   });
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -81,7 +81,7 @@ test('check-nitro-env passes with NITRO_USE_DERIVED_KEYS and no pinned signer WI
   const result = spawnSync(process.execPath, ['scripts/check-nitro-env.mjs'], {
     cwd: repoRoot,
     encoding: 'utf8',
-    env: baseSpawnEnv({ PHALA_ENV_FILE: envPath }),
+    env: baseSpawnEnv({ NITRO_ENV_FILE: envPath }),
   });
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
