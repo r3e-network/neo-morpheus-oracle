@@ -40,9 +40,8 @@ function getExecutionPlaneConfig(env, network, options = {}) {
       ]
     : [env[`MORPHEUS_${normalized}_EXECUTION_BASE_URL`], env.MORPHEUS_EXECUTION_BASE_URL];
   const baseUrl = trimString(baseUrlCandidates.find((candidate) => trimString(candidate)) || '');
-  // Phala is retired; PHALA_API_TOKEN / PHALA_SHARED_SECRET are intentionally NOT
-  // accepted as token fallbacks (they would silently send a stale secret as the
-  // Bearer on a config slip, and accept a leaked Phala token).
+  // No legacy token fallbacks are accepted here: a stale or leaked secret must
+  // not silently become the execution-plane Bearer on a config slip.
   const tokenCandidates = options.feed
     ? [
         env[`MORPHEUS_${normalized}_FEED_EXECUTION_TOKEN`],
@@ -153,7 +152,7 @@ async function callExecutionPlane(env, job) {
   const headers = new Headers({ 'content-type': 'application/json' });
   if (execution.token) {
     headers.set('authorization', `Bearer ${execution.token}`);
-    headers.set('x-phala-token', execution.token);
+    headers.set('x-nitro-token', execution.token);
   }
   const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
   let lastError = null;
@@ -199,7 +198,7 @@ async function callExecutionFeedPlane(env, job) {
   const headers = new Headers({ 'content-type': 'application/json' });
   if (execution.token) {
     headers.set('authorization', `Bearer ${execution.token}`);
-    headers.set('x-phala-token', execution.token);
+    headers.set('x-nitro-token', execution.token);
   }
   const timeoutMs = Math.max(Number(env.MORPHEUS_EXECUTION_TIMEOUT_MS || 30000), 1000);
   let lastError = null;

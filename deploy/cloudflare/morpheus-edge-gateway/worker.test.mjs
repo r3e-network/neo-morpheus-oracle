@@ -193,7 +193,7 @@ test('edge gateway returns 503 for the retired oracle feed-publication lane', as
     createCtx()
   );
 
-  // /oracle/feed was the Phala feed-write lane; feeds are now pushed on-chain by the
+  // /oracle/feed was the legacy feed-write lane; feeds are now pushed on-chain by the
   // box, so the edge no longer proxies it.
   assert.equal(response.status, 503);
   assert.equal((await response.json()).error, 'runtime_route_unavailable');

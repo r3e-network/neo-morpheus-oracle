@@ -115,7 +115,7 @@ function resolveOriginBaseUrl(env, network, forwardedPath) {
 // serve these trustlessly (on-chain reads + the attested box health). Returns the
 // apps/web path (+ ?network) for the supported public routes, or null for routes
 // that still require the full runtime (compute / AA / signing) — those get a clean
-// 503 instead of proxying the retired Phala origin.
+// 503 instead of proxying the retired origin.
 function mapToAppBackendPath(forwardedPath, network) {
   const p = String(forwardedPath || '/').replace(/\/+$/, '') || '/';
   const net = network === 'mainnet' ? 'mainnet' : 'testnet';
@@ -207,9 +207,6 @@ function isTrustedAutomationRequest(request, env) {
     env.MORPHEUS_RUNTIME_TOKEN,
     env.MORPHEUS_EDGE_RUNTIME_TOKEN,
     env.MORPHEUS_ORIGIN_TOKEN,
-    // PHALA_API_TOKEN / PHALA_SHARED_SECRET intentionally removed: the control plane
-    // migrated off Phala and revoked those credentials. Continuing to accept them at
-    // the edge re-granted a privilege the control plane had explicitly retired.
   ]
     .map(trimString)
     .filter(Boolean);
@@ -665,7 +662,7 @@ export default {
 
     // Map the legacy runtime path onto the apps/web public API. Routes that still
     // need the full runtime (compute/AA/signing) are not mapped -> clean 503 rather
-    // than proxying the retired Phala origin.
+    // than proxying the retired origin.
     const appPath = mapToAppBackendPath(routing.forwardedPath, routing.network);
     if (appPath === null) {
       return decorateGatewayResponse(
