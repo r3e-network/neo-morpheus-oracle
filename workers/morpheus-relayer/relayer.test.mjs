@@ -84,8 +84,6 @@ const ISOLATED_RELAYER_SIGNER_ENV_KEYS = [
   'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
   'NEO_N3_WIF',
   'NEO_TESTNET_WIF',
-  'PHALA_NEO_N3_WIF',
-  'PHALA_NEO_N3_PRIVATE_KEY',
 ];
 
 function withIsolatedRelayerSigner(run) {
@@ -102,8 +100,6 @@ function withIsolatedRelayerSigner(run) {
   delete process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
   delete process.env.NEO_N3_WIF;
   delete process.env.NEO_TESTNET_WIF;
-  delete process.env.PHALA_NEO_N3_WIF;
-  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
 
   try {
     return run();
@@ -1068,8 +1064,8 @@ test('saveRelayerState creates parent directories', () => {
 });
 
 test('relayer config accepts derived-key mode for Neo N3', () => {
-  const previous = process.env.PHALA_USE_DERIVED_KEYS;
-  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+  const previous = process.env.NITRO_USE_DERIVED_KEYS;
+  process.env.NITRO_USE_DERIVED_KEYS = 'true';
 
   const config = {
     neo_n3: {
@@ -1082,7 +1078,7 @@ test('relayer config accepts derived-key mode for Neo N3', () => {
 
   assert.equal(hasNeoN3RelayerConfig(config), true);
 
-  process.env.PHALA_USE_DERIVED_KEYS = previous;
+  process.env.NITRO_USE_DERIVED_KEYS = previous;
 });
 
 test('Neo N3 fulfill signs derived-updater transactions through the runtime when no local updater key is present', async () => {
@@ -1445,16 +1441,16 @@ test('Neo N3 fulfill auto-funds the local (WIF) updater when GAS fee reserve is 
 });
 
 test('createRelayerConfig exposes the shared-worker derived-key preference', () => {
-  const previous = process.env.PHALA_USE_DERIVED_KEYS;
-  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+  const previous = process.env.NITRO_USE_DERIVED_KEYS;
+  process.env.NITRO_USE_DERIVED_KEYS = 'true';
 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(config.useDerivedKeys, true);
     assert.equal(config.nitro.useDerivedKeys, true);
   } finally {
-    if (previous === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
-    else process.env.PHALA_USE_DERIVED_KEYS = previous;
+    if (previous === undefined) delete process.env.NITRO_USE_DERIVED_KEYS;
+    else process.env.NITRO_USE_DERIVED_KEYS = previous;
   }
 });
 
@@ -1733,9 +1729,9 @@ test('createRelayerConfig caps dedicated feed sync timeout at the feed SLO', () 
 });
 
 test('createRelayerConfig caps worker waits at the request SLO and bounds retry backoff sanely', () => {
-  const previousPhalaTimeout = process.env.MORPHEUS_PHALA_TIMEOUT_MS;
+  const previousNitroTimeout = process.env.MORPHEUS_NITRO_TIMEOUT_MS;
   const previousRetryMaxDelay = process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS;
-  process.env.MORPHEUS_PHALA_TIMEOUT_MS = '90000';
+  process.env.MORPHEUS_NITRO_TIMEOUT_MS = '90000';
   process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS = '90000';
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
@@ -1752,8 +1748,8 @@ test('createRelayerConfig caps worker waits at the request SLO and bounds retry 
     const defaults = withIsolatedRelayerSigner(() => createRelayerConfig());
     assert.equal(defaults.retryMaxDelayMs, 10000);
   } finally {
-    if (previousPhalaTimeout === undefined) delete process.env.MORPHEUS_PHALA_TIMEOUT_MS;
-    else process.env.MORPHEUS_PHALA_TIMEOUT_MS = previousPhalaTimeout;
+    if (previousNitroTimeout === undefined) delete process.env.MORPHEUS_NITRO_TIMEOUT_MS;
+    else process.env.MORPHEUS_NITRO_TIMEOUT_MS = previousNitroTimeout;
     if (previousRetryMaxDelay === undefined) delete process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS;
     else process.env.MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS = previousRetryMaxDelay;
   }
