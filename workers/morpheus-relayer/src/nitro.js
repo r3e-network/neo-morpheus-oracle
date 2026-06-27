@@ -48,8 +48,7 @@ export async function callNitro(config, path, payload, options = {}) {
   const headers = new Headers({ 'content-type': 'application/json' });
   if (config.nitro.token) {
     headers.set('authorization', `Bearer ${config.nitro.token}`);
-    // The Nitro runtime authorizes via Bearer / x-nitro-token only; the retired
-    // Phala x-phala-token header is no longer emitted.
+    // The Nitro runtime authorizes via Bearer / x-nitro-token only.
     headers.set('x-nitro-token', config.nitro.token);
   }
 

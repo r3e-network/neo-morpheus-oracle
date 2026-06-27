@@ -4,7 +4,7 @@
 // re-implements ONLY the *observation* of env() precedence (process.env first
 // across all aliases, then the packed MORPHEUS_RUNTIME_CONFIG_JSON object) so an
 // operator can see which alias actually won, whether a setting is set or relying
-// on its default, and whether any MORPHEUS_*/NITRO_*/PHALA_* variable looks like
+// on its default, and whether any MORPHEUS_*/NITRO_* variable looks like
 // a typo of a known alias. The resolution it mirrors lives in config.js#env().
 
 import { createRelayerConfig } from './config.js';
@@ -120,13 +120,13 @@ export function resolveConfigReport(env = process.env) {
   return { settings };
 }
 
-// Detect MORPHEUS_*/NITRO_*/PHALA_* variables present in the environment that do
+// Detect MORPHEUS_*/NITRO_* variables present in the environment that do
 // not match any known alias (likely typos / stale vars that are silently
 // ignored by config.js).
 export function detectUnknownEnvVars(env = process.env) {
   const known = knownEnvAliases();
   const knownList = [...known];
-  const prefixes = ['MORPHEUS_', 'NITRO_', 'PHALA_'];
+  const prefixes = ['MORPHEUS_', 'NITRO_'];
   const unknown = [];
   for (const name of Object.keys(env)) {
     if (DIRECT_CONTROL_ENV_KEYS.includes(name)) continue;

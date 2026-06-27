@@ -1,12 +1,9 @@
 // AWS Nitro signer + Secrets Manager adapter (legacy local key-derivation fallback).
 //
 // The relayer signs Neo N3 fulfillments through the 8787 enclave; this module is
-// only the legacy derived-key fallback path. It replaces the former Phala dstack/
-// tappd TEE client: instead of asking a dstack endpoint for derived key bytes, it
-// derives deterministic per-(path,purpose) key bytes from a master secret held in
-// AWS Secrets Manager (read via the instance role), or from an env seed when one
-// is configured. Exported names/signatures are unchanged so neo-n3.js imports are
-// unaffected.
+// only the legacy derived-key fallback path. It derives deterministic
+// per-(path,purpose) key bytes from a master secret held in AWS Secrets Manager
+// (read via the instance role), or from an env seed when one is configured.
 import { env, sha256Hex } from '@neo-morpheus-oracle/shared/node-runtime';
 import { trimString } from '@neo-morpheus-oracle/shared/utils';
 
@@ -21,10 +18,7 @@ function normalizeBoolean(value, fallback = false) {
 }
 
 export function shouldUseDerivedKeys(config = {}) {
-  return normalizeBoolean(
-    config?.useDerivedKeys ?? env('NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'),
-    false
-  );
+  return normalizeBoolean(config?.useDerivedKeys ?? env('NITRO_USE_DERIVED_KEYS'), false);
 }
 
 function normalizeRole(role) {
@@ -45,7 +39,7 @@ function masterSecretId() {
 // Optional env seed: when set, key derivation uses this directly instead of
 // Secrets Manager (keeps tests and local runs working without AWS access).
 function masterSeedFromEnv() {
-  const raw = trimString(env('NITRO_SIGNER_SEED', 'PHALA_SIGNER_SEED'));
+  const raw = trimString(env('NITRO_SIGNER_SEED'));
   if (!raw) return null;
   if (/^[0-9a-fA-F]{64,}$/.test(raw) && raw.length % 2 === 0) {
     return Buffer.from(raw, 'hex');
@@ -134,16 +128,9 @@ function normalizePrivateKeyHex(buffer, label) {
 export async function deriveNeoN3PrivateKeyHex(role = 'relayer') {
   const normalizedRole = normalizeRole(role);
   const rolePathEnvKey = `NITRO_${normalizedRole.toUpperCase()}_NEO_N3_KEY_PATH`;
-  const legacyRolePathEnvKey = `PHALA_DSTACK_${normalizedRole.toUpperCase()}_NEO_N3_KEY_PATH`;
   const keyPath =
-    trimString(
-      env(
-        rolePathEnvKey,
-        legacyRolePathEnvKey,
-        'NITRO_NEO_N3_KEY_PATH',
-        'PHALA_DSTACK_NEO_N3_KEY_PATH'
-      )
-    ) || `morpheus/neo-n3/${normalizedRole}/signing/v1`;
+    trimString(env(rolePathEnvKey, 'NITRO_NEO_N3_KEY_PATH')) ||
+    `morpheus/neo-n3/${normalizedRole}/signing/v1`;
   return normalizePrivateKeyHex(
     await deriveKeyBytes(keyPath, 'neo-n3-signing'),
     `neo-n3:${normalizedRole}`
