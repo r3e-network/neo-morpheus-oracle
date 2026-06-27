@@ -6,7 +6,7 @@ import { isSecretName } from './lib/secret-redaction.js';
 // WHY: config.js resolves ~146 env vars through deep `env(alias1, alias2, ...)`
 // alias chains with no schema, so an operator has no way to (a) see the RESOLVED
 // configuration, (b) learn which alias actually won, or (c) catch a typo'd
-// variable (a misspelled MORPHEUS_*/NITRO_*/PHALA_* var is silently ignored and
+// variable (a misspelled MORPHEUS_*/NITRO_* var is silently ignored and
 // the default is used). This manifest is the single declarative source the
 // `config:validate` / `config:dump` operator commands introspect. It does NOT
 // participate in runtime resolution — createRelayerConfig() is unchanged — it is
@@ -67,7 +67,7 @@ export const CONFIG_SCHEMA = [
   },
   {
     key: 'useDerivedKeys',
-    aliases: ['NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'],
+    aliases: ['NITRO_USE_DERIVED_KEYS'],
     default: 'false',
     required: false,
     description:
@@ -628,7 +628,6 @@ export const CONFIG_SCHEMA = [
       'MORPHEUS_RELAYER_NEO_N3_FEE_FUNDER_WIF',
       'MORPHEUS_NEO_N3_FEE_FUNDER_WIF',
       'NITRO_NEO_N3_WIF',
-      'PHALA_NEO_N3_WIF',
       'MORPHEUS_RELAYER_NEO_N3_WIF',
     ],
     default: '(unset)',
@@ -643,7 +642,6 @@ export const CONFIG_SCHEMA = [
       'MORPHEUS_RELAYER_NEO_N3_FEE_FUNDER_PRIVATE_KEY',
       'MORPHEUS_NEO_N3_FEE_FUNDER_PRIVATE_KEY',
       'NITRO_NEO_N3_PRIVATE_KEY',
-      'PHALA_NEO_N3_PRIVATE_KEY',
       'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
     ],
     default: '(unset)',
@@ -734,13 +732,7 @@ export const CONFIG_SCHEMA = [
   },
   {
     key: 'nitro.token',
-    aliases: [
-      'MORPHEUS_RUNTIME_TOKEN',
-      'NITRO_API_TOKEN',
-      'PHALA_API_TOKEN',
-      'NITRO_SHARED_SECRET',
-      'PHALA_SHARED_SECRET',
-    ],
+    aliases: ['MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN', 'NITRO_SHARED_SECRET'],
     default: '(unset)',
     required: false,
     secret: true,
@@ -748,7 +740,7 @@ export const CONFIG_SCHEMA = [
   },
   {
     key: 'nitro.timeoutMs',
-    aliases: ['MORPHEUS_NITRO_TIMEOUT_MS', 'MORPHEUS_PHALA_TIMEOUT_MS'],
+    aliases: ['MORPHEUS_NITRO_TIMEOUT_MS'],
     default: '10000',
     required: false,
     description: 'Nitro request timeout (ms, clamped 1000..10000).',
@@ -900,7 +892,7 @@ export const CONFIG_SCHEMA = [
 ];
 
 // Every env alias that the schema knows about (deduped), used by the
-// typo-detector to decide whether a MORPHEUS_*/NITRO_*/PHALA_* var is unknown.
+// typo-detector to decide whether a MORPHEUS_*/NITRO_* var is unknown.
 export function knownEnvAliases() {
   const known = new Set(DIRECT_CONTROL_ENV_KEYS);
   for (const setting of CONFIG_SCHEMA) {
