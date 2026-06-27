@@ -51,8 +51,8 @@ const originalRelayerKey = process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
 const originalUpdaterWif = process.env.MORPHEUS_UPDATER_NEO_N3_WIF;
 const originalUpdaterKey = process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY;
 const originalAllowUnpinned = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
-const originalPhalaMainnetKey = process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
-const originalPhalaMainnetWif = process.env.PHALA_NEO_N3_WIF_MAINNET;
+const originalWorkerMainnetKey = process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET;
+const originalWorkerMainnetWif = process.env.MORPHEUS_WORKER_NEO_N3_WIF_MAINNET;
 
 test.afterEach(async () => {
   global.fetch = originalFetch;
@@ -87,10 +87,11 @@ test.afterEach(async () => {
   else process.env.MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY = originalUpdaterKey;
   if (originalAllowUnpinned === undefined) delete process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
   else process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = originalAllowUnpinned;
-  if (originalPhalaMainnetKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
-  else process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET = originalPhalaMainnetKey;
-  if (originalPhalaMainnetWif === undefined) delete process.env.PHALA_NEO_N3_WIF_MAINNET;
-  else process.env.PHALA_NEO_N3_WIF_MAINNET = originalPhalaMainnetWif;
+  if (originalWorkerMainnetKey === undefined)
+    delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET;
+  else process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET = originalWorkerMainnetKey;
+  if (originalWorkerMainnetWif === undefined) delete process.env.MORPHEUS_WORKER_NEO_N3_WIF_MAINNET;
+  else process.env.MORPHEUS_WORKER_NEO_N3_WIF_MAINNET = originalWorkerMainnetWif;
 });
 
 test('buildNeoN3RelaySigningPayload does not inject updater material over worker context', () => {
@@ -631,7 +632,7 @@ test('handleOracleFeed fails closed when on-chain baseline is unavailable and lo
   process.env.NEO_RPC_URL = 'http://seed1.neo.org:10332';
   process.env.CONTRACT_MORPHEUS_DATAFEED_HASH = '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
   process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
-  process.env.PHALA_NEO_N3_PRIVATE_KEY =
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET =
     '1111111111111111111111111111111111111111111111111111111111111111';
 
   const calls = [];
@@ -746,7 +747,7 @@ test('handleOracleFeed does not block on Neo baseline when local feed state is w
   process.env.NEO_RPC_URL = 'https://neo-rpc.example';
   process.env.CONTRACT_MORPHEUS_DATAFEED_HASH = '0x03013f49c42a14546c8bbe58f9d434c3517fccab';
   process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS = 'true';
-  process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET =
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET =
     '1111111111111111111111111111111111111111111111111111111111111111';
 
   const scopedStatePath = process.env.MORPHEUS_FEED_STATE_PATH.replace(

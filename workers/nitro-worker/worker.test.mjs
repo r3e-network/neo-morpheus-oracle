@@ -9,15 +9,15 @@ import { exportJWK, SignJWT } from 'jose';
 
 const originalFetch = global.fetch;
 const originalRuntimeToken = process.env.MORPHEUS_RUNTIME_TOKEN;
-const originalNeoN3Key = process.env.PHALA_NEO_N3_PRIVATE_KEY;
+const originalNeoN3Key = process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
 const originalNeoRpc = process.env.NEO_RPC_URL;
 const originalEvmRpc = process.env.EVM_RPC_URL;
 const originalTwelveData = process.env.TWELVEDATA_API_KEY;
 const originalFeedStatePath = process.env.MORPHEUS_FEED_STATE_PATH;
 const originalSupabaseUrl = process.env.SUPABASE_URL;
 const originalSupabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const originalUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
-const originalOracleKeystorePath = process.env.PHALA_ORACLE_KEYSTORE_PATH;
+const originalUseDerivedKeys = process.env.NITRO_USE_DERIVED_KEYS;
+const originalOracleKeystorePath = process.env.NITRO_ORACLE_KEYSTORE_PATH;
 const originalEnableUserScripts = process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS;
 const originalOracleHash = process.env.CONTRACT_MORPHEUS_ORACLE_HASH;
 const originalNeoDidSecretSalt = process.env.NEODID_SECRET_SALT;
@@ -27,7 +27,7 @@ const originalWeb3AuthJwksUrl = process.env.WEB3AUTH_JWKS_URL;
 const originalAllowUnpinnedSigners = process.env.MORPHEUS_ALLOW_UNPINNED_SIGNERS;
 
 process.env.MORPHEUS_RUNTIME_TOKEN = 'worker-test-secret';
-process.env.PHALA_NEO_N3_PRIVATE_KEY =
+process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.EVM_RPC_URL = '';
@@ -51,15 +51,15 @@ delete process.env.WEB3AUTH_JWKS_URL;
 // These secrets can change default validation behavior or trigger pinned-signer drift checks.
 const WORKER_TEST_ENV_KEEP = new Set([
   'MORPHEUS_RUNTIME_TOKEN',
-  'PHALA_NEO_N3_PRIVATE_KEY',
+  'MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY',
   'NEO_RPC_URL',
   'EVM_RPC_URL',
   'TWELVEDATA_API_KEY',
   'MORPHEUS_FEED_STATE_PATH',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
-  'PHALA_USE_DERIVED_KEYS',
-  'PHALA_ORACLE_KEYSTORE_PATH',
+  'NITRO_USE_DERIVED_KEYS',
+  'NITRO_ORACLE_KEYSTORE_PATH',
   'MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS',
   'CONTRACT_MORPHEUS_ORACLE_HASH',
   'NEODID_SECRET_SALT',
@@ -70,11 +70,11 @@ for (const key of Object.keys(process.env)) {
   if (
     key === 'NEO_TESTNET_WIF' ||
     key === 'NEO_N3_WIF' ||
-    key.startsWith('PHALA_NEO_N3_') ||
+    key.startsWith('MORPHEUS_WORKER_NEO_N3_') ||
     key.startsWith('MORPHEUS_RELAYER_NEO_N3_') ||
     key.startsWith('MORPHEUS_UPDATER_NEO_N3_') ||
     key.startsWith('MORPHEUS_ORACLE_VERIFIER_') ||
-    key.startsWith('PHALA_ORACLE_VERIFIER_') ||
+    key.startsWith('MORPHEUS_ORACLE_VERIFIER_') ||
     key.startsWith('MORPHEUS_FEED_') ||
     key.startsWith('TURNSTILE_') ||
     key.startsWith('MORPHEUS_TURNSTILE_') ||
@@ -1292,15 +1292,15 @@ test.after(() => {
   } else {
     process.env.MORPHEUS_RUNTIME_TOKEN = originalRuntimeToken;
   }
-  process.env.PHALA_NEO_N3_PRIVATE_KEY = originalNeoN3Key;
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY = originalNeoN3Key;
   process.env.NEO_RPC_URL = originalNeoRpc;
   process.env.EVM_RPC_URL = originalEvmRpc;
   process.env.TWELVEDATA_API_KEY = originalTwelveData;
   process.env.MORPHEUS_FEED_STATE_PATH = originalFeedStatePath;
   process.env.SUPABASE_URL = originalSupabaseUrl;
   process.env.SUPABASE_SERVICE_ROLE_KEY = originalSupabaseServiceRoleKey;
-  process.env.PHALA_USE_DERIVED_KEYS = originalUseDerivedKeys;
-  process.env.PHALA_ORACLE_KEYSTORE_PATH = originalOracleKeystorePath;
+  process.env.NITRO_USE_DERIVED_KEYS = originalUseDerivedKeys;
+  process.env.NITRO_ORACLE_KEYSTORE_PATH = originalOracleKeystorePath;
   process.env.MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS = originalEnableUserScripts;
   process.env.CONTRACT_MORPHEUS_ORACLE_HASH = originalOracleHash;
   process.env.NEODID_SECRET_SALT = originalNeoDidSecretSalt;
@@ -1414,12 +1414,12 @@ test('oracle feed with wait:false returns accepted before provider and chain wor
 test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
   const previousRelayerWif = process.env.MORPHEUS_RELAYER_NEO_N3_WIF;
   const previousRelayerPrivateKey = process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
-  const previousWorkerPrivateKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
-  const previousWorkerWif = process.env.PHALA_NEO_N3_WIF;
+  const previousWorkerPrivateKey = process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
+  const previousWorkerWif = process.env.MORPHEUS_WORKER_NEO_N3_WIF;
   const previousNeoN3Wif = process.env.NEO_N3_WIF;
   const generatedAccount = new neoWallet.Account();
-  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
-  delete process.env.PHALA_NEO_N3_WIF;
+  delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
+  delete process.env.MORPHEUS_WORKER_NEO_N3_WIF;
   delete process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY;
   delete process.env.NEO_N3_WIF;
   process.env.MORPHEUS_RELAYER_NEO_N3_WIF = generatedAccount.WIF;
@@ -1429,8 +1429,8 @@ test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
 
   process.env.MORPHEUS_RELAYER_NEO_N3_WIF = previousRelayerWif;
   process.env.MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY = previousRelayerPrivateKey;
-  process.env.PHALA_NEO_N3_PRIVATE_KEY = previousWorkerPrivateKey;
-  process.env.PHALA_NEO_N3_WIF = previousWorkerWif;
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY = previousWorkerPrivateKey;
+  process.env.MORPHEUS_WORKER_NEO_N3_WIF = previousWorkerWif;
   process.env.NEO_N3_WIF = previousNeoN3Wif;
 });
 
@@ -1770,8 +1770,8 @@ test('oracle public key endpoint returns X25519 metadata', async () => {
 test('oracle public key prefers a Secrets Manager sealed keystore', async () => {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-oracle-key-'));
   const keystorePath = path.join(tempDir, 'oracle-key.json');
-  process.env.PHALA_USE_DERIVED_KEYS = 'false';
-  process.env.PHALA_ORACLE_KEYSTORE_PATH = keystorePath;
+  process.env.NITRO_USE_DERIVED_KEYS = 'false';
+  process.env.NITRO_ORACLE_KEYSTORE_PATH = keystorePath;
 
   // Nitro: the X25519 wrap key comes from Secrets Manager (read via the box instance role).
   __setSecretsProviderForTests(() => ({
@@ -1808,7 +1808,7 @@ test('oracle key material can be restored explicitly from env configuration', as
     await globalThis.crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
   ).toString('base64');
 
-  process.env.PHALA_ORACLE_KEY_MATERIAL_JSON = JSON.stringify({
+  process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON = JSON.stringify({
     public_key_raw: publicKeyRaw,
     private_key_pkcs8: privateKeyPkcs8,
   });
@@ -2994,17 +2994,17 @@ test('sign-payload supports neo_n3', async () => {
 
 test('sign-payload infers the Morpheus network from the request path for Neo N3 signing', async () => {
   global.fetch = originalFetch;
-  const previousGenericKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
-  const previousTestnetKey = process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET;
-  const previousMainnetKey = process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
+  const previousGenericKey = process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
+  const previousTestnetKey = process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_TESTNET;
+  const previousMainnetKey = process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET;
   const testnetKey = '11'.repeat(32);
   const mainnetKey = '22'.repeat(32);
   const testnetAccount = new neoWallet.Account(testnetKey);
   const mainnetAccount = new neoWallet.Account(mainnetKey);
 
-  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
-  process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET = testnetKey;
-  process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET = mainnetKey;
+  delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_TESTNET = testnetKey;
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET = mainnetKey;
 
   try {
     const mainnetRes = await handler(
@@ -3031,14 +3031,16 @@ test('sign-payload infers the Morpheus network from the request path for Neo N3 
     assert.equal(testnetBody.public_key, testnetAccount.publicKey);
     assert.equal(testnetBody.address, testnetAccount.address);
   } finally {
-    if (previousGenericKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
-    else process.env.PHALA_NEO_N3_PRIVATE_KEY = previousGenericKey;
+    if (previousGenericKey === undefined) delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
+    else process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY = previousGenericKey;
 
-    if (previousTestnetKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET;
-    else process.env.PHALA_NEO_N3_PRIVATE_KEY_TESTNET = previousTestnetKey;
+    if (previousTestnetKey === undefined)
+      delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_TESTNET;
+    else process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_TESTNET = previousTestnetKey;
 
-    if (previousMainnetKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET;
-    else process.env.PHALA_NEO_N3_PRIVATE_KEY_MAINNET = previousMainnetKey;
+    if (previousMainnetKey === undefined)
+      delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET;
+    else process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_MAINNET = previousMainnetKey;
   }
 });
 
@@ -3072,12 +3074,12 @@ test('sign-payload can use the oracle_verifier signing role when configured', as
 
 test('sign-payload signs with the oracle_verifier key derived from Secrets Manager', async () => {
   global.fetch = originalFetch;
-  const previousUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
-  const previousWorkerKey = process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  const previousUseDerivedKeys = process.env.NITRO_USE_DERIVED_KEYS;
+  const previousWorkerKey = process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
   const previousOracleVerifierKey = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
 
-  process.env.PHALA_USE_DERIVED_KEYS = 'true';
-  delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
+  process.env.NITRO_USE_DERIVED_KEYS = 'true';
+  delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
   delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
 
   // Nitro: derived signing keys are derived from the Secrets Manager wrap master
@@ -3104,11 +3106,11 @@ test('sign-payload signs with the oracle_verifier key derived from Secrets Manag
     assert.ok(body.public_key);
     assert.ok(body.address);
   } finally {
-    if (previousUseDerivedKeys === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
-    else process.env.PHALA_USE_DERIVED_KEYS = previousUseDerivedKeys;
+    if (previousUseDerivedKeys === undefined) delete process.env.NITRO_USE_DERIVED_KEYS;
+    else process.env.NITRO_USE_DERIVED_KEYS = previousUseDerivedKeys;
 
-    if (previousWorkerKey === undefined) delete process.env.PHALA_NEO_N3_PRIVATE_KEY;
-    else process.env.PHALA_NEO_N3_PRIVATE_KEY = previousWorkerKey;
+    if (previousWorkerKey === undefined) delete process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY;
+    else process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY = previousWorkerKey;
 
     if (previousOracleVerifierKey === undefined)
       delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
@@ -3120,14 +3122,14 @@ test('sign-payload signs with the oracle_verifier key derived from Secrets Manag
 
 test('sign-payload prefers an explicit oracle_verifier key over derived signing paths', async () => {
   global.fetch = originalFetch;
-  const previousUseDerivedKeys = process.env.PHALA_USE_DERIVED_KEYS;
+  const previousUseDerivedKeys = process.env.NITRO_USE_DERIVED_KEYS;
   const previousOracleVerifierKey = process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
   const requestedPaths = [];
   const explicitOracleVerifierKey =
     '68e15083a6fd187b6f5f6136bada4eb00f096e5e21d82c74edf6f086e80539ba';
   const explicitAccount = new neoWallet.Account(explicitOracleVerifierKey);
 
-  process.env.PHALA_USE_DERIVED_KEYS = 'true';
+  process.env.NITRO_USE_DERIVED_KEYS = 'true';
   process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY = explicitOracleVerifierKey;
 
   __setDstackClientFactoryForTests(async () => ({
@@ -3165,8 +3167,8 @@ test('sign-payload prefers an explicit oracle_verifier key over derived signing 
     assert.equal(body.address, explicitAccount.address);
     assert.deepEqual(requestedPaths, []);
   } finally {
-    if (previousUseDerivedKeys === undefined) delete process.env.PHALA_USE_DERIVED_KEYS;
-    else process.env.PHALA_USE_DERIVED_KEYS = previousUseDerivedKeys;
+    if (previousUseDerivedKeys === undefined) delete process.env.NITRO_USE_DERIVED_KEYS;
+    else process.env.NITRO_USE_DERIVED_KEYS = previousUseDerivedKeys;
 
     if (previousOracleVerifierKey === undefined)
       delete process.env.MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY;
