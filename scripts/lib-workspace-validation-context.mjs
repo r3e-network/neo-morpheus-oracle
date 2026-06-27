@@ -45,16 +45,11 @@ function resolveRuntimeUrl({ network, morpheusEnv, morpheusLocalEnv }) {
     return /^https?:\/\//i.test(customDomain) ? customDomain : `https://${customDomain}`;
   }
 
-  return trimString(morpheusEnv.PHALA_API_URL);
+  return '';
 }
 
 function resolveRuntimeToken(morpheusEnv) {
-  return (
-    trimString(morpheusEnv.MORPHEUS_RUNTIME_TOKEN) ||
-    trimString(morpheusEnv.PHALA_API_TOKEN) ||
-    trimString(morpheusEnv.PHALA_SHARED_SECRET) ||
-    ''
-  );
+  return trimString(morpheusEnv.MORPHEUS_RUNTIME_TOKEN);
 }
 
 function derivePrivateKeyFromWif(wif) {
@@ -233,32 +228,12 @@ export function buildWorkspaceValidationData({
     morpheusEnv,
     wifKeys:
       normalizedNetwork === 'mainnet'
-        ? [
-            'MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET',
-            'MORPHEUS_RELAYER_NEO_N3_WIF',
-            'PHALA_NEO_N3_WIF_MAINNET',
-            'PHALA_NEO_N3_WIF',
-          ]
-        : [
-            'MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET',
-            'MORPHEUS_RELAYER_NEO_N3_WIF',
-            'PHALA_NEO_N3_WIF_TESTNET',
-            'PHALA_NEO_N3_WIF',
-          ],
+        ? ['MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET', 'MORPHEUS_RELAYER_NEO_N3_WIF']
+        : ['MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET', 'MORPHEUS_RELAYER_NEO_N3_WIF'],
     privateKeyKeys:
       normalizedNetwork === 'mainnet'
-        ? [
-            'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET',
-            'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-            'PHALA_NEO_N3_PRIVATE_KEY_MAINNET',
-            'PHALA_NEO_N3_PRIVATE_KEY',
-          ]
-        : [
-            'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET',
-            'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-            'PHALA_NEO_N3_PRIVATE_KEY_TESTNET',
-            'PHALA_NEO_N3_PRIVATE_KEY',
-          ],
+        ? ['MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY']
+        : ['MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET', 'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'],
   });
   const runtimeUpdater = resolveNetworkSignerMaterial({
     morpheusEnv,
@@ -269,16 +244,12 @@ export function buildWorkspaceValidationData({
             'MORPHEUS_UPDATER_NEO_N3_WIF',
             'MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET',
             'MORPHEUS_RELAYER_NEO_N3_WIF',
-            'PHALA_NEO_N3_WIF_MAINNET',
-            'PHALA_NEO_N3_WIF',
           ]
         : [
             'MORPHEUS_UPDATER_NEO_N3_WIF_TESTNET',
             'MORPHEUS_UPDATER_NEO_N3_WIF',
             'MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET',
             'MORPHEUS_RELAYER_NEO_N3_WIF',
-            'PHALA_NEO_N3_WIF_TESTNET',
-            'PHALA_NEO_N3_WIF',
           ],
     privateKeyKeys:
       normalizedNetwork === 'mainnet'
@@ -287,16 +258,12 @@ export function buildWorkspaceValidationData({
             'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
             'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_MAINNET',
             'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-            'PHALA_NEO_N3_PRIVATE_KEY_MAINNET',
-            'PHALA_NEO_N3_PRIVATE_KEY',
           ]
         : [
             'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY_TESTNET',
             'MORPHEUS_UPDATER_NEO_N3_PRIVATE_KEY',
             'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY_TESTNET',
             'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
-            'PHALA_NEO_N3_PRIVATE_KEY_TESTNET',
-            'PHALA_NEO_N3_PRIVATE_KEY',
           ],
   });
   const runtimeOracleVerifier = resolveNetworkSignerMaterial({
@@ -305,32 +272,24 @@ export function buildWorkspaceValidationData({
       normalizedNetwork === 'mainnet'
         ? [
             'MORPHEUS_ORACLE_VERIFIER_WIF_MAINNET',
-            'PHALA_ORACLE_VERIFIER_WIF_MAINNET',
             'MORPHEUS_ORACLE_VERIFIER_WIF',
-            'PHALA_ORACLE_VERIFIER_WIF',
             runtimeUpdater.wif,
           ]
         : [
             'MORPHEUS_ORACLE_VERIFIER_WIF_TESTNET',
-            'PHALA_ORACLE_VERIFIER_WIF_TESTNET',
             'MORPHEUS_ORACLE_VERIFIER_WIF',
-            'PHALA_ORACLE_VERIFIER_WIF',
             runtimeUpdater.wif,
           ],
     privateKeyKeys:
       normalizedNetwork === 'mainnet'
         ? [
             'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET',
-            'PHALA_ORACLE_VERIFIER_PRIVATE_KEY_MAINNET',
             'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-            'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
             runtimeUpdater.private_key,
           ]
         : [
             'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET',
-            'PHALA_ORACLE_VERIFIER_PRIVATE_KEY_TESTNET',
             'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-            'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
             runtimeUpdater.private_key,
           ],
   });
@@ -389,7 +348,6 @@ export function buildWorkspaceValidationData({
     ORACLE_RUNTIME_UPDATER_PRIVATE_KEY: runtimeUpdater.private_key,
     ORACLE_RUNTIME_VERIFIER_WIF: runtimeOracleVerifier.wif,
     ORACLE_RUNTIME_VERIFIER_PRIVATE_KEY: runtimeOracleVerifier.private_key,
-    PHALA_API_TOKEN: resolveRuntimeToken(morpheusEnv),
     MORPHEUS_RUNTIME_TOKEN: resolveRuntimeToken(morpheusEnv),
   });
 
