@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 const originalFetch = global.fetch;
 
 process.env.MORPHEUS_RUNTIME_TOKEN = 'workflow-test-secret';
-process.env.PHALA_NEO_N3_PRIVATE_KEY =
+process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY =
   '1111111111111111111111111111111111111111111111111111111111111111';
 process.env.NEO_RPC_URL = 'https://neo-rpc.test';
 process.env.EVM_RPC_URL = '';
@@ -127,7 +127,7 @@ test('workflow: auth gate rejects unauthenticated POST to protected route', asyn
 
 test('workflow: POST /keys/derived returns derived key summary', async () => {
   const res = await post('/keys/derived', { role: 'worker' });
-  // Requires Phala TEE dstack for key derivation — accepts 200 (TEE available)
+  // Requires the AWS Nitro enclave for key derivation — accepts 200 (TEE available)
   // or 400 (no TEE in test env) as both are valid wiring outcomes.
   assert.ok(res.status === 200 || res.status === 400, `expected 200 or 400, got ${res.status}`);
   const body = await res.json();

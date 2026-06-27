@@ -127,8 +127,8 @@ test('tampered tag and malformed envelopes fail closed', async () => {
 });
 
 test('worker decryptor parity: nitro-worker decrypts canonical envelopes (read-only import)', async (t) => {
-  const previousKeyMaterialJson = process.env.PHALA_ORACLE_KEY_MATERIAL_JSON;
-  process.env.PHALA_ORACLE_KEY_MATERIAL_JSON = JSON.stringify({
+  const previousKeyMaterialJson = process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON;
+  process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON = JSON.stringify({
     public_key_raw: GOLDEN.publicKeyRaw,
     private_key_pkcs8: GOLDEN.privateKeyPkcs8,
   });
@@ -138,9 +138,9 @@ test('worker decryptor parity: nitro-worker decrypts canonical envelopes (read-o
   t.after(() => {
     worker.__resetOracleKeyMaterialForTests();
     if (previousKeyMaterialJson === undefined) {
-      delete process.env.PHALA_ORACLE_KEY_MATERIAL_JSON;
+      delete process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON;
     } else {
-      process.env.PHALA_ORACLE_KEY_MATERIAL_JSON = previousKeyMaterialJson;
+      process.env.MORPHEUS_ORACLE_KEY_MATERIAL_JSON = previousKeyMaterialJson;
     }
   });
 
