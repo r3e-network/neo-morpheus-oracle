@@ -1292,9 +1292,7 @@ test('provision bootstrap requires the image-pinned bootstrap token when no runt
     'NITRO_SIGNER_TOKEN',
     'MORPHEUS_RUNTIME_TOKEN',
     'NITRO_API_TOKEN',
-    'PHALA_API_TOKEN',
     'NITRO_SHARED_SECRET',
-    'PHALA_SHARED_SECRET',
   ]) {
     savedTokens[k] = process.env[k];
     delete process.env[k];
@@ -1339,9 +1337,7 @@ test('provision bootstrap stays fully open when no bootstrap token is pinned', a
     'NITRO_SIGNER_TOKEN',
     'MORPHEUS_RUNTIME_TOKEN',
     'NITRO_API_TOKEN',
-    'PHALA_API_TOKEN',
     'NITRO_SHARED_SECRET',
-    'PHALA_SHARED_SECRET',
   ]) {
     savedTokens[k] = process.env[k];
     delete process.env[k];
