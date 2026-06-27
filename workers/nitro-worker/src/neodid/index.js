@@ -191,20 +191,26 @@ function getWeb3AuthJwks(url) {
   return WEB3AUTH_JWKS_CACHE.get(normalized);
 }
 
-function resolveWeb3AuthJwksUrl(payload = {}) {
+// The JWKS URL, client id (audience) and issuer are the JWT trust anchors. They
+// MUST come only from server-side env: a caller who can choose the JWKS URL and
+// audience can sign their own id_token for any victim's provider_uid and obtain
+// a Morpheus-signed recovery/zklogin/bind ticket (account takeover). The request
+// body never participates in resolving these — see resolveVerifiedProviderUid.
+function resolveWeb3AuthJwksUrl() {
   return trimString(
-    payload.web3auth_jwks_url ||
-      env('WEB3AUTH_JWKS_URL') ||
-      'https://api-auth.web3auth.io/.well-known/jwks.json'
+    env('WEB3AUTH_JWKS_URL') || 'https://api-auth.web3auth.io/.well-known/jwks.json'
   );
 }
 
-function resolveWeb3AuthClientId(payload = {}) {
+function resolveWeb3AuthClientId() {
   return trimString(
-    payload.web3auth_client_id ||
-      env('WEB3AUTH_CLIENT_ID', 'NEXT_PUBLIC_WEB3AUTH_CLIENT_ID', 'VITE_WEB3AUTH_CLIENT_ID') ||
-      ''
+    env('WEB3AUTH_CLIENT_ID', 'NEXT_PUBLIC_WEB3AUTH_CLIENT_ID', 'VITE_WEB3AUTH_CLIENT_ID') || ''
   );
+}
+
+function resolveWeb3AuthIssuer() {
+  // Optional defense-in-depth: when set, jwtVerify also pins the token issuer.
+  return trimString(env('WEB3AUTH_ISSUER') || '');
 }
 
 function buildStableWeb3AuthProviderUid(claims = {}) {
@@ -277,14 +283,16 @@ async function resolveVerifiedProviderUid(provider, payload = {}, context = 'bin
     throw new Error('web3auth id_token is required');
   }
 
-  const jwksUrl = resolveWeb3AuthJwksUrl(payload);
-  const clientId = resolveWeb3AuthClientId(payload);
+  const jwksUrl = resolveWeb3AuthJwksUrl();
+  const clientId = resolveWeb3AuthClientId();
   if (!clientId) {
     throw new Error('WEB3AUTH_CLIENT_ID is required for web3auth verification');
   }
+  const issuer = resolveWeb3AuthIssuer();
   const JWKS = getWeb3AuthJwks(jwksUrl);
   const { payload: claims } = await jwtVerify(idToken, JWKS, {
     audience: clientId,
+    ...(issuer ? { issuer } : {}),
   });
   const derivedProviderUid = buildStableWeb3AuthProviderUid(claims);
   if (!derivedProviderUid) {
@@ -309,8 +317,13 @@ function requireSupportedProvider(value) {
   return providerId;
 }
 
-async function resolveNeoDidSalt(payload = {}) {
-  const explicit = trimString(payload.neodid_secret_salt || env('NEODID_SECRET_SALT') || '');
+async function resolveNeoDidSalt() {
+  // The salt is the sole secret guaranteeing nullifier stability/uniqueness, so
+  // it must be server-authoritative. A caller-supplied salt would let one
+  // identity grind unlimited distinct master/action nullifiers (the on-chain
+  // registry only rejects byte-identical repeats), defeating Sybil/uniqueness.
+  // It is therefore resolved ONLY from env / the TEE-derived key, never payload.
+  const explicit = trimString(env('NEODID_SECRET_SALT') || '');
   if (explicit) {
     return Buffer.from(sha256Hex(explicit), 'hex');
   }
@@ -591,8 +604,8 @@ export function handleNeoDidProviders() {
 export async function handleNeoDidRuntime(payload = {}) {
   const info = await getDstackInfo({ required: false });
   const signer = await signDigestBytes(Buffer.from(sha256Hex('neodid-runtime'), 'hex'), payload);
-  const web3authJwksUrl = resolveWeb3AuthJwksUrl(payload);
-  const web3authClientId = resolveWeb3AuthClientId(payload);
+  const web3authJwksUrl = resolveWeb3AuthJwksUrl();
+  const web3authClientId = resolveWeb3AuthClientId();
   return json(200, {
     service: 'neodid',
     app_id: info?.app_id || null,
@@ -631,7 +644,7 @@ export async function handleNeoDidRuntime(payload = {}) {
 
 export async function handleNeoDidBind(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
-  const saltBytes = await resolveNeoDidSalt(resolvedPayload);
+  const saltBytes = await resolveNeoDidSalt();
   const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
   const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
   const ticket = {
@@ -663,7 +676,7 @@ export async function handleNeoDidBind(payload = {}) {
 
 export async function handleNeoDidActionTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
-  const saltBytes = await resolveNeoDidSalt(resolvedPayload);
+  const saltBytes = await resolveNeoDidSalt();
   const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
   const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload);
   const actionId = trimString(resolvedPayload.action_id || resolvedPayload.intent || '');
@@ -691,7 +704,7 @@ export async function handleNeoDidActionTicket(payload = {}) {
 
 export async function handleNeoDidRecoveryTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
-  const saltBytes = await resolveNeoDidSalt(resolvedPayload);
+  const saltBytes = await resolveNeoDidSalt();
   const provider = requireSupportedProvider(resolvedPayload.provider || 'twitter');
   const providerUid = await resolveVerifiedProviderUid(provider, resolvedPayload, 'recovery');
   const network = resolveRequiredText(
@@ -775,7 +788,7 @@ export async function handleNeoDidRecoveryTicket(payload = {}) {
 
 export async function handleNeoDidZkLoginTicket(payload = {}) {
   const resolvedPayload = await resolveConfidentialPayload(payload);
-  const saltBytes = await resolveNeoDidSalt(resolvedPayload);
+  const saltBytes = await resolveNeoDidSalt();
   const provider = requireSupportedProvider(resolvedPayload.provider || 'web3auth');
   if (provider !== 'web3auth') {
     throw new Error('zklogin-ticket currently requires provider=web3auth');
