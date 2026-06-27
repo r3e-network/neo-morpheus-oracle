@@ -136,10 +136,6 @@ function buildRequiredKeyList() {
     // Email
     'RESEND_API_KEY',
     // Oracle runtime access
-    'PHALA_APP_ID',
-    'PHALA_API_URL',
-    'PHALA_API_TOKEN',
-    'PHALA_SHARED_SECRET',
     'MORPHEUS_RUNTIME_URL',
     'MORPHEUS_RUNTIME_TOKEN',
     // Control plane

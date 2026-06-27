@@ -69,7 +69,7 @@ test('workspace validation context can materialize secrets into a private env fi
 
   assert.match(secretsFileText, /^TEST_WIF=aa-secret-wif$/m);
   assert.match(secretsFileText, /^NEO_TESTNET_WIF=top-secret-testnet-wif$/m);
-  assert.match(secretsFileText, /^PHALA_API_TOKEN=runtime-token-secret$/m);
+  assert.match(secretsFileText, /^MORPHEUS_RUNTIME_TOKEN=runtime-token-secret$/m);
   assert.match(secretsFileText, /^ORACLE_RUNTIME_RELAYER_PRIVATE_KEY=relayer-secret-private-key$/m);
   assert.match(secretsFileText, /^ORACLE_RUNTIME_UPDATER_WIF=relayer-secret-wif$/m);
   assert.match(
