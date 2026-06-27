@@ -40,9 +40,9 @@ Current built-ins cover hashing, RSA verification, modular arithmetic, polynomia
 - supports Neo N3
 - accepts `encrypted_token` for auth secrets and encrypted JSON payload patches via `encrypted_params`, `encrypted_input`, or JSON-object `encrypted_payload`
 - accepts `script` and `script_base64` as programmable compute aliases
-- intended to run inside an AWS Nitro Enclave (legacy: Phala TEE)
+- intended to run inside an AWS Nitro Enclave
 - designed so multiple registered miniapps can share the same built-in module lanes instead of each deploying their own generic confidential runtime
-- can emit Nitro (NSM) attestation documents when `NITRO_EMIT_ATTESTATION=true` (legacy fallback: `PHALA_EMIT_ATTESTATION`)
-- can derive worker signing keys from AWS Secrets Manager when `NITRO_USE_DERIVED_KEYS=true` (legacy fallback: `PHALA_USE_DERIVED_KEYS`)
+- can emit Nitro (NSM) attestation documents when `NITRO_EMIT_ATTESTATION=true`
+- can derive worker signing keys from AWS Secrets Manager when `NITRO_USE_DERIVED_KEYS=true`
 - `src/server.js` provides the HTTP entrypoint for container/CVM deployment
 - `Dockerfile` packages the worker for Nitro / CVM deployment

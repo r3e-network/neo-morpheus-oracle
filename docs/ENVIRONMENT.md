@@ -10,7 +10,7 @@ Think of the variables in four layers:
 
 1. Chain addresses and RPCs / 链地址与 RPC
 2. Signing keys / 签名密钥
-3. Phala and Supabase access / Phala 与 Supabase 访问
+3. Nitro and Supabase access / Nitro 与 Supabase 访问
 4. Runtime policy knobs / 运行策略参数
 
 ## Must Know / 你必须关心的变量
@@ -32,7 +32,7 @@ If one of these is wrong, the system usually stops working.
   中文：可选的分网络 runtime 地址，用于显式区分 mainnet/testnet。
 
 - `MORPHEUS_RUNTIME_TOKEN`
-- `PHALA_API_TOKEN` or `PHALA_SHARED_SECRET`
+- `NITRO_API_TOKEN` or `NITRO_SHARED_SECRET`
   English: Authentication secret for the runtime. Prefer `MORPHEUS_RUNTIME_TOKEN`.
   中文：runtime 的鉴权密钥。优先使用 `MORPHEUS_RUNTIME_TOKEN`。
 
@@ -135,17 +135,13 @@ If one of these is wrong, the system usually stops working.
   English: Neo N3 shared numeric resource module contract hash.
   中文：Neo N3 共享数值资源模块合约地址。
 
-- `PHALA_NEO_N3_PRIVATE_KEY` or `PHALA_NEO_N3_WIF`
+- `MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY` or `MORPHEUS_WORKER_NEO_N3_WIF`
   English: Worker-side Neo N3 signing material.
   中文：worker 使用的 Neo N3 签名私钥。
 
 - `MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY` or `MORPHEUS_ORACLE_VERIFIER_WIF`
   English: Preferred dedicated Neo N3 signer for async Oracle fulfillment signatures.
   中文：异步 Oracle fulfill 签名优先使用的独立 Neo N3 signer。
-
-- `PHALA_ORACLE_VERIFIER_PRIVATE_KEY` or `PHALA_ORACLE_VERIFIER_WIF`
-  English: Legacy alias for the same async Oracle fulfillment signer.
-  中文：同一组异步 Oracle fulfill signer 的旧别名变量。
 
 - `NEO_N3_WIF`
   English: Preferred generic Neo N3 operator WIF for local scripts and deploy helpers.
@@ -155,11 +151,11 @@ If one of these is wrong, the system usually stops working.
   English: Relayer/updater Neo N3 signing material.
   中文：relayer / updater 使用的 Neo N3 签名私钥。
 
-  English: If the dedicated `oracle_verifier` role is unset and the dedicated dstack path is unavailable, the worker can fall back to its general Neo N3 signing material.
-  中文：如果没有单独设置 `oracle_verifier` signer，且对应的 dstack 派生路径也不可用，worker 会回退到通用的 Neo N3 签名材料。
+  English: If the dedicated `oracle_verifier` role is unset and the derived signer is unavailable, the worker can fall back to its general Neo N3 signing material.
+  中文：如果没有单独设置 `oracle_verifier` signer，且派生 signer 也不可用，worker 会回退到通用的 Neo N3 签名材料。
 
-  English: The generated testnet Phala env now disables derived signing by default when it injects an explicit verifier signer, so the published testnet verifier key is not accidentally shadowed by a dstack-derived role key.
-  中文：现在生成的 testnet Phala env 在注入显式 verifier signer 时会默认关闭派生签名覆盖，避免已发布到链上的 testnet verifier key 被 dstack 派生角色密钥意外替换。
+  English: The generated testnet Nitro env now disables derived signing by default when it injects an explicit verifier signer, so the published testnet verifier key is not accidentally shadowed by a derived role key.
+  中文：现在生成的 testnet Nitro env 在注入显式 verifier signer 时会默认关闭派生签名覆盖，避免已发布到链上的 testnet verifier key 被派生角色密钥意外替换。
 
 ### Provider Data Source / 数据源
 
@@ -325,32 +321,23 @@ Only touch these if you understand the runtime model.
 
 ### Derived Keys / 派生密钥
 
-- `PHALA_USE_DERIVED_KEYS`
-  English: Enables dstack-derived keys for worker and relayer signing.
-  中文：开启 dstack 派生密钥，供 worker 和 relayer 用于签名。
-
-- `PHALA_DSTACK_ENDPOINT`
-  English: dstack socket/endpoint override.
-  中文：dstack socket 或 endpoint 覆盖值。
-
-- `PHALA_DSTACK_NEO_N3_KEY_PATH`
-- `PHALA_DSTACK_RELAYER_NEO_N3_KEY_PATH`
-  English: Override key-derivation paths for worker or relayer accounts.
-  中文：覆盖 worker / relayer 的派生密钥路径。
+- `NITRO_USE_DERIVED_KEYS`
+  English: Enables derived keys (from AWS Secrets Manager) for worker and relayer signing.
+  中文：开启派生密钥（来自 AWS Secrets Manager），供 worker 和 relayer 用于签名。
 
 ### Attestation / 远程认证
 
-- `PHALA_EMIT_ATTESTATION`
-  English: Adds quote metadata to worker responses when requested.
-  中文：在请求需要时，把 quote 元数据附加到 worker 返回里。
+- `NITRO_EMIT_ATTESTATION`
+  English: Adds Nitro (NSM) attestation metadata to worker responses when requested.
+  中文：在请求需要时，把 Nitro (NSM) attestation 元数据附加到 worker 返回里。
 
 ### Oracle Key Storage / Oracle 密钥封装存储
 
-- `PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH`
-  English: Derived wrapping-key path for the stable Oracle X25519 transport key.
-  中文：稳定 Oracle X25519 传输密钥所使用的派生封装密钥路径。
+- `NITRO_ORACLE_ENCRYPTION_KEY_PATH`
+  English: Wrapping-key path for the stable Oracle X25519 transport key.
+  中文：稳定 Oracle X25519 传输密钥所使用的封装密钥路径。
 
-- `PHALA_ORACLE_KEYSTORE_PATH`
+- `NITRO_ORACLE_KEYSTORE_PATH`
   English: Filesystem path where the sealed Oracle transport key is stored.
   中文：封装后的 Oracle 传输密钥在文件系统中的存放路径。
 
@@ -394,7 +381,7 @@ These exist for internal defaults or diagnostics.
 - `MORPHEUS_MAX_SCRIPT_BYTES`
 - `MORPHEUS_FEED_PAIR_REGISTRY_JSON`
 - `MORPHEUS_RELAYER_STATE_FILE`
-- `MORPHEUS_PHALA_TIMEOUT_MS`
+- `MORPHEUS_NITRO_TIMEOUT_MS`
 
 ## Worker Runtime Reference / Worker 运行时变量参考
 
@@ -425,9 +412,9 @@ rename them. Format: default + one-line semantics.
   English: Network-scoped async-fulfillment verifier signer; overrides the unscoped verifier names on that network.
   中文：分网络异步 fulfill verifier signer；对应网络上覆盖不带后缀的 verifier 变量。
 
-- `PHALA_NEO_N3_WIF_{MAINNET,TESTNET}` / `PHALA_NEO_N3_PRIVATE_KEY_{MAINNET,TESTNET}`
-  English: Legacy network-scoped aliases for the worker Neo N3 key; still read for backward compatibility.
-  中文：worker Neo N3 密钥的旧版分网络别名；为兼容仍然会读取。
+- `MORPHEUS_WORKER_NEO_N3_WIF_{MAINNET,TESTNET}` / `MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY_{MAINNET,TESTNET}`
+  English: Network-scoped worker Neo N3 signing material; overrides the unscoped worker key on the matching network.
+  中文：分网络的 worker Neo N3 签名材料；在对应网络上覆盖不带后缀的 worker 密钥。
 
 - `NEO_TESTNET_WIF`
   English: Legacy generic testnet operator WIF accepted as a low-priority fallback by scripts and signer resolution.
@@ -564,12 +551,12 @@ rename them. Format: default + one-line semantics.
   中文：默认等于 `NITRO_SIGNER_ENDPOINT`。获取 Nitro attestation 文档的地址。
 
 - `NITRO_EMIT_ATTESTATION`
-  English: When true-like, worker responses can attach Nitro attestation metadata (Nitro-era replacement for `PHALA_EMIT_ATTESTATION`).
-  中文：为 true 时 worker 响应可以附带 Nitro attestation 元数据（替代旧的 `PHALA_EMIT_ATTESTATION`）。
+  English: When true-like, worker responses can attach Nitro (NSM) attestation metadata.
+  中文：为 true 时 worker 响应可以附带 Nitro (NSM) attestation 元数据。
 
 - `NITRO_USE_DERIVED_KEYS`
-  English: Nitro-era replacement for `PHALA_USE_DERIVED_KEYS`; enables derived role keys via the signer.
-  中文：替代 `PHALA_USE_DERIVED_KEYS`；通过 signer 启用派生角色密钥。
+  English: Enables derived role keys via the signer.
+  中文：通过 signer 启用派生角色密钥。
 
 - `NITRO_X25519_SECRET_ID` (default `morpheus/x25519-wrap`) / `NITRO_NEODID_SALT_SECRET_ID` (default `morpheus/neodid-salt`)
   English: AWS Secrets Manager secret ids for the oracle transport wrapping key and the NeoDID salt.
@@ -579,13 +566,13 @@ rename them. Format: default + one-line semantics.
   English: Default `us-east-1`. Region for the Secrets Manager lookups above.
   中文：默认 `us-east-1`。上述 Secrets Manager 访问使用的区域。
 
-- `NITROCORE_PORT` / `PHALA_WORKER_PORT` / `PORT`
+- `PORT` / `NITROCORE_PORT`
   English: Worker HTTP listen port, checked in that order.
   中文：worker HTTP 监听端口，按该顺序取值。
 
 ### Oracle Key Material Overrides / Oracle 密钥材料覆盖
 
-- `MORPHEUS_ORACLE_KEY_MATERIAL_JSON` / `MORPHEUS_ORACLE_KEY_MATERIAL_BASE64` / `MORPHEUS_ORACLE_PRIVATE_KEY_PKCS8` / `MORPHEUS_ORACLE_PUBLIC_KEY_RAW` (legacy `PHALA_ORACLE_*` aliases)
+- `MORPHEUS_ORACLE_KEY_MATERIAL_JSON` / `MORPHEUS_ORACLE_KEY_MATERIAL_BASE64` / `MORPHEUS_ORACLE_PRIVATE_KEY_PKCS8` / `MORPHEUS_ORACLE_PUBLIC_KEY_RAW`
   English: Explicit oracle X25519 transport-key injection; takes precedence over sealed-keystore and derived-key paths.
   中文：显式注入 oracle X25519 传输密钥；优先于封装 keystore 与派生密钥路径。
 
@@ -593,9 +580,9 @@ rename them. Format: default + one-line semantics.
   English: Default false. Allows a process-lifetime ephemeral oracle key when no stable key source is available — decryptability ends with the process; never enable in production.
   中文：默认 false。在没有稳定密钥来源时允许进程级临时 oracle 密钥——进程结束后密文不可解；生产环境不要开启。
 
-- `NEODID_SECRET_SALT` / `NEODID_NEO_N3_PRIVATE_KEY` / `PHALA_DSTACK_NEODID_SALT_PATH`
-  English: NeoDID commitment salt and dedicated signer overrides (the dstack path is the legacy derivation location).
-  中文：NeoDID 承诺 salt 与专用 signer 覆盖项（dstack path 是旧的派生位置）。
+- `NEODID_SECRET_SALT` / `NEODID_NEO_N3_PRIVATE_KEY`
+  English: NeoDID commitment salt and dedicated signer overrides.
+  中文：NeoDID 承诺 salt 与专用 signer 覆盖项。
 
 ### Chain Write Safety Toggles / 链上写入安全开关
 
@@ -663,8 +650,8 @@ If you are the operator of this stack, the shortest checklist is:
    确认所有合约地址与当前实际部署一致。
 2. Make sure updater / relayer keys still control the configured updater accounts.
    确认 updater / relayer 私钥仍然对应当前链上 updater 账户。
-3. Make sure `PHALA_API_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, and `TWELVEDATA_API_KEY` are valid.
-   确认 `PHALA_API_TOKEN`、`SUPABASE_SERVICE_ROLE_KEY`、`TWELVEDATA_API_KEY` 都是有效的。
+3. Make sure `NITRO_API_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, and `TWELVEDATA_API_KEY` are valid.
+   确认 `NITRO_API_TOKEN`、`SUPABASE_SERVICE_ROLE_KEY`、`TWELVEDATA_API_KEY` 都是有效的。
 4. Keep `MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS` unset unless you intentionally want user JS execution.
    除非你明确要支持用户 JS 脚本，否则保持 `MORPHEUS_ENABLE_UNTRUSTED_SCRIPTS` 不设置。
 5. Tune `MORPHEUS_WASM_TIMEOUT_MS` instead of changing hardcoded timeouts in code.

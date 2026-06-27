@@ -93,7 +93,7 @@ The dashboard includes a Provider Configs panel that can manage these records di
 
 Both the web API layer and the Oracle runtime can resolve provider defaults from Supabase when `project_slug` and `provider` are present.
 
-The web API layer resolves provider defaults **before** proxying to Phala:
+The web API layer resolves provider defaults **before** proxying to the Nitro runtime:
 
 - `GET /api/feeds/:symbol?provider=twelvedata&project_slug=morpheus`
 - `POST /api/oracle/query` with `{ "provider": "twelvedata", "project_slug": "morpheus" }`
@@ -103,7 +103,7 @@ Resolution rules:
 
 - request-level `provider_params` override stored project config keys
 - stored project config fills in missing provider defaults
-- disabled project providers are rejected before the request reaches Phala
+- disabled project providers are rejected before the request reaches the Nitro runtime
 
 ## Custom Source Requests
 
