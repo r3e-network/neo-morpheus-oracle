@@ -783,12 +783,7 @@ export async function __resolveBaseUrlCandidatesForTests(options = {}) {
 }
 
 function resolveAuthToken() {
-  return trimString(
-    process.env.MORPHEUS_RUNTIME_TOKEN ||
-      process.env.PHALA_API_TOKEN ||
-      process.env.PHALA_SHARED_SECRET ||
-      ''
-  );
+  return trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '');
 }
 
 async function encryptForOracle(publicKeyBase64, plaintextObject) {
@@ -1000,7 +995,7 @@ async function runRuntimeServiceMatrix(options = {}) {
   });
   const authToken = trimString(options.authToken || resolveAuthToken());
   if (!authToken) {
-    throw new Error('MORPHEUS_RUNTIME_TOKEN or PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
+    throw new Error('MORPHEUS_RUNTIME_TOKEN or NITRO_API_TOKEN is required');
   }
   const timeoutMs = Number(options.timeoutMs || 60000);
   const maxLatencyMs = Number(options.maxLatencyMs || 10000);

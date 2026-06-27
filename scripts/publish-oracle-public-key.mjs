@@ -14,15 +14,9 @@ async function main() {
     process.env.MORPHEUS_RUNTIME_URL ||
     process.env.NITRO_RUNTIME_URL ||
     process.env.NITRO_API_URL ||
-    process.env.PHALA_API_URL ||
     ''
   ).replace(/\/$/, '');
-  const nitroToken =
-    process.env.MORPHEUS_RUNTIME_TOKEN ||
-    process.env.NITRO_API_TOKEN ||
-    process.env.PHALA_API_TOKEN ||
-    process.env.PHALA_SHARED_SECRET ||
-    '';
+  const nitroToken = process.env.MORPHEUS_RUNTIME_TOKEN || process.env.NITRO_API_TOKEN || '';
   const rpcUrl =
     process.env.NEO_RPC_URL ||
     (network === 'mainnet' ? 'https://api.n3index.dev/mainnet' : 'https://api.n3index.dev/testnet');
@@ -41,7 +35,7 @@ async function main() {
 
   if (!nitroUrl || !oracleHash || !wif) {
     throw new Error(
-      'MORPHEUS_RUNTIME_URL (or PHALA_API_URL), CONTRACT_MORPHEUS_ORACLE_HASH, and the kernel admin key (MORPHEUS_ORACLE_ADMIN_WIF) are required'
+      'MORPHEUS_RUNTIME_URL, CONTRACT_MORPHEUS_ORACLE_HASH, and the kernel admin key (MORPHEUS_ORACLE_ADMIN_WIF) are required'
     );
   }
 

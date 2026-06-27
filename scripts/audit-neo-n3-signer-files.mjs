@@ -10,7 +10,7 @@ const DEFAULT_ROOTS = [
 ];
 
 const roots = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_ROOTS;
-const wanted = /(^|\/)(\.env[^/]*|.*env.*|.*secret.*|.*phala.*|.*nitro.*|.*morpheus.*)$/i;
+const wanted = /(^|\/)(\.env[^/]*|.*env.*|.*secret.*|.*nitro.*|.*morpheus.*)$/i;
 const skipPath =
   /\/node_modules\/|\/\.git\/|\/\.next\/|\/dist\/|\/build\/|\/coverage\/|\.(png|jpe?g|gif|webp|pdf|zip|gz|tar|sqlite|db|log)$/i;
 const keyLike =
@@ -47,11 +47,9 @@ async function walk(dir) {
 function roleEnvForSecret(role, value) {
   const env = {};
   const prefix =
-    role === 'worker'
-      ? 'PHALA_NEO_N3'
-      : role === 'oracle_verifier'
-        ? 'MORPHEUS_ORACLE_VERIFIER'
-        : `MORPHEUS_${role.toUpperCase()}_NEO_N3`;
+    role === 'oracle_verifier'
+      ? 'MORPHEUS_ORACLE_VERIFIER'
+      : `MORPHEUS_${role.toUpperCase()}_NEO_N3`;
   if (/^[KL]/.test(value)) env[`${prefix}_WIF_MAINNET`] = value;
   else env[`${prefix}_PRIVATE_KEY_MAINNET`] = value;
   return env;
@@ -86,7 +84,7 @@ for (const file of files) {
   let lineNo = 0;
   for (const line of raw.split(/\r?\n/)) {
     lineNo += 1;
-    if (!/(WIF|PRIVATE|KEY|SECRET|NEO|ORACLE|RELAYER|UPDATER|PHALA|MORPHEUS)/i.test(line)) {
+    if (!/(WIF|PRIVATE|KEY|SECRET|NEO|ORACLE|RELAYER|UPDATER|MORPHEUS)/i.test(line)) {
       continue;
     }
     const parsedLine = line.match(envLine);

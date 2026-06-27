@@ -9,7 +9,7 @@ import { trimString } from './lib-strings.mjs';
 //   MORPHEUS_RUNTIME_URL_{MAINNET,TESTNET} plus the unscoped
 //   MORPHEUS_RUNTIME_URL / NEXT_PUBLIC_MORPHEUS_RUNTIME_URL. The web app never
 //   reads the infix MORPHEUS_{MAINNET,TESTNET}_RUNTIME_URL names (those belong
-//   to ops scripts) nor PHALA_API_URL, so neither may satisfy the web groups.
+//   to ops scripts), so they may not satisfy the web groups.
 // - The runtime bearer token aliases mirror appConfig.nitroToken.
 // - Supabase aliases mirror apps/web/lib/public-config.ts (browser) and
 //   apps/web/lib/server-supabase.ts (server).
@@ -23,13 +23,7 @@ export const WEB_RUNTIME_URL_KEYS = [
   'NEXT_PUBLIC_MORPHEUS_RUNTIME_URL_TESTNET',
 ];
 
-const WEB_RUNTIME_TOKEN_KEYS = [
-  'MORPHEUS_RUNTIME_TOKEN',
-  'NITRO_API_TOKEN',
-  'PHALA_API_TOKEN',
-  'NITRO_SHARED_SECRET',
-  'PHALA_SHARED_SECRET',
-];
+const WEB_RUNTIME_TOKEN_KEYS = ['MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN', 'NITRO_SHARED_SECRET'];
 
 export const ROOT_ENV_REQUIRED_GROUPS = {
   web_public: [
@@ -65,8 +59,6 @@ export const ROOT_ENV_REQUIRED_GROUPS = {
     [
       'NEO_N3_WIF',
       'NEO_TESTNET_WIF',
-      'PHALA_NEO_N3_WIF',
-      'PHALA_NEO_N3_PRIVATE_KEY',
       'MORPHEUS_RELAYER_NEO_N3_WIF',
       'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY',
     ],
@@ -80,14 +72,7 @@ export const ROOT_ENV_OPTIONAL_GROUPS = {
     ['MORPHEUS_FEED_CHANGE_THRESHOLD_BPS'],
     ['MORPHEUS_FEED_MIN_UPDATE_INTERVAL_MS'],
   ],
-  oracle_verifier: [
-    [
-      'MORPHEUS_ORACLE_VERIFIER_WIF',
-      'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-      'PHALA_ORACLE_VERIFIER_WIF',
-      'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
-    ],
-  ],
+  oracle_verifier: [['MORPHEUS_ORACLE_VERIFIER_WIF', 'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY']],
 };
 
 export function getGroupValue(env, keys) {

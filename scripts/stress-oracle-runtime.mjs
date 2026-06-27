@@ -313,14 +313,9 @@ async function main() {
   await loadDotEnv(path.resolve('.env.local'), { override: false });
   await loadDotEnv(path.resolve('.env'), { override: false });
 
-  const authToken = trimString(
-    process.env.MORPHEUS_RUNTIME_TOKEN ||
-      process.env.PHALA_API_TOKEN ||
-      process.env.PHALA_SHARED_SECRET ||
-      ''
-  );
+  const authToken = trimString(process.env.MORPHEUS_RUNTIME_TOKEN || '');
   if (!authToken) {
-    throw new Error('MORPHEUS_RUNTIME_TOKEN or PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
+    throw new Error('MORPHEUS_RUNTIME_TOKEN or NITRO_API_TOKEN is required');
   }
 
   const baseUrl = resolveBaseUrl(args.targetUrl, network);

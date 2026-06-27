@@ -21,13 +21,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CVM_URL =
   process.env.NITRO_RUNTIME_URL ||
   process.env.MORPHEUS_RUNTIME_URL ||
-  process.env.PHALA_CVM_URL ||
   'https://oracle.meshmini.app/mainnet';
-const AUTH_TOKEN =
-  process.env.NITRO_API_TOKEN ||
-  process.env.MORPHEUS_RUNTIME_TOKEN ||
-  process.env.PHALA_API_TOKEN ||
-  '';
+const AUTH_TOKEN = process.env.NITRO_API_TOKEN || process.env.MORPHEUS_RUNTIME_TOKEN || '';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = parseInt(process.env.NEO_NETWORK_MAGIC || '860833102');
 
@@ -37,7 +32,9 @@ const CONTRACT_MANAGEMENT = 'fffdc93764dbaddd97c48f252a53ea4643faa3fd';
 const DRY_RUN = process.argv.includes('--dry-run');
 
 if (!AUTH_TOKEN) {
-  console.error('ERROR: PHALA_API_TOKEN environment variable is required');
+  console.error(
+    'ERROR: NITRO_API_TOKEN or MORPHEUS_RUNTIME_TOKEN environment variable is required'
+  );
   process.exit(1);
 }
 

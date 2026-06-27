@@ -85,11 +85,7 @@ if (missingRoles.length && !args.allowMissing) {
   process.exit(2);
 }
 
-const runtimeToken = pick(env, [
-  'NITRO_SIGNER_TOKEN',
-  'MORPHEUS_RUNTIME_TOKEN',
-  'PHALA_SHARED_SECRET',
-]);
+const runtimeToken = pick(env, ['NITRO_SIGNER_TOKEN', 'MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN']);
 const signerEnv =
   [
     line('MORPHEUS_NETWORK', network),
@@ -114,20 +110,13 @@ const signerEnv =
     ),
     line(
       `MORPHEUS_ORACLE_VERIFIER_WIF_${suffix}`,
-      pick(env, [
-        `MORPHEUS_ORACLE_VERIFIER_WIF_${suffix}`,
-        `PHALA_ORACLE_VERIFIER_WIF_${suffix}`,
-        'MORPHEUS_ORACLE_VERIFIER_WIF',
-        'PHALA_ORACLE_VERIFIER_WIF',
-      ])
+      pick(env, [`MORPHEUS_ORACLE_VERIFIER_WIF_${suffix}`, 'MORPHEUS_ORACLE_VERIFIER_WIF'])
     ),
     line(
       `MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_${suffix}`,
       pick(env, [
         `MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY_${suffix}`,
-        `PHALA_ORACLE_VERIFIER_PRIVATE_KEY_${suffix}`,
         'MORPHEUS_ORACLE_VERIFIER_PRIVATE_KEY',
-        'PHALA_ORACLE_VERIFIER_PRIVATE_KEY',
       ])
     ),
   ].join('\n') + '\n';
@@ -138,10 +127,8 @@ const relayerEnv =
     line('MORPHEUS_RELAYER_MODE', 'combined'),
     line('MORPHEUS_ACTIVE_CHAINS', 'neo_n3'),
     line('MORPHEUS_RUNTIME_URL', 'http://127.0.0.1:8787'),
-    line('PHALA_USE_DERIVED_KEYS', 'true'),
     line('NITRO_USE_DERIVED_KEYS', 'true'),
     line('MORPHEUS_RUNTIME_TOKEN', runtimeToken),
-    line('PHALA_SHARED_SECRET', runtimeToken),
     line(
       'SUPABASE_URL',
       pick(env, ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL'])

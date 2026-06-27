@@ -5,14 +5,8 @@ const CVM_URL =
   process.env.NITRO_RUNTIME_URL ||
   process.env.MORPHEUS_RUNTIME_URL ||
   process.env.NITRO_API_URL ||
-  process.env.PHALA_API_URL ||
   'https://oracle.meshmini.app/mainnet';
-const CVM_TOKEN =
-  process.env.NITRO_API_TOKEN ||
-  process.env.MORPHEUS_RUNTIME_TOKEN ||
-  process.env.PHALA_API_TOKEN ||
-  process.env.PHALA_SHARED_SECRET ||
-  '';
+const CVM_TOKEN = process.env.NITRO_API_TOKEN || process.env.MORPHEUS_RUNTIME_TOKEN || '';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const ORACLE_HASH =
   process.env.CONTRACT_MORPHEUS_ORACLE_HASH || '0xf54d8584ef82315c1800373272ab08ae0db2d5ef';
