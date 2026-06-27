@@ -315,7 +315,7 @@ async function resolveNeoDidSalt(payload = {}) {
     return Buffer.from(sha256Hex(explicit), 'hex');
   }
   try {
-    const configuredPath = trimString(env('PHALA_DSTACK_NEODID_SALT_PATH') || '');
+    const configuredPath = trimString(env('NITRO_NEODID_SALT_PATH') || '');
     const keyPath = configuredPath || 'morpheus/neodid/nullifier/v1';
     const derived = await deriveKeyBytes(keyPath, 'neodid-nullifier-salt');
     // Match the explicit-env path EXACTLY to avoid silent nullifier drift:
