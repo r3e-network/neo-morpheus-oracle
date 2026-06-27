@@ -1,9 +1,7 @@
 import http from 'node:http';
 import handler from './worker.js';
 
-const port = Number(
-  process.env.PORT || process.env.PHALA_WORKER_PORT || process.env.NITROCORE_PORT || 8080
-);
+const port = Number(process.env.PORT || process.env.NITROCORE_PORT || 8080);
 const maxBodyBytes = Math.max(Number(process.env.WORKER_MAX_BODY_BYTES || 262144), 1024);
 
 async function toRequest(req) {

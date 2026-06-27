@@ -1,5 +1,4 @@
-// AWS Nitro signer + Secrets Manager adapter.
-// Replaces the Phala dstack/tappd TEE client. Key material (X25519 encryption
+// AWS Nitro signer + Secrets Manager adapter. Key material (X25519 encryption
 // wrap key, NeoDID nullifier salt) lives in AWS Secrets Manager and is read via
 // the instance role; deterministic per-(path,purpose) sub-keys are derived from
 // those masters. Neo N3 fulfillment signing is performed by the relayer through
@@ -27,10 +26,7 @@ function neodidSaltSecretId() {
 }
 
 export function shouldUseDerivedKeys(payload = {}) {
-  return normalizeBoolean(
-    payload.use_derived_keys ?? env('NITRO_USE_DERIVED_KEYS', 'PHALA_USE_DERIVED_KEYS'),
-    false
-  );
+  return normalizeBoolean(payload.use_derived_keys ?? env('NITRO_USE_DERIVED_KEYS'), false);
 }
 
 export function validateKeyRole(role) {
@@ -47,9 +43,7 @@ export function validateKeyRole(role) {
 
 export function shouldEmitAttestation(payload = {}) {
   return normalizeBoolean(
-    payload.include_attestation ??
-      payload.emit_attestation ??
-      env('NITRO_EMIT_ATTESTATION', 'PHALA_EMIT_ATTESTATION'),
+    payload.include_attestation ?? payload.emit_attestation ?? env('NITRO_EMIT_ATTESTATION'),
     false
   );
 }
@@ -173,12 +167,8 @@ function normalizePrivateKeyHex(buffer, label) {
 export async function deriveNeoN3PrivateKeyHex(role = 'worker') {
   validateKeyRole(role);
   const keyPath =
-    trimString(
-      env(
-        `NITRO_${role.toUpperCase()}_NEO_N3_KEY_PATH`,
-        `PHALA_DSTACK_${role.toUpperCase()}_NEO_N3_KEY_PATH`
-      )
-    ) || `morpheus/neo-n3/${role}/signing/v1`;
+    trimString(env(`NITRO_${role.toUpperCase()}_NEO_N3_KEY_PATH`)) ||
+    `morpheus/neo-n3/${role}/signing/v1`;
   return normalizePrivateKeyHex(await deriveKeyBytes(keyPath, 'neo-n3-signing'), `neo-n3:${role}`);
 }
 

@@ -57,42 +57,29 @@ function mergeConfidentialValue(baseValue, patchValue) {
 
 function getOracleKeyStorePath() {
   return (
-    trimString(
-      env(
-        'NITRO_ORACLE_KEYSTORE_PATH',
-        'MORPHEUS_ORACLE_KEYSTORE_PATH',
-        'PHALA_ORACLE_KEYSTORE_PATH'
-      )
-    ) || '/data/morpheus/oracle-key.json'
+    trimString(env('NITRO_ORACLE_KEYSTORE_PATH', 'MORPHEUS_ORACLE_KEYSTORE_PATH')) ||
+    '/data/morpheus/oracle-key.json'
   );
 }
 
 function parseConfiguredOracleKeyMaterial() {
-  const rawJson = trimString(
-    env('PHALA_ORACLE_KEY_MATERIAL_JSON') || env('MORPHEUS_ORACLE_KEY_MATERIAL_JSON') || ''
-  );
-  const rawBase64 = trimString(
-    env('PHALA_ORACLE_KEY_MATERIAL_BASE64') || env('MORPHEUS_ORACLE_KEY_MATERIAL_BASE64') || ''
-  );
-  const explicitPublicKey = trimString(
-    env('PHALA_ORACLE_PUBLIC_KEY_RAW') || env('MORPHEUS_ORACLE_PUBLIC_KEY_RAW') || ''
-  );
-  const explicitPrivateKey = trimString(
-    env('PHALA_ORACLE_PRIVATE_KEY_PKCS8') || env('MORPHEUS_ORACLE_PRIVATE_KEY_PKCS8') || ''
-  );
+  const rawJson = trimString(env('MORPHEUS_ORACLE_KEY_MATERIAL_JSON') || '');
+  const rawBase64 = trimString(env('MORPHEUS_ORACLE_KEY_MATERIAL_BASE64') || '');
+  const explicitPublicKey = trimString(env('MORPHEUS_ORACLE_PUBLIC_KEY_RAW') || '');
+  const explicitPrivateKey = trimString(env('MORPHEUS_ORACLE_PRIVATE_KEY_PKCS8') || '');
 
   let parsed = null;
   if (rawJson) {
     try {
       parsed = JSON.parse(rawJson);
     } catch {
-      throw new Error('PHALA_ORACLE_KEY_MATERIAL_JSON is not valid JSON');
+      throw new Error('MORPHEUS_ORACLE_KEY_MATERIAL_JSON is not valid JSON');
     }
   } else if (rawBase64) {
     try {
       parsed = JSON.parse(Buffer.from(rawBase64, 'base64').toString('utf8'));
     } catch {
-      throw new Error('PHALA_ORACLE_KEY_MATERIAL_BASE64 is not valid base64 JSON');
+      throw new Error('MORPHEUS_ORACLE_KEY_MATERIAL_BASE64 is not valid base64 JSON');
     }
   } else if (explicitPublicKey && explicitPrivateKey) {
     parsed = {
@@ -125,14 +112,8 @@ function parseConfiguredOracleKeyMaterial() {
 // wrap key it derives ITSELF from Secrets Manager (reachable now that the SDK
 // egresses via the vsock proxy). This is the no-host-unseal path for RC2.
 function parseSealedKeystoreFromEnv() {
-  const rawJson = trimString(
-    env('PHALA_ORACLE_SEALED_KEYSTORE_JSON') || env('MORPHEUS_ORACLE_SEALED_KEYSTORE_JSON') || ''
-  );
-  const rawBase64 = trimString(
-    env('PHALA_ORACLE_SEALED_KEYSTORE_BASE64') ||
-      env('MORPHEUS_ORACLE_SEALED_KEYSTORE_BASE64') ||
-      ''
-  );
+  const rawJson = trimString(env('MORPHEUS_ORACLE_SEALED_KEYSTORE_JSON') || '');
+  const rawBase64 = trimString(env('MORPHEUS_ORACLE_SEALED_KEYSTORE_BASE64') || '');
   let parsed = null;
   if (rawJson) {
     try {
@@ -194,11 +175,7 @@ function resolveAbsoluteKeystorePath(filePath) {
 async function deriveOracleWrapKey() {
   const keyPath =
     trimString(
-      env(
-        'NITRO_DSTACK_ORACLE_ENCRYPTION_KEY_PATH',
-        'MORPHEUS_ORACLE_ENCRYPTION_KEY_PATH',
-        'PHALA_DSTACK_ORACLE_ENCRYPTION_KEY_PATH'
-      )
+      env('NITRO_DSTACK_ORACLE_ENCRYPTION_KEY_PATH', 'MORPHEUS_ORACLE_ENCRYPTION_KEY_PATH')
     ) || 'morpheus/oracle/encryption/wrap/v1';
   const bytes = await deriveKeyBytes(keyPath, 'oracle-encryption-wrap');
   if (bytes.length < 32) {
