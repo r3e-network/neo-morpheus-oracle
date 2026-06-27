@@ -13,13 +13,8 @@ import crypto from 'crypto';
 const CVM_URL =
   process.env.NITRO_RUNTIME_URL ||
   process.env.MORPHEUS_RUNTIME_URL ||
-  process.env.PHALA_CVM_URL ||
   'https://oracle.meshmini.app/mainnet';
-const AUTH_TOKEN =
-  process.env.NITRO_API_TOKEN ||
-  process.env.MORPHEUS_RUNTIME_TOKEN ||
-  process.env.PHALA_API_TOKEN ||
-  '';
+const AUTH_TOKEN = process.env.NITRO_API_TOKEN || process.env.MORPHEUS_RUNTIME_TOKEN || '';
 const ORACLE_CONTRACT = process.env.ORACLE_CONTRACT || '0xf54d8584ef82315c1800373272ab08ae0db2d5ef';
 const RPC_URL = process.env.NEO_RPC_URL || 'https://api.n3index.dev/mainnet';
 const NETWORK_MAGIC = parseInt(process.env.NEO_NETWORK_MAGIC || '860833102');
@@ -32,7 +27,9 @@ const NEW_VERIFIER_PUBKEY = '03b8e849395076b0b17e204a86813e057d622acf9856ea80072
 const DRY_RUN = process.argv.includes('--dry-run');
 
 if (!AUTH_TOKEN) {
-  console.error('ERROR: PHALA_API_TOKEN environment variable is required');
+  console.error(
+    'ERROR: NITRO_API_TOKEN or MORPHEUS_RUNTIME_TOKEN environment variable is required'
+  );
   process.exit(1);
 }
 

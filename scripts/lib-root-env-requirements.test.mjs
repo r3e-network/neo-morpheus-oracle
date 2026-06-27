@@ -48,21 +48,20 @@ test('the suffix-form network-scoped runtime URL the web app reads satisfies the
   assert.deepEqual(missing.web_server, []);
 });
 
-test('infix runtime URL names and PHALA_API_URL do NOT satisfy the web groups (web never reads them)', () => {
+test('infix runtime URL names do NOT satisfy the web groups (web never reads them)', () => {
   const env = satisfiedWebEnv();
   delete env.MORPHEUS_RUNTIME_URL_TESTNET;
   env.MORPHEUS_TESTNET_RUNTIME_URL = 'https://runtime.test/testnet';
   env.MORPHEUS_MAINNET_RUNTIME_URL = 'https://runtime.test/mainnet';
-  env.PHALA_API_URL = 'https://legacy.test';
   const missing = evaluateRootEnvRequirements(env, ROOT_ENV_REQUIRED_GROUPS);
   const runtimeGroupLabel = WEB_RUNTIME_URL_KEYS.join(' | ');
   assert.ok(
     missing.web_public.includes(runtimeGroupLabel),
-    'web_public must flag the runtime URL group when only infix/PHALA names are set'
+    'web_public must flag the runtime URL group when only infix names are set'
   );
   assert.ok(
     missing.web_server.includes(runtimeGroupLabel),
-    'web_server must flag the runtime URL group when only infix/PHALA names are set'
+    'web_server must flag the runtime URL group when only infix names are set'
   );
 });
 

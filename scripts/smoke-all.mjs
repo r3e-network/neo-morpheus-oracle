@@ -35,8 +35,6 @@ const shouldRunN3 = Boolean(
   hasAny(
     'NEO_N3_WIF',
     'NEO_TESTNET_WIF',
-    'PHALA_NEO_N3_WIF',
-    'PHALA_NEO_N3_PRIVATE_KEY',
     'MORPHEUS_RELAYER_NEO_N3_WIF',
     'MORPHEUS_RELAYER_NEO_N3_PRIVATE_KEY'
   )

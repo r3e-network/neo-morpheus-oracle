@@ -87,7 +87,7 @@ const requestedRpcUrl = trimString(process.env.NEO_RPC_URL || '');
 const network = normalizeMorpheusNetwork(process.env.MORPHEUS_NETWORK || 'testnet');
 const explicitContractEnvSnapshot = snapshotEnv(CONTRACT_ENV_KEYS);
 const selectedNitroEnvPath = path.resolve('deploy', 'nitro', `morpheus.${network}.env`);
-const selectedPhalaEnvSnapshot = await loadEnvSnapshot(selectedNitroEnvPath);
+const selectedNitroEnvSnapshot = await loadEnvSnapshot(selectedNitroEnvPath);
 await loadDotEnv(selectedNitroEnvPath, { override: false });
 await loadDotEnv();
 const networkConfig = await loadJsonIfExists(path.resolve('config', 'networks', `${network}.json`));
@@ -488,7 +488,7 @@ const rawOracleHash = trimString(
   resolveNetworkScopedValue({
     network,
     explicitEnv: explicitContractEnvSnapshot,
-    selectedEnv: selectedPhalaEnvSnapshot,
+    selectedEnv: selectedNitroEnvSnapshot,
     loadedEnv: process.env,
     genericKey: 'CONTRACT_MORPHEUS_ORACLE_HASH',
     mainnetKey: 'CONTRACT_MORPHEUS_ORACLE_HASH_MAINNET',
@@ -500,7 +500,7 @@ const rawCallbackHash = trimString(
   resolveNetworkScopedValue({
     network,
     explicitEnv: explicitContractEnvSnapshot,
-    selectedEnv: selectedPhalaEnvSnapshot,
+    selectedEnv: selectedNitroEnvSnapshot,
     loadedEnv: process.env,
     genericKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH',
     mainnetKey: 'CONTRACT_ORACLE_CALLBACK_CONSUMER_HASH_MAINNET',
@@ -540,23 +540,17 @@ const preferredRequestSecrets =
     ? [
         trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET || ''),
         trimString(process.env.NEO_N3_WIF_MAINNET || ''),
-        trimString(process.env.PHALA_NEO_N3_WIF_MAINNET || ''),
         trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF || ''),
         trimString(process.env.NEO_N3_WIF || ''),
-        trimString(process.env.PHALA_NEO_N3_WIF || ''),
         trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET || ''),
         trimString(process.env.NEO_TESTNET_WIF || ''),
-        trimString(process.env.PHALA_NEO_N3_WIF_TESTNET || ''),
       ]
     : [
         trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_TESTNET || ''),
         trimString(process.env.NEO_TESTNET_WIF || ''),
-        trimString(process.env.PHALA_NEO_N3_WIF_TESTNET || ''),
         trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF || ''),
         trimString(process.env.NEO_N3_WIF || ''),
-        trimString(process.env.PHALA_NEO_N3_WIF || ''),
         trimString(process.env.MORPHEUS_RELAYER_NEO_N3_WIF_MAINNET || ''),
-        trimString(process.env.PHALA_NEO_N3_WIF_MAINNET || ''),
       ];
 const requestSecret = explicitRequestWif || preferredRequestSecrets.find((value) => value) || '';
 const requestSigner = requestSecret ? materializeNeoN3Secret(requestSecret) : null;
@@ -579,7 +573,7 @@ const verifierSecret =
 
 if (!requestSigner) {
   throw new Error(
-    'MORPHEUS_SMOKE_REQUEST_WIF, NEO_N3_WIF, NEO_TESTNET_WIF, MORPHEUS_RELAYER_NEO_N3_WIF, or PHALA_NEO_N3_WIF is required'
+    'MORPHEUS_SMOKE_REQUEST_WIF, NEO_N3_WIF, NEO_TESTNET_WIF, or MORPHEUS_RELAYER_NEO_N3_WIF is required'
   );
 }
 if (!oracleHash) throw new Error('CONTRACT_MORPHEUS_ORACLE_HASH is required');

@@ -931,16 +931,9 @@ async function main() {
       networkConfig.neo_n3?.examples?.oracle_callback_consumer
   );
   const runtimeUrl = trimString(
-    process.env.MORPHEUS_MAINNET_RUNTIME_URL ||
-      process.env.MORPHEUS_RUNTIME_URL ||
-      process.env.PHALA_CVM_URL ||
-      process.env.PHALA_API_URL
+    process.env.MORPHEUS_MAINNET_RUNTIME_URL || process.env.MORPHEUS_RUNTIME_URL
   ).replace(/\/$/, '');
-  const token = trimString(
-    process.env.MORPHEUS_RUNTIME_TOKEN ||
-      process.env.PHALA_API_TOKEN ||
-      process.env.PHALA_SHARED_SECRET
-  );
+  const token = trimString(process.env.MORPHEUS_RUNTIME_TOKEN || process.env.NITRO_API_TOKEN);
   const runtimeRegistry = networkConfig.nitro;
   const runtimeKeyUrls = [
     trimString(process.env.MORPHEUS_PUBLIC_API_URL),
@@ -958,8 +951,8 @@ async function main() {
   if (!callbackConsumerHash) throw new Error('mainnet callback consumer hash is required');
   if (!exampleConsumerHash) throw new Error('mainnet example consumer hash is required');
   if (!runtimeUrl)
-    throw new Error('PHALA_API_URL, PHALA_CVM_URL, or MORPHEUS_RUNTIME_URL is required');
-  if (!token) throw new Error('PHALA_API_TOKEN or MORPHEUS_RUNTIME_TOKEN is required');
+    throw new Error('MORPHEUS_MAINNET_RUNTIME_URL or MORPHEUS_RUNTIME_URL is required');
+  if (!token) throw new Error('MORPHEUS_RUNTIME_TOKEN or NITRO_API_TOKEN is required');
 
   const workerSigner = resolvePinnedNeoN3Role('mainnet', 'worker', { env: process.env });
   const workerSecret =

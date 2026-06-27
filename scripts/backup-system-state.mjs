@@ -44,7 +44,7 @@ async function fetchRuntimeConfig(appId, apiToken) {
 }
 
 async function backupOracleKeystore(appId, apiToken, destination) {
-  const candidateContainers = ['morpheus-nitro-worker', 'nitro-worker', 'morpheus-phala-worker'];
+  const candidateContainers = ['morpheus-nitro-worker', 'nitro-worker'];
 
   let lastError = null;
   for (const containerName of candidateContainers) {
@@ -112,13 +112,9 @@ await loadDotEnv(path.resolve(process.cwd(), '.env'), { override: false });
 
 const appId = trimString(process.env.PHALA_APP_ID || 'ddff154546fe22d15b65667156dd4b7c611e6093');
 const apiToken = trimString(
-  process.env.MORPHEUS_RUNTIME_TOKEN ||
-    process.env.PHALA_API_TOKEN ||
-    process.env.PHALA_SHARED_SECRET ||
-    ''
+  process.env.MORPHEUS_RUNTIME_TOKEN || process.env.NITRO_API_TOKEN || ''
 );
-if (!apiToken)
-  throw new Error('MORPHEUS_RUNTIME_TOKEN or PHALA_API_TOKEN or PHALA_SHARED_SECRET is required');
+if (!apiToken) throw new Error('MORPHEUS_RUNTIME_TOKEN or NITRO_API_TOKEN is required');
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const backupRoot = path.resolve(process.cwd(), 'private-backups', appId, timestamp);
@@ -126,7 +122,7 @@ await ensureBackupDir(backupRoot);
 
 const localEnvPath = path.resolve(process.cwd(), '.env');
 const backupNetwork =
-  trimString(process.env.MORPHEUS_NETWORK || process.env.PHALA_ENV_NETWORK || 'mainnet') ||
+  trimString(process.env.MORPHEUS_NETWORK || process.env.NITRO_ENV_NETWORK || 'mainnet') ||
   'mainnet';
 const nitroEnvPath = path.resolve(process.cwd(), `deploy/nitro/morpheus.${backupNetwork}.env`);
 const keystoreBackupPath = path.join(backupRoot, 'oracle-key.json');

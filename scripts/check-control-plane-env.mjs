@@ -105,7 +105,7 @@ const optional = {
       'MORPHEUS_TESTNET_EXECUTION_BASE_URL',
       'MORPHEUS_EXECUTION_BASE_URL',
     ],
-    ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'],
+    ['MORPHEUS_EXECUTION_TOKEN'],
     neoN3FeedSignerKeys('MAINNET'),
     neoN3FeedSignerKeys('TESTNET'),
   ],
@@ -163,8 +163,6 @@ const executionPlaneConfigured =
       ...neoN3FeedSignerKeys('MAINNET'),
       ...neoN3FeedSignerKeys('TESTNET'),
       'MORPHEUS_EXECUTION_TOKEN',
-      'PHALA_API_TOKEN',
-      'PHALA_SHARED_SECRET',
     ])
   );
 const appBackendConfigured = isSectionConfigured(env, ['MORPHEUS_APP_BACKEND_URL']);
@@ -274,8 +272,8 @@ if (executionPlaneConfigured) {
   ) {
     executionMissing.push('MORPHEUS_TESTNET_FEED_EXECUTION_BASE_URL');
   }
-  if (!getValue(env, ['MORPHEUS_EXECUTION_TOKEN', 'PHALA_API_TOKEN', 'PHALA_SHARED_SECRET'])) {
-    executionMissing.push('MORPHEUS_EXECUTION_TOKEN | PHALA_API_TOKEN | PHALA_SHARED_SECRET');
+  if (!getValue(env, ['MORPHEUS_EXECUTION_TOKEN'])) {
+    executionMissing.push('MORPHEUS_EXECUTION_TOKEN');
   }
   partiallyConfiguredMissing.execution_plane = executionMissing;
 }

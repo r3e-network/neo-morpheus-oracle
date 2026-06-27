@@ -56,7 +56,7 @@ const signerRoles = ['updater', 'oracle_verifier'].map((role) => {
 
 const checks = {
   signer_material: signerRoles.every((entry) => entry.ok),
-  runtime_token: pick(env, ['NITRO_SIGNER_TOKEN', 'MORPHEUS_RUNTIME_TOKEN', 'PHALA_SHARED_SECRET']),
+  runtime_token: pick(env, ['NITRO_SIGNER_TOKEN', 'MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN']),
   supabase: pick(env, ['SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'morpheus_SUPABASE_URL']),
   supabase_secret: pick(env, [
     'SUPABASE_SECRET_KEY',
@@ -89,7 +89,7 @@ console.log(
       checked_sources: sources,
       next_action: checks.signer_material
         ? 'render:nitro-env can create relayer and signer env inputs'
-        : 'recover the pinned Phala/dstack signer material or generate a new Nitro signer identity and rotate on-chain roles',
+        : 'recover the pinned signer material or generate a new Nitro signer identity and rotate on-chain roles',
     },
     null,
     2
