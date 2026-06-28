@@ -90,8 +90,8 @@ If one of these is wrong, the system usually stops working.
 ### Admin Control Plane / 管理面权限
 
 - `MORPHEUS_PROVIDER_CONFIG_API_KEY`
-  English: Admin key for provider-config management routes.
-  中文：provider 配置管理接口使用的管理员 key。
+  English: Admin key for provider-config management routes ONLY. It does not authorize control-plane execution (callback broadcast, feed-tick, automation, job reads) or Cloudflare control-plane ingress — use an operator/control-plane key for those.
+  中文：仅用于 provider 配置管理接口的管理员 key。它**不**授权控制面执行（回调广播、feed-tick、自动化、任务读取）或 Cloudflare 控制面入口——这些请使用 operator / 控制面 key。
 
 - `MORPHEUS_RELAYER_ADMIN_API_KEY`
   English: Admin key for relayer metrics, jobs, retry, and replay routes.

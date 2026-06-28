@@ -60,9 +60,12 @@ export const appConfig = {
     process.env.MORPHEUS_CONTROL_PLANE_URL ||
     process.env.NEXT_PUBLIC_MORPHEUS_CONTROL_PLANE_URL ||
     defaultControlPlaneUrl,
+  // The credential the backend presents when forwarding to control-plane routes.
+  // It must be one the control-plane auth check accepts (operator/admin-console
+  // or the runtime token) — NOT the low-privilege provider-config key, which no
+  // longer authorizes control-plane execution (audit finding 19/20/30/31/37).
   controlPlaneApiKey:
     process.env.MORPHEUS_CONTROL_PLANE_API_KEY ||
-    process.env.MORPHEUS_PROVIDER_CONFIG_API_KEY ||
     process.env.MORPHEUS_OPERATOR_API_KEY ||
     process.env.ADMIN_CONSOLE_API_KEY ||
     process.env.NITRO_API_TOKEN ||
