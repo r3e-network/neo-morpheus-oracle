@@ -43,12 +43,12 @@ function assertUrlInAllowlist(parsedUrl) {
   if (!allowed) throw new Error('url is not in ORACLE_HTTP_ALLOWLIST');
 }
 
-export async function normalizeOracleUrl(rawUrl) {
+export async function normalizeOracleUrl(rawUrl, { validateHost = true } = {}) {
   const parsedUrl = new URL(trimString(rawUrl));
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
     throw new Error('url must use http or https');
   }
-  await assertResolvedHostAllowed(parsedUrl.hostname);
+  if (validateHost) await assertResolvedHostAllowed(parsedUrl.hostname);
   assertUrlInAllowlist(parsedUrl);
   return parsedUrl.toString();
 }
@@ -65,17 +65,16 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   // between validation and connect: a hostname cannot resolve to a public IP
   // here and then re-resolve to an internal/metadata address at connect time.
   // (Node's built-in global fetch does not accept a custom dispatcher, so the
-  // oracle path uses undici.fetch directly.) An IP-literal or unresolvable host
-  // returns no pinned addresses and connects normally — there is nothing to
-  // rebind in those cases. resolvePinnedAddresses still rejects private/internal
-  // hosts regardless of which fetch implementation runs.
+  // oracle path uses undici.fetch directly.) An IP-literal returns no pinned
+  // addresses and connects directly. In production, an unresolvable hostname is
+  // rejected rather than silently falling back to an unpinned second lookup.
   const { hostname } = new URL(url);
-  const pinned = await resolvePinnedAddresses(hostname);
 
   // If the global fetch has been replaced (instrumented runtime or tests), defer
   // to it — a replacement performs its own connection handling, so the dispatcher
   // does not apply. Production never replaces it, so the pinned path is always used.
   const overridden = globalThis.fetch !== nativeFetch;
+  const pinned = await resolvePinnedAddresses(hostname, { allowUnresolved: overridden });
   const fetchImpl = overridden ? globalThis.fetch : undiciFetch;
   const dispatcher =
     !overridden && pinned.length > 0
@@ -201,7 +200,7 @@ export async function performOracleFetch(payload) {
     };
   }
 
-  const url = await normalizeOracleUrl(resolvedPayload.url);
+  const url = await normalizeOracleUrl(resolvedPayload.url, { validateHost: false });
   const encryptedTokenCiphertext = await resolveEncryptedTokenCiphertext(resolvedPayload);
   const decryptedToken = await decryptEncryptedToken(encryptedTokenCiphertext, resolvedPayload);
   const headers = normalizeHeaders(resolvedPayload.headers);

@@ -149,6 +149,14 @@ function normalizeJsonStringPayload(value: unknown): unknown {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return value;
+  if (trimmed.length > MAX_JSON_CHARS) {
+    return {
+      truncated: true,
+      omitted: 'large JSON string payload',
+      size: value.length,
+      sha256: sha256Hex(value),
+    };
+  }
   try {
     return JSON.parse(trimmed);
   } catch {

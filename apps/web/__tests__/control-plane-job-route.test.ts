@@ -61,6 +61,7 @@ describe('control-plane job status route auth', () => {
       { params }
     );
     expect(res.status).toBe(401);
+    expect(res.headers.get('cache-control')).toBe('no-store');
     await expect(res.json()).resolves.toEqual({ error: 'unauthorized' });
     // Must not reach the service-role read.
     expect(getServerSupabaseClient).not.toHaveBeenCalled();
@@ -77,6 +78,7 @@ describe('control-plane job status route auth', () => {
       { params }
     );
     expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
     const body = await res.json();
     expect(body.id).toBe('job-uuid-1');
     expect(body.decorated).toBe(true);

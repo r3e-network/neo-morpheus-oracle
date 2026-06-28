@@ -119,10 +119,11 @@ function isBlockedIpv6(address) {
 // private/loopback/link-local/ULA range. Returns:
 //   - [] for an IP-literal host (the connection already targets that literal IP,
 //     so there is nothing to rebind / pin), and
-//   - [] when resolution fails (lenient: the host could not be connected to
-//     either, so the fetch fails on its own and we avoid coupling validation to
-//     transient DNS availability).
-export async function resolvePinnedAddresses(hostname) {
+//   - [] when resolution fails by default (lenient: the host could not be
+//     connected to either, so the fetch fails on its own and we avoid coupling
+//     validation-only callers to transient DNS availability). Callers that must
+//     pin the actual connection can pass allowUnresolved=false to fail closed.
+export async function resolvePinnedAddresses(hostname, { allowUnresolved = true } = {}) {
   const host = trimString(hostname).toLowerCase();
   const literalHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
 
@@ -145,6 +146,9 @@ export async function resolvePinnedAddresses(hostname) {
   try {
     records = await dnsLookup(literalHost, { all: true, verbatim: true });
   } catch {
+    if (!allowUnresolved) {
+      throw new Error(`unable to resolve host: ${literalHost}`);
+    }
     return [];
   }
   if (!Array.isArray(records)) return [];

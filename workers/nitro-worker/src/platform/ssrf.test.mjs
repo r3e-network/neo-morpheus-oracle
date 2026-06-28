@@ -41,3 +41,10 @@ test('resolvePinnedAddresses returns validated {address,family} records for a pu
     assert.ok(record.family === 4 || record.family === 6);
   }
 });
+
+test('resolvePinnedAddresses can fail closed when a caller must pin the connection', async () => {
+  await assert.rejects(
+    resolvePinnedAddresses('morpheus-oracle-unresolved.invalid', { allowUnresolved: false }),
+    /unable to resolve host/i
+  );
+});

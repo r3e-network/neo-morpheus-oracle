@@ -175,6 +175,36 @@ describe('operation log secret redaction', () => {
     );
   });
 
+  it('hashes oversized raw JSON-string requestPayloads instead of parsing or previewing them', async () => {
+    const { recordOperationLog, flush } = await importModule();
+    const largeJsonBody = JSON.stringify({
+      id_token: 'eyJSECRET.large.payload.token',
+      note: 'x'.repeat(30000),
+    });
+
+    await recordOperationLog({
+      route: '/api/neodid/recovery-ticket',
+      method: 'POST',
+      category: 'system',
+      requestPayload: largeJsonBody,
+      httpStatus: 200,
+    });
+    await flush();
+
+    const row = insertedRows[0];
+    expect(row.request_payload).toMatchObject({
+      truncated: true,
+      omitted: 'large JSON string payload',
+      size: largeJsonBody.length,
+    });
+    expect(row.request_payload.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(row.request_payload.preview).toBeUndefined();
+    expect(JSON.stringify(row.request_payload)).not.toContain('large.payload.token');
+    expect(JSON.stringify(betterstackPayloads[0].request_payload)).not.toContain(
+      'large.payload.token'
+    );
+  });
+
   it('does not over-redact public key material', async () => {
     const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({

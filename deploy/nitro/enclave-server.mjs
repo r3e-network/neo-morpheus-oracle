@@ -205,9 +205,9 @@ function plaintextKeyProvisionAllowed() {
 }
 
 // The set of accepted bearer tokens, derived live from process.env (so a
-// /provision that adds a token takes effect immediately). Empty == bootstrap-open
-// (matches the signer: the host's FIRST /provision is unauthenticated, then every
-// sensitive call requires the now-known token).
+// /provision that adds a token takes effect immediately). Empty is NOT an open
+// bootstrap window anymore: assertProvisionAuthorized requires an image-pinned
+// MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN before the first /provision.
 function currentTrustedTokens() {
   const set = new Set();
   for (const key of TOKEN_ENV_KEYS) {
