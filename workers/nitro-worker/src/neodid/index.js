@@ -124,15 +124,18 @@ const PROVIDERS_WITH_TEE_UID = new Set(
   )
 );
 
-// Default ALLOW so the 9 deployed+documented providers keep working. Setting
-// MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID=false makes the worker reject any ticket
-// whose provider_uid is not TEE-verified — a BREAKING, coordinated rollout that
-// the operator opts into deliberately. This governs the low-assurance lanes
+// Default DENY (secure-by-default, audit finding 24/33): the worker rejects any
+// bind/action ticket whose provider_uid was not TEE-verified, because for the
+// non-web3auth providers the uid is taken straight from the caller, so allowing
+// it lets anyone mint a ticket against an arbitrary identity. Operators who still
+// need the legacy provider lanes (twitter/github/… where the uid is not derived
+// in-TEE) opt back in explicitly with MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID=true —
+// a deliberate, documented downgrade. This governs the low-assurance lanes
 // (bind / action-ticket) only; the high-assurance recovery / zklogin lanes
 // fail closed regardless (see isHighAssuranceUnverifiedProviderAllowed).
 function allowUnverifiedProviderUid() {
   const raw = trimString(env('MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID')).toLowerCase();
-  if (!raw) return true; // default: preserve current behavior
+  if (!raw) return false; // default: fail closed
   return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
 
