@@ -1,8 +1,18 @@
 import { getServerSupabaseClient, resolveSupabaseNetwork } from '@/lib/server-supabase';
+import { isAuthorizedControlPlaneRequest } from '@/lib/control-plane-auth';
 import { decorateControlPlaneJob } from '@/lib/workflow-runtime';
 import { trimString } from '@/lib/strings';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: Request, context: { params: Promise<{ jobId: string }> }) {
+  // Job rows carry payload/result/error/metadata (incl. metadata.client_ip), so
+  // this control-plane read must be operator-authenticated — knowing the opaque
+  // job UUID is not authorization. Matches the sibling control-plane routes.
+  if (!isAuthorizedControlPlaneRequest(request)) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   const { jobId } = await context.params;
   const normalizedJobId = trimString(jobId);
   if (!normalizedJobId) {
