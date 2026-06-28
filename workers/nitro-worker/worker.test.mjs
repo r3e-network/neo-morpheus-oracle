@@ -212,9 +212,18 @@ const TEST_WASM_LOOP_BASE64 =
 const TEST_ORACLE_ENCRYPTION_ALGORITHM = 'X25519-HKDF-SHA256-AES-256-GCM';
 const TEST_ORACLE_ENCRYPTION_INFO = 'morpheus-confidential-payload-v2';
 const AES_GCM_TAG_LENGTH_BYTES = 16;
+const NEODID_BINDING_DOMAIN = Buffer.from('neodid-binding-v1', 'utf8');
 const NEODID_ACTION_DOMAIN = Buffer.from('neodid-action-v1', 'utf8');
 const NEODID_RECOVERY_DOMAIN = Buffer.from('neodid-recovery-v1', 'utf8');
 const NEODID_ZKLOGIN_DOMAIN = Buffer.from('neodid-zklogin-v1', 'utf8');
+// Matches the worker default network (testnet) and NeoDIDRegistry.NetworkMagicLe4().
+const TESTNET_NEO_NETWORK_MAGIC = 894710606;
+
+function neoNetworkMagicLe4(magic) {
+  const bytes = Buffer.alloc(4);
+  bytes.writeUInt32LE(magic >>> 0, 0);
+  return bytes;
+}
 
 function encodeLengthPrefixedAscii(value = '') {
   const body = Buffer.from(String(value || ''), 'utf8');
@@ -729,6 +738,43 @@ test('neodid web3auth verification ignores caller-supplied jwks_url/client_id (e
   assert.ok(forged.error, 'expected a web3auth verification error');
 });
 
+test('neodid bind digest binds the network magic for on-chain parity (finding 45)', async () => {
+  const vault = '0x6d0656f6dd91469db1c90cc1e574380613f43738';
+  const res = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: vault,
+        provider: 'twitter',
+        provider_uid: 'twitter_uid_magic',
+        claim_type: 'Twitter_VIP',
+        claim_value: 'followers_gt_1000',
+        metadata: { tier: 'vip' },
+      }),
+    })
+  );
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  const fields = [
+    NEODID_BINDING_DOMAIN,
+    Buffer.from(vault.replace(/^0x/, ''), 'hex'),
+    encodeLengthPrefixedAscii('twitter'),
+    encodeLengthPrefixedAscii('Twitter_VIP'),
+    encodeLengthPrefixedAscii('followers_gt_1000'),
+    Buffer.from(body.master_nullifier.replace(/^0x/, ''), 'hex'),
+    Buffer.from(body.metadata_hash.replace(/^0x/, ''), 'hex'),
+  ];
+  const withMagic = createHash('sha256')
+    .update(Buffer.concat([...fields, neoNetworkMagicLe4(TESTNET_NEO_NETWORK_MAGIC)]))
+    .digest('hex');
+  const withoutMagic = createHash('sha256').update(Buffer.concat(fields)).digest('hex');
+  // The worker digest must match the contract layout (NetworkMagicLe4 appended)…
+  assert.equal(body.digest, `0x${withMagic}`, 'bind digest must append the LE4 network magic');
+  // …and must NOT match the pre-fix layout (proves the magic is actually bound).
+  assert.notEqual(body.digest, `0x${withoutMagic}`);
+});
+
 test('neodid action-ticket generates action-specific nullifiers', async () => {
   const common = {
     provider: 'twitter',
@@ -755,6 +801,8 @@ test('neodid action-ticket generates action-specific nullifiers', async () => {
         Buffer.from(common.disposable_account.replace(/^0x/, ''), 'hex'),
         encodeLengthPrefixedAscii('DAO_Vote_42'),
         Buffer.from(first.action_nullifier.replace(/^0x/, ''), 'hex'),
+        // Network magic bound into the digest (matches NeoDIDRegistry).
+        neoNetworkMagicLe4(TESTNET_NEO_NETWORK_MAGIC),
       ])
     )
     .digest('hex');
