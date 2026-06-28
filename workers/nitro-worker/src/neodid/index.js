@@ -7,6 +7,7 @@ import {
 } from '../../../../scripts/lib-neo-signers.mjs';
 import {
   env,
+  envForNetwork,
   json,
   requestLog,
   resolvePayloadNetwork,
@@ -375,6 +376,19 @@ function encodeHash160OrZero(value) {
   return Buffer.from(value.replace(/^0x/i, ''), 'hex');
 }
 
+// 4-byte little-endian network magic, matching NeoDIDRegistry.NetworkMagicLe4()
+// (Runtime.GetNetwork()). The contract's ComputeBindingDigest/ComputeActionDigest
+// append these bytes before the SHA256, so the off-chain signer MUST reproduce
+// them or every binding/action ticket fails on-chain signature verification.
+function neoN3NetworkMagicLe4(network) {
+  const fallback = network === 'mainnet' ? 860833102 : 894710606;
+  const raw = Number(envForNetwork(network, 'NEO_NETWORK_MAGIC') || fallback);
+  const magic = Number.isFinite(raw) && raw > 0 ? raw : fallback;
+  const bytes = Buffer.alloc(4);
+  bytes.writeUInt32LE(magic >>> 0, 0);
+  return bytes;
+}
+
 function buildBindingDigestBytes(ticket) {
   return createHash('sha256')
     .update(
@@ -386,6 +400,7 @@ function buildBindingDigestBytes(ticket) {
         encodeLengthPrefixedAscii(ticket.claim_value || ''),
         Buffer.from(ticket.master_nullifier, 'hex'),
         Buffer.from(ticket.metadata_hash, 'hex'),
+        neoN3NetworkMagicLe4(ticket.network),
       ])
     )
     .digest();
@@ -399,6 +414,7 @@ function buildActionDigestBytes(ticket) {
         Buffer.from(ticket.disposable_account.replace(/^0x/i, ''), 'hex'),
         encodeLengthPrefixedAscii(ticket.action_id),
         Buffer.from(ticket.action_nullifier, 'hex'),
+        neoN3NetworkMagicLe4(ticket.network),
       ])
     )
     .digest();
@@ -657,6 +673,9 @@ export async function handleNeoDidBind(payload = {}) {
     claim_type: trimString(resolvedPayload.claim_type || 'Generic_Claim') || 'Generic_Claim',
     claim_value: trimString(resolvedPayload.claim_value || ''),
     metadata_hash: computeMetadataHash(resolvedPayload.metadata || {}),
+    // Network the digest is signed for; bound into the digest so the signature
+    // matches the on-chain NeoDIDRegistry verifier and cannot be cross-network replayed.
+    network: resolvePayloadNetwork(resolvedPayload, 'testnet'),
   };
   ticket.master_nullifier = computeMasterNullifier(ticket.provider, ticket.provider_uid, saltBytes);
   const digestBytes = buildBindingDigestBytes(ticket);
@@ -689,6 +708,8 @@ export async function handleNeoDidActionTicket(payload = {}) {
     ),
     action_id: actionId,
     action_nullifier: actionNullifier,
+    // Bound into the digest to match the on-chain verifier (cross-network replay guard).
+    network: resolvePayloadNetwork(resolvedPayload, 'testnet'),
   };
   const digestBytes = buildActionDigestBytes(ticket);
   const signer = await signDigestBytes(digestBytes, resolvedPayload);
