@@ -258,7 +258,15 @@ function assertProvisionAuthorized(headers = {}) {
     return;
   }
   const bootstrap = trimString(process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN);
-  if (!bootstrap) return; // fully-open bootstrap (preserves prior behaviour when unset)
+  // Fail closed (audit finding 46): with no provisioned runtime token AND no
+  // image-pinned bootstrap token, refuse the first /provision instead of allowing
+  // an open provisioning window. Production EIFs must bake a runtime token
+  // (NITRO_SIGNER_TOKEN / MORPHEUS_RUNTIME_TOKEN) — which takes the trusted-token
+  // path above — or MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN, so this branch is never
+  // reachable unauthenticated.
+  if (!bootstrap) {
+    throw httpError(401, 'provision requires MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN or a runtime token');
+  }
   const token = extractRequestToken(headers);
   if (timingSafeTokenMatch(token, bootstrap)) return;
   throw httpError(401, 'unauthorized');

@@ -1330,8 +1330,9 @@ test('provision bootstrap requires the image-pinned bootstrap token when no runt
   }
 });
 
-test('provision bootstrap stays fully open when no bootstrap token is pinned', async () => {
-  // Empty trusted-token set + NO bootstrap token => open bootstrap (prior behaviour).
+test('provision fails closed when neither a runtime token nor a bootstrap token is set', async () => {
+  // Empty trusted-token set + NO bootstrap token => first /provision is REFUSED
+  // (audit finding 46), instead of the prior fully-open bootstrap window.
   const savedTokens = {};
   for (const k of [
     'NITRO_SIGNER_TOKEN',
@@ -1345,14 +1346,13 @@ test('provision bootstrap stays fully open when no bootstrap token is pinned', a
   const savedBootstrap = process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
   delete process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
   try {
-    const ok = await dispatch(
+    const refused = await dispatch(
       'POST',
       '/provision',
       {},
       JSON.stringify({ env: { MORPHEUS_NETWORK: 'testnet' } })
     );
-    assert.equal(ok.status, 200);
-    assert.equal(ok.body.provisioned, true);
+    assert.equal(refused.status, 401);
   } finally {
     if (savedBootstrap === undefined) delete process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN;
     else process.env.MORPHEUS_ENCLAVE_BOOTSTRAP_TOKEN = savedBootstrap;
