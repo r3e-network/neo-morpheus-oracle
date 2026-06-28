@@ -10,10 +10,11 @@
     "test": "node --test worker.test.mjs src/*.test.mjs src/*/*.test.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.0.0",
     "@cityofzion/neon-js": "^5.8.1",
     "ethers": "^6.16.0",
     "jose": "^6.2.1",
-    "@aws-sdk/client-secrets-manager": "^3.0.0"
+    "undici": "^8.5.0"
   },
   "overrides": {
     "@cityofzion/neon-core": {

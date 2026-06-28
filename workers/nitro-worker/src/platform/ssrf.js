@@ -112,10 +112,17 @@ function isBlockedIpv6(address) {
   );
 }
 
-// Resolves the hostname and rejects when the literal host or any resolved
-// address falls inside a private/loopback/link-local/ULA range. Used both at
-// validation time and immediately before the fetch to limit DNS rebinding.
-export async function assertResolvedHostAllowed(hostname) {
+// Resolve + validate a hostname and return the validated resolved addresses so
+// the caller can PIN the outbound connection to them — closing the DNS-rebinding
+// window between this check and the actual connect (audit finding 8). Rejects
+// when the literal host or any resolved address falls inside a
+// private/loopback/link-local/ULA range. Returns:
+//   - [] for an IP-literal host (the connection already targets that literal IP,
+//     so there is nothing to rebind / pin), and
+//   - [] when resolution fails (lenient: the host could not be connected to
+//     either, so the fetch fails on its own and we avoid coupling validation to
+//     transient DNS availability).
+export async function resolvePinnedAddresses(hostname) {
   const host = trimString(hostname).toLowerCase();
   const literalHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
 
@@ -128,24 +135,31 @@ export async function assertResolvedHostAllowed(hostname) {
     if (isBlockedIpAddress(literalHost)) {
       throw new Error('private/internal URLs not allowed');
     }
-    return;
+    return [];
   }
 
   // Resolve through getaddrinfo (the same path the outbound fetch uses), which
   // also normalizes octal/hex/decimal IPv4 literals, then reject any private
-  // address. A resolution failure is not hard-blocked here: the host could not
-  // be connected to either, so the subsequent fetch fails on its own and we
-  // avoid coupling validation to transient DNS/network availability.
+  // address.
   let records;
   try {
     records = await dnsLookup(literalHost, { all: true, verbatim: true });
   } catch {
-    return;
+    return [];
   }
-  if (!Array.isArray(records)) return;
+  if (!Array.isArray(records)) return [];
   for (const record of records) {
     if (isBlockedIpAddress(record?.address)) {
       throw new Error('private/internal URLs not allowed');
     }
   }
+  return records
+    .filter((record) => record?.address)
+    .map((record) => ({ address: record.address, family: record.family }));
+}
+
+// Validation-only wrapper used at URL-parse time (and anywhere the resolved
+// addresses are not needed). Throws on a private/internal host.
+export async function assertResolvedHostAllowed(hostname) {
+  await resolvePinnedAddresses(hostname);
 }
