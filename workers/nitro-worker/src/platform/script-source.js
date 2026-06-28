@@ -29,7 +29,7 @@ function parseScriptStackItem(item, encoding = 'utf8') {
   throw new Error(`script reference returned unsupported stack type: ${item.type}`);
 }
 
-function normalizeScriptReference(payload = {}) {
+async function normalizeScriptReference(payload = {}) {
   const explicit =
     payload.script_ref && typeof payload.script_ref === 'object' ? payload.script_ref : null;
   const contractHash = trimString(
@@ -49,7 +49,7 @@ function normalizeScriptReference(payload = {}) {
   const userRpcUrl = trimString(explicit?.rpc_url || payload.rpc_url || '');
   const network = resolvePayloadNetwork(payload, 'testnet');
   const resolvedRpcUrl = userRpcUrl
-    ? validateRpcUrl(userRpcUrl)
+    ? await validateRpcUrl(userRpcUrl)
     : trimString(envForNetwork(network, 'NEO_RPC_URL'));
   return {
     target_chain: trimString(explicit?.target_chain || payload.target_chain || 'neo_n3'),
@@ -69,7 +69,7 @@ export async function resolveScriptSource(payload = {}) {
     return decodeBase64(payload.script_base64).toString('utf8');
   }
 
-  const reference = normalizeScriptReference(payload);
+  const reference = await normalizeScriptReference(payload);
   if (!reference) return '';
 
   const targetChain = normalizeTargetChain(reference.target_chain);

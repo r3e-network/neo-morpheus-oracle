@@ -1547,7 +1547,7 @@ test('loadNeoN3Context falls back to MORPHEUS_RELAYER_NEO_N3_WIF', async () => {
   delete process.env.NEO_N3_WIF;
   process.env.MORPHEUS_RELAYER_NEO_N3_WIF = generatedAccount.WIF;
 
-  const context = loadNeoN3Context({}, { required: true, requireRpc: false });
+  const context = await loadNeoN3Context({}, { required: true, requireRpc: false });
   assert.equal(context.account.address, generatedAccount.address);
 
   process.env.MORPHEUS_RELAYER_NEO_N3_WIF = previousRelayerWif;

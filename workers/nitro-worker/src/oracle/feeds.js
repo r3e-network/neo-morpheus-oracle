@@ -668,7 +668,7 @@ export async function handleOracleFeed(payload) {
   const hasNeoN3DataFeedTarget =
     targetChain === 'neo_n3' && dataFeedHash && isConfiguredHash160(dataFeedHash);
   const neoContext = hasNeoN3DataFeedTarget
-    ? loadNeoN3Context(scopedPayload, { required: false, requireRpc: false })
+    ? await loadNeoN3Context(scopedPayload, { required: false, requireRpc: false })
     : null;
   const loadOnchainBaseline = shouldLoadOnchainFeedBaseline(scopedPayload, state);
   const onchainFeedState = loadOnchainBaseline
