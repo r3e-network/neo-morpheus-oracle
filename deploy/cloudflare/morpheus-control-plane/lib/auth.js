@@ -16,11 +16,9 @@ const RATE_LIMITS = {
 function resolveAcceptedKeys(env) {
   // Only explicitly-configured control-plane API keys are accepted as ingress
   // keys; no legacy token fallbacks (a leaked stale token must not authenticate).
-  return [
-    env.MORPHEUS_CONTROL_PLANE_API_KEY,
-    env.MORPHEUS_OPERATOR_API_KEY,
-    env.MORPHEUS_PROVIDER_CONFIG_API_KEY,
-  ]
+  // The low-privilege provider-config key is intentionally excluded — it manages
+  // provider configuration, not control-plane job ingress (audit finding 37).
+  return [env.MORPHEUS_CONTROL_PLANE_API_KEY, env.MORPHEUS_OPERATOR_API_KEY]
     .map((v) => trimString(v))
     .filter(Boolean);
 }

@@ -2,10 +2,12 @@ import { timingSafeCompare, trimString } from '@neo-morpheus-oracle/shared/utils
 import { isAuthorizedAdminRequest } from './server-supabase';
 
 export function isAuthorizedControlPlaneRequest(request: Request) {
-  if (
-    isAuthorizedAdminRequest(request, 'relayer_ops') ||
-    isAuthorizedAdminRequest(request, 'provider_config')
-  ) {
+  // provider_config is the LOW-privilege provider-management scope and must NOT
+  // authorize control-plane execution — callback-broadcast fulfillment, feed-tick
+  // signed updates, automation execution, or job reads (audit finding
+  // 19/20/30/31/37). Only the operator/relayer/admin-console keys (relayer_ops
+  // scope) and the MORPHEUS_* runtime token are accepted here.
+  if (isAuthorizedAdminRequest(request, 'relayer_ops')) {
     return true;
   }
 
