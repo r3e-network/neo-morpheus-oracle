@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
-import { isIP } from 'node:net';
 import { stableStringify } from '@neo-morpheus-oracle/shared/utils';
-import { isBlockedIpAddress } from './ssrf.js';
+import { assertResolvedHostAllowed } from './ssrf.js';
 
 // Canonical deterministic stringifier behind signed output_hash digests; the
 // single implementation lives in packages/shared and is pinned byte-for-byte
@@ -289,29 +288,27 @@ export function cappedDurationMs(value, fallbackMs = 0, maxMs = MAX_USER_TIMEOUT
 }
 
 // --- Security: SSRF-safe URL validation for RPC endpoints (M-08, H-07) ---
-// Blocks private/internal RPC targets. IP-literal hosts are classified by the
-// shared SSRF classifier (platform/ssrf.js), which covers the forms the old
-// string-prefix check missed: IPv6 loopback/ULA(fc00::/7)/link-local(fe80::/10),
-// IPv4-mapped IPv6, the FULL 169.254.0.0/16 link-local range (cloud metadata),
-// 100.64.0.0/10 CGNAT, 0.0.0.0/8, and multicast/reserved.
-// NOTE: decimal/hex/octal-encoded IPv4 literals and hostname DNS-rebinding are
-// only normalized by getaddrinfo, so they are caught on the oracle HTTP path by
-// assertResolvedHostAllowed (oracle/fetch.js). Closing them on the synchronous
-// RPC path requires making this resolver async (it is awaited via loadNeoN3Context)
-// plus connection IP-pinning; tracked as a follow-up.
-export function validateRpcUrl(rawUrl) {
+// Blocks private/internal RPC targets through the shared SSRF classifier
+// (platform/ssrf.js): it resolves the hostname via getaddrinfo and rejects any
+// resolved address in a private/loopback/link-local/ULA/CGNAT/reserved range.
+// Because it resolves, it also normalizes decimal/hex/octal-encoded IPv4 literals
+// and catches hostnames that map to internal addresses — the bypasses a
+// string-prefix check missed. Async because it performs DNS resolution; it is
+// awaited by loadNeoN3Context (chain/neo-n3.js) and resolveScriptSource.
+// Residual: the downstream neon RPCClient re-resolves DNS at connect time, so a
+// hostname that rebinds AFTER this check could still be connected; eliminating
+// that needs socket-level IP pinning (an undici dependency the enclave image
+// does not yet ship).
+export async function validateRpcUrl(rawUrl) {
   const url = trimString(rawUrl);
   if (!url) return url;
   const parsedUrl = new URL(url);
   if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
     throw new Error('RPC URL must use http or https');
   }
-  const host = parsedUrl.hostname.toLowerCase();
-  const literalHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
-  if (host === 'localhost' || host === '0.0.0.0' || host.endsWith('.local')) {
-    throw new Error('private/internal RPC URLs not allowed');
-  }
-  if (isIP(literalHost) !== 0 && isBlockedIpAddress(literalHost)) {
+  try {
+    await assertResolvedHostAllowed(parsedUrl.hostname);
+  } catch {
     throw new Error('private/internal RPC URLs not allowed');
   }
   return url;

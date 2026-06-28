@@ -75,7 +75,10 @@ export function getNeoExecutionSummary(appLog) {
   };
 }
 
-export function loadNeoN3Context(payload = {}, { required = false, requireRpc = false } = {}) {
+export async function loadNeoN3Context(
+  payload = {},
+  { required = false, requireRpc = false } = {}
+) {
   const network = resolvePayloadNetwork(payload);
   const key =
     trimString(payload.private_key) ||
@@ -88,7 +91,7 @@ export function loadNeoN3Context(payload = {}, { required = false, requireRpc = 
     return null;
   }
 
-  const rpcUrl = validateRpcUrl(
+  const rpcUrl = await validateRpcUrl(
     trimString(payload.rpc_url) || envForNetwork(network, 'NEO_RPC_URL')
   );
   if (requireRpc && !rpcUrl) throw new Error('NEO_RPC_URL is required for Neo N3 relay');
@@ -125,7 +128,7 @@ export async function relayNeoN3Invocation(payload) {
   }
 
   try {
-    const context = loadNeoN3Context(payload, { required: true, requireRpc: true });
+    const context = await loadNeoN3Context(payload, { required: true, requireRpc: true });
     const params = Array.isArray(payload.params)
       ? payload.params.map((param) => toNeoContractParam(param))
       : [];
@@ -202,7 +205,7 @@ export async function relayNeoN3Invocation(payload) {
 }
 
 export async function sponsorNeoN3Transaction(payload) {
-  const context = loadNeoN3Context(payload, { required: true, requireRpc: false });
+  const context = await loadNeoN3Context(payload, { required: true, requireRpc: false });
   const txBase64 = trimString(payload.tx_base64 || payload.txBase64);
   const userAddress = trimString(payload.user_address || payload.userAddress);
   if (!txBase64 || !userAddress) {
@@ -291,7 +294,7 @@ export async function broadcastNeoN3RawTransaction(payload) {
       error: 'raw broadcast requires MORPHEUS_ALLOW_RAW_BROADCAST=true',
     };
   }
-  const context = loadNeoN3Context(payload, { required: false, requireRpc: true });
+  const context = await loadNeoN3Context(payload, { required: false, requireRpc: true });
   const rpcClient = new neoRpc.RPCClient(context.rpcUrl);
   const txHashRaw = await rpcClient.sendRawTransaction(
     normalizeNeoRawTransaction(
