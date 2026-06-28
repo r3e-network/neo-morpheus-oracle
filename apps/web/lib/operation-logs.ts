@@ -138,8 +138,26 @@ function sanitizeValue(value: unknown, path: string[] = []): unknown {
   return value;
 }
 
+function normalizeJsonStringPayload(value: unknown): unknown {
+  // Several routes log the raw request body as a JSON *string*
+  // (e.g. requestPayload: await request.text() in the NeoDID/oracle proxies).
+  // A root-level JSON string has no keys, so the key-name redactor in
+  // sanitizeValue would pass it through verbatim and leak secrets embedded in
+  // it (id_token, private_key, wif, neodid_secret_salt). Parse a JSON
+  // object/array string so its fields are sanitized like a normal payload;
+  // non-JSON strings fall through to sanitizeValue's value-shape pass.
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
 function compactJsonValue(value: unknown) {
-  const sanitized = sanitizeValue(value);
+  const sanitized = sanitizeValue(normalizeJsonStringPayload(value));
   try {
     const serialized = JSON.stringify(sanitized);
     if (serialized.length <= MAX_JSON_CHARS) return sanitized;
