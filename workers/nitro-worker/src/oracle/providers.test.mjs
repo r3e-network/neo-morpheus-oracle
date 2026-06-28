@@ -155,3 +155,28 @@ test('builtin provider catalog exposes kernel lane compatibility metadata', () =
     assert.ok(provider.kernel_supports.includes('feed.publish'));
   }
 });
+
+test('fetchProviderJSON blocks private/internal hosts when the unsafe base-URL override is enabled (finding 18)', async () => {
+  const original = process.env.MORPHEUS_ALLOW_UNSAFE_PROVIDER_BASE_URL_OVERRIDE;
+  process.env.MORPHEUS_ALLOW_UNSAFE_PROVIDER_BASE_URL_OVERRIDE = 'true';
+  try {
+    for (const url of [
+      'http://169.254.169.254/latest/meta-data/', // cloud metadata
+      'http://127.0.0.1:8080/api/v3/ticker/price',
+      'http://[::1]/x',
+      'http://10.0.0.5/x',
+    ]) {
+      await assert.rejects(
+        fetchProviderJSON({ provider: 'binance-spot', url, method: 'GET' }, 2000),
+        /private\/internal URLs not allowed/,
+        url
+      );
+    }
+  } finally {
+    if (original === undefined) {
+      delete process.env.MORPHEUS_ALLOW_UNSAFE_PROVIDER_BASE_URL_OVERRIDE;
+    } else {
+      process.env.MORPHEUS_ALLOW_UNSAFE_PROVIDER_BASE_URL_OVERRIDE = original;
+    }
+  }
+});
