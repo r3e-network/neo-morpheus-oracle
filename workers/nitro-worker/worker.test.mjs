@@ -126,6 +126,9 @@ async function resetWorkerTestFeedStateDir() {
 async function restorePerTestState() {
   global.fetch = originalFetch;
   restoreBaselineEnv();
+  // NeoDID unverified-uid opt-in is fail-closed by default; clear any per-test
+  // override so each test starts from the secure default.
+  delete process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
   await resetWorkerTestFeedStateDir();
   __resetDstackClientStateForTests();
   __resetOracleKeyMaterialForTests();
@@ -441,13 +444,39 @@ test('neodid runtime surfaces the provider_uid trust posture and flag state (E3)
   assert.ok(body.provider_uid_verification, 'runtime exposes provider_uid_verification');
   assert.ok(body.provider_uid_verification.tee_verified_providers.includes('web3auth'));
   assert.ok(!body.provider_uid_verification.tee_verified_providers.includes('twitter'));
-  // Default behavior: unverified provider_uid is allowed (no breaking change).
-  assert.equal(body.provider_uid_verification.unverified_provider_uid_allowed, true);
+  // Secure default (finding 24/33): unverified provider_uid is denied unless the
+  // operator explicitly opts back in.
+  assert.equal(body.provider_uid_verification.unverified_provider_uid_allowed, false);
 });
 
-test('neodid bind allows an unverified provider_uid by default (E3, no breaking change)', async () => {
+test('neodid bind rejects an unverified provider_uid by default (E3, fail-closed)', async () => {
   const previous = process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
   delete process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+  try {
+    const res = await handler(
+      new Request('http://local/neodid/bind', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+          provider: 'twitter',
+          provider_uid: 'twitter_uid_unverified',
+          claim_type: 'Twitter_Verified',
+        }),
+      })
+    );
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /not verified in the enclave|unverified provider_uid is disabled/i);
+  } finally {
+    if (previous === undefined) delete process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+    else process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = previous;
+  }
+});
+
+test('neodid bind allows an unverified provider_uid only with the explicit opt-in (E3)', async () => {
+  const previous = process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID;
+  process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = 'true';
   try {
     const res = await handler(
       new Request('http://local/neodid/bind', {
@@ -532,6 +561,7 @@ test('neodid web3auth uid derivation is unaffected by default-deny (E3, TEE-veri
 });
 
 test('neodid bind returns deterministic master nullifier and ticket signature', async () => {
+  process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = 'true';
   const payload = {
     vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
     provider: 'twitter',
@@ -739,6 +769,7 @@ test('neodid web3auth verification ignores caller-supplied jwks_url/client_id (e
 });
 
 test('neodid bind digest binds the network magic for on-chain parity (finding 45)', async () => {
+  process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = 'true';
   const vault = '0x6d0656f6dd91469db1c90cc1e574380613f43738';
   const res = await handler(
     new Request('http://local/neodid/bind', {
@@ -776,6 +807,7 @@ test('neodid bind digest binds the network magic for on-chain parity (finding 45
 });
 
 test('neodid action-ticket generates action-specific nullifiers', async () => {
+  process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = 'true';
   const common = {
     provider: 'twitter',
     provider_uid: 'twitter_uid_12345',
@@ -821,6 +853,7 @@ test('neodid action-ticket generates action-specific nullifiers', async () => {
 });
 
 test('neodid action-ticket accepts okex alias and normalizes to okx', async () => {
+  process.env.MORPHEUS_NEODID_ALLOW_UNVERIFIED_UID = 'true';
   const res = await handler(
     new Request('http://local/neodid/action-ticket', {
       method: 'POST',
