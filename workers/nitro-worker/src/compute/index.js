@@ -250,8 +250,7 @@ async function verifyGroth16ProofWithCli(verifyingKey, publicSignals, proof) {
       );
       return true;
     } catch (error) {
-      const code = Number(error?.code);
-      if (Number.isFinite(code)) return false;
+      if (typeof error?.code === 'number' && Number.isFinite(error.code)) return false;
       throw new Error(`groth16 verifier runtime failed: ${error?.message || error}`);
     }
   } finally {

@@ -2305,6 +2305,56 @@ test('compute execute can use an external groth16 verifier command when explicit
   }
 });
 
+test('compute execute reports groth16 verifier runtime timeouts instead of invalid proofs', async () => {
+  const previousRuntime = process.env.MORPHEUS_ZKP_VERIFY_RUNTIME;
+  const previousBin = process.env.MORPHEUS_SNARKJS_BIN;
+  const previousTimeout = process.env.MORPHEUS_ZKP_VERIFY_TIMEOUT_MS;
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'morpheus-snarkjs-timeout-'));
+  const stub = path.join(tempDir, 'snarkjs');
+  await fs.writeFile(stub, '#!/usr/bin/env node\nsetTimeout(() => {}, 1000);\n', {
+    mode: 0o755,
+  });
+  process.env.MORPHEUS_ZKP_VERIFY_RUNTIME = 'cli';
+  process.env.MORPHEUS_SNARKJS_BIN = stub;
+  process.env.MORPHEUS_ZKP_VERIFY_TIMEOUT_MS = '25';
+  try {
+    const res = await handler(
+      new Request('http://local/compute/execute', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          mode: 'builtin',
+          function: 'zkp.groth16.verify',
+          input: {
+            verifying_key: { vk_alpha_1: ['1', '2'] },
+            public_signals: ['1'],
+            proof: {
+              pi_a: ['1', '2'],
+              pi_b: [
+                ['1', '2'],
+                ['3', '4'],
+              ],
+              pi_c: ['5', '6'],
+            },
+          },
+          target_chain: 'neo_n3',
+        }),
+      })
+    );
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(body.error, /groth16 verifier runtime failed/i);
+  } finally {
+    if (previousRuntime === undefined) delete process.env.MORPHEUS_ZKP_VERIFY_RUNTIME;
+    else process.env.MORPHEUS_ZKP_VERIFY_RUNTIME = previousRuntime;
+    if (previousBin === undefined) delete process.env.MORPHEUS_SNARKJS_BIN;
+    else process.env.MORPHEUS_SNARKJS_BIN = previousBin;
+    if (previousTimeout === undefined) delete process.env.MORPHEUS_ZKP_VERIFY_TIMEOUT_MS;
+    else process.env.MORPHEUS_ZKP_VERIFY_TIMEOUT_MS = previousTimeout;
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+  }
+});
+
 test('paymaster authorize enforces network-specific policy', async () => {
   const snapshot = {
     testnetEnabled: process.env.MORPHEUS_PAYMASTER_TESTNET_ENABLED,
