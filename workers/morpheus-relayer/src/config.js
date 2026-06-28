@@ -70,15 +70,18 @@ function uniqueOrdered(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function rpcUrlRank(value) {
+export function rpcUrlRank(value) {
   const normalized = trimString(value).toLowerCase();
-  if (/^https?:\/\/seed\d+\.neo\.org(?::|\/|$)/.test(normalized)) return 0;
-  if (normalized.includes('neo.org')) return 1;
-  if (normalized.startsWith('https://')) return 2;
-  return 3;
+  // HTTPS always outranks plaintext HTTP so the relayer never PREFERS a
+  // MITM-able cleartext RPC endpoint when a TLS endpoint is available. Plaintext
+  // http:// endpoints (e.g. the public neo.org seeds) sort last and serve only
+  // as a last-resort fallback. (Previously http://seed*.neo.org ranked first.)
+  if (normalized.startsWith('https://')) return 0;
+  if (normalized.startsWith('http://')) return 2;
+  return 1;
 }
 
-function uniqueRankedRpcUrls(values) {
+export function uniqueRankedRpcUrls(values) {
   return uniqueOrdered(values).sort((left, right) => rpcUrlRank(left) - rpcUrlRank(right));
 }
 

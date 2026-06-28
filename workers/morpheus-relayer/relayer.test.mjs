@@ -1613,7 +1613,7 @@ test('createRelayerConfig prefers network-scoped Neo N3 contract hashes over sta
   }
 });
 
-test('createRelayerConfig ranks stable mainnet Neo N3 RPC fallbacks before n3index', () => {
+test('createRelayerConfig ranks https mainnet Neo N3 RPC endpoints before plaintext http seeds', () => {
   const keys = [
     'MORPHEUS_NETWORK',
     'MORPHEUS_RUNTIME_CONFIG_JSON',
@@ -1643,12 +1643,23 @@ test('createRelayerConfig ranks stable mainnet Neo N3 RPC fallbacks before n3ind
 
   try {
     const config = withIsolatedRelayerSigner(() => createRelayerConfig());
-    assert.equal(config.neo_n3.rpcUrl, 'http://seed1.neo.org:10332');
+    // Security: the relayer must prefer a TLS endpoint and never default to a
+    // MITM-able cleartext http:// seed when an https:// endpoint is available.
     assert.ok(
-      config.neo_n3.rpcUrls.indexOf('http://seed1.neo.org:10332') <
-        config.neo_n3.rpcUrls.indexOf('https://api.n3index.dev/mainnet'),
-      'mainnet seed RPC should be tried before intermittent n3index RPC'
+      config.neo_n3.rpcUrl.startsWith('https://'),
+      'preferred mainnet RPC must be an https endpoint'
     );
+    const firstHttp = config.neo_n3.rpcUrls.findIndex((url) => url.startsWith('http://'));
+    const lastHttps = config.neo_n3.rpcUrls.reduce(
+      (acc, url, index) => (url.startsWith('https://') ? index : acc),
+      -1
+    );
+    assert.ok(
+      firstHttp === -1 || lastHttps < firstHttp,
+      'no plaintext http:// RPC may be ranked before an https:// RPC'
+    );
+    // The http seeds remain present as a last-resort fallback.
+    assert.ok(config.neo_n3.rpcUrls.includes('http://seed1.neo.org:10332'));
   } finally {
     for (const [key, value] of previous.entries()) {
       if (value === undefined) delete process.env[key];
