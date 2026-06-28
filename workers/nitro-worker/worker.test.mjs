@@ -159,6 +159,14 @@ async function buildWeb3AuthFixture({
     .setIssuedAt()
     .setExpirationTime('2h')
     .sign(privateKey);
+  // The worker now resolves the JWKS URL and client id (audience) ONLY from
+  // server-side env — never the request body — so a caller can't substitute
+  // their own trust anchor. Pin the env to this fixture so the in-TEE verifier
+  // accepts this token; the request-body web3auth_* fields are ignored.
+  process.env.WEB3AUTH_JWKS_URL = jwksUrl;
+  process.env.WEB3AUTH_CLIENT_ID = clientId;
+  delete process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID;
+  delete process.env.VITE_WEB3AUTH_CLIENT_ID;
   return {
     token,
     clientId,
@@ -635,6 +643,8 @@ test('neodid bind requires a web3auth client id so audience is always verified',
     kid: 'worker-test-web3auth-required',
   });
   installWeb3AuthJwksFetch(fixture.jwksUrl, fixture.jwks);
+  // No server-side client id configured → audience cannot be verified.
+  delete process.env.WEB3AUTH_CLIENT_ID;
 
   const res = await handler(
     new Request('http://local/neodid/bind', {
@@ -644,6 +654,8 @@ test('neodid bind requires a web3auth client id so audience is always verified',
         vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
         provider: 'web3auth',
         id_token: fixture.token,
+        // Even a caller-supplied client id must NOT satisfy the audience check.
+        web3auth_client_id: fixture.clientId,
         web3auth_jwks_url: fixture.jwksUrl,
         claim_type: 'Web3Auth_PrimaryIdentity',
       }),
@@ -652,6 +664,69 @@ test('neodid bind requires a web3auth client id so audience is always verified',
   assert.equal(res.status, 400);
   const body = await res.json();
   assert.match(body.error, /WEB3AUTH_CLIENT_ID is required/);
+});
+
+test('neodid web3auth verification ignores caller-supplied jwks_url/client_id (env is the trust anchor)', async () => {
+  __resetNeoDidStateForTests();
+  // Legit, server-pinned verifier config (buildWeb3AuthFixture pins env to it).
+  const legit = await buildWeb3AuthFixture({
+    claims: { aggregateVerifier: 'google-oauth', aggregateVerifierId: 'victim@example.com' },
+    clientId: 'worker-test-web3auth-legit',
+    jwksUrl: 'https://jwks.test/web3auth-legit.json',
+    kid: 'worker-test-web3auth-legit',
+  });
+  // Attacker self-hosts their own JWKS + audience and signs an id_token for the
+  // victim's uid — the verifier-confusion the fix must block.
+  const attacker = await buildWeb3AuthFixture({
+    claims: { aggregateVerifier: 'google-oauth', aggregateVerifierId: 'victim@example.com' },
+    clientId: 'attacker-client',
+    jwksUrl: 'https://attacker.test/jwks.json',
+    kid: 'attacker-key',
+  });
+  // buildWeb3AuthFixture pins env to the LAST fixture built; restore the server
+  // config to the legit anchor so the test reflects a real (env-configured) deploy.
+  process.env.WEB3AUTH_JWKS_URL = legit.jwksUrl;
+  process.env.WEB3AUTH_CLIENT_ID = legit.clientId;
+  global.fetch = async (url) => {
+    const value = String(url);
+    if (value === legit.jwksUrl) {
+      return new Response(JSON.stringify(legit.jwks), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (value === attacker.jwksUrl) {
+      // Reaching here means the env pin was bypassed (the bug). Serve it so the
+      // assertion below — not an unexpected-fetch throw — reports the regression.
+      return new Response(JSON.stringify(attacker.jwks), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    throw new Error(`unexpected fetch ${value}`);
+  };
+
+  const res = await handler(
+    new Request('http://local/neodid/bind', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        vault_account: '0x6d0656f6dd91469db1c90cc1e574380613f43738',
+        provider: 'web3auth',
+        id_token: attacker.token,
+        // Malicious trust-anchor overrides — must be ignored by the worker.
+        web3auth_jwks_url: attacker.jwksUrl,
+        web3auth_client_id: attacker.clientId,
+        claim_type: 'Web3Auth_PrimaryIdentity',
+      }),
+    })
+  );
+  // The attacker token is signed by a key absent from the env-pinned legit JWKS,
+  // so verification must fail. A vulnerable worker would fetch the attacker JWKS
+  // (caller-controlled) and accept the forged identity.
+  assert.equal(res.status, 400);
+  const forged = await res.json();
+  assert.ok(forged.error, 'expected a web3auth verification error');
 });
 
 test('neodid action-ticket generates action-specific nullifiers', async () => {
