@@ -139,6 +139,42 @@ describe('operation log secret redaction', () => {
     expect(row.request_payload.note).toBe('no credentials here');
   });
 
+  it('redacts secrets in a raw JSON-string requestPayload (NeoDID/oracle proxy routes)', async () => {
+    const { recordOperationLog, flush } = await importModule();
+    // The NeoDID/oracle proxy routes log `requestPayload: await request.text()`,
+    // i.e. the raw body as a JSON string. A root JSON string has no keys, so it
+    // previously bypassed the key-name redactor and persisted id_token/wif/
+    // private_key in cleartext to Supabase + BetterStack.
+    await recordOperationLog({
+      route: '/api/neodid/recovery-ticket',
+      method: 'POST',
+      category: 'system',
+      requestPayload: JSON.stringify({
+        provider: 'web3auth',
+        id_token: 'eyJSECRET.web3auth.idtoken.replayable.value',
+        private_key: 'KxSECRETprivkey1111111111111111111111111111111111111',
+        wif: 'KySECRETwif2222222222222222222222222222222222222222',
+        neodid_secret_salt: 'attacker-chosen-salt',
+        account_id: 'aa-recovery-demo',
+      }),
+      httpStatus: 200,
+    });
+    await flush();
+
+    const row = insertedRows[0];
+    // Parsed + sanitized: secret-bearing fields redacted, structural fields kept.
+    expect(row.request_payload.id_token).toBe('[REDACTED]');
+    expect(row.request_payload.private_key).toBe('[REDACTED]');
+    expect(row.request_payload.wif).toBe('[REDACTED]');
+    expect(row.request_payload.neodid_secret_salt).toBe('[REDACTED]');
+    expect(row.request_payload.account_id).toBe('aa-recovery-demo');
+    // The raw token must not survive anywhere in the serialized row.
+    expect(JSON.stringify(row.request_payload)).not.toContain('idtoken.replayable');
+    expect(JSON.stringify(betterstackPayloads[0].request_payload)).not.toContain(
+      'idtoken.replayable'
+    );
+  });
+
   it('does not over-redact public key material', async () => {
     const { recordOperationLog, flush } = await importModule();
     await recordOperationLog({
