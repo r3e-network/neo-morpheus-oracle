@@ -9,7 +9,8 @@ import {
   trimString,
   cappedDurationMs,
 } from '../platform/core.js';
-import { assertResolvedHostAllowed } from '../platform/ssrf.js';
+import { Agent, fetch as undiciFetch } from 'undici';
+import { assertResolvedHostAllowed, resolvePinnedAddresses } from '../platform/ssrf.js';
 import { buildProviderRequest, fetchProviderJSON, resolveProviderPayload } from './providers.js';
 import { buildSignedResultEnvelope, buildLaneSignedEnvelope } from '../chain/index.js';
 import {
@@ -52,14 +53,42 @@ export async function normalizeOracleUrl(rawUrl) {
   return parsedUrl.toString();
 }
 
+// Captured at module load so we can tell whether a host (or a test) has replaced
+// the global fetch. In production it is never replaced, so the oracle path always
+// uses the pinned undici.fetch below.
+const nativeFetch = globalThis.fetch;
+
 async function fetchWithTimeout(url, init, timeoutMs) {
+  // Resolve + validate the host ONCE, then pin the outbound connection to the
+  // validated address(es) via an undici dispatcher whose lookup returns only
+  // those addresses (audit finding 8). This eliminates the DNS-rebinding window
+  // between validation and connect: a hostname cannot resolve to a public IP
+  // here and then re-resolve to an internal/metadata address at connect time.
+  // (Node's built-in global fetch does not accept a custom dispatcher, so the
+  // oracle path uses undici.fetch directly.) An IP-literal or unresolvable host
+  // returns no pinned addresses and connects normally — there is nothing to
+  // rebind in those cases. resolvePinnedAddresses still rejects private/internal
+  // hosts regardless of which fetch implementation runs.
+  const { hostname } = new URL(url);
+  const pinned = await resolvePinnedAddresses(hostname);
+
+  // If the global fetch has been replaced (instrumented runtime or tests), defer
+  // to it — a replacement performs its own connection handling, so the dispatcher
+  // does not apply. Production never replaces it, so the pinned path is always used.
+  const overridden = globalThis.fetch !== nativeFetch;
+  const fetchImpl = overridden ? globalThis.fetch : undiciFetch;
+  const dispatcher =
+    !overridden && pinned.length > 0
+      ? new Agent({ connect: { lookup: (_host, _options, cb) => cb(null, pinned) } })
+      : undefined;
+
   const controller = new AbortController();
   const timer = setTimeout(
     () => controller.abort(new Error(`oracle fetch timed out after ${timeoutMs}ms`)),
     timeoutMs
   );
   try {
-    return await fetch(url, {
+    return await fetchImpl(url, {
       ...init,
       // The URL is caller-controlled: never follow redirects. The SSRF host
       // checks only ever ran against the original URL, so a 30x Location
@@ -67,6 +96,7 @@ async function fetchWithTimeout(url, init, timeoutMs) {
       // with no re-validation.
       redirect: 'error',
       signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
     });
   } catch (error) {
     if (controller.signal.aborted) {
@@ -75,6 +105,7 @@ async function fetchWithTimeout(url, init, timeoutMs) {
     throw error;
   } finally {
     clearTimeout(timer);
+    if (dispatcher) await dispatcher.close();
   }
 }
 
@@ -186,10 +217,9 @@ export async function performOracleFetch(payload) {
     headers.set(tokenHeader, `${tokenPrefix}${decryptedToken}`);
   }
 
-  // Re-validate the host right before connecting to limit the DNS-rebinding
-  // window between initial validation and the outbound request.
-  await assertResolvedHostAllowed(new URL(url).hostname);
-
+  // Host validation + connection pinning now happen inside fetchWithTimeout
+  // (resolvePinnedAddresses), which both rejects private/internal hosts and pins
+  // the socket to the validated address, fully closing the rebinding window.
   let response;
   try {
     response = await fetchWithTimeout(
