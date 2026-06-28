@@ -11,6 +11,7 @@ import {
   trimString,
 } from '../platform/core.js';
 import { CircuitBreaker } from '../platform/circuit-breaker.js';
+import { assertResolvedHostAllowed } from '../platform/ssrf.js';
 
 const PROVIDER_CONFIG_CACHE_TTL_MS = 30_000;
 // Bound the on-demand caches so a long-lived worker fielding many distinct
@@ -639,6 +640,14 @@ async function fetchProviderWithRetries(requestSpec, timeoutMs) {
 }
 
 export async function fetchProviderJSON(requestSpec, timeoutMs = 8000) {
+  // When the unsafe provider base-URL override is enabled, a caller can choose the
+  // provider host (see buildBinanceSpotRequest). That override is meant only for
+  // alternate PUBLIC providers, never internal/metadata addresses, so re-apply the
+  // SSRF host classifier to the final URL here (audit finding 18). When the flag is
+  // off, every provider URL is a trusted constant and needs no resolution.
+  if (allowUnsafeProviderBaseUrlOverride()) {
+    await assertResolvedHostAllowed(new URL(requestSpec.url).hostname);
+  }
   const providerId = normalizeProviderId(requestSpec.provider || '');
   const breaker = providerId ? getOrCreateBreaker(providerId) : null;
   if (breaker && !breaker.allow()) {
