@@ -177,6 +177,33 @@ namespace MorpheusOracle.Contracts.Tests
         }
 
         [Fact]
+        public void RegisterBinding_RequiresVaultOrAdminWitness()
+        {
+            Harness h = Deploy();
+            UInt160 vault = TestEngine.GetNewSigner().Account;
+            byte[] nullifier = FixedHash(0x11);
+            byte[] metadataHash = FixedHash(0x22);
+            byte[] signature = Sign(h, ComputeBindingDigest(
+                vault, Provider, ClaimType, ClaimValue, nullifier, metadataHash,
+                ProtocolSettings.Default.Network));
+
+            // A valid worker-signed ticket is NOT sufficient: a third party who is
+            // neither the vault owner nor the admin cannot register the binding.
+            h.Engine.SetTransactionSigners(TestEngine.GetNewSigner().Account);
+            AssertReverts(
+                () => Register(h, vault, nullifier, metadataHash, signature),
+                "unauthorized");
+            // The witness check runs before the nullifier is consumed.
+            Assert.False(h.Contract.IsMasterNullifierUsed(nullifier));
+
+            // The vault owner can register their own binding.
+            h.Engine.SetTransactionSigners(vault);
+            Register(h, vault, nullifier, metadataHash, signature);
+            Assert.True(AsBool(Field(h.Contract, vault, ActiveIndex)));
+            Assert.True(h.Contract.IsMasterNullifierUsed(nullifier));
+        }
+
+        [Fact]
         public void RegisterBinding_RejectsCrossNetworkReplay()
         {
             Harness h = Deploy();

@@ -132,6 +132,12 @@ namespace MorpheusOracle.Contracts
             ByteString verificationSignature)
         {
             ValidateBindingArguments(vaultAccount, provider, claimType, claimValue, masterNullifier, metadataHash, verificationSignature);
+            // The worker's verification signature proves the identity claim was
+            // TEE-verified, but NOT that the caller owns the vault. Without this
+            // gate anyone holding a worker-signed ticket could bind (or preempt) a
+            // binding for a victim's vault. Require the vault owner's witness (or
+            // admin), matching RevokeBinding / UseActionTicket.
+            ExecutionEngine.Assert(Runtime.CheckWitness(vaultAccount) || Runtime.CheckWitness(Admin()), "unauthorized");
             ExecutionEngine.Assert(!IsMasterNullifierUsed(masterNullifier), "master nullifier already used");
 
             BindingRecord existing = GetBinding(vaultAccount, provider, claimType);
