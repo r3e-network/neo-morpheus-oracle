@@ -148,6 +148,19 @@ function parseIntegerString(value, fallback) {
   return raw;
 }
 
+// Numeric env parser that preserves `Number(env || default)` semantics for empty
+// and valid input but returns the fallback for a non-finite (e.g. mistyped) value
+// instead of NaN. A bare Number('abc') is NaN, and NaN silently defeats every
+// downstream Math.max floor (Math.max(NaN, x) === NaN) — e.g. a mistyped
+// pollIntervalMs becomes sleep(NaN) === setTimeout(…, 0), spinning the scan loop
+// and hammering RPC/Supabase. Callers keep their Math.max floors for minimums.
+function parseNumericEnv(value, fallback) {
+  const raw = trimString(value);
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function resolveRelayerMode(value) {
   const normalized = trimString(value).toLowerCase();
   if (normalized === 'feed_only' || normalized === 'requests_only') return normalized;
@@ -280,7 +293,7 @@ export function createRelayerConfig() {
         : `.morpheus-relayer-state.${mode}.json`)
   );
   const activeChains = parseActiveChains(env('MORPHEUS_ACTIVE_CHAINS') || 'neo_n3');
-  const maxRetries = Math.max(Number(env('MORPHEUS_RELAYER_MAX_RETRIES') || 5), 0);
+  const maxRetries = Math.max(parseNumericEnv(env('MORPHEUS_RELAYER_MAX_RETRIES'), 5), 0);
   // Neo N3 updater signer material is only required when Neo N3 is an active
   // chain — a neox-only (or feed-only / derived-key) relayer must not demand it.
   const updaterSigner =
@@ -299,47 +312,56 @@ export function createRelayerConfig() {
       trimString(env('MORPHEUS_RELAYER_INSTANCE_ID')) ||
       `${mode}:${network}:${trimString(os.hostname() || 'host')}:${process.pid}`,
     activeChains,
-    pollIntervalMs: Number(env('MORPHEUS_RELAYER_POLL_INTERVAL_MS') || 5000),
+    pollIntervalMs: parseNumericEnv(env('MORPHEUS_RELAYER_POLL_INTERVAL_MS'), 5000),
     // Idle-discovery backoff (Round-2 R2-0.1): when a chain has no scanned events AND
     // no due retries for a tick, skip the getLatestBlock + scan RPCs until this many ms
     // have elapsed since the last scan. 0 = disabled (always scan every tick, the
     // prior behavior). runDueRetries always runs regardless, so due callbacks are never
     // delayed. Set e.g. 30000 to cut idle-chain RPC load to once per 30s on quiet boxes.
     discoveryIdleBackoffMs: Math.max(
-      Number(env('MORPHEUS_RELAYER_DISCOVERY_IDLE_BACKOFF_MS') || 0),
+      parseNumericEnv(env('MORPHEUS_RELAYER_DISCOVERY_IDLE_BACKOFF_MS'), 0),
       0
     ),
-    concurrency: Math.max(Number(env('MORPHEUS_RELAYER_CONCURRENCY') || 4), 1),
-    maxBlocksPerTick: Math.max(Number(env('MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK') || 250), 1),
+    concurrency: Math.max(parseNumericEnv(env('MORPHEUS_RELAYER_CONCURRENCY'), 4), 1),
+    maxBlocksPerTick: Math.max(
+      parseNumericEnv(env('MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK'), 250),
+      1
+    ),
     maxRetries,
     // Ceiling on callback-delivery / failure-finalize redelivery attempts; once a
     // prepared fulfillment exceeds it the request is dead-lettered for manual
     // replay instead of retrying forever.
     maxCallbackRetries: Math.max(
-      Number(env('MORPHEUS_RELAYER_MAX_CALLBACK_RETRIES') || maxRetries * 2),
+      parseNumericEnv(env('MORPHEUS_RELAYER_MAX_CALLBACK_RETRIES'), maxRetries * 2),
       1
     ),
-    retryBaseDelayMs: Math.max(Number(env('MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS') || 5000), 250),
+    retryBaseDelayMs: Math.max(
+      parseNumericEnv(env('MORPHEUS_RELAYER_RETRY_BASE_DELAY_MS'), 5000),
+      250
+    ),
     retryMaxDelayMs: Math.min(
-      Math.max(Number(env('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS') || 10_000), 1000),
+      Math.max(parseNumericEnv(env('MORPHEUS_RELAYER_RETRY_MAX_DELAY_MS'), 10_000), 1000),
       MAX_RETRY_MAX_DELAY_MS
     ),
     // Minimum interval between local state-file writes; bursts of persistState
     // calls inside one processEvent coalesce into a single trailing write. 0
     // restores write-on-every-call.
     statePersistMinIntervalMs: Math.max(
-      Number(env('MORPHEUS_RELAYER_STATE_PERSIST_MIN_INTERVAL_MS') || 250),
+      parseNumericEnv(env('MORPHEUS_RELAYER_STATE_PERSIST_MIN_INTERVAL_MS'), 250),
       0
     ),
-    processedCacheSize: Math.max(Number(env('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE') || 5000), 100),
-    deadLetterLimit: Math.max(Number(env('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT') || 500), 10),
+    processedCacheSize: Math.max(
+      parseNumericEnv(env('MORPHEUS_RELAYER_PROCESSED_CACHE_SIZE'), 5000),
+      100
+    ),
+    deadLetterLimit: Math.max(parseNumericEnv(env('MORPHEUS_RELAYER_DEAD_LETTER_LIMIT'), 500), 10),
     // Ceiling on the in-memory retry queue per chain. A sustained ingestion burst
     // combined with a downstream failure can grow the retry queue unboundedly (and
     // the whole array is re-serialized on every persist). When set, the oldest
     // retry items beyond the limit are shed into the dead-letter lane (recoverable
     // via manual replay) and counted. Defaults to 0 = no ceiling, so the live box
     // behaves identically until the operator sets the variable.
-    retryQueueLimit: Math.max(Number(env('MORPHEUS_RELAYER_RETRY_QUEUE_LIMIT') || 0), 0),
+    retryQueueLimit: Math.max(parseNumericEnv(env('MORPHEUS_RELAYER_RETRY_QUEUE_LIMIT'), 0), 0),
     durableQueue: {
       enabled: durableQueueEnabled,
       failClosed: parseBoolean(env('MORPHEUS_DURABLE_QUEUE_FAIL_CLOSED'), durableQueueEnabled),
@@ -355,36 +377,39 @@ export function createRelayerConfig() {
         env('MORPHEUS_DURABLE_QUEUE_ALLOW_LOCAL_CLAIM_DURING_BACKOFF'),
         false
       ),
-      syncLimit: Math.max(Number(env('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT') || 200), 1),
+      syncLimit: Math.max(parseNumericEnv(env('MORPHEUS_DURABLE_QUEUE_SYNC_LIMIT'), 200), 1),
       staleProcessingMs: Math.max(
-        Number(env('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS') || 45000),
+        parseNumericEnv(env('MORPHEUS_DURABLE_QUEUE_STALE_PROCESSING_MS'), 45000),
         1000
       ),
     },
     runSnapshots: {
       enabled: parseBoolean(env('MORPHEUS_RELAYER_RUN_SNAPSHOTS_ENABLED'), true),
-      intervalMs: Math.max(Number(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_INTERVAL_MS') || 60000), 0),
+      intervalMs: Math.max(
+        parseNumericEnv(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_INTERVAL_MS'), 60000),
+        0
+      ),
       errorBackoffMs: Math.max(
-        Number(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_ERROR_BACKOFF_MS') || 300000),
+        parseNumericEnv(env('MORPHEUS_RELAYER_RUN_SNAPSHOT_ERROR_BACKOFF_MS'), 300000),
         1000
       ),
     },
     backpressure: {
       maxFreshEventsPerTick: Math.max(
-        Number(env('MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK') || 32),
+        parseNumericEnv(env('MORPHEUS_RELAYER_MAX_FRESH_EVENTS_PER_TICK'), 32),
         1
       ),
       maxRetryEventsPerTick: Math.max(
-        Number(env('MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK') || 16),
+        parseNumericEnv(env('MORPHEUS_RELAYER_MAX_RETRY_EVENTS_PER_TICK'), 16),
         1
       ),
-      deferDelayMs: Math.max(Number(env('MORPHEUS_RELAYER_DEFER_DELAY_MS') || 5000), 250),
+      deferDelayMs: Math.max(parseNumericEnv(env('MORPHEUS_RELAYER_DEFER_DELAY_MS'), 5000), 250),
     },
     feedSync: {
       enabled: (env('MORPHEUS_FEED_SYNC_ENABLED') || 'true').toLowerCase() !== 'false',
-      intervalMs: Math.max(Number(env('MORPHEUS_FEED_SYNC_INTERVAL_MS') || 60000), 1000),
+      intervalMs: Math.max(parseNumericEnv(env('MORPHEUS_FEED_SYNC_INTERVAL_MS'), 60000), 1000),
       timeoutMs: Math.min(
-        Math.max(Number(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS') || 10000), 1000),
+        Math.max(parseNumericEnv(env('MORPHEUS_FEED_SYNC_TIMEOUT_MS'), 10000), 1000),
         MAX_FEED_SYNC_TIMEOUT_MS
       ),
       waitForSubmission: parseBoolean(env('MORPHEUS_FEED_SYNC_WAIT_FOR_SUBMISSION'), false),
@@ -399,28 +424,34 @@ export function createRelayerConfig() {
     },
     automation: {
       enabled: (env('MORPHEUS_AUTOMATION_ENABLED') || 'true').toLowerCase() !== 'false',
-      batchSize: Math.max(Number(env('MORPHEUS_AUTOMATION_BATCH_SIZE') || 50), 1),
-      maxQueuedPerTick: Math.max(Number(env('MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK') || 10), 1),
+      batchSize: Math.max(parseNumericEnv(env('MORPHEUS_AUTOMATION_BATCH_SIZE'), 50), 1),
+      maxQueuedPerTick: Math.max(
+        parseNumericEnv(env('MORPHEUS_AUTOMATION_MAX_QUEUED_PER_TICK'), 10),
+        1
+      ),
       pricePollPairsPerTick: Math.max(
-        Number(env('MORPHEUS_AUTOMATION_PRICE_PAIRS_PER_TICK') || 25),
+        parseNumericEnv(env('MORPHEUS_AUTOMATION_PRICE_PAIRS_PER_TICK'), 25),
         1
       ),
       defaultPriceCooldownMs: Math.max(
-        Number(env('MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS') || 60000),
+        parseNumericEnv(env('MORPHEUS_AUTOMATION_DEFAULT_PRICE_COOLDOWN_MS'), 60000),
         0
       ),
-      claimStaleMs: Math.max(Number(env('MORPHEUS_AUTOMATION_CLAIM_STALE_MS') || 120000), 1000),
+      claimStaleMs: Math.max(
+        parseNumericEnv(env('MORPHEUS_AUTOMATION_CLAIM_STALE_MS'), 120000),
+        1000
+      ),
       // Idle-fetch backoff (Round-2 R2-0.2): after a fetch returns ZERO due jobs, skip the
       // next fetchActiveAutomationJobs query for this many ms. 0 = disabled (fetch every tick,
       // the prior behavior). Automation jobs are inserted by the control plane, so keep this
       // SMALL (e.g. 15000-30000) — an externally-inserted job is picked up within this window.
-      idleBackoffMs: Math.max(Number(env('MORPHEUS_AUTOMATION_IDLE_BACKOFF_MS') || 0), 0),
+      idleBackoffMs: Math.max(parseNumericEnv(env('MORPHEUS_AUTOMATION_IDLE_BACKOFF_MS'), 0), 0),
     },
     logFormat: env('MORPHEUS_RELAYER_LOG_FORMAT', 'LOG_FORMAT') || 'json',
     logLevel: env('MORPHEUS_RELAYER_LOG_LEVEL', 'LOG_LEVEL') || 'info',
     confirmations: {
-      neo_n3: Number(env('MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS') || 1),
-      neox: Number(env('MORPHEUS_RELAYER_NEOX_CONFIRMATIONS') || 2),
+      neo_n3: parseNumericEnv(env('MORPHEUS_RELAYER_NEO_N3_CONFIRMATIONS'), 1),
+      neox: parseNumericEnv(env('MORPHEUS_RELAYER_NEOX_CONFIRMATIONS'), 2),
     },
     startRequestIds: {
       neo_n3: env('MORPHEUS_RELAYER_NEO_N3_START_REQUEST_ID')
@@ -497,10 +528,10 @@ export function createRelayerConfig() {
       // Maximum age (ms) of an attestation document's echoed timestamp before it is
       // considered stale (replay protection). 0/unset disables the timestamp-age gate
       // (the nonce-echo binding is the primary anti-replay control). Defaults to 0.
-      attestationMaxAgeMs: Math.max(Number(env('MORPHEUS_ATTESTATION_MAX_AGE_MS') || 0), 0),
+      attestationMaxAgeMs: Math.max(parseNumericEnv(env('MORPHEUS_ATTESTATION_MAX_AGE_MS'), 0), 0),
       token: env('MORPHEUS_RUNTIME_TOKEN', 'NITRO_API_TOKEN', 'NITRO_SHARED_SECRET'),
       timeoutMs: Math.min(
-        Math.max(Number(env('MORPHEUS_NITRO_TIMEOUT_MS') || DEFAULT_NITRO_TIMEOUT_MS), 1000),
+        Math.max(parseNumericEnv(env('MORPHEUS_NITRO_TIMEOUT_MS'), DEFAULT_NITRO_TIMEOUT_MS), 1000),
         MAX_REQUEST_TIMEOUT_MS
       ),
       useDerivedKeys,
@@ -613,14 +644,14 @@ export function createRelayerConfig() {
       // Deadline for the fulfillRequest receipt wait — a never-mined tx must not
       // wedge the per-signer submission queue (mirrors the Neo N3 45s default).
       confirmTimeoutMs: Math.max(
-        Number(env('MORPHEUS_RELAYER_NEOX_CONFIRM_TIMEOUT_MS') || 45_000),
+        parseNumericEnv(env('MORPHEUS_RELAYER_NEOX_CONFIRM_TIMEOUT_MS'), 45_000),
         1000
       ),
       workerUrl: trimString(env('MORPHEUS_RELAYER_NEOX_WORKER_URL', 'NEOX_WORKER_URL')),
     },
     metricsServer: {
       host: env('MORPHEUS_RELAYER_METRICS_HOST') || '127.0.0.1',
-      port: Math.max(Number(env('MORPHEUS_RELAYER_METRICS_PORT') || 9464), 1),
+      port: Math.max(parseNumericEnv(env('MORPHEUS_RELAYER_METRICS_PORT'), 9464), 1),
       path: env('MORPHEUS_RELAYER_METRICS_PATH') || '/metrics',
     },
     heartbeats: {

@@ -24,6 +24,22 @@ if (mode === 'config:validate') {
   const config = createRelayerConfig();
   const logger = createLogger(config);
 
+  // Process-level safety net for the long-running modes: a single stray promise
+  // rejection or uncaught exception would otherwise terminate the relayer by
+  // default (Node exits on unhandledRejection). Log rejections and keep the scan
+  // loop alive; on a truly uncaught exception the process state is unknown, so
+  // log and exit non-zero to let the orchestrator restart cleanly.
+  process.on('unhandledRejection', (reason) => {
+    logger.error(
+      { error: reason instanceof Error ? reason : new Error(String(reason)) },
+      'unhandledRejection'
+    );
+  });
+  process.on('uncaughtException', (error) => {
+    logger.error({ error }, 'uncaughtException');
+    process.exit(1);
+  });
+
   if (mode === 'loop') {
     await runRelayerLoop({ config, logger });
   } else if (mode === 'metrics') {

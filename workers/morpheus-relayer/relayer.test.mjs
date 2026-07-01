@@ -2859,3 +2859,31 @@ test('relayer mode helpers isolate pricefeed from request-processing loops', () 
   assert.equal(shouldRunRequestProcessing({ mode: 'feed_only' }), false);
   assert.equal(shouldRunRequestProcessing({ mode: 'requests_only' }), true);
 });
+
+test('createRelayerConfig falls back to defaults (not NaN) for mistyped numeric envs', () => {
+  const keys = [
+    'MORPHEUS_RELAYER_POLL_INTERVAL_MS',
+    'MORPHEUS_RELAYER_MAX_RETRIES',
+    'MORPHEUS_RELAYER_CONCURRENCY',
+    'MORPHEUS_RELAYER_MAX_BLOCKS_PER_TICK',
+  ];
+  const saved = new Map(keys.map((k) => [k, process.env[k]]));
+  for (const k of keys) process.env[k] = 'not-a-number';
+  try {
+    const config = withIsolatedRelayerSigner(() => createRelayerConfig());
+    // A mistyped numeric env must not become NaN (which would defeat Math.max
+    // floors and, for pollIntervalMs, spin the scan loop via setTimeout(…, 0)).
+    assert.equal(config.pollIntervalMs, 5000);
+    assert.ok(Number.isFinite(config.maxRetries), 'maxRetries finite');
+    assert.ok(Number.isFinite(config.concurrency) && config.concurrency >= 1, 'concurrency finite');
+    assert.ok(
+      Number.isFinite(config.maxBlocksPerTick) && config.maxBlocksPerTick >= 1,
+      'maxBlocksPerTick finite'
+    );
+  } finally {
+    for (const [k, v] of saved.entries()) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+});

@@ -89,6 +89,11 @@ export async function callNitro(config, path, payload, options = {}) {
       }
       return { ok: response.ok, status: response.status, body, api_url: apiBaseUrl };
     })();
+    // When the timeout wins the race below, controller.abort() rejects this
+    // still-live fetch promise. Nothing awaits it once the race has settled, so
+    // without this no-op handler it surfaces as an unhandledRejection on every
+    // nitro timeout. Promise.race still observes the original `operation`.
+    operation.catch(() => {});
     const timeoutPromise = new Promise((_, reject) => {
       timer = setTimeout(() => {
         controller.abort(timeoutError);
