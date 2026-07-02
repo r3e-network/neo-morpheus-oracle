@@ -100,6 +100,7 @@ const { allowlistAllows, createByteArrayParam } = await import('./src/platform/a
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
 const { __resetNeoDidStateForTests } = await import('./src/neodid/index.js');
 const { __resetSigningCachesForTests } = await import('./src/chain/signing.js');
+const { __resetOracleFetchDispatchersForTests } = await import('./src/oracle/fetch.js');
 
 function authHeaders() {
   return {
@@ -139,6 +140,9 @@ async function restorePerTestState() {
   // it so a test that pins its own worker/verifier keys is not served a stale
   // Account cached from a prior test's environment.
   __resetSigningCachesForTests();
+  // Retire any pooled oracle-fetch dispatchers so a real-undici path in one test
+  // cannot leak an open connection pool into the next.
+  await __resetOracleFetchDispatchersForTests();
 }
 
 test.beforeEach(async () => {
