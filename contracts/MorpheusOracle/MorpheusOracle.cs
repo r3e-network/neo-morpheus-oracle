@@ -821,6 +821,18 @@ namespace MorpheusOracle.Contracts
                 }
             }
 
+            // Reverse the sponsored spend recorded against the requester's per-app cap at
+            // submission time. The request expired unfulfilled, so the sponsor never
+            // actually spent this budget; leaving it recorded would silently exhaust a
+            // capped requester's sponsorship (IsRequesterSponsorable) despite the refund
+            // above, forcing it to self-pay. Mirrors the submit-side condition
+            // (sponsor != requester) and releases the full recorded FeePaid — the cap is a
+            // budget ledger, independent of the GAS accrued-pool clamp used for the refund.
+            if (req.Sponsor != null && req.Sponsor.IsValid && req.Sponsor != req.Requester && req.FeePaid > 0)
+            {
+                ReleaseSponsoredSpend(req.AppId, req.Requester, req.FeePaid);
+            }
+
             // The request has left the pending state, so release its reserved fee regardless of
             // whether a refund was paid (no valid sponsor => the fee simply becomes earned surplus).
             // With the reserve invariant (accrued >= reserved) the refund above is always the full
