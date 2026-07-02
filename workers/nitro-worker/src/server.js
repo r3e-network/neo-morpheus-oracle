@@ -53,6 +53,46 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Bound how long a client may take to send its headers/body so a slow-loris
+// cannot pin a worker request slot open (Node defaults are 60s headers / 5min
+// request). These cap request RECEIPT, not handler processing, so long in-TEE
+// oracle/compute work (up to the ~30s upstream budget) is unaffected.
+server.requestTimeout = Math.max(Number(process.env.WORKER_REQUEST_TIMEOUT_MS) || 35_000, 1000);
+server.headersTimeout = Math.max(Number(process.env.WORKER_HEADERS_TIMEOUT_MS) || 10_000, 1000);
+server.on('error', (error) => {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      msg: 'nitro-worker server error',
+      error: String(error?.message || error),
+    })
+  );
+});
+
+// Process-level safety net: a single stray promise rejection would otherwise take
+// the whole TEE enclave offline (Node terminates on unhandledRejection). Log and
+// keep serving; on a truly uncaught exception the state is unknown, so log and
+// exit non-zero for a clean re-provisioned restart.
+process.on('unhandledRejection', (reason) => {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      msg: 'unhandledRejection',
+      error: String(reason?.message || reason),
+    })
+  );
+});
+process.on('uncaughtException', (error) => {
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      msg: 'uncaughtException',
+      error: String(error?.message || error),
+    })
+  );
+  process.exit(1);
+});
+
 server.listen(port, () => {
   console.log(JSON.stringify({ level: 'info', msg: 'nitro-worker server listening', port }));
 });
