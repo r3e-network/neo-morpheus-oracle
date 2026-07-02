@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { wallet as neonWallet } from '@cityofzion/neon-js';
 
-import { trimString } from '@neo-morpheus-oracle/shared/utils';
+import { parseBooleanEnv, trimString } from '@neo-morpheus-oracle/shared/utils';
 import { decodeCoseSign1 } from '@neo-morpheus-oracle/shared/cbor';
 import {
   buildCoseSign1SigStructure,
@@ -129,8 +129,7 @@ export function resolveExpectedPcr0(config) {
 // current deployment (which has not pinned strict verification) keeps fulfilling.
 export function enclaveSignatureVerificationEnabled(config) {
   if (config?.nitro?.verifyEnclaveSignature) return true;
-  const raw = trimString(process.env.MORPHEUS_RELAYER_VERIFY_ENCLAVE_SIGNATURE || '').toLowerCase();
-  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+  return parseBooleanEnv(process.env.MORPHEUS_RELAYER_VERIFY_ENCLAVE_SIGNATURE, false);
 }
 
 /**

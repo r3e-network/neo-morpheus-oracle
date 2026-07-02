@@ -16,6 +16,28 @@ export function trimString(value) {
 }
 
 /**
+ * Canonical boolean-env parser (three-way): explicit truthy tokens
+ * (`1`/`true`/`yes`/`on`) return true, explicit falsy tokens
+ * (`0`/`false`/`no`/`off`) return false, and anything unrecognized — including
+ * undefined/empty — returns the fallback. Falling back on an unrecognized token
+ * (rather than silently returning false) means a typo'd env keeps the intended
+ * default. Matching case-insensitively.
+ *
+ * This is the single source for permissive boolean toggles so a value accepted
+ * by one subsystem is accepted by every other. Security controls that
+ * intentionally use a narrower token set (e.g. the script sandbox worker/child
+ * gates, MORPHEUS_ALLOW_UNPINNED_SIGNERS) keep their own conservative parser and
+ * must NOT be pointed here without a deliberate widening decision.
+ */
+export function parseBooleanEnv(value, fallback = false) {
+  const raw = trimString(value).toLowerCase();
+  if (!raw) return fallback;
+  if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') return true;
+  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+  return fallback;
+}
+
+/**
  * Parse an ISO timestamp string to milliseconds since epoch
  * Returns 0 if parsing fails
  */
