@@ -292,6 +292,37 @@ namespace MorpheusOracle.Contracts.Tests
         }
 
         [Fact]
+        public void ExpireStaleRequest_ReleasesSponsoredSpend_RequesterSponsorableAgain()
+        {
+            Harness h = Deploy();
+            BigInteger deposit = 10 * DefaultFee;
+            Bootstrap(h, deposit);
+
+            // Cap the requester at exactly one fee's worth of sponsorship (enables gating).
+            h.Engine.SetTransactionSigners(h.Owner);
+            h.Contract.SetSponsoredRequesterCap(AppId, h.OtherRequester, DefaultFee);
+
+            // A sponsored request consumes the full cap.
+            BigInteger id = SubmitAs(h, h.OtherRequester);
+            Assert.Equal(h.Owner, AsUInt160(RequestField(h, id, SponsorIndex)));
+            Assert.Equal(new BigInteger(DefaultFee), h.Contract.GetSponsoredRequesterSpent(AppId, h.OtherRequester)!.Value);
+
+            // It expires unfulfilled. The recorded spend is reversed so the requester's
+            // per-app sponsorship budget is freed — previously it stayed exhausted forever
+            // despite the fee refund, silently denying configured sponsorship.
+            AdvancePastTtl(h);
+            Expire(h, id);
+            Assert.Equal(BigInteger.Zero, h.Contract.GetSponsoredRequesterSpent(AppId, h.OtherRequester)!.Value);
+
+            // A fresh request is sponsored again (charged to the fee payer, not the
+            // requester), proving the cap is genuinely available — not merely the counter
+            // reset. Pre-fix this reverted with "request fee not paid".
+            BigInteger id2 = SubmitAs(h, h.OtherRequester);
+            Assert.Equal(h.Owner, AsUInt160(RequestField(h, id2, SponsorIndex)));
+            Assert.Equal(new BigInteger(DefaultFee), h.Contract.GetSponsoredRequesterSpent(AppId, h.OtherRequester)!.Value);
+        }
+
+        [Fact]
         public void SponsorshipControls_AreAdminGated()
         {
             Harness h = Deploy();

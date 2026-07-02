@@ -213,6 +213,23 @@ namespace MorpheusOracle.Contracts
             SponsorSpentMap().Put(key, spent + amount);
         }
 
+        // Reverse a previously-recorded sponsored spend (clamped at 0) when the request
+        // it was recorded for never resulted in delivered service — e.g. it expired
+        // unfulfilled. Without this, a capped requester whose sponsored requests expire
+        // permanently exhausts its per-app budget despite the fee refund and is forced
+        // to self-pay. The cap is a budget ledger, independent of the GAS accrued pool,
+        // so the full recorded amount is released here.
+        private static void ReleaseSponsoredSpend(string appId, UInt160 requester, BigInteger amount)
+        {
+            if (amount <= 0 || requester == null || !requester.IsValid) return;
+            byte[] key = BuildRequesterKey(appId, requester);
+            ByteString raw = SponsorSpentMap().Get(key);
+            BigInteger spent = raw == null ? 0 : (BigInteger)raw;
+            BigInteger next = spent - amount;
+            if (next < 0) next = 0;
+            SponsorSpentMap().Put(key, next);
+        }
+
         private static void MarkAccountRegistered(UInt160 account)
         {
             if (account != null && account.IsValid && account != UInt160.Zero)
