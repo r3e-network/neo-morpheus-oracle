@@ -1,12 +1,7 @@
-import { randomUUID, createHash } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { sha256Hex } from '@neo-morpheus-oracle/shared/node-runtime';
 import { resolveKernelIntent } from './router.js';
 import { trimString } from './lib/strings.js';
-
-function sha256Hex(value) {
-  return createHash('sha256')
-    .update(typeof value === 'string' ? value : JSON.stringify(value))
-    .digest('hex');
-}
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);

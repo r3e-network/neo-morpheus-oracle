@@ -1,18 +1,9 @@
 import { createHash } from 'node:crypto';
-import { normalizeRequestType, trimString } from './lib/strings.js';
+import { sha256Hex } from '@neo-morpheus-oracle/shared/node-runtime';
+import { normalizeRequestType, strip0x, trimString } from './lib/strings.js';
 // Neo N3 contract uses the v1 kernel domain with the full envelope (appId, moduleId, operation).
 const FULFILLMENT_SIGNATURE_DOMAIN_N3 = Buffer.from('miniapp-os-fulfillment-v1', 'utf8');
 const FULFILLMENT_SIGNATURE_DOMAIN_LEGACY = Buffer.from('morpheus-fulfillment-v2', 'utf8');
-
-function strip0x(value) {
-  return trimString(value).replace(/^0x/i, '');
-}
-
-function sha256Hex(value) {
-  return createHash('sha256')
-    .update(typeof value === 'string' ? value : JSON.stringify(value))
-    .digest('hex');
-}
 
 function sha256Buffer(value) {
   const buffer = Buffer.isBuffer(value)

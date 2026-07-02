@@ -5,7 +5,7 @@ import { mapWithConcurrency, resolveScanConcurrency } from '@neo-morpheus-oracle
 import { LEGACY_CALLBACK_METHOD } from '@neo-morpheus-oracle/shared/callback-methods';
 import { deriveUpdaterNeoN3PrivateKeyHex, shouldUseDerivedKeys } from './nitro-signer.js';
 import { callNitro } from './nitro.js';
-import { trimString } from './lib/strings.js';
+import { strip0x as stripHexPrefix, trimString } from './lib/strings.js';
 
 // Identifier hygiene: event identifier fields must carry the on-chain bytes
 // VERBATIM (no trimming) so fulfillment digests reproduce exactly what the
@@ -15,8 +15,12 @@ function asEventString(value) {
   return typeof value === 'string' ? value : '';
 }
 
+// Neo N3 script hashes, public keys and signatures are compared and rendered
+// case-insensitively here, so fold to lower-case after stripping the shared 0x
+// primitive. Keeping the local `strip0x` name means every call site below is
+// unchanged; only the prefix-stripping logic is now single-sourced.
 function strip0x(value) {
-  return trimString(value).replace(/^0x/i, '').toLowerCase();
+  return stripHexPrefix(value).toLowerCase();
 }
 
 function tryDecodeUtf8(bytes) {

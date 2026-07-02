@@ -32,3 +32,12 @@ export function parseNonNegativeInteger(value) {
   if (!Number.isFinite(numeric) || numeric < 0) return 0;
   return Math.trunc(numeric);
 }
+
+// Remove a leading 0x/0X prefix, preserving the remaining characters VERBATIM
+// (no case-folding). This is the single source for prefix stripping across the
+// relayer. Call sites that need case-insensitive comparison (e.g. neo-n3.js
+// script-hash / public-key matching) lower-case the result themselves, so the
+// primitive stays safe for digest paths that must not alter the byte string.
+export function strip0x(value) {
+  return trimString(value).replace(/^0x/i, '');
+}
