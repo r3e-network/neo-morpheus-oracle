@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createHash, createSign, generateKeyPairSync } from 'node:crypto';
 import { rpc as neoRpc, wallet as neoWallet } from '@cityofzion/neon-js';
 import { exportJWK, SignJWT } from 'jose';
+import { neoNetworkMagicLe4, encodeUint256Word } from '@neo-morpheus-oracle/shared/neo-encoding';
 
 const originalFetch = global.fetch;
 const originalRuntimeToken = process.env.MORPHEUS_RUNTIME_TOKEN;
@@ -231,20 +232,9 @@ const NEODID_ZKLOGIN_DOMAIN = Buffer.from('neodid-zklogin-v1', 'utf8');
 // Matches the worker default network (testnet) and NeoDIDRegistry.NetworkMagicLe4().
 const TESTNET_NEO_NETWORK_MAGIC = 894710606;
 
-function neoNetworkMagicLe4(magic) {
-  const bytes = Buffer.alloc(4);
-  bytes.writeUInt32LE(magic >>> 0, 0);
-  return bytes;
-}
-
 function encodeLengthPrefixedAscii(value = '') {
   const body = Buffer.from(String(value || ''), 'utf8');
   return Buffer.concat([Buffer.from([body.length]), body]);
-}
-
-function encodeUint256Word(value) {
-  const hex = BigInt(String(value ?? '0')).toString(16);
-  return Buffer.from(hex.padStart(64, '0'), 'hex');
 }
 
 async function encryptForOracle(publicKeyBase64, plaintext) {

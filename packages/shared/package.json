@@ -22,6 +22,9 @@
     "./callback-methods": {
       "default": "./src/callback-methods.js"
     },
+    "./neo-encoding": {
+      "default": "./src/neo-encoding.js"
+    },
     "./neo-signers-core": {
       "default": "./src/neo-signers-core.js"
     },

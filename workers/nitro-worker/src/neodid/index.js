@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { wallet as neoWallet } from '@cityofzion/neon-js';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { neoNetworkMagicLe4, encodeUint256Word } from '@neo-morpheus-oracle/shared/neo-encoding';
 import {
   normalizeMorpheusNetwork,
   resolvePinnedNeoN3Role,
@@ -387,9 +388,9 @@ function neoN3NetworkMagicLe4(network) {
   const fallback = network === 'mainnet' ? 860833102 : 894710606;
   const raw = Number(envForNetwork(network, 'NEO_NETWORK_MAGIC') || fallback);
   const magic = Number.isFinite(raw) && raw > 0 ? raw : fallback;
-  const bytes = Buffer.alloc(4);
-  bytes.writeUInt32LE(magic >>> 0, 0);
-  return bytes;
+  // Byte encoding is single-sourced; this wrapper only owns the env/network
+  // fallback resolution of the magic value.
+  return neoNetworkMagicLe4(magic);
 }
 
 function buildBindingDigestBytes(ticket) {
@@ -524,19 +525,6 @@ function resolveUint256Text(value, fieldName) {
   }
   if (parsed < 0n) throw new Error(`${fieldName} must be >= 0`);
   return text;
-}
-
-function encodeUint256Word(value, fieldName = 'value') {
-  let parsed;
-  try {
-    parsed = BigInt(String(value ?? '0'));
-  } catch {
-    throw new Error(`${fieldName} must be a uint256 string`);
-  }
-  if (parsed < 0n) throw new Error(`${fieldName} must be >= 0`);
-  const hex = parsed.toString(16);
-  if (hex.length > 64) throw new Error(`${fieldName} overflows uint256`);
-  return Buffer.from(hex.padStart(64, '0'), 'hex');
 }
 
 function resolveRecoveryActionId(payload, network, aaContract, accountId, newOwner, recoveryNonce) {
