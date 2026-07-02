@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { normalizeMorpheusNetwork, resolvePinnedNeoN3Role } from './lib/neo-signers.js';
-import { trimString } from '@neo-morpheus-oracle/shared/utils';
+import { parseBooleanEnv as parseBoolean, trimString } from '@neo-morpheus-oracle/shared/utils';
 
 const DEFAULT_NITRO_TIMEOUT_MS = 10_000;
 const MAX_REQUEST_TIMEOUT_MS = 10_000;
@@ -132,14 +132,6 @@ function resolveNeoN3NetworkMagic(network, registry) {
       genericMagic ||
       (network === 'mainnet' ? 860833102 : 894710606)
   );
-}
-
-function parseBoolean(value, fallback = false) {
-  const raw = trimString(value).toLowerCase();
-  if (!raw) return fallback;
-  if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') return true;
-  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
-  return fallback;
 }
 
 function parseIntegerString(value, fallback) {
