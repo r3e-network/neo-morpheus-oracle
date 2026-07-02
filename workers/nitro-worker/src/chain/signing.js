@@ -18,6 +18,51 @@ import {
   reportPinnedNeoN3Role,
 } from '../../../../scripts/lib-neo-signers.mjs';
 
+// The pinned worker / oracle_verifier signer is resolved from process env via
+// reportPinnedNeoN3Role, which scans NEO_N3_SIGNER_ENV_KEYS and derives up to six
+// secp256r1 accounts to find the role match. Env is immutable for the process
+// lifetime, so memoize the resolved key per (role, network) to skip that scan on
+// every signed response, and cache the derived neon-js Account per key so its
+// secp256r1 public-key derivation is paid once. Both are cleared between tests
+// (which vary the signer env per case) via __resetSigningCachesForTests.
+const envRoleKeyCache = new Map();
+const signingAccountCache = new Map();
+const MAX_SIGNING_ACCOUNT_CACHE = 32;
+
+function resolveEnvRoleKey(role, network) {
+  const cacheKey = `${role}:${network}`;
+  if (envRoleKeyCache.has(cacheKey)) return envRoleKeyCache.get(cacheKey);
+  const report = reportPinnedNeoN3Role(network, role, { env, allowMissing: true });
+  if (report.issues.length > 0) {
+    throw new Error(report.issues.join('; '));
+  }
+  const key = report.materialized?.private_key || report.materialized?.wif || '';
+  envRoleKeyCache.set(cacheKey, key);
+  return key;
+}
+
+function signingAccountFor(privateKey) {
+  const key = trimString(privateKey);
+  if (!key) return null;
+  const cached = signingAccountCache.get(key);
+  if (cached) return cached;
+  const account = new neoWallet.Account(key);
+  // Bound memory: caller-supplied keys (maybeSignNeoN3Bytes lane) would otherwise
+  // grow this unbounded; the hot worker/verifier lane reuses a tiny fixed key set,
+  // so a small LRU-style cap keeps the common path cached without leaking.
+  if (signingAccountCache.size >= MAX_SIGNING_ACCOUNT_CACHE) {
+    const oldest = signingAccountCache.keys().next().value;
+    if (oldest !== undefined) signingAccountCache.delete(oldest);
+  }
+  signingAccountCache.set(key, account);
+  return account;
+}
+
+export function __resetSigningCachesForTests() {
+  envRoleKeyCache.clear();
+  signingAccountCache.clear();
+}
+
 function hasCallerSuppliedKeyMaterial(payload = {}) {
   return Boolean(
     trimString(payload.private_key) || trimString(payload.signing_key) || trimString(payload.wif)
@@ -67,15 +112,7 @@ function resolveNeoN3OracleVerifierKey(payload = {}) {
     payload,
     normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
-  const report = reportPinnedNeoN3Role(network, 'oracle_verifier', {
-    env,
-    allowMissing: true,
-  });
-  if (report.issues.length > 0) {
-    throw new Error(report.issues.join('; '));
-  }
-  if (!report.materialized) return '';
-  return report.materialized.private_key || report.materialized.wif || '';
+  return resolveEnvRoleKey('oracle_verifier', network);
 }
 
 function resolveNeoN3WorkerKey(payload = {}) {
@@ -83,14 +120,7 @@ function resolveNeoN3WorkerKey(payload = {}) {
     payload,
     normalizeMorpheusNetwork(env('MORPHEUS_NETWORK', 'NEXT_PUBLIC_MORPHEUS_NETWORK') || 'testnet')
   );
-  const signer = reportPinnedNeoN3Role(network, 'worker', {
-    env,
-    allowMissing: true,
-  });
-  if (signer.issues.length > 0) {
-    throw new Error(signer.issues.join('; '));
-  }
-  return signer.materialized?.private_key || signer.materialized?.wif || '';
+  return resolveEnvRoleKey('worker', network);
 }
 
 const seenRequestIds = new Map();
@@ -169,7 +199,7 @@ export async function maybeSignNeoN3Bytes(bytes, payload = {}) {
   }
   if (!privateKey) return null;
 
-  const account = new neoWallet.Account(privateKey);
+  const account = signingAccountFor(privateKey);
   const payloadBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   return {
     signature: neoWallet.sign(payloadBuffer.toString('hex'), account.privateKey),
@@ -193,7 +223,7 @@ async function maybeSignWorkerNeoN3Bytes(bytes, payload = {}) {
   }
   if (!privateKey) return null;
 
-  const account = new neoWallet.Account(privateKey);
+  const account = signingAccountFor(privateKey);
   const payloadBuffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   return {
     signature: neoWallet.sign(payloadBuffer.toString('hex'), account.privateKey),

@@ -99,6 +99,7 @@ const { __drainOracleFeedBackgroundTasksForTests, __resetFeedStateForTests } =
 const { allowlistAllows, createByteArrayParam } = await import('./src/platform/allowlist.js');
 const { loadNeoN3Context } = await import('./src/chain/neo-n3.js');
 const { __resetNeoDidStateForTests } = await import('./src/neodid/index.js');
+const { __resetSigningCachesForTests } = await import('./src/chain/signing.js');
 
 function authHeaders() {
   return {
@@ -134,6 +135,10 @@ async function restorePerTestState() {
   __resetOracleKeyMaterialForTests();
   __resetFeedStateForTests();
   __resetNeoDidStateForTests();
+  // Signer material is resolved from env and memoized per (role, network); clear
+  // it so a test that pins its own worker/verifier keys is not served a stale
+  // Account cached from a prior test's environment.
+  __resetSigningCachesForTests();
 }
 
 test.beforeEach(async () => {
@@ -3382,4 +3387,38 @@ test('sign-payload prefers an explicit oracle_verifier key over derived signing 
 
     __resetDstackClientStateForTests();
   }
+});
+
+test('signing cache memoizes the worker signer and re-resolves after reset', async () => {
+  const { buildSignedResultEnvelope } = await import('./src/chain/signing.js');
+  const result = { probe: 'signing-cache' };
+
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY =
+    '1111111111111111111111111111111111111111111111111111111111111111';
+  __resetSigningCachesForTests();
+
+  const first = await buildSignedResultEnvelope(result, {});
+  const second = await buildSignedResultEnvelope(result, {});
+  assert.ok(first.public_key, 'signs with the pinned worker key');
+  assert.equal(second.public_key, first.public_key, 'reuses the memoized signer');
+
+  // Swapping the env key WITHOUT a reset must keep serving the memoized signer:
+  // process env is immutable for a running enclave, so the cache is authoritative.
+  process.env.MORPHEUS_WORKER_NEO_N3_PRIVATE_KEY =
+    '2222222222222222222222222222222222222222222222222222222222222222';
+  const stillCached = await buildSignedResultEnvelope(result, {});
+  assert.equal(
+    stillCached.public_key,
+    first.public_key,
+    'env change without a reset stays on the cached signer'
+  );
+
+  // An explicit reset re-resolves the signer from the updated environment.
+  __resetSigningCachesForTests();
+  const afterReset = await buildSignedResultEnvelope(result, {});
+  assert.notEqual(
+    afterReset.public_key,
+    first.public_key,
+    'reset re-resolves the signer from the updated env'
+  );
 });
