@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { sha256Hex } from '@neo-morpheus-oracle/shared/node-runtime';
+import { neoNetworkMagicLe4 } from '@neo-morpheus-oracle/shared/neo-encoding';
 import { normalizeRequestType, strip0x, trimString } from './lib/strings.js';
 // Neo N3 contract uses the v1 kernel domain with the full envelope (appId, moduleId, operation).
 const FULFILLMENT_SIGNATURE_DOMAIN_N3 = Buffer.from('miniapp-os-fulfillment-v1', 'utf8');
@@ -317,9 +318,7 @@ export function buildFulfillmentDigestBytes(
   const deploymentSuffix = [];
   if (bindDeployment) {
     deploymentSuffix.push(Buffer.from(hashHex, 'hex').reverse()); // big-endian display -> little-endian VM bytes
-    const magicLe = Buffer.alloc(4);
-    magicLe.writeUInt32LE(Number(networkMagic) >>> 0);
-    deploymentSuffix.push(magicLe);
+    deploymentSuffix.push(neoNetworkMagicLe4(Number(networkMagic)));
   }
 
   // Identifier hygiene: hash the identifier/error inputs VERBATIM. The on-chain
