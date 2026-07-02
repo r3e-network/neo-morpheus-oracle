@@ -10,7 +10,7 @@ import {
 import {
   buildUpkeepDispatch,
   buildUpkeepExecutionPayload,
-} from '../../../../../../../workers/morpheus-relayer/src/automation-supervisor.js';
+} from '@neo-morpheus-oracle/shared/automation-supervisor';
 import { badRequest } from '@/lib/api-helpers';
 import { trimString } from '@/lib/strings';
 
