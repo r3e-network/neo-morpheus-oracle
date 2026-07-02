@@ -58,6 +58,59 @@ export async function normalizeOracleUrl(rawUrl, { validateHost = true } = {}) {
 // uses the pinned undici.fetch below.
 const nativeFetch = globalThis.fetch;
 
+// Reuse pinned dispatchers across requests instead of building one per fetch and
+// closing it in `finally`. The old approach threw away the TCP/TLS connection on
+// every call (no keep-alive) and closed the pool at the same moment the response
+// body read began. The cache key is the hostname plus the EXACT validated address
+// set, so resolvePinnedAddresses still runs — and re-validates — on every request
+// (the SSRF/host check is never skipped); only the dispatcher object is reused. A
+// changed address set is a cache miss (fresh dispatcher), a short TTL bounds
+// staleness, and an LRU cap bounds the number of live pools.
+const pinnedDispatcherCache = new Map();
+const MAX_PINNED_DISPATCHERS = 64;
+const PINNED_DISPATCHER_TTL_MS = 60_000;
+
+function pinnedDispatcherKey(hostname, pinned) {
+  const addresses = pinned
+    .map((entry) => `${entry.address}/${entry.family}`)
+    .sort()
+    .join(',');
+  return `${hostname}|${addresses}`;
+}
+
+export function acquirePinnedDispatcher(hostname, pinned, now = Date.now()) {
+  const key = pinnedDispatcherKey(hostname, pinned);
+  const existing = pinnedDispatcherCache.get(key);
+  if (existing && existing.expiresAt > now) {
+    // Refresh recency for the LRU order.
+    pinnedDispatcherCache.delete(key);
+    pinnedDispatcherCache.set(key, existing);
+    return existing.dispatcher;
+  }
+  if (existing) {
+    pinnedDispatcherCache.delete(key);
+    void existing.dispatcher.close().catch(() => {});
+  }
+  while (pinnedDispatcherCache.size >= MAX_PINNED_DISPATCHERS) {
+    const oldestKey = pinnedDispatcherCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    const evicted = pinnedDispatcherCache.get(oldestKey);
+    pinnedDispatcherCache.delete(oldestKey);
+    if (evicted) void evicted.dispatcher.close().catch(() => {});
+  }
+  const dispatcher = new Agent({
+    connect: { lookup: (_host, _options, cb) => cb(null, pinned) },
+  });
+  pinnedDispatcherCache.set(key, { dispatcher, expiresAt: now + PINNED_DISPATCHER_TTL_MS });
+  return dispatcher;
+}
+
+export async function __resetOracleFetchDispatchersForTests() {
+  const entries = [...pinnedDispatcherCache.values()];
+  pinnedDispatcherCache.clear();
+  await Promise.all(entries.map((entry) => entry.dispatcher.close().catch(() => {})));
+}
+
 async function fetchWithTimeout(url, init, timeoutMs) {
   // Resolve + validate the host ONCE, then pin the outbound connection to the
   // validated address(es) via an undici dispatcher whose lookup returns only
@@ -77,9 +130,7 @@ async function fetchWithTimeout(url, init, timeoutMs) {
   const pinned = await resolvePinnedAddresses(hostname, { allowUnresolved: overridden });
   const fetchImpl = overridden ? globalThis.fetch : undiciFetch;
   const dispatcher =
-    !overridden && pinned.length > 0
-      ? new Agent({ connect: { lookup: (_host, _options, cb) => cb(null, pinned) } })
-      : undefined;
+    !overridden && pinned.length > 0 ? acquirePinnedDispatcher(hostname, pinned) : undefined;
 
   const controller = new AbortController();
   const timer = setTimeout(
@@ -104,7 +155,9 @@ async function fetchWithTimeout(url, init, timeoutMs) {
     throw error;
   } finally {
     clearTimeout(timer);
-    if (dispatcher) await dispatcher.close();
+    // The dispatcher is pooled and reused across requests (and by the time this
+    // finally runs the response body has not been read yet), so it is NOT closed
+    // here — it is retired on TTL expiry, LRU eviction, or the test reset.
   }
 }
 
