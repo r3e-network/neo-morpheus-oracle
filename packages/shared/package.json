@@ -19,6 +19,10 @@
       "types": "./src/cose-verify.d.ts",
       "default": "./src/cose-verify.js"
     },
+    "./automation-supervisor": {
+      "types": "./src/automation-supervisor.d.ts",
+      "default": "./src/automation-supervisor.js"
+    },
     "./callback-methods": {
       "default": "./src/callback-methods.js"
     },
